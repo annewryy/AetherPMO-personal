@@ -1,0 +1,13 @@
+# Local history / system files
+.DS_Store
+Thumbs.db
+
+# Project temporary folders
+temp-xlsx/
+node_modules/
+.vscode/
+.idea/
+
+# Local backup files
+*.json.bak
+*.bak
