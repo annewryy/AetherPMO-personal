@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AetherPMS | 산출물 관리 프로그램</title>
+    <title>AetherPMO | 사업관리 플랫폼</title>
     <!-- Google Fonts: Plus Jakarta Sans for UI, Noto Sans KR for Korean -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,8 +23,8 @@
                         <i data-lucide="layers" class="lucide-icon text-primary"></i>
                     </div>
                     <div class="logo-text">
-                        <span class="brand-name">Aether<span>PMS</span></span>
-                        <span class="brand-sub">산출물 관리 시스템</span>
+                        <span class="brand-name">Aether<span>PMO</span></span>
+                        <span class="brand-sub">사업관리 플랫폼</span>
                     </div>
                 </div>
             </div>
@@ -32,7 +32,7 @@
             <nav class="sidebar-nav">
                 <a href="#dashboard" class="nav-item active" data-view="dashboard">
                     <i data-lucide="layout-dashboard"></i>
-                    <span>대시보드</span>
+                    <span>Home</span>
                 </a>
                 
                 <div class="nav-item-wrapper" id="nav-wrapper-projects">
@@ -65,10 +65,23 @@
                     </div>
                 </div>
 
-                <a href="#artifacts" class="nav-item" data-view="artifacts">
-                    <i data-lucide="file-check"></i>
-                    <span>산출물 관리</span>
-                </a>
+                <div class="nav-item-wrapper" id="nav-wrapper-artifacts">
+                    <a href="#artifacts" class="nav-item" data-view="artifacts">
+                        <i data-lucide="file-check"></i>
+                        <span>산출물 템플릿 관리</span>
+                    </a>
+                    <div class="nav-submenu" id="artifacts-submenu">
+                        <a href="#artifacts/initiation" class="submenu-item" data-subview="initiation">
+                            <span>├ 착수단계 템플릿</span>
+                        </a>
+                        <a href="#artifacts/execution" class="submenu-item" data-subview="execution">
+                            <span>├ 수행단계 템플릿</span>
+                        </a>
+                        <a href="#artifacts/closing" class="submenu-item" data-subview="closing">
+                            <span>└ 종료단계 템플릿</span>
+                        </a>
+                    </div>
+                </div>
 
                 <a href="#issues" class="nav-item" data-view="issues">
                     <i data-lucide="alert-triangle"></i>
@@ -105,10 +118,13 @@
                     <span class="theme-label">다크 모드</span>
                 </div>
                 <div class="user-profile-badge">
-                    <div class="avatar">PM</div>
+                    <div class="avatar" id="user-role-avatar">PM</div>
                     <div class="user-info">
-                        <div class="user-name">안유경 관리자</div>
-                        <div class="user-role">Project Manager</div>
+                        <div class="user-name" style="font-size:12px; font-weight:700;">안유경 PM</div>
+                        <select id="user-role-select" class="user-role-select" onchange="app.setUserRole(this.value)" style="background:transparent; border:none; color:var(--text-muted); font-size:10px; font-weight:700; cursor:pointer; padding:0; outline:none;">
+                            <option value="PM" selected>Project Manager</option>
+                            <option value="Admin">Administrator</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -159,8 +175,8 @@
                 <section id="view-dashboard" class="content-view active">
                     <div class="view-header">
                         <div>
-                            <h1>대시보드</h1>
-                            <p class="subtitle">전체 프로젝트 진행 상태 및 산출물 현황 요약</p>
+                            <h1>Home</h1>
+                            <p class="subtitle">전체 프로젝트 진행 상태 및 사업 관리 요약</p>
                         </div>
                         <button class="btn btn-primary" onclick="app.openNewProjectModal()">
                             <i data-lucide="plus"></i> 새 프로젝트 등록
@@ -725,78 +741,47 @@
                 </section>
                 </section>
 
-                <!-- 5. ARTIFACTS REGISTRY VIEW -->
+                <!-- 5. GLOBAL ARTIFACTS TEMPLATES VIEW -->
                 <section id="view-artifacts" class="content-view">
                     <div class="view-header">
                         <div>
-                            <h1>산출물 레지스트리</h1>
-                            <p class="subtitle">모든 프로젝트에서 생성된 산출물을 통합 조회 및 검색합니다.</p>
+                            <h1>산출물 템플릿 관리</h1>
+                            <p class="subtitle">공공 SI 사업 표준 산출물 템플릿을 다운로드하고 관리합니다.</p>
                         </div>
-                        <button class="btn btn-primary" onclick="app.openNewArtifactModalGlobal()">
-                            <i data-lucide="plus"></i> 새 산출물 등록
+                        <button class="btn btn-primary" id="btn-add-global-template" onclick="app.openNewGlobalTemplateModal()" style="display:none;">
+                            <i data-lucide="plus"></i> 새 템플릿 등록
                         </button>
                     </div>
 
-                    <!-- Master Filters -->
-                    <div class="filter-bar">
-                        <div class="filter-group">
-                            <label for="artifact-filter-project">소속 프로젝트</label>
-                            <select id="artifact-filter-project">
-                                <option value="all">전체 프로젝트</option>
-                                <!-- Dynamic options -->
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label for="artifact-filter-category">산출물 구분</label>
-                            <select id="artifact-filter-category">
-                                <option value="all">전체</option>
-                                <option value="Requirements">요구사항 정의서</option>
-                                <option value="Architecture Design">시스템 설계서</option>
-                                <option value="Source Code">소스코드/릴리즈</option>
-                                <option value="Test Plan">테스트 계획/결과서</option>
-                                <option value="User Manual">사용자 매뉴얼</option>
-                                <option value="Deployment Guide">배포 정의서</option>
-                                <option value="Final Report">완료 보고서</option>
-                                <option value="Etc">기타 산출물</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label for="artifact-filter-status">검토 상태</label>
-                            <select id="artifact-filter-status">
-                                <option value="all">전체</option>
-                                <option value="Draft">초안 작성 (Draft)</option>
-                                <option value="Under Review">검토 대기 (Under Review)</option>
-                                <option value="Approved">승인 완료 (Approved)</option>
-                                <option value="Rejected">반려/재작성 (Rejected)</option>
-                            </select>
-                        </div>
-                        <div class="filter-group-search">
-                            <label for="artifact-search-input">&nbsp;</label>
-                            <div class="search-input-wrapper">
-                                <i data-lucide="search"></i>
-                                <input type="text" id="artifact-search-input" placeholder="산출물명, 담당자 검색...">
-                            </div>
-                        </div>
+                    <!-- Category Tab Buttons -->
+                    <div class="project-stage-tabs-container" style="margin-bottom: 20px;">
+                        <button class="project-stage-tab active" id="tab-temp-init" onclick="window.location.hash = '#artifacts/initiation'">
+                            <i data-lucide="file-text"></i> 착수단계 템플릿
+                        </button>
+                        <button class="project-stage-tab" id="tab-temp-exec" onclick="window.location.hash = '#artifacts/execution'">
+                            <i data-lucide="play-circle"></i> 수행단계 템플릿
+                        </button>
+                        <button class="project-stage-tab" id="tab-temp-close" onclick="window.location.hash = '#artifacts/closing'">
+                            <i data-lucide="check-circle2"></i> 종료단계 템플릿
+                        </button>
                     </div>
 
-                    <!-- Master Table -->
+                    <!-- Templates Table -->
                     <div class="dashboard-card">
                         <div class="table-container">
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th>프로젝트명</th>
+                                        <th>템플릿명</th>
                                         <th>산출물 구분</th>
-                                        <th>산출물명</th>
                                         <th>버전</th>
-                                        <th>제출일 / 기한</th>
-                                        <th>담당자</th>
-                                        <th>검토 상태</th>
-                                        <th>관리</th>
+                                        <th>최종수정일</th>
+                                        <th>다운로드 파일</th>
+                                        <th style="width: 200px;" class="text-center">작업</th>
                                     </tr>
                                 </thead>
-                                <tbody id="global-artifacts-tbody">
-                                    <!-- Dynamic rows -->
+                                <tbody id="global-templates-tbody">
+                                    <!-- Dynamic template rows -->
                                 </tbody>
                             </table>
                         </div>
@@ -1071,7 +1056,7 @@
                             <table class="info-table-simple">
                                 <tr>
                                     <th>시스템 이름</th>
-                                    <td>Aether Project & Artifact Management System (AetherPMS)</td>
+                                    <td>Aether Project Management Office System (AetherPMO)</td>
                                 </tr>
                                 <tr>
                                     <th>버전</th>
@@ -1290,6 +1275,13 @@
                 <input type="hidden" id="artifact-project-fixed-field" value="">
                 
                 <div class="form-grid">
+                    <div class="form-group span-2" id="artifact-template-prefill-wrapper">
+                        <label for="artifact-template-prefill">다운로드 템플릿 불러오기 <span class="text-xs text-muted">(자동 완성을 위해 선택 가능)</span></label>
+                        <select id="artifact-template-prefill" onchange="app.prefillArtifactFromTemplate(this.value)" style="border:1px solid var(--primary); background:var(--primary-light); color:var(--text-main); font-weight:600;">
+                            <option value="">불러오지 않음 (직접 입력)</option>
+                            <!-- Options populated dynamically -->
+                        </select>
+                    </div>
                     <div class="form-group span-2" id="artifact-project-selection-wrapper">
                         <label for="artifact-project-select">대상 프로젝트 <span class="required">*</span></label>
                         <select id="artifact-project-select" required>
@@ -1612,6 +1604,72 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline" onclick="app.closeEditTemplateMetadataModal()">취소</button>
                     <button type="submit" class="btn btn-primary">수정 완료</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- GLOBAL TEMPLATE CREATION / EDITION DIALOG -->
+    <div class="modal-overlay" id="global-template-modal">
+        <div class="modal-card mini-modal">
+            <div class="modal-header">
+                <h2 id="global-template-modal-title">새 템플릿 등록</h2>
+                <button class="modal-close-btn" onclick="app.closeGlobalTemplateModal()">&times;</button>
+            </div>
+            <form id="global-template-form" onsubmit="event.preventDefault(); app.saveGlobalTemplate();">
+                <input type="hidden" id="global-template-id-field">
+                
+                <div class="form-group">
+                    <label for="global-template-name">템플릿명 <span class="required">*</span></label>
+                    <input type="text" id="global-template-name" required placeholder="예: 착수계">
+                </div>
+                
+                <div class="form-group mt-3">
+                    <label for="global-template-stage">단계 구분 <span class="required">*</span></label>
+                    <select id="global-template-stage" required>
+                        <option value="initiation">착수단계 템플릿</option>
+                        <option value="execution">수행단계 템플릿</option>
+                        <option value="closing">종료단계 템플릿</option>
+                    </select>
+                </div>
+                
+                <div class="form-group mt-3">
+                    <label for="global-template-category">산출물 구분 (시스템 연계용) <span class="required">*</span></label>
+                    <select id="global-template-category" required>
+                        <option value="Requirements">요구사항 정의서</option>
+                        <option value="Architecture Design">시스템 설계서</option>
+                        <option value="Source Code">소스코드/릴리즈</option>
+                        <option value="Test Plan">테스트 계획/결과서</option>
+                        <option value="User Manual">사용자 매뉴얼</option>
+                        <option value="Deployment Guide">배포 정의서</option>
+                        <option value="Final Report">완료 보고서</option>
+                        <option value="Etc" selected>기타 산출물</option>
+                    </select>
+                </div>
+                
+                <div class="form-group mt-3">
+                    <label for="global-template-version">버전 <span class="required">*</span></label>
+                    <input type="text" id="global-template-version" required value="v1.0.0">
+                </div>
+                
+                <div class="form-group mt-3">
+                    <label for="global-template-filename">다운로드 파일명 <span class="required">*</span></label>
+                    <input type="text" id="global-template-filename" required placeholder="예: 공공SI_표준_착수계.docx">
+                </div>
+                
+                <div class="form-group mt-3">
+                    <label for="global-template-filesize">파일 크기 <span class="required">*</span></label>
+                    <input type="text" id="global-template-filesize" required value="120 KB">
+                </div>
+
+                <div class="form-group mt-3">
+                    <label for="global-template-date">최종 수정일 <span class="required">*</span></label>
+                    <input type="date" id="global-template-date" required>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="app.closeGlobalTemplateModal()">취소</button>
+                    <button type="submit" class="btn btn-primary">저장하기</button>
                 </div>
             </form>
         </div>

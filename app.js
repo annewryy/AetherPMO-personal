@@ -1,9 +1,9 @@
 /**
- * AetherPMS - Project & Artifact Management System
+ * AetherPMO - Project Management Office System
  * Core Application Logic (Vanilla JS)
  */
 
-class AetherPMS {
+class AetherPMO {
     constructor() {
         this.state = {
             projects: [],
@@ -25,6 +25,7 @@ class AetherPMS {
         this.activeBiddingStatusFilter = 'all';  // all | 제안 준비중 | 제안 제출 | 결과 대기 | 수주 | 실패
         this.activeDetailTab = 'overview'; // overview | templates | artifacts
         this.activeTemplateFolder = 'initiation'; // initiation | execution | closing
+        this.activeGlobalTemplateStage = 'initiation'; // initiation | execution | closing
         this.tempAttachedFile = null;
 
         // Bind lifecycle events
@@ -40,6 +41,16 @@ class AetherPMS {
         this.setupEventListeners();
         this.handleRouting();
         this.updateCurrentDateDisplay();
+        
+        // Set user role select UI value
+        const roleSelect = document.getElementById('user-role-select');
+        if (roleSelect && this.state.userRole) {
+            roleSelect.value = this.state.userRole;
+            const avatar = document.getElementById('user-role-avatar');
+            if (avatar) {
+                avatar.textContent = this.state.userRole === 'Admin' ? 'AD' : 'PM';
+            }
+        }
         
         // Initialise Lucide icons
         if (typeof lucide !== 'undefined') {
@@ -78,6 +89,9 @@ class AetherPMS {
                 if (!this.state.officialDocs) this.state.officialDocs = [];
                 if (!this.state.meetingMinutes) this.state.meetingMinutes = [];
                 if (!this.state.theme) this.state.theme = 'dark';
+                if (!this.state.userRole) this.state.userRole = 'PM';
+                if (!this.state.recentlyDownloaded) this.state.recentlyDownloaded = [];
+                if (!this.state.globalTemplates) this.state.globalTemplates = this.getDefaultGlobalTemplates();
 
                 // Always ensure template slots exist for older projects
                 this.migrateDataStructure();
@@ -349,6 +363,9 @@ class AetherPMS {
      * Generate rich initial mockup database for demonstration
      */
     loadMockData() {
+        this.state.userRole = 'PM';
+        this.state.recentlyDownloaded = [];
+        this.state.globalTemplates = this.getDefaultGlobalTemplates();
         const mockProjects = [
             {
                 id: 'proj-1',
@@ -1099,6 +1116,10 @@ class AetherPMS {
                 this.activeProjectStageFilter = 'Closed';
             }
             this.switchView('projects');
+        } else if (mainRoute === 'artifacts') {
+            const stage = parts[1] || 'initiation';
+            this.activeGlobalTemplateStage = stage;
+            this.switchView('artifacts');
         } else {
             this.switchView(mainRoute);
         }
@@ -1128,6 +1149,7 @@ class AetherPMS {
         });
 
         const biddingSubmenu = document.getElementById('bidding-sub-items');
+        const artifactsSubmenu = document.getElementById('artifacts-submenu');
         if (viewName === 'projects') {
             const currentSub = this.activeProjectStageFilter.toLowerCase();
             const activeSubItem = document.querySelector(`.nav-submenu .submenu-item[data-subview="${currentSub}"]`);
@@ -1137,9 +1159,26 @@ class AetherPMS {
             if (biddingSubmenu) {
                 biddingSubmenu.style.display = (this.activeProjectStageFilter === 'Bidding') ? 'flex' : 'none';
             }
+            if (artifactsSubmenu) {
+                artifactsSubmenu.style.display = 'none';
+            }
+        } else if (viewName === 'artifacts') {
+            const activeSubItem = document.querySelector(`.nav-submenu .submenu-item[data-subview="${this.activeGlobalTemplateStage}"]`);
+            if (activeSubItem) {
+                activeSubItem.classList.add('active');
+            }
+            if (biddingSubmenu) {
+                biddingSubmenu.style.display = 'none';
+            }
+            if (artifactsSubmenu) {
+                artifactsSubmenu.style.display = 'flex';
+            }
         } else {
             if (biddingSubmenu) {
                 biddingSubmenu.style.display = 'none';
+            }
+            if (artifactsSubmenu) {
+                artifactsSubmenu.style.display = 'none';
             }
         }
 
@@ -1964,98 +2003,75 @@ class AetherPMS {
     }
 
     renderArtifacts() {
-        const aProjSelect = document.getElementById('artifact-filter-project');
-        if (!aProjSelect) return;
-
-        // Re-populate only if projects count in selector is out of sync
-        if (aProjSelect.options.length !== this.state.projects.length + 1) {
-            const currentSelected = aProjSelect.value || 'all';
-            aProjSelect.innerHTML = '<option value="all">전체 프로젝트</option>';
-            this.state.projects.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.id;
-                opt.textContent = p.name;
-                aProjSelect.appendChild(opt);
-            });
-            aProjSelect.value = currentSelected;
-        }
-
-        // Resolve which project to select
-        if (this.initialArtifactFilterProjectId) {
-            aProjSelect.value = this.initialArtifactFilterProjectId;
-            this.initialArtifactFilterProjectId = null; // Clear
-        }
-
-        const filterProj = aProjSelect.value;
-        const filterCat = document.getElementById('artifact-filter-category').value;
-        const filterStat = document.getElementById('artifact-filter-status').value;
-        const searchInput = document.getElementById('artifact-search-input');
-        const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
-
-        // Filter artifacts
-        const filtered = this.state.artifacts.filter(art => {
-            const project = this.state.projects.find(p => p.id === art.projectId);
-            const isProjectActive = project && (project.status === 'In Progress' || project.status === 'On Hold' || project.status === 'Delay');
-
-            const matchProj = filterProj === 'all' ? isProjectActive : art.projectId === filterProj;
-            const matchCat = filterCat === 'all' || art.category === filterCat;
-            const matchStat = filterStat === 'all' || art.status === filterStat;
-            const matchQuery = !query || 
-                art.name.toLowerCase().includes(query) || 
-                art.author.toLowerCase().includes(query) || 
-                (art.fileName && art.fileName.toLowerCase().includes(query));
-
-            return matchProj && matchCat && matchStat && matchQuery;
+        const stage = this.activeGlobalTemplateStage || 'initiation';
+        
+        // Update global template stages sub tabs active class
+        document.querySelectorAll('#view-artifacts .project-stage-tab').forEach(tab => {
+            tab.classList.remove('active');
         });
+        
+        const activeTab = document.getElementById(`tab-temp-${stage === 'initiation' ? 'init' : stage === 'execution' ? 'exec' : 'close'}`);
+        if (activeTab) {
+            activeTab.classList.add('active');
+        }
 
-        // Render table rows
-        const tbody = document.getElementById('global-artifacts-tbody');
+        // Show/hide Admin CRUD triggers
+        const btnAdd = document.getElementById('btn-add-global-template');
+        if (btnAdd) {
+            btnAdd.style.display = this.state.userRole === 'Admin' ? 'block' : 'none';
+        }
+
+        const tbody = document.getElementById('global-templates-tbody');
         if (!tbody) return;
 
-        if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">조회된 산출물이 없습니다.</td></tr>';
+        const templates = (this.state.globalTemplates || []).filter(t => t.stage === stage);
+
+        if (templates.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">등록된 표준 템플릿 양식이 없습니다.</td></tr>';
             return;
         }
 
         tbody.innerHTML = '';
-        filtered.forEach(art => {
-            const project = this.state.projects.find(p => p.id === art.projectId);
-            const projectName = project ? project.name : '(프로젝트 없음)';
-
-            let fileHtml = '<span class="text-muted text-xs">파일 없음</span>';
-            if (art.fileName) {
-                fileHtml = `
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <i data-lucide="file-text" class="text-primary" style="width:14px; height:14px;"></i>
-                        <a href="#" class="file-name-link font-bold text-xs" onclick="event.preventDefault(); alert('[시뮬레이션 다운로드] 산출물 파일 \\'${art.fileName}\\'을 다운로드 합니다.')" title="${art.fileName}">
-                            ${art.fileName.length > 20 ? art.fileName.substring(0, 17) + '...' : art.fileName}
-                        </a>
-                    </div>
-                `;
-            }
-
+        templates.forEach(temp => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td><span class="font-bold text-xs" style="max-width: 150px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${projectName}">${projectName}</span></td>
-                <td><span class="badge-cat cat-${art.category.toLowerCase().replace(' ', '')}">${this.translateCategory(art.category)}</span></td>
-                <td>
-                    <a href="#" class="project-name-link text-xs font-bold" onclick="event.preventDefault(); app.openArtifactDetailModal('${art.id}')">
-                        ${art.name}
+            
+            const downloadHtml = `
+                <div style="display:flex; align-items:center; gap:8px; justify-content:center;">
+                    <i data-lucide="download" class="text-primary" style="width:14px; height:14px;"></i>
+                    <a href="#" class="file-name-link font-bold text-xs" onclick="event.preventDefault(); app.downloadGlobalTemplate('${temp.id}')">
+                        ${temp.fileName}
                     </a>
-                </td>
-                <td class="text-center text-xs font-bold">${art.version}</td>
-                <td class="text-xs font-bold">${art.submitDate || art.dueDate}</td>
-                <td class="text-xs font-bold">${art.author}</td>
-                <td>
-                    <span class="status-badge status-${art.status.toLowerCase().replace(' ', '')}">${this.translateArtifactStatus(art.status)}</span>
-                </td>
-                <td>
-                    <div class="actions-flex">
-                        <button class="btn btn-xs btn-outline" onclick="app.openArtifactDetailModal('${art.id}')">
-                            <i data-lucide="external-link" style="width:11px; height:11px;"></i> 보기
+                    <span class="text-xs text-muted">(${temp.fileSize})</span>
+                </div>
+            `;
+            
+            const isAdmin = this.state.userRole === 'Admin';
+            const actionHtml = isAdmin 
+                ? `
+                    <div class="actions-flex" style="justify-content:center; gap:8px;">
+                        <button class="btn btn-xs btn-outline" onclick="app.openEditGlobalTemplateModal('${temp.id}')">
+                            <i data-lucide="edit" style="width:11px; height:11px; margin-right:2px;"></i> 수정
+                        </button>
+                        <button class="btn btn-xs btn-danger" onclick="app.deleteGlobalTemplate('${temp.id}')">
+                            <i data-lucide="trash-2" style="width:11px; height:11px; margin-right:2px;"></i> 삭제
                         </button>
                     </div>
-                </td>
+                `
+                : `
+                    <div style="text-align:center;">
+                        <button class="btn btn-xs btn-primary" onclick="app.downloadGlobalTemplate('${temp.id}')">
+                            <i data-lucide="download" style="width:11px; height:11px; margin-right:2px;"></i> 다운로드
+                        </button>
+                    </div>
+                `;
+
+            tr.innerHTML = `
+                <td class="font-bold text-sm" style="color:var(--text-main);">${temp.name}</td>
+                <td><span class="badge-cat cat-${temp.category.toLowerCase().replace(' ', '')}">${this.translateCategory(temp.category)}</span></td>
+                <td class="text-center text-xs font-bold">${temp.version}</td>
+                <td class="text-center text-xs font-bold text-muted">${temp.modifiedDate}</td>
+                <td class="text-center">${downloadHtml}</td>
+                <td>${actionHtml}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -2156,6 +2172,10 @@ class AetherPMS {
         // Render project info header (Summary layout panel)
         const detailHeader = document.getElementById('project-detail-header-info');
         if (detailHeader) {
+            // Risk level color mapping
+            const riskColor = project.riskLevel === '높음' ? 'var(--danger)' : project.riskLevel === '보통' ? 'var(--warning)' : 'var(--success)';
+            const riskGlow = project.riskLevel === '높음' ? 'var(--danger-glow)' : project.riskLevel === '보통' ? 'var(--warning-glow)' : 'var(--success-glow)';
+
             detailHeader.innerHTML = `
                 <div class="project-detail-summary-header" style="background:var(--bg-card); border:1px solid var(--bg-card-border); padding:20px; border-radius:12px; margin-bottom: 24px; box-shadow: var(--shadow-sm);">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 20px; flex-wrap:wrap; gap:16px;">
@@ -2164,6 +2184,8 @@ class AetherPMS {
                                 <span class="status-badge status-${project.status.toLowerCase().replace(' ', '')}" style="font-size:11px; font-weight:700; padding:4px 10px;">${this.translateStatus(project.status)}</span>
                                 ${project.isOverdue && project.status !== 'Completed' ? `<span class="status-badge status-overdue" style="font-size:11px; font-weight:700; padding:4px 10px;">기간초과</span>` : ''}
                                 <span class="project-code-tag" style="background:var(--bg-hover-item); border:1px solid var(--bg-card-border); padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; color:var(--text-muted);">${project.projectCode}</span>
+                                <span class="status-badge" style="font-size:11px; font-weight:700; padding:4px 10px; background:var(--primary-glow); color:var(--primary); border:1px solid rgba(99, 102, 241, 0.3); border-radius:6px;">${dDayText}</span>
+                                <span class="status-badge" style="font-size:11px; font-weight:700; padding:4px 10px; background:${riskGlow}; color:${riskColor}; border:1px solid rgba(255, 255, 255, 0.1); border-radius:6px;">위험도: ${project.riskLevel || '보통'}</span>
                             </div>
                             <h2 style="font-size:24px; font-weight:800; margin-top:12px; margin-bottom:6px; color:var(--text-main); letter-spacing:-0.5px;">${project.name}</h2>
                             <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">${project.desc || '상세 설명이 등록되지 않은 프로젝트입니다.'}</p>
@@ -2175,24 +2197,43 @@ class AetherPMS {
                             <button class="btn btn-sm btn-primary" onclick="app.openEditProjectModal('${project.id}')">
                                 <i data-lucide="edit-3" style="width:14px; height:14px;"></i> 프로젝트 수정
                             </button>
+                            <button class="btn btn-sm btn-danger" onclick="app.deleteProject('${project.id}')">
+                                <i data-lucide="trash-2" style="width:14px; height:14px;"></i> 프로젝트 삭제
+                            </button>
                         </div>
                     </div>
                     
-                    <!-- KPI Row -->
-                    <div class="detail-kpi-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; border-top:1px solid var(--bg-card-border); padding-top:16px;">
+                    <!-- KPI Row (Exact 6 cards displaying the 7 required fields) -->
+                    <div class="detail-kpi-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; border-top:1px solid var(--bg-card-border); padding-top:16px;">
+                        <!-- 1. 고객사 -->
                         <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px;">
-                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">고객기관</span>
+                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">고객사</span>
                             <span style="font-size:14px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${project.customer || '-'}">${project.customer || '-'}</span>
                         </div>
+                        <!-- 2. 사업책임자 (PM) -->
                         <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px;">
                             <span style="font-size:11px; color:var(--text-muted); font-weight:700;">사업책임자 (PM)</span>
                             <span style="font-size:14px; font-weight:800; color:var(--primary);">${project.manager}</span>
                         </div>
-                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px;">
-                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">남은 기간 (D-Day)</span>
-                            <span style="font-size:14px; font-weight:800; color:${project.isOverdue && project.status !== 'Completed' ? 'var(--danger)' : 'var(--text-main)'};">${dDayText}</span>
+                        <!-- 3. 사업기간 -->
+                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px; min-width: 170px;">
+                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">사업기간</span>
+                            <span style="font-size:13px; font-weight:800; color:var(--text-main);">${project.startDate} ~ ${project.endDate}</span>
                         </div>
-                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px; grid-column: span 2; min-width: 180px;">
+                        <!-- 4. 계약금액 -->
+                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px;">
+                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">계약금액</span>
+                            <span style="font-size:14px; font-weight:800; color:var(--success);">${project.budget ? Number(project.budget).toLocaleString() + ' 원' : '-'}</span>
+                        </div>
+                        <!-- 5. 사업상태 -->
+                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px;">
+                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">사업상태</span>
+                            <span style="font-size:14px; font-weight:800;">
+                                <span class="status-badge status-${project.status.toLowerCase().replace(' ', '')}" style="font-size:10px; font-weight:700; padding:2px 8px; display:inline-block; text-align:center;">${this.translateStatus(project.status)}</span>
+                            </span>
+                        </div>
+                        <!-- 6. 진척률 -->
+                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px; min-width: 180px;">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <span style="font-size:11px; color:var(--text-muted); font-weight:700;">진척률</span>
                                 <span style="font-size:12px; font-weight:800; color:var(--primary);">${project.progress}%</span>
@@ -2200,10 +2241,6 @@ class AetherPMS {
                             <div class="progress-bar-container" style="margin-top: 6px; height:6px;">
                                 <div class="progress-bar-fill" style="width: ${project.progress}%; background:var(--primary);"></div>
                             </div>
-                        </div>
-                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px;">
-                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">위험도</span>
-                            <span style="font-size:14px; font-weight:800; color:${project.riskLevel === '높음' ? 'var(--danger)' : project.riskLevel === '보통' ? 'var(--warning)' : 'var(--success)'};">${project.riskLevel || '보통'}</span>
                         </div>
                     </div>
                 </div>
@@ -3135,6 +3172,25 @@ class AetherPMS {
         document.getElementById('artifact-approver').value = '';
         document.getElementById('artifact-submit-date').value = '';
 
+        // Populate Prefill Options from recentlyDownloaded
+        const prefillWrapper = document.getElementById('artifact-template-prefill-wrapper');
+        if (prefillWrapper) prefillWrapper.style.display = 'block';
+        const prefillSelect = document.getElementById('artifact-template-prefill');
+        if (prefillSelect) {
+            prefillSelect.innerHTML = '<option value="">불러오지 않음 (직접 입력)</option>';
+            const downloadedIds = this.state.recentlyDownloaded || [];
+            downloadedIds.forEach(id => {
+                const temp = this.state.globalTemplates.find(t => t.id === id);
+                if (temp) {
+                    const opt = document.createElement('option');
+                    opt.value = temp.id;
+                    const stageKor = temp.stage === 'initiation' ? '착수' : temp.stage === 'execution' ? '수행' : '종료';
+                    opt.textContent = `[${stageKor}] ${temp.name} (${temp.version})`;
+                    prefillSelect.appendChild(opt);
+                }
+            });
+        }
+
         this.removeAttachedFile();
         document.getElementById('artifact-modal').classList.add('open');
     }
@@ -3161,6 +3217,10 @@ class AetherPMS {
         projSelect.disabled = true;
         projWrapper.style.display = 'none';
         document.getElementById('artifact-project-fixed-field').value = art.projectId;
+
+        // Hide prefill select inside edit mode
+        const prefillWrapper = document.getElementById('artifact-template-prefill-wrapper');
+        if (prefillWrapper) prefillWrapper.style.display = 'none';
 
         document.getElementById('artifact-name').value = art.name;
         document.getElementById('artifact-category').value = art.category;
@@ -3211,17 +3271,19 @@ class AetherPMS {
 
     removeAttachedFile() {
         this.tempAttachedFile = null;
-        const fileBadge = document.getElementById('attached-file-badge');
+        const fileBadge = document.getElementById('attached-file-badge') || document.getElementById('attached-file-info');
         const fileInput = document.getElementById('artifact-file-input');
         if (fileBadge) fileBadge.style.display = 'none';
         if (fileInput) fileInput.value = '';
     }
 
     showAttachedFileBadge(name, size) {
-        const fileBadge = document.getElementById('attached-file-badge');
+        const fileBadge = document.getElementById('attached-file-badge') || document.getElementById('attached-file-info');
         const fileNameSpan = document.getElementById('attached-file-name');
+        const fileSizeSpan = document.getElementById('attached-file-size');
         if (fileBadge && fileNameSpan) {
-            fileNameSpan.textContent = `${name} (${size})`;
+            fileNameSpan.textContent = name;
+            if (fileSizeSpan) fileSizeSpan.textContent = size;
             fileBadge.style.display = 'inline-flex';
         }
     }
@@ -3641,14 +3703,14 @@ class AetherPMS {
 
         this.saveState();
         this.closeIssueModal();
-        this.renderIssues();
+        this.handleRouting();
     }
 
     deleteIssue(id) {
         if (confirm('이 이슈/리스크를 정말 삭제하시겠습니까?')) {
             this.state.issues = this.state.issues.filter(i => i.id !== id);
             this.saveState();
-            this.renderIssues();
+            this.handleRouting();
         }
     }
 
@@ -3851,14 +3913,14 @@ class AetherPMS {
 
         this.saveState();
         this.closeActionItemModal();
-        this.renderActionItems();
+        this.handleRouting();
     }
 
     deleteActionItem(id) {
         if (confirm('이 Action Item을 정말 삭제하시겠습니까?')) {
             this.state.actionItems = this.state.actionItems.filter(a => a.id !== id);
             this.saveState();
-            this.renderActionItems();
+            this.handleRouting();
         }
     }
 
@@ -4058,14 +4120,14 @@ class AetherPMS {
 
         this.saveState();
         this.closeOfficialDocModal();
-        this.renderOfficialDocs();
+        this.handleRouting();
     }
 
     deleteOfficialDoc(id) {
         if (confirm('이 공문을 정말 삭제하시겠습니까?')) {
             this.state.officialDocs = this.state.officialDocs.filter(d => d.id !== id);
             this.saveState();
-            this.renderOfficialDocs();
+            this.handleRouting();
         }
     }
 
@@ -4265,14 +4327,14 @@ class AetherPMS {
 
         this.saveState();
         this.closeMeetingMinutesModal();
-        this.renderMeetingMinutes();
+        this.handleRouting();
     }
 
     deleteMeetingMinutes(id) {
         if (confirm('이 회의록을 정말 삭제하시겠습니까?')) {
             this.state.meetingMinutes = this.state.meetingMinutes.filter(m => m.id !== id);
             this.saveState();
-            this.renderMeetingMinutes();
+            this.handleRouting();
         }
     }
 
@@ -4351,7 +4413,7 @@ class AetherPMS {
         const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(this.state, null, 4))}`;
         const downloadAnchor = document.createElement('a');
         downloadAnchor.setAttribute('href', jsonString);
-        downloadAnchor.setAttribute('download', `AetherPMS_Database_Backup_${this.getFormattedDateTime().split(' ')[0]}.json`);
+        downloadAnchor.setAttribute('download', `AetherPMO_Database_Backup_${this.getFormattedDateTime().split(' ')[0]}.json`);
         document.body.appendChild(downloadAnchor);
         downloadAnchor.click();
         downloadAnchor.remove();
@@ -4388,7 +4450,190 @@ class AetherPMS {
             window.location.reload();
         }
     }
+
+    /* ==========================================================================
+       GLOBAL TEMPLATE MANAGEMENT METHODS
+       ========================================================================== */
+    setUserRole(role) {
+        this.state.userRole = role;
+        this.saveState();
+        
+        const avatar = document.getElementById('user-role-avatar');
+        if (avatar) {
+            avatar.textContent = role === 'Admin' ? 'AD' : 'PM';
+        }
+        
+        const hash = window.location.hash.substring(1) || 'dashboard';
+        const mainRoute = hash.split('/')[0];
+        if (mainRoute === 'artifacts') {
+            this.renderArtifacts();
+        }
+    }
+
+    downloadGlobalTemplate(id) {
+        const temp = this.state.globalTemplates.find(t => t.id === id);
+        if (!temp) return;
+
+        this.addActivityLog(null, null, 'artifact', `표준 템플릿 다운로드: ${temp.name} (${temp.fileName})`);
+
+        if (!this.state.recentlyDownloaded) {
+            this.state.recentlyDownloaded = [];
+        }
+        if (!this.state.recentlyDownloaded.includes(temp.id)) {
+            this.state.recentlyDownloaded.push(temp.id);
+        }
+        this.saveState();
+
+        alert(`[다운로드 완료] 공공 SI 표준 템플릿 파일이 성공적으로 다운로드되었습니다.\n\n파일명: ${temp.fileName}\n파일 크기: ${temp.fileSize}\n\n다운로드한 파일은 각 프로젝트 상세화면의 '산출물 등록' 시 불러와 사용할 수 있습니다.`);
+        
+        this.renderArtifacts();
+    }
+
+    prefillArtifactFromTemplate(templateId) {
+        if (!templateId) {
+            document.getElementById('artifact-name').value = '';
+            document.getElementById('artifact-category').value = 'Requirements';
+            document.getElementById('artifact-version').value = 'v1.0.0';
+            this.removeAttachedFile();
+            return;
+        }
+
+        const temp = this.state.globalTemplates.find(t => t.id === templateId);
+        if (!temp) return;
+
+        const projSelect = document.getElementById('artifact-project-select');
+        const projId = projSelect.value;
+        const project = this.state.projects.find(p => p.id === projId);
+        const prefix = project ? `[${project.name}] ` : '';
+
+        document.getElementById('artifact-name').value = `${prefix}${temp.name}`;
+        document.getElementById('artifact-category').value = temp.category;
+        document.getElementById('artifact-version').value = temp.version;
+        document.getElementById('artifact-desc').value = `공공 SI 표준 템플릿 '${temp.name}' 양식 기반 작성본.`;
+
+        this.tempAttachedFile = {
+            name: temp.fileName,
+            size: temp.fileSize,
+            type: 'unknown'
+        };
+        this.showAttachedFileBadge(temp.fileName, temp.fileSize);
+    }
+
+    openNewGlobalTemplateModal() {
+        document.getElementById('global-template-modal-title').textContent = '표준 템플릿 양식 등록';
+        document.getElementById('global-template-form').reset();
+        document.getElementById('global-template-id-field').value = '';
+        
+        document.getElementById('global-template-stage').value = this.activeGlobalTemplateStage || 'initiation';
+        document.getElementById('global-template-category').value = 'Etc';
+        document.getElementById('global-template-version').value = 'v1.0.0';
+        document.getElementById('global-template-filesize').value = '120 KB';
+        document.getElementById('global-template-date').value = this.getFormattedDateTime().split(' ')[0];
+
+        document.getElementById('global-template-modal').classList.add('open');
+    }
+
+    openEditGlobalTemplateModal(id) {
+        const temp = this.state.globalTemplates.find(t => t.id === id);
+        if (!temp) return;
+
+        document.getElementById('global-template-modal-title').textContent = '템플릿 서식 정보 수정';
+        document.getElementById('global-template-id-field').value = temp.id;
+        document.getElementById('global-template-name').value = temp.name;
+        document.getElementById('global-template-stage').value = temp.stage;
+        document.getElementById('global-template-category').value = temp.category;
+        document.getElementById('global-template-version').value = temp.version;
+        document.getElementById('global-template-filename').value = temp.fileName;
+        document.getElementById('global-template-filesize').value = temp.fileSize;
+        document.getElementById('global-template-date').value = temp.modifiedDate;
+
+        document.getElementById('global-template-modal').classList.add('open');
+    }
+
+    closeGlobalTemplateModal() {
+        document.getElementById('global-template-modal').classList.remove('open');
+    }
+
+    saveGlobalTemplate() {
+        const id = document.getElementById('global-template-id-field').value;
+        const name = document.getElementById('global-template-name').value.trim();
+        const stage = document.getElementById('global-template-stage').value;
+        const category = document.getElementById('global-template-category').value;
+        const version = document.getElementById('global-template-version').value.trim();
+        const fileName = document.getElementById('global-template-filename').value.trim();
+        const fileSize = document.getElementById('global-template-filesize').value.trim();
+        const modifiedDate = document.getElementById('global-template-date').value;
+
+        if (!name || !version || !fileName || !fileSize || !modifiedDate) {
+            alert('필수 정보를 모두 입력해주세요.');
+            return;
+        }
+
+        if (id) {
+            const index = this.state.globalTemplates.findIndex(t => t.id === id);
+            if (index !== -1) {
+                this.state.globalTemplates[index] = {
+                    id, name, stage, category, version, fileName, fileSize, modifiedDate
+                };
+                this.addActivityLog(null, null, 'artifact', `템플릿 수정: ${name} (${version})`);
+            }
+        } else {
+            const newId = `gt-${Date.now()}`;
+            this.state.globalTemplates.push({
+                id: newId, name, stage, category, version, fileName, fileSize, modifiedDate
+            });
+            this.addActivityLog(null, null, 'artifact', `새 템플릿 등록: ${name} (${version})`);
+        }
+
+        this.saveState();
+        this.closeGlobalTemplateModal();
+        this.renderArtifacts();
+    }
+
+    deleteGlobalTemplate(id) {
+        const temp = this.state.globalTemplates.find(t => t.id === id);
+        if (!temp) return;
+
+        if (confirm(`템플릿 양식 [${temp.name}]을 정말로 삭제하시겠습니까?\n이 작업은 되돌릴 수 없으며, 모든 사용자 화면에서 삭제됩니다.`)) {
+            this.state.globalTemplates = this.state.globalTemplates.filter(t => t.id !== id);
+            if (this.state.recentlyDownloaded) {
+                this.state.recentlyDownloaded = this.state.recentlyDownloaded.filter(rid => rid !== id);
+            }
+            this.addActivityLog(null, null, 'artifact', `템플릿 삭제: ${temp.name}`);
+            this.saveState();
+            this.renderArtifacts();
+        }
+    }
+
+    getDefaultGlobalTemplates() {
+        return [
+            // 착수단계
+            { id: 'gt-init-1', name: '착수계', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_착수계.docx', fileSize: '145 KB' },
+            { id: 'gt-init-2', name: '사업수행계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_사업수행계획서.docx', fileSize: '320 KB' },
+            { id: 'gt-init-3', name: '보안관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_보안관리계획서.docx', fileSize: '210 KB' },
+            { id: 'gt-init-4', name: '품질보증계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_품질보증계획서.docx', fileSize: '185 KB' },
+            { id: 'gt-init-5', name: '참여인력 현황', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_참여인력현황.xlsx', fileSize: '98 KB' },
+            { id: 'gt-init-6', name: '비밀유지서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_비밀유지서약서.docx', fileSize: '112 KB' },
+            
+            // 수행단계
+            { id: 'gt-exec-1', name: '요구사항정의서', stage: 'execution', category: 'Requirements', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_요구사항정의서.xlsx', fileSize: '254 KB' },
+            { id: 'gt-exec-2', name: '분석설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_분석설계서_템플릿.docx', fileSize: '512 KB' },
+            { id: 'gt-exec-3', name: '회의록', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_회의록_양식.docx', fileSize: '85 KB' },
+            { id: 'gt-exec-4', name: '테스트계획서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_테스트계획서.docx', fileSize: '195 KB' },
+            { id: 'gt-exec-5', name: '테스트결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_테스트결과서.xlsx', fileSize: '280 KB' },
+            { id: 'gt-exec-6', name: '위험관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_위험관리대장.xlsx', fileSize: '95 KB' },
+            { id: 'gt-exec-7', name: 'Action Item 관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_ActionItem관리대장.xlsx', fileSize: '105 KB' },
+            
+            // 종료단계
+            { id: 'gt-close-1', name: '완료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_완료보고서.docx', fileSize: '420 KB' },
+            { id: 'gt-close-2', name: '최종보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_최종보고서.pdf', fileSize: '1.2 MB' },
+            { id: 'gt-close-3', name: '검수확인서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_검수확인서.docx', fileSize: '90 KB' },
+            { id: 'gt-close-4', name: '산출물 인계목록', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_산출물인계목록.xlsx', fileSize: '115 KB' },
+            { id: 'gt-close-5', name: '보안점검 결과서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_보안점검결과서.docx', fileSize: '130 KB' },
+            { id: 'gt-close-6', name: '종료계', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_종료계.docx', fileSize: '95 KB' }
+        ];
+    }
 }
 
 // Instantiate Global Application
-const app = new AetherPMS();
+const app = new AetherPMO();

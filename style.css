@@ -370,9 +370,26 @@ body.dark-theme .toggle-slider {
     font-weight: 700;
 }
 
-.user-role {
-    font-size: 11px;
+.user-role-select {
+    background: transparent;
+    border: none;
     color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0;
+    outline: none;
+    transition: color var(--transition-fast);
+}
+
+.user-role-select:hover {
+    color: var(--text-main);
+}
+
+.user-role-select option {
+    background-color: var(--bg-modal);
+    color: var(--text-main);
+    font-weight: 600;
 }
 
 /* --- Main Layout --- */
