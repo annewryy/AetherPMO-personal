@@ -13,8 +13,66 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="dark-theme">
+    <!-- Login Section -->
+    <div id="login-section" class="login-wrapper" style="display: none;">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="logo-area" style="justify-content: center; margin-bottom: 8px;">
+                    <div class="logo-icon">
+                        <i data-lucide="layers" class="lucide-icon text-primary"></i>
+                    </div>
+                    <div class="logo-text">
+                        <span class="brand-name" style="font-size: 28px;">Aether<span>PMO</span></span>
+                    </div>
+                </div>
+                <p class="login-subtitle">공공 SI 사업관리 및 산출물 통합관리 플랫폼</p>
+            </div>
+            
+            <form id="login-form" onsubmit="event.preventDefault(); app.handleLogin();">
+                <div class="form-group">
+                    <label for="login-email">이메일</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="mail" class="input-icon"></i>
+                        <input type="email" id="login-email" placeholder="email@aetherpmo.com" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="login-password">비밀번호</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="lock" class="input-icon"></i>
+                        <input type="password" id="login-password" placeholder="••••••••" required>
+                    </div>
+                </div>
+                
+                <div class="form-options">
+                    <label class="remember-me-checkbox">
+                        <input type="checkbox" id="login-remember-me">
+                        <span>아이디 저장</span>
+                    </label>
+                    <a href="#" onclick="event.preventDefault(); alert('비밀번호 찾기 기능은 아직 지원되지 않습니다. 관리자에게 문의하십시오.');" class="forgot-link">비밀번호 찾기</a>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block login-btn">
+                    로그인 <i data-lucide="arrow-right"></i>
+                </button>
+            </form>
+            
+            <div class="login-footer">
+                <p>시연용 데모 계정 정보:</p>
+                <div class="test-accounts-info">
+                    <div><span>시스템 관리자:</span> admin@aetherpmo.com / admin1234</div>
+                    <div><span>총괄 관리자:</span> manager@aetherpmo.com / manager1234</div>
+                    <div><span>PM:</span> pm@aetherpmo.com / pm1234</div>
+                    <div><span>수행 담당자:</span> worker@aetherpmo.com / worker1234</div>
+                    <div><span>조회자:</span> viewer@aetherpmo.com / viewer1234</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Top-level Grid Container -->
-    <div class="app-container">
+    <div class="app-container" id="app-section">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -117,14 +175,36 @@
                     </button>
                     <span class="theme-label">다크 모드</span>
                 </div>
-                <div class="user-profile-badge">
-                    <div class="avatar" id="user-role-avatar">PM</div>
-                    <div class="user-info">
-                        <div class="user-name" style="font-size:12px; font-weight:700;">안유경 PM</div>
-                        <select id="user-role-select" class="user-role-select" onchange="app.setUserRole(this.value)" style="background:transparent; border:none; color:var(--text-muted); font-size:10px; font-weight:700; cursor:pointer; padding:0; outline:none;">
-                            <option value="PM" selected>Project Manager</option>
-                            <option value="Admin">Administrator</option>
-                        </select>
+                <div class="user-dropdown-container" style="width: 100%;">
+                    <div class="user-profile-badge" id="sidebar-user-badge" style="cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; border-radius: 8px;" onclick="app.toggleSidebarUserMenu(event)">
+                        <div class="avatar" id="user-role-avatar" style="width: 36px; height: 36px; border-radius: 50%; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: 700; border: 2px solid transparent;">PM</div>
+                        <div class="user-info" style="flex: 1; text-align: left; display: flex; flex-direction: column; gap: 2px;">
+                            <div class="user-name" id="user-profile-name" style="font-size:12px; font-weight:700;">안유경 PM</div>
+                            <div class="user-role-label" id="user-profile-role" style="color:var(--text-muted); font-size:10px; font-weight:700; padding:0; line-height:1.2;">Project Manager</div>
+                        </div>
+                        <i data-lucide="chevron-up" style="width: 14px; height: 14px; color: var(--text-muted); margin-left: auto;"></i>
+                    </div>
+                    
+                    <!-- Sidebar User Dropdown Panel (Floats Upwards) -->
+                    <div class="dropdown-panel" id="sidebar-user-menu-panel" style="left: 10px; right: 10px; bottom: 65px; top: auto; width: calc(100% - 20px); background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px; box-shadow: var(--shadow-lg); z-index: 100;">
+                        <div class="dropdown-content" style="padding: 6px 0; display: flex; flex-direction: column; gap: 2px;">
+                            <a href="javascript:void(0)" class="dropdown-item" onclick="app.openUserSettingsModal('info')">
+                                <i data-lucide="user" style="width: 14px; height: 14px;"></i> 내 정보
+                            </a>
+                            <a href="javascript:void(0)" class="dropdown-item" onclick="app.openUserSettingsModal('profile')">
+                                <i data-lucide="settings" style="width: 14px; height: 14px;"></i> 개인설정
+                            </a>
+                            <a href="javascript:void(0)" class="dropdown-item" onclick="app.openUserSettingsModal('notifications')">
+                                <i data-lucide="bell" style="width: 14px; height: 14px;"></i> 알림설정
+                            </a>
+                            <a href="javascript:void(0)" class="dropdown-item" onclick="app.openUserSettingsModal('password')">
+                                <i data-lucide="key" style="width: 14px; height: 14px;"></i> 비밀번호 변경
+                            </a>
+                            <div style="border-top: 1px solid var(--bg-card-border); margin: 4px 0;"></div>
+                            <a href="javascript:void(0)" class="dropdown-item text-danger" onclick="app.logout()">
+                                <i data-lucide="log-out" style="width: 14px; height: 14px;"></i> 로그아웃
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -144,6 +224,40 @@
                     </div>
                 </div>
                 <div class="header-right">
+                    <!-- User Header Dropdown Container -->
+                    <div class="user-dropdown-container" style="position: relative; margin-right: 12px; border-right: 1px solid var(--bg-card-border); padding-right: 16px;">
+                        <div class="user-header-info" id="user-header-info" style="display:flex; align-items:center; gap:10px; cursor: pointer;" onclick="app.toggleUserMenu(event)">
+                            <div class="avatar" id="user-header-avatar" style="width: 36px; height: 36px; border-radius: 50%; font-size: 12px; display: flex; align-items: center; justify-content: center; font-weight: 700; border: 2px solid transparent;">AD</div>
+                            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+                                <span class="user-header-name" id="user-header-name" style="font-size:12px; font-weight:700; color:var(--text-main);">-</span>
+                                <span class="user-header-role" id="user-header-role" style="font-size:9px; font-weight:700; background:var(--primary-glow); color:var(--primary); padding:1px 6px; border-radius:3px; margin-top:2px;">-</span>
+                            </div>
+                            <i data-lucide="chevron-down" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
+                        </div>
+                        
+                        <!-- Dropdown Panel -->
+                        <div class="dropdown-panel" id="user-menu-panel" style="right: 0; min-width: 180px; top: 115%; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px; box-shadow: var(--shadow-lg); z-index: 100;">
+                            <div class="dropdown-content" style="padding: 6px 0; display: flex; flex-direction: column; gap: 2px;">
+                                <a href="javascript:void(0)" class="dropdown-item" onclick="app.openUserSettingsModal('info')">
+                                    <i data-lucide="user" style="width: 14px; height: 14px;"></i> 내 정보
+                                </a>
+                                <a href="javascript:void(0)" class="dropdown-item" onclick="app.openUserSettingsModal('profile')">
+                                    <i data-lucide="settings" style="width: 14px; height: 14px;"></i> 개인설정
+                                </a>
+                                <a href="javascript:void(0)" class="dropdown-item" onclick="app.openUserSettingsModal('notifications')">
+                                    <i data-lucide="bell" style="width: 14px; height: 14px;"></i> 알림설정
+                                </a>
+                                <a href="javascript:void(0)" class="dropdown-item" onclick="app.openUserSettingsModal('password')">
+                                    <i data-lucide="key" style="width: 14px; height: 14px;"></i> 비밀번호 변경
+                                </a>
+                                <div style="border-top: 1px solid var(--bg-card-border); margin: 4px 0;"></div>
+                                <a href="javascript:void(0)" class="dropdown-item text-danger" onclick="app.logout()">
+                                    <i data-lucide="log-out" style="width: 14px; height: 14px;"></i> 로그아웃
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Notifications Dropdown -->
                     <div class="notification-dropdown-container">
                         <button class="header-btn" id="notif-btn" aria-label="알림">
@@ -183,163 +297,287 @@
                         </button>
                     </div>
 
-                    <!-- Statistics Cards -->
-                    <div class="stats-grid">
-                        <!-- 1. 전체 사업 수 -->
-                        <div class="stat-card" onclick="window.location.hash = 'projects';">
-                            <div class="stat-card-header">
-                                <span class="stat-title">전체 사업 수</span>
-                                <div class="stat-icon icon-bg-primary">
-                                    <i data-lucide="folder"></i>
-                                </div>
-                            </div>
-                            <div class="stat-value" id="stat-total-projects">0</div>
-                            <div class="stat-subtext">등록된 전체 사업</div>
-                        </div>
-                        
-                        <!-- 2. 진행중 사업 수 -->
-                        <div class="stat-card" onclick="window.location.hash = 'projects';">
-                            <div class="stat-card-header">
-                                <span class="stat-title">진행중 사업 수</span>
-                                <div class="stat-icon icon-bg-info">
-                                    <i data-lucide="play-circle"></i>
-                                </div>
-                            </div>
-                            <div class="stat-value text-info" id="stat-active-projects">0</div>
-                            <div class="stat-subtext">수행 및 보류 단계</div>
-                        </div>
-
-                        <!-- 3. 완료 사업 수 -->
-                        <div class="stat-card" onclick="window.location.hash = 'projects';">
-                            <div class="stat-card-header">
-                                <span class="stat-title">완료 사업 수</span>
-                                <div class="stat-icon icon-bg-success">
-                                    <i data-lucide="check-circle2"></i>
-                                </div>
-                            </div>
-                            <div class="stat-value text-success" id="stat-completed-projects">0</div>
-                            <div class="stat-subtext">종료 및 검수완료</div>
-                        </div>
-
-                        <!-- 4. 지연 사업 수 -->
-                        <div class="stat-card" onclick="window.location.hash = 'projects';">
-                            <div class="stat-card-header">
-                                <span class="stat-title">지연 사업 수</span>
-                                <div class="stat-icon icon-bg-danger">
-                                    <i data-lucide="alert-circle"></i>
-                                </div>
-                            </div>
-                            <div class="stat-value text-danger" id="stat-delayed-projects">0</div>
-                            <div class="stat-subtext">일정 초과 및 지연 상태</div>
-                        </div>
-
-                        <!-- 5. 미해결 리스크 -->
-                        <div class="stat-card" onclick="window.location.hash = 'issues';">
-                            <div class="stat-card-header">
-                                <span class="stat-title">미해결 리스크</span>
-                                <div class="stat-icon icon-bg-danger">
-                                    <i data-lucide="alert-triangle"></i>
-                                </div>
-                            </div>
-                            <div class="stat-value text-danger" id="stat-unresolved-risks">0</div>
-                            <div class="stat-subtext">발생 및 조치중인 리스크</div>
-                        </div>
-
-                        <!-- 6. 미완료 Action Item -->
-                        <div class="stat-card" onclick="window.location.hash = 'action-items';">
-                            <div class="stat-card-header">
-                                <span class="stat-title">미완료 Action Item</span>
-                                <div class="stat-icon icon-bg-warning">
-                                    <i data-lucide="check-square"></i>
-                                </div>
-                            </div>
-                            <div class="stat-value text-warning" id="stat-uncompleted-actions">0</div>
-                            <div class="stat-subtext">대기 및 진행중 항목</div>
-                        </div>
-
-                        <!-- 7. 금월 매출 -->
-                        <div class="stat-card">
-                            <div class="stat-card-header">
-                                <span class="stat-title">금월 매출</span>
-                                <div class="stat-icon icon-bg-success">
-                                    <i data-lucide="trending-up"></i>
-                                </div>
-                            </div>
-                            <div class="stat-value text-success" id="stat-monthly-revenue">0 원</div>
-                            <div class="stat-subtext">당월 검수 완료 기준</div>
-                        </div>
-
-                        <!-- 8. 투입 인력 수 -->
-                        <div class="stat-card">
-                            <div class="stat-card-header">
-                                <span class="stat-title">투입 인력 수</span>
-                                <div class="stat-icon icon-bg-primary">
-                                    <i data-lucide="users"></i>
-                                </div>
-                            </div>
-                            <div class="stat-value text-primary" id="stat-total-resources">0 명</div>
-                            <div class="stat-subtext">수행중 사업 투입인원</div>
-                        </div>
-                    </div>
-
-                    <!-- Charts & Recent Activity section -->
-                    <div class="dashboard-grid">
-                        <!-- Left panel: Charts & Stats -->
-                        <div class="dashboard-card card-chart">
-                            <h3>프로젝트 상태 분포</h3>
-                            <div class="chart-wrapper">
-                                <div class="svg-chart-container">
-                                    <svg class="donut-chart" viewBox="0 0 42 42" width="100%" height="100%">
-                                        <circle class="donut-hole" cx="21" cy="21" r="15.91549430918954" fill="transparent"></circle>
-                                        <circle class="donut-ring" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="var(--bg-card-border)" stroke-width="4"></circle>
-                                        <!-- Segments dynamically computed in JS -->
-                                        <g id="donut-segments-group"></g>
-                                    </svg>
-                                    <div class="chart-center-text">
-                                        <span id="chart-center-value">0</span>
-                                        <span class="label">전체 사업 수</span>
+                    <!-- 1. General/Exec View -->
+                    <div id="dashboard-exec-view" style="display: flex; flex-direction: column; gap: 20px;">
+                        <!-- Statistics Cards -->
+                        <div class="stats-grid">
+                            <!-- 1. 전체 사업 수 -->
+                            <div class="stat-card" onclick="window.location.hash = 'projects';">
+                                <div class="stat-card-header">
+                                    <span class="stat-title">전체 사업 수</span>
+                                    <div class="stat-icon icon-bg-primary">
+                                        <i data-lucide="folder"></i>
                                     </div>
                                 </div>
-                                <div class="chart-legend" id="chart-status-legend">
-                                    <!-- Legend dynamically computed -->
+                                <div class="stat-value" id="stat-total-projects">0</div>
+                                <div class="stat-subtext">등록된 전체 사업</div>
+                            </div>
+                            
+                            <!-- 2. 진행중 사업 수 -->
+                            <div class="stat-card" onclick="window.location.hash = 'projects';">
+                                <div class="stat-card-header">
+                                    <span class="stat-title">진행중 사업 수</span>
+                                    <div class="stat-icon icon-bg-info">
+                                        <i data-lucide="play-circle"></i>
+                                    </div>
+                                </div>
+                                <div class="stat-value text-info" id="stat-active-projects">0</div>
+                                <div class="stat-subtext">수행 및 보류 단계</div>
+                            </div>
+
+                            <!-- 3. 완료 사업 수 -->
+                            <div class="stat-card" onclick="window.location.hash = 'projects';">
+                                <div class="stat-card-header">
+                                    <span class="stat-title">완료 사업 수</span>
+                                    <div class="stat-icon icon-bg-success">
+                                        <i data-lucide="check-circle2"></i>
+                                    </div>
+                                </div>
+                                <div class="stat-value text-success" id="stat-completed-projects">0</div>
+                                <div class="stat-subtext">종료 및 검수완료</div>
+                            </div>
+
+                            <!-- 4. 지연 사업 수 -->
+                            <div class="stat-card" onclick="window.location.hash = 'projects';">
+                                <div class="stat-card-header">
+                                    <span class="stat-title">지연 사업 수</span>
+                                    <div class="stat-icon icon-bg-danger">
+                                        <i data-lucide="alert-circle"></i>
+                                    </div>
+                                </div>
+                                <div class="stat-value text-danger" id="stat-delayed-projects">0</div>
+                                <div class="stat-subtext">일정 초과 및 지연 상태</div>
+                            </div>
+
+                            <!-- 5. 미해결 리스크 -->
+                            <div class="stat-card" onclick="window.location.hash = 'issues';">
+                                <div class="stat-card-header">
+                                    <span class="stat-title">미해결 리스크</span>
+                                    <div class="stat-icon icon-bg-danger">
+                                        <i data-lucide="alert-triangle"></i>
+                                    </div>
+                                </div>
+                                <div class="stat-value text-danger" id="stat-unresolved-risks">0</div>
+                                <div class="stat-subtext">발생 및 조치중인 리스크</div>
+                            </div>
+
+                            <!-- 6. 미완료 Action Item -->
+                            <div class="stat-card" onclick="window.location.hash = 'action-items';">
+                                <div class="stat-card-header">
+                                    <span class="stat-title">미완료 Action Item</span>
+                                    <div class="stat-icon icon-bg-warning">
+                                        <i data-lucide="check-square"></i>
+                                    </div>
+                                </div>
+                                <div class="stat-value text-warning" id="stat-uncompleted-actions">0</div>
+                                <div class="stat-subtext">대기 및 진행중 항목</div>
+                            </div>
+
+                            <!-- 7. 금월 매출 -->
+                            <div class="stat-card">
+                                <div class="stat-card-header">
+                                    <span class="stat-title">금월 매출</span>
+                                    <div class="stat-icon icon-bg-success">
+                                        <i data-lucide="trending-up"></i>
+                                    </div>
+                                </div>
+                                <div class="stat-value text-success" id="stat-monthly-revenue">0 원</div>
+                                <div class="stat-subtext">당월 검수 완료 기준</div>
+                            </div>
+
+                            <!-- 8. 투입 인력 수 -->
+                            <div class="stat-card">
+                                <div class="stat-card-header">
+                                    <span class="stat-title">투입 인력 수</span>
+                                    <div class="stat-icon icon-bg-primary">
+                                        <i data-lucide="users"></i>
+                                    </div>
+                                </div>
+                                <div class="stat-value text-primary" id="stat-total-resources">0 명</div>
+                                <div class="stat-subtext">수행중 사업 투입인원</div>
+                            </div>
+                        </div>
+
+                        <!-- Charts & Recent Activity section -->
+                        <div class="dashboard-grid">
+                            <!-- Left panel: Charts & Stats -->
+                            <div class="dashboard-card card-chart">
+                                <h3>프로젝트 상태 분포</h3>
+                                <div class="chart-wrapper">
+                                    <div class="svg-chart-container">
+                                        <svg class="donut-chart" viewBox="0 0 42 42" width="100%" height="100%">
+                                            <circle class="donut-hole" cx="21" cy="21" r="15.91549430918954" fill="transparent"></circle>
+                                            <circle class="donut-ring" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="var(--bg-card-border)" stroke-width="4"></circle>
+                                            <!-- Segments dynamically computed in JS -->
+                                            <g id="donut-segments-group"></g>
+                                        </svg>
+                                        <div class="chart-center-text">
+                                            <span id="chart-center-value">0</span>
+                                            <span class="label">전체 사업 수</span>
+                                        </div>
+                                    </div>
+                                    <div class="chart-legend" id="chart-status-legend">
+                                        <!-- Legend dynamically computed -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right panel: Recent Activity Logs -->
+                            <div class="dashboard-card card-activity">
+                                <div class="card-header-actions">
+                                    <h3>최근 활동 기록</h3>
+                                    <button class="text-btn" onclick="app.clearActivityLogs()">로그 초기화</button>
+                                </div>
+                                <div class="timeline" id="recent-activities">
+                                    <div class="empty-state">최근 활동 기록이 없습니다.</div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Right panel: Recent Activity Logs -->
-                        <div class="dashboard-card card-activity">
+                        <!-- Lower Section: Active Projects Table -->
+                        <div class="dashboard-card projects-summary-table-card">
                             <div class="card-header-actions">
-                                <h3>최근 활동 기록</h3>
-                                <button class="text-btn" onclick="app.clearActivityLogs()">로그 초기화</button>
+                                <h3>진행 중인 프로젝트 요약</h3>
+                                <a href="#projects" class="text-btn" onclick="app.switchView('projects')">전체보기 <i data-lucide="arrow-right"></i></a>
                             </div>
-                            <div class="timeline" id="recent-activities">
-                                <div class="empty-state">최근 활동 기록이 없습니다.</div>
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>프로젝트명</th>
+                                            <th>고객사</th>
+                                            <th>PM</th>
+                                            <th>진행률</th>
+                                            <th>리스크 수</th>
+                                            <th>상태</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dashboard-projects-list">
+                                        <!-- Dynamic rows -->
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Lower Section: Active Projects Table -->
-                    <div class="dashboard-card projects-summary-table-card">
-                        <div class="card-header-actions">
-                            <h3>진행 중인 프로젝트 요약</h3>
-                            <a href="#projects" class="text-btn" onclick="app.switchView('projects')">전체보기 <i data-lucide="arrow-right"></i></a>
+                    <!-- 2. Personalized Dashboard View -->
+                    <div id="dashboard-personalized-view" style="display: none; flex-direction: column; gap: 20px; width: 100%;">
+                        <!-- PM View Sections -->
+                        <div id="pm-dashboard-sections" style="display: none; flex-direction: column; gap: 20px;">
+                            <!-- My Projects Card -->
+                            <div class="dashboard-card">
+                                <h3><i data-lucide="folder" class="text-primary vertical-align-middle mr-2"></i> 내 프로젝트</h3>
+                                <p class="card-desc">내가 관리자로 지정되어 있는 프로젝트 목록 및 실시간 진행률 현황입니다.</p>
+                                <div class="table-container mt-3">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>프로젝트명</th>
+                                                <th>고객사</th>
+                                                <th>시작일</th>
+                                                <th>종료일</th>
+                                                <th>진행률</th>
+                                                <th>상태</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="pm-projects-list">
+                                            <!-- Dynamic PM Projects -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <!-- Grid for Risks and Action Items -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <!-- My Risks Card -->
+                                <div class="dashboard-card">
+                                    <h3><i data-lucide="alert-triangle" class="text-danger vertical-align-middle mr-2"></i> 내 리스크</h3>
+                                    <p class="card-desc">내 프로젝트에서 발생한 미해결 리스크 현황입니다.</p>
+                                    <div class="table-container mt-3">
+                                        <table class="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>프로젝트</th>
+                                                    <th>리스크 내용</th>
+                                                    <th>우선순위</th>
+                                                    <th>상태</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="pm-risks-list">
+                                                <!-- Dynamic PM Risks -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                
+                                <!-- My Action Items Card -->
+                                <div class="dashboard-card">
+                                    <h3><i data-lucide="check-square" class="text-warning vertical-align-middle mr-2"></i> 내 Action Item</h3>
+                                    <p class="card-desc">내 프로젝트의 미완료 조치사항 목록입니다.</p>
+                                    <div class="table-container mt-3">
+                                        <table class="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>프로젝트</th>
+                                                    <th>Action Item</th>
+                                                    <th>담당자</th>
+                                                    <th>기한</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="pm-actions-list">
+                                                <!-- Dynamic PM Action Items -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>프로젝트명</th>
-                                        <th>고객사</th>
-                                        <th>PM</th>
-                                        <th>진행률</th>
-                                        <th>리스크 수</th>
-                                        <th>상태</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="dashboard-projects-list">
-                                    <!-- Dynamic rows -->
-                                </tbody>
-                            </table>
+
+                        <!-- Worker View Sections -->
+                        <div id="worker-dashboard-sections" style="display: none; flex-direction: column; gap: 20px;">
+                            <!-- My Tasks (Participating Projects) -->
+                            <div class="dashboard-card">
+                                <h3><i data-lucide="clipboard-list" class="text-primary vertical-align-middle mr-2"></i> 내 업무 (참여 프로젝트)</h3>
+                                <p class="card-desc">내가 수행담당자 또는 참여인력으로 맵핑되어 있는 프로젝트 목록입니다.</p>
+                                <div class="table-container mt-3">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>프로젝트명</th>
+                                                <th>역할</th>
+                                                <th>시작일</th>
+                                                <th>종료일</th>
+                                                <th>진행률</th>
+                                                <th>상태</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="worker-tasks-list">
+                                            <!-- Dynamic Worker Projects -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <!-- My Action Items (Assigned only to Worker) -->
+                            <div class="dashboard-card">
+                                <h3><i data-lucide="check-square" class="text-warning vertical-align-middle mr-2"></i> 내 Action Item</h3>
+                                <p class="card-desc">나에게 배정된 미완료 Action Item 목록입니다.</p>
+                                <div class="table-container mt-3">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>프로젝트</th>
+                                                <th>Action Item</th>
+                                                <th>상태</th>
+                                                <th>기한</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="worker-actions-list">
+                                            <!-- Dynamic Worker Action Items -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -1022,6 +1260,29 @@
                     </div>
 
                     <div class="backup-grid">
+                        <!-- 사용자 및 프로필 관리 Card -->
+                        <div class="dashboard-card" style="grid-column: span 2;">
+                            <h3><i data-lucide="users" class="text-primary vertical-align-middle mr-2"></i> 사용자 및 프로필 관리</h3>
+                            <p class="card-desc">등록된 사용자 계정 및 권한을 관리하고, 각 사용자별 프로필 이미지와 아바타 설정을 변경할 수 있습니다. (로컬 스토리지에 저장됩니다)</p>
+                            
+                            <div class="table-container mt-3">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>아바타</th>
+                                            <th>이름</th>
+                                            <th>이메일</th>
+                                            <th>권한 등급</th>
+                                            <th class="text-center">프로필 색상</th>
+                                            <th class="text-center">작업</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="user-management-tbody">
+                                        <!-- Dynamic user rows populated in JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                         <div class="dashboard-card">
                             <h3><i data-lucide="database" class="text-primary vertical-align-middle mr-2"></i> 데이터 백업 및 복구 (JSON)</h3>
                             <p class="card-desc">현재까지 등록된 프로젝트, 산출물, 체크리스트 및 로그 내역을 JSON 파일로 내보내거나 가져올 수 있습니다. 브라우저 저장소가 초기화되더라도 이 파일을 이용해 데이터를 완전히 복구할 수 있습니다.</p>
@@ -1792,6 +2053,15 @@
                         <th>비고</th>
                         <td id="det-issue-remarks">-</td>
                     </tr>
+                    <tr>
+                        <th>리스크 검토의견</th>
+                        <td>
+                            <div style="display:flex; gap:8px; align-items:center; width:100%;">
+                                <input type="text" id="issue-review-comment" placeholder="검토의견을 입력하세요" style="flex:1; padding:6px 10px; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-hover-item); color:var(--text-main); font-size:12px;">
+                                <button type="button" class="btn btn-xs btn-primary" id="btn-save-issue-comment" onclick="app.saveIssueReviewComment()">저장</button>
+                            </div>
+                        </td>
+                    </tr>
                 </table>
             </div>
             <div class="modal-footer">
@@ -1893,6 +2163,15 @@
                     <tr>
                         <th>비고</th>
                         <td id="det-action-remarks">-</td>
+                    </tr>
+                    <tr>
+                        <th>Action Item 확인 코멘트</th>
+                        <td>
+                            <div style="display:flex; gap:8px; align-items:center; width:100%;">
+                                <input type="text" id="action-item-confirm-comment" placeholder="확인 코멘트를 입력하세요" style="flex:1; padding:6px 10px; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-hover-item); color:var(--text-main); font-size:12px;">
+                                <button type="button" class="btn btn-xs btn-primary" id="btn-save-action-comment" onclick="app.saveActionItemConfirmComment()">저장</button>
+                            </div>
+                        </td>
                     </tr>
                 </table>
             </div>
@@ -2108,7 +2387,181 @@
                 </table>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline" onclick="document.getElementById('meeting-minutes-detail-modal').classList.remove('open')">닫기</button>
+        </div>
+    </div>
+
+    <!-- 15. USER PROFILE EDIT MODAL -->
+    <div class="modal-overlay" id="user-profile-modal">
+        <div class="modal-card settings-modal" style="display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h2>사용자 개인설정</h2>
+                <button class="modal-close-btn" onclick="app.closeUserProfileModal()">&times;</button>
+            </div>
+            
+            <div style="display: flex; flex: 1; min-height: 0;">
+                <!-- Left Tabs Menu -->
+                <div class="settings-tab-list">
+                    <button type="button" class="settings-tab-btn active" id="user-tab-info-btn" onclick="app.switchUserSettingTab('info')">
+                        <i data-lucide="user" style="width: 14px; height: 14px;"></i> 내 정보
+                    </button>
+                    <button type="button" class="settings-tab-btn" id="user-tab-profile-btn" onclick="app.switchUserSettingTab('profile')">
+                        <i data-lucide="camera" style="width: 14px; height: 14px;"></i> 프로필 설정
+                    </button>
+                    <button type="button" class="settings-tab-btn" id="user-tab-notifications-btn" onclick="app.switchUserSettingTab('notifications')">
+                        <i data-lucide="bell" style="width: 14px; height: 14px;"></i> 알림 설정
+                    </button>
+                    <button type="button" class="settings-tab-btn" id="user-tab-password-btn" onclick="app.switchUserSettingTab('password')">
+                        <i data-lucide="lock" style="width: 14px; height: 14px;"></i> 비밀번호 변경
+                    </button>
+                </div>
+                
+                <!-- Right Tab Contents -->
+                <div class="settings-content-pane">
+                    <form id="user-profile-form" onsubmit="event.preventDefault();" style="padding: 0;">
+                        <input type="hidden" id="edit-user-email">
+                        
+                        <!-- 1) 내 정보 Tab -->
+                        <div id="user-pane-info" class="tab-pane active" style="display: flex; flex-direction: column; gap: 12px;">
+                            <h3 style="margin-bottom: 8px; font-size: 14px; font-weight: 700; color: var(--primary);">기본 인적사항</h3>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div class="form-group">
+                                    <label>이름 <span class="required">*</span></label>
+                                    <input type="text" id="edit-user-name" required placeholder="예: 안유경 PM">
+                                </div>
+                                <div class="form-group">
+                                    <label>이메일</label>
+                                    <input type="text" id="edit-user-email-display" readonly style="opacity: 0.7; cursor: not-allowed;">
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div class="form-group">
+                                    <label>법인</label>
+                                    <input type="text" id="edit-user-company" placeholder="예: AetherIT">
+                                </div>
+                                <div class="form-group">
+                                    <label>본부</label>
+                                    <input type="text" id="edit-user-division" placeholder="예: SI사업본부">
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div class="form-group">
+                                    <label>직급</label>
+                                    <input type="text" id="edit-user-position" placeholder="예: 부장">
+                                </div>
+                                <div class="form-group">
+                                    <label>권한</label>
+                                    <input type="text" id="edit-user-role-display" readonly style="opacity: 0.7; cursor: not-allowed;">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>전화번호</label>
+                                <input type="text" id="edit-user-phone" placeholder="예: 010-1234-5678">
+                            </div>
+                        </div>
+                        
+                        <!-- 2) 프로필 설정 Tab -->
+                        <div id="user-pane-profile" class="tab-pane" style="display: none; flex-direction: column; gap: 15px;">
+                            <h3 style="margin-bottom: 8px; font-size: 14px; font-weight: 700; color: var(--primary);">아바타 및 이미지 설정</h3>
+                            <div style="display: flex; gap: 20px; align-items: center;">
+                                <!-- Preview container -->
+                                <div id="profile-modal-preview" style="width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; color: #ffffff; background-color: var(--primary); border: 4px solid var(--primary-glow); overflow: hidden; position: relative;">
+                                    <span id="profile-modal-initials">AD</span>
+                                    <img id="profile-modal-img" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                                </div>
+                                
+                                <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
+                                    <div style="display: flex; gap: 8px;">
+                                        <button type="button" class="btn btn-xs btn-outline" onclick="document.getElementById('profile-image-upload').click()">
+                                            <i data-lucide="upload" style="width: 12px; height: 12px;"></i> 업로드
+                                        </button>
+                                        <input type="file" id="profile-image-upload" accept="image/*" style="display: none;" onchange="app.handleProfileImageUpload(event)">
+                                        
+                                        <button type="button" class="btn btn-xs btn-danger" onclick="app.deleteProfileImage()">
+                                            <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i> 삭제
+                                        </button>
+                                    </div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button type="button" class="btn btn-xs btn-outline" onclick="app.useDefaultAvatarMode()">
+                                            기본 아바타 사용
+                                        </button>
+                                        <button type="button" class="btn btn-xs btn-outline" onclick="app.useInitialsAvatarMode()">
+                                            이니셜 아바타 표시
+                                        </button>
+                                    </div>
+                                    <p class="card-desc" style="margin-top: 4px; font-size: 11px;">PNG, JPG 파일 업로드 시 Base64로 저장되어 프로필 이미지로 설정됩니다.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group mt-3">
+                                <label for="edit-user-color">아바타 배경 색상</label>
+                                <select id="edit-user-color" onchange="app.updateProfileModalPreviewFromColorSelect()">
+                                    <option value="#8b5cf6">Purple (시스템 관리자 - 보라색)</option>
+                                    <option value="#3b82f6">Blue (총괄 관리자 - 파란색)</option>
+                                    <option value="#06b6d4">Teal (PM - 청록색)</option>
+                                    <option value="#10b981">Green (수행담당자 - 초록색)</option>
+                                    <option value="#6b7280">Gray (조회자 - 회색)</option>
+                                    <option value="#ec4899">Pink (분홍색)</option>
+                                    <option value="#f59e0b">Orange (주황색)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- 3) 알림 설정 Tab -->
+                        <div id="user-pane-notifications" class="tab-pane" style="display: none; flex-direction: column; gap: 12px;">
+                            <h3 style="margin-bottom: 8px; font-size: 14px; font-weight: 700; color: var(--primary);">알림 통지 설정</h3>
+                            <p class="card-desc" style="margin-bottom: 12px;">원하는 알림을 켜거나 끌 수 있습니다. 알림 발생 시 해당 설정에 따라 헤더 알림 패널에 반영됩니다.</p>
+                            
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <label class="remember-me-checkbox" style="font-size: 13px; cursor: pointer;">
+                                    <input type="checkbox" id="edit-notif-action-item" checked style="width: 16px; height: 16px;">
+                                    <span style="font-weight: 600; color: var(--text-light); margin-left: 8px;">Action Item 알림 수신</span>
+                                </label>
+                                <label class="remember-me-checkbox" style="font-size: 13px; cursor: pointer;">
+                                    <input type="checkbox" id="edit-notif-risk" checked style="width: 16px; height: 16px;">
+                                    <span style="font-weight: 600; color: var(--text-light); margin-left: 8px;">리스크 알림 수신</span>
+                                </label>
+                                <label class="remember-me-checkbox" style="font-size: 13px; cursor: pointer;">
+                                    <input type="checkbox" id="edit-notif-meeting" checked style="width: 16px; height: 16px;">
+                                    <span style="font-weight: 600; color: var(--text-light); margin-left: 8px;">회의록 알림 수신</span>
+                                </label>
+                                <label class="remember-me-checkbox" style="font-size: 13px; cursor: pointer;">
+                                    <input type="checkbox" id="edit-notif-official-doc" checked style="width: 16px; height: 16px;">
+                                    <span style="font-weight: 600; color: var(--text-light); margin-left: 8px;">공문 알림 수신</span>
+                                </label>
+                                <label class="remember-me-checkbox" style="font-size: 13px; cursor: pointer;">
+                                    <input type="checkbox" id="edit-notif-artifact" checked style="width: 16px; height: 16px;">
+                                    <span style="font-weight: 600; color: var(--text-light); margin-left: 8px;">산출물 알림 수신</span>
+                                </label>
+                                <label class="remember-me-checkbox" style="font-size: 13px; cursor: pointer;">
+                                    <input type="checkbox" id="edit-notif-project-overdue" checked style="width: 16px; height: 16px;">
+                                    <span style="font-weight: 600; color: var(--text-light); margin-left: 8px;">프로젝트 기간초과 알림 수신</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- 4) 비밀번호 변경 Tab -->
+                        <div id="user-pane-password" class="tab-pane" style="display: none; flex-direction: column; gap: 12px;">
+                            <h3 style="margin-bottom: 8px; font-size: 14px; font-weight: 700; color: var(--primary);">비밀번호 수정</h3>
+                            <div class="form-group">
+                                <label for="edit-password-current">현재 비밀번호</label>
+                                <input type="password" id="edit-password-current" placeholder="현재 비밀번호 입력">
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-password-new">새 비밀번호</label>
+                                <input type="password" id="edit-password-new" placeholder="새 비밀번호 입력">
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-password-confirm">비밀번호 확인</label>
+                                <input type="password" id="edit-password-confirm" placeholder="새 비밀번호 확인 재입력">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--bg-card-border); display: flex; justify-content: flex-end; gap: 10px; background: var(--bg-card);">
+                <button type="button" class="btn btn-outline" onclick="app.closeUserProfileModal()">취소</button>
+                <button type="button" class="btn btn-primary" onclick="app.saveUserProfile()">저장하기</button>
             </div>
         </div>
     </div>

@@ -2687,3 +2687,277 @@ body.dark-theme .toggle-slider {
     animation: highlightFlash 1s ease-out;
 }
 
+/* --- Login Page Styles --- */
+.login-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background-color: var(--bg-app);
+    background-image: radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.05) 0%, transparent 40%);
+    padding: 20px;
+    font-family: var(--font-ui);
+}
+
+.login-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--bg-card-border);
+    border-radius: 16px;
+    padding: 40px;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: var(--shadow-lg), var(--shadow-glow);
+    backdrop-filter: blur(10px);
+    transition: transform 0.3s ease;
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.login-subtitle {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 8px;
+    line-height: 1.5;
+}
+
+.login-card .form-group {
+    margin-bottom: 20px;
+}
+
+.login-card label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+
+.login-card .input-wrapper {
+    position: relative;
+}
+
+.login-card .input-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: var(--text-light);
+    pointer-events: none;
+    transition: color var(--transition-fast);
+}
+
+.login-card input[type="email"],
+.login-card input[type="password"] {
+    width: 100%;
+    background-color: var(--bg-input);
+    border: 1px solid var(--bg-input-border);
+    border-radius: 8px;
+    padding: 12px 14px 12px 42px;
+    color: var(--text-main);
+    font-size: 13px;
+    font-weight: 500;
+    outline: none;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.login-card input[type="email"]:focus,
+.login-card input[type="password"]:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.login-card input[type="email"]:focus + .input-icon,
+.login-card input[type="password"]:focus + .input-icon {
+    color: var(--primary);
+}
+
+.form-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    font-size: 12px;
+}
+
+.remember-me-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.remember-me-checkbox input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+}
+
+.remember-me-checkbox span {
+    color: var(--text-light);
+    font-weight: 600;
+}
+
+.forgot-link {
+    color: var(--primary);
+    font-weight: 700;
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+.forgot-link:hover {
+    color: var(--primary-hover);
+}
+
+.login-btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+.login-footer {
+    margin-top: 32px;
+    border-top: 1px solid var(--bg-card-border);
+    padding-top: 16px;
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.login-footer p {
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.test-accounts-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    line-height: 1.4;
+}
+
+.test-accounts-info div {
+    background-color: var(--bg-hover-item);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--bg-card-border);
+}
+
+.test-accounts-info span {
+    font-weight: 700;
+    color: var(--primary);
+    margin-right: 4px;
+}
+
+/* --- User Menu Dropdown & Settings Tabbed Modal Styles --- */
+.user-dropdown-container {
+    position: relative;
+}
+
+.user-dropdown-container .dropdown-panel {
+    top: 50px;
+    width: 190px;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-light) !important;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+    cursor: pointer;
+}
+
+.dropdown-item:hover {
+    background-color: var(--bg-hover-item);
+    color: var(--primary) !important;
+}
+
+.dropdown-item.text-danger:hover {
+    color: var(--color-danger) !important;
+    background-color: rgba(239, 68, 68, 0.08);
+}
+
+/* Tabbed Modal Styling */
+.modal-card.settings-modal {
+    max-width: 720px;
+    height: 520px;
+}
+
+.settings-tab-list {
+    width: 180px;
+    border-right: 1px solid var(--bg-card-border);
+    padding: 16px 8px;
+    background-color: var(--bg-app-darker, rgba(0, 0, 0, 0.1));
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.settings-tab-btn {
+    text-align: left;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-light);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all var(--transition-fast);
+}
+
+.settings-tab-btn:hover {
+    background-color: var(--bg-hover-item);
+    color: var(--text-main);
+}
+
+.settings-tab-btn.active {
+    background-color: var(--primary-glow);
+    color: var(--primary);
+}
+
+.settings-content-pane {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+}
+
+/* Avatar Border Styling based on roles */
+.avatar.role-SYS_ADMIN { border: 2px solid #8b5cf6 !important; }
+.avatar.role-EXEC_ADMIN { border: 2px solid #3b82f6 !important; }
+.avatar.role-PM { border: 2px solid #06b6d4 !important; }
+.avatar.role-WORKER { border: 2px solid #10b981 !important; }
+.avatar.role-VIEWER { border: 2px solid #6b7280 !important; }
+
+.avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+

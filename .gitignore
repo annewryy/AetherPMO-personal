@@ -11,3 +11,15 @@ node_modules/
 # Local backup files
 *.json.bak
 *.bak
+
+# Sensitive data and local settings
+.env
+.env.*
+*.local
+credentials.json
+keys/
+*.pem
+*.key
+passwd
+password.txt
+secrets/

@@ -39,22 +39,483 @@ class AetherPMO {
     init() {
         this.loadState();
         this.setupEventListeners();
+        
+        // Check authentication state
+        this.checkAuth();
+        
         this.handleRouting();
         this.updateCurrentDateDisplay();
         
-        // Set user role select UI value
-        const roleSelect = document.getElementById('user-role-select');
-        if (roleSelect && this.state.userRole) {
-            roleSelect.value = this.state.userRole;
-            const avatar = document.getElementById('user-role-avatar');
-            if (avatar) {
-                avatar.textContent = this.state.userRole === 'Admin' ? 'AD' : 'PM';
-            }
-        }
+        this.updateNotifications();
+        
+        // Reapply dynamic role permissions to newly rendered elements
+        this.applyRolePermissions();
         
         // Initialise Lucide icons
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
+        }
+    }
+
+    /**
+     * Session and Access Control Management
+     */
+    checkAuth() {
+        localStorage.removeItem('aether_pmo_session');
+        const sessionStr = sessionStorage.getItem('aether_pmo_session');
+        const loginSection = document.getElementById('login-section');
+        const appSection = document.getElementById('app-section');
+
+        if (!sessionStr) {
+            this.currentUser = null;
+            if (loginSection) loginSection.style.display = 'flex';
+            if (appSection) appSection.style.display = 'none';
+
+            // Auto fill email if remembered
+            const rememberedEmail = localStorage.getItem('aether_pmo_remember_email');
+            const emailInput = document.getElementById('login-email');
+            const rememberCheckbox = document.getElementById('login-remember-me');
+            if (emailInput && rememberedEmail) {
+                emailInput.value = rememberedEmail;
+                if (rememberCheckbox) rememberCheckbox.checked = true;
+            }
+            return false;
+        }
+
+        try {
+            const parsedSession = JSON.parse(sessionStr);
+            if (!this.state.users) {
+                this.state.users = this.getDefaultUsers();
+            }
+            const matchedUser = this.state.users.find(u => u.email === parsedSession.email);
+            if (matchedUser) {
+                this.currentUser = matchedUser;
+            } else {
+                this.currentUser = parsedSession;
+            }
+            
+            this.state.userRole = (this.currentUser.role === 'SYS_ADMIN') ? 'Admin' : this.currentUser.role;
+            
+            if (loginSection) loginSection.style.display = 'none';
+            if (appSection) appSection.style.display = 'grid';
+
+            // Update user info in sidebar & header
+            const profileName = document.getElementById('user-profile-name');
+            const profileRole = document.getElementById('user-profile-role');
+            const headerName = document.getElementById('user-header-name');
+            const headerRole = document.getElementById('user-header-role');
+
+            if (profileName) profileName.textContent = this.currentUser.name;
+            if (profileRole) profileRole.textContent = this.translateRoleLabel(this.currentUser.role);
+            if (headerName) headerName.textContent = this.currentUser.name;
+            if (headerRole) {
+                headerRole.textContent = this.translateRoleBadge(this.currentUser.role);
+                headerRole.style.background = this.getRoleBadgeBg(this.currentUser.role);
+                headerRole.style.color = this.getRoleBadgeColor(this.currentUser.role);
+            }
+
+            // Render modern avatars
+            this.renderUserAvatars();
+
+            return true;
+        } catch (e) {
+            console.error('Session parse failed', e);
+            sessionStorage.removeItem('aether_pmo_session');
+            return false;
+        }
+    }
+
+    translateRoleLabel(role) {
+        const labels = {
+            SYS_ADMIN: '시스템 관리자',
+            EXEC_ADMIN: '총괄 관리자',
+            PM: 'Project Manager',
+            WORKER: '수행담당자',
+            VIEWER: '조회자'
+        };
+        return labels[role] || role;
+    }
+
+    translateRoleBadge(role) {
+        const badges = {
+            SYS_ADMIN: '시스템 관리자',
+            EXEC_ADMIN: '총괄 관리자',
+            PM: 'PM',
+            WORKER: '수행담당자',
+            VIEWER: '조회자'
+        };
+        return badges[role] || role;
+    }
+
+    translateRoleAvatar(role) {
+        const avatars = {
+            SYS_ADMIN: 'SA',
+            EXEC_ADMIN: '총괄',
+            PM: 'PM',
+            WORKER: '수행',
+            VIEWER: '조회'
+        };
+        return avatars[role] || 'PM';
+    }
+
+    getRoleBadgeBg(role) {
+        const bgs = {
+            SYS_ADMIN: 'rgba(239, 68, 68, 0.15)',
+            EXEC_ADMIN: 'rgba(139, 92, 246, 0.15)',
+            PM: 'rgba(59, 130, 246, 0.15)',
+            WORKER: 'rgba(16, 185, 129, 0.15)',
+            VIEWER: 'rgba(107, 114, 128, 0.15)'
+        };
+        return bgs[role] || 'rgba(99, 102, 241, 0.15)';
+    }
+
+    getRoleBadgeColor(role) {
+        const colors = {
+            SYS_ADMIN: '#f87171',
+            EXEC_ADMIN: '#a78bfa',
+            PM: '#60a5fa',
+            WORKER: '#34d399',
+            VIEWER: '#9ca3af'
+        };
+        return colors[role] || '#818cf8';
+    }
+
+    handleLogin() {
+        const emailInput = document.getElementById('login-email');
+        const passwordInput = document.getElementById('login-password');
+        const rememberCheckbox = document.getElementById('login-remember-me');
+
+        if (!emailInput || !passwordInput) return;
+
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+
+        if (!this.state.users) {
+            this.state.users = this.getDefaultUsers();
+        }
+        const matchedUser = this.state.users.find(u => u.email === email && u.password === password);
+
+        if (!matchedUser) {
+            alert('이메일 또는 비밀번호가 올바르지 않습니다.');
+            passwordInput.value = '';
+            passwordInput.focus();
+            return;
+        }
+
+        // Save session
+        sessionStorage.setItem('aether_pmo_session', JSON.stringify({
+            email: matchedUser.email,
+            role: matchedUser.role,
+            name: matchedUser.name
+        }));
+
+        // Remember email
+        if (rememberCheckbox && rememberCheckbox.checked) {
+            localStorage.setItem('aether_pmo_remember_email', email);
+        } else {
+            localStorage.removeItem('aether_pmo_remember_email');
+        }
+
+        // Initialize state role
+        this.state.userRole = (matchedUser.role === 'SYS_ADMIN') ? 'Admin' : matchedUser.role;
+        this.saveState();
+
+        // Clear password form field
+        passwordInput.value = '';
+
+        // Trigger auth verify & UI switch
+        this.checkAuth();
+
+        // Navigate to Home
+        window.location.hash = 'dashboard';
+        this.handleRouting();
+    }
+
+    logout() {
+        if (confirm('로그아웃 하시겠습니까?')) {
+            localStorage.removeItem('aether_pmo_session');
+            sessionStorage.removeItem('aether_pmo_session');
+            this.currentUser = null;
+            this.activeProjectId = null;
+            this.activeProjectStageFilter = 'Active';
+            this.activeBiddingStatusFilter = 'all';
+            this.activeDetailTab = 'overview';
+            if (this.state) {
+                this.state.userRole = 'PM';
+            }
+            this.checkAuth();
+            window.location.hash = '';
+        }
+    }
+
+    applyRolePermissions() {
+        const session = this.currentUser;
+        if (!session) return;
+
+        const role = session.role;
+        const projectId = this.activeProjectId;
+        const project = projectId ? this.state.projects.find(p => p.id === projectId) : null;
+
+        // 1. Sidebar menu visibility
+        const backupMenu = document.querySelector('.sidebar-nav .nav-item[data-view="backup"]');
+        if (backupMenu) {
+            backupMenu.style.display = (role === 'SYS_ADMIN') ? 'flex' : 'none';
+        }
+
+        const officialDocsMenu = document.querySelector('.sidebar-nav .nav-item[data-view="official-docs"]');
+        if (officialDocsMenu) {
+            officialDocsMenu.style.display = (role === 'WORKER') ? 'none' : 'flex';
+        }
+
+        // Helper checks for PM and Worker scoping
+        const isProjectManager = project && (project.managerId === session.email || (session.assignedProjectIds && session.assignedProjectIds.includes(project.id)));
+        const isProjectMember = project && (project.memberIds && (project.memberIds.includes(session.email) || (session.assignedProjectIds && session.assignedProjectIds.includes(project.id))));
+
+        // Reset display of all elements with onclick attribute to default first
+        document.querySelectorAll('[onclick]').forEach(el => {
+            const clickAttr = el.getAttribute('onclick');
+            if (clickAttr && !clickAttr.includes('logout') && !clickAttr.includes('toggle') && !clickAttr.includes('openUserSettingsModal')) {
+                el.style.display = '';
+            }
+        });
+
+        // Reset input disabled states
+        document.querySelectorAll('input, select, textarea').forEach(el => {
+            if (el.id && !el.id.toLowerCase().includes('search') && !el.id.toLowerCase().includes('filter') && el.id !== 'global-search' && !el.className.includes('search')) {
+                el.disabled = false;
+            }
+        });
+
+        // Reset checklist elements
+        const chkBtn = document.getElementById('btn-add-checklist');
+        if (chkBtn) chkBtn.style.display = 'inline-block';
+        document.querySelectorAll('#project-checklists-tbody input[type="checkbox"]').forEach(el => {
+            el.disabled = false;
+        });
+
+        // 2. Hide / Show buttons and disable inputs based on role and scopes
+        if (role === 'SYS_ADMIN') {
+            // Full CRUD, no restrictions
+        }
+        else if (role === 'EXEC_ADMIN') {
+            // Globally read-only, except status memo, risk review comments, action item verification comments
+            const modifySelectors = [
+                'openNewProjectModal', 'openEditProjectModal', 'deleteProject',
+                'openNewArtifactModal', 'openEditArtifactModal', 'deleteArtifact',
+                'openNewIssueModal', 'openEditIssueModal', 'deleteIssue',
+                'openNewActionItemModal', 'openEditActionItemModal', 'deleteActionItem',
+                'openNewOfficialDocModal', 'openEditOfficialDocModal', 'deleteOfficialDoc',
+                'openNewMeetingMinutesModal', 'openEditMeetingMinutesModal', 'deleteMeetingMinutes',
+                'triggerTemplateUpload', 'submitTemplateAsArtifact', 'deleteTemplateFile',
+                'openNewGlobalTemplateModal', 'openEditGlobalTemplateModal', 'deleteGlobalTemplate',
+                'openChecklistModal', 'clearActivityLogs', 'exportDatabase', 'importDatabase',
+                'resetToMockData', 'registerBiddingProjectFromG2B'
+            ];
+            modifySelectors.forEach(method => {
+                document.querySelectorAll(`[onclick*="${method}"]`).forEach(el => {
+                    el.style.display = 'none';
+                });
+            });
+
+            // Disable checklist checkbox inputs
+            document.querySelectorAll('#project-checklists-tbody input[type="checkbox"]').forEach(el => {
+                el.disabled = true;
+            });
+            if (chkBtn) chkBtn.style.display = 'none';
+
+            // Disable all inputs except allowed comments/memos fields
+            document.querySelectorAll('input, select, textarea').forEach(el => {
+                if (el.id && !el.id.toLowerCase().includes('search') && !el.id.toLowerCase().includes('filter') && el.id !== 'global-search' && !el.className.includes('search')) {
+                    const isAllowedField = el.id === 'project-remarks-input' || 
+                                           el.id === 'issue-review-comment' || 
+                                           el.id === 'action-item-confirm-comment';
+                    if (!isAllowedField) {
+                        el.disabled = true;
+                    }
+                }
+            });
+
+            // Ensure the comment save buttons remain visible
+            document.querySelectorAll('#btn-save-project-remarks, #btn-save-issue-comment, #btn-save-action-comment').forEach(el => {
+                el.style.display = '';
+            });
+        }
+        else if (role === 'PM') {
+            // PM can create new projects
+            // PM can edit ONLY projects they manage
+            // PM cannot delete projects globally
+            document.querySelectorAll('[onclick*="deleteProject"]').forEach(el => {
+                el.style.display = 'none';
+            });
+
+            if (project) {
+                if (isProjectManager) {
+                    // Manager of this project: allow editing and adding items
+                } else {
+                    // Non-manager: read-only
+                    const projectModifySelectors = [
+                        'openEditProjectModal',
+                        'openNewArtifactModal', 'openEditArtifactModal', 'deleteArtifact',
+                        'openNewIssueModal', 'openEditIssueModal', 'deleteIssue',
+                        'openNewActionItemModal', 'openEditActionItemModal', 'deleteActionItem',
+                        'openNewOfficialDocModal', 'openEditOfficialDocModal', 'deleteOfficialDoc',
+                        'openNewMeetingMinutesModal', 'openEditMeetingMinutesModal', 'deleteMeetingMinutes',
+                        'triggerTemplateUpload', 'submitTemplateAsArtifact', 'deleteTemplateFile',
+                        'openChecklistModal'
+                    ];
+                    projectModifySelectors.forEach(method => {
+                        document.querySelectorAll(`[onclick*="${method}"]`).forEach(el => {
+                            el.style.display = 'none';
+                        });
+                    });
+
+                    // Disable checklists and fields
+                    document.querySelectorAll('#project-checklists-tbody input[type="checkbox"]').forEach(el => {
+                        el.disabled = true;
+                    });
+                    if (chkBtn) chkBtn.style.display = 'none';
+
+                    document.querySelectorAll('input, select, textarea').forEach(el => {
+                        if (el.id && !el.id.toLowerCase().includes('search') && !el.id.toLowerCase().includes('filter') && el.id !== 'global-search' && !el.className.includes('search')) {
+                            el.disabled = true;
+                        }
+                    });
+                }
+            }
+        }
+        else if (role === 'WORKER') {
+            // WORKER cannot edit/create/delete projects or official docs
+            // WORKER cannot delete items globally (no deletion rights)
+            const forbiddenSelectors = [
+                'openNewProjectModal', 'openEditProjectModal', 'deleteProject',
+                'openNewOfficialDocModal', 'openEditOfficialDocModal', 'deleteOfficialDoc',
+                'openNewGlobalTemplateModal', 'openEditGlobalTemplateModal', 'deleteGlobalTemplate',
+                'clearActivityLogs', 'exportDatabase', 'importDatabase', 'resetToMockData',
+                'registerBiddingProjectFromG2B',
+                'deleteArtifact', 'deleteIssue', 'deleteActionItem', 'deleteMeetingMinutes', 'deleteTemplateFile'
+            ];
+            forbiddenSelectors.forEach(method => {
+                document.querySelectorAll(`[onclick*="${method}"]`).forEach(el => {
+                    el.style.display = 'none';
+                });
+            });
+
+            if (project) {
+                if (isProjectMember) {
+                    // Participating project: can add/edit items but cannot delete
+                    const itemModifySelectors = [
+                        'openNewArtifactModal', 'openEditArtifactModal',
+                        'openNewIssueModal', 'openEditIssueModal',
+                        'openNewActionItemModal', 'openEditActionItemModal',
+                        'openNewMeetingMinutesModal', 'openEditMeetingMinutesModal',
+                        'triggerTemplateUpload', 'submitTemplateAsArtifact'
+                    ];
+                    itemModifySelectors.forEach(method => {
+                        document.querySelectorAll(`[onclick*="${method}"]`).forEach(el => {
+                            el.style.display = '';
+                        });
+                    });
+                } else {
+                    // Non-participating project: completely read-only
+                    const itemModifySelectors = [
+                        'openNewArtifactModal', 'openEditArtifactModal',
+                        'openNewIssueModal', 'openEditIssueModal',
+                        'openNewActionItemModal', 'openEditActionItemModal',
+                        'openNewMeetingMinutesModal', 'openEditMeetingMinutesModal',
+                        'triggerTemplateUpload', 'submitTemplateAsArtifact'
+                    ];
+                    itemModifySelectors.forEach(method => {
+                        document.querySelectorAll(`[onclick*="${method}"]`).forEach(el => {
+                            el.style.display = 'none';
+                        });
+                    });
+
+                    document.querySelectorAll('#project-checklists-tbody input[type="checkbox"]').forEach(el => {
+                        el.disabled = true;
+                    });
+                    if (chkBtn) chkBtn.style.display = 'none';
+
+                    document.querySelectorAll('input, select, textarea').forEach(el => {
+                        if (el.id && !el.id.toLowerCase().includes('search') && !el.id.toLowerCase().includes('filter') && el.id !== 'global-search' && !el.className.includes('search')) {
+                            el.disabled = true;
+                        }
+                    });
+                }
+            }
+        }
+        else if (role === 'VIEWER') {
+            // Completely read-only
+            const modifySelectors = [
+                'openNewProjectModal', 'openEditProjectModal', 'deleteProject',
+                'openNewArtifactModal', 'openEditArtifactModal', 'deleteArtifact',
+                'openNewIssueModal', 'openEditIssueModal', 'deleteIssue',
+                'openNewActionItemModal', 'openEditActionItemModal', 'deleteActionItem',
+                'openNewOfficialDocModal', 'openEditOfficialDocModal', 'deleteOfficialDoc',
+                'openNewMeetingMinutesModal', 'openEditMeetingMinutesModal', 'deleteMeetingMinutes',
+                'triggerTemplateUpload', 'submitTemplateAsArtifact', 'deleteTemplateFile',
+                'openNewGlobalTemplateModal', 'openEditGlobalTemplateModal', 'deleteGlobalTemplate',
+                'openChecklistModal', 'clearActivityLogs', 'exportDatabase', 'importDatabase',
+                'resetToMockData', 'registerBiddingProjectFromG2B'
+            ];
+            modifySelectors.forEach(method => {
+                document.querySelectorAll(`[onclick*="${method}"]`).forEach(el => {
+                    el.style.display = 'none';
+                });
+            });
+
+            document.querySelectorAll('#project-checklists-tbody input[type="checkbox"]').forEach(el => {
+                el.disabled = true;
+            });
+            if (chkBtn) chkBtn.style.display = 'none';
+
+            document.querySelectorAll('input, select, textarea').forEach(el => {
+                if (el.id && !el.id.toLowerCase().includes('search') && !el.id.toLowerCase().includes('filter') && el.id !== 'global-search' && !el.className.includes('search')) {
+                    el.disabled = true;
+                }
+            });
+        }
+
+        // Force userRole for compatibility with global templates checks
+        this.state.userRole = (role === 'SYS_ADMIN') ? 'Admin' : 'PM';
+    }
+
+    saveProjectRemarks(projectId) {
+        const input = document.getElementById('project-remarks-input');
+        if (!input) return;
+        const remarksVal = input.value.trim();
+        const project = this.state.projects.find(p => p.id === projectId);
+        if (project) {
+            project.remarks = remarksVal;
+            this.addActivityLog(projectId, project.name, 'project', `상태 메모 업데이트: "${remarksVal}"`);
+            this.saveState();
+            alert('상태 메모가 저장되었습니다.');
+            this.renderProjectDetail(projectId);
+        }
+    }
+
+    saveIssueReviewComment() {
+        const input = document.getElementById('issue-review-comment');
+        if (!input) return;
+        const commentVal = input.value.trim();
+        const issue = this.state.issues.find(i => i.id === this.activeIssueId);
+        if (issue) {
+            issue.reviewComment = commentVal;
+            this.saveState();
+            alert('리스크 검토의견이 저장되었습니다.');
+            this.renderIssues();
+        }
+    }
+
+    saveActionItemConfirmComment() {
+        const input = document.getElementById('action-item-confirm-comment');
+        if (!input) return;
+        const commentVal = input.value.trim();
+        const act = this.state.actionItems.find(a => a.id === this.activeActionItemId);
+        if (act) {
+            act.confirmComment = commentVal;
+            this.saveState();
+            alert('Action Item 확인 코멘트가 저장되었습니다.');
+            this.renderActionItems();
         }
     }
 
@@ -79,6 +540,7 @@ class AetherPMO {
                 this.state = JSON.parse(stored);
                 // Ensure all arrays exist
                 if (!this.state.projects) this.state.projects = [];
+                if (!this.state.users) this.state.users = this.getDefaultUsers();
                 if (!this.state.g2bAnnouncements) this.state.g2bAnnouncements = [];
                 if (!this.state.artifacts) this.state.artifacts = [];
                 if (!this.state.checklists) this.state.checklists = [];
@@ -141,6 +603,22 @@ class AetherPMO {
 
         this.state.projects.forEach(p => {
             // Check and migrate each new field
+            if (!p.managerId) {
+                if (p.manager && (p.manager.includes('안유경') || p.id === 'proj-1' || p.id === 'proj-6')) {
+                    p.managerId = 'pm@aetherpmo.com';
+                } else {
+                    p.managerId = 'other_pm@aetherpmo.com';
+                }
+                stateUpdated = true;
+            }
+            if (!p.memberIds) {
+                if (p.id === 'proj-1' || p.id === 'proj-2') {
+                    p.memberIds = ['pm@aetherpmo.com', 'worker@aetherpmo.com'];
+                } else {
+                    p.memberIds = ['pm@aetherpmo.com'];
+                }
+                stateUpdated = true;
+            }
             if (!p.projectCode) { 
                 p.projectCode = p.id === 'proj-2' ? 'PRJ-2026-001' : `PRJ-2026-${p.id.replace('proj-', '').padStart(3, '0')}`; 
                 stateUpdated = true; 
@@ -363,6 +841,7 @@ class AetherPMO {
      * Generate rich initial mockup database for demonstration
      */
     loadMockData() {
+        this.state.users = this.getDefaultUsers();
         this.state.userRole = 'PM';
         this.state.recentlyDownloaded = [];
         this.state.globalTemplates = this.getDefaultGlobalTemplates();
@@ -968,6 +1447,21 @@ class AetherPMO {
                     notifPanel.classList.remove('open');
                 }
             });
+
+            // Close user menus when clicking outside
+            document.addEventListener('click', (e) => {
+                const userMenu = document.getElementById('user-menu-panel');
+                const userHeaderInfo = document.getElementById('user-header-info');
+                if (userMenu && !userMenu.contains(e.target) && (!userHeaderInfo || !userHeaderInfo.contains(e.target))) {
+                    userMenu.classList.remove('open');
+                }
+                
+                const sidebarMenu = document.getElementById('sidebar-user-menu-panel');
+                const sidebarBadge = document.getElementById('sidebar-user-badge');
+                if (sidebarMenu && !sidebarMenu.contains(e.target) && (!sidebarBadge || !sidebarBadge.contains(e.target))) {
+                    sidebarMenu.classList.remove('open');
+                }
+            });
         }
 
         const markAllReadBtn = document.getElementById('mark-all-read');
@@ -1100,9 +1594,32 @@ class AetherPMO {
     }
 
     handleRouting() {
+        // First check authentication
+        const isAuthenticated = this.checkAuth();
+        if (!isAuthenticated) {
+            // Force show login wrapper and block further routing
+            if (window.location.hash !== '') {
+                window.location.hash = '';
+            }
+            return;
+        }
+
         const hash = window.location.hash.substring(1) || 'dashboard';
         const parts = hash.split('/');
         const mainRoute = parts[0];
+
+        // Access route verification based on role
+        const role = this.currentUser ? this.currentUser.role : null;
+        if (mainRoute === 'backup' && role !== 'SYS_ADMIN') {
+            alert('시스템 설정 메뉴는 시스템 관리자만 접근할 수 있습니다.');
+            window.location.hash = 'dashboard';
+            return;
+        }
+        if (mainRoute === 'official-docs' && role === 'WORKER') {
+            alert('공문 관리 메뉴에 접근할 권한이 없습니다.');
+            window.location.hash = 'dashboard';
+            return;
+        }
 
         if (mainRoute === 'project-detail' && parts[1]) {
             this.switchView('project-detail', parts[1]);
@@ -1190,6 +1707,7 @@ class AetherPMO {
         // View controllers
         if (viewName === 'dashboard') {
             this.renderDashboard();
+            this.renderPersonalizedDashboard();
         } else if (viewName === 'projects') {
             this.renderProjects();
         } else if (viewName === 'project-detail' && params) {
@@ -1205,7 +1723,7 @@ class AetherPMO {
         } else if (viewName === 'meeting-minutes') {
             this.renderMeetingMinutes();
         } else if (viewName === 'backup') {
-            // Re-render program info version if needed
+            this.renderUserManagementTable();
         }
 
         this.updateNotifications();
@@ -1714,6 +2232,8 @@ class AetherPMO {
             grid.appendChild(card);
         });
 
+        this.applyRolePermissions();
+
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
@@ -1821,6 +2341,8 @@ class AetherPMO {
         // 2. Render G2B Announcements (Right Panel)
         this.renderG2BAnnouncements();
 
+        this.applyRolePermissions();
+
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
@@ -1898,6 +2420,8 @@ class AetherPMO {
             `;
             tbody.appendChild(tr);
         });
+
+        this.applyRolePermissions();
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -2076,6 +2600,8 @@ class AetherPMO {
             tbody.appendChild(tr);
         });
 
+        this.applyRolePermissions();
+
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
@@ -2135,6 +2661,8 @@ class AetherPMO {
             const projectDocs = this.state.officialDocs.filter(d => d.projectId === this.activeProjectId);
             this.renderProjectDetailOfficialDocsTable(projectDocs);
         }
+
+        this.applyRolePermissions();
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -2292,9 +2820,12 @@ class AetherPMO {
                         <span style="color:var(--text-muted); font-weight:700;">관련사업</span>
                         <span style="font-weight:700; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:140px;" title="${project.relatedBiz || '-'}">${project.relatedBiz || '-'}</span>
                     </div>
-                    <div style="display:flex; flex-direction:column; gap:4px; padding-top:4px;">
-                        <span style="color:var(--text-muted); font-weight:700;">비고</span>
-                        <span style="color:var(--text-main); font-weight:600; line-height:1.4;">${project.remarks || '등록된 비고가 없습니다.'}</span>
+                    <div style="display:flex; flex-direction:column; gap:6px; padding-top:4px;">
+                        <span style="color:var(--text-muted); font-weight:700;">상태 메모 (비고)</span>
+                        <div style="display:flex; gap:8px; align-items:center; margin-top:2px;">
+                            <input type="text" id="project-remarks-input" value="${project.remarks || ''}" placeholder="상태 메모를 입력하세요" style="flex:1; padding:6px 10px; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-hover-item); color:var(--text-main); font-size:12px;">
+                            <button type="button" class="btn btn-xs btn-primary" id="btn-save-project-remarks" onclick="app.saveProjectRemarks('${project.id}')">저장</button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -2622,6 +3153,8 @@ class AetherPMO {
             `;
             container.appendChild(tr);
         });
+        
+        this.applyRolePermissions();
     }
 
     toggleChecklistItem(id, checked) {
@@ -2729,6 +3262,8 @@ class AetherPMO {
             `;
             tbody.appendChild(tr);
         });
+
+        this.applyRolePermissions();
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -3079,10 +3614,24 @@ class AetherPMO {
                 relatedBiz: relatedBiz || '연계 구축 사업',
                 riskLevel: riskLevel || '보통',
                 wbs: wbs,
-                resourcesList: defaultResourcesList
+                resourcesList: defaultResourcesList,
+                managerId: this.currentUser.role === 'PM' ? this.currentUser.email : 'pm@aetherpmo.com',
+                memberIds: [this.currentUser.role === 'PM' ? this.currentUser.email : 'pm@aetherpmo.com', 'worker@aetherpmo.com']
             };
 
             this.state.projects.push(newProject);
+            
+            // Map project ID to active PM's assignedProjectIds
+            if (this.currentUser.assignedProjectIds) {
+                this.currentUser.assignedProjectIds.push(newId);
+            }
+            const activeUserInState = this.state.users.find(u => u.email === this.currentUser.email);
+            if (activeUserInState && activeUserInState.assignedProjectIds) {
+                if (!activeUserInState.assignedProjectIds.includes(newId)) {
+                    activeUserInState.assignedProjectIds.push(newId);
+                }
+            }
+
             this.preloadTemplateSlotsForProject(newId);
 
             const defaultCats = [
@@ -3591,6 +4140,8 @@ class AetherPMO {
             tbody.appendChild(tr);
         });
 
+        this.applyRolePermissions();
+
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
@@ -3718,6 +4269,7 @@ class AetherPMO {
         const iss = this.state.issues.find(i => i.id === id);
         if (!iss) return;
 
+        this.activeIssueId = id;
         const project = this.state.projects.find(p => p.id === iss.projectId);
         document.getElementById('det-issue-project').textContent = project ? project.name : '-';
         document.getElementById('det-issue-title').textContent = iss.title;
@@ -3730,7 +4282,13 @@ class AetherPMO {
         document.getElementById('det-issue-action-plan').textContent = iss.actionPlan || '-';
         document.getElementById('det-issue-remarks').textContent = iss.remarks || '-';
 
+        const reviewCommentInput = document.getElementById('issue-review-comment');
+        if (reviewCommentInput) {
+            reviewCommentInput.value = iss.reviewComment || '';
+        }
+
         document.getElementById('issue-detail-modal').classList.add('open');
+        this.applyRolePermissions();
     }
 
     /* ==========================================================================
@@ -3803,6 +4361,8 @@ class AetherPMO {
             `;
             tbody.appendChild(tr);
         });
+
+        this.applyRolePermissions();
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -3928,6 +4488,7 @@ class AetherPMO {
         const act = this.state.actionItems.find(a => a.id === id);
         if (!act) return;
 
+        this.activeActionItemId = id;
         const project = this.state.projects.find(p => p.id === act.projectId);
         document.getElementById('det-action-project').textContent = project ? project.name : '-';
         document.getElementById('det-action-title').textContent = act.title;
@@ -3938,7 +4499,13 @@ class AetherPMO {
         document.getElementById('det-action-plan').textContent = act.actionPlan || '-';
         document.getElementById('det-action-remarks').textContent = act.remarks || '-';
 
+        const confirmCommentInput = document.getElementById('action-item-confirm-comment');
+        if (confirmCommentInput) {
+            confirmCommentInput.value = act.confirmComment || '';
+        }
+
         document.getElementById('action-item-detail-modal').classList.add('open');
+        this.applyRolePermissions();
     }
 
     /* ==========================================================================
@@ -4014,6 +4581,8 @@ class AetherPMO {
             `;
             tbody.appendChild(tr);
         });
+
+        this.applyRolePermissions();
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -4221,6 +4790,8 @@ class AetherPMO {
             `;
             container.appendChild(card);
         });
+
+        this.applyRolePermissions();
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -4602,6 +5173,715 @@ class AetherPMO {
             this.addActivityLog(null, null, 'artifact', `템플릿 삭제: ${temp.name}`);
             this.saveState();
             this.renderArtifacts();
+        }
+    }
+
+    getDefaultUsers() {
+        return [
+            {
+                email: 'admin@aetherpmo.com',
+                password: 'admin1234',
+                role: 'SYS_ADMIN',
+                name: '시스템 관리자',
+                company: 'AetherIT',
+                division: 'IT운영본부',
+                position: '수석',
+                phone: '010-1111-2222',
+                profileImage: '',
+                profileColor: '#8b5cf6', // purple
+                initials: 'AD',
+                avatarType: 'default',
+                assignedProjectIds: ['proj-1', 'proj-2', 'proj-3', 'proj-4', 'proj-5', 'proj-6', 'proj-7', 'proj-8'],
+                notifications: {
+                    actionItem: true,
+                    risk: true,
+                    meeting: true,
+                    officialDoc: true,
+                    artifact: true,
+                    projectOverdue: true
+                }
+            },
+            {
+                email: 'manager@aetherpmo.com',
+                password: 'manager1234',
+                role: 'EXEC_ADMIN',
+                name: '총괄 관리자',
+                company: 'AetherIT',
+                division: '사업관리본부',
+                position: '본부장',
+                phone: '010-2222-3333',
+                profileImage: '',
+                profileColor: '#3b82f6', // blue
+                initials: 'AD',
+                avatarType: 'default',
+                assignedProjectIds: ['proj-1', 'proj-2', 'proj-3', 'proj-4', 'proj-5', 'proj-6', 'proj-7', 'proj-8'],
+                notifications: {
+                    actionItem: true,
+                    risk: true,
+                    meeting: true,
+                    officialDoc: true,
+                    artifact: true,
+                    projectOverdue: true
+                }
+            },
+            {
+                email: 'pm@aetherpmo.com',
+                password: 'pm1234',
+                role: 'PM',
+                name: '안유경 PM',
+                company: 'AetherIT',
+                division: 'SI사업본부',
+                position: '부장',
+                phone: '010-3333-4444',
+                profileImage: '',
+                profileColor: '#06b6d4', // teal
+                initials: 'PM',
+                avatarType: 'default',
+                assignedProjectIds: ['proj-1', 'proj-6'], // 안유경 PM's projects
+                notifications: {
+                    actionItem: true,
+                    risk: true,
+                    meeting: true,
+                    officialDoc: true,
+                    artifact: true,
+                    projectOverdue: true
+                }
+            },
+            {
+                email: 'worker@aetherpmo.com',
+                password: 'worker1234',
+                role: 'WORKER',
+                name: '수행 담당자',
+                company: 'AetherIT',
+                division: '개발본부',
+                position: '대리',
+                phone: '010-4444-5555',
+                profileImage: '',
+                profileColor: '#10b981', // green
+                initials: '수행',
+                avatarType: 'default',
+                assignedProjectIds: ['proj-1', 'proj-2'], // participating projects
+                notifications: {
+                    actionItem: true,
+                    risk: true,
+                    meeting: true,
+                    officialDoc: true,
+                    artifact: true,
+                    projectOverdue: true
+                }
+            },
+            {
+                email: 'viewer@aetherpmo.com',
+                password: 'viewer1234',
+                role: 'VIEWER',
+                name: '조회자',
+                company: 'AetherIT',
+                division: '경영지원본부',
+                position: '사원',
+                phone: '010-5555-6666',
+                profileImage: '',
+                profileColor: '#6b7280', // gray
+                initials: '조회',
+                avatarType: 'default',
+                assignedProjectIds: ['proj-1', 'proj-2', 'proj-3', 'proj-4', 'proj-5', 'proj-6', 'proj-7', 'proj-8'],
+                notifications: {
+                    actionItem: true,
+                    risk: true,
+                    meeting: true,
+                    officialDoc: true,
+                    artifact: true,
+                    projectOverdue: true
+                }
+            }
+        ];
+    }
+
+    toggleUserMenu(e) {
+        e.stopPropagation();
+        const userMenu = document.getElementById('user-menu-panel');
+        if (userMenu) {
+            userMenu.classList.toggle('open');
+            // Close notification panel if open
+            const notifPanel = document.getElementById('notif-panel');
+            if (notifPanel) notifPanel.classList.remove('open');
+            
+            // Close sidebar user menu if open
+            const sidebarMenu = document.getElementById('sidebar-user-menu-panel');
+            if (sidebarMenu) sidebarMenu.classList.remove('open');
+        }
+    }
+
+    toggleSidebarUserMenu(e) {
+        e.stopPropagation();
+        const sidebarMenu = document.getElementById('sidebar-user-menu-panel');
+        if (sidebarMenu) {
+            sidebarMenu.classList.toggle('open');
+            // Close notification panel if open
+            const notifPanel = document.getElementById('notif-panel');
+            if (notifPanel) notifPanel.classList.remove('open');
+            
+            // Close header menu if open
+            const headerMenu = document.getElementById('user-menu-panel');
+            if (headerMenu) headerMenu.classList.remove('open');
+        }
+    }
+
+    renderUserAvatars() {
+        const user = this.currentUser;
+        if (!user) return;
+
+        const headerAvatar = document.getElementById('user-header-avatar');
+        const sidebarAvatar = document.getElementById('user-role-avatar');
+
+        const updateAvatar = (el) => {
+            if (!el) return;
+            el.innerHTML = '';
+            
+            // Clean classes but keep avatar
+            el.className = 'avatar';
+            el.classList.add(`role-${user.role}`);
+
+            if (user.avatarType === 'image' && user.profileImage) {
+                const img = document.createElement('img');
+                img.src = user.profileImage;
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'cover';
+                img.style.borderRadius = '50%';
+                el.appendChild(img);
+            } else {
+                // Determine initials
+                let initials = user.initials || 'AD';
+                if (user.avatarType === 'default') {
+                    initials = this.translateRoleAvatar(user.role);
+                }
+                el.textContent = initials;
+                el.style.backgroundColor = user.profileColor || '#8b5cf6';
+                el.style.color = '#ffffff';
+            }
+        };
+
+        updateAvatar(headerAvatar);
+        updateAvatar(sidebarAvatar);
+    }
+
+    openUserSettingsModal(tabName = 'info') {
+        const modal = document.getElementById('user-profile-modal');
+        if (!modal) return;
+
+        const user = this.currentUser;
+        if (!user) return;
+
+        // Close dropdown panels
+        document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('open'));
+
+        // Pre-fill fields
+        document.getElementById('edit-user-email').value = user.email;
+        document.getElementById('edit-user-email-display').value = user.email;
+        document.getElementById('edit-user-name').value = user.name || '';
+        document.getElementById('edit-user-company').value = user.company || '';
+        document.getElementById('edit-user-division').value = user.division || '';
+        document.getElementById('edit-user-position').value = user.position || '';
+        document.getElementById('edit-user-role-display').value = this.translateRoleLabel(user.role);
+        document.getElementById('edit-user-phone').value = user.phone || '';
+
+        // Avatar Preview details
+        this.tempProfileImage = user.profileImage || '';
+        this.tempAvatarType = user.avatarType || 'default';
+        this.tempProfileColor = user.profileColor || '#8b5cf6';
+
+        // Select color dropdown value
+        const colorSelect = document.getElementById('edit-user-color');
+        if (colorSelect) {
+            colorSelect.value = this.tempProfileColor;
+        }
+
+        // Notification checkboxes
+        const notifs = user.notifications || {};
+        const actionItemCheck = document.getElementById('edit-notif-action-item');
+        const riskCheck = document.getElementById('edit-notif-risk');
+        const meetingCheck = document.getElementById('edit-notif-meeting');
+        const docCheck = document.getElementById('edit-notif-official-doc');
+        const artifactCheck = document.getElementById('edit-notif-artifact');
+        const overdueCheck = document.getElementById('edit-notif-project-overdue');
+
+        if (actionItemCheck) actionItemCheck.checked = !!notifs.actionItem;
+        if (riskCheck) riskCheck.checked = !!notifs.risk;
+        if (meetingCheck) meetingCheck.checked = !!notifs.meeting;
+        if (docCheck) docCheck.checked = !!notifs.officialDoc;
+        if (artifactCheck) artifactCheck.checked = !!notifs.artifact;
+        if (overdueCheck) overdueCheck.checked = !!notifs.projectOverdue;
+
+        // Password fields clear
+        const currentPw = document.getElementById('edit-password-current');
+        const newPw = document.getElementById('edit-password-new');
+        const confirmPw = document.getElementById('edit-password-confirm');
+        if (currentPw) currentPw.value = '';
+        if (newPw) newPw.value = '';
+        if (confirmPw) confirmPw.value = '';
+
+        // Open modal
+        modal.classList.add('open');
+        this.switchUserSettingTab(tabName);
+    }
+
+    switchUserSettingTab(tabName) {
+        // Switch tab buttons
+        document.querySelectorAll('.settings-tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        const activeBtn = document.getElementById(`user-tab-${tabName}-btn`);
+        if (activeBtn) activeBtn.classList.add('active');
+
+        // Switch tab panes
+        document.querySelectorAll('.tab-pane').forEach(pane => {
+            pane.style.display = 'none';
+        });
+        const activePane = document.getElementById(`user-pane-${tabName}`);
+        if (activePane) {
+            activePane.style.display = activePane.id.includes('info') ? 'grid' : 'flex';
+        }
+
+        // Trigger preview refresh
+        this.updateProfileModalPreview();
+        
+        // Re-trigger Lucide icons in modal if any
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    handleProfileImageUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            this.tempProfileImage = event.target.result;
+            this.tempAvatarType = 'image';
+            this.updateProfileModalPreview();
+        };
+        reader.readAsDataURL(file);
+    }
+
+    deleteProfileImage() {
+        this.tempProfileImage = '';
+        this.tempAvatarType = 'initials';
+        this.updateProfileModalPreview();
+    }
+
+    useDefaultAvatarMode() {
+        this.tempAvatarType = 'default';
+        this.updateProfileModalPreview();
+    }
+
+    useInitialsAvatarMode() {
+        this.tempAvatarType = 'initials';
+        this.updateProfileModalPreview();
+    }
+
+    updateProfileModalPreviewFromColorSelect() {
+        const colorSelect = document.getElementById('edit-user-color');
+        if (colorSelect) {
+            this.tempProfileColor = colorSelect.value;
+            this.updateProfileModalPreview();
+        }
+    }
+
+    updateProfileModalPreview() {
+        const previewCircle = document.getElementById('profile-modal-preview');
+        const previewInitials = document.getElementById('profile-modal-initials');
+        const previewImg = document.getElementById('profile-modal-img');
+
+        if (!previewCircle || !previewInitials || !previewImg) return;
+
+        const nameInput = document.getElementById('edit-user-name');
+        const nameVal = nameInput ? nameInput.value.trim() : '';
+
+        // Determine initials
+        let initials = '';
+        if (nameVal) {
+            initials = nameVal.substring(0, 2);
+        } else {
+            initials = this.currentUser ? this.translateRoleAvatar(this.currentUser.role) : 'AD';
+        }
+
+        previewCircle.style.backgroundColor = this.tempProfileColor;
+
+        if (this.tempAvatarType === 'image' && this.tempProfileImage) {
+            previewImg.src = this.tempProfileImage;
+            previewImg.style.display = 'block';
+            previewInitials.style.display = 'none';
+        } else {
+            previewImg.style.display = 'none';
+            previewInitials.style.display = 'block';
+            previewInitials.textContent = initials;
+        }
+    }
+
+    closeUserProfileModal() {
+        const modal = document.getElementById('user-profile-modal');
+        if (modal) modal.classList.remove('open');
+    }
+
+    saveUserProfile() {
+        const email = document.getElementById('edit-user-email').value;
+        const nameVal = document.getElementById('edit-user-name').value.trim();
+
+        if (!nameVal) {
+            alert('이름은 필수 항목입니다.');
+            return;
+        }
+
+        // Find user in database
+        const userIndex = this.state.users.findIndex(u => u.email === email);
+        if (userIndex === -1) return;
+
+        const user = this.state.users[userIndex];
+
+        // 1. Password validation (if new password is entered)
+        const currentPw = document.getElementById('edit-password-current').value;
+        const newPw = document.getElementById('edit-password-new').value;
+        const confirmPw = document.getElementById('edit-password-confirm').value;
+
+        if (newPw || currentPw || confirmPw) {
+            if (currentPw !== user.password) {
+                alert('현재 비밀번호가 일치하지 않습니다.');
+                return;
+            }
+            if (!newPw) {
+                alert('새 비밀번호를 입력해주세요.');
+                return;
+            }
+            if (newPw !== confirmPw) {
+                alert('새 비밀번호와 확인 입력이 일치하지 않습니다.');
+                return;
+            }
+            // Update password
+            user.password = newPw;
+        }
+
+        // 2. Update basic fields
+        user.name = nameVal;
+        user.company = document.getElementById('edit-user-company').value.trim();
+        user.division = document.getElementById('edit-user-division').value.trim();
+        user.position = document.getElementById('edit-user-position').value.trim();
+        user.phone = document.getElementById('edit-user-phone').value.trim();
+
+        // 3. Update avatar settings
+        user.profileImage = this.tempProfileImage;
+        user.avatarType = this.tempAvatarType;
+        user.profileColor = this.tempProfileColor;
+        
+        // Derive initials
+        user.initials = nameVal.substring(0, 2);
+
+        // 4. Update notification preferences
+        user.notifications = {
+            actionItem: document.getElementById('edit-notif-action-item').checked,
+            risk: document.getElementById('edit-notif-risk').checked,
+            meeting: document.getElementById('edit-notif-meeting').checked,
+            officialDoc: document.getElementById('edit-notif-official-doc').checked,
+            artifact: document.getElementById('edit-notif-artifact').checked,
+            projectOverdue: document.getElementById('edit-notif-project-overdue').checked
+        };
+
+        // 5. Save state
+        this.saveState();
+
+        // Update session storage if current user changed
+        if (this.currentUser.email === email) {
+            this.currentUser = user;
+            sessionStorage.setItem('aether_pmo_session', JSON.stringify({
+                email: user.email,
+                role: user.role,
+                name: user.name
+            }));
+            
+            // Re-render auth and layout components
+            this.checkAuth();
+        }
+
+        // Re-render user management table if sys admin settings is open
+        this.renderUserManagementTable();
+
+        // Re-render dashboard
+        this.renderDashboard();
+
+        alert('개인설정이 정상적으로 저장되었습니다.');
+        this.closeUserProfileModal();
+    }
+
+    renderUserManagementTable() {
+        const tbody = document.getElementById('user-management-tbody');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+        
+        if (!this.state.users) {
+            this.state.users = this.getDefaultUsers();
+        }
+
+        this.state.users.forEach(u => {
+            const tr = document.createElement('tr');
+            
+            // Generate avatar preview markup
+            let avatarContent = '';
+            if (u.avatarType === 'image' && u.profileImage) {
+                avatarContent = `<img src="${u.profileImage}" style="width:28px; height:28px; border-radius:50%; object-fit:cover;">`;
+            } else {
+                let initials = u.initials || 'AD';
+                if (u.avatarType === 'default') {
+                    initials = this.translateRoleAvatar(u.role);
+                }
+                avatarContent = `<div style="width:28px; height:28px; border-radius:50%; background-color:${u.profileColor}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700;">${initials}</div>`;
+            }
+
+            tr.innerHTML = `
+                <td>
+                    <div style="display:flex; justify-content:center;">
+                        <div class="avatar role-${u.role}" style="width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; overflow:hidden;">
+                            ${avatarContent}
+                        </div>
+                    </div>
+                </td>
+                <td style="font-weight:700; color:var(--text-main);">${u.name}</td>
+                <td>${u.email}</td>
+                <td><span style="font-size:11px; font-weight:700; background:rgba(99, 102, 241, 0.15); color:var(--primary); padding:2px 8px; border-radius:4px;">${this.translateRoleLabel(u.role)}</span></td>
+                <td class="text-center">
+                    <div style="display:inline-block; width:16px; height:16px; border-radius:50%; background-color:${u.profileColor || '#8b5cf6'}; border:1px solid var(--bg-card-border); vertical-align:middle;"></div>
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-xs btn-outline" onclick="app.openEditUserProfileModal('${u.email}')">수정</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    openEditUserProfileModal(email) {
+        if (this.currentUser.role !== 'SYS_ADMIN') {
+            alert('사용자 권한 변경은 시스템 관리자만 가능합니다.');
+            return;
+        }
+
+        const modal = document.getElementById('user-profile-modal');
+        if (!modal) return;
+
+        const user = this.state.users.find(u => u.email === email);
+        if (!user) return;
+
+        // Close dropdown panels
+        document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('open'));
+
+        // Pre-fill fields
+        document.getElementById('edit-user-email').value = user.email;
+        document.getElementById('edit-user-email-display').value = user.email;
+        document.getElementById('edit-user-name').value = user.name || '';
+        document.getElementById('edit-user-company').value = user.company || '';
+        document.getElementById('edit-user-division').value = user.division || '';
+        document.getElementById('edit-user-position').value = user.position || '';
+        document.getElementById('edit-user-role-display').value = this.translateRoleLabel(user.role);
+        document.getElementById('edit-user-phone').value = user.phone || '';
+
+        // Avatar Preview details
+        this.tempProfileImage = user.profileImage || '';
+        this.tempAvatarType = user.avatarType || 'default';
+        this.tempProfileColor = user.profileColor || '#8b5cf6';
+
+        // Select color dropdown value
+        const colorSelect = document.getElementById('edit-user-color');
+        if (colorSelect) {
+            colorSelect.value = this.tempProfileColor;
+        }
+
+        // Notification checkboxes
+        const notifs = user.notifications || {};
+        const actionItemCheck = document.getElementById('edit-notif-action-item');
+        const riskCheck = document.getElementById('edit-notif-risk');
+        const meetingCheck = document.getElementById('edit-notif-meeting');
+        const docCheck = document.getElementById('edit-notif-official-doc');
+        const artifactCheck = document.getElementById('edit-notif-artifact');
+        const overdueCheck = document.getElementById('edit-notif-project-overdue');
+
+        if (actionItemCheck) actionItemCheck.checked = !!notifs.actionItem;
+        if (riskCheck) riskCheck.checked = !!notifs.risk;
+        if (meetingCheck) meetingCheck.checked = !!notifs.meeting;
+        if (docCheck) docCheck.checked = !!notifs.officialDoc;
+        if (artifactCheck) artifactCheck.checked = !!notifs.artifact;
+        if (overdueCheck) overdueCheck.checked = !!notifs.projectOverdue;
+
+        // Password fields clear
+        const currentPw = document.getElementById('edit-password-current');
+        const newPw = document.getElementById('edit-password-new');
+        const confirmPw = document.getElementById('edit-password-confirm');
+        if (currentPw) currentPw.value = '';
+        if (newPw) newPw.value = '';
+        if (confirmPw) confirmPw.value = '';
+
+        // Open modal
+        modal.classList.add('open');
+        this.switchUserSettingTab('info');
+    }
+
+    renderPersonalizedDashboard() {
+        const user = this.currentUser;
+        if (!user) return;
+
+        const role = user.role;
+        const execView = document.getElementById('dashboard-exec-view');
+        const personalView = document.getElementById('dashboard-personalized-view');
+        const pmSections = document.getElementById('pm-dashboard-sections');
+        const workerSections = document.getElementById('worker-dashboard-sections');
+
+        if (!execView || !personalView || !pmSections || !workerSections) return;
+
+        const isPersonalView = (role === 'PM' || role === 'WORKER');
+
+        if (!isPersonalView) {
+            execView.style.display = 'flex';
+            personalView.style.display = 'none';
+            pmSections.style.display = 'none';
+            workerSections.style.display = 'none';
+            return;
+        }
+
+        execView.style.display = 'none';
+        personalView.style.display = 'flex';
+
+        if (role === 'PM') {
+            pmSections.style.display = 'flex';
+            workerSections.style.display = 'none';
+
+            // Filter PM projects (managerId matches user's email or p.id is in user.assignedProjectIds)
+            const myProjects = this.state.projects.filter(p => p.managerId === user.email || (user.assignedProjectIds && user.assignedProjectIds.includes(p.id)));
+            const pmProjectsTbody = document.getElementById('pm-projects-list');
+            if (pmProjectsTbody) {
+                pmProjectsTbody.innerHTML = '';
+                if (myProjects.length === 0) {
+                    pmProjectsTbody.innerHTML = '<tr><td colspan="6" class="text-center">담당 중인 프로젝트가 없습니다.</td></tr>';
+                } else {
+                    myProjects.forEach(p => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><a href="#project-detail/${p.id}" style="font-weight:700; color:var(--primary); text-decoration:none;">${p.name}</a></td>
+                            <td>${p.customer || '-'}</td>
+                            <td>${p.startDate || '-'}</td>
+                            <td>${p.endDate || '-'}</td>
+                            <td>
+                                <div class="progress-container">
+                                    <div class="progress-bar" style="width: ${p.progress}%;"></div>
+                                    <span class="progress-text">${p.progress}%</span>
+                                </div>
+                            </td>
+                            <td><span class="badge ${p.status === 'Completed' ? 'badge-success' : (p.status === 'Delay' ? 'badge-danger' : 'badge-primary')}">${p.status}</span></td>
+                        `;
+                        pmProjectsTbody.appendChild(tr);
+                    });
+                }
+            }
+
+            // Filter PM Risks (unresolved and belonging to PM projects)
+            const myProjectIds = myProjects.map(p => p.id);
+            const myRisks = (this.state.issues || []).filter(i => myProjectIds.includes(i.projectId) && i.status !== '완료');
+            const pmRisksTbody = document.getElementById('pm-risks-list');
+            if (pmRisksTbody) {
+                pmRisksTbody.innerHTML = '';
+                if (myRisks.length === 0) {
+                    pmRisksTbody.innerHTML = '<tr><td colspan="4" class="text-center">진행 중인 리스크가 없습니다.</td></tr>';
+                } else {
+                    myRisks.forEach(i => {
+                        const proj = this.state.projects.find(p => p.id === i.projectId);
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td style="font-size:11px; font-weight:700;">${proj ? proj.name : '-'}</td>
+                            <td style="font-weight:600; color:var(--text-main);">${i.title}</td>
+                            <td><span class="badge ${i.priority === '높음' ? 'badge-danger' : 'badge-warning'}">${i.priority}</span></td>
+                            <td><span class="badge badge-outline">${i.status}</span></td>
+                        `;
+                        pmRisksTbody.appendChild(tr);
+                    });
+                }
+            }
+
+            // Filter PM Action Items (unresolved and belonging to PM projects)
+            const myActions = (this.state.actionItems || []).filter(a => myProjectIds.includes(a.projectId) && a.status !== '완료');
+            const pmActionsTbody = document.getElementById('pm-actions-list');
+            if (pmActionsTbody) {
+                pmActionsTbody.innerHTML = '';
+                if (myActions.length === 0) {
+                    pmActionsTbody.innerHTML = '<tr><td colspan="4" class="text-center">미완료 Action Item이 없습니다.</td></tr>';
+                } else {
+                    myActions.forEach(a => {
+                        const proj = this.state.projects.find(p => p.id === a.projectId);
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td style="font-size:11px; font-weight:700;">${proj ? proj.name : '-'}</td>
+                            <td style="font-weight:600; color:var(--text-main);">${a.title}</td>
+                            <td>${a.assignee || '-'}</td>
+                            <td>${a.dueDate || '-'}</td>
+                        `;
+                        pmActionsTbody.appendChild(tr);
+                    });
+                }
+            }
+        } else if (role === 'WORKER') {
+            pmSections.style.display = 'none';
+            workerSections.style.display = 'flex';
+
+            // Filter Worker projects (memberIds contains worker's email or p.id is in user.assignedProjectIds)
+            const participatingProjects = this.state.projects.filter(p => (p.memberIds && p.memberIds.includes(user.email)) || (user.assignedProjectIds && user.assignedProjectIds.includes(p.id)));
+            const workerTasksTbody = document.getElementById('worker-tasks-list');
+            if (workerTasksTbody) {
+                workerTasksTbody.innerHTML = '';
+                if (participatingProjects.length === 0) {
+                    workerTasksTbody.innerHTML = '<tr><td colspan="6" class="text-center">참여 중인 프로젝트가 없습니다.</td></tr>';
+                } else {
+                    participatingProjects.forEach(p => {
+                        // Find role in resources list
+                        const res = p.resourcesList ? p.resourcesList.find(r => r.name === user.name) : null;
+                        const roleInProject = res ? res.role : '수행담당자';
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><a href="#project-detail/${p.id}" style="font-weight:700; color:var(--primary); text-decoration:none;">${p.name}</a></td>
+                            <td><span style="font-size:11px; font-weight:700; background:rgba(16, 185, 129, 0.12); color:#10b981; padding:2px 6px; border-radius:4px;">${roleInProject}</span></td>
+                            <td>${p.startDate || '-'}</td>
+                            <td>${p.endDate || '-'}</td>
+                            <td>
+                                <div class="progress-container">
+                                    <div class="progress-bar" style="width: ${p.progress}%;"></div>
+                                    <span class="progress-text">${p.progress}%</span>
+                                </div>
+                            </td>
+                            <td><span class="badge ${p.status === 'Completed' ? 'badge-success' : (p.status === 'Delay' ? 'badge-danger' : 'badge-primary')}">${p.status}</span></td>
+                        `;
+                        workerTasksTbody.appendChild(tr);
+                    });
+                }
+            }
+
+            // Filter Worker Action Items (assigned to this worker, status unresolved)
+            const workerActions = (this.state.actionItems || []).filter(a => (a.assignee === user.name || a.assigneeId === user.email) && a.status !== '완료');
+            const workerActionsTbody = document.getElementById('worker-actions-list');
+            if (workerActionsTbody) {
+                workerActionsTbody.innerHTML = '';
+                if (workerActions.length === 0) {
+                    workerActionsTbody.innerHTML = '<tr><td colspan="4" class="text-center">나에게 배정된 미완료 Action Item이 없습니다.</td></tr>';
+                } else {
+                    workerActions.forEach(a => {
+                        const proj = this.state.projects.find(p => p.id === a.projectId);
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td style="font-size:11px; font-weight:700;">${proj ? proj.name : '-'}</td>
+                            <td style="font-weight:600; color:var(--text-main);">${a.title}</td>
+                            <td><span class="badge ${a.status === '진행중' ? 'badge-primary' : 'badge-outline'}">${a.status}</span></td>
+                            <td>${a.dueDate || '-'}</td>
+                        `;
+                        workerActionsTbody.appendChild(tr);
+                    });
+                }
+            }
         }
     }
 
