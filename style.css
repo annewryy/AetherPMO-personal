@@ -3364,3 +3364,54 @@ body.dark-theme .toggle-slider {
     .account-tab-btn { padding: 8px; }
     .account-big-name { font-size: 16px; }
 }
+
+/* ==========================================
+   Project Registration/Edit Modal Layout Fix
+   ========================================== */
+.modal-card.project-form-modal {
+    max-height: calc(100vh - 48px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-card.project-form-modal form {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1;
+}
+
+.modal-card.project-form-modal .modal-body {
+    overflow-y: auto;
+    flex: 1;
+    padding: 12px 24px;
+    padding-right: 16px;
+}
+
+.modal-card.project-form-modal .modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-modal);
+    border-top: 1px solid var(--bg-card-border);
+    padding: 16px 24px;
+    z-index: 10;
+    margin-top: 0;
+}
+
+/* Spacing and Density Optimization */
+.modal-card.project-form-modal .form-grid {
+    gap: 12px 16px;
+}
+
+.modal-card.project-form-modal .form-group {
+    gap: 4px;
+}
+
+.modal-card.project-form-modal .form-group input[type="text"],
+.modal-card.project-form-modal .form-group input[type="number"],
+.modal-card.project-form-modal .form-group input[type="date"],
+.modal-card.project-form-modal .form-group select,
+.modal-card.project-form-modal .form-group textarea {
+    padding: 8px 12px;
+}
