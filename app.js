@@ -1423,6 +1423,29 @@ class AetherPMO {
                 document.querySelector('.sidebar').classList.toggle('open');
             });
         }
+        
+        // Sidebar Mode Toggle Button Explicit Binding
+        const modeBtn = document.getElementById('sidebar-mode-btn');
+        if (modeBtn) {
+            modeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.toggleSidebarModeMenu(e);
+            });
+        }
+
+        // Sidebar Mode Items Explicit Binding
+        document.querySelectorAll('#sidebar-mode-menu .sidebar-mode-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const mode = item.getAttribute('data-mode');
+                if (mode) {
+                    this.setSidebarMode(mode);
+                }
+            });
+        });
+
 
         // Sidebar Hover Events (Desktop only)
         const trigger = document.getElementById('sidebar-trigger');
@@ -1496,7 +1519,7 @@ class AetherPMO {
                 }
             });
 
-            // Close user menus when clicking outside
+            // Close user menus and sidebar mode dropdown when clicking outside
             document.addEventListener('click', (e) => {
                 const userMenu = document.getElementById('user-menu-panel');
                 const userHeaderInfo = document.getElementById('user-header-info');
@@ -1508,6 +1531,14 @@ class AetherPMO {
                 const sidebarBadge = document.getElementById('sidebar-user-badge');
                 if (sidebarMenu && !sidebarMenu.contains(e.target) && (!sidebarBadge || !sidebarBadge.contains(e.target))) {
                     sidebarMenu.classList.remove('open');
+                }
+
+                const modeMenu = document.getElementById('sidebar-mode-menu');
+                const modeBtn = document.getElementById('sidebar-mode-btn');
+                if (modeMenu && modeMenu.classList.contains('open')) {
+                    if (!modeMenu.contains(e.target) && e.target !== modeBtn && !modeBtn.contains(e.target)) {
+                        modeMenu.classList.remove('open');
+                    }
                 }
             });
         }
@@ -6422,13 +6453,19 @@ class AetherPMO {
     }
 
     /**
-     * Initialize Sidebar Mode from localStorage
+     * Initialize Sidebar Mode from localStorage with emergency recovery fallback
      */
     initSidebarMode() {
-        const mode = localStorage.getItem('pms-sidebar-mode') || 'expanded';
-        // Handle migration from old 'fixed' preference
-        const normalizedMode = mode === 'fixed' ? 'expanded' : mode;
-        this.applySidebarMode(normalizedMode, false);
+        try {
+            const mode = localStorage.getItem('pms-sidebar-mode') || 'expanded';
+            // Handle migration from old 'fixed' preference
+            const normalizedMode = mode === 'fixed' ? 'expanded' : mode;
+            this.applySidebarMode(normalizedMode, false);
+        } catch (e) {
+            console.error('Sidebar mode initialization failed. Resetting to expanded.', e);
+            localStorage.setItem('pms-sidebar-mode', 'expanded');
+            this.applySidebarMode('expanded', false);
+        }
     }
 
     /**
@@ -6437,7 +6474,7 @@ class AetherPMO {
     setSidebarMode(mode) {
         this.applySidebarMode(mode, true);
         const menu = document.getElementById('sidebar-mode-menu');
-        if (menu) menu.style.display = 'none';
+        if (menu) menu.classList.remove('open');
         
         const modeLabels = {
             expanded: '일반 고정 모드',
@@ -6480,21 +6517,30 @@ class AetherPMO {
     }
 
     /**
-     * Toggle the sidebar mode selector dropdown menu
+     * Toggle the sidebar mode selector dropdown menu with precise measurements
      */
     toggleSidebarModeMenu(e) {
-        e.stopPropagation();
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         const menu = document.getElementById('sidebar-mode-menu');
         const btn = document.getElementById('sidebar-mode-btn');
         if (!menu || !btn) return;
         
-        const isOpen = menu.style.display === 'block';
+        const isOpen = menu.classList.contains('open');
         if (isOpen) {
-            menu.style.display = 'none';
+            menu.classList.remove('open');
         } else {
             // Position the fixed menu based on the button position
             const rect = btn.getBoundingClientRect();
-            menu.style.display = 'block';
+            
+            // Temporary render to calculate width accurately
+            menu.style.visibility = 'hidden';
+            menu.classList.add('open');
+            const menuWidth = menu.offsetWidth || 210;
+            menu.classList.remove('open');
+            menu.style.visibility = 'visible';
             
             const isCompact = document.getElementById('app-section')?.classList.contains('sidebar-compact');
             if (isCompact) {
@@ -6503,21 +6549,11 @@ class AetherPMO {
                 menu.style.left = `${rect.right + 12}px`;
             } else {
                 // Expanded / Auto-Hide Mode: below the button, aligned to its right edge
-                const menuWidth = menu.offsetWidth || 210;
                 menu.style.top = `${rect.bottom + 8}px`;
                 menu.style.left = `${rect.right - menuWidth}px`;
             }
-
-            // Close when clicking outside
-            setTimeout(() => {
-                const handler = (ev) => {
-                    if (!menu.contains(ev.target) && ev.target !== btn && !btn.contains(ev.target)) {
-                        menu.style.display = 'none';
-                        document.removeEventListener('click', handler);
-                    }
-                };
-                document.addEventListener('click', handler);
-            }, 0);
+            
+            menu.classList.add('open');
         }
     }
 
@@ -6653,7 +6689,7 @@ class AetherPMO {
         
         // 6. Sidebar Mode Menu Dropdown Open?
         const modeMenu = document.getElementById('sidebar-mode-menu');
-        if (modeMenu && modeMenu.style.display === 'block') {
+        if (modeMenu && modeMenu.classList.contains('open')) {
             return true;
         }
 

@@ -3494,7 +3494,6 @@ body.dark-theme .toggle-slider {
     }
 }
 
-/* --- Sidebar Mode Menu Dropdown --- */
 .sidebar-mode-menu {
     position: fixed;
     min-width: 210px;
@@ -3507,6 +3506,10 @@ body.dark-theme .toggle-slider {
     display: none;
     flex-direction: column;
     gap: 2px;
+    pointer-events: auto;
+}
+.sidebar-mode-menu.open {
+    display: flex;
 }
 .sidebar-mode-menu-header {
     font-size: 10px;

@@ -85,7 +85,7 @@
                         <span class="brand-sub">사업관리 플랫폼</span>
                     </div>
                     <div class="sidebar-mode-container" style="position: relative; margin-left: auto; flex-shrink: 0;">
-                        <button id="sidebar-mode-btn" class="sidebar-pin-btn" aria-label="사이드바 모드 선택" onclick="app.toggleSidebarModeMenu(event)">
+                        <button id="sidebar-mode-btn" class="sidebar-pin-btn" aria-label="사이드바 모드 선택">
                             <i data-lucide="panel-left" style="width: 16px; height: 16px;"></i>
                         </button>
                     </div>
@@ -3004,17 +3004,17 @@
     <!-- Sidebar mode menu dropdown menu container (Rendered at body root to avoid clipping) -->
     <div id="sidebar-mode-menu" class="sidebar-mode-menu" style="display: none;">
         <div class="sidebar-mode-menu-header">Sidebar 표시 방식</div>
-        <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-expanded" onclick="app.setSidebarMode('expanded')">
+        <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-expanded" data-mode="expanded">
             <i data-lucide="check" class="smi-check"></i>
             <i data-lucide="layout-sidebar" style="width: 14px; height: 14px;"></i>
             <span>일반 고정 (Expanded)</span>
         </a>
-        <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-compact" onclick="app.setSidebarMode('compact')">
+        <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-compact" data-mode="compact">
             <i data-lucide="check" class="smi-check"></i>
             <i data-lucide="columns-2" style="width: 14px; height: 14px;"></i>
             <span>아이콘 축소 (Compact)</span>
         </a>
-        <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-autohide" onclick="app.setSidebarMode('autohide')">
+        <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-autohide" data-mode="autohide">
             <i data-lucide="check" class="smi-check"></i>
             <i data-lucide="eye-off" style="width: 14px; height: 14px;"></i>
             <span>자동 숨김 (Auto-Hide)</span>
