@@ -3567,6 +3567,9 @@ body.dark-theme .toggle-slider {
     justify-content: center;
     height: 40px;
 }
+.app-container.sidebar-compact .logo-icon {
+    pointer-events: none;
+}
 .app-container.sidebar-compact .logo-text {
     display: none;
 }
@@ -3589,7 +3592,7 @@ body.dark-theme .toggle-slider {
 }
 .app-container.sidebar-compact .logo-area:hover #sidebar-mode-btn {
     opacity: 1;
-    pointer-events: auto;
+    pointer-events: auto !important;
 }
 
 .app-container.sidebar-compact .sidebar-nav {

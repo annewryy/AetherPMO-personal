@@ -1424,26 +1424,34 @@ class AetherPMO {
             });
         }
         
-        // Sidebar Mode Toggle Button Explicit Binding
-        const modeBtn = document.getElementById('sidebar-mode-btn');
-        if (modeBtn) {
-            modeBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.toggleSidebarModeMenu(e);
-            });
-        }
+        // Log existence of sidebar mode menu components
+        console.log('Sidebar Mode Toggle Elements existence check:', {
+            modeBtn: document.getElementById('sidebar-mode-btn'),
+            modeMenu: document.getElementById('sidebar-mode-menu'),
+            modeItemsCount: document.querySelectorAll('#sidebar-mode-menu .sidebar-mode-item').length
+        });
 
-        // Sidebar Mode Items Explicit Binding
-        document.querySelectorAll('#sidebar-mode-menu .sidebar-mode-item').forEach(item => {
-            item.addEventListener('click', (e) => {
+        // Event Delegation for Sidebar Mode Dropdown and Items
+        document.addEventListener('click', (e) => {
+            const modeBtn = e.target.closest('#sidebar-mode-btn');
+            const modeItem = e.target.closest('.sidebar-mode-item');
+
+            if (modeBtn) {
                 e.preventDefault();
                 e.stopPropagation();
-                const mode = item.getAttribute('data-mode');
-                if (mode) {
-                    this.setSidebarMode(mode);
-                }
-            });
+                console.log('sidebar mode button clicked');
+                this.toggleSidebarModeMenu(e);
+                return;
+            }
+
+            if (modeItem) {
+                e.preventDefault();
+                e.stopPropagation();
+                const mode = modeItem.dataset.mode;
+                console.log('sidebar mode item clicked:', mode);
+                this.setSidebarMode(mode);
+                return;
+            }
         });
 
 
