@@ -1839,6 +1839,55 @@ body.dark-theme .toggle-slider {
     margin-top: 20px;
 }
 
+/* --- Project Form Modal Optimization --- */
+.modal-card.project-form-modal {
+    max-height: calc(100vh - 48px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-card.project-form-modal #project-form {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1;
+}
+
+.modal-card.project-form-modal .modal-body {
+    overflow-y: auto;
+    flex: 1;
+    padding: 16px 24px;
+}
+
+.modal-card.project-form-modal .modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-modal);
+    border-top: 1px solid var(--bg-card-border);
+    padding: 16px 24px;
+    z-index: 10;
+    margin-top: 0;
+}
+
+/* Reduce vertical space in project form */
+.modal-card.project-form-modal .form-grid {
+    gap: 12px 16px; /* Reduced gap */
+}
+
+.modal-card.project-form-modal .form-group {
+    gap: 4px; /* Reduced gap between label and input */
+}
+
+.modal-card.project-form-modal .form-group input[type="text"],
+.modal-card.project-form-modal .form-group input[type="number"],
+.modal-card.project-form-modal .form-group input[type="date"],
+.modal-card.project-form-modal .form-group select,
+.modal-card.project-form-modal .form-group textarea {
+    padding: 8px 12px; /* Reduced padding */
+}
+
 /* Wide Modal Details Grid */
 .detail-modal-layout {
     display: grid;
