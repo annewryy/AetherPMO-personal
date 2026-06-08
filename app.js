@@ -1201,28 +1201,132 @@ class AetherPMO {
             {
                 id: 'doc-1',
                 projectId: 'proj-1',
-                docNo: 'OK-2026-0312',
-                title: '차세대 스마트홈 IoT 플랫폼 구축 착수계 제출의 건',
-                receiver: '국립정보자원관리원',
-                sender: '오케스트로(주)',
+                // 기본 정보
+                docNo: 'OKE-202603-000312',
+                createdAt: '2026-03-04T10:30',
+                draftDept: '오케스트로클라우드_전출',
+                drafter: '안유경',
+                recipients: '의장 김민준, 법무팀, 이사 김태환',
+                executionDept: '수석 신은영, 김수진',
+                relatedDoc: '',
+                receiver: '국가정보자원관리원 서울센터',
                 sentDate: '2026-03-05',
-                status: '시행완료',
-                fileName: 'OK-2026-0312_착수계제출.pdf',
-                remarks: '착수계 행정 처리 완료.'
+                title: '차세대 스마트홈 IoT 플랫폼 구축 착수계 제출의 건',
+                writeGuide: '공문 양식을 작성 후 첨부',
+                // 결재/협의
+                approvalLine: {
+                    partLeader: { name: '이지현', status: '승인', date: '2026-03-04' },
+                    headLeader: { name: '박성수', status: '승인', date: '2026-03-04' },
+                    cfo: { name: '김대환', status: '승인', date: '2026-03-05' },
+                    ceo: { name: '박소아', status: '승인', date: '2026-03-05' }
+                },
+                approvalStatus: '승인',
+                approvalDate: '2026-03-05',
+                approverName: '박소아',
+                consultantName: '임지호',
+                consultStatus: '승인',
+                consultDate: '2026-03-04',
+                // 본문
+                bizName: '차세대 스마트홈 IoT 플랫폼 구축 사업',
+                projectCode: 'OP-26-0312',
+                contractNo: 'R26TA0100312001',
+                bizPeriod: '2026.01.15. ~ 2026.12.31.',
+                content: '아래와 같이 「차세대 스마트홈 IoT 플랫폼 구축 사업」의 착수계를 제출하오니 검토 후 재가하여주시기 바랍니다.',
+                attachList: '붙임 1. 착수계 1부.\n붙임 2. (공문양식) 착수계 제출의 건 1부. 끝.',
+                // 첨부파일
+                files: [
+                    { name: 'OKE-202603-000312_착수계제출.pdf', type: '공문 PDF', size: '312.45 KB' },
+                    { name: '착수계_양식_v1.0.hwpx', type: '품의문', size: '88.20 KB' }
+                ],
+                status: '결재완료'
             },
             {
                 id: 'doc-2',
+                projectId: 'proj-1',
+                // 기본 정보
+                docNo: 'OKE-202605-002165',
+                createdAt: '2026-05-21T16:10',
+                draftDept: '오케스트로클라우드_전출',
+                drafter: '안유경',
+                recipients: '의장 김민준, 법무팀, 이사 김대환, 수석 이정필, 솔루션사업관리파트 외 5명',
+                executionDept: '수석 신은영, 김수진, 임지호',
+                relatedDoc: '[OKC-202602-000556] /프로젝트 VRB 평가/프로젝트 VRB 평가 OP 25 0895_국가정보자원관리원_대구센터_클라우드 자원풀 운영·유지관리 사업_조일행',
+                receiver: '국가정보자원관리원 대구센터',
+                sentDate: '2026-05-27',
+                title: '「2026년 대구센터 클라우드 자원풀 운영·유지관리 사업」가상화 소프트웨어 보안취약점 14개 항목 예외 조치 요청의 건',
+                writeGuide: '공문 양식을 작성 후 첨부',
+                // 결재/협의
+                approvalLine: {
+                    partLeader: { name: '승인빈', status: '승인', date: '2026-05-21' },
+                    headLeader: { name: '김대환', status: '승인', date: '2026-05-21' },
+                    cfo: { name: '박수환', status: '승인', date: '2026-05-26' },
+                    ceo: { name: '박소아', status: '승인', date: '2026-05-26' }
+                },
+                approvalStatus: '승인',
+                approvalDate: '2026-05-26',
+                approverName: '박소아',
+                consultantName: '임지호',
+                consultStatus: '승인',
+                consultDate: '2026-05-22',
+                // 본문
+                bizName: '2026년 대구센터 클라우드 자원풀 운영·유지관리 사업',
+                projectCode: 'OP-25-0895',
+                contractNo: 'R25TA0128983100',
+                bizPeriod: '2025.12.30. ~ 2026.12.31.',
+                content: '아래와 같이 「2026년 대구센터 클라우드 자원풀 운영·유지관리 사업」의 가상화소프트웨어 보안취약점 14개 항목에 대한 예외 조치 요청을 위해 공문 발송 품의를 상신드리오니 검토 후 재가하여주시기 바랍니다.',
+                attachList: '붙임 1. 가상화소프트웨어 취약점 예외조치 상세내역 1 부.\n붙임 2. (공문양식)가상화소프트웨어 보안취약점 14개 항목 예외 조치 요청의 건 1부. 끝.',
+                // 첨부파일
+                files: [
+                    { name: '2026 대구센터 클라우드 자원풀....pdf', type: '공문 PDF', size: '269.28 KB' },
+                    { name: '[OKC-202603-000308][수수계….pdf', type: '붙임자료', size: '464.57 KB' },
+                    { name: '붙임1.예외 조치 사유.docx', type: '붙임자료', size: '41.83 KB' },
+                    { name: '붙임2.(공문양식)가상화소프트웨....hwpx', type: '품의문', size: '41.9 KB' }
+                ],
+                status: '결재완료'
+            },
+            {
+                id: 'doc-3',
                 projectId: 'proj-2',
-                docNo: 'OK-2026-0415',
-                title: 'AI 기반 다국어 상담 시스템 중간 보고서 승인 요청의 건',
-                receiver: '국민건강보험공단',
-                sender: '오케스트로(주)',
-                sentDate: '2026-05-22',
-                status: '임시저장',
-                fileName: 'OK-2026-0415_중간보고승인요청.pdf',
-                remarks: '사전 조율 완료 후 결재 시행 예정.'
+                // 기본 정보
+                docNo: 'OKE-202605-002210',
+                createdAt: '2026-05-28T14:20',
+                draftDept: '오케스트로AI솔루션_팀',
+                drafter: '이영희',
+                recipients: '이사 박영수, AI사업팀',
+                executionDept: '강동우, 최민서',
+                relatedDoc: '',
+                receiver: '국민건강보험공단 IT기획부',
+                sentDate: '',
+                title: 'AI 기반 다국어 고객 상담 시스템 중간보고서 제출의 건',
+                writeGuide: '중간보고 양식 작성 후 첨부',
+                // 결재/협의
+                approvalLine: {
+                    partLeader: { name: '이지현', status: '승인', date: '2026-05-28' },
+                    headLeader: { name: '박성수', status: '대기', date: '' },
+                    cfo: { name: '', status: '대기', date: '' },
+                    ceo: { name: '', status: '대기', date: '' }
+                },
+                approvalStatus: '대기',
+                approvalDate: '',
+                approverName: '',
+                consultantName: '강동우',
+                consultStatus: '대기',
+                consultDate: '',
+                // 본문
+                bizName: 'AI 기반 다국어 고객 상담 어시스턴트 개발',
+                projectCode: 'OP-26-0415',
+                contractNo: 'R26TA0200415001',
+                bizPeriod: '2026.02.01. ~ 2026.11.30.',
+                content: '아래와 같이 AI 기반 다국어 고객 상담 시스템 구축 사업의 중간보고서를 제출하오니 검토하여 주시기 바랍니다.',
+                attachList: '붙임 1. 중간보고서 1부.\n붙임 2. 진행현황 요약 1부. 끝.',
+                // 첨부파일
+                files: [
+                    { name: 'AI_중간보고서_v1.0_draft.pdf', type: '공문 PDF', size: '1.23 MB' }
+                ],
+                status: '결재진행중'
             }
         ];
+
 
         const mockMeetingMinutes = [
             {
@@ -4520,6 +4624,29 @@ class AetherPMO {
     /* ==========================================================================
        CRUD OPERATIONS: OFFICIAL DOCUMENTS
        ========================================================================== */
+
+    // Helper: approval status → CSS class
+    _approvalBadgeClass(status) {
+        if (status === '승인') return 'status-approval-done';
+        if (status === '반려') return 'status-approval-rejected';
+        if (status === '결재진행중') return 'status-approval-inprogress';
+        return 'status-approval-pending';
+    }
+
+    // Helper: stamp HTML
+    _stampHtml(person, label) {
+        const cls = person.status === '승인' ? 'stamp-approved' : person.status === '반려' ? 'stamp-rejected' : 'stamp-pending';
+        const labelKr = person.status === '승인' ? '승인확인' : person.status === '반려' ? '반려' : '대기';
+        if (!person.name && person.status === '대기') {
+            return `<span class="approval-stamp stamp-pending"><span class="stamp-label" style="font-size:11px;">-</span></span>`;
+        }
+        return `<span class="approval-stamp ${cls}">
+            <span class="stamp-label">${labelKr}</span>
+            <span class="stamp-name">${person.name || '-'}</span>
+            ${person.date ? `<span class="stamp-date">${person.date}</span>` : ''}
+        </span>`;
+    }
+
     renderOfficialDocs() {
         const tbody = document.getElementById('official-docs-tbody');
         const projFilter = document.getElementById('doc-filter-project');
@@ -4550,41 +4677,48 @@ class AetherPMO {
             const isProjectActive = project && (project.status === 'In Progress' || project.status === 'On Hold' || project.status === 'Delay');
 
             const matchProj = filterProj === 'all' ? isProjectActive : doc.projectId === filterProj;
-            const matchStat = filterStat === 'all' || doc.status === filterStat;
+            const matchStat = filterStat === 'all' || doc.approvalStatus === filterStat || doc.status === filterStat;
             const matchQuery = !query || 
-                doc.title.toLowerCase().includes(query) || 
-                doc.docNo.toLowerCase().includes(query) || 
-                doc.receiver.toLowerCase().includes(query);
+                (doc.title || '').toLowerCase().includes(query) || 
+                (doc.docNo || '').toLowerCase().includes(query) || 
+                (doc.receiver || '').toLowerCase().includes(query) ||
+                (doc.drafter || '').toLowerCase().includes(query);
 
             return matchProj && matchStat && matchQuery;
         });
 
         if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">등록된 공문이 없습니다.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">등록된 공문이 없습니다.</td></tr>';
             return;
         }
 
         tbody.innerHTML = '';
         filtered.forEach(doc => {
             const project = this.state.projects.find(p => p.id === doc.projectId);
+            const approvalCls = this._approvalBadgeClass(doc.approvalStatus);
+            const consultCls = doc.consultStatus === '승인' ? 'status-approval-done' : doc.consultStatus === '반려' ? 'status-approval-rejected' : 'status-approval-pending';
+            const fileCount = (doc.files || []).length;
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><span class="font-bold text-xs">${project ? project.name : '-'}</span></td>
-                <td class="text-xs font-bold text-muted">${doc.docNo}</td>
+                <td class="text-xs font-bold text-primary" style="white-space:nowrap;">${doc.docNo || '-'}</td>
                 <td>
                     <a href="#" class="project-name-link text-xs font-bold" onclick="event.preventDefault(); app.openOfficialDocDetailModal('${doc.id}')">
-                        ${doc.title}
+                        ${doc.title || '-'}
                     </a>
                 </td>
-                <td class="text-xs font-bold">${doc.receiver}</td>
-                <td class="text-xs font-bold">${doc.sender}</td>
-                <td class="text-xs font-bold text-muted">${doc.sentDate}</td>
-                <td><span class="status-badge ${doc.status === '시행완료' ? 'status-resolved' : 'status-draft'}">${doc.status}</span></td>
-                <td class="text-xs font-bold text-primary">${doc.fileName || '-'}</td>
+                <td class="text-xs text-muted">${project ? project.name : '-'}</td>
+                <td class="text-xs">${doc.receiver || '-'}</td>
+                <td class="text-xs">${doc.drafter || '-'}</td>
+                <td class="text-xs text-muted">${doc.draftDept || '-'}</td>
+                <td class="text-xs text-muted" style="white-space:nowrap;">${doc.sentDate || '-'}</td>
+                <td><span class="status-badge ${approvalCls}">${doc.approvalStatus || '대기'}</span></td>
+                <td><span class="status-badge ${consultCls}">${doc.consultStatus || '대기'}</span></td>
+                <td class="text-xs text-center">${fileCount > 0 ? `<span class="badge-count">${fileCount}</span>` : '-'}</td>
                 <td>
                     <div class="actions-flex">
-                        <button class="btn btn-xs btn-outline" onclick="app.openEditOfficialDocModal('${doc.id}')">수정</button>
-                        <button class="btn btn-xs btn-danger" onclick="app.deleteOfficialDoc('${doc.id}')">삭제</button>
+                        <button class="btn btn-xs btn-outline" onclick="app.openOfficialDocDetailModal('${doc.id}')">상세</button>
+                        <button class="btn btn-xs btn-outline perm-pm-worker" onclick="app.openEditOfficialDocModal('${doc.id}')">수정</button>
+                        <button class="btn btn-xs btn-danger perm-pm-only" onclick="app.deleteOfficialDoc('${doc.id}')">삭제</button>
                     </div>
                 </td>
             `;
@@ -4598,15 +4732,40 @@ class AetherPMO {
         }
     }
 
+    switchOfficialDocTab(tabName, btnEl) {
+        // Deactivate all tabs
+        document.querySelectorAll('.doc-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.doc-tab-content').forEach(c => c.classList.remove('active'));
+        // Activate selected
+        if (btnEl) btnEl.classList.add('active');
+        const tabEl = document.getElementById(`doc-tab-${tabName}`);
+        if (tabEl) tabEl.classList.add('active');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
     openNewOfficialDocModalFromDetail() {
         this.openNewOfficialDocModal(this.activeProjectId);
+    }
+
+    _generateDocNo() {
+        const now = new Date();
+        const ym = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}`;
+        const seq = String(Math.floor(Math.random() * 900) + 100);
+        return `OKE-${ym}-00${seq}`;
     }
 
     openNewOfficialDocModal(fixedProjectId = null) {
         document.getElementById('official-doc-modal-title').textContent = '새 공문 등록';
         document.getElementById('official-doc-form').reset();
         document.getElementById('official-doc-id-field').value = '';
-        
+
+        // Reset tabs to first
+        this.switchOfficialDocTab('basic', document.querySelector('.doc-tab-btn'));
+
+        // Reset temp files
+        this._tempDocFiles = [];
+        this._renderDocFileList();
+
         const projSelect = document.getElementById('official-doc-project-select');
         projSelect.innerHTML = '';
         this.state.projects.forEach(p => {
@@ -4623,8 +4782,18 @@ class AetherPMO {
             projSelect.disabled = false;
         }
 
-        document.getElementById('official-doc-date').value = this.getFormattedDateTime().split(' ')[0];
+        // Auto-fill
+        document.getElementById('official-doc-no').value = this._generateDocNo();
+        const now = new Date();
+        const localDT = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        document.getElementById('official-doc-created-at').value = localDT;
+        document.getElementById('official-doc-date').value = localDT.split('T')[0];
+        // Auto-fill drafter with current user
+        const userName = document.getElementById('user-profile-name')?.textContent || '안유경';
+        document.getElementById('official-doc-drafter').value = userName.trim();
+
         document.getElementById('official-doc-modal').classList.add('open');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     openEditOfficialDocModal(id) {
@@ -4633,7 +4802,14 @@ class AetherPMO {
 
         document.getElementById('official-doc-modal-title').textContent = '공문 정보 수정';
         document.getElementById('official-doc-id-field').value = doc.id;
-        
+
+        // Reset tabs
+        this.switchOfficialDocTab('basic', document.querySelector('.doc-tab-btn'));
+
+        // Load temp files from doc
+        this._tempDocFiles = JSON.parse(JSON.stringify(doc.files || []));
+        this._renderDocFileList();
+
         const projSelect = document.getElementById('official-doc-project-select');
         projSelect.innerHTML = '';
         this.state.projects.forEach(p => {
@@ -4645,16 +4821,42 @@ class AetherPMO {
         projSelect.value = doc.projectId;
         projSelect.disabled = true;
 
-        document.getElementById('official-doc-no').value = doc.docNo;
-        document.getElementById('official-doc-title').value = doc.title;
-        document.getElementById('official-doc-receiver').value = doc.receiver;
-        document.getElementById('official-doc-sender').value = doc.sender;
-        document.getElementById('official-doc-date').value = doc.sentDate;
-        document.getElementById('official-doc-status').value = doc.status;
-        document.getElementById('official-doc-file-name').value = doc.fileName || '';
-        document.getElementById('official-doc-remarks').value = doc.remarks || '';
+        // 기본정보
+        document.getElementById('official-doc-no').value = doc.docNo || '';
+        document.getElementById('official-doc-created-at').value = doc.createdAt || '';
+        document.getElementById('official-doc-draft-dept').value = doc.draftDept || '';
+        document.getElementById('official-doc-drafter').value = doc.drafter || '';
+        document.getElementById('official-doc-recipients').value = doc.recipients || '';
+        document.getElementById('official-doc-exec-dept').value = doc.executionDept || '';
+        document.getElementById('official-doc-related-doc').value = doc.relatedDoc || '';
+        document.getElementById('official-doc-receiver').value = doc.receiver || '';
+        document.getElementById('official-doc-date').value = doc.sentDate || '';
+        document.getElementById('official-doc-title').value = doc.title || '';
+        document.getElementById('official-doc-write-guide').value = doc.writeGuide || '';
+
+        // 결재/협의
+        const al = doc.approvalLine || {};
+        document.getElementById('official-doc-approver-part').value = al.partLeader?.name || '';
+        document.getElementById('official-doc-approver-head').value = al.headLeader?.name || '';
+        document.getElementById('official-doc-approver-cfo').value = al.cfo?.name || '';
+        document.getElementById('official-doc-approver-ceo').value = al.ceo?.name || '';
+        document.getElementById('official-doc-approval-status').value = doc.approvalStatus || '대기';
+        document.getElementById('official-doc-approval-date').value = doc.approvalDate || '';
+        document.getElementById('official-doc-approver-name').value = doc.approverName || '';
+        document.getElementById('official-doc-consultant').value = doc.consultantName || '';
+        document.getElementById('official-doc-consult-status').value = doc.consultStatus || '대기';
+        document.getElementById('official-doc-consult-date').value = doc.consultDate || '';
+
+        // 본문
+        document.getElementById('official-doc-biz-name').value = doc.bizName || '';
+        document.getElementById('official-doc-project-code').value = doc.projectCode || '';
+        document.getElementById('official-doc-contract-no').value = doc.contractNo || '';
+        document.getElementById('official-doc-biz-period').value = doc.bizPeriod || '';
+        document.getElementById('official-doc-content').value = doc.content || '';
+        document.getElementById('official-doc-attach-list').value = doc.attachList || '';
 
         document.getElementById('official-doc-modal').classList.add('open');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     closeOfficialDocModal() {
@@ -4667,33 +4869,61 @@ class AetherPMO {
         const docNo = document.getElementById('official-doc-no').value.trim();
         const title = document.getElementById('official-doc-title').value.trim();
         const receiver = document.getElementById('official-doc-receiver').value.trim();
-        const sender = document.getElementById('official-doc-sender').value.trim();
-        const sentDate = document.getElementById('official-doc-date').value;
-        const status = document.getElementById('official-doc-status').value;
-        const fileName = document.getElementById('official-doc-file-name').value.trim();
-        const remarks = document.getElementById('official-doc-remarks').value.trim();
 
-        if (!projectId || !docNo || !title || !receiver || !sender || !sentDate) {
-            alert('필수 항목을 모두 입력하십시오.');
+        if (!projectId || !docNo || !title || !receiver) {
+            alert('필수 항목(대상 프로젝트, 품의번호, 공문제목, 수신자)을 모두 입력하십시오.');
             return;
         }
+
+        const approvalStatus = document.getElementById('official-doc-approval-status').value;
+        const newData = {
+            projectId,
+            docNo,
+            createdAt: document.getElementById('official-doc-created-at').value,
+            draftDept: document.getElementById('official-doc-draft-dept').value.trim(),
+            drafter: document.getElementById('official-doc-drafter').value.trim(),
+            recipients: document.getElementById('official-doc-recipients').value.trim(),
+            executionDept: document.getElementById('official-doc-exec-dept').value.trim(),
+            relatedDoc: document.getElementById('official-doc-related-doc').value.trim(),
+            receiver,
+            sentDate: document.getElementById('official-doc-date').value,
+            title,
+            writeGuide: document.getElementById('official-doc-write-guide').value.trim(),
+            // 결재/협의
+            approvalLine: {
+                partLeader: { name: document.getElementById('official-doc-approver-part').value.trim(), status: approvalStatus === '승인' ? '승인' : '대기', date: '' },
+                headLeader: { name: document.getElementById('official-doc-approver-head').value.trim(), status: approvalStatus === '승인' ? '승인' : '대기', date: '' },
+                cfo: { name: document.getElementById('official-doc-approver-cfo').value.trim(), status: approvalStatus === '승인' ? '승인' : '대기', date: '' },
+                ceo: { name: document.getElementById('official-doc-approver-ceo').value.trim(), status: approvalStatus === '승인' ? '승인' : '대기', date: '' }
+            },
+            approvalStatus,
+            approvalDate: document.getElementById('official-doc-approval-date').value,
+            approverName: document.getElementById('official-doc-approver-name').value.trim(),
+            consultantName: document.getElementById('official-doc-consultant').value.trim(),
+            consultStatus: document.getElementById('official-doc-consult-status').value,
+            consultDate: document.getElementById('official-doc-consult-date').value,
+            // 본문
+            bizName: document.getElementById('official-doc-biz-name').value.trim(),
+            projectCode: document.getElementById('official-doc-project-code').value.trim(),
+            contractNo: document.getElementById('official-doc-contract-no').value.trim(),
+            bizPeriod: document.getElementById('official-doc-biz-period').value.trim(),
+            content: document.getElementById('official-doc-content').value.trim(),
+            attachList: document.getElementById('official-doc-attach-list').value.trim(),
+            // 첨부파일
+            files: JSON.parse(JSON.stringify(this._tempDocFiles || [])),
+            status: approvalStatus === '승인' ? '결재완료' : approvalStatus === '반려' ? '반려' : '결재진행중'
+        };
 
         if (id) {
             const idx = this.state.officialDocs.findIndex(d => d.id === id);
             if (idx !== -1) {
-                this.state.officialDocs[idx] = { 
-                    ...this.state.officialDocs[idx], 
-                    projectId, docNo, title, receiver, sender, sentDate, status, fileName, remarks 
-                };
-                this.addActivityLog(projectId, title, 'review', `공문 수정: "${title}" (${status})`);
+                this.state.officialDocs[idx] = { ...this.state.officialDocs[idx], ...newData };
+                this.addActivityLog(projectId, title, 'review', `공문 수정: "${title}" (${approvalStatus})`);
             }
         } else {
             const newId = `doc-${Date.now()}`;
-            this.state.officialDocs.push({
-                id: newId,
-                projectId, docNo, title, receiver, sender, sentDate, status, fileName, remarks
-            });
-            this.addActivityLog(projectId, title, 'review', `신규 공문 등록: "${title}" (${status})`);
+            this.state.officialDocs.push({ id: newId, ...newData });
+            this.addActivityLog(projectId, title, 'review', `신규 공문 등록: "${title}" (${approvalStatus})`);
         }
 
         this.saveState();
@@ -4709,25 +4939,178 @@ class AetherPMO {
         }
     }
 
+    // Virtual file attachment management
+    addOfficialDocFile() {
+        const nameEl = document.getElementById('new-doc-file-name');
+        const typeEl = document.getElementById('new-doc-file-type');
+        const sizeEl = document.getElementById('new-doc-file-size');
+        const name = nameEl?.value.trim();
+        if (!name) { alert('파일명을 입력하세요.'); return; }
+        if (!this._tempDocFiles) this._tempDocFiles = [];
+        this._tempDocFiles.push({ name, type: typeEl?.value || '공문 PDF', size: sizeEl?.value.trim() || '-' });
+        if (nameEl) nameEl.value = '';
+        if (sizeEl) sizeEl.value = '';
+        this._renderDocFileList();
+    }
+
+    removeOfficialDocFile(idx) {
+        if (!this._tempDocFiles) return;
+        this._tempDocFiles.splice(idx, 1);
+        this._renderDocFileList();
+    }
+
+    _renderDocFileList() {
+        const container = document.getElementById('official-doc-file-list');
+        const badge = document.getElementById('doc-file-count-badge');
+        if (!container) return;
+        const files = this._tempDocFiles || [];
+        if (badge) badge.textContent = files.length;
+        if (files.length === 0) {
+            container.innerHTML = '<p class="text-muted text-xs" style="text-align:center;padding:20px;">등록된 첨부파일이 없습니다.</p>';
+            return;
+        }
+        container.innerHTML = files.map((f, i) => {
+            const ext = (f.name.split('.').pop() || '').toLowerCase();
+            const iconCls = ext === 'pdf' ? 'pdf' : ext === 'hwpx' ? 'hwpx' : ext === 'docx' ? 'docx' : 'etc';
+            const iconLabel = ext === 'pdf' ? 'PDF' : ext === 'hwpx' ? 'HWP' : ext === 'docx' ? 'DOC' : ext.toUpperCase().substring(0,3);
+            return `<div class="doc-file-row">
+                <div class="doc-file-icon ${iconCls}">${iconLabel}</div>
+                <div class="doc-file-info">
+                    <div class="doc-file-name" title="${f.name}">${f.name}</div>
+                    <div class="doc-file-meta">${f.type} · ${f.size}</div>
+                </div>
+                <button type="button" class="btn btn-xs btn-danger" onclick="app.removeOfficialDocFile(${i})" style="flex-shrink:0;">삭제</button>
+            </div>`;
+        }).join('');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
     openOfficialDocDetailModal(id) {
         const doc = this.state.officialDocs.find(d => d.id === id);
         if (!doc) return;
 
         const project = this.state.projects.find(p => p.id === doc.projectId);
-        document.getElementById('det-doc-project').textContent = project ? project.name : '-';
-        document.getElementById('det-doc-no').textContent = doc.docNo;
-        document.getElementById('det-doc-title').textContent = doc.title;
-        document.getElementById('det-doc-receiver').textContent = doc.receiver;
-        document.getElementById('det-doc-sender').textContent = doc.sender;
-        document.getElementById('det-doc-date').textContent = doc.sentDate;
-        document.getElementById('det-doc-status').textContent = doc.status;
-        document.getElementById('det-doc-file').innerHTML = doc.fileName 
-            ? `<a href="#" class="file-name-link font-bold text-xs" onclick="event.preventDefault(); alert('[다운로드] 공문 파일 다운로드 시뮬레이션: ${doc.fileName}')">${doc.fileName}</a>`
-            : '-';
-        document.getElementById('det-doc-remarks').textContent = doc.remarks || '-';
+        const al = doc.approvalLine || { partLeader:{name:'',status:'대기',date:''}, headLeader:{name:'',status:'대기',date:''}, cfo:{name:'',status:'대기',date:''}, ceo:{name:'',status:'대기',date:''} };
+
+        // Approval table
+        const approvalTable = `
+        <table class="approval-line-table" style="margin-bottom:0;">
+            <thead>
+                <tr>
+                    <th style="width:48px;border-right:none;"></th>
+                    <th>파트장</th>
+                    <th>본부장</th>
+                    <th>CFO</th>
+                    <th>CEO</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-weight:700;font-size:11px;color:var(--text-muted);white-space:nowrap;">결재</td>
+                    <td class="approval-stamp-cell">${this._stampHtml(al.partLeader, '파트장')}</td>
+                    <td class="approval-stamp-cell">${this._stampHtml(al.headLeader, '본부장')}</td>
+                    <td class="approval-stamp-cell">${this._stampHtml(al.cfo, 'CFO')}</td>
+                    <td class="approval-stamp-cell">${this._stampHtml(al.ceo, 'CEO')}</td>
+                </tr>
+            </tbody>
+        </table>
+        ${doc.consultantName ? `
+        <table class="approval-line-table" style="margin-top:4px;">
+            <tbody>
+                <tr>
+                    <td style="font-weight:700;font-size:11px;color:var(--text-muted);white-space:nowrap;width:48px;">협의</td>
+                    <td class="approval-stamp-cell">${this._stampHtml({name: doc.consultantName, status: doc.consultStatus || '대기', date: doc.consultDate || ''}, '협의자')}</td>
+                    <td></td><td></td><td></td>
+                </tr>
+            </tbody>
+        </table>` : ''}`;
+
+        // Body items
+        const bodyItems = [
+            doc.bizName ? `<div class="doc-body-item-row"><span class="doc-body-item-num">1.</span><span>사업명 : ${doc.bizName}</span></div>` : '',
+            doc.projectCode ? `<div class="doc-body-item-row"><span class="doc-body-item-num">2.</span><span>프로젝트 코드 : ${doc.projectCode}</span></div>` : '',
+            doc.contractNo ? `<div class="doc-body-item-row"><span class="doc-body-item-num">3.</span><span>계약번호 : ${doc.contractNo}</span></div>` : '',
+            doc.bizPeriod ? `<div class="doc-body-item-row"><span class="doc-body-item-num">4.</span><span>사업기간 : ${doc.bizPeriod}</span></div>` : '',
+            doc.content ? `<div class="doc-body-item-row"><span class="doc-body-item-num">5.</span><span>공문내용 : ${doc.content}</span></div>` : ''
+        ].filter(Boolean).join('');
+
+        // Attachments
+        const attachListHtml = (doc.attachList || '').split('\n').filter(Boolean).map(a =>
+            `<div class="doc-attach-item">${a}</div>`
+        ).join('');
+
+        // Files
+        const filesHtml = (doc.files || []).length > 0 ? (doc.files || []).map(f => {
+            const ext = (f.name.split('.').pop() || '').toLowerCase();
+            const iconCls = ext === 'pdf' ? 'pdf' : ext === 'hwpx' ? 'hwpx' : ext === 'docx' ? 'docx' : 'etc';
+            const iconLabel = ext === 'pdf' ? 'PDF' : ext === 'hwpx' ? 'HWP' : ext === 'docx' ? 'DOC' : ext.toUpperCase().substring(0,3);
+            return `<div class="doc-file-row">
+                <div class="doc-file-icon ${iconCls}">${iconLabel}</div>
+                <div class="doc-file-info">
+                    <div class="doc-file-name">${f.name}</div>
+                    <div class="doc-file-meta">${f.type} · ${f.size}</div>
+                </div>
+                <button type="button" class="btn btn-xs btn-outline" onclick="alert('다운로드 시뮬레이션: ${f.name}')">다운로드</button>
+            </div>`;
+        }).join('') : '<p class="text-muted text-xs" style="padding:10px 0;">첨부파일이 없습니다.</p>';
+
+        const html = `<div class="official-doc-detail-view">
+            <div class="doc-title-main">공 문 발 신</div>
+
+            <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;margin-bottom:12px;">
+                <table class="doc-info-table" style="margin-bottom:0;">
+                    <tr><th>품 의 번 호</th><td class="font-bold">${doc.docNo || '-'}</td></tr>
+                    <tr><th>작 성 일 자</th><td>${doc.createdAt || '-'}</td></tr>
+                    <tr><th>기 안 부 서</th><td>${doc.draftDept || '-'}</td></tr>
+                    <tr><th>기 안 자</th><td>${doc.drafter || '-'}</td></tr>
+                </table>
+                <div style="min-width:340px;">${approvalTable}</div>
+            </div>
+
+            <table class="doc-info-table">
+                <tr><th>수신 및 참조</th><td>${doc.recipients || '-'}</td></tr>
+                <tr><th>시 행 부 서</th><td>${doc.executionDept || '-'}</td></tr>
+                ${doc.relatedDoc ? `<tr><th>관 련 품 의</th><td style="word-break:break-all;">${doc.relatedDoc}</td></tr>` : ''}
+                <tr><th>수 신 자</th><td class="font-bold">${doc.receiver || '-'}</td></tr>
+                <tr><th>발 신 일</th><td>${doc.sentDate || '-'}</td></tr>
+                <tr><th>공 문 제 목</th><td class="title-cell">${doc.title || '-'}</td></tr>
+                ${doc.writeGuide ? `<tr><th>작 성 가 이 드</th><td style="color:var(--text-muted);">- ${doc.writeGuide}</td></tr>` : ''}
+            </table>
+
+            <div class="doc-body-section">
+                <div class="doc-body-intro">${doc.content || ''}</div>
+                <div class="doc-body-separator">- 아 래 -</div>
+                <div class="doc-body-items">${bodyItems}</div>
+                ${attachListHtml ? `<div class="doc-attach-section">${attachListHtml}</div>` : ''}
+            </div>
+
+            <div style="margin-top:16px;">
+                <div class="doc-section-header"><i data-lucide="paperclip" style="width:13px;height:13px;"></i> 첨부파일 (${(doc.files||[]).length}개)</div>
+                ${filesHtml}
+            </div>
+
+            <table class="doc-info-table" style="margin-top:12px;">
+                <tr>
+                    <th>문서유형</th><td>일반문서</td>
+                    <th>대상 프로젝트</th><td>${project ? project.name : '-'}</td>
+                </tr>
+            </table>
+        </div>`;
+
+        const body = document.getElementById('official-doc-detail-body');
+        if (body) body.innerHTML = html;
+
+        // Wire up edit button
+        const editBtn = document.getElementById('det-doc-edit-btn');
+        if (editBtn) editBtn.onclick = () => {
+            document.getElementById('official-doc-detail-modal').classList.remove('open');
+            this.openEditOfficialDocModal(doc.id);
+        };
 
         document.getElementById('official-doc-detail-modal').classList.add('open');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
+
 
     /* ==========================================================================
        CRUD OPERATIONS: MEETING MINUTES

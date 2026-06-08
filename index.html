@@ -1179,11 +1179,13 @@
                             </select>
                         </div>
                         <div class="filter-group">
-                            <label for="doc-filter-status">진행 상태</label>
+                            <label for="doc-filter-status">결재 상태</label>
                             <select id="doc-filter-status" onchange="app.renderOfficialDocs()">
                                 <option value="all">전체</option>
                                 <option value="임시저장">임시저장</option>
-                                <option value="시행완료">시행완료</option>
+                                <option value="결재진행중">결재진행중</option>
+                                <option value="결재완료">결재완료</option>
+                                <option value="반려">반려</option>
                             </select>
                         </div>
                         <div class="filter-group flex-2">
@@ -1201,15 +1203,17 @@
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th>프로젝트명</th>
-                                        <th>문서번호</th>
-                                        <th>공문명</th>
-                                        <th>수신처</th>
-                                        <th>발신처</th>
-                                        <th>시행일자</th>
-                                        <th>상태</th>
-                                        <th>첨부파일</th>
-                                        <th>관리</th>
+                                        <th>품의번호</th>
+                                        <th>공문제목</th>
+                                        <th>대상 프로젝트</th>
+                                        <th>수신자</th>
+                                        <th>기안자</th>
+                                        <th>기안부서</th>
+                                        <th>발신일</th>
+                                        <th>결재상태</th>
+                                        <th>협의상태</th>
+                                        <th>첨부</th>
+                                        <th>작업</th>
                                     </tr>
                                 </thead>
                                 <tbody id="official-docs-tbody">
@@ -2610,56 +2614,202 @@
 
     <!-- 11. OFFICIAL DOC CREATION & EDITION DIALOG -->
     <div class="modal-overlay" id="official-doc-modal">
-        <div class="modal-card">
+        <div class="modal-card official-doc-modal-card project-form-modal">
             <div class="modal-header">
                 <h2 id="official-doc-modal-title">새 공문 등록</h2>
                 <button class="modal-close-btn" onclick="app.closeOfficialDocModal()">&times;</button>
             </div>
-            <form id="official-doc-form" onsubmit="event.preventDefault(); app.saveOfficialDocForm();">
+            <!-- Tab Bar -->
+            <div class="doc-tab-bar">
+                <button class="doc-tab-btn active" onclick="app.switchOfficialDocTab('basic', this)">
+                    <i data-lucide="file-text" style="width:13px;height:13px;"></i> 기본 정보
+                </button>
+                <button class="doc-tab-btn" onclick="app.switchOfficialDocTab('approval', this)">
+                    <i data-lucide="stamp" style="width:13px;height:13px;"></i> 결재·협의
+                </button>
+                <button class="doc-tab-btn" onclick="app.switchOfficialDocTab('body', this)">
+                    <i data-lucide="align-left" style="width:13px;height:13px;"></i> 공문 본문
+                </button>
+                <button class="doc-tab-btn" onclick="app.switchOfficialDocTab('files', this)">
+                    <i data-lucide="paperclip" style="width:13px;height:13px;"></i> 첨부파일
+                    <span class="tab-badge" id="doc-file-count-badge">0</span>
+                </button>
+            </div>
+            <form id="official-doc-form" onsubmit="event.preventDefault(); app.saveOfficialDocForm();" style="display:flex;flex-direction:column;flex:1;min-height:0;">
                 <input type="hidden" id="official-doc-id-field">
-                <div class="form-grid">
-                    <div class="form-group span-2">
-                        <label for="official-doc-project-select">대상 프로젝트 <span class="required">*</span></label>
-                        <select id="official-doc-project-select" required>
-                            <!-- Dynamic options -->
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="official-doc-no">문서번호 <span class="required">*</span></label>
-                        <input type="text" id="official-doc-no" required placeholder="예: OK-2026-001">
-                    </div>
-                    <div class="form-group">
-                        <label for="official-doc-date">시행일자 <span class="required">*</span></label>
-                        <input type="date" id="official-doc-date" required>
-                    </div>
-                    <div class="form-group span-2">
-                        <label for="official-doc-title">공문명 <span class="required">*</span></label>
-                        <input type="text" id="official-doc-title" required placeholder="예: [공문] 차세대 스마트 홈 IoT 플랫폼 검수요청서 제출의 건">
-                    </div>
-                    <div class="form-group">
-                        <label for="official-doc-receiver">수신처 <span class="required">*</span></label>
-                        <input type="text" id="official-doc-receiver" required placeholder="수신 기관/부서">
-                    </div>
-                    <div class="form-group">
-                        <label for="official-doc-sender">발신처 <span class="required">*</span></label>
-                        <input type="text" id="official-doc-sender" required value="오케스트로(주)" placeholder="발신 회사/부서">
-                    </div>
-                    <div class="form-group">
-                        <label for="official-doc-status">공문 상태</label>
-                        <select id="official-doc-status">
-                            <option value="임시저장" selected>임시저장</option>
-                            <option value="시행완료">시행완료</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="official-doc-file">첨부 파일명 (시뮬레이션)</label>
-                        <input type="text" id="official-doc-file" placeholder="예: OK_OfficialDoc_001.pdf">
-                    </div>
-                    <div class="form-group span-2">
-                        <label for="official-doc-remarks">비고 / 비고사항</label>
-                        <textarea id="official-doc-remarks" rows="2" placeholder="주요 내용 및 요약 정보 기술"></textarea>
+
+                <!-- TAB 1: 기본 정보 -->
+                <div id="doc-tab-basic" class="doc-tab-content active">
+                    <div class="doc-section-header"><i data-lucide="info" style="width:13px;height:13px;"></i> 기본 정보</div>
+                    <div class="form-grid">
+                        <div class="form-group span-2">
+                            <label for="official-doc-project-select">대상 프로젝트 <span class="required">*</span></label>
+                            <select id="official-doc-project-select" required>
+                                <!-- Dynamic options -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="official-doc-no">품의번호 <span class="required">*</span></label>
+                            <input type="text" id="official-doc-no" required placeholder="예: OKE-202605-002165">
+                        </div>
+                        <div class="form-group">
+                            <label for="official-doc-created-at">작성일시 <span class="required">*</span></label>
+                            <input type="datetime-local" id="official-doc-created-at" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="official-doc-draft-dept">기안부서</label>
+                            <input type="text" id="official-doc-draft-dept" placeholder="예: 오케스트로클라우드_전출">
+                        </div>
+                        <div class="form-group">
+                            <label for="official-doc-drafter">기안자</label>
+                            <input type="text" id="official-doc-drafter" placeholder="기안자명">
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="official-doc-recipients">수신 및 참조</label>
+                            <input type="text" id="official-doc-recipients" placeholder="예: 의장 김민준, 법무팀, 이사 김태환 (쉼표 구분)">
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="official-doc-exec-dept">시행부서</label>
+                            <input type="text" id="official-doc-exec-dept" placeholder="예: 수석 신은영, 김수진, 임지호">
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="official-doc-related-doc">관련품의</label>
+                            <input type="text" id="official-doc-related-doc" placeholder="예: [OKC-202602-000556] / [프로젝트 VRB 평가]">
+                        </div>
+                        <div class="form-group">
+                            <label for="official-doc-receiver">수신자 <span class="required">*</span></label>
+                            <input type="text" id="official-doc-receiver" required placeholder="예: 국가정보자원관리원 대구센터">
+                        </div>
+                        <div class="form-group">
+                            <label for="official-doc-date">발신일</label>
+                            <input type="date" id="official-doc-date">
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="official-doc-title">공문제목 <span class="required">*</span></label>
+                            <input type="text" id="official-doc-title" required placeholder="예: 가상화 소프트웨어 보안취약점 14개 항목 예외 조치 요청의 건">
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="official-doc-write-guide">작성 가이드</label>
+                            <input type="text" id="official-doc-write-guide" placeholder="예: 공문 양식을 작성 후 첨부">
+                        </div>
                     </div>
                 </div>
+
+                <!-- TAB 2: 결재·협의 -->
+                <div id="doc-tab-approval" class="doc-tab-content">
+                    <div class="doc-section-header"><i data-lucide="check-circle-2" style="width:13px;height:13px;"></i> 결재라인</div>
+                    <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr; gap:10px 12px;">
+                        <div class="form-group">
+                            <label for="official-doc-approver-part">파트장</label>
+                            <input type="text" id="official-doc-approver-part" placeholder="파트장명">
+                        </div>
+                        <div class="form-group">
+                            <label for="official-doc-approver-head">본부장</label>
+                            <input type="text" id="official-doc-approver-head" placeholder="본부장명">
+                        </div>
+                        <div class="form-group">
+                            <label for="official-doc-approver-cfo">CFO</label>
+                            <input type="text" id="official-doc-approver-cfo" placeholder="CFO명">
+                        </div>
+                        <div class="form-group">
+                            <label for="official-doc-approver-ceo">CEO</label>
+                            <input type="text" id="official-doc-approver-ceo" placeholder="CEO명">
+                        </div>
+                    </div>
+
+                    <div class="doc-section-header" style="margin-top:16px;"><i data-lucide="clipboard-check" style="width:13px;height:13px;"></i> 결재 정보</div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="official-doc-approval-status">결재 상태</label>
+                            <select id="official-doc-approval-status">
+                                <option value="대기">대기</option>
+                                <option value="승인">승인</option>
+                                <option value="반려">반려</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="official-doc-approval-date">승인일자</label>
+                            <input type="date" id="official-doc-approval-date">
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="official-doc-approver-name">승인자명</label>
+                            <input type="text" id="official-doc-approver-name" placeholder="최종 승인자명">
+                        </div>
+                    </div>
+
+                    <div class="doc-section-header" style="margin-top:16px;"><i data-lucide="users" style="width:13px;height:13px;"></i> 협의 정보</div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="official-doc-consultant">협의자</label>
+                            <input type="text" id="official-doc-consultant" placeholder="예: 임지호">
+                        </div>
+                        <div class="form-group">
+                            <label for="official-doc-consult-status">협의 상태</label>
+                            <select id="official-doc-consult-status">
+                                <option value="대기">대기</option>
+                                <option value="승인">승인</option>
+                                <option value="반려">반려</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="official-doc-consult-date">협의일자</label>
+                            <input type="date" id="official-doc-consult-date">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: 공문 본문 -->
+                <div id="doc-tab-body" class="doc-tab-content">
+                    <div class="doc-section-header"><i data-lucide="layout-list" style="width:13px;height:13px;"></i> 공문 본문 항목</div>
+                    <div class="form-grid">
+                        <div class="form-group span-2">
+                            <label for="official-doc-biz-name">사업명</label>
+                            <input type="text" id="official-doc-biz-name" placeholder="예: 2026년 대구센터 클라우드 자원풀 운영·유지관리 사업">
+                        </div>
+                        <div class="form-group">
+                            <label for="official-doc-project-code">프로젝트 코드</label>
+                            <input type="text" id="official-doc-project-code" placeholder="예: OP-25-0895">
+                        </div>
+                        <div class="form-group">
+                            <label for="official-doc-contract-no">계약번호</label>
+                            <input type="text" id="official-doc-contract-no" placeholder="예: R25TA0128983100">
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="official-doc-biz-period">사업기간</label>
+                            <input type="text" id="official-doc-biz-period" placeholder="예: 2025.12.30. ~ 2026.12.31.">
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="official-doc-content">공문내용 <span class="required">*</span></label>
+                            <textarea id="official-doc-content" rows="6" placeholder="아래와 같이 ...을 위해 공문 발송 품의를 상신드리오니 검토 후 재가하여주시기 바랍니다."></textarea>
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="official-doc-attach-list">붙임 목록</label>
+                            <textarea id="official-doc-attach-list" rows="3" placeholder="붙임 1. 항목 상세내역 1부.&#10;붙임 2. (공문양식) 해당 문서 1부. 끝."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 4: 첨부파일 -->
+                <div id="doc-tab-files" class="doc-tab-content">
+                    <div class="doc-section-header"><i data-lucide="paperclip" style="width:13px;height:13px;"></i> 첨부파일 목록</div>
+                    <div style="display:flex;gap:8px;margin-bottom:14px;">
+                        <input type="text" id="new-doc-file-name" placeholder="파일명 (예: 2026_보안취약점_예외조치.pdf)" style="flex:1;">
+                        <select id="new-doc-file-type" style="min-width:110px;">
+                            <option value="공문 PDF">공문 PDF</option>
+                            <option value="품의문">품의문</option>
+                            <option value="붙임자료">붙임자료</option>
+                            <option value="참고자료">참고자료</option>
+                        </select>
+                        <input type="text" id="new-doc-file-size" placeholder="크기 (예: 269.28 KB)" style="width:130px;">
+                        <button type="button" class="btn btn-outline btn-sm" onclick="app.addOfficialDocFile()">
+                            <i data-lucide="plus" style="width:13px;height:13px;"></i> 추가
+                        </button>
+                    </div>
+                    <div id="official-doc-file-list">
+                        <p class="text-muted text-xs" style="text-align:center;padding:20px;">등록된 첨부파일이 없습니다.</p>
+                    </div>
+                </div>
+
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline" onclick="app.closeOfficialDocModal()">취소</button>
                     <button type="submit" class="btn btn-primary">저장하기</button>
@@ -2670,49 +2820,17 @@
 
     <!-- 12. OFFICIAL DOC DETAIL VIEW DIALOG -->
     <div class="modal-overlay" id="official-doc-detail-modal">
-        <div class="modal-card">
+        <div class="modal-card official-doc-modal-card" style="max-height:calc(100vh - 48px);overflow:hidden;">
             <div class="modal-header">
-                <h2>공문 상세 보기</h2>
+                <h2>공문 발신 상세</h2>
                 <button class="modal-close-btn" onclick="document.getElementById('official-doc-detail-modal').classList.remove('open')">&times;</button>
             </div>
-            <div class="detail-modal-body">
-                <table class="detail-info-table">
-                    <tr>
-                        <th>프로젝트</th>
-                        <td id="det-doc-project">-</td>
-                    </tr>
-                    <tr>
-                        <th>문서번호</th>
-                        <td id="det-doc-no" class="font-bold">-</td>
-                    </tr>
-                    <tr>
-                        <th>공문명</th>
-                        <td id="det-doc-title" class="font-bold">-</td>
-                    </tr>
-                    <tr>
-                        <th>수신처 / 발신처</th>
-                        <td><span id="det-doc-receiver">-</span> / <span id="det-doc-sender">-</span></td>
-                    </tr>
-                    <tr>
-                        <th>시행일자</th>
-                        <td id="det-doc-date">-</td>
-                    </tr>
-                    <tr>
-                        <th>상태</th>
-                        <td><span id="det-doc-status" class="status-badge">-</span></td>
-                    </tr>
-                    <tr>
-                        <th>첨부파일</th>
-                        <td id="det-doc-file">-</td>
-                    </tr>
-                    <tr>
-                        <th>내용 요약</th>
-                        <td id="det-doc-remarks" class="pre-wrap">-</td>
-                    </tr>
-                </table>
+            <div id="official-doc-detail-body" style="flex:1;overflow-y:auto;">
+                <!-- Dynamically rendered by openOfficialDocDetailModal() -->
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="document.getElementById('official-doc-detail-modal').classList.remove('open')">닫기</button>
+                <button type="button" class="btn btn-primary" id="det-doc-edit-btn" onclick="">수정하기</button>
             </div>
         </div>
     </div>
