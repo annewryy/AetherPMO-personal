@@ -3416,7 +3416,7 @@ body.dark-theme .toggle-slider {
         box-shadow: var(--shadow-lg);
     }
     
-    .app-container.sidebar-autohide .sidebar-trigger {
+    .app-container.sidebar-autohide ~ .sidebar-trigger {
         display: block;
         position: fixed;
         left: 0;
@@ -3429,7 +3429,7 @@ body.dark-theme .toggle-slider {
         transition: background-color var(--transition-fast), border-color var(--transition-fast);
     }
     
-    .app-container.sidebar-autohide .sidebar-trigger:hover {
+    .app-container.sidebar-autohide ~ .sidebar-trigger:hover {
         background: linear-gradient(90deg, var(--primary-glow) 0%, transparent 100%);
         border-right: 1.5px dashed var(--primary);
     }

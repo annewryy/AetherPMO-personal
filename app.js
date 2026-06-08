@@ -6529,7 +6529,7 @@ class AetherPMO {
         }
         
         // 4. Any Modal/Dialog Open? (e.g. settings modal, project forms, etc.)
-        const openModal = document.querySelector('.modal.open, .modal.show, [id$="-modal"].open, [id$="-modal"][style*="display: block"]');
+        const openModal = document.querySelector('.modal-overlay.open, .modal.open, .modal.show, [id$="-modal"].open, [id$="-modal"][style*="display: block"]');
         if (openModal) {
             return true;
         }
