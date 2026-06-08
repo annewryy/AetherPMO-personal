@@ -6485,14 +6485,33 @@ class AetherPMO {
     toggleSidebarModeMenu(e) {
         e.stopPropagation();
         const menu = document.getElementById('sidebar-mode-menu');
-        if (!menu) return;
+        const btn = document.getElementById('sidebar-mode-btn');
+        if (!menu || !btn) return;
+        
         const isOpen = menu.style.display === 'block';
-        menu.style.display = isOpen ? 'none' : 'block';
-        if (!isOpen) {
+        if (isOpen) {
+            menu.style.display = 'none';
+        } else {
+            // Position the fixed menu based on the button position
+            const rect = btn.getBoundingClientRect();
+            menu.style.display = 'block';
+            
+            const isCompact = document.getElementById('app-section')?.classList.contains('sidebar-compact');
+            if (isCompact) {
+                // Compact Mode: 12px to the right of the button
+                menu.style.top = `${rect.top}px`;
+                menu.style.left = `${rect.right + 12}px`;
+            } else {
+                // Expanded / Auto-Hide Mode: below the button, aligned to its right edge
+                const menuWidth = menu.offsetWidth || 210;
+                menu.style.top = `${rect.bottom + 8}px`;
+                menu.style.left = `${rect.right - menuWidth}px`;
+            }
+
             // Close when clicking outside
             setTimeout(() => {
                 const handler = (ev) => {
-                    if (!menu.contains(ev.target)) {
+                    if (!menu.contains(ev.target) && ev.target !== btn && !btn.contains(ev.target)) {
                         menu.style.display = 'none';
                         document.removeEventListener('click', handler);
                     }

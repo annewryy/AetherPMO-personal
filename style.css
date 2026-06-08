@@ -3496,15 +3496,13 @@ body.dark-theme .toggle-slider {
 
 /* --- Sidebar Mode Menu Dropdown --- */
 .sidebar-mode-menu {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 8px);
+    position: fixed;
     min-width: 210px;
-    background: var(--bg-card);
+    background: var(--bg-modal);
     border: 1px solid var(--bg-card-border);
     border-radius: 10px;
     box-shadow: var(--shadow-lg);
-    z-index: 2000;
+    z-index: 3005;
     padding: 6px;
     display: none;
     flex-direction: column;
