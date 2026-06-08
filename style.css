@@ -3396,7 +3396,17 @@ body.dark-theme .toggle-slider {
 /* --- Auto-Hide Sidebar Settings for Desktop (>= 1025px) --- */
 @media (min-width: 1025px) {
     .app-container.sidebar-autohide {
-        grid-template-columns: 0px 1fr;
+        display: block;
+    }
+    
+    .app-container.sidebar-autohide .main-layout {
+        display: flex;
+        visibility: visible;
+        opacity: 1;
+        width: 100vw;
+        height: 100vh;
+        margin-left: 0;
+        position: relative;
     }
     
     .app-container.sidebar-autohide .sidebar {
