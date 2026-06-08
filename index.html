@@ -73,17 +73,23 @@
 
     <!-- Top-level Grid Container -->
     <div class="app-container" id="app-section">
+        <!-- Sidebar Hover Trigger Area for Auto-Hide Mode -->
+        <div class="sidebar-trigger" id="sidebar-trigger"></div>
+        
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="logo-area">
+                <div class="logo-area" style="width: 100%; display: flex; align-items: center;">
                     <div class="logo-icon">
                         <i data-lucide="layers" class="lucide-icon text-primary"></i>
                     </div>
-                    <div class="logo-text">
+                    <div class="logo-text" style="flex: 1;">
                         <span class="brand-name">Aether<span>PMO</span></span>
                         <span class="brand-sub">사업관리 플랫폼</span>
                     </div>
+                    <button id="sidebar-pin-btn" class="sidebar-pin-btn" aria-label="사이드바 고정 토글">
+                        <i data-lucide="pin" style="width: 16px; height: 16px;"></i>
+                    </button>
                 </div>
             </div>
 

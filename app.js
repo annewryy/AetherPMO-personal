@@ -27,6 +27,7 @@ class AetherPMO {
         this.activeTemplateFolder = 'initiation'; // initiation | execution | closing
         this.activeGlobalTemplateStage = 'initiation'; // initiation | execution | closing
         this.tempAttachedFile = null;
+        this.sidebarTimeout = null;
 
         // Bind lifecycle events
         window.addEventListener('DOMContentLoaded', () => this.init());
@@ -50,6 +51,8 @@ class AetherPMO {
         
         // Reapply dynamic role permissions to newly rendered elements
         this.applyRolePermissions();
+        
+        this.initSidebarMode();
         
         // Initialise Lucide icons
         if (typeof lucide !== 'undefined') {
@@ -1418,6 +1421,60 @@ class AetherPMO {
         if (sidebarToggle) {
             sidebarToggle.addEventListener('click', () => {
                 document.querySelector('.sidebar').classList.toggle('open');
+            });
+        }
+
+        // Sidebar pin button click handler
+        const pinBtn = document.getElementById('sidebar-pin-btn');
+        if (pinBtn) {
+            pinBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleSidebarMode();
+            });
+        }
+
+        // Sidebar Hover Events (Desktop only)
+        const trigger = document.getElementById('sidebar-trigger');
+        const sidebar = document.querySelector('.sidebar');
+        
+        if (trigger && sidebar) {
+            trigger.addEventListener('mouseenter', () => {
+                const appContainer = document.getElementById('app-section');
+                if (appContainer && appContainer.classList.contains('sidebar-autohide')) {
+                    if (window.innerWidth >= 1025) {
+                        clearTimeout(this.sidebarTimeout);
+                        sidebar.classList.add('expanded');
+                    }
+                }
+            });
+            
+            sidebar.addEventListener('mouseenter', () => {
+                const appContainer = document.getElementById('app-section');
+                if (appContainer && appContainer.classList.contains('sidebar-autohide')) {
+                    if (window.innerWidth >= 1025) {
+                        clearTimeout(this.sidebarTimeout);
+                    }
+                }
+            });
+            
+            sidebar.addEventListener('mouseleave', () => {
+                const appContainer = document.getElementById('app-section');
+                if (appContainer && appContainer.classList.contains('sidebar-autohide')) {
+                    if (window.innerWidth >= 1025) {
+                        // Check if any overlay is open
+                        if (this.isOverlayOpen()) {
+                            return; // Do not hide if overlay is open
+                        }
+                        
+                        clearTimeout(this.sidebarTimeout);
+                        this.sidebarTimeout = setTimeout(() => {
+                            sidebar.classList.remove('expanded');
+                            // Close sidebar dropdown menus too
+                            const sidebarMenu = document.getElementById('sidebar-user-menu-panel');
+                            if (sidebarMenu) sidebarMenu.classList.remove('open');
+                        }, 700); // 700ms Close Delay
+                    }
+                }
             });
         }
 
@@ -6371,6 +6428,118 @@ class AetherPMO {
         toast._hideTimer = setTimeout(() => {
             toast.style.opacity = '0';
         }, 3000);
+    }
+
+    /**
+     * Initialize Sidebar Auto-Hide Mode from localStorage
+     */
+    initSidebarMode() {
+        const savedMode = localStorage.getItem('pms-sidebar-mode') || 'fixed';
+        const appContainer = document.getElementById('app-section');
+        const pinBtn = document.getElementById('sidebar-pin-btn');
+        const sidebar = document.querySelector('.sidebar');
+        
+        if (!appContainer) return;
+        
+        if (savedMode === 'autohide') {
+            appContainer.classList.add('sidebar-autohide');
+            if (pinBtn) {
+                pinBtn.classList.add('unpinned');
+                pinBtn.setAttribute('title', '사이드바 고정하기');
+            }
+            if (sidebar) {
+                sidebar.classList.remove('expanded');
+            }
+        } else {
+            appContainer.classList.remove('sidebar-autohide');
+            if (pinBtn) {
+                pinBtn.classList.remove('unpinned');
+                pinBtn.setAttribute('title', '사이드바 자동숨김 설정');
+            }
+            if (sidebar) {
+                sidebar.classList.remove('expanded');
+            }
+        }
+        
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    /**
+     * Toggle between fixed and auto-hide sidebar mode
+     */
+    toggleSidebarMode() {
+        const appContainer = document.getElementById('app-section');
+        const pinBtn = document.getElementById('sidebar-pin-btn');
+        const sidebar = document.querySelector('.sidebar');
+        
+        if (!appContainer) return;
+        
+        const isAutohide = appContainer.classList.toggle('sidebar-autohide');
+        
+        if (isAutohide) {
+            localStorage.setItem('pms-sidebar-mode', 'autohide');
+            if (pinBtn) {
+                pinBtn.classList.add('unpinned');
+                pinBtn.setAttribute('title', '사이드바 고정하기');
+            }
+            if (sidebar) {
+                sidebar.classList.remove('expanded');
+            }
+            this.showToast('사이드바 자동 숨김 모드가 활성화되었습니다.');
+        } else {
+            localStorage.setItem('pms-sidebar-mode', 'fixed');
+            if (pinBtn) {
+                pinBtn.classList.remove('unpinned');
+                pinBtn.setAttribute('title', '사이드바 자동숨김 설정');
+            }
+            if (sidebar) {
+                sidebar.classList.remove('expanded');
+            }
+            this.showToast('사이드바가 화면에 고정되었습니다.');
+        }
+        
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    /**
+     * Check if any dialog, dropdown, or account center is open
+     * to prevent collapsing the sidebar.
+     */
+    isOverlayOpen() {
+        // 1. Sidebar User Profile Dropdown Open?
+        const sidebarMenu = document.getElementById('sidebar-user-menu-panel');
+        if (sidebarMenu && sidebarMenu.classList.contains('open')) {
+            return true;
+        }
+        
+        // 2. Header User Dropdown Open?
+        const headerMenu = document.getElementById('user-menu-panel');
+        if (headerMenu && headerMenu.classList.contains('open')) {
+            return true;
+        }
+        
+        // 3. Notification Panel Open?
+        const notifPanel = document.getElementById('notif-panel');
+        if (notifPanel && notifPanel.classList.contains('open')) {
+            return true;
+        }
+        
+        // 4. Any Modal/Dialog Open? (e.g. settings modal, project forms, etc.)
+        const openModal = document.querySelector('.modal.open, .modal.show, [id$="-modal"].open, [id$="-modal"][style*="display: block"]');
+        if (openModal) {
+            return true;
+        }
+        
+        // 5. Active View is My Account Center?
+        if (this.currentView && this.currentView.startsWith('my-account')) {
+            return true;
+        }
+        
+        return false;
     }
 }
 
