@@ -84,20 +84,40 @@
                         <span class="brand-name">Aether<span>PMO</span></span>
                         <span class="brand-sub">사업관리 플랫폼</span>
                     </div>
-                    <button id="sidebar-pin-btn" class="sidebar-pin-btn" aria-label="사이드바 고정 토글">
-                        <i data-lucide="pin" style="width: 16px; height: 16px;"></i>
-                    </button>
+                    <div class="sidebar-mode-container" style="position: relative; margin-left: auto; flex-shrink: 0;">
+                        <button id="sidebar-mode-btn" class="sidebar-pin-btn" aria-label="사이드바 모드 선택" onclick="app.toggleSidebarModeMenu(event)">
+                            <i data-lucide="panel-left" style="width: 16px; height: 16px;"></i>
+                        </button>
+                        <div id="sidebar-mode-menu" class="sidebar-mode-menu" style="display: none;">
+                            <div class="sidebar-mode-menu-header">Sidebar 표시 방식</div>
+                            <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-expanded" onclick="app.setSidebarMode('expanded')">
+                                <i data-lucide="check" class="smi-check"></i>
+                                <i data-lucide="layout-sidebar" style="width: 14px; height: 14px;"></i>
+                                <span>일반 고정 (Expanded)</span>
+                            </a>
+                            <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-compact" onclick="app.setSidebarMode('compact')">
+                                <i data-lucide="check" class="smi-check"></i>
+                                <i data-lucide="columns-2" style="width: 14px; height: 14px;"></i>
+                                <span>아이콘 축소 (Compact)</span>
+                            </a>
+                            <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-autohide" onclick="app.setSidebarMode('autohide')">
+                                <i data-lucide="check" class="smi-check"></i>
+                                <i data-lucide="eye-off" style="width: 14px; height: 14px;"></i>
+                                <span>자동 숨김 (Auto-Hide)</span>
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <nav class="sidebar-nav">
-                <a href="#dashboard" class="nav-item active" data-view="dashboard">
+                <a href="#dashboard" class="nav-item active" data-view="dashboard" data-tooltip="Home">
                     <i data-lucide="layout-dashboard"></i>
                     <span>Home</span>
                 </a>
                 
                 <div class="nav-item-wrapper" id="nav-wrapper-projects">
-                    <a href="#projects" class="nav-item" data-view="projects">
+                    <a href="#projects" class="nav-item" data-view="projects" data-tooltip="프로젝트 관리">
                         <i data-lucide="folder-kanban"></i>
                         <span>프로젝트 관리</span>
                     </a>
@@ -127,7 +147,7 @@
                 </div>
 
                 <div class="nav-item-wrapper" id="nav-wrapper-artifacts">
-                    <a href="#artifacts" class="nav-item" data-view="artifacts">
+                    <a href="#artifacts" class="nav-item" data-view="artifacts" data-tooltip="산출물 템플릿 관리">
                         <i data-lucide="file-check"></i>
                         <span>산출물 템플릿 관리</span>
                     </a>
@@ -144,27 +164,27 @@
                     </div>
                 </div>
 
-                <a href="#issues" class="nav-item" data-view="issues">
+                <a href="#issues" class="nav-item" data-view="issues" data-tooltip="이슈/리스크 관리">
                     <i data-lucide="alert-triangle"></i>
                     <span>이슈/리스크 관리</span>
                 </a>
 
-                <a href="#action-items" class="nav-item" data-view="action-items">
+                <a href="#action-items" class="nav-item" data-view="action-items" data-tooltip="Action Item 관리">
                     <i data-lucide="check-square"></i>
                     <span>Action Item 관리</span>
                 </a>
 
-                <a href="#official-docs" class="nav-item" data-view="official-docs">
+                <a href="#official-docs" class="nav-item" data-view="official-docs" data-tooltip="공문 관리">
                     <i data-lucide="mail"></i>
                     <span>공문 관리</span>
                 </a>
 
-                <a href="#meeting-minutes" class="nav-item" data-view="meeting-minutes">
+                <a href="#meeting-minutes" class="nav-item" data-view="meeting-minutes" data-tooltip="회의록 관리">
                     <i data-lucide="presentation"></i>
                     <span>회의록 관리</span>
                 </a>
 
-                <a href="#backup" class="nav-item" data-view="backup">
+                <a href="#backup" class="nav-item" data-view="backup" data-tooltip="시스템 설정">
                     <i data-lucide="settings"></i>
                     <span>시스템 설정</span>
                 </a>
