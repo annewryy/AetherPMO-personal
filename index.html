@@ -76,30 +76,25 @@
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="logo-area" style="width: 100%; display: flex; align-items: center;">
+                <div class="logo-area">
                     <div class="logo-icon">
                         <i data-lucide="layers" class="lucide-icon text-primary"></i>
                     </div>
-                    <div class="logo-text" style="flex: 1;">
+                    <div class="logo-text">
                         <span class="brand-name">Aether<span>PMO</span></span>
                         <span class="brand-sub">사업관리 플랫폼</span>
-                    </div>
-                    <div class="sidebar-mode-container" style="position: relative; margin-left: auto; flex-shrink: 0;">
-                        <button id="sidebar-mode-btn" class="sidebar-pin-btn" aria-label="사이드바 모드 선택">
-                            <i data-lucide="panel-left" style="width: 16px; height: 16px;"></i>
-                        </button>
                     </div>
                 </div>
             </div>
 
             <nav class="sidebar-nav">
-                <a href="#dashboard" class="nav-item active" data-view="dashboard" data-tooltip="Home">
+                <a href="#dashboard" class="nav-item active" data-view="dashboard">
                     <i data-lucide="layout-dashboard"></i>
                     <span>Home</span>
                 </a>
                 
                 <div class="nav-item-wrapper" id="nav-wrapper-projects">
-                    <a href="#projects" class="nav-item" data-view="projects" data-tooltip="프로젝트 관리">
+                    <a href="#projects" class="nav-item" data-view="projects">
                         <i data-lucide="folder-kanban"></i>
                         <span>프로젝트 관리</span>
                     </a>
@@ -129,7 +124,7 @@
                 </div>
 
                 <div class="nav-item-wrapper" id="nav-wrapper-artifacts">
-                    <a href="#artifacts" class="nav-item" data-view="artifacts" data-tooltip="산출물 템플릿 관리">
+                    <a href="#artifacts" class="nav-item" data-view="artifacts">
                         <i data-lucide="file-check"></i>
                         <span>산출물 템플릿 관리</span>
                     </a>
@@ -146,27 +141,27 @@
                     </div>
                 </div>
 
-                <a href="#issues" class="nav-item" data-view="issues" data-tooltip="이슈/리스크 관리">
+                <a href="#issues" class="nav-item" data-view="issues">
                     <i data-lucide="alert-triangle"></i>
                     <span>이슈/리스크 관리</span>
                 </a>
 
-                <a href="#action-items" class="nav-item" data-view="action-items" data-tooltip="Action Item 관리">
+                <a href="#action-items" class="nav-item" data-view="action-items">
                     <i data-lucide="check-square"></i>
                     <span>Action Item 관리</span>
                 </a>
 
-                <a href="#official-docs" class="nav-item" data-view="official-docs" data-tooltip="공문 관리">
+                <a href="#official-docs" class="nav-item" data-view="official-docs">
                     <i data-lucide="mail"></i>
                     <span>공문 관리</span>
                 </a>
 
-                <a href="#meeting-minutes" class="nav-item" data-view="meeting-minutes" data-tooltip="회의록 관리">
+                <a href="#meeting-minutes" class="nav-item" data-view="meeting-minutes">
                     <i data-lucide="presentation"></i>
                     <span>회의록 관리</span>
                 </a>
 
-                <a href="#backup" class="nav-item" data-view="backup" data-tooltip="시스템 설정">
+                <a href="#backup" class="nav-item" data-view="backup">
                     <i data-lucide="settings"></i>
                     <span>시스템 설정</span>
                 </a>
@@ -1776,179 +1771,174 @@
         </div>
     </div>
 
-    <!-- Sidebar Hover Trigger Area for Auto-Hide Mode -->
-    <div class="sidebar-trigger" id="sidebar-trigger"></div>
-
     <!-- ==============================================
          DIALOGS & MODALS
          ============================================== -->
     
     <!-- 1. PROJECT CREATION / EDITION MODAL -->
     <div class="modal-overlay" id="project-modal">
-        <div class="modal-card project-form-modal">
+        <div class="modal-card">
             <div class="modal-header">
                 <h2 id="project-modal-title">새 프로젝트 등록</h2>
                 <button class="modal-close-btn" onclick="app.closeProjectModal()">&times;</button>
             </div>
             <form id="project-form">
                 <input type="hidden" id="project-id-field">
-                <div class="modal-body">
-                    <div class="form-grid">
-                        <div class="form-group span-2">
-                            <label for="project-name">프로젝트 이름 <span class="required">*</span></label>
-                            <input type="text" id="project-name" required placeholder="예: 차세대 CRM 웹 시스템 개발">
+                <div class="form-grid">
+                    <div class="form-group span-2">
+                        <label for="project-name">프로젝트 이름 <span class="required">*</span></label>
+                        <input type="text" id="project-name" required placeholder="예: 차세대 CRM 웹 시스템 개발">
+                    </div>
+                    <div class="form-group span-2">
+                        <label for="project-desc">프로젝트 설명</label>
+                        <textarea id="project-desc" rows="2" placeholder="프로젝트의 주요 목표와 범위에 대해 기술하세요."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="project-dept">담당 부서</label>
+                        <select id="project-dept" onchange="app.handleDeptChange(this.value)">
+                            <option value="사업관리팀" selected>사업관리팀</option>
+                            <option value="개발팀">개발팀</option>
+                            <option value="기획팀">기획팀</option>
+                            <option value="디자인팀">디자인팀</option>
+                            <option value="품질관리팀">품질관리팀</option>
+                            <option value="custom">직접 입력...</option>
+                        </select>
+                        <input type="text" id="project-dept-custom" placeholder="부서명 직접 입력" style="display: none; margin-top: 8px;">
+                    </div>
+                    <div class="form-group">
+                        <label for="project-manager">프로젝트 매니저 <span class="required">*</span></label>
+                        <input type="text" id="project-manager" required value="안유경">
+                    </div>
+                    <div class="form-group">
+                        <label for="project-customer">고객기관 <span class="required">*</span></label>
+                        <input type="text" id="project-customer" required placeholder="예: 행정안전부">
+                    </div>
+                    <div class="form-group">
+                        <label for="project-budget">사업금액 (원) <span class="required">*</span></label>
+                        <input type="number" id="project-budget" required placeholder="예: 2450000000">
+                    </div>
+                    <div class="form-group">
+                        <label for="project-start-date">시작일 <span class="required">*</span></label>
+                        <input type="date" id="project-start-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="project-end-date">종료일 <span class="required">*</span></label>
+                        <input type="date" id="project-end-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="project-inspection-date">검수 예정일 <span class="required">*</span></label>
+                        <input type="date" id="project-inspection-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="project-status">프로젝트 단계 (진행 상태)</label>
+                        <select id="project-status">
+                            <option value="Bidding">입찰 단계 (Bidding)</option>
+                            <option value="In Progress" selected>수행 중 (Active / In Progress)</option>
+                            <option value="Delay">지연 (Delay)</option>
+                            <option value="On Hold">수행 보류 (On Hold)</option>
+                            <option value="Completed">수행 종료 (Closed / Completed)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="project-bid-status-group" style="display: none;">
+                        <label for="project-bid-status">입찰 제안 상태</label>
+                        <select id="project-bid-status">
+                            <option value="제안 준비중" selected>제안 준비중</option>
+                            <option value="제안 제출">제안 제출</option>
+                            <option value="결과 대기">결과 대기</option>
+                            <option value="수주">수주</option>
+                            <option value="실패">실패</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="project-progress">진행률 (%) <span class="text-xs text-muted">(WBS 가중치 자동 계산)</span></label>
+                        <input type="number" id="project-progress" min="0" max="100" value="0" readonly style="opacity: 0.8; cursor: not-allowed;">
+                    </div>
+                    <div class="form-group">
+                        <label for="project-resources">투입 인력 수 (명)</label>
+                        <input type="number" id="project-resources" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="project-code">프로젝트 코드</label>
+                        <input type="text" id="project-code" placeholder="예: PRJ-2026-001">
+                    </div>
+                    <div class="form-group">
+                        <label for="project-biz-type">사업 유형</label>
+                        <input type="text" id="project-biz-type" placeholder="예: ISP / BPR, SI 구축">
+                    </div>
+                    <div class="form-group">
+                        <label for="project-contract-date">계약일</label>
+                        <input type="date" id="project-contract-date">
+                    </div>
+                    <div class="form-group">
+                        <label for="project-location">수행 장소</label>
+                        <input type="text" id="project-location" placeholder="예: 정부대전청사 특허청">
+                    </div>
+                    <div class="form-group">
+                        <label for="project-related-biz">관련 사업</label>
+                        <input type="text" id="project-related-biz" placeholder="예: 차세대 지식재산행정시스템 구축 사업">
+                    </div>
+                    <div class="form-group">
+                        <label for="project-risk-level">위험도</label>
+                        <select id="project-risk-level">
+                            <option value="낮음">낮음 (Low)</option>
+                            <option value="보통" selected>보통 (Medium)</option>
+                            <option value="높음">높음 (High)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group span-2">
+                        <h4 style="margin-top: 10px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 6px; font-size:13px; color:var(--primary); font-weight:700;">WBS 단계별 진척률 (%) 및 가중치 (%)</h4>
+                    </div>
+                    <div class="form-group">
+                        <label>착수 단계 진척률 (%) / 가중치 (%)</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="number" id="wbs-progress-initiation" min="0" max="100" placeholder="진척률" style="flex:1;">
+                            <input type="number" id="wbs-weight-initiation" min="0" max="100" placeholder="가중치" style="flex:1;">
                         </div>
-                        <div class="form-group span-2">
-                            <label for="project-desc">프로젝트 설명</label>
-                            <textarea id="project-desc" rows="2" placeholder="프로젝트의 주요 목표와 범위에 대해 기술하세요."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>현황분석 단계 진척률 (%) / 가중치 (%)</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="number" id="wbs-progress-analysis" min="0" max="100" placeholder="진척률" style="flex:1;">
+                            <input type="number" id="wbs-weight-analysis" min="0" max="100" placeholder="가중치" style="flex:1;">
                         </div>
-                        <div class="form-group">
-                            <label for="project-dept">담당 부서</label>
-                            <select id="project-dept" onchange="app.handleDeptChange(this.value)">
-                                <option value="사업관리팀" selected>사업관리팀</option>
-                                <option value="개발팀">개발팀</option>
-                                <option value="기획팀">기획팀</option>
-                                <option value="디자인팀">디자인팀</option>
-                                <option value="품질관리팀">품질관리팀</option>
-                                <option value="custom">직접 입력...</option>
-                            </select>
-                            <input type="text" id="project-dept-custom" placeholder="부서명 직접 입력" style="display: none; margin-top: 8px;">
+                    </div>
+                    <div class="form-group">
+                        <label>요구사항 도출 진척률 (%) / 가중치 (%)</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="number" id="wbs-progress-design" min="0" max="100" placeholder="진척률" style="flex:1;">
+                            <input type="number" id="wbs-weight-design" min="0" max="100" placeholder="가중치" style="flex:1;">
                         </div>
-                        <div class="form-group">
-                            <label for="project-manager">프로젝트 매니저 <span class="required">*</span></label>
-                            <input type="text" id="project-manager" required value="안유경">
+                    </div>
+                    <div class="form-group">
+                        <label>BPR 수립 단계 진척률 (%) / 가중치 (%)</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="number" id="wbs-progress-bpr" min="0" max="100" placeholder="진척률" style="flex:1;">
+                            <input type="number" id="wbs-weight-bpr" min="0" max="100" placeholder="가중치" style="flex:1;">
                         </div>
-                        <div class="form-group">
-                            <label for="project-customer">고객기관 <span class="required">*</span></label>
-                            <input type="text" id="project-customer" required placeholder="예: 행정안전부">
+                    </div>
+                    <div class="form-group">
+                        <label>ISP 수립 단계 진척률 (%) / 가중치 (%)</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="number" id="wbs-progress-isp" min="0" max="100" placeholder="진척률" style="flex:1;">
+                            <input type="number" id="wbs-weight-isp" min="0" max="100" placeholder="가중치" style="flex:1;">
                         </div>
-                        <div class="form-group">
-                            <label for="project-budget">사업금액 (원) <span class="required">*</span></label>
-                            <input type="number" id="project-budget" required placeholder="예: 2450000000">
+                    </div>
+                    <div class="form-group">
+                        <label>최종보고 단계 진척률 (%) / 가중치 (%)</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="number" id="wbs-progress-closing" min="0" max="100" placeholder="진척률" style="flex:1;">
+                            <input type="number" id="wbs-weight-closing" min="0" max="100" placeholder="가중치" style="flex:1;">
                         </div>
-                        <div class="form-group">
-                            <label for="project-start-date">시작일 <span class="required">*</span></label>
-                            <input type="date" id="project-start-date" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="project-end-date">종료일 <span class="required">*</span></label>
-                            <input type="date" id="project-end-date" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="project-inspection-date">검수 예정일 <span class="required">*</span></label>
-                            <input type="date" id="project-inspection-date" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="project-status">프로젝트 단계 (진행 상태)</label>
-                            <select id="project-status">
-                                <option value="Bidding">입찰 단계 (Bidding)</option>
-                                <option value="In Progress" selected>수행 중 (Active / In Progress)</option>
-                                <option value="Delay">지연 (Delay)</option>
-                                <option value="On Hold">수행 보류 (On Hold)</option>
-                                <option value="Completed">수행 종료 (Closed / Completed)</option>
-                            </select>
-                        </div>
-                        <div class="form-group" id="project-bid-status-group" style="display: none;">
-                            <label for="project-bid-status">입찰 제안 상태</label>
-                            <select id="project-bid-status">
-                                <option value="제안 준비중" selected>제안 준비중</option>
-                                <option value="제안 제출">제안 제출</option>
-                                <option value="결과 대기">결과 대기</option>
-                                <option value="수주">수주</option>
-                                <option value="실패">실패</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="project-progress">진행률 (%) <span class="text-xs text-muted">(WBS 가중치 자동 계산)</span></label>
-                            <input type="number" id="project-progress" min="0" max="100" value="0" readonly style="opacity: 0.8; cursor: not-allowed;">
-                        </div>
-                        <div class="form-group">
-                            <label for="project-resources">투입 인력 수 (명)</label>
-                            <input type="number" id="project-resources" min="0" value="0">
-                        </div>
-                        <div class="form-group">
-                            <label for="project-code">프로젝트 코드</label>
-                            <input type="text" id="project-code" placeholder="예: PRJ-2026-001">
-                        </div>
-                        <div class="form-group">
-                            <label for="project-biz-type">사업 유형</label>
-                            <input type="text" id="project-biz-type" placeholder="예: ISP / BPR, SI 구축">
-                        </div>
-                        <div class="form-group">
-                            <label for="project-contract-date">계약일</label>
-                            <input type="date" id="project-contract-date">
-                        </div>
-                        <div class="form-group">
-                            <label for="project-location">수행 장소</label>
-                            <input type="text" id="project-location" placeholder="예: 정부대전청사 특허청">
-                        </div>
-                        <div class="form-group">
-                            <label for="project-related-biz">관련 사업</label>
-                            <input type="text" id="project-related-biz" placeholder="예: 차세대 지식재산행정시스템 구축 사업">
-                        </div>
-                        <div class="form-group">
-                            <label for="project-risk-level">위험도</label>
-                            <select id="project-risk-level">
-                                <option value="낮음">낮음 (Low)</option>
-                                <option value="보통" selected>보통 (Medium)</option>
-                                <option value="높음">높음 (High)</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group span-2">
-                            <h4 style="margin-top: 4px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 6px; font-size:13px; color:var(--primary); font-weight:700;">WBS 단계별 진척률 (%) 및 가중치 (%)</h4>
-                        </div>
-                        <div class="form-group">
-                            <label>착수 단계 진척률 (%) / 가중치 (%)</label>
-                            <div style="display: flex; gap: 8px;">
-                                <input type="number" id="wbs-progress-initiation" min="0" max="100" placeholder="진척률" style="flex:1;">
-                                <input type="number" id="wbs-weight-initiation" min="0" max="100" placeholder="가중치" style="flex:1;">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>현황분석 단계 진척률 (%) / 가중치 (%)</label>
-                            <div style="display: flex; gap: 8px;">
-                                <input type="number" id="wbs-progress-analysis" min="0" max="100" placeholder="진척률" style="flex:1;">
-                                <input type="number" id="wbs-weight-analysis" min="0" max="100" placeholder="가중치" style="flex:1;">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>요구사항 도출 진척률 (%) / 가중치 (%)</label>
-                            <div style="display: flex; gap: 8px;">
-                                <input type="number" id="wbs-progress-design" min="0" max="100" placeholder="진척률" style="flex:1;">
-                                <input type="number" id="wbs-weight-design" min="0" max="100" placeholder="가중치" style="flex:1;">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>BPR 수립 단계 진척률 (%) / 가중치 (%)</label>
-                            <div style="display: flex; gap: 8px;">
-                                <input type="number" id="wbs-progress-bpr" min="0" max="100" placeholder="진척률" style="flex:1;">
-                                <input type="number" id="wbs-weight-bpr" min="0" max="100" placeholder="가중치" style="flex:1;">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>ISP 수립 단계 진척률 (%) / 가중치 (%)</label>
-                            <div style="display: flex; gap: 8px;">
-                                <input type="number" id="wbs-progress-isp" min="0" max="100" placeholder="진척률" style="flex:1;">
-                                <input type="number" id="wbs-weight-isp" min="0" max="100" placeholder="가중치" style="flex:1;">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>최종보고 단계 진척률 (%) / 가중치 (%)</label>
-                            <div style="display: flex; gap: 8px;">
-                                <input type="number" id="wbs-progress-closing" min="0" max="100" placeholder="진척률" style="flex:1;">
-                                <input type="number" id="wbs-weight-closing" min="0" max="100" placeholder="가중치" style="flex:1;">
-                            </div>
-                        </div>
-    
-                        <div class="form-group span-2">
-                            <label for="project-milestones">주요 마일스톤</label>
-                            <textarea id="project-milestones" rows="2" placeholder="예: 2026-03: 요구사항 정의, 2026-06: 1차 데모 완료"></textarea>
-                        </div>
-                        <div class="form-group span-2">
-                            <label for="project-remarks">비고</label>
-                            <input type="text" id="project-remarks" placeholder="기타 특이사항">
-                        </div>
+                    </div>
+
+                    <div class="form-group span-2">
+                        <label for="project-milestones">주요 마일스톤</label>
+                        <textarea id="project-milestones" rows="2" placeholder="예: 2026-03: 요구사항 정의, 2026-06: 1차 데모 완료"></textarea>
+                    </div>
+                    <div class="form-group span-2">
+                        <label for="project-remarks">비고</label>
+                        <input type="text" id="project-remarks" placeholder="기타 특이사항">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -2999,26 +2989,6 @@
                 <button type="button" class="btn btn-primary" onclick="app.saveUserProfile()">저장하기</button>
             </div>
         </div>
-    </div>
-
-    <!-- Sidebar mode menu dropdown menu container (Rendered at body root to avoid clipping) -->
-    <div id="sidebar-mode-menu" class="sidebar-mode-menu" style="display: none;">
-        <div class="sidebar-mode-menu-header">Sidebar 표시 방식</div>
-        <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-expanded" data-mode="expanded">
-            <i data-lucide="check" class="smi-check"></i>
-            <i data-lucide="layout-sidebar" style="width: 14px; height: 14px;"></i>
-            <span>일반 고정 (Expanded)</span>
-        </a>
-        <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-compact" data-mode="compact">
-            <i data-lucide="check" class="smi-check"></i>
-            <i data-lucide="columns-2" style="width: 14px; height: 14px;"></i>
-            <span>아이콘 축소 (Compact)</span>
-        </a>
-        <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-autohide" data-mode="autohide">
-            <i data-lucide="check" class="smi-check"></i>
-            <i data-lucide="eye-off" style="width: 14px; height: 14px;"></i>
-            <span>자동 숨김 (Auto-Hide)</span>
-        </a>
     </div>
 
     <!-- Core App logic script -->

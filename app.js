@@ -27,7 +27,6 @@ class AetherPMO {
         this.activeTemplateFolder = 'initiation'; // initiation | execution | closing
         this.activeGlobalTemplateStage = 'initiation'; // initiation | execution | closing
         this.tempAttachedFile = null;
-        this.sidebarTimeout = null;
 
         // Bind lifecycle events
         window.addEventListener('DOMContentLoaded', () => this.init());
@@ -51,8 +50,6 @@ class AetherPMO {
         
         // Reapply dynamic role permissions to newly rendered elements
         this.applyRolePermissions();
-        
-        this.initSidebarMode();
         
         // Initialise Lucide icons
         if (typeof lucide !== 'undefined') {
@@ -1423,82 +1420,6 @@ class AetherPMO {
                 document.querySelector('.sidebar').classList.toggle('open');
             });
         }
-        
-        // Log existence of sidebar mode menu components
-        console.log('Sidebar Mode Toggle Elements existence check:', {
-            modeBtn: document.getElementById('sidebar-mode-btn'),
-            modeMenu: document.getElementById('sidebar-mode-menu'),
-            modeItemsCount: document.querySelectorAll('#sidebar-mode-menu .sidebar-mode-item').length
-        });
-
-        // Event Delegation for Sidebar Mode Dropdown and Items
-        document.addEventListener('click', (e) => {
-            const modeBtn = e.target.closest('#sidebar-mode-btn');
-            const modeItem = e.target.closest('.sidebar-mode-item');
-
-            if (modeBtn) {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('sidebar mode button clicked');
-                this.toggleSidebarModeMenu(e);
-                return;
-            }
-
-            if (modeItem) {
-                e.preventDefault();
-                e.stopPropagation();
-                const mode = modeItem.dataset.mode;
-                console.log('sidebar mode item clicked:', mode);
-                this.setSidebarMode(mode);
-                return;
-            }
-        });
-
-
-        // Sidebar Hover Events (Desktop only)
-        const trigger = document.getElementById('sidebar-trigger');
-        const sidebar = document.querySelector('.sidebar');
-        
-        if (trigger && sidebar) {
-            trigger.addEventListener('mouseenter', () => {
-                const appContainer = document.getElementById('app-section');
-                if (appContainer && appContainer.classList.contains('sidebar-autohide')) {
-                    if (window.innerWidth >= 1025) {
-                        clearTimeout(this.sidebarTimeout);
-                        sidebar.classList.add('expanded');
-                    }
-                }
-            });
-            
-            sidebar.addEventListener('mouseenter', () => {
-                const appContainer = document.getElementById('app-section');
-                if (appContainer && appContainer.classList.contains('sidebar-autohide')) {
-                    if (window.innerWidth >= 1025) {
-                        clearTimeout(this.sidebarTimeout);
-                    }
-                }
-            });
-            
-            sidebar.addEventListener('mouseleave', () => {
-                const appContainer = document.getElementById('app-section');
-                if (appContainer && appContainer.classList.contains('sidebar-autohide')) {
-                    if (window.innerWidth >= 1025) {
-                        // Check if any overlay is open
-                        if (this.isOverlayOpen()) {
-                            return; // Do not hide if overlay is open
-                        }
-                        
-                        clearTimeout(this.sidebarTimeout);
-                        this.sidebarTimeout = setTimeout(() => {
-                            sidebar.classList.remove('expanded');
-                            // Close sidebar dropdown menus too
-                            const sidebarMenu = document.getElementById('sidebar-user-menu-panel');
-                            if (sidebarMenu) sidebarMenu.classList.remove('open');
-                        }, 700); // 700ms Close Delay
-                    }
-                }
-            });
-        }
 
         // Global theme switcher toggle
         const themeBtn = document.getElementById('theme-toggle-btn');
@@ -1527,7 +1448,7 @@ class AetherPMO {
                 }
             });
 
-            // Close user menus and sidebar mode dropdown when clicking outside
+            // Close user menus when clicking outside
             document.addEventListener('click', (e) => {
                 const userMenu = document.getElementById('user-menu-panel');
                 const userHeaderInfo = document.getElementById('user-header-info');
@@ -1539,14 +1460,6 @@ class AetherPMO {
                 const sidebarBadge = document.getElementById('sidebar-user-badge');
                 if (sidebarMenu && !sidebarMenu.contains(e.target) && (!sidebarBadge || !sidebarBadge.contains(e.target))) {
                     sidebarMenu.classList.remove('open');
-                }
-
-                const modeMenu = document.getElementById('sidebar-mode-menu');
-                const modeBtn = document.getElementById('sidebar-mode-btn');
-                if (modeMenu && modeMenu.classList.contains('open')) {
-                    if (!modeMenu.contains(e.target) && e.target !== modeBtn && !modeBtn.contains(e.target)) {
-                        modeMenu.classList.remove('open');
-                    }
                 }
             });
         }
@@ -6458,256 +6371,6 @@ class AetherPMO {
         toast._hideTimer = setTimeout(() => {
             toast.style.opacity = '0';
         }, 3000);
-    }
-
-    /**
-     * Initialize Sidebar Mode from localStorage with emergency recovery fallback
-     */
-    initSidebarMode() {
-        try {
-            const mode = localStorage.getItem('pms-sidebar-mode') || 'expanded';
-            // Handle migration from old 'fixed' preference
-            const normalizedMode = mode === 'fixed' ? 'expanded' : mode;
-            this.applySidebarMode(normalizedMode, false);
-        } catch (e) {
-            console.error('Sidebar mode initialization failed. Resetting to expanded.', e);
-            localStorage.setItem('pms-sidebar-mode', 'expanded');
-            this.applySidebarMode('expanded', false);
-        }
-    }
-
-    /**
-     * Set the sidebar mode and persist it
-     */
-    setSidebarMode(mode) {
-        this.applySidebarMode(mode, true);
-        const menu = document.getElementById('sidebar-mode-menu');
-        if (menu) menu.classList.remove('open');
-        
-        const modeLabels = {
-            expanded: '일반 고정 모드',
-            compact: '아이콘 축소 모드',
-            autohide: '자동 숨김 모드'
-        };
-        this.showToast(`사이드바가 ${modeLabels[mode] || mode}로 변경되었습니다.`);
-    }
-
-    /**
-     * Apply sidebar mode layout classes and setup/destroy submenus
-     */
-    applySidebarMode(mode, animate) {
-        const container = document.getElementById('app-section');
-        const sidebar = document.querySelector('.sidebar');
-        if (!container) return;
-
-        // Clear all mode classes
-        container.classList.remove('sidebar-autohide', 'sidebar-compact');
-        if (sidebar) sidebar.classList.remove('expanded');
-
-        // Apply selected mode
-        if (mode === 'compact') {
-            container.classList.add('sidebar-compact');
-            this.setupCompactFlyouts();
-        } else if (mode === 'autohide') {
-            container.classList.add('sidebar-autohide');
-            this.destroyCompactFlyouts();
-        } else {
-            // 'expanded' / default
-            this.destroyCompactFlyouts();
-        }
-
-        localStorage.setItem('pms-sidebar-mode', mode);
-        this.currentSidebarMode = mode;
-        this.updateSidebarModeMenu(mode);
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-    }
-
-    /**
-     * Toggle the sidebar mode selector dropdown menu with precise measurements
-     */
-    toggleSidebarModeMenu(e) {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        const menu = document.getElementById('sidebar-mode-menu');
-        const btn = document.getElementById('sidebar-mode-btn');
-        if (!menu || !btn) return;
-        
-        const isOpen = menu.classList.contains('open');
-        if (isOpen) {
-            menu.classList.remove('open');
-        } else {
-            // Position the fixed menu based on the button position
-            const rect = btn.getBoundingClientRect();
-            
-            // Temporary render to calculate width accurately
-            menu.style.visibility = 'hidden';
-            menu.classList.add('open');
-            const menuWidth = menu.offsetWidth || 210;
-            menu.classList.remove('open');
-            menu.style.visibility = 'visible';
-            
-            const isCompact = document.getElementById('app-section')?.classList.contains('sidebar-compact');
-            if (isCompact) {
-                // Compact Mode: 12px to the right of the button
-                menu.style.top = `${rect.top}px`;
-                menu.style.left = `${rect.right + 12}px`;
-            } else {
-                // Expanded / Auto-Hide Mode: below the button, aligned to its right edge
-                menu.style.top = `${rect.bottom + 8}px`;
-                menu.style.left = `${rect.right - menuWidth}px`;
-            }
-            
-            menu.classList.add('open');
-        }
-    }
-
-    /**
-     * Update active checkmarks and icons in the mode menu
-     */
-    updateSidebarModeMenu(mode) {
-        ['expanded', 'compact', 'autohide'].forEach(m => {
-            const el = document.getElementById(`smi-${m}`);
-            if (el) el.classList.toggle('active', m === mode);
-        });
-        
-        // Update mode button icon
-        const btn = document.getElementById('sidebar-mode-btn');
-        if (btn) {
-            const icons = {
-                expanded: 'layout-sidebar',
-                compact: 'columns-2',
-                autohide: 'eye-off'
-            };
-            const iconName = icons[mode] || 'layout-sidebar';
-            const iconEl = btn.querySelector('i');
-            if (iconEl) {
-                iconEl.setAttribute('data-lucide', iconName);
-            }
-        }
-    }
-
-    /**
-     * Clean up compact mode flyout menus
-     */
-    destroyCompactFlyouts() {
-        const flyout = document.getElementById('compact-flyout');
-        if (flyout) flyout.remove();
-
-        document.querySelectorAll('.nav-item-wrapper').forEach(wrapper => {
-            if (wrapper._compactEnterHandler) {
-                wrapper.querySelector('.nav-item')?.removeEventListener('mouseenter', wrapper._compactEnterHandler);
-                wrapper.removeEventListener('mouseleave', wrapper._compactLeaveHandler);
-                delete wrapper._compactEnterHandler;
-                delete wrapper._compactLeaveHandler;
-            }
-        });
-    }
-
-    /**
-     * Set up hover-triggered flyout submenus for compact mode
-     */
-    setupCompactFlyouts() {
-        // Create or reuse flyout container
-        let flyout = document.getElementById('compact-flyout');
-        if (!flyout) {
-            flyout = document.createElement('div');
-            flyout.id = 'compact-flyout';
-            flyout.className = 'compact-flyout';
-            document.body.appendChild(flyout);
-        }
-
-        const wrappers = document.querySelectorAll('.nav-item-wrapper');
-        wrappers.forEach(wrapper => {
-            const navLink = wrapper.querySelector('.nav-item');
-            const submenu = wrapper.querySelector('.nav-submenu');
-            if (!navLink || !submenu) return;
-
-            const enterHandler = (e) => {
-                if (!document.getElementById('app-section').classList.contains('sidebar-compact')) return;
-                const rect = navLink.getBoundingClientRect();
-                const items = submenu.querySelectorAll('.submenu-item');
-                flyout.innerHTML = `
-                    <div class="compact-flyout-header">${navLink.querySelector('span')?.textContent || ''}</div>
-                    ${Array.from(items).map(item => {
-                        const href = item.getAttribute('href') || '#';
-                        const label = item.querySelector('span')?.textContent || '';
-                        const activeClass = item.classList.contains('active') ? 'active' : '';
-                        return `<a href="${href}" class="compact-flyout-item ${activeClass}" onclick="document.getElementById('compact-flyout').classList.remove('visible')">${label}</a>`;
-                    }).join('')}
-                `;
-                flyout.style.top = `${rect.top}px`;
-                flyout.style.left = `${rect.right + 12}px`; /* 12px offset */
-                flyout.classList.add('visible');
-            };
-
-            const leaveHandler = (e) => {
-                if (!flyout.contains(e.relatedTarget)) {
-                    flyout.classList.remove('visible');
-                }
-            };
-
-            // Store references for clean destroy
-            wrapper._compactEnterHandler = enterHandler;
-            wrapper._compactLeaveHandler = leaveHandler;
-
-            navLink.addEventListener('mouseenter', enterHandler);
-            wrapper.addEventListener('mouseleave', leaveHandler);
-        });
-
-        flyout.addEventListener('mouseleave', () => flyout.classList.remove('visible'));
-    }
-
-    /**
-     * Check if any dialog, dropdown, or account center is open
-     * to prevent collapsing the sidebar.
-     */
-    isOverlayOpen() {
-        // 1. Sidebar User Profile Dropdown Open?
-        const sidebarMenu = document.getElementById('sidebar-user-menu-panel');
-        if (sidebarMenu && sidebarMenu.classList.contains('open')) {
-            return true;
-        }
-        
-        // 2. Header User Dropdown Open?
-        const headerMenu = document.getElementById('user-menu-panel');
-        if (headerMenu && headerMenu.classList.contains('open')) {
-            return true;
-        }
-        
-        // 3. Notification Panel Open?
-        const notifPanel = document.getElementById('notif-panel');
-        if (notifPanel && notifPanel.classList.contains('open')) {
-            return true;
-        }
-        
-        // 4. Any Modal/Dialog Open? (e.g. settings modal, project forms, etc.)
-        const openModal = document.querySelector('.modal-overlay.open, .modal.open, .modal.show, [id$="-modal"].open, [id$="-modal"][style*="display: block"]');
-        if (openModal) {
-            return true;
-        }
-        
-        // 5. Active View is My Account Center?
-        if (this.currentView && this.currentView.startsWith('my-account')) {
-            return true;
-        }
-        
-        // 6. Sidebar Mode Menu Dropdown Open?
-        const modeMenu = document.getElementById('sidebar-mode-menu');
-        if (modeMenu && modeMenu.classList.contains('open')) {
-            return true;
-        }
-
-        // 7. Compact Mode Flyout Submenu Open/Hovered?
-        const flyout = document.getElementById('compact-flyout');
-        if (flyout && flyout.classList.contains('visible')) {
-            return true;
-        }
-        
-        return false;
     }
 }
 
