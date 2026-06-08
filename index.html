@@ -188,17 +188,20 @@
                     <!-- Sidebar User Dropdown Panel (Floats Upwards) -->
                     <div class="dropdown-panel" id="sidebar-user-menu-panel" style="left: 10px; right: 10px; bottom: 65px; top: auto; width: calc(100% - 20px); background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px; box-shadow: var(--shadow-lg); z-index: 100;">
                         <div class="dropdown-content" style="padding: 6px 0; display: flex; flex-direction: column; gap: 2px;">
-                            <a href="javascript:void(0)" class="dropdown-item" onclick="app.openUserSettingsModal('info')">
+                            <a href="#my-account/info" class="dropdown-item" onclick="app.closeAllDropdowns()">
                                 <i data-lucide="user" style="width: 14px; height: 14px;"></i> 내 정보
                             </a>
-                            <a href="javascript:void(0)" class="dropdown-item" onclick="app.openUserSettingsModal('profile')">
-                                <i data-lucide="settings" style="width: 14px; height: 14px;"></i> 개인설정
+                            <a href="#my-account/preferences" class="dropdown-item" onclick="app.closeAllDropdowns()">
+                                <i data-lucide="settings-2" style="width: 14px; height: 14px;"></i> 개인설정
                             </a>
-                            <a href="javascript:void(0)" class="dropdown-item" onclick="app.openUserSettingsModal('notifications')">
+                            <a href="#my-account/notifications" class="dropdown-item" onclick="app.closeAllDropdowns()">
                                 <i data-lucide="bell" style="width: 14px; height: 14px;"></i> 알림설정
                             </a>
-                            <a href="javascript:void(0)" class="dropdown-item" onclick="app.openUserSettingsModal('password')">
-                                <i data-lucide="key" style="width: 14px; height: 14px;"></i> 비밀번호 변경
+                            <a href="#my-account/security" class="dropdown-item" onclick="app.closeAllDropdowns()">
+                                <i data-lucide="shield" style="width: 14px; height: 14px;"></i> 비밀번호 변경
+                            </a>
+                            <a href="#my-account/activity" class="dropdown-item" onclick="app.closeAllDropdowns()">
+                                <i data-lucide="activity" style="width: 14px; height: 14px;"></i> 활동이력
                             </a>
                             <div style="border-top: 1px solid var(--bg-card-border); margin: 4px 0;"></div>
                             <a href="javascript:void(0)" class="dropdown-item text-danger" onclick="app.logout()">
@@ -236,19 +239,22 @@
                         </div>
                         
                         <!-- Dropdown Panel -->
-                        <div class="dropdown-panel" id="user-menu-panel" style="right: 0; min-width: 180px; top: 115%; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px; box-shadow: var(--shadow-lg); z-index: 100;">
+                        <div class="dropdown-panel" id="user-menu-panel" style="right: 0; min-width: 200px; top: 115%; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px; box-shadow: var(--shadow-lg); z-index: 100;">
                             <div class="dropdown-content" style="padding: 6px 0; display: flex; flex-direction: column; gap: 2px;">
-                                <a href="javascript:void(0)" class="dropdown-item" onclick="app.openUserSettingsModal('info')">
+                                <a href="#my-account/info" class="dropdown-item" onclick="app.closeAllDropdowns()">
                                     <i data-lucide="user" style="width: 14px; height: 14px;"></i> 내 정보
                                 </a>
-                                <a href="javascript:void(0)" class="dropdown-item" onclick="app.openUserSettingsModal('profile')">
-                                    <i data-lucide="settings" style="width: 14px; height: 14px;"></i> 개인설정
+                                <a href="#my-account/preferences" class="dropdown-item" onclick="app.closeAllDropdowns()">
+                                    <i data-lucide="settings-2" style="width: 14px; height: 14px;"></i> 개인설정
                                 </a>
-                                <a href="javascript:void(0)" class="dropdown-item" onclick="app.openUserSettingsModal('notifications')">
+                                <a href="#my-account/notifications" class="dropdown-item" onclick="app.closeAllDropdowns()">
                                     <i data-lucide="bell" style="width: 14px; height: 14px;"></i> 알림설정
                                 </a>
-                                <a href="javascript:void(0)" class="dropdown-item" onclick="app.openUserSettingsModal('password')">
-                                    <i data-lucide="key" style="width: 14px; height: 14px;"></i> 비밀번호 변경
+                                <a href="#my-account/security" class="dropdown-item" onclick="app.closeAllDropdowns()">
+                                    <i data-lucide="shield" style="width: 14px; height: 14px;"></i> 비밀번호 변경
+                                </a>
+                                <a href="#my-account/activity" class="dropdown-item" onclick="app.closeAllDropdowns()">
+                                    <i data-lucide="activity" style="width: 14px; height: 14px;"></i> 활동이력
                                 </a>
                                 <div style="border-top: 1px solid var(--bg-card-border); margin: 4px 0;"></div>
                                 <a href="javascript:void(0)" class="dropdown-item text-danger" onclick="app.logout()">
@@ -1340,6 +1346,425 @@
                     </div>
                 </section>
 
+                <!-- MY ACCOUNT CENTER VIEW -->
+                <section id="view-my-account" class="content-view">
+                    <div class="view-header">
+                        <div>
+                            <h1>My Account Center</h1>
+                            <p class="subtitle">개인 프로필, 권한, 알림, 보안 설정을 관리합니다.</p>
+                        </div>
+                        <button class="btn btn-outline" onclick="history.back()">
+                            <i data-lucide="arrow-left"></i> 돌아가기
+                        </button>
+                    </div>
+
+                    <div class="account-center-layout">
+                        <!-- Left Tab Navigation -->
+                        <nav class="account-center-nav" id="account-center-nav">
+                            <button class="account-tab-btn active" data-tab="info" onclick="app.switchAccountTab('info')">
+                                <i data-lucide="user"></i>
+                                <span>내 정보</span>
+                            </button>
+                            <button class="account-tab-btn" data-tab="preferences" onclick="app.switchAccountTab('preferences')">
+                                <i data-lucide="settings-2"></i>
+                                <span>개인설정</span>
+                            </button>
+                            <button class="account-tab-btn" data-tab="notifications" onclick="app.switchAccountTab('notifications')">
+                                <i data-lucide="bell"></i>
+                                <span>알림설정</span>
+                            </button>
+                            <button class="account-tab-btn" data-tab="security" onclick="app.switchAccountTab('security')">
+                                <i data-lucide="shield"></i>
+                                <span>비밀번호 변경</span>
+                            </button>
+                            <button class="account-tab-btn" data-tab="activity" onclick="app.switchAccountTab('activity')">
+                                <i data-lucide="activity"></i>
+                                <span>활동이력</span>
+                            </button>
+
+                            <!-- Role & Permission Summary Card -->
+                            <div class="account-nav-role-card" id="account-nav-role-card">
+                                <div class="account-nav-avatar" id="account-nav-avatar">AD</div>
+                                <div class="account-nav-user-info">
+                                    <div class="account-nav-name" id="account-nav-name">--</div>
+                                    <div class="account-nav-role-badge" id="account-nav-role-badge">--</div>
+                                </div>
+                            </div>
+                        </nav>
+
+                        <!-- Right Content Area -->
+                        <div class="account-center-content" id="account-center-content">
+
+                            <!-- TAB: 내 정보 -->
+                            <div class="account-tab-panel active" id="account-panel-info">
+                                <div class="account-panel-title">
+                                    <i data-lucide="user-circle"></i>
+                                    <div>
+                                        <h2>내 정보</h2>
+                                        <p>현재 계정의 기본 정보 및 소속 정보를 확인합니다.</p>
+                                    </div>
+                                </div>
+
+                                <!-- Profile Card -->
+                                <div class="account-profile-card">
+                                    <div class="account-profile-avatar-wrap">
+                                        <div class="account-big-avatar" id="account-big-avatar">AD</div>
+                                        <div>
+                                            <div class="account-big-name" id="account-big-name">--</div>
+                                            <div class="account-big-role" id="account-big-role">--</div>
+                                            <div class="account-big-email" id="account-big-email">--</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Info Fields -->
+                                <div class="account-info-grid">
+                                    <div class="account-info-section">
+                                        <h3 class="account-section-title"><i data-lucide="id-card"></i> 기본 정보</h3>
+                                        <div class="account-field-list">
+                                            <div class="account-field-row">
+                                                <span class="account-field-label">이름</span>
+                                                <span class="account-field-value" id="af-name">--</span>
+                                            </div>
+                                            <div class="account-field-row">
+                                                <span class="account-field-label">이메일</span>
+                                                <span class="account-field-value" id="af-email">--</span>
+                                            </div>
+                                            <div class="account-field-row">
+                                                <span class="account-field-label">사번</span>
+                                                <span class="account-field-value" id="af-empno">--</span>
+                                            </div>
+                                            <div class="account-field-row">
+                                                <span class="account-field-label">전화번호</span>
+                                                <span class="account-field-value" id="af-phone">--</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="account-info-section">
+                                        <h3 class="account-section-title"><i data-lucide="building-2"></i> 소속 정보</h3>
+                                        <div class="account-field-list">
+                                            <div class="account-field-row">
+                                                <span class="account-field-label">소속 법인</span>
+                                                <span class="account-field-value" id="af-company">--</span>
+                                            </div>
+                                            <div class="account-field-row">
+                                                <span class="account-field-label">본부</span>
+                                                <span class="account-field-value" id="af-division">--</span>
+                                            </div>
+                                            <div class="account-field-row">
+                                                <span class="account-field-label">직급</span>
+                                                <span class="account-field-value" id="af-position">--</span>
+                                            </div>
+                                            <div class="account-field-row">
+                                                <span class="account-field-label">직책</span>
+                                                <span class="account-field-value" id="af-title">--</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="account-info-section">
+                                        <h3 class="account-section-title"><i data-lucide="shield-check"></i> 권한 정보</h3>
+                                        <div class="account-field-list">
+                                            <div class="account-field-row">
+                                                <span class="account-field-label">역할</span>
+                                                <span class="account-field-value" id="af-role-label">--</span>
+                                            </div>
+                                            <div class="account-field-row">
+                                                <span class="account-field-label">권한 범위</span>
+                                                <span class="account-field-value" id="af-role-scope">--</span>
+                                            </div>
+                                            <div class="account-field-row">
+                                                <span class="account-field-label">메뉴 접근</span>
+                                                <span class="account-field-value" id="af-menu-access">--</span>
+                                            </div>
+                                            <div class="account-field-row">
+                                                <span class="account-field-label">데이터 권한</span>
+                                                <span class="account-field-value" id="af-data-access">--</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Assigned Projects -->
+                                <div class="account-info-section mt-4">
+                                    <h3 class="account-section-title"><i data-lucide="folder-kanban"></i> 담당/참여 프로젝트</h3>
+                                    <div id="account-assigned-projects" class="account-projects-list">
+                                        <div class="empty-state" style="padding: 20px 0;">담당 프로젝트 없음</div>
+                                    </div>
+                                </div>
+
+                                <div class="account-readonly-notice">
+                                    <i data-lucide="info"></i>
+                                    권한 수정은 <strong>시스템 관리자</strong>의 사용자 관리 메뉴를 통해서만 가능합니다.
+                                </div>
+                            </div>
+
+                            <!-- TAB: 개인설정 -->
+                            <div class="account-tab-panel" id="account-panel-preferences">
+                                <div class="account-panel-title">
+                                    <i data-lucide="settings-2"></i>
+                                    <div>
+                                        <h2>개인설정</h2>
+                                        <p>프로필 이미지, 아바타 색상 및 표시 이름을 설정합니다.</p>
+                                    </div>
+                                </div>
+
+                                <div class="account-form-card">
+                                    <h3 class="account-section-title"><i data-lucide="image"></i> 프로필 이미지</h3>
+                                    <div class="account-avatar-editor">
+                                        <div class="account-avatar-preview-wrap">
+                                            <div class="account-preview-avatar" id="pref-avatar-preview">AD</div>
+                                            <img id="pref-avatar-img" src="" style="display:none; width:100px; height:100px; border-radius:50%; object-fit:cover; position:absolute; top:0; left:0;">
+                                        </div>
+                                        <div class="account-avatar-controls">
+                                            <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('pref-image-upload').click()">
+                                                <i data-lucide="upload"></i> 이미지 업로드
+                                            </button>
+                                            <input type="file" id="pref-image-upload" accept="image/*" style="display:none;" onchange="app.handleAccountProfileImageUpload(event)">
+                                            <button type="button" class="btn btn-sm" style="background: var(--bg-hover-item); color: var(--text-muted);" onclick="app.accountUseInitials()">
+                                                이니셜 아바타 사용
+                                            </button>
+                                            <button type="button" class="btn btn-danger btn-sm" onclick="app.accountDeleteProfileImage()">
+                                                <i data-lucide="trash-2"></i> 이미지 삭제
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group mt-3">
+                                        <label for="pref-avatar-color">아바타 배경 색상</label>
+                                        <select id="pref-avatar-color" onchange="app.updateAccountAvatarPreview()">
+                                            <option value="#8b5cf6">Purple (시스템 관리자 기본)</option>
+                                            <option value="#3b82f6">Blue (총괄 관리자 기본)</option>
+                                            <option value="#06b6d4">Teal (PM 기본)</option>
+                                            <option value="#10b981">Green (수행담당자 기본)</option>
+                                            <option value="#6b7280">Gray (조회자 기본)</option>
+                                            <option value="#ec4899">Pink</option>
+                                            <option value="#f59e0b">Orange</option>
+                                            <option value="#ef4444">Red</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group mt-3">
+                                        <label for="pref-display-name">표시 이름</label>
+                                        <input type="text" id="pref-display-name" placeholder="헤더 및 사이드바에 표시될 이름">
+                                    </div>
+
+                                    <div class="form-group mt-3">
+                                        <label for="pref-phone">전화번호</label>
+                                        <input type="text" id="pref-phone" placeholder="예: 010-1234-5678">
+                                    </div>
+
+                                    <div class="form-actions mt-3">
+                                        <button type="button" class="btn btn-primary" onclick="app.saveAccountPreferences()">
+                                            <i data-lucide="save"></i> 저장하기
+                                        </button>
+                                        <button type="button" class="btn btn-outline" onclick="app.loadAccountPreferences()">
+                                            초기화
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- TAB: 알림설정 -->
+                            <div class="account-tab-panel" id="account-panel-notifications">
+                                <div class="account-panel-title">
+                                    <i data-lucide="bell"></i>
+                                    <div>
+                                        <h2>알림설정</h2>
+                                        <p>수신할 알림 유형을 설정합니다. 변경 사항은 헤더 알림 패널에 즉시 반영됩니다.</p>
+                                    </div>
+                                </div>
+
+                                <div class="account-form-card">
+                                    <h3 class="account-section-title"><i data-lucide="bell-ring"></i> 알림 수신 항목</h3>
+                                    <div class="account-notif-list">
+                                        <label class="account-notif-row">
+                                            <div class="account-notif-info">
+                                                <i data-lucide="check-square" class="text-primary"></i>
+                                                <div>
+                                                    <span>Action Item 알림</span>
+                                                    <small>담당 Action Item의 마감 임박 및 완료 알림</small>
+                                                </div>
+                                            </div>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" id="notif-action-item" checked>
+                                                <span class="toggle-track"></span>
+                                            </label>
+                                        </label>
+                                        <label class="account-notif-row">
+                                            <div class="account-notif-info">
+                                                <i data-lucide="alert-triangle" class="text-danger"></i>
+                                                <div>
+                                                    <span>리스크 알림</span>
+                                                    <small>신규 리스크 등록 및 상태 변경 알림</small>
+                                                </div>
+                                            </div>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" id="notif-risk" checked>
+                                                <span class="toggle-track"></span>
+                                            </label>
+                                        </label>
+                                        <label class="account-notif-row">
+                                            <div class="account-notif-info">
+                                                <i data-lucide="presentation" class="text-info"></i>
+                                                <div>
+                                                    <span>회의록 알림</span>
+                                                    <small>회의록 등록 및 Action Item 배정 알림</small>
+                                                </div>
+                                            </div>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" id="notif-meeting" checked>
+                                                <span class="toggle-track"></span>
+                                            </label>
+                                        </label>
+                                        <label class="account-notif-row">
+                                            <div class="account-notif-info">
+                                                <i data-lucide="mail" class="text-warning"></i>
+                                                <div>
+                                                    <span>공문 알림</span>
+                                                    <small>공문 수발신 및 처리 기한 알림</small>
+                                                </div>
+                                            </div>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" id="notif-official" checked>
+                                                <span class="toggle-track"></span>
+                                            </label>
+                                        </label>
+                                        <label class="account-notif-row">
+                                            <div class="account-notif-info">
+                                                <i data-lucide="file-check" class="text-success"></i>
+                                                <div>
+                                                    <span>산출물 알림</span>
+                                                    <small>산출물 업로드, 검토 요청 알림</small>
+                                                </div>
+                                            </div>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" id="notif-artifact" checked>
+                                                <span class="toggle-track"></span>
+                                            </label>
+                                        </label>
+                                        <label class="account-notif-row">
+                                            <div class="account-notif-info">
+                                                <i data-lucide="clock" class="text-danger"></i>
+                                                <div>
+                                                    <span>프로젝트 기간초과 알림</span>
+                                                    <small>프로젝트 종료일 초과 및 임박 알림</small>
+                                                </div>
+                                            </div>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" id="notif-overdue" checked>
+                                                <span class="toggle-track"></span>
+                                            </label>
+                                        </label>
+                                    </div>
+
+                                    <div class="form-actions mt-3">
+                                        <button type="button" class="btn btn-primary" onclick="app.saveAccountNotifications()">
+                                            <i data-lucide="save"></i> 알림 설정 저장
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- TAB: 비밀번호 변경 -->
+                            <div class="account-tab-panel" id="account-panel-security">
+                                <div class="account-panel-title">
+                                    <i data-lucide="shield"></i>
+                                    <div>
+                                        <h2>비밀번호 변경</h2>
+                                        <p>계정 보안을 위해 주기적으로 비밀번호를 변경하세요.</p>
+                                    </div>
+                                </div>
+
+                                <div class="account-form-card" style="max-width: 480px;">
+                                    <h3 class="account-section-title"><i data-lucide="key"></i> 비밀번호 변경</h3>
+                                    <div class="form-group">
+                                        <label for="sec-current-pw">현재 비밀번호</label>
+                                        <div class="input-wrapper">
+                                            <i data-lucide="lock" class="input-icon"></i>
+                                            <input type="password" id="sec-current-pw" placeholder="현재 비밀번호 입력">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="sec-new-pw">새 비밀번호</label>
+                                        <div class="input-wrapper">
+                                            <i data-lucide="lock" class="input-icon"></i>
+                                            <input type="password" id="sec-new-pw" placeholder="새 비밀번호 입력 (8자 이상)">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="sec-confirm-pw">비밀번호 확인</label>
+                                        <div class="input-wrapper">
+                                            <i data-lucide="lock" class="input-icon"></i>
+                                            <input type="password" id="sec-confirm-pw" placeholder="새 비밀번호 재입력">
+                                        </div>
+                                    </div>
+                                    <div id="sec-pw-message" style="font-size:12px; margin-top: 8px; display:none;"></div>
+
+                                    <div class="form-actions mt-3">
+                                        <button type="button" class="btn btn-primary" onclick="app.saveAccountPassword()">
+                                            <i data-lucide="shield-check"></i> 비밀번호 변경
+                                        </button>
+                                    </div>
+
+                                    <div class="account-readonly-notice mt-3" style="margin-top: 16px;">
+                                        <i data-lucide="info"></i>
+                                        비밀번호는 최소 8자 이상이어야 합니다. 변경 후에는 다시 로그인해야 합니다.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- TAB: 활동이력 -->
+                            <div class="account-tab-panel" id="account-panel-activity">
+                                <div class="account-panel-title">
+                                    <i data-lucide="activity"></i>
+                                    <div>
+                                        <h2>활동이력</h2>
+                                        <p>최근 로그인 및 주요 작업 이력을 확인합니다.</p>
+                                    </div>
+                                </div>
+
+                                <div class="account-form-card">
+                                    <h3 class="account-section-title"><i data-lucide="log-in"></i> 최근 로그인 이력</h3>
+                                    <div class="account-activity-list" id="account-activity-list">
+                                        <div class="account-activity-item">
+                                            <div class="activity-icon" style="background: var(--primary-glow); color: var(--primary);">
+                                                <i data-lucide="log-in"></i>
+                                            </div>
+                                            <div class="activity-detail">
+                                                <span class="activity-label">현재 세션 로그인</span>
+                                                <span class="activity-time" id="account-current-login-time">--</span>
+                                            </div>
+                                            <span class="activity-status-badge success">활성</span>
+                                        </div>
+                                    </div>
+                                    <div class="account-readonly-notice mt-3">
+                                        <i data-lucide="info"></i>
+                                        활동이력은 현재 세션 기준으로 표시됩니다. 상세 이력은 시스템 관리자에게 문의하세요.
+                                    </div>
+                                </div>
+
+                                <div class="account-form-card mt-3">
+                                    <h3 class="account-section-title"><i data-lucide="monitor-check"></i> 접속 환경</h3>
+                                    <div class="account-field-list">
+                                        <div class="account-field-row">
+                                            <span class="account-field-label">브라우저</span>
+                                            <span class="account-field-value" id="activity-browser">--</span>
+                                        </div>
+                                        <div class="account-field-row">
+                                            <span class="account-field-label">운영체제</span>
+                                            <span class="account-field-value" id="activity-os">--</span>
+                                        </div>
+                                        <div class="account-field-row">
+                                            <span class="account-field-label">접속 시각</span>
+                                            <span class="account-field-value" id="activity-time">--</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div><!-- /account-center-content -->
+                    </div><!-- /account-center-layout -->
+                </section><!-- /view-my-account -->
 
 
             </main>

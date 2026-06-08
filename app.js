@@ -1621,6 +1621,13 @@ class AetherPMO {
             return;
         }
 
+        if (mainRoute === 'my-account') {
+            const tab = parts[1] || 'info';
+            this.switchView('my-account');
+            this.switchAccountTab(tab);
+            return;
+        }
+
         if (mainRoute === 'project-detail' && parts[1]) {
             this.switchView('project-detail', parts[1]);
         } else if (mainRoute === 'projects') {
@@ -1724,6 +1731,8 @@ class AetherPMO {
             this.renderMeetingMinutes();
         } else if (viewName === 'backup') {
             this.renderUserManagementTable();
+        } else if (viewName === 'my-account') {
+            this.renderMyAccountCenter();
         }
 
         this.updateNotifications();
@@ -5912,6 +5921,456 @@ class AetherPMO {
             { id: 'gt-close-5', name: '보안점검 결과서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_보안점검결과서.docx', fileSize: '130 KB' },
             { id: 'gt-close-6', name: '종료계', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_종료계.docx', fileSize: '95 KB' }
         ];
+    }
+
+    // ============================================================
+    //  MY ACCOUNT CENTER
+    // ============================================================
+
+    /**
+     * Renders the My Account Center view by populating all dynamic fields
+     * from the currently logged-in user. Called when the view is switched.
+     */
+    renderMyAccountCenter() {
+        if (!this.currentUser) return;
+        const u = this.currentUser;
+
+        // --- Left nav role card ---
+        const navAvatar = document.getElementById('account-nav-avatar');
+        const navName = document.getElementById('account-nav-name');
+        const navBadge = document.getElementById('account-nav-role-badge');
+        if (navAvatar) {
+            navAvatar.textContent = u.initials || this.getInitials(u.name);
+            navAvatar.style.background = u.profileColor || this.getRoleColor(u.role);
+            if (u.profileImage) {
+                navAvatar.style.backgroundImage = `url(${u.profileImage})`;
+                navAvatar.style.backgroundSize = 'cover';
+                navAvatar.textContent = '';
+            }
+        }
+        if (navName) navName.textContent = u.name || '--';
+        if (navBadge) {
+            navBadge.textContent = this.translateRoleLabel(u.role);
+            navBadge.style.background = this.getRoleBadgeBg(u.role);
+            navBadge.style.color = this.getRoleBadgeColor(u.role);
+        }
+
+        // --- Big profile card (내 정보 tab) ---
+        const bigAvatar = document.getElementById('account-big-avatar');
+        if (bigAvatar) {
+            bigAvatar.textContent = u.initials || this.getInitials(u.name);
+            bigAvatar.style.background = u.profileColor || this.getRoleColor(u.role);
+            if (u.profileImage) {
+                bigAvatar.style.backgroundImage = `url(${u.profileImage})`;
+                bigAvatar.style.backgroundSize = 'cover';
+                bigAvatar.textContent = '';
+            }
+        }
+        const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '--'; };
+        setText('account-big-name', u.name);
+        setText('account-big-role', this.translateRoleLabel(u.role));
+        setText('account-big-email', u.email);
+
+        // --- Basic info fields ---
+        setText('af-name', u.name);
+        setText('af-email', u.email);
+        setText('af-empno', u.empNo || '미등록');
+        setText('af-phone', u.phone || '미등록');
+        setText('af-company', u.company || '미등록');
+        setText('af-division', u.division || '미등록');
+        setText('af-position', u.position || '미등록');
+        setText('af-title', u.title || '미등록');
+
+        // --- Role & permission fields ---
+        const roleMap = {
+            SYS_ADMIN:  { label: '시스템 관리자', scope: '전체 시스템', menu: '전체 메뉴', data: '전체 CRUD' },
+            EXEC_ADMIN: { label: '총괄 관리자',   scope: '전체 프로젝트 조회', menu: '전체 메뉴 (조회 중심)', data: '조회 + 코멘트 입력' },
+            PM:         { label: 'PM',            scope: '담당 프로젝트', menu: '공문관리 포함 대부분', data: '담당 프로젝트 등록/수정, 타 PM 조회' },
+            WORKER:     { label: '수행담당자',     scope: '참여 프로젝트', menu: '기본 관리 메뉴', data: '등록/수정 (삭제 제외)' },
+            VIEWER:     { label: '조회자',         scope: '전체 조회 전용', menu: '조회 메뉴', data: '읽기 전용' }
+        };
+        const ri = roleMap[u.role] || roleMap['VIEWER'];
+        setText('af-role-label', ri.label);
+        setText('af-role-scope', ri.scope);
+        setText('af-menu-access', ri.menu);
+        setText('af-data-access', ri.data);
+
+        // --- Assigned projects ---
+        const projContainer = document.getElementById('account-assigned-projects');
+        if (projContainer) {
+            const allProjects = this.state.projects || [];
+            let assigned = [];
+            if (u.role === 'PM') {
+                assigned = allProjects.filter(p => p.managerId === u.id || (u.assignedProjectIds || []).includes(p.id));
+            } else if (u.role === 'WORKER') {
+                assigned = allProjects.filter(p => (p.memberIds || []).includes(u.id) || (u.assignedProjectIds || []).includes(p.id));
+            } else if (u.role === 'SYS_ADMIN' || u.role === 'EXEC_ADMIN') {
+                assigned = allProjects.slice(0, 5); // Show a sample
+            }
+            if (assigned.length === 0) {
+                projContainer.innerHTML = '<div class="empty-state" style="padding: 20px 0;">담당 또는 참여 중인 프로젝트가 없습니다.</div>';
+            } else {
+                projContainer.innerHTML = assigned.map(p => `
+                    <div class="account-project-badge" onclick="window.location.hash='project-detail/${p.id}'">
+                        <span class="status-badge ${this.getStatusClass(p.status)}">${p.status || '--'}</span>
+                        <span class="proj-name">${p.name || '--'}</span>
+                        <span class="proj-client">${p.client || ''}</span>
+                        <i data-lucide="arrow-right" style="width:12px;height:12px;color:var(--text-muted);margin-left:auto;"></i>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // --- 개인설정 tab: pre-fill ---
+        this.loadAccountPreferences();
+
+        // --- 알림설정 tab: pre-fill from user notifications ---
+        const notifFlags = u.notifications || {};
+        const setChk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = val !== false; };
+        setChk('notif-action-item', notifFlags.actionItem);
+        setChk('notif-risk', notifFlags.risk);
+        setChk('notif-meeting', notifFlags.meeting);
+        setChk('notif-official', notifFlags.officialDoc);
+        setChk('notif-artifact', notifFlags.artifact);
+        setChk('notif-overdue', notifFlags.projectOverdue);
+
+        // --- 활동이력 tab ---
+        const now = this.getFormattedDateTime();
+        const loginTimeEl = document.getElementById('account-current-login-time');
+        if (loginTimeEl) loginTimeEl.textContent = now;
+        const actTimeEl = document.getElementById('activity-time');
+        if (actTimeEl) actTimeEl.textContent = now;
+
+        // Browser & OS detection
+        const ua = navigator.userAgent;
+        let browser = 'Unknown';
+        if (ua.includes('Chrome') && !ua.includes('Edg')) browser = 'Google Chrome';
+        else if (ua.includes('Edg')) browser = 'Microsoft Edge';
+        else if (ua.includes('Firefox')) browser = 'Mozilla Firefox';
+        else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
+        let os = 'Unknown';
+        if (ua.includes('Windows')) os = 'Windows';
+        else if (ua.includes('Mac')) os = 'macOS';
+        else if (ua.includes('Linux')) os = 'Linux';
+        else if (ua.includes('Android')) os = 'Android';
+        else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+        const browserEl = document.getElementById('activity-browser');
+        if (browserEl) browserEl.textContent = browser;
+        const osEl = document.getElementById('activity-os');
+        if (osEl) osEl.textContent = os;
+
+        // Re-initialise icons after dynamic content
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    /**
+     * Switches the active tab in My Account Center.
+     * Called by hash routing and direct button clicks.
+     */
+    switchAccountTab(tabName) {
+        // Update nav buttons
+        document.querySelectorAll('.account-tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
+        });
+        // Update panels
+        document.querySelectorAll('.account-tab-panel').forEach(panel => {
+            panel.classList.remove('active');
+        });
+        const targetPanel = document.getElementById(`account-panel-${tabName}`);
+        if (targetPanel) targetPanel.classList.add('active');
+
+        // Update hash without triggering full re-render
+        const currentHash = window.location.hash;
+        const newHash = `#my-account/${tabName}`;
+        if (currentHash !== newHash) {
+            history.replaceState(null, '', newHash);
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    /**
+     * Closes all open dropdowns (user menu panel, sidebar user menu).
+     */
+    closeAllDropdowns() {
+        const panels = ['user-menu-panel', 'sidebar-user-menu-panel', 'notif-panel'];
+        panels.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('active');
+        });
+    }
+
+    /**
+     * Pre-fills the 개인설정 form with current user data.
+     */
+    loadAccountPreferences() {
+        if (!this.currentUser) return;
+        const u = this.currentUser;
+
+        const nameEl = document.getElementById('pref-display-name');
+        if (nameEl) nameEl.value = u.name || '';
+
+        const phoneEl = document.getElementById('pref-phone');
+        if (phoneEl) phoneEl.value = u.phone || '';
+
+        const colorEl = document.getElementById('pref-avatar-color');
+        if (colorEl) {
+            const defaultColor = u.profileColor || this.getRoleColor(u.role);
+            // Find matching option
+            const opts = colorEl.options;
+            for (let i = 0; i < opts.length; i++) {
+                if (opts[i].value === defaultColor) { colorEl.selectedIndex = i; break; }
+            }
+        }
+
+        // Update preview
+        this.updateAccountAvatarPreview();
+    }
+
+    /**
+     * Updates the avatar preview in the 개인설정 tab.
+     */
+    updateAccountAvatarPreview() {
+        const previewEl = document.getElementById('pref-avatar-preview');
+        const imgEl = document.getElementById('pref-avatar-img');
+        if (!previewEl) return;
+        const color = document.getElementById('pref-avatar-color')?.value || '#06b6d4';
+        const u = this.currentUser;
+        if (u && u.profileImage) {
+            previewEl.style.backgroundImage = `url(${u.profileImage})`;
+            previewEl.style.backgroundSize = 'cover';
+            previewEl.textContent = '';
+            if (imgEl) { imgEl.src = u.profileImage; imgEl.style.display = 'block'; }
+        } else {
+            previewEl.style.background = color;
+            previewEl.style.backgroundImage = '';
+            previewEl.textContent = u ? (u.initials || this.getInitials(u.name)) : 'AD';
+            if (imgEl) imgEl.style.display = 'none';
+        }
+    }
+
+    /**
+     * Handles profile image upload in My Account Center.
+     */
+    handleAccountProfileImageUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const base64 = e.target.result;
+            if (this.currentUser) {
+                this.currentUser.profileImage = base64;
+                this.updateAccountAvatarPreview();
+                this.updateHeaderAvatar();
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+
+    /**
+     * Switches avatar to initials mode in 개인설정 tab.
+     */
+    accountUseInitials() {
+        if (this.currentUser) {
+            this.currentUser.profileImage = null;
+            this.updateAccountAvatarPreview();
+            this.updateHeaderAvatar();
+        }
+    }
+
+    /**
+     * Deletes profile image in 개인설정 tab.
+     */
+    accountDeleteProfileImage() {
+        if (this.currentUser) {
+            this.currentUser.profileImage = null;
+            this.updateAccountAvatarPreview();
+            this.updateHeaderAvatar();
+        }
+    }
+
+    /**
+     * Saves preferences from the 개인설정 tab.
+     */
+    saveAccountPreferences() {
+        if (!this.currentUser) return;
+        const nameVal = document.getElementById('pref-display-name')?.value?.trim();
+        const phoneVal = document.getElementById('pref-phone')?.value?.trim();
+        const colorVal = document.getElementById('pref-avatar-color')?.value;
+
+        if (nameVal) this.currentUser.name = nameVal;
+        if (phoneVal !== undefined) this.currentUser.phone = phoneVal;
+        if (colorVal) this.currentUser.profileColor = colorVal;
+
+        // Persist to state.users
+        if (this.state.users) {
+            const userIdx = this.state.users.findIndex(u => u.id === this.currentUser.id);
+            if (userIdx >= 0) {
+                this.state.users[userIdx] = { ...this.state.users[userIdx], ...this.currentUser };
+            }
+        }
+        this.saveState();
+        this.updateHeaderAvatar();
+        this.renderMyAccountCenter();
+        this.showToast('개인설정이 저장되었습니다.', 'success');
+    }
+
+    /**
+     * Saves notification settings from the 알림설정 tab.
+     */
+    saveAccountNotifications() {
+        if (!this.currentUser) return;
+        this.currentUser.notifications = {
+            actionItem: document.getElementById('notif-action-item')?.checked ?? true,
+            risk: document.getElementById('notif-risk')?.checked ?? true,
+            meeting: document.getElementById('notif-meeting')?.checked ?? true,
+            officialDoc: document.getElementById('notif-official')?.checked ?? true,
+            artifact: document.getElementById('notif-artifact')?.checked ?? true,
+            projectOverdue: document.getElementById('notif-overdue')?.checked ?? true
+        };
+        if (this.state.users) {
+            const userIdx = this.state.users.findIndex(u => u.id === this.currentUser.id);
+            if (userIdx >= 0) {
+                this.state.users[userIdx].notifications = this.currentUser.notifications;
+            }
+        }
+        this.saveState();
+        this.showToast('알림 설정이 저장되었습니다.', 'success');
+    }
+
+    /**
+     * Saves password change from the 비밀번호 변경 tab.
+     */
+    saveAccountPassword() {
+        if (!this.currentUser) return;
+        const currentPw = document.getElementById('sec-current-pw')?.value;
+        const newPw = document.getElementById('sec-new-pw')?.value;
+        const confirmPw = document.getElementById('sec-confirm-pw')?.value;
+        const msgEl = document.getElementById('sec-pw-message');
+
+        const showMsg = (text, ok) => {
+            if (msgEl) {
+                msgEl.textContent = text;
+                msgEl.style.color = ok ? 'var(--success)' : 'var(--danger)';
+                msgEl.style.display = 'block';
+            }
+        };
+
+        if (!currentPw || !newPw || !confirmPw) { showMsg('모든 항목을 입력하세요.', false); return; }
+        if (currentPw !== this.currentUser.password) { showMsg('현재 비밀번호가 올바르지 않습니다.', false); return; }
+        if (newPw.length < 8) { showMsg('새 비밀번호는 8자 이상이어야 합니다.', false); return; }
+        if (newPw !== confirmPw) { showMsg('새 비밀번호와 확인 비밀번호가 일치하지 않습니다.', false); return; }
+
+        this.currentUser.password = newPw;
+        if (this.state.users) {
+            const userIdx = this.state.users.findIndex(u => u.id === this.currentUser.id);
+            if (userIdx >= 0) this.state.users[userIdx].password = newPw;
+        }
+        this.saveState();
+        showMsg('비밀번호가 성공적으로 변경되었습니다. 다시 로그인합니다.', true);
+        setTimeout(() => this.logout(), 2000);
+    }
+
+    /**
+     * Helper: get initials from a name string.
+     */
+    getInitials(name) {
+        if (!name) return 'AD';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length === 1) {
+            // Korean single word: return first char
+            return parts[0].substring(0, 2).toUpperCase();
+        }
+        return parts.slice(0, 2).map(p => p[0]).join('').toUpperCase();
+    }
+
+    /**
+     * Helper: default avatar background color by role.
+     */
+    getRoleColor(role) {
+        const colors = {
+            SYS_ADMIN:  '#8b5cf6',
+            EXEC_ADMIN: '#3b82f6',
+            PM:         '#06b6d4',
+            WORKER:     '#10b981',
+            VIEWER:     '#6b7280'
+        };
+        return colors[role] || '#6b7280';
+    }
+
+    /**
+     * Updates the avatar shown in the header and sidebar to reflect
+     * the current user's latest profileImage / profileColor / initials.
+     * Delegates to checkAuth() which already knows how to render it.
+     */
+    updateHeaderAvatar() {
+        if (!this.currentUser) return;
+        const u = this.currentUser;
+        const initials = u.initials || this.getInitials(u.name);
+        const color = u.profileColor || this.getRoleColor(u.role);
+
+        const avatarEls = [
+            document.getElementById('user-role-avatar'),
+            document.getElementById('user-header-avatar')
+        ];
+        avatarEls.forEach(el => {
+            if (!el) return;
+            if (u.profileImage) {
+                el.style.backgroundImage = `url(${u.profileImage})`;
+                el.style.backgroundSize = 'cover';
+                el.style.background = '';
+                el.textContent = '';
+            } else {
+                el.style.backgroundImage = '';
+                el.style.background = color;
+                el.textContent = initials;
+            }
+            el.style.border = `2px solid ${color}`;
+        });
+
+        // Update sidebar name display
+        const profileName = document.getElementById('user-profile-name');
+        if (profileName) profileName.textContent = u.name;
+        const headerName = document.getElementById('user-header-name');
+        if (headerName) headerName.textContent = u.name;
+    }
+
+    /**
+     * Displays a brief toast notification banner.
+     * @param {string} message  - Text to display
+     * @param {'success'|'error'|'info'} type - Visual style
+     */
+    showToast(message, type = 'info') {
+        let toast = document.getElementById('aether-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'aether-toast';
+            toast.style.cssText = `
+                position: fixed; bottom: 24px; right: 24px;
+                padding: 12px 20px; border-radius: 10px;
+                font-size: 13px; font-weight: 600;
+                z-index: 9999; min-width: 200px; max-width: 360px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+                display: flex; align-items: center; gap: 10px;
+                transition: opacity 0.3s ease;
+            `;
+            document.body.appendChild(toast);
+        }
+
+        const styles = {
+            success: { bg: 'var(--success)', text: '#fff' },
+            error:   { bg: 'var(--danger)',  text: '#fff' },
+            info:    { bg: 'var(--primary)', text: '#fff' }
+        };
+        const s = styles[type] || styles.info;
+        toast.style.background = s.bg;
+        toast.style.color = s.text;
+        toast.textContent = message;
+        toast.style.opacity = '1';
+
+        clearTimeout(toast._hideTimer);
+        toast._hideTimer = setTimeout(() => {
+            toast.style.opacity = '0';
+        }, 3000);
     }
 }
 
