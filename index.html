@@ -84,17 +84,20 @@
                         <span class="brand-name">Aether<span>PMO</span></span>
                         <span class="brand-sub">사업관리 플랫폼</span>
                     </div>
+                    <button id="sidebar-mode-btn" class="sidebar-pin-btn" aria-label="사이드바 모드 선택" onclick="app.toggleSidebarModeMenu(event)">
+                        <i data-lucide="layout-sidebar" style="width: 16px; height: 16px;"></i>
+                    </button>
                 </div>
             </div>
 
             <nav class="sidebar-nav">
-                <a href="#dashboard" class="nav-item active" data-view="dashboard">
+                <a href="#dashboard" class="nav-item active" data-view="dashboard" data-tooltip="Home">
                     <i data-lucide="layout-dashboard"></i>
                     <span>Home</span>
                 </a>
                 
                 <div class="nav-item-wrapper" id="nav-wrapper-projects">
-                    <a href="#projects" class="nav-item" data-view="projects">
+                    <a href="#projects" class="nav-item" data-view="projects" data-tooltip="프로젝트 관리">
                         <i data-lucide="folder-kanban"></i>
                         <span>프로젝트 관리</span>
                     </a>
@@ -124,7 +127,7 @@
                 </div>
 
                 <div class="nav-item-wrapper" id="nav-wrapper-artifacts">
-                    <a href="#artifacts" class="nav-item" data-view="artifacts">
+                    <a href="#artifacts" class="nav-item" data-view="artifacts" data-tooltip="산출물 템플릿 관리">
                         <i data-lucide="file-check"></i>
                         <span>산출물 템플릿 관리</span>
                     </a>
@@ -141,27 +144,27 @@
                     </div>
                 </div>
 
-                <a href="#issues" class="nav-item" data-view="issues">
+                <a href="#issues" class="nav-item" data-view="issues" data-tooltip="이슈/리스크 관리">
                     <i data-lucide="alert-triangle"></i>
                     <span>이슈/리스크 관리</span>
                 </a>
 
-                <a href="#action-items" class="nav-item" data-view="action-items">
+                <a href="#action-items" class="nav-item" data-view="action-items" data-tooltip="Action Item 관리">
                     <i data-lucide="check-square"></i>
                     <span>Action Item 관리</span>
                 </a>
 
-                <a href="#official-docs" class="nav-item" data-view="official-docs">
+                <a href="#official-docs" class="nav-item" data-view="official-docs" data-tooltip="공문 관리">
                     <i data-lucide="mail"></i>
                     <span>공문 관리</span>
                 </a>
 
-                <a href="#meeting-minutes" class="nav-item" data-view="meeting-minutes">
+                <a href="#meeting-minutes" class="nav-item" data-view="meeting-minutes" data-tooltip="회의록 관리">
                     <i data-lucide="presentation"></i>
                     <span>회의록 관리</span>
                 </a>
 
-                <a href="#backup" class="nav-item" data-view="backup">
+                <a href="#backup" class="nav-item" data-view="backup" data-tooltip="시스템 설정">
                     <i data-lucide="settings"></i>
                     <span>시스템 설정</span>
                 </a>
@@ -2614,7 +2617,7 @@
 
     <!-- 11. OFFICIAL DOC CREATION & EDITION DIALOG -->
     <div class="modal-overlay" id="official-doc-modal">
-        <div class="modal-card official-doc-modal-card project-form-modal">
+        <div class="modal-card official-doc-modal-card project-form-modal" style="width:min(980px,96vw);">
             <div class="modal-header">
                 <h2 id="official-doc-modal-title">새 공문 등록</h2>
                 <button class="modal-close-btn" onclick="app.closeOfficialDocModal()">&times;</button>
@@ -2634,19 +2637,44 @@
                     <i data-lucide="paperclip" style="width:13px;height:13px;"></i> 첨부파일
                     <span class="tab-badge" id="doc-file-count-badge">0</span>
                 </button>
+                <button class="doc-tab-btn" onclick="app.switchOfficialDocTab('preview', this)">
+                    <i data-lucide="eye" style="width:13px;height:13px;"></i> 공문 미리보기
+                </button>
             </div>
             <form id="official-doc-form" onsubmit="event.preventDefault(); app.saveOfficialDocForm();" style="display:flex;flex-direction:column;flex:1;min-height:0;">
                 <input type="hidden" id="official-doc-id-field">
 
                 <!-- TAB 1: 기본 정보 -->
                 <div id="doc-tab-basic" class="doc-tab-content active">
-                    <div class="doc-section-header"><i data-lucide="info" style="width:13px;height:13px;"></i> 기본 정보</div>
+                    <div class="doc-section-header"><i data-lucide="layout-template" style="width:13px;height:13px;"></i> 공문 템플릿 선택</div>
+                    <div class="form-grid" style="margin-bottom:4px;">
+                        <div class="form-group span-2">
+                            <label for="official-doc-template">템플릿 <span style="font-size:10px;color:var(--text-muted);font-weight:400;">— 선택 시 공문 본문 탭에 입력 항목이 자동으로 표시됩니다</span></label>
+                            <select id="official-doc-template" onchange="app.onTemplateChange(this.value)">
+                                <option value="">템플릿 없음 (직접 작성)</option>
+                                <option value="security-exception">가상화 소프트웨어 보안취약점 예외 조치 요청</option>
+                                <option value="inspection-request">검수 요청서 제출</option>
+                                <option value="progress-report">진도보고 제출</option>
+                                <option value="contract-change">계약 변경 요청</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="doc-template-banner" class="doc-template-banner" style="display:none;">
+                        <div class="template-icon">
+                            <i data-lucide="file-check-2" style="width:16px;height:16px;color:#fff;"></i>
+                        </div>
+                        <div class="template-meta">
+                            <div class="template-name" id="template-banner-name"></div>
+                            <div class="template-desc">"공문 본문" 탭에서 항목을 입력하면 공문이 자동 생성됩니다. "공문 미리보기" 탭에서 전체 용지를 확인하세요.</div>
+                        </div>
+                        <button type="button" class="btn btn-xs btn-outline" onclick="app.clearDocTemplate()">템플릿 해제</button>
+                    </div>
+
+                    <div class="doc-section-header" style="margin-top:12px;"><i data-lucide="info" style="width:13px;height:13px;"></i> 기본 정보</div>
                     <div class="form-grid">
                         <div class="form-group span-2">
                             <label for="official-doc-project-select">대상 프로젝트 <span class="required">*</span></label>
-                            <select id="official-doc-project-select" required>
-                                <!-- Dynamic options -->
-                            </select>
+                            <select id="official-doc-project-select" required></select>
                         </div>
                         <div class="form-group">
                             <label for="official-doc-no">품의번호 <span class="required">*</span></label>
@@ -2666,7 +2694,7 @@
                         </div>
                         <div class="form-group span-2">
                             <label for="official-doc-recipients">수신 및 참조</label>
-                            <input type="text" id="official-doc-recipients" placeholder="예: 의장 김민준, 법무팀, 이사 김태환 (쉼표 구분)">
+                            <input type="text" id="official-doc-recipients" placeholder="예: 의장 김민준, 법무팀, 이사 김태환">
                         </div>
                         <div class="form-group span-2">
                             <label for="official-doc-exec-dept">시행부서</label>
@@ -2674,19 +2702,23 @@
                         </div>
                         <div class="form-group span-2">
                             <label for="official-doc-related-doc">관련품의</label>
-                            <input type="text" id="official-doc-related-doc" placeholder="예: [OKC-202602-000556] / [프로젝트 VRB 평가]">
+                            <input type="text" id="official-doc-related-doc" placeholder="예: [OKC-202602-000556]">
                         </div>
                         <div class="form-group">
                             <label for="official-doc-receiver">수신자 <span class="required">*</span></label>
-                            <input type="text" id="official-doc-receiver" required placeholder="예: 국가정보자원관리원 대구센터">
+                            <input type="text" id="official-doc-receiver" required placeholder="예: 국가정보자원관리원 대구센터" oninput="app.refreshDocPreview()">
                         </div>
                         <div class="form-group">
                             <label for="official-doc-date">발신일</label>
-                            <input type="date" id="official-doc-date">
+                            <input type="date" id="official-doc-date" oninput="app.refreshDocPreview()">
                         </div>
                         <div class="form-group span-2">
                             <label for="official-doc-title">공문제목 <span class="required">*</span></label>
-                            <input type="text" id="official-doc-title" required placeholder="예: 가상화 소프트웨어 보안취약점 14개 항목 예외 조치 요청의 건">
+                            <input type="text" id="official-doc-title" required placeholder="예: 가상화 소프트웨어 보안취약점 14개 항목 예외 조치 요청의 건" oninput="app.refreshDocPreview()">
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="official-doc-ceo-name">대표이사 명의</label>
+                            <input type="text" id="official-doc-ceo-name" placeholder="예: 김 영 광, 김 민 준" value="김 영 광, 김 민 준" oninput="app.refreshDocPreview()">
                         </div>
                         <div class="form-group span-2">
                             <label for="official-doc-write-guide">작성 가이드</label>
@@ -2716,7 +2748,6 @@
                             <input type="text" id="official-doc-approver-ceo" placeholder="CEO명">
                         </div>
                     </div>
-
                     <div class="doc-section-header" style="margin-top:16px;"><i data-lucide="clipboard-check" style="width:13px;height:13px;"></i> 결재 정보</div>
                     <div class="form-grid">
                         <div class="form-group">
@@ -2736,7 +2767,6 @@
                             <input type="text" id="official-doc-approver-name" placeholder="최종 승인자명">
                         </div>
                     </div>
-
                     <div class="doc-section-header" style="margin-top:16px;"><i data-lucide="users" style="width:13px;height:13px;"></i> 협의 정보</div>
                     <div class="form-grid">
                         <div class="form-group">
@@ -2758,33 +2788,217 @@
                     </div>
                 </div>
 
-                <!-- TAB 3: 공문 본문 -->
-                <div id="doc-tab-body" class="doc-tab-content">
-                    <div class="doc-section-header"><i data-lucide="layout-list" style="width:13px;height:13px;"></i> 공문 본문 항목</div>
-                    <div class="form-grid">
-                        <div class="form-group span-2">
-                            <label for="official-doc-biz-name">사업명</label>
-                            <input type="text" id="official-doc-biz-name" placeholder="예: 2026년 대구센터 클라우드 자원풀 운영·유지관리 사업">
+                <!-- TAB 3: 공문 본문 (좌: 입력 | 우: 실시간 미리보기) -->
+                <div id="doc-tab-body" class="doc-tab-content" style="padding:0;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;height:100%;min-height:420px;">
+                        <!-- 좌: 입력 영역 -->
+                        <div style="padding:16px;overflow-y:auto;border-right:1px solid var(--bg-card-border);">
+
+                            <!-- 보안취약점 예외조치 템플릿 -->
+                            <div id="tmpl-security-exception" style="display:none;">
+                                <div class="template-fields-section">
+                                    <div class="template-fields-header">
+                                        <i data-lucide="shield-alert" style="width:13px;height:13px;"></i>
+                                        가상화 보안취약점 예외조치 요청 — 입력 항목
+                                    </div>
+                                    <div class="template-fields-body">
+                                        <div class="form-grid" style="grid-template-columns:1fr;gap:10px;">
+                                            <div class="form-group">
+                                                <label for="tmpl-se-doc-no">문서번호 <span style="font-size:10px;color:var(--text-muted);">(공문 상단 표시)</span></label>
+                                                <input type="text" id="tmpl-se-doc-no" placeholder="예: 제00-00호" oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-se-biz-name">사업명 <span class="required">*</span></label>
+                                                <input type="text" id="tmpl-se-biz-name" placeholder="예: 2026년 대구센터 클라우드 자원풀 운영·유지관리 사업" oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-se-delivery-no">납품요구번호 <span class="required">*</span></label>
+                                                <input type="text" id="tmpl-se-delivery-no" placeholder="예: R25TA0128983100" oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-se-contract-period">계약기간 <span class="required">*</span></label>
+                                                <input type="text" id="tmpl-se-contract-period" placeholder="예: 2025.12.30. ~ 2026.12.31." oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-se-req-content">공문요청내용 <span class="required">*</span></label>
+                                                <input type="text" id="tmpl-se-req-content" placeholder="예: 가상화소프트웨어 보안취약점 15개 항목 예외 조치" oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-se-mgmt-no">관리번호 <span class="required">*</span></label>
+                                                <input type="text" id="tmpl-se-mgmt-no" placeholder="예: OT-05 외 14개 항목(총15개)" oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-se-detail">세부내용</label>
+                                                <input type="text" id="tmpl-se-detail" placeholder="예: 붙임1. 예외 조치 사유 참조" oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-se-attach">붙임 자료명</label>
+                                                <input type="text" id="tmpl-se-attach" placeholder="예: 예외 조치 사유 1부" oninput="app.refreshDocPreview()">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 검수 요청서 템플릿 -->
+                            <div id="tmpl-inspection-request" style="display:none;">
+                                <div class="template-fields-section">
+                                    <div class="template-fields-header">
+                                        <i data-lucide="clipboard-list" style="width:13px;height:13px;"></i>
+                                        검수 요청서 제출 — 입력 항목
+                                    </div>
+                                    <div class="template-fields-body">
+                                        <div class="form-grid" style="grid-template-columns:1fr;gap:10px;">
+                                            <div class="form-group">
+                                                <label for="tmpl-ir-doc-no">문서번호</label>
+                                                <input type="text" id="tmpl-ir-doc-no" placeholder="예: 제00-00호" oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-ir-biz-name">사업명 <span class="required">*</span></label>
+                                                <input type="text" id="tmpl-ir-biz-name" placeholder="사업명 입력" oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-ir-contract-no">계약번호</label>
+                                                <input type="text" id="tmpl-ir-contract-no" placeholder="예: R25TA0128983100" oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-ir-period">계약기간</label>
+                                                <input type="text" id="tmpl-ir-period" placeholder="예: 2025.12.30. ~ 2026.12.31." oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-ir-items">검수 대상 항목</label>
+                                                <textarea id="tmpl-ir-items" rows="3" placeholder="검수 대상을 입력하세요" oninput="app.refreshDocPreview()"></textarea>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-ir-attach">붙임 자료명</label>
+                                                <input type="text" id="tmpl-ir-attach" placeholder="예: 검수조서 1부" oninput="app.refreshDocPreview()">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 진도보고 템플릿 -->
+                            <div id="tmpl-progress-report" style="display:none;">
+                                <div class="template-fields-section">
+                                    <div class="template-fields-header">
+                                        <i data-lucide="trending-up" style="width:13px;height:13px;"></i>
+                                        진도보고 제출 — 입력 항목
+                                    </div>
+                                    <div class="template-fields-body">
+                                        <div class="form-grid" style="grid-template-columns:1fr;gap:10px;">
+                                            <div class="form-group">
+                                                <label for="tmpl-pr-doc-no">문서번호</label>
+                                                <input type="text" id="tmpl-pr-doc-no" placeholder="예: 제00-00호" oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-pr-biz-name">사업명 <span class="required">*</span></label>
+                                                <input type="text" id="tmpl-pr-biz-name" placeholder="사업명" oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-pr-period">보고 기간</label>
+                                                <input type="text" id="tmpl-pr-period" placeholder="예: 2026년 5월 1일 ~ 5월 31일" oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-pr-progress">진체율</label>
+                                                <input type="text" id="tmpl-pr-progress" placeholder="예: 65%" oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-pr-summary">주요 진행사항</label>
+                                                <textarea id="tmpl-pr-summary" rows="3" placeholder="주요 완료/진행 사항" oninput="app.refreshDocPreview()"></textarea>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-pr-attach">붙임 자료명</label>
+                                                <input type="text" id="tmpl-pr-attach" placeholder="예: 진도보고서 1부" oninput="app.refreshDocPreview()">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 계약 변경 요청 템플릿 -->
+                            <div id="tmpl-contract-change" style="display:none;">
+                                <div class="template-fields-section">
+                                    <div class="template-fields-header">
+                                        <i data-lucide="git-branch" style="width:13px;height:13px;"></i>
+                                        계약 변경 요청 — 입력 항목
+                                    </div>
+                                    <div class="template-fields-body">
+                                        <div class="form-grid" style="grid-template-columns:1fr;gap:10px;">
+                                            <div class="form-group">
+                                                <label for="tmpl-cc-doc-no">문서번호</label>
+                                                <input type="text" id="tmpl-cc-doc-no" placeholder="예: 제00-00호" oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-cc-biz-name">사업명 <span class="required">*</span></label>
+                                                <input type="text" id="tmpl-cc-biz-name" placeholder="사업명" oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-cc-change-item">변경 항목</label>
+                                                <textarea id="tmpl-cc-change-item" rows="3" placeholder="변경 사항을 입력하세요" oninput="app.refreshDocPreview()"></textarea>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-cc-reason">변경 사유</label>
+                                                <input type="text" id="tmpl-cc-reason" placeholder="변경 사유" oninput="app.refreshDocPreview()">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="tmpl-cc-attach">붙임 자료명</label>
+                                                <input type="text" id="tmpl-cc-attach" placeholder="예: 계약 변경 요청서 1부" oninput="app.refreshDocPreview()">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 직접 입력 (템플릿 없음) -->
+                            <div id="doc-body-freeform">
+                                <div class="doc-section-header"><i data-lucide="layout-list" style="width:13px;height:13px;"></i> 공문 본문 직접 입력</div>
+                                <div class="form-grid" style="grid-template-columns:1fr;gap:10px;">
+                                    <div class="form-group">
+                                        <label for="official-doc-biz-name">사업명</label>
+                                        <input type="text" id="official-doc-biz-name" placeholder="예: 2026년 대구센터 클라우드 자원풀 운영·유지관리 사업" oninput="app.refreshDocPreview()">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="official-doc-project-code">프로젝트 코드</label>
+                                        <input type="text" id="official-doc-project-code" placeholder="예: OP-25-0895" oninput="app.refreshDocPreview()">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="official-doc-contract-no">계약번호</label>
+                                        <input type="text" id="official-doc-contract-no" placeholder="예: R25TA0128983100" oninput="app.refreshDocPreview()">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="official-doc-biz-period">사업기간</label>
+                                        <input type="text" id="official-doc-biz-period" placeholder="예: 2025.12.30. ~ 2026.12.31." oninput="app.refreshDocPreview()">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="official-doc-content">공문내용</label>
+                                        <textarea id="official-doc-content" rows="4" placeholder="아래와 같이 ...을 요청드립니다." oninput="app.refreshDocPreview()"></textarea>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="official-doc-attach-list">붙임 목록</label>
+                                        <textarea id="official-doc-attach-list" rows="2" placeholder="붙임 1. 항목 상세내역 1부." oninput="app.refreshDocPreview()"></textarea>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="official-doc-project-code">프로젝트 코드</label>
-                            <input type="text" id="official-doc-project-code" placeholder="예: OP-25-0895">
-                        </div>
-                        <div class="form-group">
-                            <label for="official-doc-contract-no">계약번호</label>
-                            <input type="text" id="official-doc-contract-no" placeholder="예: R25TA0128983100">
-                        </div>
-                        <div class="form-group span-2">
-                            <label for="official-doc-biz-period">사업기간</label>
-                            <input type="text" id="official-doc-biz-period" placeholder="예: 2025.12.30. ~ 2026.12.31.">
-                        </div>
-                        <div class="form-group span-2">
-                            <label for="official-doc-content">공문내용 <span class="required">*</span></label>
-                            <textarea id="official-doc-content" rows="6" placeholder="아래와 같이 ...을 위해 공문 발송 품의를 상신드리오니 검토 후 재가하여주시기 바랍니다."></textarea>
-                        </div>
-                        <div class="form-group span-2">
-                            <label for="official-doc-attach-list">붙임 목록</label>
-                            <textarea id="official-doc-attach-list" rows="3" placeholder="붙임 1. 항목 상세내역 1부.&#10;붙임 2. (공문양식) 해당 문서 1부. 끝."></textarea>
+
+                        <!-- 우: 실시간 미리보기 -->
+                        <div style="background:var(--bg-secondary);overflow:hidden;display:flex;flex-direction:column;">
+                            <div class="doc-preview-header">
+                                <i data-lucide="eye" style="width:13px;height:13px;"></i>
+                                실시간 공문 미리보기
+                                <span style="width:6px;height:6px;background:#10b981;border-radius:50%;display:inline-block;margin-left:4px;animation:pulse-dot 1.5s infinite;"></span>
+                            </div>
+                            <div style="flex:1;overflow-y:auto;padding:16px;">
+                                <div id="doc-body-preview">
+                                    <div class="template-empty-state">
+                                        <div class="empty-icon">
+                                            <i data-lucide="file-text" style="width:22px;height:22px;color:var(--text-muted);"></i>
+                                        </div>
+                                        <div style="font-size:12px;">항목을 입력하면 미리보기가 업데이트됩니다</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2810,6 +3024,24 @@
                     </div>
                 </div>
 
+                <!-- TAB 5: 공문 미리보기 (전체 용지) -->
+                <div id="doc-tab-preview" class="doc-tab-content" style="padding:0;">
+                    <div style="background:var(--bg-secondary);flex:1;overflow:hidden;display:flex;flex-direction:column;">
+                        <div class="doc-preview-header" style="justify-content:space-between;">
+                            <span style="display:flex;align-items:center;gap:6px;">
+                                <i data-lucide="file-text" style="width:13px;height:13px;"></i>
+                                오케스트로 표준 공문 양식 전체 미리보기
+                            </span>
+                            <button type="button" class="btn btn-xs btn-outline" onclick="app.printOfficialDoc()">
+                                <i data-lucide="printer" style="width:12px;height:12px;"></i> 인쇄/PDF
+                            </button>
+                        </div>
+                        <div style="flex:1;overflow-y:auto;padding:20px;">
+                            <div id="doc-full-preview"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline" onclick="app.closeOfficialDocModal()">취소</button>
                     <button type="submit" class="btn btn-primary">저장하기</button>
@@ -2820,20 +3052,33 @@
 
     <!-- 12. OFFICIAL DOC DETAIL VIEW DIALOG -->
     <div class="modal-overlay" id="official-doc-detail-modal">
-        <div class="modal-card official-doc-modal-card" style="max-height:calc(100vh - 48px);overflow:hidden;">
+        <div class="modal-card official-doc-modal-card" style="max-height:calc(100vh - 48px);overflow:hidden;width:min(900px,96vw);">
             <div class="modal-header">
                 <h2>공문 발신 상세</h2>
                 <button class="modal-close-btn" onclick="document.getElementById('official-doc-detail-modal').classList.remove('open')">&times;</button>
+            </div>
+            <!-- 상세 탭 -->
+            <div style="display:flex;border-bottom:1px solid var(--bg-card-border);background:var(--bg-card);flex-shrink:0;padding:0 8px;">
+                <button class="doc-tab-btn active" id="det-tab-letter-btn" onclick="app.switchDetailView('letter')" style="border-radius:0;">
+                    <i data-lucide="file-text" style="width:13px;height:13px;"></i> 공문 용지
+                </button>
+                <button class="doc-tab-btn" id="det-tab-meta-btn" onclick="app.switchDetailView('meta')" style="border-radius:0;">
+                    <i data-lucide="layers" style="width:13px;height:13px;"></i> 품의 정보
+                </button>
             </div>
             <div id="official-doc-detail-body" style="flex:1;overflow-y:auto;">
                 <!-- Dynamically rendered by openOfficialDocDetailModal() -->
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="window.print()">
+                    <i data-lucide="printer" style="width:14px;height:14px;"></i> 인쇄
+                </button>
                 <button type="button" class="btn btn-outline" onclick="document.getElementById('official-doc-detail-modal').classList.remove('open')">닫기</button>
-                <button type="button" class="btn btn-primary" id="det-doc-edit-btn" onclick="">수정하기</button>
+                <button type="button" class="btn btn-primary" id="det-doc-edit-btn">수정하기</button>
             </div>
         </div>
     </div>
+
 
     <!-- 13. MEETING MINUTES CREATION & EDITION DIALOG -->
     <div class="modal-overlay" id="meeting-minutes-modal">
@@ -3109,6 +3354,26 @@
                 <button type="button" class="btn btn-primary" onclick="app.saveUserProfile()">저장하기</button>
             </div>
         </div>
+    </div>
+
+    <!-- Sidebar Mode Menu (Floating Dropdown) -->
+    <div id="sidebar-mode-menu" class="sidebar-mode-menu" style="display: none; position: fixed; z-index: 3500;">
+        <div class="sidebar-mode-menu-header">Sidebar 표시 방식</div>
+        <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-expanded" onclick="app.setSidebarMode('expanded')">
+            <i data-lucide="check" class="smi-check"></i>
+            <i data-lucide="layout-sidebar" style="width: 14px; height: 14px;"></i>
+            <span>일반 고정 (Expanded)</span>
+        </a>
+        <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-compact" onclick="app.setSidebarMode('compact')">
+            <i data-lucide="check" class="smi-check"></i>
+            <i data-lucide="columns-2" style="width: 14px; height: 14px;"></i>
+            <span>아이콘 축소 (Compact)</span>
+        </a>
+        <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-autohide" onclick="app.setSidebarMode('autohide')">
+            <i data-lucide="check" class="smi-check"></i>
+            <i data-lucide="eye-off" style="width: 14px; height: 14px;"></i>
+            <span>자동 숨김 (Auto-Hide)</span>
+        </a>
     </div>
 
     <!-- Core App logic script -->

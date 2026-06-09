@@ -51,6 +51,9 @@ class AetherPMO {
         // Reapply dynamic role permissions to newly rendered elements
         this.applyRolePermissions();
         
+        // Initialize sidebar mode
+        this.initSidebarMode();
+        
         // Initialise Lucide icons
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -6754,6 +6757,291 @@ class AetherPMO {
         toast._hideTimer = setTimeout(() => {
             toast.style.opacity = '0';
         }, 3000);
+    }
+
+    /**
+     * Initialize sidebar mode from local storage
+     */
+    initSidebarMode() {
+        this.sidebarTimeout = null;
+        const savedMode = localStorage.getItem('pms-sidebar-mode') || 'expanded';
+        this.applySidebarMode(savedMode, false);
+
+        // Sidebar Hover Events for Auto-Hide
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar) {
+            sidebar.addEventListener('mouseenter', () => {
+                const appContainer = document.getElementById('app-section');
+                if (appContainer && appContainer.classList.contains('sidebar-autohide')) {
+                    clearTimeout(this.sidebarTimeout);
+                    sidebar.classList.add('expanded');
+                }
+            });
+
+            sidebar.addEventListener('mouseleave', () => {
+                const appContainer = document.getElementById('app-section');
+                if (appContainer && appContainer.classList.contains('sidebar-autohide')) {
+                    clearTimeout(this.sidebarTimeout);
+                    this.sidebarTimeout = setTimeout(() => {
+                        if (this.isSidebarInteractiveOpen()) {
+                            return;
+                        }
+                        sidebar.classList.remove('expanded');
+                    }, 700); // 700ms Close Delay
+                }
+            });
+        }
+    }
+
+    /**
+     * Change active sidebar mode
+     */
+    setSidebarMode(mode) {
+        this.applySidebarMode(mode, true);
+        const menu = document.getElementById('sidebar-mode-menu');
+        if (menu) menu.style.display = 'none';
+
+        const modeLabels = {
+            expanded: '일반 고정 모드',
+            compact: '아이콘 축소 모드',
+            autohide: '자동 숨김 모드'
+        };
+        this.showToast(`사이드바가 ${modeLabels[mode] || mode}로 변경되었습니다.`);
+    }
+
+    /**
+     * Apply the sidebar mode class and sub-features
+     */
+    applySidebarMode(mode, save = true) {
+        const container = document.getElementById('app-section');
+        const sidebar = document.querySelector('.sidebar');
+        if (!container) return;
+
+        // Clear all mode classes
+        container.classList.remove('sidebar-autohide', 'sidebar-compact');
+        if (sidebar) sidebar.classList.remove('expanded');
+
+        // Apply selected mode
+        if (mode === 'compact') {
+            container.classList.add('sidebar-compact');
+            this.setupCompactFlyouts();
+        } else if (mode === 'autohide') {
+            // Auto-hide runs on top of compact layout (72px)
+            container.classList.add('sidebar-compact', 'sidebar-autohide');
+            this.setupCompactFlyouts();
+        } else {
+            // 'expanded' / default
+            this.destroyCompactFlyouts();
+        }
+
+        if (save) {
+            localStorage.setItem('pms-sidebar-mode', mode);
+        }
+        this.currentSidebarMode = mode;
+        this.updateSidebarModeMenu(mode);
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    /**
+     * Toggle the sidebar mode selector dropdown menu
+     */
+    toggleSidebarModeMenu(e) {
+        e.stopPropagation();
+        const menu = document.getElementById('sidebar-mode-menu');
+        const btn = document.getElementById('sidebar-mode-btn');
+        if (!menu || !btn) return;
+        
+        const isOpen = menu.style.display === 'block';
+        if (isOpen) {
+            menu.style.display = 'none';
+        } else {
+            // Position the menu dynamically
+            const rect = btn.getBoundingClientRect();
+            let top, left;
+
+            // "다시 SIDEBAR 표시방식을 클릭하면 SIDEBAR 표시 드롭박스를 오른쪽에 표시해서 화면에 가리지 않게 해줘"
+            if (this.currentSidebarMode === 'compact' || this.currentSidebarMode === 'autohide') {
+                // Position to the right of the button
+                top = rect.top;
+                left = rect.right + 12;
+            } else {
+                // Position below the button
+                top = rect.bottom + 8;
+                left = rect.left;
+            }
+
+            menu.style.top = `${top}px`;
+            menu.style.left = `${left}px`;
+            menu.style.display = 'block';
+
+            // Viewport overflow prevention
+            const menuRect = menu.getBoundingClientRect();
+            if (left + menuRect.width > window.innerWidth) {
+                left = window.innerWidth - menuRect.width - 12;
+                menu.style.left = `${left}px`;
+            }
+            if (top + menuRect.height > window.innerHeight) {
+                top = window.innerHeight - menuRect.height - 12;
+                menu.style.top = `${top}px`;
+            }
+            if (left < 0) {
+                menu.style.left = '12px';
+            }
+            if (top < 0) {
+                menu.style.top = '12px';
+            }
+
+            // Close when clicking outside
+            setTimeout(() => {
+                const handler = (ev) => {
+                    if (!menu.contains(ev.target) && !btn.contains(ev.target)) {
+                        menu.style.display = 'none';
+                        document.removeEventListener('click', handler);
+                    }
+                };
+                document.addEventListener('click', handler);
+            }, 0);
+        }
+    }
+
+    /**
+     * Update active checkmarks and icons in the mode menu
+     */
+    updateSidebarModeMenu(mode) {
+        ['expanded', 'compact', 'autohide'].forEach(m => {
+            const el = document.getElementById(`smi-${m}`);
+            if (el) el.classList.toggle('active', m === mode);
+        });
+        
+        // Update mode button icon
+        const btn = document.getElementById('sidebar-mode-btn');
+        if (btn) {
+            const icons = {
+                expanded: 'layout-sidebar',
+                compact: 'columns-2',
+                autohide: 'eye-off'
+            };
+            const iconName = icons[mode] || 'layout-sidebar';
+            const iconEl = btn.querySelector('i');
+            if (iconEl) {
+                iconEl.setAttribute('data-lucide', iconName);
+            }
+        }
+    }
+
+    /**
+     * Clean up compact mode flyout menus
+     */
+    destroyCompactFlyouts() {
+        const flyout = document.getElementById('compact-flyout');
+        if (flyout) flyout.remove();
+
+        document.querySelectorAll('.nav-item-wrapper').forEach(wrapper => {
+            if (wrapper._compactEnterHandler) {
+                wrapper.querySelector('.nav-item')?.removeEventListener('mouseenter', wrapper._compactEnterHandler);
+                wrapper.removeEventListener('mouseleave', wrapper._compactLeaveHandler);
+                delete wrapper._compactEnterHandler;
+                delete wrapper._compactLeaveHandler;
+            }
+        });
+    }
+
+    /**
+     * Set up hover-triggered flyout submenus for compact mode
+     */
+    setupCompactFlyouts() {
+        // Create or reuse flyout container
+        let flyout = document.getElementById('compact-flyout');
+        if (!flyout) {
+            flyout = document.createElement('div');
+            flyout.id = 'compact-flyout';
+            flyout.className = 'compact-flyout';
+            document.body.appendChild(flyout);
+        }
+
+        const wrappers = document.querySelectorAll('.nav-item-wrapper');
+        wrappers.forEach(wrapper => {
+            const navLink = wrapper.querySelector('.nav-item');
+            const submenu = wrapper.querySelector('.nav-submenu');
+            if (!navLink || !submenu) return;
+
+            // Clean up existing if any
+            if (wrapper._compactEnterHandler) {
+                navLink.removeEventListener('mouseenter', wrapper._compactEnterHandler);
+                wrapper.removeEventListener('mouseleave', wrapper._compactLeaveHandler);
+            }
+
+            const enterHandler = (e) => {
+                const appContainer = document.getElementById('app-section');
+                if (!appContainer || !appContainer.classList.contains('sidebar-compact')) return;
+                
+                // Do not show flyout if sidebar is hovered-expanded in autohide mode
+                const sidebar = document.querySelector('.sidebar');
+                if (sidebar && sidebar.classList.contains('expanded')) return;
+
+                const rect = navLink.getBoundingClientRect();
+                const items = submenu.querySelectorAll('.submenu-item');
+                
+                // Construct flyout HTML
+                flyout.innerHTML = `
+                    <div class="compact-flyout-header">${navLink.querySelector('span')?.textContent || ''}</div>
+                    ${Array.from(items).map(item => {
+                        const href = item.getAttribute('href') || '#';
+                        const label = item.querySelector('span')?.textContent || item.textContent.trim();
+                        const activeClass = item.classList.contains('active') ? 'active' : '';
+                        return `<a href="${href}" class="compact-flyout-item ${activeClass}" onclick="document.getElementById('compact-flyout').classList.remove('visible')">${label}</a>`;
+                    }).join('')}
+                `;
+                
+                // Position flyout
+                flyout.style.top = `${rect.top}px`;
+                flyout.style.left = `${rect.right + 12}px`; /* 12px offset */
+                flyout.classList.add('visible');
+            };
+
+            const leaveHandler = (e) => {
+                if (!flyout.contains(e.relatedTarget)) {
+                    flyout.classList.remove('visible');
+                }
+            };
+
+            // Store references for clean destroy
+            wrapper._compactEnterHandler = enterHandler;
+            wrapper._compactLeaveHandler = leaveHandler;
+
+            navLink.addEventListener('mouseenter', enterHandler);
+            wrapper.addEventListener('mouseleave', leaveHandler);
+        });
+
+        flyout.addEventListener('mouseleave', () => flyout.classList.remove('visible'));
+    }
+
+    /**
+     * Check if any dialog, dropdown, or account center is open
+     * to prevent collapsing the sidebar.
+     */
+    isSidebarInteractiveOpen() {
+        // 1. Sidebar Mode Menu Dropdown Open?
+        const modeMenu = document.getElementById('sidebar-mode-menu');
+        if (modeMenu && modeMenu.style.display === 'block') {
+            return true;
+        }
+
+        // 2. Compact Mode Flyout Submenu Open/Hovered?
+        const flyout = document.getElementById('compact-flyout');
+        if (flyout && flyout.classList.contains('visible')) {
+            return true;
+        }
+
+        // 3. User profile menu open?
+        const userMenu = document.getElementById('sidebar-user-menu-panel');
+        if (userMenu && userMenu.classList.contains('open')) {
+            return true;
+        }
+        
+        return false;
     }
 }
 
