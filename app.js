@@ -1487,6 +1487,29 @@ class AetherPMO {
      * Set up DOM Event Listeners
      */
     setupEventListeners() {
+        // Document click delegation for sidebar mode button and items
+        document.addEventListener('click', (e) => {
+            const modeBtn = e.target.closest('#sidebar-mode-btn');
+            const modeItem = e.target.closest('.sidebar-mode-item');
+
+            if (modeBtn) {
+                console.log('[Sidebar Mode] Document click delegation: #sidebar-mode-btn matched');
+                e.preventDefault();
+                e.stopPropagation();
+                this.toggleSidebarModeMenu(e);
+                return;
+            }
+
+            if (modeItem) {
+                const mode = modeItem.dataset.mode;
+                console.log('[Sidebar Mode] Document click delegation: .sidebar-mode-item matched. Mode:', mode);
+                e.preventDefault();
+                e.stopPropagation();
+                this.setSidebarMode(mode);
+                return;
+            }
+        });
+
         // Main view tabs click handler
         document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
@@ -6764,7 +6787,13 @@ class AetherPMO {
      */
     initSidebarMode() {
         this.sidebarTimeout = null;
+
+        // 1. Check if #sidebar-mode-btn element exists in DOM
+        const modeBtnExists = !!document.getElementById('sidebar-mode-btn');
+        console.log('[Sidebar Mode Log 1] #sidebar-mode-btn element exists in DOM:', modeBtnExists);
+
         const savedMode = localStorage.getItem('pms-sidebar-mode') || 'expanded';
+        console.log('[Sidebar Mode Log Initial] Loaded saved mode:', savedMode);
         this.applySidebarMode(savedMode, false);
 
         // Sidebar Hover Events for Auto-Hide
@@ -6775,6 +6804,7 @@ class AetherPMO {
                 if (appContainer && appContainer.classList.contains('sidebar-autohide')) {
                     clearTimeout(this.sidebarTimeout);
                     sidebar.classList.add('expanded');
+                    console.log('[Sidebar Mode Hover] Mouse entered sidebar. Expanded.');
                 }
             });
 
@@ -6784,10 +6814,12 @@ class AetherPMO {
                     clearTimeout(this.sidebarTimeout);
                     this.sidebarTimeout = setTimeout(() => {
                         if (this.isSidebarInteractiveOpen()) {
+                            console.log('[Sidebar Mode Hover] Mouse left sidebar but interactive menu is open. Keeping expanded.');
                             return;
                         }
                         sidebar.classList.remove('expanded');
-                    }, 700); // 700ms Close Delay
+                        console.log('[Sidebar Mode Hover] Mouse left sidebar. Collapsed after 700ms.');
+                    }, 700);
                 }
             });
         }
@@ -6797,9 +6829,15 @@ class AetherPMO {
      * Change active sidebar mode
      */
     setSidebarMode(mode) {
+        // 5. Check if setSidebarMode is called with the mode when .sidebar-mode-item is clicked
+        console.log('[Sidebar Mode Log 5] setSidebarMode(mode) called with mode:', mode);
         this.applySidebarMode(mode, true);
         const menu = document.getElementById('sidebar-mode-menu');
-        if (menu) menu.style.display = 'none';
+        if (menu) {
+            menu.style.display = 'none';
+            menu.classList.remove('open');
+            console.log('[Sidebar Mode Log 4] #sidebar-mode-menu has open class removed');
+        }
 
         const modeLabels = {
             expanded: '일반 고정 모드',
@@ -6815,7 +6853,10 @@ class AetherPMO {
     applySidebarMode(mode, save = true) {
         const container = document.getElementById('app-section');
         const sidebar = document.querySelector('.sidebar');
-        if (!container) return;
+        if (!container) {
+            console.error('[Sidebar Mode Apply] Container #app-section not found!');
+            return;
+        }
 
         // Clear all mode classes
         container.classList.remove('sidebar-autohide', 'sidebar-compact');
@@ -6834,8 +6875,13 @@ class AetherPMO {
             this.destroyCompactFlyouts();
         }
 
+        // 6. Check if class sidebar-compact or sidebar-autohide is attached to #app-section
+        console.log('[Sidebar Mode Log 6] Classes on #app-section:', container.className);
+
         if (save) {
             localStorage.setItem('pms-sidebar-mode', mode);
+            // 7. Check if localStorage value is updated
+            console.log('[Sidebar Mode Log 7] localStorage pms-sidebar-mode updated to:', localStorage.getItem('pms-sidebar-mode'));
         }
         this.currentSidebarMode = mode;
         this.updateSidebarModeMenu(mode);
@@ -6848,14 +6894,22 @@ class AetherPMO {
      * Toggle the sidebar mode selector dropdown menu
      */
     toggleSidebarModeMenu(e) {
+        // 3. Check if toggleSidebarModeMenu is called
+        console.log('[Sidebar Mode Log 3] toggleSidebarModeMenu(e) called');
         e.stopPropagation();
         const menu = document.getElementById('sidebar-mode-menu');
         const btn = document.getElementById('sidebar-mode-btn');
-        if (!menu || !btn) return;
+        if (!menu || !btn) {
+            console.error('[Sidebar Mode Toggle] Menu or button element not found in DOM!');
+            return;
+        }
         
         const isOpen = menu.style.display === 'block';
         if (isOpen) {
             menu.style.display = 'none';
+            menu.classList.remove('open');
+            // 4. Check if #sidebar-mode-menu has open class removed
+            console.log('[Sidebar Mode Log 4] #sidebar-mode-menu has open class removed');
         } else {
             // Position the menu dynamically
             const rect = btn.getBoundingClientRect();
@@ -6875,6 +6929,9 @@ class AetherPMO {
             menu.style.top = `${top}px`;
             menu.style.left = `${left}px`;
             menu.style.display = 'block';
+            menu.classList.add('open');
+            // 4. Check if #sidebar-mode-menu has open class added
+            console.log('[Sidebar Mode Log 4] #sidebar-mode-menu has open class added');
 
             // Viewport overflow prevention
             const menuRect = menu.getBoundingClientRect();
@@ -6898,6 +6955,8 @@ class AetherPMO {
                 const handler = (ev) => {
                     if (!menu.contains(ev.target) && !btn.contains(ev.target)) {
                         menu.style.display = 'none';
+                        menu.classList.remove('open');
+                        console.log('[Sidebar Mode Log 4] #sidebar-mode-menu has open class removed due to click outside');
                         document.removeEventListener('click', handler);
                     }
                 };

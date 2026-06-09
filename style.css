@@ -4143,6 +4143,12 @@ body.dark-theme .toggle-slider {
     transition: all var(--transition-fast);
     margin-left: auto;
     flex-shrink: 0;
+    pointer-events: auto;
+    z-index: 3600;
+}
+#sidebar-mode-btn {
+    pointer-events: auto;
+    z-index: 3600;
 }
 .sidebar-pin-btn:hover {
     color: var(--text-main);
