@@ -8118,7 +8118,11 @@ class AetherPMO {
         const modeBtnExists = !!document.getElementById('sidebar-mode-btn');
         console.log('[Sidebar Mode Log 1] #sidebar-mode-btn element exists in DOM:', modeBtnExists);
 
-        const savedMode = localStorage.getItem('pms-sidebar-mode') || 'expanded';
+        let savedMode = localStorage.getItem('pms-sidebar-mode') || 'expanded';
+        if (savedMode === 'compact' || savedMode === 'autohide') {
+            savedMode = 'expanded';
+            localStorage.setItem('pms-sidebar-mode', 'expanded');
+        }
         console.log('[Sidebar Mode Log Initial] Loaded saved mode:', savedMode);
         this.applySidebarMode(savedMode, false);
 
