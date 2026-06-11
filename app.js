@@ -277,7 +277,7 @@ class AetherPMO {
         // Reset display of all elements with onclick attribute to default first
         document.querySelectorAll('[onclick]').forEach(el => {
             const clickAttr = el.getAttribute('onclick');
-            if (clickAttr && !clickAttr.includes('logout') && !clickAttr.includes('toggle') && !clickAttr.includes('openUserSettingsModal')) {
+            if (clickAttr && !clickAttr.includes('logout') && !clickAttr.includes('toggle') && !clickAttr.includes('openUserSettingsModal') && !clickAttr.includes('setDetailTab')) {
                 el.style.display = '';
             }
         });
