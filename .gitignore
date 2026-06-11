@@ -23,3 +23,4 @@ keys/
 passwd
 password.txt
 secrets/
+supabase-config.js

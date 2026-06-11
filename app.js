@@ -28,22 +28,36 @@ class AetherPMO {
         this.activeGlobalTemplateStage = 'initiation'; // initiation | execution | closing
         this.tempAttachedFile = null;
 
+        // Initialize Supabase if config is present and not placeholder
+        const hasSupabaseConfig = window.SUPABASE_CONFIG && 
+                                  window.SUPABASE_CONFIG.url && 
+                                  window.SUPABASE_CONFIG.url !== 'YOUR_SUPABASE_PROJECT_URL' &&
+                                  window.SUPABASE_CONFIG.anonKey &&
+                                  window.SUPABASE_CONFIG.anonKey !== 'YOUR_SUPABASE_ANON_KEY' &&
+                                  typeof window.supabase !== 'undefined';
+
+        if (hasSupabaseConfig) {
+            this.supabase = window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey);
+            this.useSupabase = true;
+            console.log('[Supabase] Enabled and initialized successfully.');
+        } else {
+            this.useSupabase = false;
+            console.log('[Supabase] Disabled or not configured. Running in LocalStorage fallback mode.');
+        }
+
         // Bind lifecycle events
         window.addEventListener('DOMContentLoaded', () => this.init());
         window.addEventListener('hashchange', () => this.handleRouting());
     }
 
-    /**
-     * Application Initialization
-     */
-    init() {
-        this.loadState();
+    async init() {
+        await this.loadState();
         this.setupEventListeners();
         
         // Check authentication state
-        this.checkAuth();
+        await this.checkAuth();
         
-        this.handleRouting();
+        await this.handleRouting();
         this.updateCurrentDateDisplay();
         
         this.updateNotifications();
@@ -63,11 +77,99 @@ class AetherPMO {
     /**
      * Session and Access Control Management
      */
-    checkAuth() {
-        localStorage.removeItem('aether_pmo_session');
-        const sessionStr = sessionStorage.getItem('aether_pmo_session');
+    async checkAuth() {
         const loginSection = document.getElementById('login-section');
         const appSection = document.getElementById('app-section');
+
+        if (this.useSupabase) {
+            try {
+                const { data: { session }, error: sessionErr } = await this.supabase.auth.getSession();
+                if (sessionErr) throw sessionErr;
+
+                if (!session) {
+                    this.currentUser = null;
+                    if (loginSection) loginSection.style.display = 'flex';
+                    if (appSection) appSection.style.display = 'none';
+
+                    // Auto fill email if remembered
+                    const rememberedEmail = localStorage.getItem('aether_pmo_remember_email');
+                    const emailInput = document.getElementById('login-email');
+                    const rememberCheckbox = document.getElementById('login-remember-me');
+                    if (emailInput && rememberedEmail) {
+                        emailInput.value = rememberedEmail;
+                        if (rememberCheckbox) rememberCheckbox.checked = true;
+                    }
+                    return false;
+                }
+
+                // Fetch user profile from Supabase
+                const { data: profile, error: profileErr } = await this.supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (profileErr || !profile) {
+                    console.warn('[Supabase Auth] Profile not found, using session user metadata', profileErr);
+                    const role = session.user.user_metadata?.role || 'VIEWER';
+                    const name = session.user.user_metadata?.name || session.user.email.split('@')[0];
+                    this.currentUser = {
+                        id: session.user.id,
+                        email: session.user.email,
+                        name: name,
+                        role: role,
+                        profileColor: '#8b5cf6',
+                        avatarType: 'initials'
+                    };
+                } else {
+                    this.currentUser = {
+                        id: profile.id,
+                        email: profile.email,
+                        name: profile.name,
+                        role: profile.role,
+                        company: profile.company,
+                        division: profile.division,
+                        position: profile.position,
+                        phone: profile.phone,
+                        profileImage: profile.profile_image,
+                        profileColor: profile.profile_color,
+                        avatarType: profile.avatar_type,
+                        notifications: profile.notifications
+                    };
+                }
+
+                this.state.userRole = (this.currentUser.role === 'SYS_ADMIN') ? 'Admin' : this.currentUser.role;
+
+                if (loginSection) loginSection.style.display = 'none';
+                if (appSection) appSection.style.display = 'grid';
+
+                // Update user info in sidebar & header
+                const profileName = document.getElementById('user-profile-name');
+                const profileRole = document.getElementById('user-profile-role');
+                const headerName = document.getElementById('user-header-name');
+                const headerRole = document.getElementById('user-header-role');
+
+                if (profileName) profileName.textContent = this.currentUser.name;
+                if (profileRole) profileRole.textContent = this.translateRoleLabel(this.currentUser.role);
+                if (headerName) headerName.textContent = this.currentUser.name;
+                if (headerRole) {
+                    headerRole.textContent = this.translateRoleBadge(this.currentUser.role);
+                    headerRole.style.background = this.getRoleBadgeBg(this.currentUser.role);
+                    headerRole.style.color = this.getRoleBadgeColor(this.currentUser.role);
+                }
+
+                // Render modern avatars
+                this.renderUserAvatars();
+
+                return true;
+
+            } catch (e) {
+                console.error('[Supabase Auth] checkAuth session failed, trying local fallback', e);
+            }
+        }
+
+        localStorage.removeItem('aether_pmo_session');
+        const sessionStr = sessionStorage.getItem('aether_pmo_session');
 
         if (!sessionStr) {
             this.currentUser = null;
@@ -183,7 +285,7 @@ class AetherPMO {
         return colors[role] || '#818cf8';
     }
 
-    handleLogin() {
+    async handleLogin() {
         const emailInput = document.getElementById('login-email');
         const passwordInput = document.getElementById('login-password');
         const rememberCheckbox = document.getElementById('login-remember-me');
@@ -192,6 +294,54 @@ class AetherPMO {
 
         const email = emailInput.value.trim();
         const password = passwordInput.value;
+
+        if (this.useSupabase) {
+            try {
+                const loginBtn = document.querySelector('#login-section button');
+                const originalText = loginBtn ? loginBtn.textContent : '로그인';
+                if (loginBtn) {
+                    loginBtn.textContent = '로그인 중...';
+                    loginBtn.disabled = true;
+                }
+
+                const { data, error } = await this.supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
+                if (loginBtn) {
+                    loginBtn.textContent = originalText;
+                    loginBtn.disabled = false;
+                }
+
+                if (error) {
+                    alert('로그인 실패: ' + (error.message || '이메일 또는 비밀번호가 올바르지 않습니다.'));
+                    passwordInput.value = '';
+                    passwordInput.focus();
+                    return;
+                }
+
+                if (rememberCheckbox && rememberCheckbox.checked) {
+                    localStorage.setItem('aether_pmo_remember_email', email);
+                } else {
+                    localStorage.removeItem('aether_pmo_remember_email');
+                }
+
+                passwordInput.value = '';
+
+                await this.loadState();
+                await this.checkAuth();
+
+                window.location.hash = 'dashboard';
+                await this.handleRouting();
+                return;
+
+            } catch (e) {
+                console.error('[Supabase Auth] Login failed', e);
+                alert('로그인 중 오류가 발생했습니다.');
+                return;
+            }
+        }
 
         if (!this.state.users) {
             this.state.users = this.getDefaultUsers();
@@ -205,37 +355,38 @@ class AetherPMO {
             return;
         }
 
-        // Save session
         sessionStorage.setItem('aether_pmo_session', JSON.stringify({
             email: matchedUser.email,
             role: matchedUser.role,
             name: matchedUser.name
         }));
 
-        // Remember email
         if (rememberCheckbox && rememberCheckbox.checked) {
             localStorage.setItem('aether_pmo_remember_email', email);
         } else {
             localStorage.removeItem('aether_pmo_remember_email');
         }
 
-        // Initialize state role
         this.state.userRole = (matchedUser.role === 'SYS_ADMIN') ? 'Admin' : matchedUser.role;
         this.saveState();
 
-        // Clear password form field
         passwordInput.value = '';
 
-        // Trigger auth verify & UI switch
-        this.checkAuth();
+        await this.checkAuth();
 
-        // Navigate to Home
         window.location.hash = 'dashboard';
-        this.handleRouting();
+        await this.handleRouting();
     }
 
-    logout() {
+    async logout() {
         if (confirm('로그아웃 하시겠습니까?')) {
+            if (this.useSupabase) {
+                try {
+                    await this.supabase.auth.signOut();
+                } catch (e) {
+                    console.error('[Supabase Auth] SignOut error', e);
+                }
+            }
             localStorage.removeItem('aether_pmo_session');
             sessionStorage.removeItem('aether_pmo_session');
             this.currentUser = null;
@@ -246,7 +397,7 @@ class AetherPMO {
             if (this.state) {
                 this.state.userRole = 'PM';
             }
-            this.checkAuth();
+            await this.checkAuth();
             window.location.hash = '';
         }
     }
@@ -490,7 +641,7 @@ class AetherPMO {
         if (project) {
             project.remarks = remarksVal;
             this.addActivityLog(projectId, project.name, 'project', `상태 메모 업데이트: "${remarksVal}"`);
-            this.saveState();
+            this.saveState('project_upsert', project);
             alert('상태 메모가 저장되었습니다.');
             this.renderProjectDetail(projectId);
         }
@@ -503,7 +654,7 @@ class AetherPMO {
         const issue = this.state.issues.find(i => i.id === this.activeIssueId);
         if (issue) {
             issue.reviewComment = commentVal;
-            this.saveState();
+            this.saveState('issue_upsert', issue);
             alert('리스크 검토의견이 저장되었습니다.');
             this.renderIssues();
         }
@@ -516,62 +667,738 @@ class AetherPMO {
         const act = this.state.actionItems.find(a => a.id === this.activeActionItemId);
         if (act) {
             act.confirmComment = commentVal;
-            this.saveState();
+            this.saveState('action_upsert', act);
             alert('Action Item 확인 코멘트가 저장되었습니다.');
             this.renderActionItems();
         }
     }
 
     /**
-     * Save current state to local storage
+     * Save current state to local storage and sync with Supabase if active
      */
-    saveState() {
+    saveState(type = null, data = null, extra = null) {
         try {
             localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+            if (this.useSupabase && type) {
+                this.syncDb(type, data, extra);
+            }
         } catch (e) {
             console.error('Error saving state to LocalStorage:', e);
+        }
+    }
+
+    async syncDb(type, data, extra = null) {
+        if (!this.useSupabase) return;
+        try {
+            switch(type) {
+                case 'project_upsert': {
+                    const p = data;
+                    const projData = {
+                        id: p.id,
+                        project_code: p.projectCode || p.id,
+                        name: p.name,
+                        desc: p.desc,
+                        dept: p.dept,
+                        manager: p.manager,
+                        manager_id: p.managerId || null,
+                        start_date: p.startDate || null,
+                        end_date: p.endDate || null,
+                        customer: p.customer,
+                        budget: p.budget || p.projectBudget,
+                        milestones: p.milestones,
+                        inspection_date: p.inspectionDate || null,
+                        remarks: p.remarks,
+                        status: p.status,
+                        bid_status: p.bidStatus || null,
+                        progress: p.progress,
+                        resources: p.resources,
+                        bid_number: p.bidNumber,
+                        customer_name: p.customerName,
+                        project_budget: p.projectBudget || 0,
+                        business_type: p.businessType,
+                        sales_owner: p.salesOwner,
+                        proposal_owner: p.proposalOwner,
+                        proposal_pm: p.proposalPm,
+                        business_manager: p.businessManager,
+                        contract_owner: p.contractOwner,
+                        legal_owner: p.legalOwner,
+                        wbs: p.wbs || { stages: [] },
+                        resources_list: p.resourcesList || [],
+                        member_ids: p.memberIds || []
+                    };
+                    const { error } = await this.supabase.from('projects').upsert(projData);
+                    if (error) console.error('[Supabase Sync] project_upsert error:', error);
+                    break;
+                }
+                case 'project_delete': {
+                    const { error } = await this.supabase.from('projects').delete().eq('id', data);
+                    if (error) console.error('[Supabase Sync] project_delete error:', error);
+                    break;
+                }
+                case 'consortium_sync': {
+                    const projectId = data;
+                    const members = extra || [];
+                    const { error: delErr } = await this.supabase.from('consortium_members').delete().eq('project_id', projectId);
+                    if (delErr) console.error('[Supabase Sync] consortium_sync delete error:', delErr);
+                    if (members.length > 0) {
+                        const dbMembers = members.map(m => ({
+                            project_id: projectId,
+                            company_name: m.companyName,
+                            role: m.role,
+                            share_rate: m.shareRate,
+                            contact_name: m.contactName,
+                            contact_phone: m.contactPhone,
+                            contact_email: m.contactEmail,
+                            description: m.description
+                        }));
+                        const { error: insErr } = await this.supabase.from('consortium_members').insert(dbMembers);
+                        if (insErr) console.error('[Supabase Sync] consortium_sync insert error:', insErr);
+                    }
+                    break;
+                }
+                case 'vrb_upsert': {
+                    const projectId = data;
+                    const vrb = extra || {};
+                    const vrbData = {
+                        project_id: projectId,
+                        status: vrb.status || '미상신',
+                        planned_date: vrb.plannedDate || null,
+                        submitted_date: vrb.submittedDate || null,
+                        approved_date: vrb.approvedDate || null,
+                        vrb_number: vrb.vrbNumber,
+                        memo: vrb.memo
+                    };
+                    const { error } = await this.supabase.from('vrb_info').upsert(vrbData);
+                    if (error) console.error('[Supabase Sync] vrb_upsert error:', error);
+                    break;
+                }
+                case 'artifact_upsert': {
+                    const a = data;
+                    const artData = {
+                        id: a.id,
+                        project_id: a.projectId,
+                        name: a.name,
+                        category: a.category,
+                        version: a.version,
+                        description: a.description,
+                        author: a.author,
+                        author_id: a.authorId || null,
+                        reviewer: a.reviewer,
+                        approver: a.approver,
+                        due_date: a.dueDate || null,
+                        submit_date: a.submitDate || null,
+                        status: a.status,
+                        file_name: a.fileName,
+                        file_size: a.fileSize
+                    };
+                    const { error } = await this.supabase.from('artifacts').upsert(artData);
+                    if (error) console.error('[Supabase Sync] artifact_upsert error:', error);
+                    break;
+                }
+                case 'artifact_delete': {
+                    const { error } = await this.supabase.from('artifacts').delete().eq('id', data);
+                    if (error) console.error('[Supabase Sync] artifact_delete error:', error);
+                    break;
+                }
+                case 'checklist_upsert': {
+                    const c = data;
+                    const chkData = {
+                        id: c.id,
+                        project_id: c.projectId,
+                        category: c.category,
+                        title: c.title,
+                        checked: c.checked
+                    };
+                    const { error } = await this.supabase.from('checklists').upsert(chkData);
+                    if (error) console.error('[Supabase Sync] checklist_upsert error:', error);
+                    break;
+                }
+                case 'issue_upsert': {
+                    const i = data;
+                    const issData = {
+                        id: i.id,
+                        project_id: i.projectId,
+                        title: i.title,
+                        type: i.type,
+                        priority: i.priority,
+                        owner: i.owner,
+                        owner_id: i.ownerId || null,
+                        reported_date: i.reportedDate,
+                        resolved_date: i.resolvedDate || null,
+                        status: i.status,
+                        review_comment: i.reviewComment
+                    };
+                    const { error } = await this.supabase.from('issues').upsert(issData);
+                    if (error) console.error('[Supabase Sync] issue_upsert error:', error);
+                    break;
+                }
+                case 'issue_delete': {
+                    const { error } = await this.supabase.from('issues').delete().eq('id', data);
+                    if (error) console.error('[Supabase Sync] issue_delete error:', error);
+                    break;
+                }
+                case 'action_upsert': {
+                    const a = data;
+                    const actData = {
+                        id: a.id,
+                        project_id: a.projectId,
+                        title: a.title,
+                        assignee: a.assignee,
+                        assignee_id: a.assigneeId || null,
+                        due_date: a.dueDate || null,
+                        status: a.status,
+                        confirm_comment: a.confirmComment
+                    };
+                    const { error } = await this.supabase.from('action_items').upsert(actData);
+                    if (error) console.error('[Supabase Sync] action_upsert error:', error);
+                    break;
+                }
+                case 'action_delete': {
+                    const { error } = await this.supabase.from('action_items').delete().eq('id', data);
+                    if (error) console.error('[Supabase Sync] action_delete error:', error);
+                    break;
+                }
+                case 'doc_upsert': {
+                    const d = data;
+                    const docData = {
+                        id: d.id,
+                        project_id: d.projectId,
+                        doc_number: d.docNumber,
+                        title: d.title,
+                        category: d.category,
+                        draft_dept: d.draftDept,
+                        drafter: d.drafter,
+                        drafter_id: d.drafterId || null,
+                        draft_date: d.draftDate,
+                        approval_line: d.approvalLine || [],
+                        current_approver: d.currentApprover,
+                        current_status: d.currentStatus,
+                        remarks: d.remarks
+                    };
+                    const { error } = await this.supabase.from('official_docs').upsert(docData);
+                    if (error) console.error('[Supabase Sync] doc_upsert error:', error);
+                    break;
+                }
+                case 'doc_delete': {
+                    const { error } = await this.supabase.from('official_docs').delete().eq('id', data);
+                    if (error) console.error('[Supabase Sync] doc_delete error:', error);
+                    break;
+                }
+                case 'meeting_upsert': {
+                    const m = data;
+                    const meetData = {
+                        id: m.id,
+                        project_id: m.projectId,
+                        title: m.title,
+                        meet_date: m.meetDate,
+                        location: m.location,
+                        attendees: m.attendees || [],
+                        content: m.content,
+                        remarks: m.remarks,
+                        author_id: m.authorId || null
+                    };
+                    const { error } = await this.supabase.from('meeting_minutes').upsert(meetData);
+                    if (error) console.error('[Supabase Sync] meeting_upsert error:', error);
+                    break;
+                }
+                case 'meeting_delete': {
+                    const { error } = await this.supabase.from('meeting_minutes').delete().eq('id', data);
+                    if (error) console.error('[Supabase Sync] meeting_delete error:', error);
+                    break;
+                }
+                case 'activity_upsert': {
+                    const a = data;
+                    const actData = {
+                        id: a.id,
+                        project_id: a.projectId,
+                        user_id: a.userId || null,
+                        type: a.type,
+                        text: a.text,
+                        date: a.date
+                    };
+                    const { error } = await this.supabase.from('activity_logs').upsert(actData);
+                    if (error) console.error('[Supabase Sync] activity_upsert error:', error);
+                    break;
+                }
+                case 'profile_upsert': {
+                    const p = data;
+                    const profData = {
+                        id: p.id,
+                        name: p.name,
+                        email: p.email,
+                        role: p.role,
+                        company: p.company,
+                        division: p.division,
+                        position: p.position,
+                        phone: p.phone,
+                        profile_image: p.profileImage,
+                        profile_color: p.profileColor,
+                        avatar_type: p.avatarType,
+                        notifications: p.notifications,
+                        updated_at: new Date().toISOString()
+                    };
+                    const { error } = await this.supabase.from('profiles').upsert(profData);
+                    if (error) console.error('[Supabase Sync] profile_upsert error:', error);
+                    break;
+                }
+            }
+        } catch (e) {
+            console.error('[Supabase Sync] Exception caught during sync:', type, e);
         }
     }
 
     /**
      * Load state from local storage or populate default mock data
      */
-    loadState() {
-        const stored = localStorage.getItem('aether_pms_state');
-        if (stored) {
-            try {
-                this.state = JSON.parse(stored);
-                // Ensure all arrays exist
-                if (!this.state.projects) this.state.projects = [];
-                if (!this.state.users) this.state.users = this.getDefaultUsers();
-                if (!this.state.g2bAnnouncements) this.state.g2bAnnouncements = [];
-                if (!this.state.artifacts) this.state.artifacts = [];
-                if (!this.state.checklists) this.state.checklists = [];
-                if (!this.state.activities) this.state.activities = [];
-                if (!this.state.templateSlots) this.state.templateSlots = [];
-                if (!this.state.issues) this.state.issues = [];
-                if (!this.state.actionItems) this.state.actionItems = [];
-                if (!this.state.officialDocs) this.state.officialDocs = [];
-                if (!this.state.meetingMinutes) this.state.meetingMinutes = [];
-                if (!this.state.theme) this.state.theme = 'dark';
-                if (!this.state.userRole) this.state.userRole = 'PM';
-                if (!this.state.recentlyDownloaded) this.state.recentlyDownloaded = [];
-                if (!this.state.globalTemplates) this.state.globalTemplates = this.getDefaultGlobalTemplates();
+    async loadState() {
+        if (this.useSupabase) {
+            await this.loadStateFromSupabase();
+        } else {
+            const stored = localStorage.getItem('aether_pms_state');
+            if (stored) {
+                try {
+                    this.state = JSON.parse(stored);
+                    if (!this.state.projects) this.state.projects = [];
+                    if (!this.state.users) this.state.users = this.getDefaultUsers();
+                    if (!this.state.g2bAnnouncements) this.state.g2bAnnouncements = [];
+                    if (!this.state.artifacts) this.state.artifacts = [];
+                    if (!this.state.checklists) this.state.checklists = [];
+                    if (!this.state.activities) this.state.activities = [];
+                    if (!this.state.templateSlots) this.state.templateSlots = [];
+                    if (!this.state.issues) this.state.issues = [];
+                    if (!this.state.actionItems) this.state.actionItems = [];
+                    if (!this.state.officialDocs) this.state.officialDocs = [];
+                    if (!this.state.meetingMinutes) this.state.meetingMinutes = [];
+                    if (!this.state.theme) this.state.theme = 'dark';
+                    if (!this.state.userRole) this.state.userRole = 'PM';
+                    if (!this.state.recentlyDownloaded) this.state.recentlyDownloaded = [];
+                    if (!this.state.globalTemplates) this.state.globalTemplates = this.getDefaultGlobalTemplates();
 
-                // Always ensure template slots exist for older projects
-                this.migrateDataStructure();
-            } catch (e) {
-                console.error('Error parsing stored state, loading mock data instead.', e);
+                    this.migrateDataStructure();
+                } catch (e) {
+                    console.error('Error parsing stored state, loading mock data instead.', e);
+                    this.loadMockData();
+                }
+            } else {
                 this.loadMockData();
             }
-        } else {
-            this.loadMockData();
         }
 
         this.updateProjectsOverdueStatus();
-
-        // Apply theme on load
         this.applyTheme(this.state.theme);
+    }
+
+    async loadStateFromSupabase() {
+        try {
+            console.log('[Supabase] Loading state from database...');
+            const [
+                { data: projects, error: errProj },
+                { data: artifacts, error: errArt },
+                { data: checklists, error: errChk },
+                { data: activityLogs, error: errAct },
+                { data: issues, error: errIss },
+                { data: actionItems, error: errAI },
+                { data: officialDocs, error: errDoc },
+                { data: meetingMinutes, error: errMeet }
+            ] = await Promise.all([
+                this.supabase.from('projects').select('*'),
+                this.supabase.from('artifacts').select('*'),
+                this.supabase.from('checklists').select('*'),
+                this.supabase.from('activity_logs').select('*'),
+                this.supabase.from('issues').select('*'),
+                this.supabase.from('action_items').select('*'),
+                this.supabase.from('official_docs').select('*'),
+                this.supabase.from('meeting_minutes').select('*')
+            ]);
+
+            if (errProj) throw errProj;
+
+            this.state.projects = (projects || []).map(p => ({
+                id: p.id,
+                projectCode: p.project_code,
+                name: p.name,
+                desc: p.desc,
+                dept: p.dept,
+                manager: p.manager,
+                managerId: p.manager_id,
+                startDate: p.start_date,
+                endDate: p.end_date,
+                customer: p.customer,
+                budget: Number(p.budget || 0),
+                milestones: p.milestones,
+                inspectionDate: p.inspection_date,
+                remarks: p.remarks,
+                status: p.status,
+                bidStatus: p.bid_status,
+                progress: Number(p.progress || 0),
+                resources: Number(p.resources || 0),
+                bidNumber: p.bid_number,
+                customerName: p.customer_name,
+                projectBudget: Number(p.project_budget || 0),
+                businessType: p.business_type,
+                salesOwner: p.sales_owner,
+                proposalOwner: p.proposal_owner,
+                proposalPm: p.proposal_pm,
+                businessManager: p.business_manager,
+                contractOwner: p.contract_owner,
+                legalOwner: p.legal_owner,
+                wbs: p.wbs || { stages: [] },
+                resourcesList: p.resources_list || [],
+                memberIds: p.member_ids || [],
+                consortiumMembers: [],
+                vrbInfo: null
+            }));
+
+            const [ { data: consortium }, { data: vrb } ] = await Promise.all([
+                this.supabase.from('consortium_members').select('*'),
+                this.supabase.from('vrb_info').select('*')
+            ]);
+
+            this.state.projects.forEach(p => {
+                p.consortiumMembers = (consortium || [])
+                    .filter(c => c.project_id === p.id)
+                    .map(c => ({
+                        companyName: c.company_name,
+                        role: c.role,
+                        shareRate: Number(c.share_rate || 0),
+                        contactName: c.contact_name,
+                        contactPhone: c.contact_phone,
+                        contactEmail: c.contact_email,
+                        description: c.description
+                    }));
+
+                const v = (vrb || []).find(vi => vi.project_id === p.id);
+                if (v) {
+                    p.vrbInfo = {
+                        status: v.status,
+                        plannedDate: v.planned_date,
+                        submittedDate: v.submitted_date,
+                        approvedDate: v.approved_date,
+                        vrbNumber: v.vrb_number,
+                        memo: v.memo
+                    };
+                } else {
+                    p.vrbInfo = { status: '미상신', plannedDate: '', submittedDate: '', approvedDate: '', vrbNumber: '', memo: '' };
+                }
+            });
+
+            this.state.artifacts = (artifacts || []).map(a => ({
+                id: a.id,
+                projectId: a.project_id,
+                name: a.name,
+                category: a.category,
+                version: a.version,
+                description: a.description,
+                author: a.author,
+                authorId: a.author_id,
+                reviewer: a.reviewer,
+                approver: a.approver,
+                dueDate: a.due_date,
+                submitDate: a.submit_date,
+                status: a.status,
+                fileName: a.file_name,
+                fileSize: a.file_size
+            }));
+
+            this.state.checklists = (checklists || []).map(c => ({
+                id: c.id,
+                projectId: c.project_id,
+                category: c.category,
+                title: c.title,
+                checked: c.checked
+            }));
+
+            this.state.activities = (activityLogs || []).map(a => ({
+                id: a.id,
+                projectId: a.project_id,
+                userId: a.user_id,
+                type: a.type,
+                text: a.text,
+                date: a.date
+            }));
+
+            this.state.issues = (issues || []).map(i => ({
+                id: i.id,
+                projectId: i.project_id,
+                title: i.title,
+                type: i.type,
+                priority: i.priority,
+                owner: i.owner,
+                ownerId: i.owner_id,
+                reportedDate: i.reported_date,
+                resolvedDate: i.resolved_date,
+                status: i.status,
+                reviewComment: i.review_comment
+            }));
+
+            this.state.actionItems = (actionItems || []).map(a => ({
+                id: a.id,
+                projectId: a.project_id,
+                title: a.title,
+                assignee: a.assignee,
+                assigneeId: a.assignee_id,
+                dueDate: a.due_date,
+                status: a.status,
+                confirmComment: a.confirm_comment
+            }));
+
+            this.state.officialDocs = (officialDocs || []).map(d => ({
+                id: d.id,
+                projectId: d.project_id,
+                docNumber: d.doc_number,
+                title: d.title,
+                category: d.category,
+                draftDept: d.draft_dept,
+                drafter: d.drafter,
+                drafterId: d.drafter_id,
+                draftDate: d.draft_date,
+                approvalLine: d.approval_line,
+                currentApprover: d.current_approver,
+                currentStatus: d.current_status,
+                remarks: d.remarks
+            }));
+
+            this.state.meetingMinutes = (meetingMinutes || []).map(m => ({
+                id: m.id,
+                projectId: m.project_id,
+                title: m.title,
+                meetDate: m.meet_date,
+                location: m.location,
+                attendees: m.attendees || [],
+                content: m.content,
+                remarks: m.remarks,
+                authorId: m.author_id
+            }));
+
+            this.state.theme = 'dark';
+            this.state.globalTemplates = this.getDefaultGlobalTemplates();
+
+            console.log('[Supabase] Database state loaded successfully.');
+
+            // Trigger Migration if DB contains no projects
+            if (this.state.projects.length === 0) {
+                const stored = localStorage.getItem('aether_pms_state');
+                if (stored) {
+                    try {
+                        const parsed = JSON.parse(stored);
+                        if (parsed.projects && parsed.projects.length > 0) {
+                            this.state = parsed;
+                            await this.migrateLocalDataToSupabase();
+                            await this.loadStateFromSupabase(); // Reload from db after migration
+                        } else {
+                            this.loadMockData();
+                            await this.migrateLocalDataToSupabase();
+                            await this.loadStateFromSupabase();
+                        }
+                    } catch (err) {
+                        console.error('[Migration] Failed parsing local state:', err);
+                    }
+                } else {
+                    this.loadMockData();
+                    await this.migrateLocalDataToSupabase();
+                    await this.loadStateFromSupabase();
+                }
+            }
+
+        } catch (e) {
+            console.error('[Supabase] Failed loading state from database. Falling back to LocalStorage.', e);
+            this.useSupabase = false;
+            const stored = localStorage.getItem('aether_pms_state');
+            if (stored) {
+                this.state = JSON.parse(stored);
+            } else {
+                this.loadMockData();
+            }
+        }
+    }
+
+    async migrateLocalDataToSupabase() {
+        console.log('[Migration] Starting local data migration. First, auto-registering mock users...');
+        const defaultUsers = this.getDefaultUsers();
+        for (const u of defaultUsers) {
+            try {
+                console.log(`[Migration] Auto-registering user: ${u.email}`);
+                const { error } = await this.supabase.auth.signUp({
+                    email: u.email,
+                    password: u.password,
+                    options: {
+                        data: {
+                            name: u.name,
+                            role: u.role
+                        }
+                    }
+                });
+                if (error) {
+                    console.log(`[Migration] User ${u.email} registration status: ${error.message}`);
+                } else {
+                    console.log(`[Migration] User ${u.email} registered successfully.`);
+                }
+            } catch (e) {
+                console.error(`[Migration] Error signing up ${u.email}:`, e);
+            }
+        }
+
+        console.log('[Migration] Database projects table is empty. Starting projects migration...');
+        const projects = this.state.projects || [];
+        for (const p of projects) {
+            const projData = {
+                project_code: p.projectCode || p.id,
+                name: p.name,
+                desc: p.desc,
+                dept: p.dept,
+                manager: p.manager,
+                start_date: p.startDate,
+                end_date: p.endDate,
+                customer: p.customer,
+                budget: p.budget || p.projectBudget,
+                milestones: p.milestones,
+                inspection_date: p.inspectionDate,
+                remarks: p.remarks,
+                status: p.status,
+                bid_status: p.bidStatus,
+                progress: p.progress,
+                resources: p.resources,
+                bid_number: p.bidNumber,
+                customer_name: p.customerName,
+                project_budget: p.projectBudget || p.budget,
+                business_type: p.businessType,
+                sales_owner: p.salesOwner,
+                proposal_owner: p.proposalOwner,
+                proposal_pm: p.proposalPm,
+                business_manager: p.businessManager,
+                contract_owner: p.contractOwner,
+                legal_owner: p.legalOwner,
+                wbs: p.wbs || { stages: [] },
+                resources_list: p.resourcesList || [],
+                member_ids: p.memberIds || []
+            };
+
+            const { data: insertedProj, error: projErr } = await this.supabase.from('projects').insert(projData).select().single();
+            if (projErr || !insertedProj) {
+                console.error('[Migration] Project insert failed:', p.name, projErr);
+                continue;
+            }
+
+            const dbProjId = insertedProj.id;
+
+            if (p.consortiumMembers && p.consortiumMembers.length > 0) {
+                const membersData = p.consortiumMembers.map(m => ({
+                    project_id: dbProjId,
+                    company_name: m.companyName,
+                    role: m.role,
+                    share_rate: m.shareRate,
+                    contact_name: m.contactName,
+                    contact_phone: m.contactPhone,
+                    contact_email: m.contactEmail,
+                    description: m.description
+                }));
+                await this.supabase.from('consortium_members').insert(membersData);
+            }
+
+            if (p.vrbInfo) {
+                const vrbData = {
+                    project_id: dbProjId,
+                    status: p.vrbInfo.status || '미상신',
+                    planned_date: p.vrbInfo.plannedDate || null,
+                    submitted_date: p.vrbInfo.submittedDate || null,
+                    approved_date: p.vrbInfo.approvedDate || null,
+                    vrb_number: p.vrbInfo.vrbNumber,
+                    memo: p.vrbInfo.memo
+                };
+                await this.supabase.from('vrb_info').insert(vrbData);
+            }
+
+            const artifacts = (this.state.artifacts || []).filter(a => a.projectId === p.id);
+            if (artifacts.length > 0) {
+                const artsData = artifacts.map(a => ({
+                    project_id: dbProjId,
+                    name: a.name,
+                    category: a.category,
+                    version: a.version,
+                    description: a.description,
+                    author: a.author,
+                    due_date: a.dueDate,
+                    submit_date: a.submitDate,
+                    status: a.status,
+                    file_name: a.fileName,
+                    file_size: a.fileSize
+                }));
+                await this.supabase.from('artifacts').insert(artsData);
+            }
+
+            const checklists = (this.state.checklists || []).filter(c => c.projectId === p.id);
+            if (checklists.length > 0) {
+                const chksData = checklists.map(c => ({
+                    project_id: dbProjId,
+                    category: c.category,
+                    title: c.title,
+                    checked: c.checked
+                }));
+                await this.supabase.from('checklists').insert(chksData);
+            }
+
+            const issues = (this.state.issues || []).filter(i => i.projectId === p.id);
+            if (issues.length > 0) {
+                const issData = issues.map(i => ({
+                    project_id: dbProjId,
+                    title: i.title,
+                    type: i.type,
+                    priority: i.priority,
+                    owner: i.owner,
+                    reported_date: i.reportedDate,
+                    resolved_date: i.resolvedDate || null,
+                    status: i.status,
+                    review_comment: i.reviewComment
+                }));
+                await this.supabase.from('issues').insert(issData);
+            }
+
+            const actionItems = (this.state.actionItems || []).filter(a => a.projectId === p.id);
+            if (actionItems.length > 0) {
+                const actsData = actionItems.map(a => ({
+                    project_id: dbProjId,
+                    title: a.title,
+                    assignee: a.assignee,
+                    due_date: a.dueDate || null,
+                    status: a.status,
+                    confirm_comment: a.confirmComment
+                }));
+                await this.supabase.from('action_items').insert(actsData);
+            }
+
+            const officialDocs = (this.state.officialDocs || []).filter(d => d.projectId === p.id);
+            if (officialDocs.length > 0) {
+                const docsData = officialDocs.map(d => ({
+                    project_id: dbProjId,
+                    doc_number: d.docNumber,
+                    title: d.title,
+                    category: d.category,
+                    draft_dept: d.draftDept,
+                    drafter: d.drafter,
+                    draft_date: d.draftDate,
+                    approval_line: d.approvalLine,
+                    current_approver: d.currentApprover,
+                    current_status: d.currentStatus,
+                    remarks: d.remarks
+                }));
+                await this.supabase.from('official_docs').insert(docsData);
+            }
+
+            const meetingMinutes = (this.state.meetingMinutes || []).filter(m => m.projectId === p.id);
+            if (meetingMinutes.length > 0) {
+                const meetsData = meetingMinutes.map(m => ({
+                    project_id: dbProjId,
+                    title: m.title,
+                    meet_date: m.meetDate,
+                    location: m.location,
+                    attendees: m.attendees || [],
+                    content: m.content,
+                    remarks: m.remarks
+                }));
+                await this.supabase.from('meeting_minutes').insert(meetsData);
+            }
+        }
+        console.log('[Migration] All local mock data migrated to Supabase successfully.');
     }
 
     /**
@@ -1954,9 +2781,9 @@ class AetherPMO {
         document.getElementById('project-progress').value = calculatedProgress;
     }
 
-    handleRouting() {
+    async handleRouting() {
         // First check authentication
-        const isAuthenticated = this.checkAuth();
+        const isAuthenticated = await this.checkAuth();
         if (!isAuthenticated) {
             // Force show login wrapper and block further routing
             if (window.location.hash !== '') {
@@ -3693,7 +4520,10 @@ class AetherPMO {
                 this.state.projects[projIdx].progress = calculatedProgress;
             }
 
-            this.saveState();
+            this.saveState('checklist_upsert', this.state.checklists[idx]);
+            if (projIdx !== -1) {
+                this.saveState('project_upsert', this.state.projects[projIdx]);
+            }
             this.renderProjectDetail(projectId);
         }
     }
@@ -3718,7 +4548,7 @@ class AetherPMO {
         };
 
         this.state.checklists.push(newChk);
-        this.saveState();
+        this.saveState('checklist_upsert', newChk);
         this.renderProjectDetail(this.activeProjectId);
     }
 
@@ -3852,7 +4682,7 @@ class AetherPMO {
 
         this.state.artifacts.push(newArt);
         this.addActivityLog(slot.projectId, slot.title, 'artifact', `[템플릿 연동] 산출물 "${slot.title}" 검토대기 상태로 정식 제출되었습니다.`);
-        this.saveState();
+        this.saveState('artifact_upsert', newArt);
 
         alert(`산출물 레지스트리에 [${slot.title}]이 검토요청 상태로 정상 제출되었습니다.`);
         this.setDetailTab('artifacts');
@@ -4227,20 +5057,25 @@ class AetherPMO {
                 { cat: 'Test Plan', title: '테스트 결과 및 검증 완료' }
             ];
             defaultCats.forEach((item, index) => {
-                this.state.checklists.push({
+                const newChk = {
                     id: `chk-${Date.now()}-${index}`,
                     projectId: newId,
                     category: item.cat,
                     title: item.title,
                     checked: false
-                });
+                };
+                this.state.checklists.push(newChk);
+                if (this.useSupabase) {
+                    this.syncDb('checklist_upsert', newChk);
+                }
             });
 
             this.addActivityLog(newId, name, 'project', `신규 사업 등록: "${name}"`);
         }
         
         this.updateProjectsOverdueStatus();
-        this.saveState();
+        const projObj = id ? this.state.projects.find(p => p.id === id) : newProject;
+        this.saveState('project_upsert', projObj);
         this.closeProjectModal();
         this.handleRouting();
     }
@@ -4256,7 +5091,7 @@ class AetherPMO {
             this.state.templateSlots = this.state.templateSlots.filter(t => t.projectId !== projectId);
 
             this.addActivityLog(null, null, 'project', `사업 삭제 완료: "${project.name}"`);
-            this.saveState();
+            this.saveState('project_delete', projectId);
             window.location.hash = 'projects';
         }
     }
@@ -4538,7 +5373,8 @@ class AetherPMO {
             this.addActivityLog(projectId, name, 'artifact', `신규 산출물 등록: "${name}" (${this.translateArtifactStatus(status)})`);
         }
 
-        this.saveState();
+        const artObj = artifactId ? this.state.artifacts.find(a => a.id === artifactId) : newArt;
+        this.saveState('artifact_upsert', artObj);
         this.closeArtifactModal();
         this.handleRouting();
     }
@@ -4569,7 +5405,7 @@ class AetherPMO {
         if (confirm(`산출물 [${art.name}]을 정말로 삭제하시겠습니까?\n이 산출물과 연동된 모든 버전 히스토리 내역이 완전히 영구 소멸됩니다.`)) {
             this.state.artifacts = this.state.artifacts.filter(a => a.id !== artifactId);
             this.addActivityLog(art.projectId, art.name, 'artifact', `산출물 삭제: "${art.name}"`);
-            this.saveState();
+            this.saveState('artifact_delete', artifactId);
             this.handleRouting();
         }
     }
@@ -4842,7 +5678,8 @@ class AetherPMO {
             this.addActivityLog(projectId, title, 'review', `신규 리스크 등록: "${title}" (${status})`);
         }
 
-        this.saveState();
+        const issueObj = id ? this.state.issues.find(i => i.id === id) : this.state.issues[this.state.issues.length - 1];
+        this.saveState('issue_upsert', issueObj);
         this.closeIssueModal();
         this.handleRouting();
     }
@@ -4850,7 +5687,7 @@ class AetherPMO {
     deleteIssue(id) {
         if (confirm('이 이슈/리스크를 정말 삭제하시겠습니까?')) {
             this.state.issues = this.state.issues.filter(i => i.id !== id);
-            this.saveState();
+            this.saveState('issue_delete', id);
             this.handleRouting();
         }
     }
@@ -5061,7 +5898,8 @@ class AetherPMO {
             this.addActivityLog(projectId, title, 'review', `신규 Action Item 등록: "${title}" (${status})`);
         }
 
-        this.saveState();
+        const actObj = id ? this.state.actionItems.find(a => a.id === id) : this.state.actionItems[this.state.actionItems.length - 1];
+        this.saveState('action_upsert', actObj);
         this.closeActionItemModal();
         this.handleRouting();
     }
@@ -5069,7 +5907,7 @@ class AetherPMO {
     deleteActionItem(id) {
         if (confirm('이 Action Item을 정말 삭제하시겠습니까?')) {
             this.state.actionItems = this.state.actionItems.filter(a => a.id !== id);
-            this.saveState();
+            this.saveState('action_delete', id);
             this.handleRouting();
         }
     }
@@ -5403,7 +6241,8 @@ class AetherPMO {
             this.addActivityLog(projectId, title, 'review', `신규 공문 등록: "${title}" (${approvalStatus})`);
         }
 
-        this.saveState();
+        const docObj = id ? this.state.officialDocs.find(d => d.id === id) : this.state.officialDocs[this.state.officialDocs.length - 1];
+        this.saveState('doc_upsert', docObj);
         this.closeOfficialDocModal();
         this.handleRouting();
     }
@@ -5411,7 +6250,7 @@ class AetherPMO {
     deleteOfficialDoc(id) {
         if (confirm('이 공문을 정말 삭제하시겠습니까?')) {
             this.state.officialDocs = this.state.officialDocs.filter(d => d.id !== id);
-            this.saveState();
+            this.saveState('doc_delete', id);
             this.handleRouting();
         }
     }
@@ -5765,7 +6604,8 @@ class AetherPMO {
             this.addActivityLog(projectId, title, 'review', `신규 회의록 등록: "${title}"`);
         }
 
-        this.saveState();
+        const meetObj = id ? this.state.meetingMinutes.find(m => m.id === id) : this.state.meetingMinutes[this.state.meetingMinutes.length - 1];
+        this.saveState('meeting_upsert', meetObj);
         this.closeMeetingMinutesModal();
         this.handleRouting();
     }
@@ -5773,7 +6613,7 @@ class AetherPMO {
     deleteMeetingMinutes(id) {
         if (confirm('이 회의록을 정말 삭제하시겠습니까?')) {
             this.state.meetingMinutes = this.state.meetingMinutes.filter(m => m.id !== id);
-            this.saveState();
+            this.saveState('meeting_delete', id);
             this.handleRouting();
         }
     }
@@ -5843,14 +6683,19 @@ class AetherPMO {
 
     addActivityLog(projectId, artifactName, type, text) {
         const project = this.state.projects.find(p => p.id === projectId);
-        this.state.activities.push({
-            id: `act-${Date.now()}`,
-            projectId,
+        const newLog = {
+            id: `act-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            projectId: projectId || null,
             projectName: project ? project.name : '',
             type,
             text,
-            date: this.getFormattedDateTime()
-        });
+            date: this.getFormattedDateTime(),
+            userId: this.currentUser ? this.currentUser.id : null
+        };
+        this.state.activities.push(newLog);
+        if (this.useSupabase) {
+            this.syncDb('activity_upsert', newLog);
+        }
     }
 
     /* ==========================================================================
@@ -5889,8 +6734,24 @@ class AetherPMO {
         reader.readAsText(file);
     }
 
-    resetToMockData() {
+    async resetToMockData() {
         if (confirm('모든 데이터를 삭제하고 기본 샘플 데이터 세트로 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+            if (this.useSupabase) {
+                try {
+                    // Cascade delete will clean up dependent tables
+                    const { error } = await this.supabase.from('projects').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                    if (error) throw error;
+                    this.loadMockData();
+                    await this.migrateLocalDataToSupabase();
+                    alert('기본 샘플 데이터로 복원이 완료되었습니다. 페이지를 새로고침합니다.');
+                    window.location.reload();
+                    return;
+                } catch (e) {
+                    console.error('[Supabase Reset] Reset failed:', e);
+                    alert('Supabase 데이터 초기화 중 오류가 발생했습니다: ' + e.message);
+                    return;
+                }
+            }
             localStorage.removeItem('aether_pms_state');
             this.loadMockData();
             alert('기본 샘플 데이터로 복원이 완료되었습니다. 페이지를 새로고침합니다.');
@@ -6465,7 +7326,7 @@ class AetherPMO {
         };
 
         // 5. Save state
-        this.saveState();
+        this.saveState('profile_upsert', user);
 
         // Update session storage if current user changed
         if (this.currentUser.email === email) {
@@ -7077,7 +7938,7 @@ class AetherPMO {
                 this.state.users[userIdx] = { ...this.state.users[userIdx], ...this.currentUser };
             }
         }
-        this.saveState();
+        this.saveState('profile_upsert', this.currentUser);
         this.updateHeaderAvatar();
         this.renderMyAccountCenter();
         this.showToast('개인설정이 저장되었습니다.', 'success');
@@ -7102,7 +7963,7 @@ class AetherPMO {
                 this.state.users[userIdx].notifications = this.currentUser.notifications;
             }
         }
-        this.saveState();
+        this.saveState('profile_upsert', this.currentUser);
         this.showToast('알림 설정이 저장되었습니다.', 'success');
     }
 
@@ -7133,6 +7994,11 @@ class AetherPMO {
         if (this.state.users) {
             const userIdx = this.state.users.findIndex(u => u.id === this.currentUser.id);
             if (userIdx >= 0) this.state.users[userIdx].password = newPw;
+        }
+        if (this.useSupabase) {
+            this.supabase.auth.updateUser({ password: newPw }).then(({ error }) => {
+                if (error) console.error('[Supabase Auth] Password update failed:', error);
+            });
         }
         this.saveState();
         showMsg('비밀번호가 성공적으로 변경되었습니다. 다시 로그인합니다.', true);
@@ -7768,7 +8634,7 @@ class AetherPMO {
             project.consortiumMembers.push(memberData);
         }
 
-        this.saveState();
+        this.saveState('consortium_sync', project.id, project.consortiumMembers);
         this.closeConsortiumModal();
         this.renderConsortiumTab();
         this.renderProjectDetail(this.activeProjectId);
@@ -7781,7 +8647,7 @@ class AetherPMO {
 
         if (confirm('해당 구성원을 삭제하시겠습니까?')) {
             project.consortiumMembers.splice(idx, 1);
-            this.saveState();
+            this.saveState('consortium_sync', project.id, project.consortiumMembers);
             this.renderConsortiumTab();
             this.renderProjectDetail(this.activeProjectId);
             this.renderProjects();
@@ -7876,7 +8742,7 @@ class AetherPMO {
             status, vrbNumber, plannedDate, submittedDate, approvedDate, memo
         };
 
-        this.saveState();
+        this.saveState('vrb_upsert', project.id, project.vrbInfo);
         this.closeVrbModal();
         this.renderVrbTab();
         this.renderProjects();
