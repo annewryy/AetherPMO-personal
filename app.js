@@ -835,6 +835,117 @@ class AetherPMO {
             stateUpdated = true;
         }
 
+        const hasBiddingMock = this.state.projects.some(p => p.id === 'proj-bidding-1');
+        if (!hasBiddingMock) {
+            const biddingMock = {
+                id: 'proj-bidding-1',
+                name: '차세대 지식재산행정시스템 ISP/BPR 수립',
+                desc: '특허청 차세대 지식재산행정시스템 구축을 위한 ISP/BPR 수립 프로젝트.',
+                dept: '사업관리팀',
+                manager: '안유경',
+                startDate: '2026-06-10',
+                endDate: '2026-12-31',
+                customer: '특허청',
+                budget: 1500000000,
+                inspectionDate: '2026-12-25',
+                status: 'Bidding',
+                bidStatus: '제안 준비중',
+                progress: 0,
+                resources: 0,
+                projectCode: 'OP-26-0001',
+                bidNumber: '20260601245-00',
+                customerName: '특허청',
+                projectBudget: 1500000000,
+                businessType: 'ISP',
+                salesOwner: '홍길동',
+                proposalOwner: '제안전략팀',
+                proposalPm: '안유경',
+                businessManager: '김철수',
+                contractOwner: '이영희',
+                legalOwner: '박민수',
+                consortiumMembers: [
+                    {
+                        companyName: '오케스트로클라우드',
+                        role: '주사업자',
+                        shareRate: 60,
+                        contactName: '박지민',
+                        contactPhone: '010-1234-5678',
+                        contactEmail: 'jmpark@orchestro.com',
+                        description: '컨소시엄 주사업자'
+                    },
+                    {
+                        companyName: '로앤컴퍼니',
+                        role: '부사업자',
+                        shareRate: 20,
+                        contactName: '김변호',
+                        contactPhone: '010-2345-6789',
+                        contactEmail: 'kim@lawcompany.com',
+                        description: '법률 분석 지원'
+                    },
+                    {
+                        companyName: '업스테이지',
+                        role: '부사업자',
+                        shareRate: 15,
+                        contactName: '이모델',
+                        contactPhone: '010-3456-7890',
+                        contactEmail: 'lee@upstage.ai',
+                        description: 'AI 모델링 연구'
+                    },
+                    {
+                        companyName: '플루토',
+                        role: '부사업자',
+                        shareRate: 5,
+                        contactName: '최데이터',
+                        contactPhone: '010-4567-8901',
+                        contactEmail: 'choi@pluto.com',
+                        description: '데이터 전처리 가공'
+                    }
+                ],
+                vrbInfo: {
+                    status: '상신예정',
+                    plannedDate: '2026-06-15',
+                    submittedDate: '',
+                    approvedDate: '',
+                    vrbNumber: 'VRB-2026-0001',
+                    memo: '특허청 ISP/BPR 사업 제안을 위한 내부 VRB 심의 상신예정 건.'
+                }
+            };
+            this.state.projects.push(biddingMock);
+            this.preloadTemplateSlotsForProject('proj-bidding-1');
+            stateUpdated = true;
+        }
+
+        if (this.state.artifacts) {
+            const hasBiddingArtifact = this.state.artifacts.some(a => a.id === 'art-bidding-1');
+            if (!hasBiddingArtifact) {
+                const biddingArtifact = {
+                    id: 'art-bidding-1',
+                    projectId: 'proj-bidding-1',
+                    name: '차세대 지식재산행정시스템 ISP/BPR 제안서',
+                    category: 'Proposal',
+                    version: 'v1.0.0',
+                    description: '특허청 차세대 지식재산행정시스템 구축을 위한 ISP/BPR 수립 제안서 최종본.',
+                    author: '안유경',
+                    reviewer: '홍길동',
+                    approver: '김철수 부장',
+                    dueDate: '2026-06-12',
+                    submitDate: '2026-06-11',
+                    createdDate: '2026-06-10',
+                    status: 'Approved',
+                    fileName: 'Patent_ISP_Proposal_v1.0.0.docx',
+                    fileSize: '12.4 MB',
+                    history: [
+                        { version: 'v1.0.0', desc: '제안서 본문 및 요약본 합본 작성 완료', date: '2026-06-10', author: '안유경', fileName: 'Patent_ISP_Proposal_v1.0.0.docx', fileSize: '12.4 MB' }
+                    ],
+                    reviews: [
+                        { reviewer: '홍길동', comment: '요구사항 충족률 100% 확인되었으며, 오케스트로 강점이 잘 어필되었습니다.', date: '2026-06-11', action: 'Approved' }
+                    ]
+                };
+                this.state.artifacts.push(biddingArtifact);
+                stateUpdated = true;
+            }
+        }
+
         if (stateUpdated) {
             this.saveState();
         }
@@ -989,6 +1100,79 @@ class AetherPMO {
                 status: 'Completed',
                 progress: 100,
                 resources: 12
+            },
+            {
+                id: 'proj-bidding-1',
+                name: '차세대 지식재산행정시스템 ISP/BPR 수립',
+                desc: '특허청 차세대 지식재산행정시스템 구축을 위한 ISP/BPR 수립 프로젝트.',
+                dept: '사업관리팀',
+                manager: '안유경',
+                startDate: '2026-06-10',
+                endDate: '2026-12-31',
+                customer: '특허청',
+                budget: 1500000000,
+                inspectionDate: '2026-12-25',
+                status: 'Bidding',
+                bidStatus: '제안 준비중',
+                progress: 0,
+                resources: 0,
+                projectCode: 'OP-26-0001',
+                bidNumber: '20260601245-00',
+                customerName: '특허청',
+                projectBudget: 1500000000,
+                businessType: 'ISP',
+                salesOwner: '홍길동',
+                proposalOwner: '제안전략팀',
+                proposalPm: '안유경',
+                businessManager: '김철수',
+                contractOwner: '이영희',
+                legalOwner: '박민수',
+                consortiumMembers: [
+                    {
+                        companyName: '오케스트로클라우드',
+                        role: '주사업자',
+                        shareRate: 60,
+                        contactName: '박지민',
+                        contactPhone: '010-1234-5678',
+                        contactEmail: 'jmpark@orchestro.com',
+                        description: '컨소시엄 주사업자'
+                    },
+                    {
+                        companyName: '로앤컴퍼니',
+                        role: '부사업자',
+                        shareRate: 20,
+                        contactName: '김변호',
+                        contactPhone: '010-2345-6789',
+                        contactEmail: 'kim@lawcompany.com',
+                        description: '법률 분석 지원'
+                    },
+                    {
+                        companyName: '업스테이지',
+                        role: '부사업자',
+                        shareRate: 15,
+                        contactName: '이모델',
+                        contactPhone: '010-3456-7890',
+                        contactEmail: 'lee@upstage.ai',
+                        description: 'AI 모델링 연구'
+                    },
+                    {
+                        companyName: '플루토',
+                        role: '부사업자',
+                        shareRate: 5,
+                        contactName: '최데이터',
+                        contactPhone: '010-4567-8901',
+                        contactEmail: 'choi@pluto.com',
+                        description: '데이터 전처리 가공'
+                    }
+                ],
+                vrbInfo: {
+                    status: '상신예정',
+                    plannedDate: '2026-06-15',
+                    submittedDate: '',
+                    approvedDate: '',
+                    vrbNumber: 'VRB-2026-0001',
+                    memo: '특허청 ISP/BPR 사업 제안을 위한 내부 VRB 심의 상신예정 건.'
+                }
             }
         ];
 
@@ -1119,6 +1303,29 @@ class AetherPMO {
                     { version: 'v0.1.0', desc: '최초 초안 등록', date: '2026-05-27', author: '강동우', fileName: 'LLM_Infrastructure_Draft.pdf', fileSize: '5.2 MB' }
                 ],
                 reviews: []
+            },
+            {
+                id: 'art-bidding-1',
+                projectId: 'proj-bidding-1',
+                name: '차세대 지식재산행정시스템 ISP/BPR 제안서',
+                category: 'Proposal',
+                version: 'v1.0.0',
+                description: '특허청 차세대 지식재산행정시스템 구축을 위한 ISP/BPR 수립 제안서 최종본.',
+                author: '안유경',
+                reviewer: '홍길동',
+                approver: '김철수 부장',
+                dueDate: '2026-06-12',
+                submitDate: '2026-06-11',
+                createdDate: '2026-06-10',
+                status: 'Approved',
+                fileName: 'Patent_ISP_Proposal_v1.0.0.docx',
+                fileSize: '12.4 MB',
+                history: [
+                    { version: 'v1.0.0', desc: '제안서 본문 및 요약본 합본 작성 완료', date: '2026-06-10', author: '안유경', fileName: 'Patent_ISP_Proposal_v1.0.0.docx', fileSize: '12.4 MB' }
+                ],
+                reviews: [
+                    { reviewer: '홍길동', comment: '요구사항 충족률 100% 확인되었으며, 오케스트로 강점이 잘 어필되었습니다.', date: '2026-06-11', action: 'Approved' }
+                ]
             }
         ];
 
@@ -1642,6 +1849,13 @@ class AetherPMO {
             });
         }
 
+        const artProjSelect = document.getElementById('artifact-project-select');
+        if (artProjSelect) {
+            artProjSelect.addEventListener('change', (e) => {
+                this.updateArtifactCategorySelect(e.target.value);
+            });
+        }
+
         const checklistForm = document.getElementById('checklist-form');
         if (checklistForm) {
             checklistForm.addEventListener('submit', (e) => {
@@ -1704,7 +1918,24 @@ class AetherPMO {
         const bidStatusGroup = document.getElementById('project-bid-status-group');
         if (statusSelect && bidStatusGroup) {
             statusSelect.addEventListener('change', (e) => {
-                bidStatusGroup.style.display = (e.target.value === 'Bidding') ? 'block' : 'none';
+                const isBidding = e.target.value === 'Bidding';
+                bidStatusGroup.style.display = isBidding ? 'block' : 'none';
+                
+                const biddingFields = document.getElementById('project-bidding-fields');
+                if (biddingFields) {
+                    biddingFields.style.display = isBidding ? 'block' : 'none';
+                }
+                
+                if (isBidding) {
+                    const codeInput = document.getElementById('project-code');
+                    if (codeInput && !codeInput.value) {
+                        codeInput.value = this.generateNextProjectCode();
+                    }
+                    const propOwnerInput = document.getElementById('project-proposal-owner');
+                    if (propOwnerInput && !propOwnerInput.value) {
+                        propOwnerInput.value = '제안전략팀';
+                    }
+                }
             });
         }
     }
@@ -2441,6 +2672,12 @@ class AetherPMO {
                 else if (bidStatus === '수주') statusClass = 'bid-status-success';
                 else if (bidStatus === '실패') statusClass = 'bid-status-failed';
 
+                const members = p.consortiumMembers || [];
+                const ockMember = members.find(m => m.companyName.includes('오케스트로')) || members.find(m => m.role === '주사업자') || null;
+                const isLeadText = ockMember ? ockMember.role : '미지정';
+                const shareRateText = ockMember ? `지분율 ${ockMember.shareRate}%` : '지분율 -';
+                const vrbStatusText = p.vrbInfo ? `VRB : ${p.vrbInfo.status}` : 'VRB : 미상신';
+
                 const card = document.createElement('div');
                 card.className = 'bidding-project-card';
                 card.innerHTML = `
@@ -2451,20 +2688,28 @@ class AetherPMO {
                     <h3 class="bidding-project-title">${p.name}</h3>
                     <div class="bidding-project-details">
                         <div class="bidding-detail-row">
+                            <span>프로젝트 코드</span>
+                            <span class="font-bold text-primary" style="font-family: monospace;">${p.projectCode || '-'}</span>
+                        </div>
+                        <div class="bidding-detail-row">
+                            <span>컨소시엄 역할</span>
+                            <span class="font-bold">${isLeadText}</span>
+                        </div>
+                        <div class="bidding-detail-row">
+                            <span>컨소시엄 지분율</span>
+                            <span class="font-bold">${shareRateText}</span>
+                        </div>
+                        <div class="bidding-detail-row">
+                            <span>VRB 상태</span>
+                            <span class="font-bold text-warning">${vrbStatusText}</span>
+                        </div>
+                        <div class="bidding-detail-row">
                             <span>발주기관</span>
                             <span class="font-bold">${p.customer || '-'}</span>
                         </div>
                         <div class="bidding-detail-row">
                             <span>사업예산</span>
-                            <span class="font-bold text-primary">${p.budget ? p.budget.toLocaleString() + ' 원' : '-'}</span>
-                        </div>
-                        <div class="bidding-detail-row">
-                            <span>PM</span>
-                            <span class="font-bold">${p.manager || '미지정'}</span>
-                        </div>
-                        <div class="bidding-detail-row">
-                            <span>제안마감일</span>
-                            <span class="font-bold text-muted">${p.endDate || '-'}</span>
+                            <span class="font-bold text-success">${p.budget ? p.budget.toLocaleString() + ' 원' : '-'}</span>
                         </div>
                     </div>
                 `;
@@ -2799,6 +3044,10 @@ class AetherPMO {
         } else if (tabId === 'official-docs') {
             const projectDocs = this.state.officialDocs.filter(d => d.projectId === this.activeProjectId);
             this.renderProjectDetailOfficialDocsTable(projectDocs);
+        } else if (tabId === 'consortium') {
+            this.renderConsortiumTab();
+        } else if (tabId === 'vrb') {
+            this.renderVrbTab();
         }
 
         this.applyRolePermissions();
@@ -2914,83 +3163,214 @@ class AetherPMO {
             `;
         }
 
+        const isBidding = this.isBiddingProject(project);
+
+        // Dynamically update deliverables tab buttons and panels
+        const artifactsTabBtn = document.querySelector('.detail-tab-btn[data-tab="artifacts"]');
+        if (artifactsTabBtn) {
+            artifactsTabBtn.textContent = isBidding ? '제안준비서류' : '산출물';
+        }
+        const artifactsHeader = document.querySelector('#detail-tab-content-artifacts h3');
+        if (artifactsHeader) {
+            artifactsHeader.textContent = isBidding ? '제출된 제안준비서류 목록' : '제출된 산출물 목록';
+        }
+        const artifactsBtn = document.querySelector('#detail-tab-content-artifacts .btn-primary');
+        if (artifactsBtn) {
+            artifactsBtn.innerHTML = isBidding 
+                ? `<i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 제안준비서류 등록`
+                : `<i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 산출물 등록`;
+        }
+        const artifactsTableTitleHeader = document.querySelector('#detail-tab-content-artifacts table th:first-child');
+        if (artifactsTableTitleHeader) {
+            artifactsTableTitleHeader.textContent = isBidding ? '서류명' : '산출물명';
+        }
+
+        document.querySelectorAll('.detail-tab-btn').forEach(btn => {
+            const tab = btn.getAttribute('data-tab');
+            if (isBidding) {
+                if (tab === 'overview' || tab === 'artifacts' || tab === 'consortium' || tab === 'vrb') {
+                    btn.style.display = 'inline-block';
+                } else {
+                    btn.style.display = 'none';
+                }
+            } else {
+                if (tab === 'consortium' || tab === 'vrb') {
+                    btn.style.display = 'none';
+                } else {
+                    btn.style.display = 'inline-block';
+                }
+            }
+        });
+
         this.setDetailTab('overview');
     }
 
     renderProjectDetailOverview(project) {
+        const isBidding = this.isBiddingProject(project);
+        
         // 1. 기본 정보
         const basicFields = document.getElementById('detail-overview-basic-fields');
         if (basicFields) {
-            basicFields.innerHTML = `
-                <div style="display:flex; flex-direction:column; gap:10px; font-size:12px; margin-top:8px;">
-                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
-                        <span style="color:var(--text-muted); font-weight:700;">사업명</span>
-                        <span style="font-weight:700; text-align:right; max-width: 160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${project.name}">${project.name}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
-                        <span style="color:var(--text-muted); font-weight:700;">발주기관 (고객사)</span>
-                        <span style="font-weight:700; text-align:right;">${project.customer || '-'}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
-                        <span style="color:var(--text-muted); font-weight:700;">사업책임자 (PM)</span>
-                        <span style="font-weight:700; text-align:right; color:var(--primary);">${project.manager}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
-                        <span style="color:var(--text-muted); font-weight:700;">사업유형</span>
-                        <span style="font-weight:700; text-align:right;">${project.bizType || 'SI 구축'}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
-                        <span style="color:var(--text-muted); font-weight:700;">계약금액</span>
-                        <span style="font-weight:700; text-align:right; color:var(--success);">${project.budget ? Number(project.budget).toLocaleString() + ' 원' : '-'}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
-                        <span style="color:var(--text-muted); font-weight:700;">계약일</span>
-                        <span style="font-weight:700; text-align:right;">${project.contractDate || project.startDate}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
-                        <span style="color:var(--text-muted); font-weight:700;">사업기간</span>
-                        <span style="font-weight:700; text-align:right;">${project.startDate} ~ ${project.endDate}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
-                        <span style="color:var(--text-muted); font-weight:700;">사업장소</span>
-                        <span style="font-weight:700; text-align:right;">${project.location || '정부서울청사'}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
-                        <span style="color:var(--text-muted); font-weight:700;">관련사업</span>
-                        <span style="font-weight:700; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:140px;" title="${project.relatedBiz || '-'}">${project.relatedBiz || '-'}</span>
-                    </div>
-                    <div style="display:flex; flex-direction:column; gap:6px; padding-top:4px;">
-                        <span style="color:var(--text-muted); font-weight:700;">상태 메모 (비고)</span>
-                        <div style="display:flex; gap:8px; align-items:center; margin-top:2px;">
-                            <input type="text" id="project-remarks-input" value="${project.remarks || ''}" placeholder="상태 메모를 입력하세요" style="flex:1; padding:6px 10px; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-hover-item); color:var(--text-main); font-size:12px;">
-                            <button type="button" class="btn btn-xs btn-primary" id="btn-save-project-remarks" onclick="app.saveProjectRemarks('${project.id}')">저장</button>
+            if (isBidding) {
+                basicFields.innerHTML = `
+                    <div style="display:flex; flex-direction:column; gap:10px; font-size:12px; margin-top:8px;">
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">사업명</span>
+                            <span style="font-weight:700; text-align:right; max-width: 160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${project.name}">${project.name}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">프로젝트 코드</span>
+                            <span style="font-weight:700; text-align:right; color:var(--primary); font-family: monospace;">${project.projectCode || '-'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">공고번호</span>
+                            <span style="font-weight:700; text-align:right;">${project.bidNumber || '-'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">발주기관</span>
+                            <span style="font-weight:700; text-align:right;">${project.customerName || project.customer || '-'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">사업예산</span>
+                            <span style="font-weight:700; text-align:right; color:var(--success);">${project.projectBudget ? Number(project.projectBudget).toLocaleString() + ' 원' : (project.budget ? Number(project.budget).toLocaleString() + ' 원' : '-')}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">사업유형</span>
+                            <span style="font-weight:700; text-align:right;">${project.businessType || project.bizType || '-'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">제안서 제출마감일</span>
+                            <span style="font-weight:700; text-align:right;">${project.endDate || '-'}</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:6px; padding-top:4px;">
+                            <span style="color:var(--text-muted); font-weight:700;">상태 메모 (비고)</span>
+                            <div style="display:flex; gap:8px; align-items:center; margin-top:2px;">
+                                <input type="text" id="project-remarks-input" value="${project.remarks || ''}" placeholder="상태 메모를 입력하세요" style="flex:1; padding:6px 10px; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-hover-item); color:var(--text-main); font-size:12px;">
+                                <button type="button" class="btn btn-xs btn-primary" id="btn-save-project-remarks" onclick="app.saveProjectRemarks('${project.id}')">저장</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
+                `;
+            } else {
+                basicFields.innerHTML = `
+                    <div style="display:flex; flex-direction:column; gap:10px; font-size:12px; margin-top:8px;">
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">사업명</span>
+                            <span style="font-weight:700; text-align:right; max-width: 160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${project.name}">${project.name}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">발주기관 (고객사)</span>
+                            <span style="font-weight:700; text-align:right;">${project.customer || '-'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">사업책임자 (PM)</span>
+                            <span style="font-weight:700; text-align:right; color:var(--primary);">${project.manager}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">사업유형</span>
+                            <span style="font-weight:700; text-align:right;">${project.bizType || 'SI 구축'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">계약금액</span>
+                            <span style="font-weight:700; text-align:right; color:var(--success);">${project.budget ? Number(project.budget).toLocaleString() + ' 원' : '-'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">계약일</span>
+                            <span style="font-weight:700; text-align:right;">${project.contractDate || project.startDate}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">사업기간</span>
+                            <span style="font-weight:700; text-align:right;">${project.startDate} ~ ${project.endDate}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">사업장소</span>
+                            <span style="font-weight:700; text-align:right;">${project.location || '정부서울청사'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">관련사업</span>
+                            <span style="font-weight:700; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:140px;" title="${project.relatedBiz || '-'}">${project.relatedBiz || '-'}</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:6px; padding-top:4px;">
+                            <span style="color:var(--text-muted); font-weight:700;">상태 메모 (비고)</span>
+                            <div style="display:flex; gap:8px; align-items:center; margin-top:2px;">
+                                <input type="text" id="project-remarks-input" value="${project.remarks || ''}" placeholder="상태 메모를 입력하세요" style="flex:1; padding:6px 10px; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-hover-item); color:var(--text-main); font-size:12px;">
+                                <button type="button" class="btn btn-xs btn-primary" id="btn-save-project-remarks" onclick="app.saveProjectRemarks('${project.id}')">저장</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
         }
 
-        // 2. 진척률 상세
+        // 2. 진척률 상세 또는 입찰 담당조직 정보
         const wbsFields = document.getElementById('detail-overview-wbs-fields');
-        if (wbsFields && project.wbs && project.wbs.stages) {
-            wbsFields.innerHTML = `
-                <div style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
-                    ${project.wbs.stages.map(stage => {
-                        const stageWeighted = Math.round((stage.progress * (stage.weight || 0)) / 100);
-                        return `
-                            <div style="display:flex; flex-direction:column; gap:4px;">
-                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
-                                    <span style="font-weight:700;">${stage.name} <span style="color:var(--text-muted); font-weight:500;">(가중치 ${stage.weight}%)</span></span>
-                                    <span style="font-weight:700;">${stage.progress}% <span style="color:var(--primary); font-weight:700; margin-left:4px;">(${stageWeighted}% 반영)</span></span>
+        const wbsCardTitle = document.getElementById('wbs-card-title');
+        const wbsCardLink = document.getElementById('wbs-card-link');
+        
+        if (isBidding) {
+            if (wbsCardTitle) {
+                wbsCardTitle.innerHTML = `<i data-lucide="users" style="width:16px; height:16px; display:inline-block; vertical-align:middle; margin-right:6px; color:var(--success);"></i>담당조직 정보`;
+            }
+            if (wbsCardLink) {
+                wbsCardLink.style.display = 'none';
+            }
+            if (wbsFields) {
+                wbsFields.innerHTML = `
+                    <div style="display:flex; flex-direction:column; gap:10px; font-size:12px; margin-top:8px;">
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">영업담당자</span>
+                            <span style="font-weight:700; text-align:right;">${project.salesOwner || '-'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">제안전략팀 담당자</span>
+                            <span style="font-weight:700; text-align:right;">${project.proposalOwner || '-'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">제안PM</span>
+                            <span style="font-weight:700; text-align:right; color:var(--primary);">${project.proposalPm || '-'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">사업관리 담당자</span>
+                            <span style="font-weight:700; text-align:right;">${project.businessManager || '-'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">계약 담당자</span>
+                            <span style="font-weight:700; text-align:right;">${project.contractOwner || '-'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">법무 담당자</span>
+                            <span style="font-weight:700; text-align:right;">${project.legalOwner || '-'}</span>
+                        </div>
+                    </div>
+                `;
+            }
+        } else {
+            if (wbsCardTitle) {
+                wbsCardTitle.innerHTML = `<i data-lucide="trending-up" style="width:16px; height:16px; display:inline-block; vertical-align:middle; margin-right:6px; color:var(--success);"></i>진척률 상세`;
+            }
+            if (wbsCardLink) {
+                wbsCardLink.style.display = 'inline-block';
+            }
+            if (wbsFields && project.wbs && project.wbs.stages) {
+                wbsFields.innerHTML = `
+                    <div style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
+                        ${project.wbs.stages.map(stage => {
+                            const stageWeighted = Math.round((stage.progress * (stage.weight || 0)) / 100);
+                            return `
+                                <div style="display:flex; flex-direction:column; gap:4px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
+                                        <span style="font-weight:700;">${stage.name} <span style="color:var(--text-muted); font-weight:500;">(가중치 ${stage.weight}%)</span></span>
+                                        <span style="font-weight:700;">${stage.progress}% <span style="color:var(--primary); font-weight:700; margin-left:4px;">(${stageWeighted}% 반영)</span></span>
+                                    </div>
+                                    <div class="progress-bar-container" style="height:6px;">
+                                        <div class="progress-bar-fill" style="width: ${stage.progress}%; background:${stage.progress === 100 ? 'var(--success)' : 'var(--primary)'};"></div>
+                                    </div>
                                 </div>
-                                <div class="progress-bar-container" style="height:6px;">
-                                    <div class="progress-bar-fill" style="width: ${stage.progress}%; background:${stage.progress === 100 ? 'var(--success)' : 'var(--primary)'};"></div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            `;
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }
         }
 
         // 3. 참여 인력
@@ -3565,6 +3945,20 @@ class AetherPMO {
         document.getElementById('project-bid-status-group').style.display = 'none';
         document.getElementById('project-bid-status').value = '제안 준비중';
 
+        // Reset bidding fields
+        document.getElementById('project-bid-number').value = '';
+        document.getElementById('project-customer-name').value = '';
+        document.getElementById('project-budget-bidding').value = '';
+        document.getElementById('project-business-type').value = '';
+        document.getElementById('project-sales-owner').value = '';
+        document.getElementById('project-proposal-owner').value = '';
+        document.getElementById('project-proposal-pm').value = '';
+        document.getElementById('project-business-manager').value = '';
+        document.getElementById('project-contract-owner').value = '';
+        document.getElementById('project-legal-owner').value = '';
+        const biddingFields = document.getElementById('project-bidding-fields');
+        if (biddingFields) biddingFields.style.display = 'none';
+
         // Reset WBS stage inputs
         const defaultWbsStages = [
             { id: 'initiation', weight: 20 },
@@ -3627,6 +4021,23 @@ class AetherPMO {
         document.getElementById('project-bid-status').value = project.bidStatus || '제안 준비중';
         document.getElementById('project-bid-status-group').style.display = (project.status === 'Bidding') ? 'block' : 'none';
 
+        // Populate bidding fields
+        const isBidding = project.status === 'Bidding';
+        const biddingFields = document.getElementById('project-bidding-fields');
+        if (biddingFields) {
+            biddingFields.style.display = isBidding ? 'block' : 'none';
+        }
+        document.getElementById('project-bid-number').value = project.bidNumber || '';
+        document.getElementById('project-customer-name').value = project.customerName || '';
+        document.getElementById('project-budget-bidding').value = project.projectBudget || '';
+        document.getElementById('project-business-type').value = project.businessType || '';
+        document.getElementById('project-sales-owner').value = project.salesOwner || '';
+        document.getElementById('project-proposal-owner').value = project.proposalOwner || '';
+        document.getElementById('project-proposal-pm').value = project.proposalPm || '';
+        document.getElementById('project-business-manager').value = project.businessManager || '';
+        document.getElementById('project-contract-owner').value = project.contractOwner || '';
+        document.getElementById('project-legal-owner').value = project.legalOwner || '';
+
         // Populate WBS stage inputs
         const stageIds = ['initiation', 'analysis', 'design', 'bpr', 'isp', 'closing'];
         stageIds.forEach(sid => {
@@ -3686,6 +4097,18 @@ class AetherPMO {
         const riskLevel = document.getElementById('project-risk-level').value;
         const bidStatus = document.getElementById('project-bid-status').value;
 
+        // Bidding stage fields
+        const bidNumber = document.getElementById('project-bid-number').value.trim();
+        const customerName = document.getElementById('project-customer-name').value.trim();
+        const projectBudget = Number(document.getElementById('project-budget-bidding').value) || 0;
+        const businessType = document.getElementById('project-business-type').value;
+        const salesOwner = document.getElementById('project-sales-owner').value.trim();
+        const proposalOwner = document.getElementById('project-proposal-owner').value.trim();
+        const proposalPm = document.getElementById('project-proposal-pm').value.trim();
+        const businessManager = document.getElementById('project-business-manager').value.trim();
+        const contractOwner = document.getElementById('project-contract-owner').value.trim();
+        const legalOwner = document.getElementById('project-legal-owner').value.trim();
+
         if (!name || !manager || !customer || !budget || !inspectionDate) {
             alert('필수 필드를 모두 입력해주세요.');
             return;
@@ -3731,7 +4154,19 @@ class AetherPMO {
                     ...old, 
                     name, desc, dept, manager, startDate, endDate, status, bidStatus: status === 'Bidding' ? bidStatus : '',
                     progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
-                    projectCode, bizType, contractDate, location, relatedBiz, riskLevel, wbs
+                    projectCode, bizType, contractDate, location, relatedBiz, riskLevel, wbs,
+                    // Bidding stage fields
+                    bidNumber, customerName, projectBudget, businessType,
+                    salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
+                    consortiumMembers: old.consortiumMembers || [],
+                    vrbInfo: old.vrbInfo || {
+                        status: '미상신',
+                        plannedDate: '',
+                        submittedDate: '',
+                        approvedDate: '',
+                        vrbNumber: '',
+                        memo: ''
+                    }
                 };
 
                 this.addActivityLog(id, name, 'project', `사업 정보 수정: "${name}" (${this.translateStatus(status)})`);
@@ -3746,7 +4181,7 @@ class AetherPMO {
 
             const newProject = { 
                 id: newId, name, desc, dept, manager, startDate, endDate, status, bidStatus: status === 'Bidding' ? bidStatus : '', progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
-                projectCode: projectCode || `PRJ-2026-${String(Date.now()).substring(7)}`,
+                projectCode: projectCode || (status === 'Bidding' ? this.generateNextProjectCode() : `PRJ-2026-${String(Date.now()).substring(7)}`),
                 bizType: bizType || 'SI 구축',
                 contractDate: contractDate || startDate,
                 location: location || '정부서울청사',
@@ -3755,7 +4190,19 @@ class AetherPMO {
                 wbs: wbs,
                 resourcesList: defaultResourcesList,
                 managerId: this.currentUser.role === 'PM' ? this.currentUser.email : 'pm@aetherpmo.com',
-                memberIds: [this.currentUser.role === 'PM' ? this.currentUser.email : 'pm@aetherpmo.com', 'worker@aetherpmo.com']
+                memberIds: [this.currentUser.role === 'PM' ? this.currentUser.email : 'pm@aetherpmo.com', 'worker@aetherpmo.com'],
+                // Bidding stage fields
+                bidNumber, customerName, projectBudget, businessType,
+                salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
+                consortiumMembers: [],
+                vrbInfo: {
+                    status: '미상신',
+                    plannedDate: '',
+                    submittedDate: '',
+                    approvedDate: '',
+                    vrbNumber: '',
+                    memo: ''
+                }
             };
 
             this.state.projects.push(newProject);
@@ -3856,6 +4303,9 @@ class AetherPMO {
             document.getElementById('artifact-project-fixed-field').value = '';
         }
 
+        const selectedProjId = fixedProjectId || projSelect.value;
+        this.updateArtifactCategorySelect(selectedProjId);
+
         document.getElementById('artifact-reviewer').value = '';
         document.getElementById('artifact-approver').value = '';
         document.getElementById('artifact-submit-date').value = '';
@@ -3910,6 +4360,7 @@ class AetherPMO {
         const prefillWrapper = document.getElementById('artifact-template-prefill-wrapper');
         if (prefillWrapper) prefillWrapper.style.display = 'none';
 
+        this.updateArtifactCategorySelect(art.projectId);
         document.getElementById('artifact-name').value = art.name;
         document.getElementById('artifact-category').value = art.category;
         document.getElementById('artifact-version').value = art.version;
@@ -5378,7 +5829,14 @@ class AetherPMO {
             'User Manual': '사용자매뉴얼',
             'Deployment Guide': '배포정의서',
             'Final Report': '완료보고서',
-            'Etc': '기타 서류'
+            'Etc': '기타 서류',
+            'Proposal': '제안서',
+            'Presentation': '발표자료',
+            'Pricing Proposal': '가격제안서',
+            'Performance Cert': '실적증명서',
+            'Manpower Proof': '참여인력 증빙',
+            'Consortium Agreement': '컨소시엄 협약서',
+            'Etc Bidding': '기타 제출서류'
         };
         return dict[cat] || cat;
     }
@@ -5481,7 +5939,9 @@ class AetherPMO {
     prefillArtifactFromTemplate(templateId) {
         if (!templateId) {
             document.getElementById('artifact-name').value = '';
-            document.getElementById('artifact-category').value = 'Requirements';
+            const projSelect = document.getElementById('artifact-project-select');
+            const project = projSelect ? this.state.projects.find(p => p.id === projSelect.value) : null;
+            document.getElementById('artifact-category').value = this.isBiddingProject(project) ? 'Proposal' : 'Requirements';
             document.getElementById('artifact-version').value = 'v1.0.0';
             this.removeAttachedFile();
             return;
@@ -7101,6 +7561,325 @@ class AetherPMO {
         }
         
         return false;
+    }
+
+    isBiddingProject(project) {
+        if (!project) return false;
+        const executionStages = ['In Progress', 'Delay', 'On Hold', 'Completed'];
+        if (executionStages.includes(project.status)) {
+            return false;
+        }
+        if (project.status === 'Bidding') return true;
+        const biddingStatuses = [
+            '제안준비중', '제안 준비중', 
+            '제안제출', '제안 제출', 
+            '결과대기', '결과 대기', 
+            '수주', '실패'
+        ];
+        return biddingStatuses.includes(project.status) || biddingStatuses.includes(project.bidStatus);
+    }
+
+    updateArtifactCategorySelect(projectId) {
+        const select = document.getElementById('artifact-category');
+        if (!select) return;
+
+        const project = this.state.projects.find(p => p.id === projectId);
+        const isBidding = this.isBiddingProject(project);
+
+        select.innerHTML = '';
+        if (isBidding) {
+            const categories = [
+                { value: 'Proposal', text: '제안서' },
+                { value: 'Presentation', text: '발표자료' },
+                { value: 'Pricing Proposal', text: '가격제안서' },
+                { value: 'Performance Cert', text: '실적증명서' },
+                { value: 'Manpower Proof', text: '참여인력 증빙' },
+                { value: 'Consortium Agreement', text: '컨소시엄 협약서' },
+                { value: 'Etc Bidding', text: '기타 제출서류' }
+            ];
+            categories.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.value;
+                opt.textContent = c.text;
+                select.appendChild(opt);
+            });
+        } else {
+            const categories = [
+                { value: 'Requirements', text: '요구사항 정의서' },
+                { value: 'Architecture Design', text: '시스템 설계서' },
+                { value: 'Source Code', text: '소스코드/릴리즈' },
+                { value: 'Test Plan', text: '테스트 계획/결과서' },
+                { value: 'User Manual', text: '사용자 매뉴얼' },
+                { value: 'Deployment Guide', text: '배포 정의서' },
+                { value: 'Final Report', text: '완료 보고서' },
+                { value: 'Etc', text: '기타 산출물' }
+            ];
+            categories.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.value;
+                opt.textContent = c.text;
+                select.appendChild(opt);
+            });
+        }
+    }
+
+    generateNextProjectCode() {
+        let maxNum = 0;
+        if (this.state && this.state.projects) {
+            this.state.projects.forEach(p => {
+                if (p.projectCode && p.projectCode.startsWith('OP-26-')) {
+                    const numStr = p.projectCode.substring(6);
+                    const num = parseInt(numStr, 10);
+                    if (!isNaN(num) && num > maxNum) {
+                        maxNum = num;
+                    }
+                }
+            });
+        }
+        const nextNum = maxNum + 1;
+        return `OP-26-${String(nextNum).padStart(4, '0')}`;
+    }
+
+    renderConsortiumTab() {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project) return;
+
+        const members = project.consortiumMembers || [];
+        const tbody = document.getElementById('project-detail-consortium-tbody');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+        let totalShare = 0;
+
+        if (members.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" style="text-align:center; color:var(--text-muted); padding:20px;">등록된 컨소시엄 구성원이 없습니다.</td>
+                </tr>
+            `;
+        } else {
+            members.forEach((m, idx) => {
+                totalShare += Number(m.shareRate || 0);
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="font-weight:700; color:var(--text-main);">${m.companyName}</td>
+                        <td>
+                            <span class="status-badge" style="font-size:10px; font-weight:700; padding:2px 8px; background:${m.role === '주사업자' ? 'var(--primary-glow)' : 'var(--bg-hover-item)'}; color:${m.role === '주사업자' ? 'var(--primary)' : 'var(--text-light)'}; border:1px solid rgba(255,255,255,0.05); border-radius:4px;">
+                                ${m.role}
+                            </span>
+                        </td>
+                        <td style="font-weight:700; color:var(--text-main);">${m.shareRate}%</td>
+                        <td>${m.contactName || '-'}</td>
+                        <td>${m.contactPhone || '-'}</td>
+                        <td>${m.contactEmail || '-'}</td>
+                        <td style="max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${m.description || ''}">${m.description || '-'}</td>
+                        <td>
+                            <div style="display:flex; gap:6px;">
+                                <button class="btn btn-xs btn-outline" onclick="app.openEditConsortiumModal(${idx})">수정</button>
+                                <button class="btn btn-xs btn-danger" onclick="app.deleteConsortiumMember(${idx})">삭제</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Update total share rate
+        const totalRateEl = document.getElementById('consortium-total-rate');
+        if (totalRateEl) {
+            totalRateEl.textContent = totalShare;
+            if (totalShare === 100) {
+                totalRateEl.style.color = 'var(--success)';
+            } else {
+                totalRateEl.style.color = 'var(--danger)';
+            }
+        }
+
+        const warningMsg = document.getElementById('consortium-warning-msg');
+        if (warningMsg) {
+            warningMsg.style.display = totalShare === 100 ? 'none' : 'flex';
+        }
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    openNewConsortiumModal() {
+        const form = document.getElementById('consortium-form');
+        if (form) form.reset();
+        document.getElementById('consortium-modal-title').textContent = '컨소시엄 구성원 등록';
+        document.getElementById('consortium-id-field').value = '';
+        document.getElementById('consortium-modal').classList.add('open');
+    }
+
+    openEditConsortiumModal(idx) {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project || !project.consortiumMembers || !project.consortiumMembers[idx]) return;
+
+        const m = project.consortiumMembers[idx];
+        document.getElementById('consortium-modal-title').textContent = '컨소시엄 구성원 수정';
+        document.getElementById('consortium-id-field').value = idx;
+        
+        document.getElementById('consortium-company-name').value = m.companyName;
+        document.getElementById('consortium-role').value = m.role;
+        document.getElementById('consortium-share-rate').value = m.shareRate;
+        document.getElementById('consortium-contact-name').value = m.contactName || '';
+        document.getElementById('consortium-contact-phone').value = m.contactPhone || '';
+        document.getElementById('consortium-contact-email').value = m.contactEmail || '';
+        document.getElementById('consortium-description').value = m.description || '';
+
+        document.getElementById('consortium-modal').classList.add('open');
+    }
+
+    closeConsortiumModal() {
+        document.getElementById('consortium-modal').classList.remove('open');
+    }
+
+    saveConsortiumForm() {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project) return;
+
+        if (!project.consortiumMembers) {
+            project.consortiumMembers = [];
+        }
+
+        const idx = document.getElementById('consortium-id-field').value;
+        const companyName = document.getElementById('consortium-company-name').value.trim();
+        const role = document.getElementById('consortium-role').value;
+        const shareRate = Number(document.getElementById('consortium-share-rate').value);
+        const contactName = document.getElementById('consortium-contact-name').value.trim();
+        const contactPhone = document.getElementById('consortium-contact-phone').value.trim();
+        const contactEmail = document.getElementById('consortium-contact-email').value.trim();
+        const description = document.getElementById('consortium-description').value.trim();
+
+        if (!companyName || !role || isNaN(shareRate)) {
+            alert('회사명, 역할, 지분율은 필수 항목입니다.');
+            return;
+        }
+
+        const memberData = {
+            companyName, role, shareRate, contactName, contactPhone, contactEmail, description
+        };
+
+        if (idx !== '') {
+            project.consortiumMembers[idx] = memberData;
+        } else {
+            project.consortiumMembers.push(memberData);
+        }
+
+        this.saveState();
+        this.closeConsortiumModal();
+        this.renderConsortiumTab();
+        this.renderProjectDetail(this.activeProjectId);
+        this.renderProjects();
+    }
+
+    deleteConsortiumMember(idx) {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project || !project.consortiumMembers) return;
+
+        if (confirm('해당 구성원을 삭제하시겠습니까?')) {
+            project.consortiumMembers.splice(idx, 1);
+            this.saveState();
+            this.renderConsortiumTab();
+            this.renderProjectDetail(this.activeProjectId);
+            this.renderProjects();
+        }
+    }
+
+    renderVrbTab() {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project) return;
+
+        const vrb = project.vrbInfo || {
+            status: '미상신',
+            plannedDate: '',
+            submittedDate: '',
+            approvedDate: '',
+            vrbNumber: '',
+            memo: ''
+        };
+
+        const statusColors = {
+            '미상신': { bg: 'var(--bg-hover-item)', text: 'var(--text-muted)' },
+            '상신예정': { bg: 'var(--warning-glow)', text: 'var(--warning)' },
+            '상신완료': { bg: 'var(--primary-glow)', text: 'var(--primary)' },
+            '승인': { bg: 'var(--success-glow)', text: 'var(--success)' },
+            '반려': { bg: 'var(--danger-glow)', text: 'var(--danger)' }
+        };
+
+        const colorMap = statusColors[vrb.status] || { bg: 'var(--bg-hover-item)', text: 'var(--text-main)' };
+
+        const statusDisplay = document.getElementById('vrb-status-display');
+        if (statusDisplay) {
+            statusDisplay.textContent = vrb.status;
+            statusDisplay.style.color = colorMap.text;
+            statusDisplay.parentElement.style.background = colorMap.bg;
+        }
+
+        const numDisplay = document.getElementById('vrb-number-display');
+        if (numDisplay) numDisplay.textContent = vrb.vrbNumber || '-';
+
+        const plannedDisplay = document.getElementById('vrb-planned-date-display');
+        if (plannedDisplay) plannedDisplay.textContent = vrb.plannedDate || '-';
+
+        const submittedDisplay = document.getElementById('vrb-submitted-date-display');
+        if (submittedDisplay) submittedDisplay.textContent = vrb.submittedDate || '-';
+
+        const approvedDisplay = document.getElementById('vrb-approved-date-display');
+        if (approvedDisplay) approvedDisplay.textContent = vrb.approvedDate || '-';
+
+        const memoDisplay = document.getElementById('vrb-memo-display');
+        if (memoDisplay) memoDisplay.textContent = vrb.memo || '등록된 메모가 없습니다.';
+    }
+
+    openEditVrbModal() {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project) return;
+
+        const vrb = project.vrbInfo || {
+            status: '미상신',
+            plannedDate: '',
+            submittedDate: '',
+            approvedDate: '',
+            vrbNumber: '',
+            memo: ''
+        };
+
+        document.getElementById('vrb-status').value = vrb.status;
+        document.getElementById('vrb-number').value = vrb.vrbNumber || '';
+        document.getElementById('vrb-planned-date').value = vrb.plannedDate || '';
+        document.getElementById('vrb-submitted-date').value = vrb.submittedDate || '';
+        document.getElementById('vrb-approved-date').value = vrb.approvedDate || '';
+        document.getElementById('vrb-memo').value = vrb.memo || '';
+
+        document.getElementById('vrb-modal').classList.add('open');
+    }
+
+    closeVrbModal() {
+        document.getElementById('vrb-modal').classList.remove('open');
+    }
+
+    saveVrbForm() {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project) return;
+
+        const status = document.getElementById('vrb-status').value;
+        const vrbNumber = document.getElementById('vrb-number').value.trim();
+        const plannedDate = document.getElementById('vrb-planned-date').value;
+        const submittedDate = document.getElementById('vrb-submitted-date').value;
+        const approvedDate = document.getElementById('vrb-approved-date').value;
+        const memo = document.getElementById('vrb-memo').value.trim();
+
+        project.vrbInfo = {
+            status, vrbNumber, plannedDate, submittedDate, approvedDate, memo
+        };
+
+        this.saveState();
+        this.closeVrbModal();
+        this.renderVrbTab();
+        this.renderProjects();
     }
 }
 

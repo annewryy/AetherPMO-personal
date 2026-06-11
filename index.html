@@ -737,6 +737,8 @@
                         <button class="detail-tab-btn" data-tab="issues" onclick="app.setDetailTab('issues')">리스크</button>
                         <button class="detail-tab-btn" data-tab="action-items" onclick="app.setDetailTab('action-items')">Action Item</button>
                         <button class="detail-tab-btn" data-tab="official-docs" onclick="app.setDetailTab('official-docs')">공문</button>
+                        <button class="detail-tab-btn" data-tab="consortium" onclick="app.setDetailTab('consortium')" style="display: none;">컨소시엄</button>
+                        <button class="detail-tab-btn" data-tab="vrb" onclick="app.setDetailTab('vrb')" style="display: none;">VRB</button>
                     </div>
 
                     <!-- TAB 1: 사업개요 (Overview) -->
@@ -982,6 +984,81 @@
                                         <!-- Dynamic rows -->
                                     </tbody>
                                 </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 7: 컨소시엄 (Consortium) -->
+                    <div id="detail-tab-content-consortium" class="detail-tab-content">
+                        <div class="dashboard-card project-consortium-card">
+                            <div class="card-header-actions" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                                <h3 style="margin:0;">컨소시엄 구성원 목록</h3>
+                                <button class="btn btn-sm btn-primary" onclick="app.openNewConsortiumModal()">
+                                    <i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 구성원 추가
+                                </button>
+                            </div>
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>회사명</th>
+                                            <th>역할</th>
+                                            <th>지분율 (%)</th>
+                                            <th>담당자</th>
+                                            <th>연락처</th>
+                                            <th>이메일</th>
+                                            <th>비고</th>
+                                            <th style="width:120px;">작업</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="project-detail-consortium-tbody">
+                                        <!-- Dynamic rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="consortium-summary" style="display:flex; justify-content:space-between; align-items:center; padding:16px; margin-top:16px; background:var(--bg-hover-item); border-radius:8px; border:1px solid var(--bg-card-border);">
+                                <span style="font-weight:700; font-size:14px; color:var(--text-main);">총 지분율 : <span id="consortium-total-rate" style="color:var(--primary); font-size:16px; font-weight:800;">0</span>%</span>
+                                <span id="consortium-warning-msg" class="text-danger" style="display:none; font-size:12px; font-weight:700;">
+                                    <i data-lucide="alert-triangle" style="width:14px; height:14px; display:inline-block; vertical-align:middle; margin-right:4px;"></i>총합이 100%가 아닙니다.
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 8: VRB -->
+                    <div id="detail-tab-content-vrb" class="detail-tab-content">
+                        <div class="dashboard-card project-vrb-card">
+                            <div class="card-header-actions" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                                <h3 style="margin:0;">VRB 심의 정보</h3>
+                                <button class="btn btn-sm btn-primary" onclick="app.openEditVrbModal()">
+                                    <i data-lucide="edit" style="width:14px; height:14px; margin-right:4px;"></i> VRB 정보 수정
+                                </button>
+                            </div>
+                            <div class="vrb-details-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
+                                <div class="vrb-detail-item" style="background:var(--bg-hover-item); padding:16px; border-radius:8px; border:1px solid var(--bg-card-border);">
+                                    <div style="color:var(--text-muted); font-size:11px; margin-bottom:6px; font-weight:700;">진행 상태</div>
+                                    <div id="vrb-status-display" style="font-size:18px; font-weight:800; color:var(--primary);">미상신</div>
+                                </div>
+                                <div class="vrb-detail-item" style="background:var(--bg-hover-item); padding:16px; border-radius:8px; border:1px solid var(--bg-card-border);">
+                                    <div style="color:var(--text-muted); font-size:11px; margin-bottom:6px; font-weight:700;">심의번호</div>
+                                    <div id="vrb-number-display" style="font-size:18px; font-weight:800; color:var(--text-main);">-</div>
+                                </div>
+                                <div class="vrb-detail-item" style="background:var(--bg-hover-item); padding:16px; border-radius:8px; border:1px solid var(--bg-card-border);">
+                                    <div style="color:var(--text-muted); font-size:11px; margin-bottom:6px; font-weight:700;">상신 예정일</div>
+                                    <div id="vrb-planned-date-display" style="font-size:15px; font-weight:800; color:var(--text-main);">-</div>
+                                </div>
+                                <div class="vrb-detail-item" style="background:var(--bg-hover-item); padding:16px; border-radius:8px; border:1px solid var(--bg-card-border);">
+                                    <div style="color:var(--text-muted); font-size:11px; margin-bottom:6px; font-weight:700;">실제 상신일</div>
+                                    <div id="vrb-submitted-date-display" style="font-size:15px; font-weight:800; color:var(--text-main);">-</div>
+                                </div>
+                                <div class="vrb-detail-item" style="background:var(--bg-hover-item); padding:16px; border-radius:8px; border:1px solid var(--bg-card-border);">
+                                    <div style="color:var(--text-muted); font-size:11px; margin-bottom:6px; font-weight:700;">승인/반려일</div>
+                                    <div id="vrb-approved-date-display" style="font-size:15px; font-weight:800; color:var(--text-main);">-</div>
+                                </div>
+                            </div>
+                            <div class="vrb-memo-section" style="margin-top:20px; background:var(--bg-hover-item); padding:16px; border-radius:8px; border:1px solid var(--bg-card-border);">
+                                <div style="color:var(--text-muted); font-size:11px; margin-bottom:6px; font-weight:700;">VRB 심의 메모</div>
+                                <div id="vrb-memo-display" class="pre-wrap" style="font-size:13px; line-height:1.5; color:var(--text-main);">등록된 메모가 없습니다.</div>
                             </div>
                         </div>
                     </div>
@@ -1856,6 +1933,62 @@
                                 <option value="수주">수주</option>
                                 <option value="실패">실패</option>
                             </select>
+                        </div>
+                        <!-- 입찰단계 전용 필드 -->
+                        <div id="project-bidding-fields" style="grid-column: span 2; display: none;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px;">
+                                <div class="form-group">
+                                    <label for="project-bid-number">공고번호(bidNumber)</label>
+                                    <input type="text" id="project-bid-number" placeholder="예: 20260601245-00">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-customer-name">발주기관(customerName)</label>
+                                    <input type="text" id="project-customer-name" placeholder="예: 특허청">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-budget-bidding">사업예산(projectBudget)</label>
+                                    <input type="number" id="project-budget-bidding" placeholder="예: 1500000000">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-business-type">사업유형(businessType)</label>
+                                    <select id="project-business-type">
+                                        <option value="">선택하세요</option>
+                                        <option value="구축">구축</option>
+                                        <option value="운영">운영</option>
+                                        <option value="ISP">ISP</option>
+                                        <option value="AI">AI</option>
+                                        <option value="유지관리">유지관리</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <h4 style="margin-top: 10px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 6px; font-size:13px; color:var(--primary); font-weight:700;">입찰단계 담당조직 정보</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;">
+                                <div class="form-group">
+                                    <label for="project-sales-owner">영업담당자(salesOwner)</label>
+                                    <input type="text" id="project-sales-owner" placeholder="예: 홍길동">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-proposal-owner">제안전략팀 담당자(proposalOwner)</label>
+                                    <input type="text" id="project-proposal-owner" placeholder="예: 제안전략팀">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-proposal-pm">제안PM(proposalPm)</label>
+                                    <input type="text" id="project-proposal-pm" placeholder="예: 안유경">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-business-manager">사업관리 담당자(businessManager)</label>
+                                    <input type="text" id="project-business-manager" placeholder="예: 김철수">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-contract-owner">계약 담당자(contractOwner)</label>
+                                    <input type="text" id="project-contract-owner" placeholder="예: 이영희">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-legal-owner">법무 담당자(legalOwner)</label>
+                                    <input type="text" id="project-legal-owner" placeholder="예: 박민수">
+                                </div>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label for="project-progress">진행률 (%) <span class="text-xs text-muted">(WBS 가중치 자동 계산)</span></label>
@@ -3353,6 +3486,105 @@
                 <button type="button" class="btn btn-outline" onclick="app.closeUserProfileModal()">취소</button>
                 <button type="button" class="btn btn-primary" onclick="app.saveUserProfile()">저장하기</button>
             </div>
+        </div>
+    </div>
+
+    <!-- 16. CONSORTIUM MEMBER MODAL -->
+    <div class="modal-overlay" id="consortium-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 id="consortium-modal-title">컨소시엄 구성원 등록</h2>
+                <button class="modal-close-btn" onclick="app.closeConsortiumModal()">&times;</button>
+            </div>
+            <form id="consortium-form" onsubmit="event.preventDefault(); app.saveConsortiumForm();">
+                <input type="hidden" id="consortium-id-field">
+                <div class="form-grid">
+                    <div class="form-group span-2">
+                        <label for="consortium-company-name">회사명 <span class="required">*</span></label>
+                        <input type="text" id="consortium-company-name" required placeholder="예: 오케스트로클라우드">
+                    </div>
+                    <div class="form-group">
+                        <label for="consortium-role">역할 <span class="required">*</span></label>
+                        <select id="consortium-role" required>
+                            <option value="주사업자">주사업자</option>
+                            <option value="부사업자">부사업자</option>
+                            <option value="협력사">협력사</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="consortium-share-rate">지분율 (%) <span class="required">*</span></label>
+                        <input type="number" id="consortium-share-rate" required min="0" max="100" placeholder="예: 60">
+                    </div>
+                    <div class="form-group">
+                        <label for="consortium-contact-name">담당자</label>
+                        <input type="text" id="consortium-contact-name" placeholder="예: 홍길동">
+                    </div>
+                    <div class="form-group">
+                        <label for="consortium-contact-phone">연락처</label>
+                        <input type="text" id="consortium-contact-phone" placeholder="예: 010-1234-5678">
+                    </div>
+                    <div class="form-group span-2">
+                        <label for="consortium-contact-email">이메일</label>
+                        <input type="email" id="consortium-contact-email" placeholder="예: representative@company.com">
+                    </div>
+                    <div class="form-group span-2">
+                        <label for="consortium-description">비고</label>
+                        <input type="text" id="consortium-description" placeholder="특이사항 입력">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="app.closeConsortiumModal()">취소</button>
+                    <button type="submit" class="btn btn-primary">저장하기</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 17. VRB INFO MODAL -->
+    <div class="modal-overlay" id="vrb-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2>VRB 정보 수정</h2>
+                <button class="modal-close-btn" onclick="app.closeVrbModal()">&times;</button>
+            </div>
+            <form id="vrb-form" onsubmit="event.preventDefault(); app.saveVrbForm();">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="vrb-status">진행 상태</label>
+                        <select id="vrb-status">
+                            <option value="미상신">미상신</option>
+                            <option value="상신예정">상신예정</option>
+                            <option value="상신완료">상신완료</option>
+                            <option value="승인">승인</option>
+                            <option value="반려">반려</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="vrb-number">심의번호(vrbNumber)</label>
+                        <input type="text" id="vrb-number" placeholder="예: VRB-2026-0001">
+                    </div>
+                    <div class="form-group">
+                        <label for="vrb-planned-date">상신예정일</label>
+                        <input type="date" id="vrb-planned-date">
+                    </div>
+                    <div class="form-group">
+                        <label for="vrb-submitted-date">상신일</label>
+                        <input type="date" id="vrb-submitted-date">
+                    </div>
+                    <div class="form-group span-2">
+                        <label for="vrb-approved-date">승인/반려일</label>
+                        <input type="date" id="vrb-approved-date">
+                    </div>
+                    <div class="form-group span-2">
+                        <label for="vrb-memo">심의 메모(memo)</label>
+                        <textarea id="vrb-memo" rows="3" placeholder="VRB 심의 안건 및 의견 메모를 입력하세요."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="app.closeVrbModal()">취소</button>
+                    <button type="submit" class="btn btn-primary">저장하기</button>
+                </div>
+            </form>
         </div>
     </div>
 
