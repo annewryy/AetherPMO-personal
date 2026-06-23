@@ -52,9 +52,8 @@ module.exports = async (req, res) => {
         // Base API URL for getBidPblancListInfoServc
         const apiEndpoint = `https://apis.data.go.kr/1230000/BidPublicInfoService04/getBidPblancListInfoServc`;
         
-        // Build request URL
+        // Build request URL without serviceKey in URLSearchParams to prevent double encoding
         const params = new URLSearchParams({
-            serviceKey: serviceKey,
             numOfRows: '100',
             pageNo: '1',
             inqryDiv: '1', // 1: Registration date
@@ -67,7 +66,8 @@ module.exports = async (req, res) => {
             params.append('bidNtceNm', bidNtceNm);
         }
 
-        const requestUrl = `${apiEndpoint}?${params.toString()}`;
+        // Append serviceKey raw
+        const requestUrl = `${apiEndpoint}?serviceKey=${serviceKey}&${params.toString()}`;
 
         // Make HTTP Request
         https.get(requestUrl, (apiRes) => {
