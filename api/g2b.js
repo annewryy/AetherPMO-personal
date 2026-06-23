@@ -12,47 +12,57 @@ module.exports = async (req, res) => {
         return;
     }
 
+    const serviceKey = (process.env.G2B_API_KEY || '').trim();
+    
+    // Mask key helper to prevent exposure in logs/errors
+    const maskKey = (str) => {
+        if (!str) return '';
+        if (typeof str !== 'string') {
+            try {
+                str = JSON.stringify(str);
+            } catch (err) {
+                str = String(str);
+            }
+        }
+        if (serviceKey) {
+            const escapedKey = serviceKey.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            return str.replace(new RegExp(escapedKey, 'g'), '[MASKED]');
+        }
+        return str;
+    };
+
     try {
         const query = url.parse(req.url, true).query;
-        const serviceKey = process.env.G2B_API_KEY;
 
         if (!serviceKey) {
-            return res.status(500).json({ error: 'G2B_API_KEY environment variable is not configured.' });
+            res.status(500).json({ error: 'G2B_API_KEY is not configured on the server.' });
+            return;
         }
 
         const bidNtceNm = query.bidNtceNm || '';
         const dminsttNm = query.dminsttNm || '';
-        
-        // Dates handling: expect YYYY-MM-DD or YYYYMMDD
         let bgngDt = query.bgngDt || '';
         let endDt = query.endDt || '';
 
-        // Clean dates
+        // Clean dates: remove dashes
         bgngDt = bgngDt.replace(/-/g, '');
         endDt = endDt.replace(/-/g, '');
 
         if (!bgngDt || !endDt) {
-            // Default to last 30 days
             const today = new Date();
             const past = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-            const formatDate = (d) => {
-                const yyyy = d.getFullYear();
-                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                const dd = String(d.getDate()).padStart(2, '0');
-                return `${yyyy}${mm}${dd}`;
-            };
+            const formatDate = (d) => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
             bgngDt = bgngDt || formatDate(past);
             endDt = endDt || formatDate(today);
         }
 
-        // G2B requires YYYYMMDDHHMM format for inqryBgnDt and inqryEndDt
         const inqryBgnDt = bgngDt + '0000';
         const inqryEndDt = endDt + '2359';
 
         // Base API URL for getBidPblancListInfoServc
         const apiEndpoint = `https://apis.data.go.kr/1230000/BidPublicInfoService04/getBidPblancListInfoServc`;
         
-        // Build request URL without serviceKey in URLSearchParams to prevent double encoding
+        // Build remaining query params with URLSearchParams (excluding serviceKey)
         const params = new URLSearchParams({
             numOfRows: '100',
             pageNo: '1',
@@ -66,8 +76,12 @@ module.exports = async (req, res) => {
             params.append('bidNtceNm', bidNtceNm);
         }
 
-        // Append serviceKey raw
+        // Final URL has serviceKey appended raw (원문 그대로) as the first query parameter
         const requestUrl = `${apiEndpoint}?serviceKey=${serviceKey}&${params.toString()}`;
+
+        // Log request URL with serviceKey masked
+        const maskedUrl = requestUrl.replace(serviceKey, '[MASKED]');
+        console.log(`Sending G2B request to: ${maskedUrl}`);
 
         // Make HTTP Request
         https.get(requestUrl, (apiRes) => {
@@ -115,17 +129,17 @@ module.exports = async (req, res) => {
 
                     res.status(200).json({ announcements: formattedList });
                 } catch (e) {
-                    console.error('Error parsing G2B JSON response:', e, data);
-                    res.status(500).json({ error: 'Failed to parse response from G2B API.', details: data });
+                    console.error('Error parsing G2B JSON response:', e, maskKey(data));
+                    res.status(500).json({ error: 'Failed to parse response from G2B API.', details: maskKey(data) });
                 }
             });
         }).on('error', (err) => {
-            console.error('G2B request error:', err);
-            res.status(500).json({ error: 'Failed to contact G2B OpenAPI.', details: err.message });
+            console.error('G2B request error:', maskKey(err.message));
+            res.status(500).json({ error: 'Failed to contact G2B OpenAPI.', details: maskKey(err.message) });
         });
 
     } catch (e) {
-        console.error('Serverless function exception:', e);
-        res.status(500).json({ error: 'Internal Server Error', details: e.message });
+        console.error('Serverless function exception:', maskKey(e.message || e));
+        res.status(500).json({ error: 'Internal Server Error', details: maskKey(e.message || e) });
     }
 };
