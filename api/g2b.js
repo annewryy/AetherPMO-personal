@@ -1,4 +1,5 @@
 const https = require('https');
+const http = require('http');
 const url = require('url');
 
 module.exports = async (req, res) => {
@@ -65,8 +66,8 @@ module.exports = async (req, res) => {
         const inqryBgnDt = bgngDt + '0000';
         const inqryEndDt = endDt + '2359';
 
-        // Base API URL for getBidPblancListInfoServc
-        const apiEndpoint = `https://apis.data.go.kr/1230000/BidPublicInfoService04/getBidPblancListInfoServc`;
+        // Base API URL for getBidPblancListInfoServc (using http:// as data.go.kr frequently has issues with https://)
+        const apiEndpoint = `http://apis.data.go.kr/1230000/BidPublicInfoService04/getBidPblancListInfoServc`;
         
         // Build remaining query params with URLSearchParams (excluding serviceKey)
         const params = new URLSearchParams({
@@ -95,8 +96,9 @@ module.exports = async (req, res) => {
         const maskedUrl = requestUrl.replace(finalKey, '[MASKED]').replace(serviceKey, '[MASKED]');
         console.log(`Sending G2B request to: ${maskedUrl}`);
 
-        // Make HTTP Request
-        https.get(requestUrl, (apiRes) => {
+        // Make HTTP Request (dynamically selecting http or https client module)
+        const protocolClient = requestUrl.startsWith('https') ? https : http;
+        protocolClient.get(requestUrl, (apiRes) => {
             let data = '';
             apiRes.on('data', (chunk) => {
                 data += chunk;
