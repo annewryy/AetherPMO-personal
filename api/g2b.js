@@ -111,7 +111,6 @@ module.exports = async (req, res) => {
             inqryDiv: '1', // 1: Registration date
             inqryBgnDt: inqryBgnDt,
             inqryEndDt: inqryEndDt,
-            type: 'json',
             _type: 'json'
         });
 
@@ -134,9 +133,9 @@ module.exports = async (req, res) => {
             }
         }
 
-        // Target URLs for G2B getBidPblancListInfoServc (V4 and V1) - passing both serviceKey and ServiceKey to prevent case sensitivity issues
-        const requestUrlV4 = `http://apis.data.go.kr/1230000/BidPublicInfoService04/getBidPblancListInfoServc?serviceKey=${finalKey}&ServiceKey=${finalKey}&${params.toString()}`;
-        const requestUrlV1 = `http://apis.data.go.kr/1230000/BidPublicInfoService/getBidPblancListInfoServc?serviceKey=${finalKey}&ServiceKey=${finalKey}&${params.toString()}`;
+        // Target URLs for G2B getBidPblancListInfoServc (V4 and V1) - single serviceKey and _type=json
+        const requestUrlV4 = `http://apis.data.go.kr/1230000/BidPublicInfoService04/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
+        const requestUrlV1 = `http://apis.data.go.kr/1230000/BidPublicInfoService/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
 
         let responseBody = '';
         let successUrl = '';
