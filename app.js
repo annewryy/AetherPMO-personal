@@ -5005,6 +5005,7 @@ class AetherPMO {
         if (deptSelect === 'custom' && !dept) {
             alert('부서명을 입력해주세요.');
             return;
+        }
         const managerSelect = document.getElementById('project-manager-select');
         const managerId = managerSelect ? managerSelect.value : null;
         const matchedUser = this.state.users ? this.state.users.find(u => (u.id === managerId || u.email === managerId)) : null;
