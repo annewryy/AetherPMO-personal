@@ -111,7 +111,8 @@ module.exports = async (req, res) => {
             inqryDiv: '1', // 1: Registration date
             inqryBgnDt: inqryBgnDt,
             inqryEndDt: inqryEndDt,
-            type: 'json'
+            type: 'json',
+            _type: 'json'
         });
 
         if (bidNtceNm) {
@@ -133,14 +134,14 @@ module.exports = async (req, res) => {
             }
         }
 
-        // Target URLs for G2B getBidPblancListInfoServc (V4 and V1)
-        const requestUrlV4 = `http://apis.data.go.kr/1230000/BidPublicInfoService04/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
-        const requestUrlV1 = `http://apis.data.go.kr/1230000/BidPublicInfoService/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
+        // Target URLs for G2B getBidPblancListInfoServc (V4 and V1) - passing both serviceKey and ServiceKey to prevent case sensitivity issues
+        const requestUrlV4 = `http://apis.data.go.kr/1230000/BidPublicInfoService04/getBidPblancListInfoServc?serviceKey=${finalKey}&ServiceKey=${finalKey}&${params.toString()}`;
+        const requestUrlV1 = `http://apis.data.go.kr/1230000/BidPublicInfoService/getBidPblancListInfoServc?serviceKey=${finalKey}&ServiceKey=${finalKey}&${params.toString()}`;
 
         let responseBody = '';
         let successUrl = '';
         try {
-            console.log(`Sending G2B request to V4 endpoint: ${requestUrlV4.replace(finalKey, '[MASKED]').replace(serviceKey, '[MASKED]')}`);
+            console.log(`Sending G2B request to V4 endpoint: ${requestUrlV4.split(finalKey).join('[MASKED]').split(serviceKey).join('[MASKED]')}`);
             const result = await fetchG2BData(requestUrlV4);
             // 4. Output the full raw response from data.go.kr to the server logs
             console.log(`[V4 Response Log] Status: ${result.statusCode}, Raw Body: ${maskKey(result.data)}`);
@@ -152,7 +153,7 @@ module.exports = async (req, res) => {
         } catch (v4Err) {
             console.log(`G2B V4 failed or returned non-JSON. Retrying with V1 fallback endpoint...`);
             try {
-                console.log(`Sending G2B request to V1 endpoint: ${requestUrlV1.replace(finalKey, '[MASKED]').replace(serviceKey, '[MASKED]')}`);
+                console.log(`Sending G2B request to V1 endpoint: ${requestUrlV1.split(finalKey).join('[MASKED]').split(serviceKey).join('[MASKED]')}`);
                 const result = await fetchG2BData(requestUrlV1);
                 // 4. Output the full raw response from data.go.kr to the server logs
                 console.log(`[V1 Response Log] Status: ${result.statusCode}, Raw Body: ${maskKey(result.data)}`);
