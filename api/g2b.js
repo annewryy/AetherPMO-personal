@@ -14,7 +14,7 @@ module.exports = async (req, res) => {
 
     const serviceKey = (process.env.G2B_API_KEY || '').trim();
     
-    // Mask key helper to prevent exposure in logs/errors
+    // Mask key helper to prevent exposure in logs/errors (masks both raw and encoded versions)
     const maskKey = (str) => {
         if (!str) return '';
         if (typeof str !== 'string') {
@@ -24,11 +24,17 @@ module.exports = async (req, res) => {
                 str = String(str);
             }
         }
+        let masked = str;
         if (serviceKey) {
             const escapedKey = serviceKey.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            return str.replace(new RegExp(escapedKey, 'g'), '[MASKED]');
+            masked = masked.replace(new RegExp(escapedKey, 'g'), '[MASKED]');
         }
-        return str;
+        const encodedKey = encodeURIComponent(serviceKey);
+        if (encodedKey && encodedKey !== serviceKey) {
+            const escapedEncoded = encodedKey.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            masked = masked.replace(new RegExp(escapedEncoded, 'g'), '[MASKED]');
+        }
+        return masked;
     };
 
     try {
@@ -76,11 +82,17 @@ module.exports = async (req, res) => {
             params.append('bidNtceNm', bidNtceNm);
         }
 
-        // Final URL has serviceKey appended raw (원문 그대로) as the first query parameter
-        const requestUrl = `${apiEndpoint}?serviceKey=${serviceKey}&${params.toString()}`;
+        // If the key does not contain '%' (Decoding Key), encode it once to protect '+' and '/' characters
+        let finalKey = serviceKey;
+        if (!finalKey.includes('%')) {
+            finalKey = encodeURIComponent(finalKey);
+        }
 
-        // Log request URL with serviceKey masked
-        const maskedUrl = requestUrl.replace(serviceKey, '[MASKED]');
+        // Final URL has serviceKey appended as the first query parameter
+        const requestUrl = `${apiEndpoint}?serviceKey=${finalKey}&${params.toString()}`;
+
+        // Log request URL with serviceKey masked (both raw and encoded versions)
+        const maskedUrl = requestUrl.replace(finalKey, '[MASKED]').replace(serviceKey, '[MASKED]');
         console.log(`Sending G2B request to: ${maskedUrl}`);
 
         // Make HTTP Request
