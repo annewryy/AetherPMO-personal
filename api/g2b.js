@@ -43,9 +43,13 @@ module.exports = async (req, res) => {
     serviceKey = serviceKey.trim();
 
     // Diagnostics Log: Verify if environment variable is correctly loaded
+    const keyPreview = serviceKey.length > 20 
+        ? `${serviceKey.slice(0, 10)}...${serviceKey.slice(-10)}` 
+        : serviceKey;
     console.log(`[Diagnostics] G2B_API_KEY load check: ` + 
                 `exists=${!!serviceKey}, ` + 
                 `length=${serviceKey.length}, ` + 
+                `preview=${keyPreview}, ` + 
                 `hasPercent=${serviceKey.includes('%')}, ` + 
                 `hasPlus=${serviceKey.includes('+')}`);
     
