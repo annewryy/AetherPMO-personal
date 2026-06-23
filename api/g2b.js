@@ -30,14 +30,24 @@ module.exports = async (req, res) => {
         return;
     }
 
+    // 1. Load G2B_API_KEY environment variable
     let serviceKey = (process.env.G2B_API_KEY || '').trim();
-    // Strip leading and trailing quotes if the env variable was wrapped in them
+
+    // 2. Clean key (strip newlines, carriage returns, and leading/trailing quotes/spaces)
+    serviceKey = serviceKey.replace(/[\r\n]/g, '').trim();
     if (serviceKey.startsWith('"') && serviceKey.endsWith('"')) {
         serviceKey = serviceKey.slice(1, -1);
     } else if (serviceKey.startsWith("'") && serviceKey.endsWith("'")) {
         serviceKey = serviceKey.slice(1, -1);
     }
     serviceKey = serviceKey.trim();
+
+    // Diagnostics Log: Verify if environment variable is correctly loaded
+    console.log(`[Diagnostics] G2B_API_KEY load check: ` + 
+                `exists=${!!serviceKey}, ` + 
+                `length=${serviceKey.length}, ` + 
+                `hasPercent=${serviceKey.includes('%')}, ` + 
+                `hasPlus=${serviceKey.includes('+')}`);
     
     // Mask key helper to prevent exposure in logs/errors (masks both raw and encoded versions)
     const maskKey = (str) => {
@@ -104,10 +114,19 @@ module.exports = async (req, res) => {
             params.append('bidNtceNm', bidNtceNm);
         }
 
-        // If the key does not contain '%' (Decoding Key), encode it once to protect '+' and '/' characters
+        // 3. Configure finalKey supporting manual testing of encoding/decoding types
         let finalKey = serviceKey;
-        if (!finalKey.includes('%')) {
+        const keyType = query.keyType || 'auto'; // client can pass keyType=encoding or keyType=decoding
+
+        if (keyType === 'decoding') {
             finalKey = encodeURIComponent(finalKey);
+        } else if (keyType === 'encoding') {
+            // Keep raw as-is
+        } else {
+            // Auto-detect based on presence of '%'
+            if (!finalKey.includes('%')) {
+                finalKey = encodeURIComponent(finalKey);
+            }
         }
 
         // Target URLs for G2B getBidPblancListInfoServc (V4 and V1)
@@ -119,6 +138,9 @@ module.exports = async (req, res) => {
         try {
             console.log(`Sending G2B request to V4 endpoint: ${requestUrlV4.replace(finalKey, '[MASKED]').replace(serviceKey, '[MASKED]')}`);
             const result = await fetchG2BData(requestUrlV4);
+            // 4. Output the full raw response from data.go.kr to the server logs
+            console.log(`[V4 Response Log] Status: ${result.statusCode}, Raw Body: ${maskKey(result.data)}`);
+            
             // Validate if response is JSON (data.go.kr returns plain text/XML errors for auth failures)
             JSON.parse(result.data);
             responseBody = result.data;
@@ -128,6 +150,9 @@ module.exports = async (req, res) => {
             try {
                 console.log(`Sending G2B request to V1 endpoint: ${requestUrlV1.replace(finalKey, '[MASKED]').replace(serviceKey, '[MASKED]')}`);
                 const result = await fetchG2BData(requestUrlV1);
+                // 4. Output the full raw response from data.go.kr to the server logs
+                console.log(`[V1 Response Log] Status: ${result.statusCode}, Raw Body: ${maskKey(result.data)}`);
+                
                 JSON.parse(result.data);
                 responseBody = result.data;
                 successUrl = requestUrlV1;

@@ -3930,11 +3930,20 @@ class AetherPMO {
             if (tbody) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="8" class="text-center text-error py-8" style="color: var(--danger);">
-                            공고 조회 중 오류가 발생했습니다. (${e.message || e})
+                        <td colspan="8" class="text-center text-error py-12" style="color: var(--danger); padding: 40px 16px;">
+                            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
+                                <i data-lucide="alert-circle" style="width: 32px; height: 32px; color: var(--danger);"></i>
+                                <span style="font-weight: 600; font-size: 15px; color: var(--text-main);">나라장터 실시간 공고 조회 실패</span>
+                                <span style="font-size: 13px; color: var(--text-muted); max-width: 450px; line-height: 1.6; margin: 0 auto;">
+                                    공공데이터포털(data.go.kr)의 인증키가 아직 동기화 중이거나 일시적인 서비스 장애일 수 있습니다. 포털 시스템 반영을 기다리시거나 인증키 및 Vercel 환경변수 설정을 재확인해 주세요.
+                                </span>
+                            </div>
                         </td>
                     </tr>
                 `;
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
             }
         }
     }
