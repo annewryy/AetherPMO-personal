@@ -2,6 +2,23 @@ const https = require('https');
 const http = require('http');
 const url = require('url');
 
+const fetchG2BData = (targetUrl) => {
+    return new Promise((resolve, reject) => {
+        const protocolClient = targetUrl.startsWith('https') ? https : http;
+        protocolClient.get(targetUrl, (apiRes) => {
+            let data = '';
+            apiRes.on('data', (chunk) => {
+                data += chunk;
+            });
+            apiRes.on('end', () => {
+                resolve({ statusCode: apiRes.statusCode, data });
+            });
+        }).on('error', (err) => {
+            reject(err);
+        });
+    });
+};
+
 module.exports = async (req, res) => {
     // Enable CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -73,9 +90,6 @@ module.exports = async (req, res) => {
         const inqryBgnDt = bgngDt + '0000';
         const inqryEndDt = endDt + '2359';
 
-        // Base API URL for getBidPblancListInfoServc (using http:// as data.go.kr frequently has issues with https://)
-        const apiEndpoint = `http://apis.data.go.kr/1230000/BidPublicInfoService04/getBidPblancListInfoServc`;
-        
         // Build remaining query params with URLSearchParams (excluding serviceKey)
         const params = new URLSearchParams({
             numOfRows: '100',
@@ -96,68 +110,69 @@ module.exports = async (req, res) => {
             finalKey = encodeURIComponent(finalKey);
         }
 
-        // Final URL has serviceKey appended as the first query parameter
-        const requestUrl = `${apiEndpoint}?serviceKey=${finalKey}&${params.toString()}`;
+        // Target URLs for G2B getBidPblancListInfoServc (V4 and V1)
+        const requestUrlV4 = `http://apis.data.go.kr/1230000/BidPublicInfoService04/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
+        const requestUrlV1 = `http://apis.data.go.kr/1230000/BidPublicInfoService/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
 
-        // Log request URL with serviceKey masked (both raw and encoded versions)
-        const maskedUrl = requestUrl.replace(finalKey, '[MASKED]').replace(serviceKey, '[MASKED]');
-        console.log(`Sending G2B request to: ${maskedUrl}`);
+        let responseBody = '';
+        let successUrl = '';
+        try {
+            console.log(`Sending G2B request to V4 endpoint: ${requestUrlV4.replace(finalKey, '[MASKED]').replace(serviceKey, '[MASKED]')}`);
+            const result = await fetchG2BData(requestUrlV4);
+            // Validate if response is JSON (data.go.kr returns plain text/XML errors for auth failures)
+            JSON.parse(result.data);
+            responseBody = result.data;
+            successUrl = requestUrlV4;
+        } catch (v4Err) {
+            console.log(`G2B V4 failed or returned non-JSON. Retrying with V1 fallback endpoint...`);
+            try {
+                console.log(`Sending G2B request to V1 endpoint: ${requestUrlV1.replace(finalKey, '[MASKED]').replace(serviceKey, '[MASKED]')}`);
+                const result = await fetchG2BData(requestUrlV1);
+                JSON.parse(result.data);
+                responseBody = result.data;
+                successUrl = requestUrlV1;
+            } catch (v1Err) {
+                // If both failed, throw error
+                throw new Error(`G2B API failure on both endpoints. V4: ${maskKey(v4Err.message)}, V1: ${maskKey(v1Err.message)}`);
+            }
+        }
 
-        // Make HTTP Request (dynamically selecting http or https client module)
-        const protocolClient = requestUrl.startsWith('https') ? https : http;
-        protocolClient.get(requestUrl, (apiRes) => {
-            let data = '';
-            apiRes.on('data', (chunk) => {
-                data += chunk;
-            });
+        const parsed = JSON.parse(responseBody);
+        const itemsData = parsed?.response?.body?.items;
+        let list = [];
+        if (itemsData) {
+            if (Array.isArray(itemsData)) {
+                list = itemsData;
+            } else if (Array.isArray(itemsData.item)) {
+                list = itemsData.item;
+            } else if (itemsData.item) {
+                list = [itemsData.item];
+            }
+        }
 
-            apiRes.on('end', () => {
-                try {
-                    const parsed = JSON.parse(data);
-                    const itemsData = parsed?.response?.body?.items;
-                    let list = [];
-                    if (itemsData) {
-                        if (Array.isArray(itemsData)) {
-                            list = itemsData;
-                        } else if (Array.isArray(itemsData.item)) {
-                            list = itemsData.item;
-                        } else if (itemsData.item) {
-                            list = [itemsData.item];
-                        }
-                    }
+        // Post-filtering by 수요기관명 if provided
+        if (dminsttNm) {
+            const searchDemand = dminsttNm.toLowerCase().trim();
+            list = list.filter(item => 
+                item.dminsttNm && item.dminsttNm.toLowerCase().includes(searchDemand)
+            );
+        }
 
-                    // Post-filtering by 수요기관명 if provided
-                    if (dminsttNm) {
-                        const searchDemand = dminsttNm.toLowerCase().trim();
-                        list = list.filter(item => 
-                            item.dminsttNm && item.dminsttNm.toLowerCase().includes(searchDemand)
-                        );
-                    }
+        // Map fields for client compatibility
+        const formattedList = list.map((item, idx) => ({
+            id: `g2b-api-${idx}-${Date.now()}`,
+            announcementNo: item.bidNtceNo || '-',
+            name: item.bidNtceNm || '-',
+            customer: item.dminsttNm || '-',
+            budget: Number(item.asignBdgtAmt || item.presmptPrce || 0),
+            publishDate: item.bidNtceDt ? item.bidNtceDt.substring(0, 10) : '-',
+            endDate: item.bidClseDt ? item.bidClseDt.substring(0, 10) : '-',
+            url: item.bidNtceDtlUrl || '#',
+            presmptPrce: Number(item.presmptPrce || 0),
+            asignBdgtAmt: Number(item.asignBdgtAmt || 0)
+        }));
 
-                    // Map fields for client compatibility
-                    const formattedList = list.map((item, idx) => ({
-                        id: `g2b-api-${idx}-${Date.now()}`,
-                        announcementNo: item.bidNtceNo || '-',
-                        name: item.bidNtceNm || '-',
-                        customer: item.dminsttNm || '-',
-                        budget: Number(item.asignBdgtAmt || item.presmptPrce || 0),
-                        publishDate: item.bidNtceDt ? item.bidNtceDt.substring(0, 10) : '-',
-                        endDate: item.bidClseDt ? item.bidClseDt.substring(0, 10) : '-',
-                        url: item.bidNtceDtlUrl || '#',
-                        presmptPrce: Number(item.presmptPrce || 0),
-                        asignBdgtAmt: Number(item.asignBdgtAmt || 0)
-                    }));
-
-                    res.status(200).json({ announcements: formattedList });
-                } catch (e) {
-                    console.error('Error parsing G2B JSON response:', e, maskKey(data));
-                    res.status(500).json({ error: 'Failed to parse response from G2B API.', details: maskKey(data) });
-                }
-            });
-        }).on('error', (err) => {
-            console.error('G2B request error:', maskKey(err.message));
-            res.status(500).json({ error: 'Failed to contact G2B OpenAPI.', details: maskKey(err.message) });
-        });
+        res.status(200).json({ announcements: formattedList });
 
     } catch (e) {
         console.error('Serverless function exception:', maskKey(e.message || e));
