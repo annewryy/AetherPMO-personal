@@ -696,10 +696,10 @@ class AetherPMO {
                     const projData = {
                         id: p.id,
                         project_code: p.projectCode || p.id,
-                        name: p.name,
+                        project_name: p.name,
                         desc: p.desc,
                         dept: p.dept,
-                        manager: p.manager,
+                        pm_name: p.manager,
                         manager_id: p.managerId || null,
                         start_date: p.startDate || null,
                         end_date: p.endDate || null,
@@ -733,6 +733,32 @@ class AetherPMO {
                 case 'project_delete': {
                     const { error } = await this.supabase.from('projects').delete().eq('id', data);
                     if (error) console.error('[Supabase Sync] project_delete error:', error);
+                    break;
+                }
+                case 'member_upsert': {
+                    const m = data;
+                    const dbMember = {
+                        id: m.id,
+                        project_id: m.projectId,
+                        user_id: m.userId || null,
+                        name: m.name,
+                        role_name: m.roleName,
+                        position: m.position,
+                        department: m.department,
+                        participation_role: m.participationRole,
+                        is_project_manager: m.isProjectManager || false,
+                        is_active: m.isActive,
+                        start_date: m.startDate || null,
+                        end_date: m.endDate || null,
+                        memo: m.memo
+                    };
+                    const { error } = await this.supabase.from('project_members').upsert(dbMember);
+                    if (error) console.error('[Supabase Sync] member_upsert error:', error);
+                    break;
+                }
+                case 'member_delete': {
+                    const { error } = await this.supabase.from('project_members').delete().eq('id', data);
+                    if (error) console.error('[Supabase Sync] member_delete error:', error);
                     break;
                 }
                 case 'consortium_sync': {
@@ -973,6 +999,7 @@ class AetherPMO {
                     if (!this.state.userRole) this.state.userRole = 'PM';
                     if (!this.state.recentlyDownloaded) this.state.recentlyDownloaded = [];
                     if (!this.state.globalTemplates) this.state.globalTemplates = this.getDefaultGlobalTemplates();
+                    if (!this.state.projectMembers) this.state.projectMembers = this.getDefaultProjectMembers();
 
                     this.migrateDataStructure();
                 } catch (e) {
@@ -999,7 +1026,8 @@ class AetherPMO {
                 { data: issues, error: errIss },
                 { data: actionItems, error: errAI },
                 { data: officialDocs, error: errDoc },
-                { data: meetingMinutes, error: errMeet }
+                { data: meetingMinutes, error: errMeet },
+                { data: projectMembers, error: errMem }
             ] = await Promise.all([
                 this.supabase.from('projects').select('*'),
                 this.supabase.from('artifacts').select('*'),
@@ -1008,18 +1036,36 @@ class AetherPMO {
                 this.supabase.from('issues').select('*'),
                 this.supabase.from('action_items').select('*'),
                 this.supabase.from('official_docs').select('*'),
-                this.supabase.from('meeting_minutes').select('*')
+                this.supabase.from('meeting_minutes').select('*'),
+                this.supabase.from('project_members').select('*')
             ]);
 
             if (errProj) throw errProj;
+            if (errMem) console.error('Error loading project_members:', errMem);
+
+            this.state.projectMembers = (projectMembers || []).map(m => ({
+                id: m.id,
+                projectId: m.project_id,
+                userId: m.user_id,
+                name: m.name,
+                roleName: m.role_name,
+                position: m.position,
+                department: m.department,
+                participationRole: m.participation_role,
+                isProjectManager: m.is_project_manager,
+                isActive: m.is_active,
+                startDate: m.start_date,
+                endDate: m.end_date,
+                memo: m.memo
+            }));
 
             this.state.projects = (projects || []).map(p => ({
                 id: p.id,
                 projectCode: p.project_code,
-                name: p.name,
+                name: p.project_name,
                 desc: p.desc,
                 dept: p.dept,
-                manager: p.manager,
+                manager: p.pm_name,
                 managerId: p.manager_id,
                 startDate: p.start_date,
                 endDate: p.end_date,
@@ -1243,10 +1289,10 @@ class AetherPMO {
         for (const p of projects) {
             const projData = {
                 project_code: p.projectCode || p.id,
-                name: p.name,
+                project_name: p.name,
                 desc: p.desc,
                 dept: p.dept,
-                manager: p.manager,
+                pm_name: p.manager,
                 start_date: p.startDate,
                 end_date: p.endDate,
                 customer: p.customer,
@@ -1396,6 +1442,25 @@ class AetherPMO {
                     remarks: m.remarks
                 }));
                 await this.supabase.from('meeting_minutes').insert(meetsData);
+            }
+
+            const projectMembers = (this.state.projectMembers || []).filter(m => m.projectId === p.id);
+            if (projectMembers.length > 0) {
+                const memsData = projectMembers.map(m => ({
+                    project_id: dbProjId,
+                    user_id: m.userId || null,
+                    name: m.name,
+                    role_name: m.roleName,
+                    position: m.position,
+                    department: m.department,
+                    participation_role: m.participationRole,
+                    is_project_manager: m.isProjectManager || false,
+                    is_active: m.isActive,
+                    start_date: m.startDate || null,
+                    end_date: m.endDate || null,
+                    memo: m.memo
+                }));
+                await this.supabase.from('project_members').insert(memsData);
             }
         }
         console.log('[Migration] All local mock data migrated to Supabase successfully.');
@@ -2645,8 +2710,10 @@ class AetherPMO {
 
         // Project Filters
         const pDept = document.getElementById('project-filter-dept');
+        const pStatus = document.getElementById('project-filter-status');
         const pSearch = document.getElementById('project-search-input');
         if (pDept) pDept.addEventListener('change', () => this.renderProjects());
+        if (pStatus) pStatus.addEventListener('change', () => this.renderProjects());
         if (pSearch) pSearch.addEventListener('input', () => this.renderProjects());
 
         // Artifact Filters
@@ -2822,10 +2889,8 @@ class AetherPMO {
             const stage = parts[1];
             if (stage === 'bidding') {
                 this.activeProjectStageFilter = 'Bidding';
-            } else if (stage === 'active') {
+            } else if (stage === 'active' || stage === 'closed') {
                 this.activeProjectStageFilter = 'Active';
-            } else if (stage === 'closed') {
-                this.activeProjectStageFilter = 'Closed';
             }
             this.switchView('projects');
         } else if (mainRoute === 'artifacts') {
@@ -3302,6 +3367,13 @@ class AetherPMO {
         this.updateProjectsOverdueStatus();
         this.updateProjectStageCounts();
 
+        document.querySelectorAll('.project-stage-tab').forEach(tab => {
+            tab.classList.remove('active');
+            if (tab.getAttribute('data-stage') === this.activeProjectStageFilter) {
+                tab.classList.add('active');
+            }
+        });
+
         const biddingContainer = document.getElementById('bidding-split-container');
         const standardContainer = document.getElementById('standard-projects-container');
 
@@ -3318,7 +3390,18 @@ class AetherPMO {
         const grid = document.getElementById('projects-grid-list');
         if (!grid) return;
 
+        const statusFilterContainer = document.getElementById('filter-group-status-container');
+        if (statusFilterContainer) {
+            statusFilterContainer.style.display = (this.activeProjectStageFilter === 'Active') ? 'block' : 'none';
+            if (this.activeProjectStageFilter !== 'Active') {
+                const fStatusSelect = document.getElementById('project-filter-status');
+                if (fStatusSelect) fStatusSelect.value = 'all';
+            }
+        }
+
         const fDept = document.getElementById('project-filter-dept').value;
+        const fStatusSelect = document.getElementById('project-filter-status');
+        const fStatus = fStatusSelect ? fStatusSelect.value : 'all';
         const fSearch = document.getElementById('project-search-input').value.toLowerCase().trim();
 
         const filtered = this.state.projects.filter(p => {
@@ -3326,18 +3409,19 @@ class AetherPMO {
             if (this.activeProjectStageFilter === 'Bidding') {
                 matchStage = p.status === 'Bidding';
             } else if (this.activeProjectStageFilter === 'Active') {
-                matchStage = p.status === 'In Progress' || p.status === 'On Hold' || p.status === 'Delay';
+                matchStage = p.status === 'In Progress' || p.status === 'On Hold' || p.status === 'Delay' || p.status === 'Completed';
             } else if (this.activeProjectStageFilter === 'Closed') {
                 matchStage = p.status === 'Completed';
             }
 
             const matchDept = fDept === 'all' || p.dept === fDept;
+            const matchStatus = fStatus === 'all' || p.status === fStatus;
             const matchSearch = !fSearch || 
                 p.name.toLowerCase().includes(fSearch) || 
                 p.manager.toLowerCase().includes(fSearch) || 
                 p.desc.toLowerCase().includes(fSearch);
 
-            return matchStage && matchDept && matchSearch;
+            return matchStage && matchDept && matchStatus && matchSearch;
         });
 
         grid.innerHTML = '';
@@ -3820,7 +3904,7 @@ class AetherPMO {
 
     updateProjectStageCounts() {
         const countBidding = this.state.projects.filter(p => p.status === 'Bidding').length;
-        const countActive = this.state.projects.filter(p => p.status === 'In Progress' || p.status === 'On Hold' || p.status === 'Delay').length;
+        const countActive = this.state.projects.filter(p => p.status === 'In Progress' || p.status === 'On Hold' || p.status === 'Delay' || p.status === 'Completed').length;
         const countClosed = this.state.projects.filter(p => p.status === 'Completed').length;
 
         const badgeBidding = document.getElementById('count-stage-bidding');
@@ -4202,42 +4286,56 @@ class AetherPMO {
 
         // 3. 참여 인력
         const resFields = document.getElementById('detail-overview-resources-fields');
-        const defaultResourcesList = [
-            { name: project.manager || '안유경', role: 'PM / 총괄', type: 'PM' },
-            { name: '이영희', role: 'PL / 분석총괄', type: 'PL' },
-            { name: '김철수', role: '수석컨설턴트', type: 'SC' },
-            { name: '박인수', role: '컨설턴트', type: 'CT' },
-            { name: '최지온', role: '컨설턴트', type: 'CT' }
-        ];
-        const rList = project.resourcesList || defaultResourcesList;
+        const allMembers = (this.state.projectMembers || []).filter(m => m.projectId === project.id);
+        const activeMembers = allMembers.filter(m => m.isActive === true);
+        
         if (resFields) {
+            const showInactiveChk = document.getElementById('chk-show-inactive-members');
+            const showInactive = showInactiveChk ? showInactiveChk.checked : false;
+
             const getInitials = (name) => {
                 if (!name) return '';
                 return name.length <= 2 ? name : name.substring(name.length - 2);
             };
-            const getResourceColor = (type) => {
-                const colors = { PM: '#8b5cf6', PL: '#3b82f6', SC: '#06b6d4', CT: '#10b981', QA: '#ec4899', DEV: '#14b8a6' };
-                return colors[type] || '#64748b';
+            const getResourceColor = (role) => {
+                const colors = { PM: '#8b5cf6', PL: '#3b82f6', PMO: '#ec4899', TA: '#06b6d4', AA: '#0ea5e9', DA: '#14b8a6', DBA: '#f59e0b', SE: '#10b981', DEV: '#06b6d4', QA: '#ec4899', CT: '#6366f1', ETC: '#64748b' };
+                return colors[role] || '#64748b';
             };
 
-            resFields.innerHTML = rList.map(res => {
-                const initials = getInitials(res.name);
-                const color = getResourceColor(res.type);
-                return `
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <div class="personnel-circle" style="width:32px; height:32px; border-radius:50%; background:${color}; color:#ffffff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; border:1px solid rgba(255,255,255,0.1); flex-shrink:0;">
-                            ${initials}
+            // Filter members based on checkbox
+            const displayMembers = showInactive ? allMembers : activeMembers;
+
+            if (displayMembers.length === 0) {
+                resFields.innerHTML = `<span class="text-xs text-muted">등록된 참여 인력이 없습니다.</span>`;
+            } else {
+                resFields.innerHTML = displayMembers.map(res => {
+                    const initials = getInitials(res.name);
+                    const color = getResourceColor(res.participationRole);
+                    const statusBadge = res.isActive 
+                        ? '' 
+                        : ' <span class="badge badge-xs" style="background:var(--bg-card-border); color:var(--text-muted); font-size:9px; padding:0 4px; margin-left:4px;">제외</span>';
+                    const deptText = res.department ? ` • ${res.department}` : '';
+                    return `
+                        <div style="display:flex; align-items:center; gap:10px; opacity: ${res.isActive ? 1 : 0.6};">
+                            <div class="personnel-circle" style="width:32px; height:32px; border-radius:50%; background:${color}; color:#ffffff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; border:1px solid rgba(255,255,255,0.1); flex-shrink:0;">
+                                ${initials}
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap:1px;">
+                                <span style="font-size:12px; font-weight:700; display:flex; align-items:center;">
+                                    ${res.name}
+                                    ${statusBadge}
+                                </span>
+                                <span style="font-size:10px; color:var(--text-muted);">${res.participationRole}${res.roleName ? ` (${res.roleName})` : ''}${deptText}</span>
+                            </div>
                         </div>
-                        <div style="display:flex; flex-direction:column; gap:1px;">
-                            <span style="font-size:12px; font-weight:700;">${res.name}</span>
-                            <span style="font-size:10px; color:var(--text-muted);">${res.role}</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+                    `;
+                }).join('');
+            }
             
             const countLabel = document.getElementById('detail-resources-count-label');
-            if (countLabel) countLabel.textContent = `총 ${rList.length}명`;
+            if (countLabel) {
+                countLabel.textContent = `현재 투입 ${activeMembers.length}명 (총 ${allMembers.length}명)`;
+            }
         }
 
         // 4. 주요 일정 (Timeline milestones)
@@ -4757,6 +4855,7 @@ class AetherPMO {
         document.getElementById('project-inspection-date').value = future.toISOString().split('T')[0];
         document.getElementById('project-progress').value = 0;
         document.getElementById('project-resources').value = 0;
+        this.populateProjectManagerSelect(this.currentUser ? (this.currentUser.id || this.currentUser.email) : '');
         
         document.getElementById('project-customer').value = '';
         document.getElementById('project-budget').value = '';
@@ -4827,7 +4926,7 @@ class AetherPMO {
             document.getElementById('project-dept-custom').value = deptValue;
         }
         
-        document.getElementById('project-manager').value = project.manager;
+        this.populateProjectManagerSelect(project.managerId || project.manager);
         document.getElementById('project-customer').value = project.customer || '';
         document.getElementById('project-budget').value = project.budget || '';
         document.getElementById('project-start-date').value = project.startDate;
@@ -4906,8 +5005,10 @@ class AetherPMO {
         if (deptSelect === 'custom' && !dept) {
             alert('부서명을 입력해주세요.');
             return;
-        }
-        const manager = document.getElementById('project-manager').value.trim();
+        const managerSelect = document.getElementById('project-manager-select');
+        const managerId = managerSelect ? managerSelect.value : null;
+        const matchedUser = this.state.users ? this.state.users.find(u => (u.id === managerId || u.email === managerId)) : null;
+        const manager = matchedUser ? matchedUser.name : '안유경';
         const customer = document.getElementById('project-customer').value.trim();
         const budget = Number(document.getElementById('project-budget').value);
         const startDate = document.getElementById('project-start-date').value;
@@ -4979,10 +5080,37 @@ class AetherPMO {
             const index = this.state.projects.findIndex(p => p.id === id);
             if (index !== -1) {
                 const old = this.state.projects[index];
+                const oldManagerId = old.managerId;
+
+                if (oldManagerId !== managerId) {
+                    const changedBy = this.currentUser ? this.currentUser.id : null;
+                    if (!this.state.projectManagerHistory) this.state.projectManagerHistory = [];
+                    this.state.projectManagerHistory.push({
+                        id: this.generateUuid(),
+                        projectId: id,
+                        oldManagerId,
+                        newManagerId: managerId,
+                        changedBy,
+                        changedAt: new Date().toISOString(),
+                        reason: '사업 정보 수정 모달에서 PM 변경'
+                    });
+
+                    if (this.useSupabase) {
+                        this.supabase.from('project_manager_history').insert({
+                            project_id: id,
+                            old_manager_id: oldManagerId,
+                            new_manager_id: managerId,
+                            changed_by: changedBy,
+                            reason: '사업 정보 수정 모달에서 PM 변경'
+                        }).then(({error}) => {
+                            if (error) console.error('Error inserting PM history:', error);
+                        });
+                    }
+                }
                 
                 this.state.projects[index] = { 
                     ...old, 
-                    name, desc, dept, manager, startDate, endDate, status, bidStatus: status === 'Bidding' ? bidStatus : '',
+                    name, desc, dept, manager, managerId, startDate, endDate, status, bidStatus: status === 'Bidding' ? bidStatus : '',
                     progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
                     projectCode, bizType, contractDate, location, relatedBiz, riskLevel, wbs,
                     // Bidding stage fields
@@ -5019,8 +5147,8 @@ class AetherPMO {
                 riskLevel: riskLevel || '보통',
                 wbs: wbs,
                 resourcesList: defaultResourcesList,
-                managerId: this.currentUser.role === 'PM' ? this.currentUser.email : 'pm@aetherpmo.com',
-                memberIds: [this.currentUser.role === 'PM' ? this.currentUser.email : 'pm@aetherpmo.com', 'worker@aetherpmo.com'],
+                managerId: managerId || (this.currentUser ? (this.currentUser.id || this.currentUser.email) : 'pm@aetherpmo.com'),
+                memberIds: [managerId || 'pm@aetherpmo.com', 'worker@aetherpmo.com'],
                 // Bidding stage fields
                 bidNumber, customerName, projectBudget, businessType,
                 salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
@@ -5036,6 +5164,26 @@ class AetherPMO {
             };
 
             this.state.projects.push(newProject);
+
+            // Register selected PM as projectMember
+            if (!this.state.projectMembers) this.state.projectMembers = [];
+            const newPmMember = {
+                id: this.generateUuid(),
+                projectId: newId,
+                userId: managerId || null,
+                name: manager,
+                participationRole: 'PM',
+                department: dept || 'SI사업본부',
+                position: '부장',
+                roleName: '프로젝트 총괄 PM',
+                isActive: true,
+                startDate: startDate || null,
+                endDate: endDate || null,
+                memo: '프로젝트 생성 시 자동 등록',
+                isProjectManager: true
+            };
+            this.state.projectMembers.push(newPmMember);
+            this.saveState('member_upsert', newPmMember);
             
             // Map project ID to active PM's assignedProjectIds
             if (this.currentUser.assignedProjectIds) {
@@ -6915,6 +7063,118 @@ class AetherPMO {
         }
     }
 
+    getDefaultProjectMembers() {
+        return [
+            // proj-1 members
+            {
+                id: 'pm-1-1',
+                projectId: 'proj-1',
+                userId: '3b0eb6db-6eb0-4d56-b08e-ee2a4c14392f', // we can link to profiles later if needed, or leave it
+                name: '안유경',
+                roleName: '프로젝트 총괄',
+                position: '부장',
+                department: 'SI사업본부',
+                participationRole: 'PM',
+                isProjectManager: true,
+                isActive: true,
+                startDate: '2026-03-02',
+                endDate: '2026-08-31',
+                memo: '프로젝트 총괄 PM'
+            },
+            {
+                id: 'pm-1-2',
+                projectId: 'proj-1',
+                userId: null,
+                name: '이영희',
+                roleName: '분석/설계 리더',
+                position: '차장',
+                department: 'SI사업본부',
+                participationRole: 'PL',
+                isProjectManager: false,
+                isActive: true,
+                startDate: '2026-03-02',
+                endDate: '2026-08-31',
+                memo: '분석 설계 총괄 및 개발 조율'
+            },
+            {
+                id: 'pm-1-3',
+                projectId: 'proj-1',
+                userId: null,
+                name: '김철수',
+                roleName: 'IoT 디바이스 연동 개발',
+                position: '과장',
+                department: 'SI사업본부',
+                participationRole: 'DEV',
+                isProjectManager: false,
+                isActive: true,
+                startDate: '2026-04-01',
+                endDate: '2026-08-31',
+                memo: '디바이스 연동 API 개발 담당'
+            },
+            {
+                id: 'pm-1-4',
+                projectId: 'proj-1',
+                userId: null,
+                name: '박인수',
+                roleName: '인프라/클라우드 설정',
+                position: '대리',
+                department: '클라우드지원팀',
+                participationRole: 'TA',
+                isProjectManager: false,
+                isActive: true,
+                startDate: '2026-03-15',
+                endDate: '2026-07-31',
+                memo: 'AWS 클라우드 인프라 아키텍처 및 설정'
+            },
+            {
+                id: 'pm-1-5',
+                projectId: 'proj-1',
+                userId: null,
+                name: '최지온',
+                roleName: '테스트 및 검수 지원',
+                position: '사원',
+                department: 'QA팀',
+                participationRole: 'QA',
+                isProjectManager: false,
+                isActive: false,
+                startDate: '2026-03-02',
+                endDate: '2026-05-31',
+                memo: '요구사항 대비 테스트 시나리오 작성 및 수행'
+            },
+            // proj-2 members
+            {
+                id: 'pm-2-1',
+                projectId: 'proj-2',
+                userId: '3b0eb6db-6eb0-4d56-b08e-ee2a4c14392f',
+                name: '안유경',
+                roleName: '사업 리더',
+                position: '부장',
+                department: 'SI사업본부',
+                participationRole: 'PL',
+                isProjectManager: false,
+                isActive: true,
+                startDate: '2026-04-10',
+                endDate: '2026-05-31',
+                memo: '지원 및 품질 관리'
+            },
+            {
+                id: 'pm-2-2',
+                projectId: 'proj-2',
+                userId: null,
+                name: '총괄 관리자',
+                roleName: '프로젝트 총괄',
+                position: '이사',
+                department: '사업기획실',
+                participationRole: 'PM',
+                isProjectManager: true,
+                isActive: true,
+                startDate: '2026-04-10',
+                endDate: '2026-05-31',
+                memo: '사업 총괄 관리'
+            }
+        ];
+    }
+
     getDefaultUsers() {
         return [
             {
@@ -8750,6 +9010,379 @@ class AetherPMO {
         this.closeVrbModal();
         this.renderVrbTab();
         this.renderProjects();
+    }
+
+    /* ==========================================================================
+       PROJECT MEMBERS MANAGEMENT METHODS
+       ========================================================================== */
+    openProjectMembersModal() {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project) return;
+
+        // Populating user select box
+        const userSelect = document.getElementById('member-user-select');
+        if (userSelect) {
+            userSelect.innerHTML = '<option value="">-- 직접 입력 또는 계정 선택 --</option>';
+            if (this.state.users) {
+                this.state.users.forEach(u => {
+                    const option = document.createElement('option');
+                    option.value = u.id || u.email;
+                    // Format: 이름 (이메일) [역할/소속/직급]
+                    const roleLabel = this.translateRoleLabel(u.role);
+                    const companyInfo = [u.company, u.division, u.position].filter(Boolean).join(' / ') || roleLabel;
+                    option.textContent = `${u.name} (${u.email}) [${companyInfo}]`;
+                    option.dataset.name = u.name || '';
+                    option.dataset.department = u.division || '';
+                    option.dataset.position = u.position || '';
+                    userSelect.appendChild(option);
+                });
+            }
+        }
+
+        this.resetMemberForm();
+        this.renderMembersModalList();
+        document.getElementById('project-members-modal').classList.add('open');
+    }
+
+    closeProjectMembersModal() {
+        document.getElementById('project-members-modal').classList.remove('open');
+    }
+
+    onMemberUserSelectChange() {
+        const userSelect = document.getElementById('member-user-select');
+        const selectedOption = userSelect.options[userSelect.selectedIndex];
+        
+        if (selectedOption && selectedOption.value) {
+            const userId = selectedOption.value;
+            const user = this.state.users.find(u => (u.id === userId || u.email === userId));
+            if (user) {
+                document.getElementById('member-name').value = user.name || '';
+                document.getElementById('member-department').value = user.division || '';
+                document.getElementById('member-position').value = user.position || '';
+            }
+        } else {
+            // cleared
+            document.getElementById('member-name').value = '';
+            document.getElementById('member-department').value = '';
+            document.getElementById('member-position').value = '';
+        }
+    }
+
+    resetMemberForm() {
+        document.getElementById('member-id').value = '';
+        document.getElementById('member-user-select').value = '';
+        document.getElementById('member-name').value = '';
+        document.getElementById('member-part-role').value = 'DEV';
+        document.getElementById('member-department').value = '';
+        document.getElementById('member-position').value = '';
+        document.getElementById('member-role-name').value = '';
+        document.getElementById('member-is-active').checked = true;
+        document.getElementById('member-start-date').value = '';
+        document.getElementById('member-end-date').value = '';
+        document.getElementById('member-memo').value = '';
+        document.getElementById('member-form-title').textContent = '참여 인력 추가';
+        document.getElementById('btn-save-member').textContent = '추가';
+    }
+
+    renderMembersModalList() {
+        const container = document.getElementById('members-modal-list-container');
+        if (!container) return;
+
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project) return;
+
+        const members = (this.state.projectMembers || []).filter(m => m.projectId === project.id);
+        const activeCount = members.filter(m => m.isActive).length;
+
+        document.getElementById('members-modal-count-label').textContent = `총 ${members.length}명 (투입 ${activeCount}명)`;
+
+        // RLS/role-based logic for editing permissions
+        const isSysAdmin = this.currentUser && this.currentUser.role === 'SYS_ADMIN';
+        const isPM = this.currentUser && (project.managerId === this.currentUser.id || this.currentUser.role === 'PM');
+        const hasWriteAccess = isSysAdmin || isPM;
+
+        if (members.length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center; padding: 40px 0; color:var(--text-muted);">
+                    <i data-lucide="users" style="width:32px; height:32px; margin:0 auto 10px auto; opacity:0.3; display:block;"></i>
+                    <p style="font-size:12px; margin:0;">등록된 참여 인력이 없습니다.</p>
+                </div>
+            `;
+            if (window.lucide) window.lucide.createIcons();
+            return;
+        }
+
+        const roleLabels = { PM: 'PM (관리자)', PL: 'PL (파트리더)', PMO: 'PMO (지원)', TA: 'TA (기술)', AA: 'AA (앱)', DA: 'DA (데이터)', DBA: 'DBA (DB)', SE: 'SE (시스템)', DEV: 'DEV (개발)', QA: 'QA (테스트)', CT: 'CT (컨설턴트)', ETC: 'ETC (기타)' };
+
+        container.innerHTML = members.map(m => {
+            const roleBadgeColor = m.isActive ? 'var(--info)' : 'var(--text-muted)';
+            const activeStatusText = m.isActive 
+                ? '<span class="badge badge-success badge-xs" style="font-size:10px;">투입중</span>' 
+                : '<span class="badge badge-outline badge-xs" style="font-size:10px; color:var(--text-muted);">제외됨</span>';
+
+            // Buttons based on role permissions
+            let actionButtons = '';
+            if (hasWriteAccess) {
+                actionButtons += `<button type="button" class="btn btn-xs btn-outline" onclick="app.editMemberClick('${m.id}')" style="padding:1px 6px; font-size:10px; height:auto; min-height:auto;">수정</button>`;
+                
+                if (m.isActive) {
+                    actionButtons += `<button type="button" class="btn btn-xs btn-outline btn-warning" onclick="app.deactivateMemberClick('${m.id}')" style="padding:1px 6px; font-size:10px; height:auto; min-height:auto; margin-left:4px;">제외</button>`;
+                } else {
+                    actionButtons += `<button type="button" class="btn btn-xs btn-outline btn-success" onclick="app.activateMemberClick('${m.id}')" style="padding:1px 6px; font-size:10px; height:auto; min-height:auto; margin-left:4px;">투입</button>`;
+                }
+
+                if (isSysAdmin) {
+                    actionButtons += `<button type="button" class="btn btn-xs btn-outline btn-error" onclick="app.deleteMemberClick('${m.id}')" style="padding:1px 6px; font-size:10px; height:auto; min-height:auto; margin-left:4px;">삭제</button>`;
+                }
+            }
+
+            const deptInfo = [m.department, m.position].filter(Boolean).join(' / ') || '소속 미지정';
+            const durationText = (m.startDate || m.endDate) 
+                ? `${m.startDate || ''} ~ ${m.endDate || ''}`
+                : '기간 미지정';
+
+            return `
+                <div class="dashboard-card" style="margin-bottom:10px; padding:12px; background: var(--bg-card-hover); border-color: ${m.isActive ? 'var(--bg-card-border)' : 'transparent'}; opacity: ${m.isActive ? 1 : 0.65};">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="font-size:13px; font-weight:700;">${m.name}</span>
+                                <span class="badge badge-xs" style="background:${roleBadgeColor}; color:#ffffff; font-size:10px;">${roleLabels[m.participationRole] || m.participationRole}</span>
+                                ${activeStatusText}
+                            </div>
+                            <div class="text-xs text-muted" style="margin-top:4px;">
+                                <div>${deptInfo} ${m.roleName ? ` | ${m.roleName}` : ''}</div>
+                                <div style="margin-top:2px; font-size:10px;"><i data-lucide="calendar" style="width:10px; height:10px; display:inline-block; vertical-align:middle; margin-right:4px;"></i>${durationText}</div>
+                                ${m.memo ? `<div style="margin-top:4px; font-style:italic; font-size:10px;">메모: ${m.memo}</div>` : ''}
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            ${actionButtons}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    editMemberClick(id) {
+        const member = (this.state.projectMembers || []).find(m => m.id === id);
+        if (!member) return;
+
+        document.getElementById('member-id').value = member.id;
+        document.getElementById('member-user-select').value = member.userId || '';
+        document.getElementById('member-name').value = member.name || '';
+        document.getElementById('member-part-role').value = member.participationRole;
+        document.getElementById('member-department').value = member.department || '';
+        document.getElementById('member-position').value = member.position || '';
+        document.getElementById('member-role-name').value = member.roleName || '';
+        document.getElementById('member-is-active').checked = member.isActive;
+        document.getElementById('member-start-date').value = member.startDate || '';
+        document.getElementById('member-end-date').value = member.endDate || '';
+        document.getElementById('member-memo').value = member.memo || '';
+
+        document.getElementById('member-form-title').textContent = '참여 인력 수정';
+        document.getElementById('btn-save-member').textContent = '수정';
+    }
+
+    async saveMemberForm() {
+        const projectId = this.activeProjectId;
+        const project = this.state.projects.find(p => p.id === projectId);
+        if (!project) return;
+
+        const memberId = document.getElementById('member-id').value;
+        const userId = document.getElementById('member-user-select').value || null;
+        const name = document.getElementById('member-name').value.trim();
+        const participationRole = document.getElementById('member-part-role').value;
+        const department = document.getElementById('member-department').value.trim();
+        const position = document.getElementById('member-position').value.trim();
+        const roleName = document.getElementById('member-role-name').value.trim();
+        const isActive = document.getElementById('member-is-active').checked;
+        const startDate = document.getElementById('member-start-date').value || null;
+        const endDate = document.getElementById('member-end-date').value || null;
+        const memo = document.getElementById('member-memo').value.trim();
+
+        if (!name) {
+            alert('이름을 입력해주세요.');
+            return;
+        }
+
+        const isNew = !memberId;
+        const finalId = isNew ? this.generateUuid() : memberId;
+
+        const memberObj = {
+            id: finalId,
+            projectId,
+            userId,
+            name,
+            participationRole,
+            department,
+            position,
+            roleName,
+            isActive,
+            startDate,
+            endDate,
+            memo,
+            isProjectManager: participationRole === 'PM'
+        };
+
+        if (isNew) {
+            if (!this.state.projectMembers) this.state.projectMembers = [];
+            this.state.projectMembers.push(memberObj);
+        } else {
+            const idx = this.state.projectMembers.findIndex(m => m.id === memberId);
+            if (idx !== -1) {
+                this.state.projectMembers[idx] = memberObj;
+            }
+        }
+
+        // PM 역할 지정 시, projects.manager_id와 manager(pm_name) 자동 연계
+        if (participationRole === 'PM' && isActive) {
+            const oldManagerId = project.managerId;
+            project.managerId = userId;
+            project.manager = name;
+            const changedBy = this.currentUser ? this.currentUser.id : null;
+            
+            // Insert manager change history locally
+            if (!this.state.projectManagerHistory) this.state.projectManagerHistory = [];
+            const historyObj = {
+                id: this.generateUuid(),
+                projectId,
+                oldManagerId,
+                newManagerId: userId,
+                changedBy,
+                changedAt: new Date().toISOString(),
+                reason: '참여인력 관리에서 PM 지정'
+            };
+            this.state.projectManagerHistory.push(historyObj);
+            
+            this.saveState('project_upsert', project);
+            if (this.useSupabase) {
+                await this.supabase.from('project_manager_history').insert({
+                    project_id: projectId,
+                    old_manager_id: oldManagerId,
+                    new_manager_id: userId,
+                    changed_by: changedBy,
+                    reason: '참여인력 관리에서 PM 지정'
+                });
+            }
+        }
+
+        this.saveState('member_upsert', memberObj);
+
+        alert(isNew ? '참여 인력이 추가되었습니다.' : '참여 인력 정보가 수정되었습니다.');
+        this.resetMemberForm();
+        this.renderMembersModalList();
+        
+        // Refresh project detail view
+        const currentHash = window.location.hash.substring(1) || 'dashboard';
+        if (currentHash.startsWith('project-detail/')) {
+            this.renderProjectDetail(projectId);
+        }
+        this.renderProjects();
+    }
+
+    toggleInactiveMembers(checked) {
+        this.renderProjectDetail(this.activeProjectId);
+    }
+
+    async deactivateMemberClick(id) {
+        const member = (this.state.projectMembers || []).find(m => m.id === id);
+        if (!member) return;
+
+        if (confirm(`[${member.name}] 팀원을 투입 인력에서 제외하시겠습니까?\n물리 삭제가 아닌 비활성화(is_active = false) 처리됩니다.`)) {
+            member.isActive = false;
+            this.saveState('member_upsert', member);
+            this.renderMembersModalList();
+            
+            const currentHash = window.location.hash.substring(1) || 'dashboard';
+            if (currentHash.startsWith('project-detail/')) {
+                this.renderProjectDetail(this.activeProjectId);
+            }
+            this.renderProjects();
+        }
+    }
+
+    async activateMemberClick(id) {
+        const member = (this.state.projectMembers || []).find(m => m.id === id);
+        if (!member) return;
+
+        member.isActive = true;
+        this.saveState('member_upsert', member);
+        this.renderMembersModalList();
+        
+        const currentHash = window.location.hash.substring(1) || 'dashboard';
+        if (currentHash.startsWith('project-detail/')) {
+            this.renderProjectDetail(this.activeProjectId);
+        }
+        this.renderProjects();
+    }
+
+    async deleteMemberClick(id) {
+        const member = (this.state.projectMembers || []).find(m => m.id === id);
+        if (!member) return;
+
+        if (confirm(`[${member.name}] 팀원 정보를 데이터베이스에서 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) {
+            this.state.projectMembers = this.state.projectMembers.filter(m => m.id !== id);
+            this.saveState('member_delete', id);
+            this.renderMembersModalList();
+            
+            const currentHash = window.location.hash.substring(1) || 'dashboard';
+            if (currentHash.startsWith('project-detail/')) {
+                this.renderProjectDetail(this.activeProjectId);
+            }
+            this.renderProjects();
+        }
+    }
+
+    populateProjectManagerSelect(selectedIdOrName = '') {
+        const select = document.getElementById('project-manager-select');
+        if (!select) return;
+
+        select.innerHTML = '';
+
+        // Filter users
+        const pmUsers = (this.state.users || []).filter(u => ['PM', 'SYS_ADMIN', 'EXEC_ADMIN'].includes(u.role));
+        
+        // Sort PM and SYS_ADMIN first, then EXEC_ADMIN
+        pmUsers.sort((a, b) => {
+            const getOrder = (role) => {
+                if (role === 'PM') return 0;
+                if (role === 'SYS_ADMIN') return 1;
+                if (role === 'EXEC_ADMIN') return 2;
+                return 3;
+            };
+            return getOrder(a.role) - getOrder(b.role);
+        });
+
+        pmUsers.forEach(u => {
+            const opt = document.createElement('option');
+            opt.value = u.id || u.email;
+            const roleLabel = this.translateRoleLabel(u.role);
+            opt.textContent = `${u.name} (${roleLabel})`;
+            select.appendChild(opt);
+        });
+
+        // Set selected value
+        if (selectedIdOrName) {
+            const matchedOpt = Array.from(select.options).find(o => 
+                o.value === selectedIdOrName || 
+                o.textContent.startsWith(selectedIdOrName + ' ') ||
+                (this.state.users.find(u => (u.id === o.value || u.email === o.value))?.name === selectedIdOrName)
+            );
+            if (matchedOpt) {
+                select.value = matchedOpt.value;
+            }
+        }
+    }
+
+    generateUuid() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
     }
 }
 

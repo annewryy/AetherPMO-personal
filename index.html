@@ -117,11 +117,7 @@
                         </div>
                         <a href="#projects/active" class="submenu-item" data-subview="active">
                             <i data-lucide="play-circle"></i>
-                            <span>수행중단계</span>
-                        </a>
-                        <a href="#projects/closed" class="submenu-item" data-subview="closed">
-                            <i data-lucide="check-circle2"></i>
-                            <span>종료단계</span>
+                            <span>수행단계</span>
                         </a>
                     </div>
                 </div>
@@ -611,10 +607,7 @@
                             <i data-lucide="file-signature"></i> 입찰 단계 <span class="stage-count-badge" id="count-stage-bidding">0</span>
                         </button>
                         <button class="project-stage-tab" data-stage="Active" onclick="app.setProjectStageFilter('Active')">
-                            <i data-lucide="play-circle"></i> 수행중 단계 <span class="stage-count-badge" id="count-stage-active">0</span>
-                        </button>
-                        <button class="project-stage-tab" data-stage="Closed" onclick="app.setProjectStageFilter('Closed')">
-                            <i data-lucide="check-circle2"></i> 종료 단계 <span class="stage-count-badge" id="count-stage-closed">0</span>
+                            <i data-lucide="play-circle"></i> 수행 단계 <span class="stage-count-badge" id="count-stage-active">0</span>
                         </button>
                     </div>
 
@@ -630,6 +623,16 @@
                                     <option value="기획팀">기획팀</option>
                                     <option value="디자인팀">디자인팀</option>
                                     <option value="품질관리팀">품질관리팀</option>
+                                </select>
+                            </div>
+                            <div class="filter-group" id="filter-group-status-container">
+                                <label for="project-filter-status">상태</label>
+                                <select id="project-filter-status">
+                                    <option value="all">전체</option>
+                                    <option value="In Progress">수행중</option>
+                                    <option value="On Hold">보류</option>
+                                    <option value="Delay">지연</option>
+                                    <option value="Completed">종료</option>
                                 </select>
                             </div>
                             <div class="filter-group-search">
@@ -773,11 +776,16 @@
                                     <h3 style="margin:0;"><i data-lucide="users" style="width:16px; height:16px; display:inline-block; vertical-align:middle; margin-right:6px; color:var(--info);"></i>참여 인력</h3>
                                     <span class="text-xs text-muted" id="detail-resources-count-label">총 0명</span>
                                 </div>
+                                <div style="display:flex; align-items:center; gap:6px; margin-bottom: 8px;">
+                                    <input type="checkbox" id="chk-show-inactive-members" onchange="app.toggleInactiveMembers(this.checked)" style="width:12px; height:12px; cursor:pointer;">
+                                    <label for="chk-show-inactive-members" style="font-size:11px; color:var(--text-muted); cursor:pointer; user-select:none;">제외 인력 포함</label>
+                                </div>
                                 <div class="project-resources-avatars-list" id="detail-overview-resources-fields" style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
                                     <!-- Rendered dynamically by JS -->
                                 </div>
-                                <div style="margin-top:16px; text-align:right;">
-                                    <a href="#" onclick="event.preventDefault();" style="font-size:11px; color:var(--primary); font-weight:700; text-decoration:none;">전체보기 &rarr;</a>
+                                <div style="margin-top:16px; display:flex; justify-content:space-between; align-items:center;">
+                                    <button class="btn btn-xs btn-outline" onclick="app.openProjectMembersModal()" style="font-size:11px; padding: 2px 8px; height: auto; min-height: auto;"><i data-lucide="user-cog" style="width:11px; height:11px; margin-right:4px; display:inline-block; vertical-align:middle;"></i>수정</button>
+                                    <a href="#" onclick="event.preventDefault(); app.openProjectMembersModal();" style="font-size:11px; color:var(--primary); font-weight:700; text-decoration:none;">전체보기 &rarr;</a>
                                 </div>
                             </div>
                         </div>
@@ -1891,8 +1899,8 @@
                             <input type="text" id="project-dept-custom" placeholder="부서명 직접 입력" style="display: none; margin-top: 8px;">
                         </div>
                         <div class="form-group">
-                            <label for="project-manager">프로젝트 매니저 <span class="required">*</span></label>
-                            <input type="text" id="project-manager" required value="안유경">
+                            <label for="project-manager-select">프로젝트 매니저 <span class="required">*</span></label>
+                            <select id="project-manager-select" required></select>
                         </div>
                         <div class="form-group">
                             <label for="project-customer">고객기관 <span class="required">*</span></label>
@@ -3585,6 +3593,103 @@
                     <button type="submit" class="btn btn-primary">저장하기</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- 18. PROJECT MEMBERS MODAL -->
+    <div class="modal-overlay" id="project-members-modal">
+        <div class="modal-card" style="max-width: 950px; width: 90%;">
+            <div class="modal-header">
+                <h2>참여 인력 관리</h2>
+                <button class="modal-close-btn" onclick="app.closeProjectMembersModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; padding: 15px 0;">
+                <!-- Left Pane: Members List -->
+                <div style="border-right: 1px solid var(--bg-card-border); padding-right: 20px; display: flex; flex-direction: column; height: 500px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h3 style="margin:0; font-size:14px; font-weight:700;">참여 팀원 목록</h3>
+                        <span class="text-xs text-muted" id="members-modal-count-label">총 0명 (투입 0명)</span>
+                    </div>
+                    <div style="overflow-y:auto; flex:1;" id="members-modal-list-container">
+                        <!-- Rendered dynamically -->
+                    </div>
+                </div>
+                <!-- Right Pane: Add/Edit Form -->
+                <div style="display: flex; flex-direction: column; height: 500px;">
+                    <h3 style="margin:0 0 12px 0; font-size:14px; font-weight:700;" id="member-form-title">참여 인력 추가</h3>
+                    <form id="member-form" onsubmit="event.preventDefault(); app.saveMemberForm();" style="display:flex; flex-direction:column; justify-content:space-between; height:100%;">
+                        <div style="overflow-y:auto; flex:1; padding-right:5px; margin-bottom:12px;">
+                            <input type="hidden" id="member-id">
+                            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div class="form-group span-2">
+                                    <label for="member-user-select">계정 연동 (선택)</label>
+                                    <select id="member-user-select" onchange="app.onMemberUserSelectChange()">
+                                        <option value="">-- 직접 입력 또는 계정 선택 --</option>
+                                        <!-- Rendered dynamically -->
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="member-name">이름 <span style="color:red;">*</span></label>
+                                    <input type="text" id="member-name" required placeholder="예: 홍길동">
+                                </div>
+                                <div class="form-group">
+                                    <label for="member-part-role">참여 역할 <span style="color:red;">*</span></label>
+                                    <select id="member-part-role" required>
+                                        <option value="DEV">DEV (개발자)</option>
+                                        <option value="PM">PM (프로젝트 매니저)</option>
+                                        <option value="PL">PL (파트 리더)</option>
+                                        <option value="PMO">PMO (사업관리지원)</option>
+                                        <option value="TA">TA (기술 아키텍트)</option>
+                                        <option value="AA">AA (애플리케이션 아키텍트)</option>
+                                        <option value="DA">DA (데이터 아키텍트)</option>
+                                        <option value="DBA">DBA (데이터베이스 관리자)</option>
+                                        <option value="SE">SE (시스템 엔지니어)</option>
+                                        <option value="QA">QA (테스트 엔지니어)</option>
+                                        <option value="CT">CT (컨설턴트)</option>
+                                        <option value="ETC">ETC (기타)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="member-department">소속 구분</label>
+                                    <input type="text" id="member-department" placeholder="예: SI사업본부">
+                                </div>
+                                <div class="form-group">
+                                    <label for="member-position">직급</label>
+                                    <input type="text" id="member-position" placeholder="예: 수석연구원">
+                                </div>
+                                <div class="form-group">
+                                    <label for="member-role-name">상세 직무</label>
+                                    <input type="text" id="member-role-name" placeholder="예: Front-End 개발">
+                                </div>
+                                <div class="form-group">
+                                    <label for="member-is-active" style="display:flex; align-items:center; gap:6px; cursor:pointer; margin-top: 26px;">
+                                        <input type="checkbox" id="member-is-active" checked>
+                                        <span>현재 투입 상태 (is_active)</span>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label for="member-start-date">투입 시작일</label>
+                                    <input type="date" id="member-start-date">
+                                </div>
+                                <div class="form-group">
+                                    <label for="member-end-date">투입 종료일</label>
+                                    <input type="date" id="member-end-date">
+                                </div>
+                                <div class="form-group span-2">
+                                    <label for="member-memo">투입 메모</label>
+                                    <textarea id="member-memo" rows="2" placeholder="투입 관련 참고사항 또는 담당 영역 기술"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--bg-card-border); padding-top:12px; flex-shrink:0;">
+                            <button type="button" class="btn btn-outline btn-sm" onclick="app.resetMemberForm()">신규 등록 모드</button>
+                            <div style="display:flex; gap:6px;">
+                                <button type="submit" class="btn btn-primary btn-sm" id="btn-save-member">저장</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 

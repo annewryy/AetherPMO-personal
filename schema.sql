@@ -50,10 +50,10 @@ CREATE TRIGGER on_auth_user_created
 CREATE TABLE IF NOT EXISTS public.projects (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     project_code TEXT UNIQUE NOT NULL,
-    name TEXT NOT NULL,
+    project_name TEXT NOT NULL,
     "desc" TEXT,
     dept TEXT,
-    manager TEXT,
+    pm_name TEXT,
     manager_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     start_date DATE,
     end_date DATE,
