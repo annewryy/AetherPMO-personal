@@ -13,7 +13,14 @@ module.exports = async (req, res) => {
         return;
     }
 
-    const serviceKey = (process.env.G2B_API_KEY || '').trim();
+    let serviceKey = (process.env.G2B_API_KEY || '').trim();
+    // Strip leading and trailing quotes if the env variable was wrapped in them
+    if (serviceKey.startsWith('"') && serviceKey.endsWith('"')) {
+        serviceKey = serviceKey.slice(1, -1);
+    } else if (serviceKey.startsWith("'") && serviceKey.endsWith("'")) {
+        serviceKey = serviceKey.slice(1, -1);
+    }
+    serviceKey = serviceKey.trim();
     
     // Mask key helper to prevent exposure in logs/errors (masks both raw and encoded versions)
     const maskKey = (str) => {
