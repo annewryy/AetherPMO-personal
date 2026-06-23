@@ -107,18 +107,13 @@
                             <i data-lucide="file-signature"></i>
                             <span>입찰단계</span>
                         </a>
-                        <!-- Bidding Nested Submenu (Visible when Bidding Stage is Active) -->
-                        <div class="submenu-nested" id="bidding-sub-items" style="display: none; padding-left: 20px; flex-direction: column; gap: 4px; margin-bottom: 4px;">
-                            <a href="#projects/bidding" class="submenu-nested-item active" data-nested-view="bidding-projects" style="display:flex; align-items:center; gap:8px; padding: 6px 12px; font-size:12px; color:var(--text-muted); text-decoration:none; border-radius:6px; font-weight:500; transition: all var(--transition-fast);">
-                                <span>├ 입찰 참여 프로젝트</span>
-                            </a>
-                            <a href="#projects/bidding" class="submenu-nested-item" data-nested-view="g2b-announcements" style="display:flex; align-items:center; gap:8px; padding: 6px 12px; font-size:12px; color:var(--text-muted); text-decoration:none; border-radius:6px; font-weight:500; transition: all var(--transition-fast);">
-                                <span>└ 나라장터 공고조회</span>
-                            </a>
-                        </div>
                         <a href="#projects/active" class="submenu-item" data-subview="active">
                             <i data-lucide="play-circle"></i>
                             <span>수행단계</span>
+                        </a>
+                        <a href="#projects/g2b" class="submenu-item" data-subview="g2b">
+                            <i data-lucide="search"></i>
+                            <span>나라장터 공고조회</span>
                         </a>
                     </div>
                 </div>
@@ -710,6 +705,68 @@
                     </div>
                 </section>
 
+                <!-- 3.5 G2B ANNOUNCEMENTS VIEW -->
+                <section id="view-projects-g2b" class="content-view">
+                    <div class="view-header">
+                        <div>
+                            <h1>나라장터 공고조회</h1>
+                            <p class="subtitle">나라장터 입찰공고정보서비스 중 용역 입찰공고를 실시간으로 조회하고 입찰 프로젝트로 등록합니다.</p>
+                        </div>
+                    </div>
+
+                    <!-- Search Filter Card -->
+                    <div class="dashboard-card" style="margin-bottom: 20px; padding: 20px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; align-items: flex-end;">
+                            <div class="filter-group" style="display: flex; flex-direction: column; gap: 6px;">
+                                <label for="g2b-filter-title" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">공고명</label>
+                                <input type="text" id="g2b-filter-title" placeholder="공고명 입력..." style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--bg-card-border); background: var(--bg-hover-item); color: var(--text-main); font-size: 13px;">
+                            </div>
+                            <div class="filter-group" style="display: flex; flex-direction: column; gap: 6px;">
+                                <label for="g2b-filter-customer" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">수요기관</label>
+                                <input type="text" id="g2b-filter-customer" placeholder="수요기관명 입력..." style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--bg-card-border); background: var(--bg-hover-item); color: var(--text-main); font-size: 13px;">
+                            </div>
+                            <div class="filter-group" style="display: flex; flex-direction: column; gap: 6px;">
+                                <label for="g2b-filter-start-date" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">공고일자 시작</label>
+                                <input type="date" id="g2b-filter-start-date" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--bg-card-border); background: var(--bg-hover-item); color: var(--text-main); font-size: 13px;">
+                            </div>
+                            <div class="filter-group" style="display: flex; flex-direction: column; gap: 6px;">
+                                <label for="g2b-filter-end-date" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">공고일자 종료</label>
+                                <input type="date" id="g2b-filter-end-date" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--bg-card-border); background: var(--bg-hover-item); color: var(--text-main); font-size: 13px;">
+                            </div>
+                            <div>
+                                <button class="btn btn-primary" id="g2b-btn-search" onclick="app.fetchG2BAnnouncements()" style="width: 100%; height: 38px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                    <i data-lucide="search" style="width: 16px; height: 16px;"></i> 검색
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Search Results Card -->
+                    <div class="dashboard-card" style="padding: 20px; flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                        <div class="table-container" style="flex: 1; overflow-y: auto;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 130px;">공고번호</th>
+                                        <th>공고명</th>
+                                        <th style="width: 140px;">수요기관</th>
+                                        <th style="width: 100px;">공고일</th>
+                                        <th style="width: 150px;">마감일 (D-Day)</th>
+                                        <th style="width: 160px; text-align: right;">추정가격/배정예산</th>
+                                        <th class="text-center" style="width: 80px;">원문 링크</th>
+                                        <th class="text-center" style="width: 180px;">작업</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="g2b-view-announcements-tbody">
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted py-8">검색 조건을 입력한 후 검색 버튼을 클릭하세요.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- 4. PROJECT DETAIL VIEW (Redesigned matching reference image) -->
                 <section id="view-project-detail" class="content-view">
                     <!-- Top Breadcrumb and date bar -->
@@ -1071,7 +1128,6 @@
                             </div>
                         </div>
                     </div>
-                </section>
                 </section>
 
                 <!-- 5. GLOBAL ARTIFACTS TEMPLATES VIEW -->
