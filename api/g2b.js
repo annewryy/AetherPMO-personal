@@ -34,17 +34,6 @@ module.exports = async (req, res) => {
     try {
         const query = url.parse(req.url, true).query;
 
-        if (query.debugKey === 'true') {
-            return res.status(200).json({
-                exists: !!serviceKey,
-                length: serviceKey ? serviceKey.length : 0,
-                hasPercent: serviceKey ? serviceKey.includes('%') : false,
-                hasPlus: serviceKey ? serviceKey.includes('+') : false,
-                hasSlash: serviceKey ? serviceKey.includes('/') : false,
-                hasEquals: serviceKey ? serviceKey.includes('=') : false,
-            });
-        }
-
         if (!serviceKey) {
             res.status(500).json({ error: 'G2B_API_KEY is not configured on the server.' });
             return;
