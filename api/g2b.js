@@ -43,12 +43,15 @@ module.exports = async (req, res) => {
     serviceKey = serviceKey.trim();
 
     // Diagnostics Log: Verify if environment variable is correctly loaded
+    const crypto = require('crypto');
+    const sha256 = crypto.createHash('sha256').update(serviceKey).digest('hex');
     const keyPreview = serviceKey.length > 20 
         ? `${serviceKey.slice(0, 10)}...${serviceKey.slice(-10)}` 
         : serviceKey;
     console.log(`[Diagnostics] G2B_API_KEY load check: ` + 
                 `exists=${!!serviceKey}, ` + 
                 `length=${serviceKey.length}, ` + 
+                `sha256=${sha256}, ` + 
                 `preview=${keyPreview}, ` + 
                 `hasPercent=${serviceKey.includes('%')}, ` + 
                 `hasPlus=${serviceKey.includes('+')}`);
