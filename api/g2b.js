@@ -98,9 +98,8 @@ module.exports = async (req, res) => {
 
         if (!bgngDt || !endDt) {
             const today = new Date();
-            const past = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
             const formatDate = (d) => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-            bgngDt = bgngDt || formatDate(past);
+            bgngDt = bgngDt || formatDate(today);
             endDt = endDt || formatDate(today);
         }
 
@@ -109,7 +108,7 @@ module.exports = async (req, res) => {
 
         // Build remaining query params with URLSearchParams (excluding serviceKey and type)
         const params = new URLSearchParams({
-            numOfRows: '100',
+            numOfRows: '10',
             pageNo: '1',
             inqryDiv: '1', // 1: Registration date
             inqryBgnDt: inqryBgnDt,
