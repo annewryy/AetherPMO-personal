@@ -106,14 +106,14 @@ module.exports = async (req, res) => {
         const inqryBgnDt = bgngDt + '0000';
         const inqryEndDt = endDt + '2359';
 
-        // Build query params with URLSearchParams (excluding serviceKey and type)
+        // Build query params with URLSearchParams (excluding serviceKey)
         const params = new URLSearchParams({
             numOfRows: '10', // Reduced size for diagnostics
             pageNo: '1',
             inqryDiv: '1', // 1: Registration date
             inqryBgnDt: inqryBgnDt,
             inqryEndDt: inqryEndDt,
-            _type: 'json'
+            type: 'json'
         });
 
         if (bidNtceNm) {
