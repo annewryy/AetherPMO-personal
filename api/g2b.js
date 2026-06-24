@@ -106,9 +106,9 @@ module.exports = async (req, res) => {
         const inqryBgnDt = bgngDt + '0000';
         const inqryEndDt = endDt + '2359';
 
-        // Build remaining query params with URLSearchParams (excluding serviceKey and type)
+        // Build query params with URLSearchParams (excluding serviceKey and type)
         const params = new URLSearchParams({
-            numOfRows: '10',
+            numOfRows: '10', // Reduced size for diagnostics
             pageNo: '1',
             inqryDiv: '1', // 1: Registration date
             inqryBgnDt: inqryBgnDt,
@@ -123,35 +123,20 @@ module.exports = async (req, res) => {
         // Apply encodeURIComponent() to process.env.G2B_API_KEY exactly once
         const finalKey = encodeURIComponent(serviceKey);
 
-        // Target URLs for G2B getBidPblancListInfoServc (V4 and V1) - using HTTPS, single serviceKey, and _type=json
-        const requestUrlV4 = `https://apis.data.go.kr/1230000/BidPublicInfoService04/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
-        const requestUrlV1 = `https://apis.data.go.kr/1230000/BidPublicInfoService/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
+        // Target URL matching the approved service path: https://apis.data.go.kr/1230000/BidPublicInfoService
+        const requestUrl = `https://apis.data.go.kr/1230000/BidPublicInfoService/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
 
         let responseBody = '';
-        let successUrl = '';
         try {
-            console.log(`Sending G2B request to V4 endpoint: ${requestUrlV4.split(finalKey).join('[MASKED]').split(serviceKey).join('[MASKED]')}`);
-            const result = await fetchG2BData(requestUrlV4);
-            console.log(`[V4 Response Log] Status: ${result.statusCode}, Raw Body: ${maskKey(result.data)}`);
+            console.log(`Sending G2B request to approved V1 endpoint: ${requestUrl.split(finalKey).join('[MASKED]').split(serviceKey).join('[MASKED]')}`);
+            const result = await fetchG2BData(requestUrl);
+            console.log(`[Response Log] Status: ${result.statusCode}, Raw Body: ${maskKey(result.data)}`);
             
             // Validate if response is JSON (data.go.kr returns plain text/XML errors for auth failures)
             JSON.parse(result.data);
             responseBody = result.data;
-            successUrl = requestUrlV4;
-        } catch (v4Err) {
-            console.log(`G2B V4 failed or returned non-JSON. Retrying with V1 fallback endpoint...`);
-            try {
-                console.log(`Sending G2B request to V1 endpoint: ${requestUrlV1.split(finalKey).join('[MASKED]').split(serviceKey).join('[MASKED]')}`);
-                const result = await fetchG2BData(requestUrlV1);
-                console.log(`[V1 Response Log] Status: ${result.statusCode}, Raw Body: ${maskKey(result.data)}`);
-                
-                JSON.parse(result.data);
-                responseBody = result.data;
-                successUrl = requestUrlV1;
-            } catch (v1Err) {
-                // If both failed, throw error
-                throw new Error(`G2B API failure on both endpoints. V4: ${maskKey(v4Err.message)}, V1: ${maskKey(v1Err.message)}`);
-            }
+        } catch (err) {
+            throw new Error(`G2B API failure on approved endpoint. Error: ${maskKey(err.message)}`);
         }
 
         const parsed = JSON.parse(responseBody);
