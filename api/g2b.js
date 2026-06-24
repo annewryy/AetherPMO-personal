@@ -104,7 +104,7 @@ module.exports = async (req, res) => {
         const inqryBgnDt = bgngDt + '0000';
         const inqryEndDt = endDt + '2359';
 
-        // Build remaining query params with URLSearchParams (excluding serviceKey)
+        // Build remaining query params with URLSearchParams (excluding serviceKey and type)
         const params = new URLSearchParams({
             numOfRows: '100',
             pageNo: '1',
@@ -118,31 +118,18 @@ module.exports = async (req, res) => {
             params.append('bidNtceNm', bidNtceNm);
         }
 
-        // 3. Configure finalKey supporting manual testing of encoding/decoding types
-        let finalKey = serviceKey;
-        const keyType = query.keyType || 'auto'; // client can pass keyType=encoding or keyType=decoding
+        // Apply encodeURIComponent() to process.env.G2B_API_KEY exactly once
+        const finalKey = encodeURIComponent(serviceKey);
 
-        if (keyType === 'decoding') {
-            finalKey = encodeURIComponent(finalKey);
-        } else if (keyType === 'encoding') {
-            // Keep raw as-is
-        } else {
-            // Auto-detect based on presence of '%'
-            if (!finalKey.includes('%')) {
-                finalKey = encodeURIComponent(finalKey);
-            }
-        }
-
-        // Target URLs for G2B getBidPblancListInfoServc (V4 and V1) - single serviceKey and _type=json
-        const requestUrlV4 = `http://apis.data.go.kr/1230000/BidPublicInfoService04/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
-        const requestUrlV1 = `http://apis.data.go.kr/1230000/BidPublicInfoService/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
+        // Target URLs for G2B getBidPblancListInfoServc (V4 and V1) - using HTTPS, single serviceKey, and _type=json
+        const requestUrlV4 = `https://apis.data.go.kr/1230000/BidPublicInfoService04/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
+        const requestUrlV1 = `https://apis.data.go.kr/1230000/BidPublicInfoService/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
 
         let responseBody = '';
         let successUrl = '';
         try {
             console.log(`Sending G2B request to V4 endpoint: ${requestUrlV4.split(finalKey).join('[MASKED]').split(serviceKey).join('[MASKED]')}`);
             const result = await fetchG2BData(requestUrlV4);
-            // 4. Output the full raw response from data.go.kr to the server logs
             console.log(`[V4 Response Log] Status: ${result.statusCode}, Raw Body: ${maskKey(result.data)}`);
             
             // Validate if response is JSON (data.go.kr returns plain text/XML errors for auth failures)
@@ -154,7 +141,6 @@ module.exports = async (req, res) => {
             try {
                 console.log(`Sending G2B request to V1 endpoint: ${requestUrlV1.split(finalKey).join('[MASKED]').split(serviceKey).join('[MASKED]')}`);
                 const result = await fetchG2BData(requestUrlV1);
-                // 4. Output the full raw response from data.go.kr to the server logs
                 console.log(`[V1 Response Log] Status: ${result.statusCode}, Raw Body: ${maskKey(result.data)}`);
                 
                 JSON.parse(result.data);
