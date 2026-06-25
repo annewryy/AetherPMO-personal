@@ -1137,52 +1137,52 @@
                             <h1>산출물 템플릿 관리</h1>
                             <p class="subtitle">공공 SI 사업 표준 산출물 템플릿을 다운로드하고 관리합니다.</p>
                         </div>
-                        <button class="btn btn-primary" id="btn-add-global-template" onclick="app.openNewGlobalTemplateModal()" style="display:none;">
-                            <i data-lucide="plus"></i> 새 템플릿 등록
-                        </button>
                     </div>
 
-                    <!-- 1단계: 프로젝트 유형 탭 -->
-                    <div id="artifact-type-tabs" class="project-stage-tabs-container" style="margin-bottom: 10px;">
-                        <!-- Dynamic project type tabs -->
-                    </div>
+                    <div class="artifacts-layout">
+                        <!-- 좌측: 템플릿 분류 트리 카드 -->
+                        <div class="artifacts-sidebar dashboard-card">
+                            <div class="sidebar-header-custom">
+                                <h3><i data-lucide="folder-tree" style="width:16px; height:16px;"></i> 템플릿 분류</h3>
+                            </div>
+                            <div id="artifact-category-tree" class="category-tree">
+                                <!-- 여기에 동적으로 트리 구조 렌더링 -->
+                            </div>
+                        </div>
 
-                    <!-- 2단계: 단계별 서브탭 -->
-                    <div id="artifact-stage-tabs" class="project-stage-tabs-container" style="margin-bottom: 20px; gap: 8px;">
-                        <button class="project-stage-tab active" id="tab-temp-init">
-                            <i data-lucide="file-text"></i> 착수단계
-                        </button>
-                        <button class="project-stage-tab" id="tab-temp-exec">
-                            <i data-lucide="play-circle"></i> 수행단계
-                        </button>
-                        <button class="project-stage-tab" id="tab-temp-close">
-                            <i data-lucide="check-circle2"></i> 종료단계
-                        </button>
-                    </div>
+                        <!-- 우측: 템플릿 목록 및 상세 내역 -->
+                        <div class="artifacts-main-content">
+                            <div class="artifacts-content-header dashboard-card">
+                                <div class="path-info">
+                                    <span id="path-project-type">운영사업</span>
+                                    <i data-lucide="chevron-right" style="width:12px; height:12px; margin: 0 4px; color: var(--text-muted);"></i>
+                                    <span id="path-project-stage" class="text-primary font-bold">착수단계 템플릿</span>
+                                </div>
+                                <button class="btn btn-primary" id="btn-add-global-template" onclick="app.openNewGlobalTemplateModal()" style="display:none;">
+                                    <i data-lucide="plus"></i> 새 템플릿 등록
+                                </button>
+                            </div>
 
-                    <!-- 현재 선택된 유형 표시 레이블 -->
-                    <div style="margin-bottom: 15px; font-weight: bold; font-size: 1.1rem; color: var(--text-main);">
-                        <span id="artifact-type-label">운영사업</span> 표준 템플릿
-                    </div>
-
-                    <!-- Templates Table -->
-                    <div class="dashboard-card">
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>템플릿명</th>
-                                        <th>산출물 구분</th>
-                                        <th>버전</th>
-                                        <th>최종수정일</th>
-                                        <th>다운로드 파일</th>
-                                        <th style="width: 200px;" class="text-center">작업</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="global-templates-tbody">
-                                    <!-- Dynamic template rows -->
-                                </tbody>
-                            </table>
+                            <!-- Templates Table -->
+                            <div class="dashboard-card">
+                                <div class="table-container">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>템플릿명</th>
+                                                <th>산출물 구분</th>
+                                                <th>버전</th>
+                                                <th>최종수정일</th>
+                                                <th>다운로드 파일</th>
+                                                <th style="width: 200px;" class="text-center">작업</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="global-templates-tbody">
+                                            <!-- Dynamic template rows -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -2525,6 +2525,15 @@
                 <div class="form-group">
                     <label for="global-template-name">템플릿명 <span class="required">*</span></label>
                     <input type="text" id="global-template-name" required placeholder="예: 착수계">
+                </div>
+                
+                <div class="form-group mt-3">
+                    <label for="global-template-type">프로젝트 유형 <span class="required">*</span></label>
+                    <select id="global-template-type" required>
+                        <option value="operation">운영사업</option>
+                        <option value="construction">구축사업</option>
+                        <option value="sw-separate">SW분리발주사업</option>
+                    </select>
                 </div>
                 
                 <div class="form-group mt-3">

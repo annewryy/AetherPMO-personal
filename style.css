@@ -4437,3 +4437,117 @@ body.dark-theme .toggle-slider {
 .app-container.sidebar-compact .sidebar.expanded .sidebar-footer .user-profile-badge i {
     display: inline;
 }
+
+/* ────────────────────────────────────────────────────────────
+   산출물 템플릿 관리 개선 레이아웃 (트리형 UI)
+   ──────────────────────────────────────────────────────────── */
+.artifacts-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 20px;
+    align-items: start;
+    margin-top: 15px;
+}
+
+.artifacts-sidebar {
+    padding: 20px;
+    height: auto;
+}
+
+.sidebar-header-custom {
+    border-bottom: 1px solid var(--bg-card-border);
+    padding-bottom: 12px;
+    margin-bottom: 15px;
+}
+
+.sidebar-header-custom h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-main);
+}
+
+.category-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.tree-node-type {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.tree-node-type-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+}
+
+.tree-node-stages {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-left: 15px;
+    border-left: 1px dashed var(--bg-card-border);
+    margin-left: 8px;
+}
+
+.tree-node-stage-item {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.tree-node-stage-item:hover {
+    background-color: var(--bg-card-hover);
+    color: var(--text-main);
+}
+
+.tree-node-stage-item.active {
+    background-color: rgba(59, 130, 246, 0.1);
+    color: var(--primary-color);
+    font-weight: 700;
+}
+
+.artifacts-main-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.artifacts-content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+}
+
+.path-info {
+    display: flex;
+    align-items: center;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+/* 반응형 처리: 태블릿 이하일 때 */
+@media (max-width: 992px) {
+    .artifacts-layout {
+        grid-template-columns: 1fr;
+    }
+}

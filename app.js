@@ -4085,35 +4085,47 @@ class AetherPMO {
         const type  = this.activeGlobalTemplateType  || 'operation';
         const stage = this.activeGlobalTemplateStage || 'initiation';
 
-        // ── 1단계: 프로젝트 유형 탭 동적 렌더링 ────────────────────
+        // ── 1단계: 프로젝트 분류 트리 동적 렌더링 ───────────────────
         const projectTypes = this.state.projectTypes || this.getDefaultProjectTypes();
-        const typeContainer = document.getElementById('artifact-type-tabs');
-        if (typeContainer) {
-            typeContainer.innerHTML = '';
+        const treeContainer = document.getElementById('artifact-category-tree');
+        if (treeContainer) {
+            treeContainer.innerHTML = '';
+            
             projectTypes.forEach(pt => {
-                const btn = document.createElement('button');
-                btn.className = `project-stage-tab${pt.key === type ? ' active' : ''}`;
-                btn.id = `tab-type-${pt.key}`;
-                btn.onclick = () => { window.location.hash = `#artifacts/${pt.key}/${stage}`; };
-                btn.innerHTML = `<i data-lucide="${pt.icon}" style="width:14px;height:14px;"></i> ${pt.label}`;
-                typeContainer.appendChild(btn);
+                // 사업유형 노드 생성
+                const typeNode = document.createElement('div');
+                typeNode.className = 'tree-node-type';
+                
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'tree-node-type-label';
+                labelDiv.innerHTML = `<i data-lucide="${pt.icon}" style="width:15px; height:15px; color: var(--text-muted);"></i> ${pt.label}`;
+                typeNode.appendChild(labelDiv);
+                
+                // 하위 단계 리스트 컨테이너
+                const stagesContainer = document.createElement('div');
+                stagesContainer.className = 'tree-node-stages';
+                
+                const stagesDef = [
+                    { key: 'initiation', label: '착수단계 템플릿', icon: 'file-text' },
+                    { key: 'execution', label: '수행단계 템플릿', icon: 'play-circle' },
+                    { key: 'closing', label: '종료단계 템플릿', icon: 'check-circle2' }
+                ];
+                
+                stagesDef.forEach(s => {
+                    const stageItem = document.createElement('div');
+                    const isActive = (pt.key === type && s.key === stage);
+                    stageItem.className = `tree-node-stage-item${isActive ? ' active' : ''}`;
+                    stageItem.innerHTML = `<i data-lucide="${s.icon}" style="width:13px; height:13px;"></i> ${s.label}`;
+                    stageItem.onclick = () => {
+                        window.location.hash = `#artifacts/${pt.key}/${s.key}`;
+                    };
+                    stagesContainer.appendChild(stageItem);
+                });
+                
+                typeNode.appendChild(stagesContainer);
+                treeContainer.appendChild(typeNode);
             });
         }
-
-        // ── 2단계: 단계 서브탭 active 클래스 업데이트 ──────────────
-        document.querySelectorAll('#artifact-stage-tabs .project-stage-tab').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        const stageTabMap = { initiation: 'tab-temp-init', execution: 'tab-temp-exec', closing: 'tab-temp-close' };
-        const activeStageTab = document.getElementById(stageTabMap[stage] || 'tab-temp-init');
-        if (activeStageTab) activeStageTab.classList.add('active');
-
-        // 서브탭의 href를 현재 type으로 업데이트
-        ['initiation', 'execution', 'closing'].forEach(s => {
-            const tabId = stageTabMap[s];
-            const tabEl = document.getElementById(tabId);
-            if (tabEl) tabEl.onclick = () => { window.location.hash = `#artifacts/${type}/${s}`; };
-        });
 
         // ── 권한 체크 ────────────────────────────────────────────────
         const hasTemplatePermission = this.currentUser && (
@@ -4125,10 +4137,18 @@ class AetherPMO {
             btnAdd.style.display = hasTemplatePermission ? 'block' : 'none';
         }
 
-        // ── 현재 선택된 유형 레이블 표시 ────────────────────────────
+        // ── 현재 선택된 경로 표시 (우측 상단 path-info) ──────────────────
         const typeInfo = projectTypes.find(pt => pt.key === type);
-        const typeLabelEl = document.getElementById('artifact-type-label');
-        if (typeLabelEl) typeLabelEl.textContent = typeInfo ? typeInfo.label : '';
+        const typeLabelEl = document.getElementById('path-project-type');
+        if (typeLabelEl) {
+            typeLabelEl.textContent = typeInfo ? typeInfo.label : '운영사업';
+        }
+        
+        const stageLabelEl = document.getElementById('path-project-stage');
+        if (stageLabelEl) {
+            const stageLabelMap = { initiation: '착수단계 템플릿', execution: '수행단계 템플릿', closing: '종료단계 템플릿' };
+            stageLabelEl.textContent = stageLabelMap[stage] || '착수단계 템플릿';
+        }
 
         // ── 테이블 렌더링 ────────────────────────────────────────────
         const tbody = document.getElementById('global-templates-tbody');
@@ -7286,6 +7306,7 @@ class AetherPMO {
         document.getElementById('global-template-form').reset();
         document.getElementById('global-template-id-field').value = '';
         
+        document.getElementById('global-template-type').value = this.activeGlobalTemplateType || 'operation';
         document.getElementById('global-template-stage').value = this.activeGlobalTemplateStage || 'initiation';
         document.getElementById('global-template-category').value = 'Etc';
         document.getElementById('global-template-version').value = 'v1.0.0';
@@ -7306,6 +7327,7 @@ class AetherPMO {
         document.getElementById('global-template-modal-title').textContent = '템플릿 서식 정보 수정';
         document.getElementById('global-template-id-field').value = temp.id;
         document.getElementById('global-template-name').value = temp.name;
+        document.getElementById('global-template-type').value = temp.projectType || 'operation';
         document.getElementById('global-template-stage').value = temp.stage;
         document.getElementById('global-template-category').value = temp.category;
         document.getElementById('global-template-version').value = temp.version;
@@ -7328,6 +7350,7 @@ class AetherPMO {
         const id = document.getElementById('global-template-id-field').value;
         const name = document.getElementById('global-template-name').value.trim();
         const stage = document.getElementById('global-template-stage').value;
+        const projectType = document.getElementById('global-template-type').value;
         const category = document.getElementById('global-template-category').value;
         const version = document.getElementById('global-template-version').value.trim();
         const fileName = document.getElementById('global-template-filename').value.trim();
@@ -7343,14 +7366,14 @@ class AetherPMO {
             const index = this.state.globalTemplates.findIndex(t => t.id === id);
             if (index !== -1) {
                 this.state.globalTemplates[index] = {
-                    id, name, stage, category, version, fileName, fileSize, modifiedDate
+                    id, name, stage, projectType, category, version, fileName, fileSize, modifiedDate
                 };
                 this.addActivityLog(null, null, 'artifact', `템플릿 수정: ${name} (${version})`);
             }
         } else {
             const newId = `gt-${Date.now()}`;
             this.state.globalTemplates.push({
-                id: newId, name, stage, category, version, fileName, fileSize, modifiedDate
+                id: newId, name, stage, projectType, category, version, fileName, fileSize, modifiedDate
             });
             this.addActivityLog(null, null, 'artifact', `새 템플릿 등록: ${name} (${version})`);
         }
