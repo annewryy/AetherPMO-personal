@@ -5,7 +5,11 @@ const url = require('url');
 const fetchG2BData = (targetUrl) => {
     return new Promise((resolve, reject) => {
         const protocolClient = targetUrl.startsWith('https') ? https : http;
-        protocolClient.get(targetUrl, (apiRes) => {
+        
+        let timer = null;
+        const req = protocolClient.get(targetUrl, (apiRes) => {
+            if (timer) clearTimeout(timer);
+            
             let data = '';
             apiRes.on('data', (chunk) => {
                 data += chunk;
@@ -14,8 +18,19 @@ const fetchG2BData = (targetUrl) => {
                 resolve({ statusCode: apiRes.statusCode, data });
             });
         }).on('error', (err) => {
+            if (timer) clearTimeout(timer);
             reject(err);
         });
+
+        // Set 10-second timeout on the request socket
+        req.setTimeout(10000, () => {
+            req.destroy(new Error('ETIMEDOUT'));
+        });
+
+        // Failsafe absolute timer
+        timer = setTimeout(() => {
+            req.destroy(new Error('Timeout of 10000ms exceeded'));
+        }, 10000);
     });
 };
 
@@ -123,8 +138,8 @@ module.exports = async (req, res) => {
         // Apply encodeURIComponent() to process.env.G2B_API_KEY exactly once
         const finalKey = encodeURIComponent(serviceKey);
 
-        // Target URL matching the approved service path: https://apis.data.go.kr/1230000/BidPublicInfoService
-        const requestUrl = `https://apis.data.go.kr/1230000/BidPublicInfoService/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
+        // Target URL matching the approved service path: http://apis.data.go.kr/1230000/BidPublicInfoService
+        const requestUrl = `http://apis.data.go.kr/1230000/BidPublicInfoService/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
 
         let responseBody = '';
         try {
