@@ -60,6 +60,11 @@ body.light-theme {
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
     --shadow-glow: 0 0 20px 0 rgba(79, 70, 229, 0.08);
+
+    /* Badge/Chip Theme Tokens */
+    --badge-bg: #EEF2FF;
+    --badge-text: #4338CA;
+    --badge-border: #C7D2FE;
 }
 
 /* Dark Theme Variables (Default) - Refined for PMO Dashboard */
@@ -89,6 +94,11 @@ body.dark-theme {
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
     --shadow-glow: 0 0 25px 0 rgba(99, 102, 241, 0.15);
+
+    /* Badge/Chip Theme Tokens */
+    --badge-bg: #3730A3;
+    --badge-text: #FFFFFF;
+    --badge-border: #4F46E5;
 }
 
 /* --- Core Reset & Styles --- */
@@ -1094,47 +1104,75 @@ body.dark-theme .toggle-slider {
     font-weight: 700;
 }
 
-/* --- Status Badges --- */
-.status-badge {
+/* --- Status & General Badges (Chip System) --- */
+.chip, .badge, .status-badge, .d-day-badge, .version-number-badge {
     display: inline-flex;
     align-items: center;
-    padding: 4px 8px;
+    justify-content: center;
+    padding: 4px 10px;
     border-radius: 6px;
     font-size: 11px;
     font-weight: 700;
+    line-height: 1;
+    background-color: var(--badge-bg);
+    color: var(--badge-text);
+    border: 1px solid var(--badge-border);
+    transition: all 0.2s ease;
 }
 
-.status-badge.status-planning { background-color: var(--primary-light); color: var(--primary); }
-.status-badge.status-inprogress { background-color: var(--warning-glow); color: var(--warning); }
-.status-badge.status-onhold { background-color: var(--bg-hover-item); color: var(--text-muted); }
-.status-badge.status-completed { background-color: var(--success-glow); color: var(--success); }
-.status-badge.status-delay { background-color: var(--danger-glow); color: var(--danger); }
-.status-badge.status-overdue { background-color: var(--danger-glow); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+/* Status variants with fallback accessibility text color mapping */
+.status-badge.status-planning { background-color: var(--primary-light); color: var(--primary); border-color: rgba(99, 102, 241, 0.2); }
+.status-badge.status-inprogress { background-color: var(--warning-glow); color: var(--warning); border-color: rgba(245, 158, 11, 0.2); }
+.status-badge.status-onhold { background-color: var(--bg-hover-item); color: var(--text-muted); border-color: var(--bg-card-border); }
+.status-badge.status-completed { background-color: var(--success-glow); color: var(--success); border-color: rgba(16, 185, 129, 0.2); }
+.status-badge.status-delay { background-color: var(--danger-glow); color: var(--danger); border-color: rgba(239, 68, 68, 0.25); }
+.status-badge.status-overdue { background-color: var(--danger-glow); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.4); }
 
-.status-badge.status-bidding { background-color: var(--info-glow); color: var(--info); }
-.status-badge.status-draft { background-color: var(--bg-hover-item); color: var(--text-muted); }
-.status-badge.status-review { background-color: var(--warning-glow); color: var(--warning); }
-.status-badge.status-approved { background-color: var(--success-glow); color: var(--success); }
-.status-badge.status-rejected { background-color: var(--danger-glow); color: var(--danger); }
+.status-badge.status-bidding { background-color: var(--info-glow); color: var(--info); border-color: rgba(6, 182, 212, 0.2); }
+.status-badge.status-draft { background-color: var(--bg-hover-item); color: var(--text-muted); border-color: var(--bg-card-border); }
+.status-badge.status-review { background-color: var(--warning-glow); color: var(--warning); border-color: rgba(245, 158, 11, 0.2); }
+.status-badge.status-approved { background-color: var(--success-glow); color: var(--success); border-color: rgba(16, 185, 129, 0.2); }
+.status-badge.status-rejected { background-color: var(--danger-glow); color: var(--danger); border-color: rgba(239, 68, 68, 0.25); }
 
-/* Category Badges */
+/* Category Badges (Unified Design System) */
 .badge-cat {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
     font-weight: 700;
-    color: #ffffff;
+    line-height: 1;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
 }
 
-.cat-req { background-color: var(--color-req); }
-.cat-design { background-color: var(--color-design); }
-.cat-code { background-color: var(--color-code); }
-.cat-test { background-color: var(--color-test); }
-.cat-manual { background-color: var(--color-manual); }
-.cat-deploy { background-color: var(--color-deploy); }
-.cat-report { background-color: var(--color-report); }
-.cat-etc { background-color: var(--color-etc); }
+/* Light Theme defaults (Default) */
+.cat-req     { background-color: rgba(139, 92, 246, 0.1);  color: #7c3aed; border-color: rgba(139, 92, 246, 0.25); }
+.cat-design  { background-color: rgba(6, 182, 212, 0.1);  color: #0891b2; border-color: rgba(6, 182, 212, 0.25); }
+.cat-code    { background-color: rgba(59, 130, 246, 0.1);  color: #2563eb; border-color: rgba(59, 130, 246, 0.25); }
+.cat-test    { background-color: rgba(16, 185, 129, 0.1);  color: #059669; border-color: rgba(16, 185, 129, 0.25); }
+.cat-manual  { background-color: rgba(245, 158, 11, 0.1);  color: #d97706; border-color: rgba(245, 158, 11, 0.25); }
+.cat-deploy  { background-color: rgba(236, 72, 153, 0.1);  color: #db2777; border-color: rgba(236, 72, 153, 0.25); }
+.cat-report  { background-color: rgba(20, 184, 166, 0.1);  color: #0d9488; border-color: rgba(20, 184, 166, 0.25); }
+.cat-etc     { background-color: rgba(100, 116, 139, 0.1); color: #475569; border-color: rgba(100, 116, 139, 0.25); }
+
+.cat-danger  { background-color: rgba(239, 68, 68, 0.1);   color: #dc2626; border-color: rgba(239, 68, 68, 0.25); }
+.cat-warning { background-color: rgba(245, 158, 11, 0.1);  color: #d97706; border-color: rgba(245, 158, 11, 0.25); }
+
+/* Dark Theme Overrides */
+body.dark-theme .cat-req     { background-color: rgba(139, 92, 246, 0.25);  color: #a78bfa; border-color: rgba(139, 92, 246, 0.45); }
+body.dark-theme .cat-design  { background-color: rgba(6, 182, 212, 0.25);  color: #22d3ee; border-color: rgba(6, 182, 212, 0.45); }
+body.dark-theme .cat-code    { background-color: rgba(59, 130, 246, 0.25);  color: #60a5fa; border-color: rgba(59, 130, 246, 0.45); }
+body.dark-theme .cat-test    { background-color: rgba(16, 185, 129, 0.25);  color: #34d399; border-color: rgba(16, 185, 129, 0.45); }
+body.dark-theme .cat-manual  { background-color: rgba(245, 158, 11, 0.25);  color: #fbbf24; border-color: rgba(245, 158, 11, 0.45); }
+body.dark-theme .cat-deploy  { background-color: rgba(236, 72, 153, 0.25);  color: #f472b6; border-color: rgba(236, 72, 153, 0.45); }
+body.dark-theme .cat-report  { background-color: rgba(20, 184, 166, 0.25);  color: #2dd4bf; border-color: rgba(20, 184, 166, 0.45); }
+body.dark-theme .cat-etc     { background-color: rgba(100, 116, 139, 0.25); color: #94a3b8; border-color: rgba(100, 116, 139, 0.45); }
+
+body.dark-theme .cat-danger  { background-color: rgba(239, 68, 68, 0.25);   color: #f87171; border-color: rgba(239, 68, 68, 0.45); }
+body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  color: #fbbf24; border-color: rgba(245, 158, 11, 0.45); }
 
 /* --- Filter Bars --- */
 .filter-bar {
@@ -2206,8 +2244,9 @@ body.dark-theme .toggle-slider {
     font-weight: 700;
 }
 .project-stage-tab.active .stage-count-badge {
-    background-color: var(--primary);
-    color: #ffffff;
+    background-color: var(--badge-bg);
+    color: var(--badge-text);
+    border: 1px solid var(--badge-border);
 }
 
 /* Project detail tab containers */
@@ -3471,8 +3510,8 @@ body.dark-theme .toggle-slider {
 }
 
 .doc-tab-btn .tab-badge {
-    background: var(--primary);
-    color: #fff;
+    background: var(--primary-light);
+    color: var(--primary);
     border-radius: 10px;
     padding: 0 6px;
     font-size: 10px;

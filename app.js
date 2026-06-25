@@ -9556,10 +9556,10 @@ class AetherPMO {
         const roleLabels = { PM: 'PM (관리자)', PL: 'PL (파트리더)', PMO: 'PMO (지원)', TA: 'TA (기술)', AA: 'AA (앱)', DA: 'DA (데이터)', DBA: 'DBA (DB)', SE: 'SE (시스템)', DEV: 'DEV (개발)', QA: 'QA (테스트)', CT: 'CT (컨설턴트)', ETC: 'ETC (기타)' };
 
         container.innerHTML = members.map(m => {
-            const roleBadgeColor = m.isActive ? 'var(--info)' : 'var(--text-muted)';
+            const roleBadgeClass = m.isActive ? 'status-badge status-bidding' : 'status-badge status-onhold';
             const activeStatusText = m.isActive 
-                ? '<span class="badge badge-success badge-xs" style="font-size:10px;">투입중</span>' 
-                : '<span class="badge badge-outline badge-xs" style="font-size:10px; color:var(--text-muted);">제외됨</span>';
+                ? '<span class="status-badge status-completed" style="font-size:10px; padding:2px 6px;">투입중</span>' 
+                : '<span class="status-badge status-onhold" style="font-size:10px; padding:2px 6px;">제외됨</span>';
 
             // Buttons based on role permissions
             let actionButtons = '';
@@ -9588,7 +9588,7 @@ class AetherPMO {
                         <div>
                             <div style="display:flex; align-items:center; gap:8px;">
                                 <span style="font-size:13px; font-weight:700;">${m.name}</span>
-                                <span class="badge badge-xs" style="background:${roleBadgeColor}; color:#ffffff; font-size:10px;">${roleLabels[m.participationRole] || m.participationRole}</span>
+                                <span class="${roleBadgeClass}" style="font-size:10px; padding:2px 6px;">${roleLabels[m.participationRole] || m.participationRole}</span>
                                 ${activeStatusText}
                             </div>
                             <div class="text-xs text-muted" style="margin-top:4px;">
