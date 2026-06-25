@@ -25,6 +25,7 @@ class AetherPMO {
         this.activeBiddingStatusFilter = 'all';  // all | 제안 준비중 | 제안 제출 | 결과 대기 | 수주 | 실패
         this.activeDetailTab = 'overview'; // overview | templates | artifacts
         this.activeTemplateFolder = 'initiation'; // initiation | execution | closing
+        this.activeGlobalTemplateType  = 'operation';   // operation | construction | sw-separate (code table key)
         this.activeGlobalTemplateStage = 'initiation'; // initiation | execution | closing
         this.tempAttachedFile = null;
 
@@ -2899,7 +2900,9 @@ class AetherPMO {
                 this.switchView('projects');
             }
         } else if (mainRoute === 'artifacts') {
-            const stage = parts[1] || 'initiation';
+            const type  = parts[1] || 'operation';
+            const stage = parts[2] || 'initiation';
+            this.activeGlobalTemplateType  = type;
             this.activeGlobalTemplateStage = stage;
             this.switchView('artifacts');
         } else {
@@ -4069,19 +4072,40 @@ class AetherPMO {
     }
 
     renderArtifacts() {
+        const type  = this.activeGlobalTemplateType  || 'operation';
         const stage = this.activeGlobalTemplateStage || 'initiation';
-        
-        // Update global template stages sub tabs active class
-        document.querySelectorAll('#view-artifacts .project-stage-tab').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        
-        const activeTab = document.getElementById(`tab-temp-${stage === 'initiation' ? 'init' : stage === 'execution' ? 'exec' : 'close'}`);
-        if (activeTab) {
-            activeTab.classList.add('active');
+
+        // ── 1단계: 프로젝트 유형 탭 동적 렌더링 ────────────────────
+        const projectTypes = this.state.projectTypes || this.getDefaultProjectTypes();
+        const typeContainer = document.getElementById('artifact-type-tabs');
+        if (typeContainer) {
+            typeContainer.innerHTML = '';
+            projectTypes.forEach(pt => {
+                const btn = document.createElement('button');
+                btn.className = `project-stage-tab${pt.key === type ? ' active' : ''}`;
+                btn.id = `tab-type-${pt.key}`;
+                btn.onclick = () => { window.location.hash = `#artifacts/${pt.key}/${stage}`; };
+                btn.innerHTML = `<i data-lucide="${pt.icon}" style="width:14px;height:14px;"></i> ${pt.label}`;
+                typeContainer.appendChild(btn);
+            });
         }
 
-        // Show/hide Admin CRUD triggers based on email authorization
+        // ── 2단계: 단계 서브탭 active 클래스 업데이트 ──────────────
+        document.querySelectorAll('#artifact-stage-tabs .project-stage-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        const stageTabMap = { initiation: 'tab-temp-init', execution: 'tab-temp-exec', closing: 'tab-temp-close' };
+        const activeStageTab = document.getElementById(stageTabMap[stage] || 'tab-temp-init');
+        if (activeStageTab) activeStageTab.classList.add('active');
+
+        // 서브탭의 href를 현재 type으로 업데이트
+        ['initiation', 'execution', 'closing'].forEach(s => {
+            const tabId = stageTabMap[s];
+            const tabEl = document.getElementById(tabId);
+            if (tabEl) tabEl.onclick = () => { window.location.hash = `#artifacts/${type}/${s}`; };
+        });
+
+        // ── 권한 체크 ────────────────────────────────────────────────
         const hasTemplatePermission = this.currentUser && (
             this.currentUser.email === 'pm@aetherpmo.com' ||
             this.currentUser.email === 'admin@aetherpmo.com'
@@ -4091,59 +4115,67 @@ class AetherPMO {
             btnAdd.style.display = hasTemplatePermission ? 'block' : 'none';
         }
 
+        // ── 현재 선택된 유형 레이블 표시 ────────────────────────────
+        const typeInfo = projectTypes.find(pt => pt.key === type);
+        const typeLabelEl = document.getElementById('artifact-type-label');
+        if (typeLabelEl) typeLabelEl.textContent = typeInfo ? typeInfo.label : '';
+
+        // ── 테이블 렌더링 ────────────────────────────────────────────
         const tbody = document.getElementById('global-templates-tbody');
         if (!tbody) return;
 
-        const templates = (this.state.globalTemplates || []).filter(t => t.stage === stage);
+        const templates = (this.state.globalTemplates || []).filter(t =>
+            t.stage === stage && (t.projectType === type || (!t.projectType && type === 'operation'))
+        );
 
         if (templates.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">등록된 표준 템플릿 양식이 없습니다.</td></tr>';
-            return;
-        }
+            const typeLabel = typeInfo ? typeInfo.label : type;
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">[${typeLabel}] ${stage === 'initiation' ? '착수' : stage === 'execution' ? '수행' : '종료'}단계에 등록된 표준 템플릿 양식이 없습니다.</td></tr>`;
+        } else {
+            tbody.innerHTML = '';
+            templates.forEach(temp => {
+                const tr = document.createElement('tr');
 
-        tbody.innerHTML = '';
-        templates.forEach(temp => {
-            const tr = document.createElement('tr');
-            
-            const downloadHtml = `
-                <div style="display:flex; align-items:center; gap:8px; justify-content:center;">
-                    <i data-lucide="download" class="text-primary" style="width:14px; height:14px;"></i>
-                    <a href="#" class="file-name-link font-bold text-xs" onclick="event.preventDefault(); app.downloadGlobalTemplate('${temp.id}')">
-                        ${temp.fileName}
-                    </a>
-                    <span class="text-xs text-muted">(${temp.fileSize})</span>
-                </div>
-            `;
-            
-            const actionHtml = hasTemplatePermission 
-                ? `
-                    <div class="actions-flex" style="justify-content:center; gap:8px;">
-                        <button class="btn btn-xs btn-outline" onclick="app.openEditGlobalTemplateModal('${temp.id}')">
-                            <i data-lucide="edit" style="width:11px; height:11px; margin-right:2px;"></i> 수정
-                        </button>
-                        <button class="btn btn-xs btn-danger" onclick="app.deleteGlobalTemplate('${temp.id}')">
-                            <i data-lucide="trash-2" style="width:11px; height:11px; margin-right:2px;"></i> 삭제
-                        </button>
-                    </div>
-                `
-                : `
-                    <div style="text-align:center;">
-                        <button class="btn btn-xs btn-primary" onclick="app.downloadGlobalTemplate('${temp.id}')">
-                            <i data-lucide="download" style="width:11px; height:11px; margin-right:2px;"></i> 다운로드
-                        </button>
+                const downloadHtml = `
+                    <div style="display:flex; align-items:center; gap:8px; justify-content:center;">
+                        <i data-lucide="download" class="text-primary" style="width:14px; height:14px;"></i>
+                        <a href="#" class="file-name-link font-bold text-xs" onclick="event.preventDefault(); app.downloadGlobalTemplate('${temp.id}')">
+                            ${temp.fileName}
+                        </a>
+                        <span class="text-xs text-muted">(${temp.fileSize})</span>
                     </div>
                 `;
 
-            tr.innerHTML = `
-                <td class="font-bold text-sm" style="color:var(--text-main);">${temp.name}</td>
-                <td><span class="badge-cat cat-${temp.category.toLowerCase().replace(' ', '')}">${this.translateCategory(temp.category)}</span></td>
-                <td class="text-center text-xs font-bold">${temp.version}</td>
-                <td class="text-center text-xs font-bold text-muted">${temp.modifiedDate}</td>
-                <td class="text-center">${downloadHtml}</td>
-                <td>${actionHtml}</td>
-            `;
-            tbody.appendChild(tr);
-        });
+                const actionHtml = hasTemplatePermission
+                    ? `
+                        <div class="actions-flex" style="justify-content:center; gap:8px;">
+                            <button class="btn btn-xs btn-outline" onclick="app.openEditGlobalTemplateModal('${temp.id}')">
+                                <i data-lucide="edit" style="width:11px; height:11px; margin-right:2px;"></i> 수정
+                            </button>
+                            <button class="btn btn-xs btn-danger" onclick="app.deleteGlobalTemplate('${temp.id}')">
+                                <i data-lucide="trash-2" style="width:11px; height:11px; margin-right:2px;"></i> 삭제
+                            </button>
+                        </div>
+                    `
+                    : `
+                        <div style="text-align:center;">
+                            <button class="btn btn-xs btn-primary" onclick="app.downloadGlobalTemplate('${temp.id}')">
+                                <i data-lucide="download" style="width:11px; height:11px; margin-right:2px;"></i> 다운로드
+                            </button>
+                        </div>
+                    `;
+
+                tr.innerHTML = `
+                    <td class="font-bold text-sm" style="color:var(--text-main);">${temp.name}</td>
+                    <td><span class="badge-cat cat-${temp.category.toLowerCase().replace(' ', '')}">${this.translateCategory(temp.category)}</span></td>
+                    <td class="text-center text-xs font-bold">${temp.version}</td>
+                    <td class="text-center text-xs font-bold text-muted">${temp.modifiedDate}</td>
+                    <td class="text-center">${downloadHtml}</td>
+                    <td>${actionHtml}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
 
         this.applyRolePermissions();
 
@@ -8158,34 +8190,136 @@ class AetherPMO {
         }
     }
 
-    getDefaultGlobalTemplates() {
+    // ============================================================
+    //  PROJECT TYPE CODE TABLE (확장 가능 코드 테이블)
+    // ============================================================
+    /**
+     * 프로젝트 유형 코드 테이블. 하드코딩하지 않고 이 함수에서만 관리.
+     * 추후 ISP, AI구축, 클라우드, 유지관리 등 확장 시 여기에만 추가.
+     * key: 내부 식별자 (영문, URL 경로에 사용)
+     * label: 화면 표시명
+     * icon: lucide 아이콘명
+     */
+    getDefaultProjectTypes() {
         return [
-            // 착수단계
-            { id: 'gt-init-1', name: '착수계', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_착수계.docx', fileSize: '145 KB' },
-            { id: 'gt-init-2', name: '사업수행계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_사업수행계획서.docx', fileSize: '320 KB' },
-            { id: 'gt-init-3', name: '보안관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_보안관리계획서.docx', fileSize: '210 KB' },
-            { id: 'gt-init-4', name: '품질보증계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_품질보증계획서.docx', fileSize: '185 KB' },
-            { id: 'gt-init-5', name: '참여인력 현황', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_참여인력현황.xlsx', fileSize: '98 KB' },
-            { id: 'gt-init-6', name: '비밀유지서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_비밀유지서약서.docx', fileSize: '112 KB' },
-            
-            // 수행단계
-            { id: 'gt-exec-1', name: '요구사항정의서', stage: 'execution', category: 'Requirements', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_요구사항정의서.xlsx', fileSize: '254 KB' },
-            { id: 'gt-exec-2', name: '분석설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_분석설계서_템플릿.docx', fileSize: '512 KB' },
-            { id: 'gt-exec-3', name: '회의록', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_회의록_양식.docx', fileSize: '85 KB' },
-            { id: 'gt-exec-4', name: '테스트계획서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_테스트계획서.docx', fileSize: '195 KB' },
-            { id: 'gt-exec-5', name: '테스트결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_테스트결과서.xlsx', fileSize: '280 KB' },
-            { id: 'gt-exec-6', name: '위험관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_위험관리대장.xlsx', fileSize: '95 KB' },
-            { id: 'gt-exec-7', name: 'Action Item 관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_ActionItem관리대장.xlsx', fileSize: '105 KB' },
-            
-            // 종료단계
-            { id: 'gt-close-1', name: '완료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_완료보고서.docx', fileSize: '420 KB' },
-            { id: 'gt-close-2', name: '최종보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_최종보고서.pdf', fileSize: '1.2 MB' },
-            { id: 'gt-close-3', name: '검수확인서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_검수확인서.docx', fileSize: '90 KB' },
-            { id: 'gt-close-4', name: '산출물 인계목록', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_산출물인계목록.xlsx', fileSize: '115 KB' },
-            { id: 'gt-close-5', name: '보안점검 결과서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_보안점검결과서.docx', fileSize: '130 KB' },
-            { id: 'gt-close-6', name: '종료계', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '공공SI_표준_종료계.docx', fileSize: '95 KB' }
+            { key: 'operation',    label: '운영사업',       icon: 'settings-2' },
+            { key: 'construction', label: '구축사업',       icon: 'building-2'  },
+            { key: 'sw-separate',  label: 'SW분리발주사업', icon: 'layers'      },
+            // 향후 확장 예시 (주석 해제하여 추가):
+            // { key: 'isp',       label: 'ISP',            icon: 'map'         },
+            // { key: 'ai',        label: 'AI 구축사업',    icon: 'brain'       },
+            // { key: 'cloud',     label: '클라우드 구축',  icon: 'cloud'       },
+            // { key: 'maintain',  label: '유지관리',       icon: 'wrench'      },
+            // { key: 'consult',   label: '컨설팅',         icon: 'message-square' },
+            // { key: 'pmo',       label: 'PMO',            icon: 'briefcase'   },
+            // { key: 'etc',       label: '기타',           icon: 'more-horizontal' },
         ];
     }
+
+    /**
+     * 프로젝트의 business_type 값을 템플릿 projectType key로 매핑.
+     * 새 프로젝트 유형이 추가되면 이 함수에도 매핑 추가.
+     */
+    mapBusinessTypeToTemplateType(businessType) {
+        const map = {
+            '운영': 'operation',
+            '운영사업': 'operation',
+            '구축': 'construction',
+            '구축사업': 'construction',
+            'SW분리발주': 'sw-separate',
+            'SW분리발주사업': 'sw-separate',
+            'ISP': 'isp',
+            'AI구축': 'ai',
+            '클라우드': 'cloud',
+            '유지관리': 'maintain',
+            '컨설팅': 'consult',
+            'PMO': 'pmo',
+        };
+        return map[businessType] || 'operation';
+    }
+
+    // ============================================================
+    //  DEFAULT GLOBAL TEMPLATES (기본 표준 템플릿 데이터)
+    // ============================================================
+    getDefaultGlobalTemplates() {
+        return [
+            // ── 운영사업 착수단계 ──────────────────────────────────
+            { id: 'gt-init-1', projectType: 'operation', name: '착수계', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_착수계.docx', fileSize: '145 KB' },
+            { id: 'gt-init-2', projectType: 'operation', name: '사업수행계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_사업수행계획서.docx', fileSize: '320 KB' },
+            { id: 'gt-init-3', projectType: 'operation', name: '보안관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_보안관리계획서.docx', fileSize: '210 KB' },
+            { id: 'gt-init-4', projectType: 'operation', name: '품질보증계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_품질보증계획서.docx', fileSize: '185 KB' },
+            { id: 'gt-init-5', projectType: 'operation', name: '참여인력 현황', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_참여인력현황.xlsx', fileSize: '98 KB' },
+            { id: 'gt-init-6', projectType: 'operation', name: '비밀유지서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_비밀유지서약서.docx', fileSize: '112 KB' },
+
+            // ── 운영사업 수행단계 ──────────────────────────────────
+            { id: 'gt-exec-1', projectType: 'operation', name: '요구사항정의서', stage: 'execution', category: 'Requirements', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_요구사항정의서.xlsx', fileSize: '254 KB' },
+            { id: 'gt-exec-2', projectType: 'operation', name: '분석설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_분석설계서.docx', fileSize: '512 KB' },
+            { id: 'gt-exec-3', projectType: 'operation', name: '회의록', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_회의록_양식.docx', fileSize: '85 KB' },
+            { id: 'gt-exec-4', projectType: 'operation', name: '테스트계획서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_테스트계획서.docx', fileSize: '195 KB' },
+            { id: 'gt-exec-5', projectType: 'operation', name: '테스트결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_테스트결과서.xlsx', fileSize: '280 KB' },
+            { id: 'gt-exec-6', projectType: 'operation', name: '위험관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_위험관리대장.xlsx', fileSize: '95 KB' },
+            { id: 'gt-exec-7', projectType: 'operation', name: 'Action Item 관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_ActionItem관리대장.xlsx', fileSize: '105 KB' },
+
+            // ── 운영사업 종료단계 ──────────────────────────────────
+            { id: 'gt-close-1', projectType: 'operation', name: '완료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_완료보고서.docx', fileSize: '420 KB' },
+            { id: 'gt-close-2', projectType: 'operation', name: '최종보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_최종보고서.pdf', fileSize: '1.2 MB' },
+            { id: 'gt-close-3', projectType: 'operation', name: '검수확인서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_검수확인서.docx', fileSize: '90 KB' },
+            { id: 'gt-close-4', projectType: 'operation', name: '산출물 인계목록', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_산출물인계목록.xlsx', fileSize: '115 KB' },
+            { id: 'gt-close-5', projectType: 'operation', name: '보안점검 결과서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_보안점검결과서.docx', fileSize: '130 KB' },
+            { id: 'gt-close-6', projectType: 'operation', name: '종료계', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_종료계.docx', fileSize: '95 KB' },
+
+            // ── 구축사업 착수단계 ──────────────────────────────────
+            { id: 'gc-init-1', projectType: 'construction', name: '착수계', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_착수계.docx', fileSize: '145 KB' },
+            { id: 'gc-init-2', projectType: 'construction', name: '사업수행계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_사업수행계획서.docx', fileSize: '340 KB' },
+            { id: 'gc-init-3', projectType: 'construction', name: '보안관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_보안관리계획서.docx', fileSize: '210 KB' },
+            { id: 'gc-init-4', projectType: 'construction', name: '품질보증계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_품질보증계획서.docx', fileSize: '195 KB' },
+            { id: 'gc-init-5', projectType: 'construction', name: '형상관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_형상관리계획서.docx', fileSize: '175 KB' },
+            { id: 'gc-init-6', projectType: 'construction', name: '참여인력 현황', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_참여인력현황.xlsx', fileSize: '98 KB' },
+
+            // ── 구축사업 수행단계 ──────────────────────────────────
+            { id: 'gc-exec-1', projectType: 'construction', name: '요구사항정의서', stage: 'execution', category: 'Requirements', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_요구사항정의서.xlsx', fileSize: '275 KB' },
+            { id: 'gc-exec-2', projectType: 'construction', name: '시스템분석서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_시스템분석서.docx', fileSize: '580 KB' },
+            { id: 'gc-exec-3', projectType: 'construction', name: '설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_설계서.docx', fileSize: '620 KB' },
+            { id: 'gc-exec-4', projectType: 'construction', name: '단위테스트계획서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_단위테스트계획서.docx', fileSize: '200 KB' },
+            { id: 'gc-exec-5', projectType: 'construction', name: '통합테스트결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_통합테스트결과서.xlsx', fileSize: '310 KB' },
+            { id: 'gc-exec-6', projectType: 'construction', name: '회의록', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_회의록.docx', fileSize: '85 KB' },
+            { id: 'gc-exec-7', projectType: 'construction', name: '위험관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_위험관리대장.xlsx', fileSize: '100 KB' },
+
+            // ── 구축사업 종료단계 ──────────────────────────────────
+            { id: 'gc-close-1', projectType: 'construction', name: '완료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_완료보고서.docx', fileSize: '450 KB' },
+            { id: 'gc-close-2', projectType: 'construction', name: '사용자 매뉴얼', stage: 'closing', category: 'User Manual', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_사용자매뉴얼.docx', fileSize: '1.5 MB' },
+            { id: 'gc-close-3', projectType: 'construction', name: '운영자 매뉴얼', stage: 'closing', category: 'User Manual', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_운영자매뉴얼.docx', fileSize: '1.2 MB' },
+            { id: 'gc-close-4', projectType: 'construction', name: '검수확인서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_검수확인서.docx', fileSize: '90 KB' },
+            { id: 'gc-close-5', projectType: 'construction', name: '산출물 인계목록', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_산출물인계목록.xlsx', fileSize: '120 KB' },
+            { id: 'gc-close-6', projectType: 'construction', name: '종료계', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_종료계.docx', fileSize: '95 KB' },
+
+            // ── SW분리발주사업 착수단계 ────────────────────────────
+            { id: 'gs-init-1', projectType: 'sw-separate', name: '착수계', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_착수계.docx', fileSize: '145 KB' },
+            { id: 'gs-init-2', projectType: 'sw-separate', name: '사업수행계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_사업수행계획서.docx', fileSize: '330 KB' },
+            { id: 'gs-init-3', projectType: 'sw-separate', name: '분리발주 협업계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_협업계획서.docx', fileSize: '240 KB' },
+            { id: 'gs-init-4', projectType: 'sw-separate', name: '인터페이스 정의서', stage: 'initiation', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_인터페이스정의서.docx', fileSize: '280 KB' },
+            { id: 'gs-init-5', projectType: 'sw-separate', name: '보안관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_보안관리계획서.docx', fileSize: '210 KB' },
+            { id: 'gs-init-6', projectType: 'sw-separate', name: '참여인력 현황', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_참여인력현황.xlsx', fileSize: '98 KB' },
+
+            // ── SW분리발주사업 수행단계 ────────────────────────────
+            { id: 'gs-exec-1', projectType: 'sw-separate', name: '요구사항정의서', stage: 'execution', category: 'Requirements', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_요구사항정의서.xlsx', fileSize: '265 KB' },
+            { id: 'gs-exec-2', projectType: 'sw-separate', name: 'SW 기능명세서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_SW기능명세서.docx', fileSize: '430 KB' },
+            { id: 'gs-exec-3', projectType: 'sw-separate', name: '분리발주 검토결과서', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_분리발주검토결과서.docx', fileSize: '180 KB' },
+            { id: 'gs-exec-4', projectType: 'sw-separate', name: '단위/통합 테스트계획서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_테스트계획서.docx', fileSize: '210 KB' },
+            { id: 'gs-exec-5', projectType: 'sw-separate', name: '테스트결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_테스트결과서.xlsx', fileSize: '295 KB' },
+            { id: 'gs-exec-6', projectType: 'sw-separate', name: '회의록', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_회의록.docx', fileSize: '85 KB' },
+            { id: 'gs-exec-7', projectType: 'sw-separate', name: '이슈/위험 관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_위험관리대장.xlsx', fileSize: '100 KB' },
+
+            // ── SW분리발주사업 종료단계 ────────────────────────────
+            { id: 'gs-close-1', projectType: 'sw-separate', name: '완료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_완료보고서.docx', fileSize: '440 KB' },
+            { id: 'gs-close-2', projectType: 'sw-separate', name: '소프트웨어 납품목록', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_납품목록.xlsx', fileSize: '130 KB' },
+            { id: 'gs-close-3', projectType: 'sw-separate', name: '검수확인서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_검수확인서.docx', fileSize: '90 KB' },
+            { id: 'gs-close-4', projectType: 'sw-separate', name: '산출물 인계목록', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_산출물인계목록.xlsx', fileSize: '120 KB' },
+            { id: 'gs-close-5', projectType: 'sw-separate', name: '보안점검 결과서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_보안점검결과서.docx', fileSize: '130 KB' },
+            { id: 'gs-close-6', projectType: 'sw-separate', name: '종료계', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_종료계.docx', fileSize: '95 KB' },
+        ];
+    }
+
 
     // ============================================================
     //  MY ACCOUNT CENTER
