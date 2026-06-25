@@ -1142,17 +1142,27 @@
                         </button>
                     </div>
 
-                    <!-- Category Tab Buttons -->
-                    <div class="project-stage-tabs-container" style="margin-bottom: 20px;">
-                        <button class="project-stage-tab active" id="tab-temp-init" onclick="window.location.hash = '#artifacts/initiation'">
-                            <i data-lucide="file-text"></i> 착수단계 템플릿
+                    <!-- 1단계: 프로젝트 유형 탭 -->
+                    <div id="artifact-type-tabs" class="project-stage-tabs-container" style="margin-bottom: 10px;">
+                        <!-- Dynamic project type tabs -->
+                    </div>
+
+                    <!-- 2단계: 단계별 서브탭 -->
+                    <div id="artifact-stage-tabs" class="project-stage-tabs-container" style="margin-bottom: 20px; gap: 8px;">
+                        <button class="project-stage-tab active" id="tab-temp-init">
+                            <i data-lucide="file-text"></i> 착수단계
                         </button>
-                        <button class="project-stage-tab" id="tab-temp-exec" onclick="window.location.hash = '#artifacts/execution'">
-                            <i data-lucide="play-circle"></i> 수행단계 템플릿
+                        <button class="project-stage-tab" id="tab-temp-exec">
+                            <i data-lucide="play-circle"></i> 수행단계
                         </button>
-                        <button class="project-stage-tab" id="tab-temp-close" onclick="window.location.hash = '#artifacts/closing'">
-                            <i data-lucide="check-circle2"></i> 종료단계 템플릿
+                        <button class="project-stage-tab" id="tab-temp-close">
+                            <i data-lucide="check-circle2"></i> 종료단계
                         </button>
+                    </div>
+
+                    <!-- 현재 선택된 유형 표시 레이블 -->
+                    <div style="margin-bottom: 15px; font-weight: bold; font-size: 1.1rem; color: var(--text-main);">
+                        <span id="artifact-type-label">운영사업</span> 표준 템플릿
                     </div>
 
                     <!-- Templates Table -->

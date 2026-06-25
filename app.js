@@ -2900,8 +2900,18 @@ class AetherPMO {
                 this.switchView('projects');
             }
         } else if (mainRoute === 'artifacts') {
-            const type  = parts[1] || 'operation';
-            const stage = parts[2] || 'initiation';
+            let type = 'operation';
+            let stage = 'initiation';
+
+            // parts[1]이 stage 값인 경우 (구버전 URL 호환 및 사이드바 메뉴 지원)
+            if (['initiation', 'execution', 'closing'].includes(parts[1])) {
+                stage = parts[1];
+                type = this.activeGlobalTemplateType || 'operation';
+            } else {
+                type = parts[1] || this.activeGlobalTemplateType || 'operation';
+                stage = parts[2] || this.activeGlobalTemplateStage || 'initiation';
+            }
+
             this.activeGlobalTemplateType  = type;
             this.activeGlobalTemplateStage = stage;
             this.switchView('artifacts');
