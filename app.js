@@ -4081,10 +4081,14 @@ class AetherPMO {
             activeTab.classList.add('active');
         }
 
-        // Show/hide Admin CRUD triggers
+        // Show/hide Admin CRUD triggers based on email authorization
+        const hasTemplatePermission = this.currentUser && (
+            this.currentUser.email === 'pm@aetherpmo.com' ||
+            this.currentUser.email === 'admin@aetherpmo.com'
+        );
         const btnAdd = document.getElementById('btn-add-global-template');
         if (btnAdd) {
-            btnAdd.style.display = this.state.userRole === 'Admin' ? 'block' : 'none';
+            btnAdd.style.display = hasTemplatePermission ? 'block' : 'none';
         }
 
         const tbody = document.getElementById('global-templates-tbody');
@@ -4111,8 +4115,7 @@ class AetherPMO {
                 </div>
             `;
             
-            const isAdmin = this.state.userRole === 'Admin';
-            const actionHtml = isAdmin 
+            const actionHtml = hasTemplatePermission 
                 ? `
                     <div class="actions-flex" style="justify-content:center; gap:8px;">
                         <button class="btn btn-xs btn-outline" onclick="app.openEditGlobalTemplateModal('${temp.id}')">
@@ -7225,7 +7228,18 @@ class AetherPMO {
         this.showAttachedFileBadge(temp.fileName, temp.fileSize);
     }
 
+    checkTemplatePermission() {
+        return this.currentUser && (
+            this.currentUser.email === 'pm@aetherpmo.com' ||
+            this.currentUser.email === 'admin@aetherpmo.com'
+        );
+    }
+
     openNewGlobalTemplateModal() {
+        if (!this.checkTemplatePermission()) {
+            alert('권한이 없습니다. pm@aetherpmo.com 또는 admin@aetherpmo.com 계정만 산출물 템플릿을 등록/수정/삭제할 수 있습니다.');
+            return;
+        }
         document.getElementById('global-template-modal-title').textContent = '표준 템플릿 양식 등록';
         document.getElementById('global-template-form').reset();
         document.getElementById('global-template-id-field').value = '';
@@ -7240,6 +7254,10 @@ class AetherPMO {
     }
 
     openEditGlobalTemplateModal(id) {
+        if (!this.checkTemplatePermission()) {
+            alert('권한이 없습니다. pm@aetherpmo.com 또는 admin@aetherpmo.com 계정만 산출물 템플릿을 등록/수정/삭제할 수 있습니다.');
+            return;
+        }
         const temp = this.state.globalTemplates.find(t => t.id === id);
         if (!temp) return;
 
@@ -7261,6 +7279,10 @@ class AetherPMO {
     }
 
     saveGlobalTemplate() {
+        if (!this.checkTemplatePermission()) {
+            alert('권한이 없습니다. pm@aetherpmo.com 또는 admin@aetherpmo.com 계정만 산출물 템플릿을 등록/수정/삭제할 수 있습니다.');
+            return;
+        }
         const id = document.getElementById('global-template-id-field').value;
         const name = document.getElementById('global-template-name').value.trim();
         const stage = document.getElementById('global-template-stage').value;
@@ -7297,6 +7319,10 @@ class AetherPMO {
     }
 
     deleteGlobalTemplate(id) {
+        if (!this.checkTemplatePermission()) {
+            alert('권한이 없습니다. pm@aetherpmo.com 또는 admin@aetherpmo.com 계정만 산출물 템플릿을 등록/수정/삭제할 수 있습니다.');
+            return;
+        }
         const temp = this.state.globalTemplates.find(t => t.id === id);
         if (!temp) return;
 
