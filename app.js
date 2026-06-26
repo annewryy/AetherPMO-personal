@@ -16,6 +16,9 @@ class AetherPMO {
             actionItems: [],   // Action Items
             officialDocs: [],  // Official Documents
             meetingMinutes: [], // Meeting Minutes
+            globalTemplates: [],
+            projectMembers: [],
+            recentlyDownloaded: [],
             theme: 'dark'
         };
 
@@ -1339,6 +1342,9 @@ class AetherPMO {
             const stored = localStorage.getItem('aether_pms_state');
             if (stored) {
                 this.state = JSON.parse(stored);
+                if (!this.state.globalTemplates) this.state.globalTemplates = [];
+                if (!this.state.projectMembers) this.state.projectMembers = [];
+                if (!this.state.recentlyDownloaded) this.state.recentlyDownloaded = [];
             } else {
                 this.loadMockData();
             }
@@ -8601,6 +8607,9 @@ class AetherPMO {
                     }
                 }
 
+                if (!this.state.globalTemplates) {
+                    this.state.globalTemplates = [];
+                }
                 this.state.globalTemplates.push({
                     id: newId, name, stage, projectType, category, version, 
                     fileName: finalFileName, fileSize: finalFileSize, 
