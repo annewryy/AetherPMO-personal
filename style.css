@@ -2371,6 +2371,11 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
     font-size: 11px;
     font-weight: 700;
     color: var(--text-main);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.file-name-link:hover {
     text-decoration: underline;
 }
 

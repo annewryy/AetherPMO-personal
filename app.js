@@ -1189,7 +1189,7 @@ class AetherPMO {
                     projectType: a.project_type,
                     fileName: a.file_name,
                     fileSize: a.file_size,
-                    filePath: a.file_path,
+                    filePath: a.file_path || a.storage_path,
                     mimeType: a.mime_type,
                     author: a.author || '미지정',
                     downloadCount: a.download_count || 0,
@@ -4733,14 +4733,14 @@ class AetherPMO {
 
                 const downloadHtml = `
                     <div style="display:flex; flex-direction:column; gap:2px; justify-content:center; text-align:left; width: 100%; overflow:hidden;">
-                        <div style="display:flex; align-items:center; gap:4px; width:100%; overflow:hidden;">
-                            <i data-lucide="download" class="text-primary" style="width:13px; height:13px; flex-shrink:0;"></i>
-                            <a href="#" class="file-name-link font-bold text-xs text-ellipsis" style="max-width: calc(100% - 20px);" title="${temp.fileName}" onclick="event.preventDefault(); event.stopPropagation(); app.downloadGlobalTemplate('${temp.id}'); return false;">
+                        <div style="display:flex; align-items:center; gap:6px; width:100%; overflow:hidden;">
+                            <a href="#" class="file-name-link font-bold text-xs text-ellipsis" style="max-width: calc(100% - 35px); cursor: pointer;" title="파일 다운로드" onclick="event.preventDefault(); event.stopPropagation(); app.downloadGlobalTemplate('${temp.id}'); return false;">
                                 ${temp.fileName}
                             </a>
+                            <i data-lucide="download" class="text-primary" style="width:13px; height:13px; flex-shrink:0; cursor: pointer;" title="파일 다운로드" onclick="event.stopPropagation(); app.downloadGlobalTemplate('${temp.id}');"></i>
                             ${previewBtn}
                         </div>
-                        <span class="text-xs text-muted hide-mobile" style="font-size:10px; margin-left:17px;">${temp.fileSize}</span>
+                        <span class="text-xs text-muted hide-mobile" style="font-size:10px; margin-left:0px;">${temp.fileSize}</span>
                     </div>
                 `;
 
@@ -7964,9 +7964,10 @@ class AetherPMO {
             return;
         }
 
-        if (!temp.filePath) {
-            console.warn('[downloadGlobalTemplate] filePath가 없는 템플릿:', temp);
-            this.showToast('이 템플릿에는 연결된 파일이 없습니다.', 'error');
+        // 파일명 또는 file_path가 없을 경우
+        if (!temp.fileName || !temp.filePath) {
+            console.warn('[downloadGlobalTemplate] 파일명 또는 filePath가 없는 템플릿:', temp);
+            this.showToast('등록된 파일이 없습니다.', 'error');
             return;
         }
 
@@ -7990,15 +7991,6 @@ class AetherPMO {
         if (!this.state.recentlyDownloaded.includes(temp.id)) {
             this.state.recentlyDownloaded.push(temp.id);
         }
-
-        // 다운로드 횟수 +1 (DB 비동기 업데이트)
-        const newCount = (temp.downloadCount || 0) + 1;
-        temp.downloadCount = newCount;
-        supabase
-            .from('artifacts')
-            .update({ download_count: newCount })
-            .eq('id', temp.id)
-            .catch(err => console.error('[downloadGlobalTemplate] download_count 업데이트 실패:', err));
 
         try {
             // ① Signed URL 발급 (300초 유효)
@@ -8031,6 +8023,20 @@ class AetherPMO {
 
             // ④ 10초 후 메모리 해제 (즉시 해제하면 다운로드 취소됨)
             setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+
+            // ⑤ 다운로드 성공 시 download_count를 +1 증가시킵니다.
+            const newCount = (temp.downloadCount || 0) + 1;
+            temp.downloadCount = newCount;
+            
+            // DB 비동기 업데이트
+            try {
+                await supabase
+                    .from('artifacts')
+                    .update({ download_count: newCount })
+                    .eq('id', temp.id);
+            } catch (dbErr) {
+                console.error('[downloadGlobalTemplate] download_count 업데이트 실패:', dbErr);
+            }
 
             this.showToast('템플릿 다운로드가 시작되었습니다.', 'success');
             console.log('[downloadGlobalTemplate] 다운로드 성공:', temp.fileName);
