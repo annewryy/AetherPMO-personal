@@ -2563,15 +2563,21 @@
                     <label for="global-template-version">버전 <span class="required">*</span></label>
                     <input type="text" id="global-template-version" required value="v1.0.0">
                 </div>
+
+                <div class="form-group mt-3">
+                    <label for="global-template-file-input">템플릿 파일 <span class="required" id="file-input-required">*</span></label>
+                    <input type="file" id="global-template-file-input" accept=".docx,.xlsx,.pptx,.pdf" onchange="app.handleTemplateFileChange(event)">
+                    <div id="global-template-file-info" class="text-xs text-muted mt-1" style="display:none; color: var(--text-muted);"></div>
+                </div>
                 
                 <div class="form-group mt-3">
                     <label for="global-template-filename">다운로드 파일명 <span class="required">*</span></label>
-                    <input type="text" id="global-template-filename" required placeholder="예: 공공SI_표준_착수계.docx">
+                    <input type="text" id="global-template-filename" required readonly placeholder="파일을 선택하면 자동 입력됩니다.">
                 </div>
                 
                 <div class="form-group mt-3">
                     <label for="global-template-filesize">파일 크기 <span class="required">*</span></label>
-                    <input type="text" id="global-template-filesize" required value="120 KB">
+                    <input type="text" id="global-template-filesize" required readonly placeholder="파일을 선택하면 자동 입력됩니다.">
                 </div>
 
                 <div class="form-group mt-3">

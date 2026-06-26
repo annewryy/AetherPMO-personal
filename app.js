@@ -1129,23 +1129,43 @@ class AetherPMO {
                 }
             });
 
-            this.state.artifacts = (artifacts || []).map(a => ({
-                id: a.id,
-                projectId: a.project_id,
-                name: a.name,
-                category: a.category,
-                version: a.version,
-                description: a.description,
-                author: a.author,
-                authorId: a.author_id,
-                reviewer: a.reviewer,
-                approver: a.approver,
-                dueDate: a.due_date,
-                submitDate: a.submit_date,
-                status: a.status,
-                fileName: a.file_name,
-                fileSize: a.file_size
-            }));
+            // 템플릿 데이터만 분리하여 globalTemplates에 매핑
+            this.state.globalTemplates = (artifacts || [])
+                .filter(a => a.is_template === true)
+                .map(a => ({
+                    id: a.id,
+                    name: a.name,
+                    category: a.category,
+                    version: a.version,
+                    stage: a.stage,
+                    projectType: a.project_type,
+                    fileName: a.file_name,
+                    fileSize: a.file_size,
+                    filePath: a.file_path,
+                    mimeType: a.mime_type,
+                    modifiedDate: a.submit_date || (a.created_at ? a.created_at.split('T')[0] : '')
+                }));
+
+            // 일반 프로젝트 산출물 데이터만 artifacts에 매핑
+            this.state.artifacts = (artifacts || [])
+                .filter(a => !a.is_template)
+                .map(a => ({
+                    id: a.id,
+                    projectId: a.project_id,
+                    name: a.name,
+                    category: a.category,
+                    version: a.version,
+                    description: a.description,
+                    author: a.author,
+                    authorId: a.author_id,
+                    reviewer: a.reviewer,
+                    approver: a.approver,
+                    dueDate: a.due_date,
+                    submitDate: a.submit_date,
+                    status: a.status,
+                    fileName: a.file_name,
+                    fileSize: a.file_size
+                }));
 
             this.state.checklists = (checklists || []).map(c => ({
                 id: c.id,
@@ -1218,7 +1238,10 @@ class AetherPMO {
             }));
 
             this.state.theme = 'dark';
-            this.state.globalTemplates = this.getDefaultGlobalTemplates();
+            // DB에서 로드된 globalTemplates가 비어있을 때만 목 데이터를 설정
+            if (!this.state.globalTemplates || this.state.globalTemplates.length === 0) {
+                this.state.globalTemplates = this.getDefaultGlobalTemplates();
+            }
 
             console.log('[Supabase] Database state loaded successfully.');
 
@@ -7239,7 +7262,35 @@ class AetherPMO {
         }
     }
 
-    downloadGlobalTemplate(id) {
+    formatBytes(bytes, decimals = 2) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
+
+    handleTemplateFileChange(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const allowedExts = ['docx', 'xlsx', 'pptx', 'pdf'];
+        const fileExt = file.name.split('.').pop().toLowerCase();
+        if (!allowedExts.includes(fileExt)) {
+            alert('지원하지 않는 파일 형식입니다. docx, xlsx, pptx, pdf 형식만 업로드 가능합니다.');
+            event.target.value = '';
+            return;
+        }
+
+        const nameInput = document.getElementById('global-template-filename');
+        if (nameInput) nameInput.value = file.name;
+
+        const sizeInput = document.getElementById('global-template-filesize');
+        if (sizeInput) sizeInput.value = this.formatBytes(file.size);
+    }
+
+    async downloadGlobalTemplate(id) {
         const temp = this.state.globalTemplates.find(t => t.id === id);
         if (!temp) return;
 
@@ -7253,7 +7304,36 @@ class AetherPMO {
         }
         this.saveState();
 
-        alert(`[다운로드 완료] 공공 SI 표준 템플릿 파일이 성공적으로 다운로드되었습니다.\n\n파일명: ${temp.fileName}\n파일 크기: ${temp.fileSize}\n\n다운로드한 파일은 각 프로젝트 상세화면의 '산출물 등록' 시 불러와 사용할 수 있습니다.`);
+        if (this.useSupabase && temp.filePath) {
+            try {
+                const { data, error } = await this.supabase.storage
+                    .from('artifact-templates')
+                    .createSignedUrl(temp.filePath, 60, {
+                        download: temp.fileName
+                    });
+
+                if (error) {
+                    throw error;
+                }
+
+                if (data && data.signedUrl) {
+                    const link = document.createElement('a');
+                    link.href = data.signedUrl;
+                    link.download = temp.fileName;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    this.showToast('템플릿 다운로드가 시작되었습니다.', 'success');
+                } else {
+                    throw new Error('다운로드 URL을 생성할 수 없습니다.');
+                }
+            } catch (err) {
+                console.error('Download template error:', err);
+                this.showToast('템플릿 다운로드 실패: ' + err.message, 'error');
+            }
+        } else {
+            alert(`[다운로드 완료] 공공 SI 표준 템플릿 파일이 성공적으로 다운로드되었습니다.\n\n파일명: ${temp.fileName}\n파일 크기: ${temp.fileSize}\n\n다운로드한 파일은 각 프로젝트 상세화면의 '산출물 등록' 시 불러와 사용할 수 있습니다.`);
+        }
         
         this.renderArtifacts();
     }
@@ -7291,10 +7371,10 @@ class AetherPMO {
     }
 
     checkTemplatePermission() {
-        return this.currentUser && (
-            this.currentUser.email === 'pm@aetherpmo.com' ||
-            this.currentUser.email === 'admin@aetherpmo.com'
-        );
+        if (!this.currentUser) return false;
+        const hasRole = this.currentUser.role === 'SYS_ADMIN' || this.currentUser.role === 'PM';
+        const hasEmail = this.currentUser.email === 'pm@aetherpmo.com' || this.currentUser.email === 'admin@aetherpmo.com';
+        return hasRole || hasEmail;
     }
 
     openNewGlobalTemplateModal() {
@@ -7310,8 +7390,20 @@ class AetherPMO {
         document.getElementById('global-template-stage').value = this.activeGlobalTemplateStage || 'initiation';
         document.getElementById('global-template-category').value = 'Etc';
         document.getElementById('global-template-version').value = 'v1.0.0';
-        document.getElementById('global-template-filesize').value = '120 KB';
+        document.getElementById('global-template-filename').value = '';
+        document.getElementById('global-template-filesize').value = '';
         document.getElementById('global-template-date').value = this.getFormattedDateTime().split(' ')[0];
+
+        // 파일 입력 리셋 및 필수로 설정
+        const fileInput = document.getElementById('global-template-file-input');
+        if (fileInput) {
+            fileInput.value = '';
+            fileInput.required = true;
+        }
+        const fileReq = document.getElementById('file-input-required');
+        if (fileReq) fileReq.style.display = 'inline';
+        const fileInfo = document.getElementById('global-template-file-info');
+        if (fileInfo) fileInfo.style.display = 'none';
 
         document.getElementById('global-template-modal').classList.add('open');
     }
@@ -7335,6 +7427,20 @@ class AetherPMO {
         document.getElementById('global-template-filesize').value = temp.fileSize;
         document.getElementById('global-template-date').value = temp.modifiedDate;
 
+        // 수정 시 파일 입력은 선택으로 설정
+        const fileInput = document.getElementById('global-template-file-input');
+        if (fileInput) {
+            fileInput.value = '';
+            fileInput.required = false;
+        }
+        const fileReq = document.getElementById('file-input-required');
+        if (fileReq) fileReq.style.display = 'none';
+        const fileInfo = document.getElementById('global-template-file-info');
+        if (fileInfo) {
+            fileInfo.textContent = temp.filePath ? `기존 파일: ${temp.fileName} (${temp.fileSize})` : '등록된 파일 없음';
+            fileInfo.style.display = 'block';
+        }
+
         document.getElementById('global-template-modal').classList.add('open');
     }
 
@@ -7342,7 +7448,7 @@ class AetherPMO {
         document.getElementById('global-template-modal').classList.remove('open');
     }
 
-    saveGlobalTemplate() {
+    async saveGlobalTemplate() {
         if (!this.checkTemplatePermission()) {
             alert('권한이 없습니다. pm@aetherpmo.com 또는 admin@aetherpmo.com 계정만 산출물 템플릿을 등록/수정/삭제할 수 있습니다.');
             return;
@@ -7362,28 +7468,123 @@ class AetherPMO {
             return;
         }
 
-        if (id) {
-            const index = this.state.globalTemplates.findIndex(t => t.id === id);
-            if (index !== -1) {
-                this.state.globalTemplates[index] = {
-                    id, name, stage, projectType, category, version, fileName, fileSize, modifiedDate
-                };
-                this.addActivityLog(null, null, 'artifact', `템플릿 수정: ${name} (${version})`);
-            }
-        } else {
-            const newId = `gt-${Date.now()}`;
-            this.state.globalTemplates.push({
-                id: newId, name, stage, projectType, category, version, fileName, fileSize, modifiedDate
-            });
-            this.addActivityLog(null, null, 'artifact', `새 템플릿 등록: ${name} (${version})`);
+        const fileInput = document.getElementById('global-template-file-input');
+        const file = fileInput ? fileInput.files[0] : null;
+
+        // 신규 등록인데 파일이 없는 경우 경고
+        if (!id && !file) {
+            alert('신규 등록 시 템플릿 파일을 업로드해 주세요.');
+            return;
         }
 
-        this.saveState();
-        this.closeGlobalTemplateModal();
-        this.renderArtifacts();
+        let filePath = '';
+        let mimeType = '';
+        let finalFileName = fileName;
+        let finalFileSize = fileSize;
+
+        try {
+            if (file) {
+                const fileExt = file.name.split('.').pop();
+                filePath = `templates/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+                mimeType = file.type;
+                finalFileName = file.name;
+                finalFileSize = this.formatBytes(file.size);
+
+                // Supabase Storage 업로드
+                if (this.useSupabase) {
+                    const { data: uploadData, error: uploadErr } = await this.supabase.storage
+                        .from('artifact-templates')
+                        .upload(filePath, file);
+
+                    if (uploadErr) {
+                        throw uploadErr;
+                    }
+                }
+            }
+
+            const dbData = {
+                name: name,
+                category: category,
+                version: version,
+                submit_date: modifiedDate,
+                file_name: finalFileName,
+                file_size: finalFileSize,
+                stage: stage,
+                project_type: projectType,
+                file_path: file ? filePath : (id ? this.state.globalTemplates.find(t => t.id === id)?.filePath : ''),
+                mime_type: file ? mimeType : (id ? this.state.globalTemplates.find(t => t.id === id)?.mimeType : ''),
+                is_template: true,
+                status: 'Approved'
+            };
+
+            if (id) {
+                if (this.useSupabase) {
+                    // 파일이 교체된 경우 기존 파일 제거
+                    if (file) {
+                        const oldTemp = this.state.globalTemplates.find(t => t.id === id);
+                        if (oldTemp && oldTemp.filePath) {
+                            await this.supabase.storage.from('artifact-templates').remove([oldTemp.filePath]);
+                        }
+                    }
+
+                    const { error: dbErr } = await this.supabase
+                        .from('artifacts')
+                        .update(dbData)
+                        .eq('id', id);
+
+                    if (dbErr) {
+                        throw dbErr;
+                    }
+                }
+
+                // 로컬 상태 갱신
+                const index = this.state.globalTemplates.findIndex(t => t.id === id);
+                if (index !== -1) {
+                    this.state.globalTemplates[index] = {
+                        id, name, stage, projectType, category, version, 
+                        fileName: finalFileName, fileSize: finalFileSize, 
+                        filePath: dbData.file_path, mimeType: dbData.mime_type, 
+                        modifiedDate
+                    };
+                    this.addActivityLog(null, null, 'artifact', `템플릿 수정: ${name} (${version})`);
+                }
+                this.showToast('템플릿이 성공적으로 수정되었습니다.', 'success');
+            } else {
+                let newId = `gt-${Date.now()}`;
+                if (this.useSupabase) {
+                    const { data: inserted, error: dbErr } = await this.supabase
+                        .from('artifacts')
+                        .insert([dbData])
+                        .select();
+
+                    if (dbErr) {
+                        throw dbErr;
+                    }
+                    if (inserted && inserted.length > 0) {
+                        newId = inserted[0].id;
+                    }
+                }
+
+                this.state.globalTemplates.push({
+                    id: newId, name, stage, projectType, category, version, 
+                    fileName: finalFileName, fileSize: finalFileSize, 
+                    filePath: dbData.file_path, mimeType: dbData.mime_type, 
+                    modifiedDate
+                });
+                this.addActivityLog(null, null, 'artifact', `새 템플릿 등록: ${name} (${version})`);
+                this.showToast('새 템플릿이 등록되었습니다.', 'success');
+            }
+
+            this.saveState();
+            this.closeGlobalTemplateModal();
+            this.renderArtifacts();
+        } catch (err) {
+            console.error('Save template error:', err);
+            this.showToast('템플릿 저장 실패: ' + err.message, 'error');
+        }
     }
 
-    deleteGlobalTemplate(id) {
+    async deleteGlobalTemplate(id) {
         if (!this.checkTemplatePermission()) {
             alert('권한이 없습니다. pm@aetherpmo.com 또는 admin@aetherpmo.com 계정만 산출물 템플릿을 등록/수정/삭제할 수 있습니다.');
             return;
@@ -7392,13 +7593,43 @@ class AetherPMO {
         if (!temp) return;
 
         if (confirm(`템플릿 양식 [${temp.name}]을 정말로 삭제하시겠습니까?\n이 작업은 되돌릴 수 없으며, 모든 사용자 화면에서 삭제됩니다.`)) {
-            this.state.globalTemplates = this.state.globalTemplates.filter(t => t.id !== id);
-            if (this.state.recentlyDownloaded) {
-                this.state.recentlyDownloaded = this.state.recentlyDownloaded.filter(rid => rid !== id);
+            try {
+                if (this.useSupabase) {
+                    // Storage 파일 삭제
+                    if (temp.filePath) {
+                        const { error: storageErr } = await this.supabase.storage
+                            .from('artifact-templates')
+                            .remove([temp.filePath]);
+
+                        if (storageErr) {
+                            console.warn('Storage file deletion warning:', storageErr);
+                        }
+                    }
+
+                    // DB Row 삭제
+                    const { error: dbErr } = await this.supabase
+                        .from('artifacts')
+                        .delete()
+                        .eq('id', id);
+
+                    if (dbErr) {
+                        throw dbErr;
+                    }
+                }
+
+                // 로컬 상태 갱신
+                this.state.globalTemplates = this.state.globalTemplates.filter(t => t.id !== id);
+                if (this.state.recentlyDownloaded) {
+                    this.state.recentlyDownloaded = this.state.recentlyDownloaded.filter(rid => rid !== id);
+                }
+                this.addActivityLog(null, null, 'artifact', `템플릿 삭제: ${temp.name}`);
+                this.saveState();
+                this.renderArtifacts();
+                this.showToast('템플릿이 성공적으로 삭제되었습니다.', 'success');
+            } catch (err) {
+                console.error('Delete template error:', err);
+                this.showToast('템플릿 삭제 실패: ' + err.message, 'error');
             }
-            this.addActivityLog(null, null, 'artifact', `템플릿 삭제: ${temp.name}`);
-            this.saveState();
-            this.renderArtifacts();
         }
     }
 
