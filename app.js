@@ -100,21 +100,11 @@ class AetherPMO {
     }
 
     async init() {
+        await this.loadState();
         this.setupEventListeners();
         
-        // Check authentication state first
-        const isAuthenticated = await this.checkAuth();
-        
-        if (isAuthenticated) {
-            await this.loadState();
-        } else {
-            // If not authenticated, load mock/localStorage state temporarily so layout renders
-            if (this.useSupabase) {
-                this.loadMockData();
-            } else {
-                await this.loadState();
-            }
-        }
+        // Check authentication state
+        await this.checkAuth();
         
         await this.handleRouting();
         this.updateCurrentDateDisplay();
@@ -1336,6 +1326,7 @@ class AetherPMO {
 
         } catch (e) {
             console.error('[Supabase] Failed loading state from database. Falling back to LocalStorage.', e);
+            this.useSupabase = false;
             const stored = localStorage.getItem('aether_pms_state');
             if (stored) {
                 this.state = JSON.parse(stored);
