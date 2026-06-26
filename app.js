@@ -7970,64 +7970,74 @@ class AetherPMO {
             return;
         }
 
+        // this.useSupabase 상태와 무관하게 window.SUPABASE_CONFIG로 클라이언트 확보
+        const supabase = this.supabase || (() => {
+            const cfg = window.SUPABASE_CONFIG;
+            if (cfg && cfg.url && cfg.anonKey && typeof window.supabase !== 'undefined') {
+                return window.supabase.createClient(cfg.url, cfg.anonKey);
+            }
+            return null;
+        })();
+
+        if (!supabase) {
+            this.showToast('Supabase가 초기화되지 않았습니다. 새로고침 후 다시 시도해주세요.', 'error');
+            console.error('[downloadGlobalTemplate] Supabase 클라이언트 없음. window.SUPABASE_CONFIG:', window.SUPABASE_CONFIG);
+            return;
+        }
+
         this.addActivityLog(null, null, 'artifact', `표준 템플릿 다운로드: ${temp.name} (${temp.fileName})`);
         if (!this.state.recentlyDownloaded) this.state.recentlyDownloaded = [];
         if (!this.state.recentlyDownloaded.includes(temp.id)) {
             this.state.recentlyDownloaded.push(temp.id);
         }
 
-        // 다운로드 횟수 증가 (DB 비동기 업데이트)
+        // 다운로드 횟수 +1 (DB 비동기 업데이트)
         const newCount = (temp.downloadCount || 0) + 1;
         temp.downloadCount = newCount;
-        if (this.useSupabase) {
-            this.supabase
-                .from('artifacts')
-                .update({ download_count: newCount })
-                .eq('id', temp.id)
-                .catch(err => console.error('[downloadGlobalTemplate] download_count 업데이트 실패:', err));
-        }
+        supabase
+            .from('artifacts')
+            .update({ download_count: newCount })
+            .eq('id', temp.id)
+            .catch(err => console.error('[downloadGlobalTemplate] download_count 업데이트 실패:', err));
 
-        if (this.useSupabase) {
-            try {
-                // ZIP 다운로드와 동일한 방식: SignedURL 발급 → fetch → Blob 생성 → 로컬 저장
-                const { data, error } = await this.supabase.storage
-                    .from('artifact-templates')
-                    .createSignedUrl(temp.filePath, 300);
+        try {
+            // ① Signed URL 발급 (300초 유효)
+            const { data, error } = await supabase.storage
+                .from('artifact-templates')
+                .createSignedUrl(temp.filePath, 300);
 
-                if (error || !data || !data.signedUrl) {
-                    throw new Error(error ? error.message : 'Signed URL 발급 실패');
-                }
-
-                console.log('[downloadGlobalTemplate] Signed URL 발급 성공, fetch 시작...');
-                const response = await fetch(data.signedUrl);
-                if (!response.ok) {
-                    throw new Error(`파일 요청 실패 (HTTP ${response.status})`);
-                }
-
-                const blob = await response.blob();
-                const blobUrl = URL.createObjectURL(blob);
-
-                // <a> 태그로 로컬 저장 트리거
-                const link = document.createElement('a');
-                link.href = blobUrl;
-                link.download = temp.fileName || temp.name || 'template';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-
-                // 다운로드 시작 후 10초 뒤 URL 해제 (즉시 해제 시 다운로드 취소됨)
-                setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-
-                this.showToast('템플릿 다운로드가 시작되었습니다.', 'success');
-                console.log('[downloadGlobalTemplate] 다운로드 성공:', temp.fileName);
-
-            } catch (err) {
-                console.error('[downloadGlobalTemplate] 개별 템플릿 다운로드 실패:', err);
-                this.showToast('파일 다운로드에 실패했습니다: ' + (err.message || err), 'error');
+            if (error || !data?.signedUrl) {
+                throw new Error(error ? error.message : 'Signed URL 발급 실패');
             }
-        } else {
-            // 로컬 모드 (Supabase 미연결 시)
-            alert(`[다운로드] 파일명: ${temp.fileName}\n크기: ${temp.fileSize}\n\n※ 로컬 모드에서는 실제 파일 다운로드가 지원되지 않습니다.`);
+
+            console.log('[downloadGlobalTemplate] Signed URL 발급 성공, 파일 fetch 시작...');
+
+            // ② fetch → Blob 변환 (window.open 미사용 → 로컬 저장 폴더에 저장)
+            const response = await fetch(data.signedUrl);
+            if (!response.ok) {
+                throw new Error(`파일 요청 실패 (HTTP ${response.status})`);
+            }
+
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+
+            // ③ <a download> 트리거로 PC 다운로드 폴더에 저장
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = temp.fileName || temp.name || 'template';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // ④ 10초 후 메모리 해제 (즉시 해제하면 다운로드 취소됨)
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+
+            this.showToast('템플릿 다운로드가 시작되었습니다.', 'success');
+            console.log('[downloadGlobalTemplate] 다운로드 성공:', temp.fileName);
+
+        } catch (err) {
+            console.error('[downloadGlobalTemplate] 다운로드 실패:', err);
+            this.showToast('파일 다운로드에 실패했습니다.', 'error');
         }
 
         this.saveState();
