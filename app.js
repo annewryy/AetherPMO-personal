@@ -1190,6 +1190,7 @@ class AetherPMO {
                     fileName: a.file_name,
                     fileSize: a.file_size,
                     filePath: a.file_path || a.storage_path,
+                    storagePath: a.storage_path || a.file_path,
                     mimeType: a.mime_type,
                     author: a.author || '미지정',
                     downloadCount: a.download_count || 0,
@@ -7971,6 +7972,13 @@ class AetherPMO {
             return;
         }
 
+        console.log('[downloadGlobalTemplate] 다운로드 프로세스 시작');
+        console.log('- templateId:', id);
+        console.log('- template.file_name:', temp.fileName);
+        console.log('- template.file_path (mapped):', temp.filePath);
+        console.log('- template.storage_path (raw):', temp.storagePath);
+        console.log('- 사용 중인 bucket name: artifact-templates');
+
         // this.useSupabase 상태와 무관하게 window.SUPABASE_CONFIG로 클라이언트 확보
         const supabase = this.supabase || (() => {
             const cfg = window.SUPABASE_CONFIG;
@@ -7994,20 +8002,30 @@ class AetherPMO {
 
         try {
             // ① Signed URL 발급 (300초 유효)
+            console.log('[downloadGlobalTemplate] createSignedUrl 호출 시도...');
             const { data, error } = await supabase.storage
                 .from('artifact-templates')
                 .createSignedUrl(temp.filePath, 300);
 
-            if (error || !data?.signedUrl) {
-                throw new Error(error ? error.message : 'Signed URL 발급 실패');
+            if (error) {
+                console.error('- createSignedUrl 결과 error:', error);
+                throw error;
+            }
+            if (!data?.signedUrl) {
+                console.error('- createSignedUrl 결과 signedUrl 없음');
+                throw new Error('Signed URL 발급 실패 (signedUrl is empty)');
             }
 
-            console.log('[downloadGlobalTemplate] Signed URL 발급 성공, 파일 fetch 시작...');
+            console.log('- createSignedUrl 성공, signedUrl:', data.signedUrl);
 
             // ② fetch → Blob 변환 (window.open 미사용 → 로컬 저장 폴더에 저장)
+            console.log('[downloadGlobalTemplate] fetch(signedUrl) 호출 시도...');
             const response = await fetch(data.signedUrl);
+            console.log('- fetch(signedUrl) response.status:', response.status);
+            console.log('- fetch(signedUrl) response.statusText:', response.statusText);
+
             if (!response.ok) {
-                throw new Error(`파일 요청 실패 (HTTP ${response.status})`);
+                throw new Error(`파일 요청 실패 (HTTP ${response.status} ${response.statusText})`);
             }
 
             const blob = await response.blob();
@@ -8030,10 +8048,15 @@ class AetherPMO {
             
             // DB 비동기 업데이트
             try {
-                await supabase
+                const { error: dbErr } = await supabase
                     .from('artifacts')
                     .update({ download_count: newCount })
                     .eq('id', temp.id);
+                if (dbErr) {
+                    console.error('[downloadGlobalTemplate] download_count 업데이트 실패:', dbErr);
+                } else {
+                    console.log('[downloadGlobalTemplate] download_count 업데이트 성공:', newCount);
+                }
             } catch (dbErr) {
                 console.error('[downloadGlobalTemplate] download_count 업데이트 실패:', dbErr);
             }
