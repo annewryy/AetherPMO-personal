@@ -7520,68 +7520,132 @@ class AetherPMO {
         const filterProj = projFilter.value;
         const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
+
+
         const filtered = (this.state.meetingMinutes || []).filter(meet => {
+
             const project = this.state.projects.find(p => p.id === meet.projectId);
+
             const isProjectActive = project && (project.status === 'In Progress' || project.status === 'On Hold' || project.status === 'Delay');
 
+
+
             const matchProj = filterProj === 'all' ? isProjectActive : meet.projectId === filterProj;
+
             const matchQuery = !query || 
+
                 meet.title.toLowerCase().includes(query) || 
+
                 meet.agenda.toLowerCase().includes(query) || 
+
                 meet.location.toLowerCase().includes(query);
 
+
+
             return matchProj && matchQuery;
+
         });
+
+
 
         if (filtered.length === 0) {
+
             container.innerHTML = '<div class="span-2 text-center text-muted py-5" style="grid-column:1/-1;">등록된 회의록이 없습니다.</div>';
+
             return;
+
         }
 
+
+
         container.innerHTML = '';
+
         filtered.forEach(meet => {
+
             const project = this.state.projects.find(p => p.id === meet.projectId);
+
             const card = document.createElement('div');
+
             card.className = 'dashboard-card';
+
             card.style.display = 'flex';
+
             card.style.flexDirection = 'column';
+
             card.style.gap = '10px';
+
             card.innerHTML = `
+
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+
                     <span class="badge-cat cat-report" style="font-size:10px; padding:2px 6px;">${project ? project.name : '-'}</span>
+
                     <span class="text-xs text-muted font-bold">${meet.meetDate.replace('T', ' ')}</span>
+
                 </div>
+
                 <h3 class="font-bold text-sm" style="margin:4px 0;">${meet.title}</h3>
+
                 <div style="font-size:11px; display:flex; flex-direction:column; gap:4px; color:var(--text-muted);">
+
                     <div><i data-lucide="map-pin" style="width:11px; height:11px; display:inline-block; vertical-align:middle; margin-right:4px;"></i>${meet.location}</div>
+
                     <div><i data-lucide="users" style="width:11px; height:11px; display:inline-block; vertical-align:middle; margin-right:4px;"></i>${meet.attendees}</div>
+
                 </div>
+
                 <div style="border-top: 1px solid var(--bg-card-border); padding-top:8px; margin-top:4px; display:flex; justify-content:flex-end; gap:6px;">
+
                     <button class="btn btn-xs btn-outline" onclick="app.openMeetingMinutesDetailModal('${meet.id}')">보기</button>
+
                     <button class="btn btn-xs btn-outline" onclick="app.openEditMeetingMinutesModal('${meet.id}')">수정</button>
+
                     <button class="btn btn-xs btn-danger" onclick="app.deleteMeetingMinutes('${meet.id}')">삭제</button>
+
                 </div>
+
             `;
+
             container.appendChild(card);
+
         });
+
+
 
         this.applyRolePermissions();
 
+
+
         if (typeof lucide !== 'undefined') {
+
             lucide.createIcons();
+
         }
+
     }
+
+
 
     openNewMeetingMinutesModalFromDetail() {
+
         this.openNewMeetingMinutesModal(this.activeProjectId);
+
     }
 
+
+
     openNewMeetingMinutesModal(fixedProjectId = null) {
+
         document.getElementById('meeting-minutes-modal-title').textContent = '새 회의록 등록';
+
         document.getElementById('meeting-minutes-form').reset();
+
         document.getElementById('meeting-minutes-id-field').value = '';
+
         
+
         const projSelect = document.getElementById('meeting-minutes-project-select');
+
         projSelect.innerHTML = '';
         this.state.projects.forEach(p => {
             const opt = document.createElement('option');
@@ -7900,73 +7964,70 @@ class AetherPMO {
             return;
         }
 
-        this.addActivityLog(null, null, 'artifact', `표준 템플릿 다운로드: ${temp.name} (${temp.fileName})`);
+        if (!temp.filePath) {
+            console.warn('[downloadGlobalTemplate] filePath가 없는 템플릿:', temp);
+            this.showToast('이 템플릿에는 연결된 파일이 없습니다.', 'error');
+            return;
+        }
 
+        this.addActivityLog(null, null, 'artifact', `표준 템플릿 다운로드: ${temp.name} (${temp.fileName})`);
         if (!this.state.recentlyDownloaded) this.state.recentlyDownloaded = [];
         if (!this.state.recentlyDownloaded.includes(temp.id)) {
             this.state.recentlyDownloaded.push(temp.id);
         }
 
-        // 다운로드 횟수 증가
+        // 다운로드 횟수 증가 (DB 비동기 업데이트)
         const newCount = (temp.downloadCount || 0) + 1;
         temp.downloadCount = newCount;
+        if (this.useSupabase) {
+            this.supabase
+                .from('artifacts')
+                .update({ download_count: newCount })
+                .eq('id', temp.id)
+                .catch(err => console.error('[downloadGlobalTemplate] download_count 업데이트 실패:', err));
+        }
 
-        if (this.useSupabase && temp.filePath) {
+        if (this.useSupabase) {
             try {
-                // DB download_count 업데이트 (비동기)
-                this.supabase
-                    .from('artifacts')
-                    .update({ download_count: newCount })
-                    .eq('id', temp.id)
-                    .then(({ error }) => {
-                        if (error) console.error('[downloadGlobalTemplate] download_count 업데이트 실패:', error);
-                    });
-
-                // ① Blob 직접 다운로드 (가장 안정적)
-                const { data: blobData, error: blobError } = await this.supabase.storage
+                // ZIP 다운로드와 동일한 방식: SignedURL 발급 → fetch → Blob 생성 → 로컬 저장
+                const { data, error } = await this.supabase.storage
                     .from('artifact-templates')
-                    .download(temp.filePath);
+                    .createSignedUrl(temp.filePath, 300);
 
-                if (blobData && !blobError) {
-                    // Blob 성공 → 브라우저 다운로드 실행
-                    const url = URL.createObjectURL(blobData);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = temp.fileName || temp.name || 'template';
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    URL.revokeObjectURL(url);
-                    this.showToast('템플릿 다운로드가 시작되었습니다.', 'success');
-                } else {
-                    // ② Blob 실패 시 SignedURL 방식으로 폴백
-                    console.warn('[downloadGlobalTemplate] Blob 다운로드 실패, SignedURL로 폴백:', blobError);
-                    const { data: signedData, error: signedError } = await this.supabase.storage
-                        .from('artifact-templates')
-                        .createSignedUrl(temp.filePath, 60, { download: temp.fileName });
-
-                    if (signedError || !signedData?.signedUrl) {
-                        throw signedError || new Error('Signed URL을 생성할 수 없습니다.');
-                    }
-
-                    const link = document.createElement('a');
-                    link.href = signedData.signedUrl;
-                    link.download = temp.fileName;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    this.showToast('템플릿 다운로드가 시작되었습니다.', 'success');
+                if (error || !data || !data.signedUrl) {
+                    throw new Error(error ? error.message : 'Signed URL 발급 실패');
                 }
+
+                console.log('[downloadGlobalTemplate] Signed URL 발급 성공, fetch 시작...');
+                const response = await fetch(data.signedUrl);
+                if (!response.ok) {
+                    throw new Error(`파일 요청 실패 (HTTP ${response.status})`);
+                }
+
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+
+                // <a> 태그로 로컬 저장 트리거
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = temp.fileName || temp.name || 'template';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                // 다운로드 시작 후 10초 뒤 URL 해제 (즉시 해제 시 다운로드 취소됨)
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+
+                this.showToast('템플릿 다운로드가 시작되었습니다.', 'success');
+                console.log('[downloadGlobalTemplate] 다운로드 성공:', temp.fileName);
+
             } catch (err) {
                 console.error('[downloadGlobalTemplate] 개별 템플릿 다운로드 실패:', err);
                 this.showToast('파일 다운로드에 실패했습니다: ' + (err.message || err), 'error');
             }
-        } else if (!temp.filePath) {
-            console.warn('[downloadGlobalTemplate] filePath가 없는 템플릿:', temp);
-            this.showToast('이 템플릿에는 연결된 파일이 없습니다.', 'error');
         } else {
-            // Supabase 미사용 로컬 모드 (개발/테스트용)
-            alert(`[다운로드 완료] 공공 SI 표준 템플릿 파일이 성공적으로 다운로드되었습니다.\n\n파일명: ${temp.fileName}\n파일 크기: ${temp.fileSize}`);
+            // 로컬 모드 (Supabase 미연결 시)
+            alert(`[다운로드] 파일명: ${temp.fileName}\n크기: ${temp.fileSize}\n\n※ 로컬 모드에서는 실제 파일 다운로드가 지원되지 않습니다.`);
         }
 
         this.saveState();
