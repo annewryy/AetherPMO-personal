@@ -27,6 +27,54 @@ class AetherPMO {
         this.activeTemplateFolder = 'initiation'; // initiation | execution | closing
         this.activeGlobalTemplateType  = 'operation';   // operation | construction | sw-separate (code table key)
         this.activeGlobalTemplateStage = 'initiation'; // initiation | execution | closing
+        this.selectedTemplateIds = new Set(); // 다중 선택 템플릿 ID 보관
+        this.prevGlobalTemplateType = null;
+        this.prevGlobalTemplateStage = null;
+        
+        // 동적 문서 유형 목록 설정 객체 (사업유형별)
+        this.globalTemplateCategories = {
+            default: [
+                { value: 'InitiationReport', label: '착수계' },
+                { value: 'ProjectExecutionPlan', label: '사업수행계획서' },
+                { value: 'PrepaymentApplication', label: '선금신청' },
+                { value: 'InspectionRequest', label: '검사요청' },
+                { value: 'ProgressApplication', label: '기성신청' },
+                { value: 'BalanceApplication', label: '잔금신청' },
+                { value: 'ClosingReport', label: '종료계' },
+                { value: 'Custom', label: '기타(직접입력)' }
+            ],
+            construction: [
+                { value: 'InitiationReport', label: '착수계' },
+                { value: 'ProjectExecutionPlan', label: '사업수행계획서' },
+                { value: 'PrepaymentApplication', label: '선금신청' },
+                { value: 'InspectionRequest', label: '검사요청' },
+                { value: 'ProgressApplication', label: '기성신청' },
+                { value: 'BalanceApplication', label: '잔금신청' },
+                { value: 'ClosingReport', label: '종료계' },
+                { value: 'Custom', label: '기타(직접입력)' }
+            ],
+            operation: [
+                { value: 'InitiationReport', label: '착수계' },
+                { value: 'ProjectExecutionPlan', label: '사업수행계획서' },
+                { value: 'PrepaymentApplication', label: '선금신청' },
+                { value: 'InspectionRequest', label: '검사요청' },
+                { value: 'ProgressApplication', label: '기성신청' },
+                { value: 'BalanceApplication', label: '잔금신청' },
+                { value: 'ClosingReport', label: '종료계' },
+                { value: 'Custom', label: '기타(직접입력)' }
+            ],
+            'sw-separate': [
+                { value: 'InitiationReport', label: '착수계' },
+                { value: 'ProjectExecutionPlan', label: '사업수행계획서' },
+                { value: 'PrepaymentApplication', label: '선금신청' },
+                { value: 'InspectionRequest', label: '검사요청' },
+                { value: 'ProgressApplication', label: '기성신청' },
+                { value: 'BalanceApplication', label: '잔금신청' },
+                { value: 'ClosingReport', label: '종료계' },
+                { value: 'Custom', label: '기타(직접입력)' }
+            ]
+        };
+
         this.tempAttachedFile = null;
 
         // Initialize Supabase if config is present and not placeholder
@@ -1143,8 +1191,13 @@ class AetherPMO {
                     fileSize: a.file_size,
                     filePath: a.file_path,
                     mimeType: a.mime_type,
-                    modifiedDate: a.submit_date || (a.created_at ? a.created_at.split('T')[0] : '')
+                    author: a.author || '미지정',
+                    downloadCount: a.download_count || 0,
+                    modifiedDate: a.submit_date || (a.created_at ? a.created_at.split('T')[0] : ''),
+                    displayOrder: a.display_order !== undefined && a.display_order !== null ? Number(a.display_order) : null
                 }));
+
+            this.sortGlobalTemplates();
 
             // 일반 프로젝트 산출물 데이터만 artifacts에 매핑
             this.state.artifacts = (artifacts || [])
@@ -1279,6 +1332,174 @@ class AetherPMO {
             } else {
                 this.loadMockData();
             }
+        }
+    }
+
+    sortGlobalTemplates() {
+        if (!this.state.globalTemplates) return;
+        this.state.globalTemplates.sort((a, b) => {
+            const aOrder = a.displayOrder;
+            const bOrder = b.displayOrder;
+            
+            const hasA = aOrder !== null && aOrder !== undefined && !isNaN(aOrder);
+            const hasB = bOrder !== null && bOrder !== undefined && !isNaN(bOrder);
+            
+            if (hasA && hasB) {
+                if (aOrder !== bOrder) {
+                    return aOrder - bOrder;
+                }
+            } else if (hasA && !hasB) {
+                return -1; // displayOrder가 있는 a를 앞으로
+            } else if (!hasA && hasB) {
+                return 1;  // displayOrder가 있는 b를 앞으로
+            }
+            
+            // 둘 다 없거나 같은 경우 -> name 가나다(오름차순) 정렬
+            return (a.name || '').localeCompare(b.name || '', 'ko');
+        });
+    }
+
+    initTemplateRowDragAndDrop() {
+        if (!this.checkTemplatePermission()) return;
+        
+        const tbody = document.getElementById('global-templates-tbody');
+        if (!tbody) return;
+        
+        const rows = tbody.querySelectorAll('tr');
+        if (rows.length <= 1) return; // 데이터가 없거나 1개인 경우 동작 제외
+        
+        let dragSrcEl = null;
+        
+        rows.forEach(row => {
+            const tempId = row.getAttribute('data-id');
+            if (!tempId) return; // placeholder 등 방어
+            
+            row.setAttribute('draggable', 'true');
+            
+            row.addEventListener('dragstart', (e) => {
+                row.classList.add('dragging');
+                dragSrcEl = row;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', tempId);
+            });
+            
+            row.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                
+                const bounding = row.getBoundingClientRect();
+                const offset = e.clientY - bounding.top;
+                
+                // 가이드 라인 색상은 보라색(#4338CA) 적용
+                if (offset < bounding.height / 2) {
+                    row.style.borderTop = '2px solid #4338CA';
+                    row.style.borderBottom = '';
+                } else {
+                    row.style.borderTop = '';
+                    row.style.borderBottom = '2px solid #4338CA';
+                }
+            });
+            
+            row.addEventListener('dragleave', () => {
+                row.style.borderTop = '';
+                row.style.borderBottom = '';
+            });
+            
+            row.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                row.style.borderTop = '';
+                row.style.borderBottom = '';
+                
+                const targetId = row.getAttribute('data-id');
+                const sourceId = e.dataTransfer.getData('text/plain');
+                
+                if (sourceId && targetId && sourceId !== targetId) {
+                    await this.reorderTemplates(sourceId, targetId);
+                }
+            });
+            
+            row.addEventListener('dragend', () => {
+                row.classList.remove('dragging');
+                rows.forEach(r => {
+                    r.style.borderTop = '';
+                    r.style.borderBottom = '';
+                });
+            });
+        });
+    }
+
+    async reorderTemplates(sourceId, targetId) {
+        const type = this.activeGlobalTemplateType || 'operation';
+        const stage = this.activeGlobalTemplateStage || 'initiation';
+        
+        // 현재 노출된 템플릿 목록 (필터 적용 및 정렬 기준에 맞춰진 상태)
+        const currentTemplates = (this.state.globalTemplates || []).filter(t =>
+            t.stage === stage && (t.projectType === type || (!t.projectType && type === 'operation'))
+        );
+        
+        const sourceIndex = currentTemplates.findIndex(t => t.id === sourceId);
+        const targetIndex = currentTemplates.findIndex(t => t.id === targetId);
+        
+        if (sourceIndex === -1 || targetIndex === -1) return;
+        
+        // 배열 내 순서 이동
+        const [moved] = currentTemplates.splice(sourceIndex, 1);
+        currentTemplates.splice(targetIndex, 0, moved);
+        
+        // 순서에 따른 displayOrder 재배정 (1부터 순차적으로 부여)
+        const updates = [];
+        currentTemplates.forEach((temp, i) => {
+            const newOrder = i + 1;
+            temp.displayOrder = newOrder;
+            
+            if (this.useSupabase) {
+                updates.push(
+                    this.supabase
+                        .from('artifacts')
+                        .update({ display_order: newOrder })
+                        .eq('id', temp.id)
+                );
+            }
+        });
+        
+        if (updates.length > 0) {
+            try {
+                await Promise.all(updates);
+            } catch (err) {
+                console.error('Failed to update display order in DB:', err);
+                this.showToast('데이터베이스 순서 저장 실패: ' + err.message, 'error');
+            }
+        }
+        
+        this.sortGlobalTemplates();
+        this.saveState();
+        this.renderArtifacts();
+        this.showToast('템플릿 순서가 변경되었습니다.', 'success');
+    }
+
+    async moveTemplateOrder(id, direction) {
+        if (!this.checkTemplatePermission()) return;
+        
+        const type = this.activeGlobalTemplateType || 'operation';
+        const stage = this.activeGlobalTemplateStage || 'initiation';
+        
+        const currentTemplates = (this.state.globalTemplates || []).filter(t =>
+            t.stage === stage && (t.projectType === type || (!t.projectType && type === 'operation'))
+        );
+        
+        const index = currentTemplates.findIndex(t => t.id === id);
+        if (index === -1) return;
+        
+        let targetIndex = -1;
+        if (direction === 'up' && index > 0) {
+            targetIndex = index - 1;
+        } else if (direction === 'down' && index < currentTemplates.length - 1) {
+            targetIndex = index + 1;
+        }
+        
+        if (targetIndex !== -1) {
+            const targetId = currentTemplates[targetIndex].id;
+            await this.reorderTemplates(id, targetId);
         }
     }
 
@@ -3197,82 +3418,357 @@ class AetherPMO {
        ========================================================================== */
     renderDashboard() {
         this.updateProjectsOverdueStatus();
+        
+        // 1. 날짜 구하기 (YYYY-MM-DD)
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+
+        // 2. KPI 계산
         const totalProjects = this.state.projects.length;
         const activeProjects = this.state.projects.filter(p => p.status === 'In Progress').length;
-        const completedProjects = this.state.projects.filter(p => p.status === 'Completed').length;
-        const delayedProjects = this.state.projects.filter(p => p.status === 'Delay').length;
-
+        const biddingProjects = this.state.projects.filter(p => p.status === 'Bidding').length;
+        const delayedProjects = this.state.projects.filter(p => p.status === 'Delay' || (p.isOverdue && p.status !== 'Completed')).length;
+        const todayDueProjects = this.state.projects.filter(p => p.endDate === todayStr && p.status !== 'Completed').length;
+        const uncompletedActions = (this.state.actionItems || []).filter(a => a.status !== '완료' && a.status !== 'Completed').length;
         const unresolvedRisks = (this.state.issues || []).filter(i => i.status === '발생' || i.status === '조치중').length;
-        const uncompletedActions = (this.state.actionItems || []).filter(a => a.status === '대기' || a.status === '진행중').length;
 
-        // 7. 금월 매출 계산 (2026년 6월 검수완료 기준)
-        let monthlyRevenue = 0;
-        const currentYearMonth = '2026-06';
-        this.state.projects.forEach(p => {
-            if (p.status === 'Completed' && p.inspectionDate && p.inspectionDate.startsWith(currentYearMonth)) {
-                monthlyRevenue += Number(p.budget || 0);
-            }
+        // 3. KPI 바인딩
+        const doms = {
+            'stat-total-projects': totalProjects,
+            'stat-active-projects': activeProjects,
+            'stat-bidding-projects': biddingProjects,
+            'stat-delayed-projects': delayedProjects,
+            'stat-today-due-projects': todayDueProjects,
+            'stat-uncompleted-actions': uncompletedActions,
+            'stat-unresolved-risks': unresolvedRisks
+        };
+        for (const [id, val] of Object.entries(doms)) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        }
+
+        // 4. 프로젝트 진행률 가로 막대 차트
+        this.renderDashboardProgressChart();
+
+        // 5. 사업유형 도넛 차트
+        this.renderBusinessTypeDonutChart();
+
+        // 6. 오늘 해야할 일 (오늘 + 지연)
+        this.renderTodayTasks(todayStr);
+
+        // 7. 최근 활동 3종
+        this.renderRecentRedesignedActivities();
+
+        // 8. Lucide Icons refresh
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    renderDashboardProgressChart() {
+        const container = document.getElementById('dashboard-progress-chart-container');
+        if (!container) return;
+
+        // 진행중이거나 완료되지 않은 프로젝트들 필터링
+        const activeProjs = this.state.projects.filter(p => p.status !== 'Completed');
+
+        if (activeProjs.length === 0) {
+            container.innerHTML = '<div class="empty-state" style="padding:40px 0; text-align:center; color:var(--text-muted); font-size:12px;">진행 중인 프로젝트가 없습니다.</div>';
+            return;
+        }
+
+        let html = '<div class="bar-chart-container">';
+        activeProjs.forEach(p => {
+            html += `
+                <div class="bar-chart-item" onclick="window.location.hash = 'project-detail/${p.id}'; event.stopPropagation();" style="cursor:pointer;">
+                    <div class="bar-chart-label">
+                        <span class="proj-name" style="font-weight:700;">${p.name}</span>
+                        <span class="proj-val" style="color:var(--primary); font-weight:700;">${p.progress}%</span>
+                    </div>
+                    <div class="bar-chart-track">
+                        <div class="bar-chart-fill" style="width: ${p.progress}%;"></div>
+                    </div>
+                </div>
+            `;
         });
+        html += '</div>';
+        container.innerHTML = html;
+    }
 
-        // 8. 투입 인력 수 (수행중/지연 프로젝트 인력 합계)
-        let totalResources = 0;
+    renderBusinessTypeDonutChart() {
+        const total = this.state.projects.length;
+        const group = document.getElementById('donut-business-type-segments-group');
+        const centerValue = document.getElementById('chart-business-type-center-value');
+        const legendContainer = document.getElementById('chart-business-type-legend');
+        
+        if (!group || !centerValue || !legendContainer) return;
+
+        centerValue.textContent = total;
+
+        const counts = {
+            '구축': 0,
+            '운영': 0,
+            'ISP': 0,
+            'AI': 0,
+            '유지관리': 0,
+            '미지정': 0
+        };
+
         this.state.projects.forEach(p => {
-            if (p.status === 'In Progress' || p.status === 'Delay' || p.status === 'On Hold') {
-                totalResources += Number(p.resources || 0);
-            }
-        });
-
-        // Update top KPI cards DOM values
-        document.getElementById('stat-total-projects').textContent = totalProjects;
-        document.getElementById('stat-active-projects').textContent = activeProjects;
-        document.getElementById('stat-completed-projects').textContent = completedProjects;
-        document.getElementById('stat-delayed-projects').textContent = delayedProjects;
-        document.getElementById('stat-unresolved-risks').textContent = unresolvedRisks;
-        document.getElementById('stat-uncompleted-actions').textContent = uncompletedActions;
-        document.getElementById('stat-monthly-revenue').textContent = monthlyRevenue.toLocaleString() + ' 원';
-        document.getElementById('stat-total-resources').textContent = totalResources.toLocaleString() + ' 명';
-
-        // Render recent activities
-        const activityList = document.getElementById('recent-activities');
-        if (activityList) {
-            if (this.state.activities.length === 0) {
-                activityList.innerHTML = '<div class="empty-state">최근 활동 기록이 없습니다.</div>';
+            const bt = p.businessType ? p.businessType.trim() : '';
+            if (bt && counts.hasOwnProperty(bt)) {
+                counts[bt]++;
             } else {
-                activityList.innerHTML = '';
-                const recent = [...this.state.activities].reverse().slice(0, 10);
-                recent.forEach(act => {
-                    let iconName = 'info';
-                    let markerClass = '';
-                    if (act.type === 'project') { iconName = 'folder'; markerClass = 'text-primary'; }
-                    else if (act.type === 'artifact') { iconName = 'file-text'; markerClass = 'text-info'; }
-                    else if (act.type === 'review') { 
-                        iconName = act.text.includes('승인') ? 'check-circle' : 'x-circle'; 
-                        markerClass = act.text.includes('승인') ? 'text-success' : 'text-danger'; 
-                    }
+                counts['미지정']++;
+            }
+        });
 
-                    const item = document.createElement('div');
-                    item.className = 'timeline-item';
-                    item.innerHTML = `
-                        <div class="timeline-marker">
-                            <i data-lucide="${iconName}" class="${markerClass}"></i>
-                        </div>
-                        <div class="timeline-content">
-                            <div class="timeline-text">
-                                ${act.text}
-                                ${act.projectName ? `<span class="timeline-project">${act.projectName}</span>` : ''}
-                            </div>
-                            <span class="timeline-time">${act.date}</span>
-                        </div>
-                    `;
-                    activityList.appendChild(item);
+        if (total === 0) {
+            group.innerHTML = `
+                <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" 
+                        stroke="var(--bg-card-border)" stroke-width="4" stroke-dasharray="100 0" stroke-dashoffset="0"></circle>
+            `;
+            legendContainer.innerHTML = `
+                <div class="legend-item"><span class="legend-color" style="background:var(--bg-card-border);"></span>등록 사업 없음 <span class="legend-val">0</span></div>
+            `;
+            return;
+        }
+
+        const colors = {
+            '구축': 'var(--primary)',
+            '운영': 'var(--info)',
+            'ISP': '#ec4899',
+            'AI': '#a855f7',
+            '유지관리': 'var(--success)',
+            '미지정': '#64748b'
+        };
+
+        const segments = [];
+        for (const [key, count] of Object.entries(counts)) {
+            if (count > 0) {
+                segments.push({
+                    label: key,
+                    count: count,
+                    color: colors[key],
+                    pct: (count / total) * 100
                 });
             }
         }
 
-        // Render Projects Summary Table & Donut Chart
-        const activeProjs = this.state.projects.filter(p => p.status === 'In Progress' || p.status === 'Delay' || p.status === 'On Hold');
-        this.renderDashboardProjectsTable(activeProjs);
-        this.renderStatusDonutChart();
+        let accumulatedOffset = 0;
+        let svgHtml = '';
+        let legendHtml = '';
+
+        segments.forEach(seg => {
+            const strokeDash = `${seg.pct} ${100 - seg.pct}`;
+            const strokeOffset = -accumulatedOffset;
+            
+            svgHtml += `
+                <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" 
+                        stroke="${seg.color}" stroke-width="4" 
+                        stroke-dasharray="${strokeDash}" 
+                        stroke-dashoffset="${strokeOffset}"
+                        style="transition: stroke-dashoffset 0.5s ease;">
+                </circle>
+            `;
+            accumulatedOffset += seg.pct;
+
+            legendHtml += `
+                <div class="legend-item">
+                    <span class="legend-color" style="background:${seg.color};"></span>
+                    <span>${seg.label}</span>
+                    <span class="legend-val font-bold">${seg.count}</span>
+                </div>
+            `;
+        });
+
+        group.innerHTML = svgHtml;
+        legendContainer.innerHTML = legendHtml;
+    }
+
+    renderTodayTasks(todayStr) {
+        // 1. WBS 일정 수집 (오늘 + 지연)
+        const wbsList = [];
+        this.state.projects.forEach(p => {
+            if (p.wbs && p.wbs.stages) {
+                p.wbs.stages.forEach(stage => {
+                    if (stage.dueDate && stage.progress < 100) {
+                        if (stage.dueDate === todayStr || stage.dueDate < todayStr) {
+                            wbsList.push({
+                                projectId: p.id,
+                                projectName: p.name,
+                                name: stage.name,
+                                dueDate: stage.dueDate,
+                                progress: stage.progress,
+                                isDelayed: stage.dueDate < todayStr
+                            });
+                        }
+                    }
+                });
+            }
+        });
+        wbsList.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+        // 2. Action Items 수집 (오늘 + 지연)
+        const actionList = [];
+        (this.state.actionItems || []).forEach(a => {
+            if (a.dueDate && a.status !== '완료' && a.status !== 'Completed') {
+                if (a.dueDate === todayStr || a.dueDate < todayStr) {
+                    const projName = this.state.projects.find(p => p.id === a.projectId)?.name || '알 수 없음';
+                    actionList.push({
+                        projectId: a.projectId,
+                        projectName: projName,
+                        title: a.title,
+                        dueDate: a.dueDate,
+                        assignee: a.assignee,
+                        isDelayed: a.dueDate < todayStr
+                    });
+                }
+            }
+        });
+        actionList.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+        // 3. 산출물 수집 (오늘 + 지연)
+        const artifactList = [];
+        (this.state.artifacts || []).forEach(art => {
+            if (art.dueDate && (!art.submitDate || art.submitDate === '')) {
+                if (art.dueDate === todayStr || art.dueDate < todayStr) {
+                    const projName = this.state.projects.find(p => p.id === art.projectId)?.name || '알 수 없음';
+                    artifactList.push({
+                        projectId: art.projectId,
+                        projectName: projName,
+                        name: art.name,
+                        dueDate: art.dueDate,
+                        isDelayed: art.dueDate < todayStr
+                    });
+                }
+            }
+        });
+        artifactList.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+        // 배지 개수 갱신
+        const badgeWbs = document.getElementById('today-wbs-badge');
+        const badgeActions = document.getElementById('today-actions-badge');
+        const badgeArts = document.getElementById('today-artifacts-badge');
+        if (badgeWbs) badgeWbs.textContent = wbsList.length;
+        if (badgeActions) badgeActions.textContent = actionList.length;
+        if (badgeArts) badgeArts.textContent = artifactList.length;
+
+        // 렌더링 호출
+        this.renderSubCardList('today-wbs-list', wbsList, item => `
+            <div class="sub-card-item" onclick="window.location.hash = 'project-detail/${item.projectId}'; event.stopPropagation();">
+                <div class="item-header">
+                    <span class="item-title">${item.name}</span>
+                    <span class="badge ${item.isDelayed ? 'badge-error' : 'badge-warning'}">${item.isDelayed ? '지연' : '오늘'}</span>
+                </div>
+                <div class="item-desc">${item.projectName}</div>
+                <div class="item-meta">
+                    <span>진행률: ${item.progress}%</span>
+                    <span>기한: ${item.dueDate}</span>
+                </div>
+            </div>
+        `, '오늘/지연된 일정이 없습니다.');
+
+        this.renderSubCardList('today-actions-list', actionList, item => `
+            <div class="sub-card-item" onclick="window.location.hash = 'action-items'; event.stopPropagation();">
+                <div class="item-header">
+                    <span class="item-title">${item.title}</span>
+                    <span class="badge ${item.isDelayed ? 'badge-error' : 'badge-warning'}">${item.isDelayed ? '지연' : '오늘'}</span>
+                </div>
+                <div class="item-desc">${item.projectName}</div>
+                <div class="item-meta">
+                    <span>담당자: ${item.assignee || '미지정'}</span>
+                    <span>기한: ${item.dueDate}</span>
+                </div>
+            </div>
+        `, '오늘/지연된 Action Item이 없습니다.');
+
+        this.renderSubCardList('today-artifacts-list', artifactList, item => `
+            <div class="sub-card-item" onclick="window.location.hash = 'artifacts'; event.stopPropagation();">
+                <div class="item-header">
+                    <span class="item-title">${item.name}</span>
+                    <span class="badge ${item.isDelayed ? 'badge-error' : 'badge-warning'}">${item.isDelayed ? '지연' : '오늘'}</span>
+                </div>
+                <div class="item-desc">${item.projectName}</div>
+                <div class="item-meta">
+                    <span>기한: ${item.dueDate}</span>
+                </div>
+            </div>
+        `, '오늘/지연된 제출 산출물이 없습니다.');
+    }
+
+    renderSubCardList(elementId, items, templateFn, emptyMessage) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+
+        if (items.length === 0) {
+            el.innerHTML = `<div class="empty-state" style="padding:20px 0; text-align:center; color:var(--text-muted); font-size:11px;">${emptyMessage}</div>`;
+            return;
+        }
+
+        let html = '';
+        items.forEach(item => {
+            html += templateFn(item);
+        });
+        el.innerHTML = html;
+    }
+
+    renderRecentRedesignedActivities() {
+        // 1. 최근 공문
+        const docs = [...(this.state.officialDocs || [])]
+            .sort((a, b) => new Date(b.draftDate) - new Date(a.draftDate))
+            .slice(0, 5);
+        this.renderSubCardList('recent-docs-list', docs, item => `
+            <div class="sub-card-item" onclick="window.location.hash = 'official-docs'; event.stopPropagation();">
+                <div class="item-header">
+                    <span class="item-title">${item.title}</span>
+                    <span class="badge badge-success" style="font-size: 9px; padding: 1px 4px;">${item.currentStatus || '기안'}</span>
+                </div>
+                <div class="item-desc">번호: ${item.docNumber || '-'}</div>
+                <div class="item-meta">
+                    <span>기안자: ${item.drafter || '-'}</span>
+                    <span>기안일: ${item.draftDate || '-'}</span>
+                </div>
+            </div>
+        `, '최근 기안된 공문이 없습니다.');
+
+        // 2. 최근 회의록
+        const meetings = [...(this.state.meetingMinutes || [])]
+            .sort((a, b) => new Date(b.meetDate) - new Date(a.meetDate))
+            .slice(0, 5);
+        this.renderSubCardList('recent-meetings-list', meetings, item => `
+            <div class="sub-card-item" onclick="window.location.hash = 'meetings'; event.stopPropagation();">
+                <div class="item-header">
+                    <span class="item-title">${item.title}</span>
+                </div>
+                <div class="item-desc">장소: ${item.location || '-'}</div>
+                <div class="item-meta">
+                    <span>회의일: ${item.meetDate || '-'}</span>
+                </div>
+            </div>
+        `, '최근 등록된 회의록이 없습니다.');
+
+        // 3. 최근 업로드 산출물
+        const arts = [...(this.state.artifacts || [])]
+            .filter(a => a.submitDate && a.submitDate !== '')
+            .sort((a, b) => new Date(b.submitDate) - new Date(a.submitDate))
+            .slice(0, 5);
+        this.renderSubCardList('recent-artifacts-list', arts, item => `
+            <div class="sub-card-item" onclick="window.location.hash = 'artifacts'; event.stopPropagation();">
+                <div class="item-header">
+                    <span class="item-title">${item.name}</span>
+                    <span class="badge badge-success" style="font-size: 9px; padding: 1px 4px;">제출완료</span>
+                </div>
+                <div class="item-desc">파일명: ${item.fileName || '-'} (${this.formatBytes(item.fileSize)})</div>
+                <div class="item-meta">
+                    <span>작성자: ${item.author || '-'}</span>
+                    <span>제출일: ${item.submitDate || '-'}</span>
+                </div>
+            </div>
+        `, '최근 업로드된 산출물이 없습니다.');
     }
 
     renderDashboardProjectsTable(projectsList) {
@@ -4108,6 +4604,15 @@ class AetherPMO {
         const type  = this.activeGlobalTemplateType  || 'operation';
         const stage = this.activeGlobalTemplateStage || 'initiation';
 
+        // ── 필터 변경 시 선택 세트 리셋 ────────────────────────────
+        if (type !== this.prevGlobalTemplateType || stage !== this.prevGlobalTemplateStage) {
+            this.selectedTemplateIds.clear();
+            const selectAllTh = document.getElementById('th-template-select-all');
+            if (selectAllTh) selectAllTh.checked = false;
+            this.prevGlobalTemplateType = type;
+            this.prevGlobalTemplateStage = stage;
+        }
+
         // ── 1단계: 프로젝트 분류 트리 동적 렌더링 ───────────────────
         const projectTypes = this.state.projectTypes || this.getDefaultProjectTypes();
         const treeContainer = document.getElementById('artifact-category-tree');
@@ -4188,14 +4693,54 @@ class AetherPMO {
             tbody.innerHTML = '';
             templates.forEach(temp => {
                 const tr = document.createElement('tr');
+                tr.setAttribute('data-id', temp.id);
+
+                // 파일 확장자 동적 추출 및 대소문자 무관 Badge 매핑
+                const fileName = temp.fileName || '';
+                const dotIndex = fileName.lastIndexOf('.');
+                const ext = dotIndex !== -1 ? fileName.substring(dotIndex + 1).toLowerCase() : '';
+                
+                let extBadge = '';
+                if (ext) {
+                    const upperExt = ext.toUpperCase();
+                    if (upperExt === 'HWP' || upperExt === 'HWPX') {
+                        extBadge = `<span class="badge badge-info mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0;">${upperExt}</span>`;
+                    } else if (upperExt === 'DOC' || upperExt === 'DOCX') {
+                        extBadge = `<span class="badge badge-primary mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0;">${upperExt}</span>`;
+                    } else if (upperExt === 'XLS' || upperExt === 'XLSX') {
+                        extBadge = `<span class="badge badge-success mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0;">${upperExt}</span>`;
+                    } else if (upperExt === 'PPT' || upperExt === 'PPTX') {
+                        extBadge = `<span class="badge badge-warning mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0;">${upperExt}</span>`;
+                    } else if (upperExt === 'PDF') {
+                        extBadge = `<span class="badge badge-error mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0;">PDF</span>`;
+                    } else if (['ZIP', 'PNG', 'JPG', 'JPEG'].includes(upperExt)) {
+                        extBadge = `<span class="badge badge-ghost mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0; background:var(--bg-card-border); color:var(--text-muted);">${upperExt}</span>`;
+                    } else {
+                        extBadge = `<span class="badge badge-ghost mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0; background:var(--bg-card-border); color:var(--text-muted);">FILE</span>`;
+                    }
+                } else {
+                    extBadge = `<span class="badge badge-ghost mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0; background:var(--bg-card-border); color:var(--text-muted);">FILE</span>`;
+                }
+
+                const isPDF = ext === 'pdf';
+                const previewBtn = isPDF
+                    ? `
+                        <button class="btn btn-xs btn-outline-info" onclick="app.previewPDF('${temp.id}'); event.stopPropagation();" style="padding: 2px 6px; font-size: 10px; margin-left: 6px; display:inline-flex; align-items:center; gap:2px; flex-shrink:0;">
+                            <i data-lucide="eye" style="width:10px; height:10px;"></i> 미리보기
+                        </button>
+                    `
+                    : '';
 
                 const downloadHtml = `
-                    <div style="display:flex; align-items:center; gap:8px; justify-content:center;">
-                        <i data-lucide="download" class="text-primary" style="width:14px; height:14px;"></i>
-                        <a href="#" class="file-name-link font-bold text-xs" onclick="event.preventDefault(); app.downloadGlobalTemplate('${temp.id}')">
-                            ${temp.fileName}
-                        </a>
-                        <span class="text-xs text-muted">(${temp.fileSize})</span>
+                    <div style="display:flex; flex-direction:column; gap:2px; justify-content:center; text-align:left; width: 100%; overflow:hidden;">
+                        <div style="display:flex; align-items:center; gap:4px; width:100%; overflow:hidden;">
+                            <i data-lucide="download" class="text-primary" style="width:13px; height:13px; flex-shrink:0;"></i>
+                            <a href="#" class="file-name-link font-bold text-xs text-ellipsis" style="max-width: calc(100% - 20px);" title="${temp.fileName}" onclick="event.preventDefault(); app.downloadGlobalTemplate('${temp.id}')">
+                                ${temp.fileName}
+                            </a>
+                            ${previewBtn}
+                        </div>
+                        <span class="text-xs text-muted hide-mobile" style="font-size:10px; margin-left:17px;">${temp.fileSize}</span>
                     </div>
                 `;
 
@@ -4218,23 +4763,60 @@ class AetherPMO {
                         </div>
                     `;
 
+                const isChecked = this.selectedTemplateIds.has(temp.id);
+                const categoryLabel = this.translateCategory(temp.category);
+
                 tr.innerHTML = `
-                    <td class="font-bold text-sm" style="color:var(--text-main);">${temp.name}</td>
-                    <td><span class="badge-cat cat-${temp.category.toLowerCase().replace(' ', '')}">${this.translateCategory(temp.category)}</span></td>
+                    <td class="text-center">
+                        <input type="checkbox" class="template-row-checkbox" data-id="${temp.id}" ${isChecked ? 'checked' : ''} onchange="app.toggleTemplateSelection('${temp.id}', this.checked)">
+                    </td>
+                    <td class="font-bold text-sm text-left" style="color:var(--text-main); overflow:hidden; vertical-align: middle;">
+                        <div style="display:flex; flex-direction:column; gap:2px; width:100%; overflow:hidden;">
+                            <div style="display:flex; align-items:center; gap:2px; width:100%; overflow:hidden;">
+                                <i data-lucide="grip-vertical" class="drag-handle text-muted hide-mobile" title="드래그해서 순서 변경" style="cursor: grab; width: 14px; height: 14px; margin-right: 4px; flex-shrink: 0;"></i>
+                                ${extBadge}
+                                <span class="text-ellipsis" title="${temp.name}" style="max-width:calc(100% - 70px);">${temp.name}</span>
+                                <div class="mobile-order-buttons hide-desktop" style="display: none; align-items: center; gap: 4px; margin-left: auto;">
+                                    <button class="btn btn-xs btn-outline" onclick="app.moveTemplateOrder('${temp.id}', 'up'); event.stopPropagation();" title="위로 이동" style="padding: 2px 4px;">
+                                        <i data-lucide="chevron-up" style="width:12px; height:12px;"></i>
+                                    </button>
+                                    <button class="btn btn-xs btn-outline" onclick="app.moveTemplateOrder('${temp.id}', 'down'); event.stopPropagation();" title="아래로 이동" style="padding: 2px 4px;">
+                                        <i data-lucide="chevron-down" style="width:12px; height:12px;"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <span class="text-xs text-muted" style="font-size:10px; font-weight:normal; margin-left:2px;">
+                                수정자 ${temp.author || '미지정'} · 수정일 ${temp.modifiedDate} · 다운로드 ${temp.downloadCount || 0}회
+                            </span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge-cat cat-${temp.category.toLowerCase().replace(' ', '')} text-ellipsis" style="max-width:100%; display:inline-block;" title="${categoryLabel}">${categoryLabel}</span>
+                    </td>
                     <td class="text-center text-xs font-bold">${temp.version}</td>
-                    <td class="text-center text-xs font-bold text-muted">${temp.modifiedDate}</td>
-                    <td class="text-center">${downloadHtml}</td>
+                    <td>${downloadHtml}</td>
                     <td>${actionHtml}</td>
                 `;
                 tbody.appendChild(tr);
             });
+
+            // 헤더 체크박스 상태 동기화 (현재 노출된 화면 기준)
+            const selectAllTh = document.getElementById('th-template-select-all');
+            if (selectAllTh) {
+                selectAllTh.checked = templates.length > 0 && templates.every(t => this.selectedTemplateIds.has(t.id));
+            }
         }
+
+        this.updateBulkDownloadButton();
 
         this.applyRolePermissions();
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
+
+        // 산출물 템플릿 Drag & Drop 순서 재정렬 바인딩
+        this.initTemplateRowDragAndDrop();
     }
 
     updateProjectStageCounts() {
@@ -7146,6 +7728,14 @@ class AetherPMO {
 
     translateCategory(cat) {
         const dict = {
+            'InitiationReport': '착수계',
+            'ProjectExecutionPlan': '사업수행계획서',
+            'PrepaymentApplication': '선금신청',
+            'InspectionRequest': '검사요청',
+            'ProgressApplication': '기성신청',
+            'BalanceApplication': '잔금신청',
+            'ClosingReport': '종료계',
+            'Custom': '기타',
             'Requirements': '요구사항정의서',
             'Architecture Design': '시스템설계서',
             'Source Code': '소스코드',
@@ -7273,13 +7863,22 @@ class AetherPMO {
 
     handleTemplateFileChange(event) {
         const file = event.target.files[0];
-        if (!file) return;
+        const dropText = document.getElementById('drop-zone-text');
+        const dropZone = document.getElementById('template-drop-zone');
+
+        if (!file) {
+            if (dropText) dropText.textContent = '파일을 여기에 드래그 앤 드롭하거나 클릭하여 선택하세요.';
+            if (dropZone) dropZone.classList.remove('has-file');
+            return;
+        }
         
-        const allowedExts = ['docx', 'xlsx', 'pptx', 'pdf'];
+        const allowedExts = ['docx', 'xlsx', 'pptx', 'pdf', 'hwp', 'hwpx'];
         const fileExt = file.name.split('.').pop().toLowerCase();
         if (!allowedExts.includes(fileExt)) {
-            alert('지원하지 않는 파일 형식입니다. docx, xlsx, pptx, pdf 형식만 업로드 가능합니다.');
+            alert('지원하지 않는 파일 형식입니다. docx, xlsx, pptx, pdf, hwp, hwpx 형식만 업로드 가능합니다.');
             event.target.value = '';
+            if (dropText) dropText.textContent = '파일을 여기에 드래그 앤 드롭하거나 클릭하여 선택하세요.';
+            if (dropZone) dropZone.classList.remove('has-file');
             return;
         }
 
@@ -7287,7 +7886,11 @@ class AetherPMO {
         if (nameInput) nameInput.value = file.name;
 
         const sizeInput = document.getElementById('global-template-filesize');
-        if (sizeInput) sizeInput.value = this.formatBytes(file.size);
+        const formattedSize = this.formatBytes(file.size);
+        if (sizeInput) sizeInput.value = formattedSize;
+
+        if (dropText) dropText.textContent = `선택된 파일: ${file.name} (${formattedSize})`;
+        if (dropZone) dropZone.classList.add('has-file');
     }
 
     async downloadGlobalTemplate(id) {
@@ -7302,10 +7905,22 @@ class AetherPMO {
         if (!this.state.recentlyDownloaded.includes(temp.id)) {
             this.state.recentlyDownloaded.push(temp.id);
         }
-        this.saveState();
+
+        // 다운로드 횟수 증가
+        const newCount = (temp.downloadCount || 0) + 1;
+        temp.downloadCount = newCount;
 
         if (this.useSupabase && temp.filePath) {
             try {
+                // DB download_count 업데이트 (비동기로 실행)
+                this.supabase
+                    .from('artifacts')
+                    .update({ download_count: newCount })
+                    .eq('id', temp.id)
+                    .then(({ error }) => {
+                        if (error) console.error('Failed to update download count:', error);
+                    });
+
                 const { data, error } = await this.supabase.storage
                     .from('artifact-templates')
                     .createSignedUrl(temp.filePath, 60, {
@@ -7332,10 +7947,216 @@ class AetherPMO {
                 this.showToast('템플릿 다운로드 실패: ' + err.message, 'error');
             }
         } else {
-            alert(`[다운로드 완료] 공공 SI 표준 템플릿 파일이 성공적으로 다운로드되었습니다.\n\n파일명: ${temp.fileName}\n파일 크기: ${temp.fileSize}\n\n다운로드한 파일은 각 프로젝트 상세화면의 '산출물 등록' 시 불러와 사용할 수 있습니다.`);
+            alert(`[다운로드 완료] 공공 SI 표준 템플릿 파일이 성공적으로 다운로드되었습니다.\n\n파일명: ${temp.fileName}\n파일 크기: ${temp.fileSize}\n\n다운로드한 파일은 WBS 또는 산출물 관리에서 불러와 사용할 수 있습니다.`);
         }
         
+        this.saveState();
         this.renderArtifacts();
+    }
+
+    toggleTemplateSelection(id, checked) {
+        if (checked) {
+            this.selectedTemplateIds.add(id);
+        } else {
+            this.selectedTemplateIds.delete(id);
+        }
+
+        // 현재 화면에 노출된 템플릿이 전체 선택되었는지 검사하여 헤더 체크박스 동기화
+        const type = this.activeGlobalTemplateType || 'operation';
+        const stage = this.activeGlobalTemplateStage || 'initiation';
+        const currentTemplates = (this.state.globalTemplates || []).filter(t =>
+            t.stage === stage && (t.projectType === type || (!t.projectType && type === 'operation'))
+        );
+
+        const selectAllTh = document.getElementById('th-template-select-all');
+        if (selectAllTh) {
+            selectAllTh.checked = currentTemplates.length > 0 && currentTemplates.every(t => this.selectedTemplateIds.has(t.id));
+        }
+
+        this.updateBulkDownloadButton();
+    }
+
+    toggleAllTemplates(checked) {
+        const type = this.activeGlobalTemplateType || 'operation';
+        const stage = this.activeGlobalTemplateStage || 'initiation';
+        const currentTemplates = (this.state.globalTemplates || []).filter(t =>
+            t.stage === stage && (t.projectType === type || (!t.projectType && type === 'operation'))
+        );
+
+        if (checked) {
+            currentTemplates.forEach(t => this.selectedTemplateIds.add(t.id));
+        } else {
+            currentTemplates.forEach(t => this.selectedTemplateIds.delete(t.id));
+        }
+
+        // 화면 상의 체크박스 상태 강제 반영
+        document.querySelectorAll('.template-row-checkbox').forEach(cb => {
+            const id = cb.getAttribute('data-id');
+            cb.checked = this.selectedTemplateIds.has(id);
+        });
+
+        this.updateBulkDownloadButton();
+    }
+
+    updateBulkDownloadButton() {
+        const btn = document.getElementById('btn-bulk-download-templates');
+        const countSpan = document.getElementById('selected-templates-count');
+        if (!btn) return;
+
+        const size = this.selectedTemplateIds.size;
+        if (size === 0) {
+            btn.disabled = true;
+            if (countSpan) countSpan.textContent = '';
+        } else {
+            btn.disabled = false;
+            if (countSpan) countSpan.textContent = `(${size})`;
+        }
+    }
+
+    async downloadSelectedTemplates() {
+        if (this.selectedTemplateIds.size === 0) return;
+
+        // JSZip 로딩 여부 체크 및 대응
+        if (typeof JSZip === 'undefined') {
+            this.showToast('압축 라이브러리(JSZip)를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.', 'error');
+            return;
+        }
+
+        // 대용량 파일 방어 (20개 이상 선택 시 확인 창 노출)
+        if (this.selectedTemplateIds.size >= 20) {
+            if (!confirm('선택한 파일이 많아 다운로드에 시간이 걸릴 수 있습니다. 계속하시겠습니까?')) {
+                return;
+            }
+        }
+
+        const btn = document.getElementById('btn-bulk-download-templates');
+        let originalHtml = '';
+        if (btn) {
+            originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="animate-spin mr-1" style="display:inline-block; width:12px; height:12px; border:2px solid currentColor; border-top-color:transparent; border-radius:50%; vertical-align:middle;"></i> 압축 중...`;
+        }
+
+        const zip = new JSZip();
+        const usedFileNames = {};
+        const failedFiles = [];
+        let successFilesCount = 0;
+
+        // 중복 파일명 방지 처리 헬퍼 함수
+        const getUniqueFileName = (originalName) => {
+            if (!usedFileNames[originalName]) {
+                usedFileNames[originalName] = 1;
+                return originalName;
+            }
+
+            const dotIdx = originalName.lastIndexOf('.');
+            const name = dotIdx !== -1 ? originalName.substring(0, dotIdx) : originalName;
+            const ext = dotIdx !== -1 ? originalName.substring(dotIdx) : '';
+
+            let count = usedFileNames[originalName];
+            let uniqueName;
+            do {
+                uniqueName = `${name} (${count})${ext}`;
+                count++;
+            } while (zip.file(uniqueName));
+
+            usedFileNames[originalName] = count;
+            return uniqueName;
+        };
+
+        try {
+            for (const id of this.selectedTemplateIds) {
+                const temp = this.state.globalTemplates.find(t => t.id === id);
+                if (!temp) continue;
+
+                try {
+                    let blobData;
+                    if (this.useSupabase && temp.filePath) {
+                        const { data, error } = await this.supabase.storage
+                            .from('artifact-templates')
+                            .createSignedUrl(temp.filePath, 300);
+
+                        if (error || !data || !data.signedUrl) {
+                            throw new Error(error ? error.message : 'Signed URL 발급 실패');
+                        }
+
+                        const response = await fetch(data.signedUrl);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error ${response.status}`);
+                        }
+                        blobData = await response.blob();
+                    } else {
+                        // 로컬 목 데이터 대응
+                        blobData = new Blob([`[AetherPMO Mock Template File]\n템플릿명: ${temp.name}\n구분: ${temp.category}\n버전: ${temp.version}`], { type: "text/plain;charset=utf-8" });
+                    }
+
+                    const uniqueName = getUniqueFileName(temp.fileName);
+                    zip.file(uniqueName, blobData);
+                    successFilesCount++;
+
+                    // 단일 다운로드 카운터 증가 동기화
+                    const newCount = (temp.downloadCount || 0) + 1;
+                    temp.downloadCount = newCount;
+                    if (this.useSupabase) {
+                        this.supabase
+                            .from('artifacts')
+                            .update({ download_count: newCount })
+                            .eq('id', temp.id)
+                            .catch(err => console.error('Failed to sync download count:', err));
+                    }
+                } catch (err) {
+                    console.error(`Failed to load file: ${temp.fileName}`, err);
+                    failedFiles.push(temp.fileName);
+                }
+            }
+
+            // 전체 실패 시 압축파일 미생성 대응
+            if (successFilesCount === 0) {
+                this.showToast('파일 일괄 다운로드에 실패했습니다. (전체 다운로드 실패)', 'error');
+                if (failedFiles.length > 0) {
+                    this.showToast(`실패한 항목: ${failedFiles.join(', ')}`, 'error');
+                }
+                return;
+            }
+
+            const content = await zip.generateAsync({ type: 'blob' });
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const zipName = `AetherPMO_산출물템플릿_${yyyy}${mm}${dd}.zip`;
+
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = zipName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+
+            if (failedFiles.length > 0) {
+                this.showToast(`일부 파일 다운로드 실패: ${failedFiles.join(', ')}`, 'warning');
+            } else {
+                this.showToast('선택한 템플릿 일괄 다운로드를 완료했습니다.', 'success');
+            }
+
+            // 다운로드 완료 후 선택 상태 및 전체 선택 체크박스 완전 초기화
+            this.selectedTemplateIds.clear();
+            const selectAllTh = document.getElementById('th-template-select-all');
+            if (selectAllTh) selectAllTh.checked = false;
+
+            this.saveState();
+            this.renderArtifacts();
+
+        } catch (globalErr) {
+            console.error('Bulk download global error:', globalErr);
+            this.showToast('일괄 다운로드 처리 중 오류 발생: ' + globalErr.message, 'error');
+        } finally {
+            if (btn) {
+                btn.innerHTML = originalHtml;
+                // 선택 해제에 따라 disabled 처리는 updateBulkDownloadButton()에서 갱신됨
+            }
+        }
     }
 
     prefillArtifactFromTemplate(templateId) {
@@ -7386,13 +8207,18 @@ class AetherPMO {
         document.getElementById('global-template-form').reset();
         document.getElementById('global-template-id-field').value = '';
         
-        document.getElementById('global-template-type').value = this.activeGlobalTemplateType || 'operation';
+        const projectType = this.activeGlobalTemplateType || 'operation';
+        document.getElementById('global-template-type').value = projectType;
         document.getElementById('global-template-stage').value = this.activeGlobalTemplateStage || 'initiation';
-        document.getElementById('global-template-category').value = 'Etc';
+        this.updateTemplateCategorySelect(projectType);
         document.getElementById('global-template-version').value = 'v1.0.0';
         document.getElementById('global-template-filename').value = '';
         document.getElementById('global-template-filesize').value = '';
         document.getElementById('global-template-date').value = this.getFormattedDateTime().split(' ')[0];
+        const authorEl = document.getElementById('global-template-author');
+        if (authorEl) {
+            authorEl.value = this.currentUser ? (this.currentUser.name || this.currentUser.email.split('@')[0]) : '시스템';
+        }
 
         // 파일 입력 리셋 및 필수로 설정
         const fileInput = document.getElementById('global-template-file-input');
@@ -7405,7 +8231,14 @@ class AetherPMO {
         const fileInfo = document.getElementById('global-template-file-info');
         if (fileInfo) fileInfo.style.display = 'none';
 
+        const dropText = document.getElementById('drop-zone-text');
+        if (dropText) dropText.textContent = '파일을 여기에 드래그 앤 드롭하거나 클릭하여 선택하세요.';
+        const dropZone = document.getElementById('template-drop-zone');
+        if (dropZone) dropZone.classList.remove('has-file');
+
         document.getElementById('global-template-modal').classList.add('open');
+        this.initTemplateDragAndDrop();
+        if (window.lucide) window.lucide.createIcons();
     }
 
     openEditGlobalTemplateModal(id) {
@@ -7419,13 +8252,34 @@ class AetherPMO {
         document.getElementById('global-template-modal-title').textContent = '템플릿 서식 정보 수정';
         document.getElementById('global-template-id-field').value = temp.id;
         document.getElementById('global-template-name').value = temp.name;
-        document.getElementById('global-template-type').value = temp.projectType || 'operation';
+        const projectType = temp.projectType || 'operation';
+        document.getElementById('global-template-type').value = projectType;
         document.getElementById('global-template-stage').value = temp.stage;
-        document.getElementById('global-template-category').value = temp.category;
+        
+        this.updateTemplateCategorySelect(projectType, temp.category);
+        
+        const categories = this.getTemplateCategories(projectType);
+        const isStandard = categories.some(cat => cat.value === temp.category);
+        const customInput = document.getElementById('global-template-custom-category');
+        
+        if (!isStandard || temp.category === 'Custom') {
+            document.getElementById('global-template-category').value = 'Custom';
+            this.handleTemplateCategoryChange();
+            if (customInput) {
+                customInput.value = temp.category === 'Custom' ? '' : temp.category;
+            }
+        } else {
+            document.getElementById('global-template-category').value = temp.category;
+            this.handleTemplateCategoryChange();
+        }
         document.getElementById('global-template-version').value = temp.version;
         document.getElementById('global-template-filename').value = temp.fileName;
         document.getElementById('global-template-filesize').value = temp.fileSize;
         document.getElementById('global-template-date').value = temp.modifiedDate;
+        const authorEl = document.getElementById('global-template-author');
+        if (authorEl) {
+            authorEl.value = temp.author || '미지정';
+        }
 
         // 수정 시 파일 입력은 선택으로 설정
         const fileInput = document.getElementById('global-template-file-input');
@@ -7441,7 +8295,14 @@ class AetherPMO {
             fileInfo.style.display = 'block';
         }
 
+        const dropText = document.getElementById('drop-zone-text');
+        if (dropText) dropText.textContent = `기존 파일: ${temp.fileName} (교체하려면 드래그 또는 클릭)`;
+        const dropZone = document.getElementById('template-drop-zone');
+        if (dropZone) dropZone.classList.add('has-file');
+
         document.getElementById('global-template-modal').classList.add('open');
+        this.initTemplateDragAndDrop();
+        if (window.lucide) window.lucide.createIcons();
     }
 
     closeGlobalTemplateModal() {
@@ -7457,7 +8318,15 @@ class AetherPMO {
         const name = document.getElementById('global-template-name').value.trim();
         const stage = document.getElementById('global-template-stage').value;
         const projectType = document.getElementById('global-template-type').value;
-        const category = document.getElementById('global-template-category').value;
+        let category = document.getElementById('global-template-category').value;
+        if (category === 'Custom') {
+            const customVal = document.getElementById('global-template-custom-category').value.trim();
+            if (!customVal) {
+                alert('산출물 구분 직접 입력 값을 입력해주세요.');
+                return;
+            }
+            category = customVal;
+        }
         const version = document.getElementById('global-template-version').value.trim();
         const fileName = document.getElementById('global-template-filename').value.trim();
         const fileSize = document.getElementById('global-template-filesize').value.trim();
@@ -7502,6 +8371,29 @@ class AetherPMO {
                 }
             }
 
+            const authorName = this.currentUser ? (this.currentUser.name || this.currentUser.email.split('@')[0]) : '시스템';
+            
+            let nextOrder = null;
+            if (id) {
+                const oldTemp = this.state.globalTemplates.find(t => t.id === id);
+                nextOrder = oldTemp && oldTemp.displayOrder !== undefined ? oldTemp.displayOrder : null;
+            } else {
+                // 신규 등록 시 동일 stage, projectType 내의 최대 displayOrder + 1
+                const stageTemplates = (this.state.globalTemplates || []).filter(t => 
+                    t.stage === stage && t.projectType === projectType
+                );
+                let maxOrder = 0;
+                stageTemplates.forEach(t => {
+                    if (t.displayOrder !== undefined && t.displayOrder !== null) {
+                        const orderNum = Number(t.displayOrder);
+                        if (!isNaN(orderNum) && orderNum > maxOrder) {
+                            maxOrder = orderNum;
+                        }
+                    }
+                });
+                nextOrder = maxOrder + 1;
+            }
+
             const dbData = {
                 name: name,
                 category: category,
@@ -7514,7 +8406,9 @@ class AetherPMO {
                 file_path: file ? filePath : (id ? this.state.globalTemplates.find(t => t.id === id)?.filePath : ''),
                 mime_type: file ? mimeType : (id ? this.state.globalTemplates.find(t => t.id === id)?.mimeType : ''),
                 is_template: true,
-                status: 'Approved'
+                status: 'Approved',
+                author: authorName,
+                display_order: nextOrder
             };
 
             if (id) {
@@ -7540,17 +8434,23 @@ class AetherPMO {
                 // 로컬 상태 갱신
                 const index = this.state.globalTemplates.findIndex(t => t.id === id);
                 if (index !== -1) {
+                    const oldTemp = this.state.globalTemplates[index];
                     this.state.globalTemplates[index] = {
                         id, name, stage, projectType, category, version, 
                         fileName: finalFileName, fileSize: finalFileSize, 
                         filePath: dbData.file_path, mimeType: dbData.mime_type, 
-                        modifiedDate
+                        author: authorName,
+                        downloadCount: oldTemp ? (oldTemp.downloadCount || 0) : 0,
+                        modifiedDate,
+                        displayOrder: nextOrder
                     };
                     this.addActivityLog(null, null, 'artifact', `템플릿 수정: ${name} (${version})`);
                 }
                 this.showToast('템플릿이 성공적으로 수정되었습니다.', 'success');
             } else {
                 let newId = `gt-${Date.now()}`;
+                dbData.download_count = 0; // 신규는 0회 다운로드
+
                 if (this.useSupabase) {
                     const { data: inserted, error: dbErr } = await this.supabase
                         .from('artifacts')
@@ -7569,12 +8469,16 @@ class AetherPMO {
                     id: newId, name, stage, projectType, category, version, 
                     fileName: finalFileName, fileSize: finalFileSize, 
                     filePath: dbData.file_path, mimeType: dbData.mime_type, 
-                    modifiedDate
+                    author: authorName,
+                    downloadCount: 0,
+                    modifiedDate,
+                    displayOrder: nextOrder
                 });
                 this.addActivityLog(null, null, 'artifact', `새 템플릿 등록: ${name} (${version})`);
                 this.showToast('새 템플릿이 등록되었습니다.', 'success');
             }
 
+            this.sortGlobalTemplates();
             this.saveState();
             this.closeGlobalTemplateModal();
             this.renderArtifacts();
@@ -7629,6 +8533,144 @@ class AetherPMO {
             } catch (err) {
                 console.error('Delete template error:', err);
                 this.showToast('템플릿 삭제 실패: ' + err.message, 'error');
+            }
+        }
+    }
+
+    async previewPDF(id) {
+        const temp = this.state.globalTemplates.find(t => t.id === id);
+        if (!temp) return;
+
+        if (!this.useSupabase) {
+            alert('로컬 환경에서는 PDF 미리보기가 지원되지 않습니다.');
+            return;
+        }
+
+        try {
+            const { data, error } = await this.supabase.storage
+                .from('artifact-templates')
+                .createSignedUrl(temp.filePath, 300);
+
+            if (error) throw error;
+
+            if (data && data.signedUrl) {
+                const modal = document.getElementById('pdf-preview-modal');
+                const iframe = document.getElementById('pdf-preview-iframe');
+                const title = document.getElementById('pdf-preview-modal-title');
+                
+                if (title) title.textContent = `PDF 미리보기 - ${temp.name}`;
+                if (iframe) iframe.src = data.signedUrl;
+                if (modal) modal.classList.add('active');
+            } else {
+                throw new Error('PDF 미리보기 URL 생성 실패');
+            }
+        } catch (err) {
+            console.error('PDF preview error:', err);
+            this.showToast('PDF 미리보기를 불러올 수 없습니다: ' + err.message, 'error');
+        }
+    }
+
+    closePDFPreviewModal() {
+        const modal = document.getElementById('pdf-preview-modal');
+        const iframe = document.getElementById('pdf-preview-iframe');
+        if (modal) modal.classList.remove('active');
+        if (iframe) iframe.src = '';
+    }
+
+    initTemplateDragAndDrop() {
+        const dropZone = document.getElementById('template-drop-zone');
+        const fileInput = document.getElementById('global-template-file-input');
+        
+        if (!dropZone || !fileInput) return;
+
+        // 기존 리스너 중복 방지를 위해 이벤트 리스너 재설정
+        const preventDefaults = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        };
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.remove('dragover');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+
+            if (files && files.length > 0) {
+                fileInput.files = files;
+                this.handleTemplateFileChange({ target: fileInput });
+            }
+        }, false);
+    }
+
+    getTemplateCategories(projectType) {
+        return this.globalTemplateCategories[projectType] || this.globalTemplateCategories.default;
+    }
+
+    updateTemplateCategorySelect(projectType, selectedValue = '') {
+        const select = document.getElementById('global-template-category');
+        if (!select) return;
+
+        select.innerHTML = '';
+        const categories = this.getTemplateCategories(projectType);
+        
+        let hasSelected = false;
+        if (selectedValue) {
+            hasSelected = categories.some(cat => cat.value === selectedValue);
+        }
+
+        categories.forEach(cat => {
+            const opt = document.createElement('option');
+            opt.value = cat.value;
+            opt.textContent = cat.label;
+            if (cat.value === selectedValue) {
+                opt.selected = true;
+            }
+            select.appendChild(opt);
+        });
+
+        if (selectedValue && !hasSelected) {
+            // 기존 데이터와의 호환성을 유지하기 위해 정의되지 않은 값인 경우 임시 선택 옵션으로 띄워줍니다.
+            const opt = document.createElement('option');
+            opt.value = selectedValue;
+            opt.textContent = `${selectedValue} (기존)`;
+            opt.selected = true;
+            select.appendChild(opt);
+        }
+
+        this.handleTemplateCategoryChange();
+    }
+
+    handleTemplateCategoryChange() {
+        const select = document.getElementById('global-template-category');
+        const customGroup = document.getElementById('global-template-custom-category-group');
+        const customInput = document.getElementById('global-template-custom-category');
+        
+        if (!select || !customGroup) return;
+
+        if (select.value === 'Custom') {
+            customGroup.style.display = 'block';
+            if (customInput) {
+                customInput.required = true;
+            }
+        } else {
+            customGroup.style.display = 'none';
+            if (customInput) {
+                customInput.required = false;
+                customInput.value = '';
             }
         }
     }
@@ -8294,164 +9336,13 @@ class AetherPMO {
     }
 
     renderPersonalizedDashboard() {
-        const user = this.currentUser;
-        if (!user) return;
-
-        const role = user.role;
         const execView = document.getElementById('dashboard-exec-view');
         const personalView = document.getElementById('dashboard-personalized-view');
-        const pmSections = document.getElementById('pm-dashboard-sections');
-        const workerSections = document.getElementById('worker-dashboard-sections');
-
-        if (!execView || !personalView || !pmSections || !workerSections) return;
-
-        const isPersonalView = (role === 'PM' || role === 'WORKER');
-
-        if (!isPersonalView) {
+        if (execView && personalView) {
             execView.style.display = 'flex';
             personalView.style.display = 'none';
-            pmSections.style.display = 'none';
-            workerSections.style.display = 'none';
-            return;
         }
-
-        execView.style.display = 'none';
-        personalView.style.display = 'flex';
-
-        if (role === 'PM') {
-            pmSections.style.display = 'flex';
-            workerSections.style.display = 'none';
-
-            // Filter PM projects (managerId matches user's email or p.id is in user.assignedProjectIds)
-            const myProjects = this.state.projects.filter(p => p.managerId === user.email || (user.assignedProjectIds && user.assignedProjectIds.includes(p.id)));
-            const pmProjectsTbody = document.getElementById('pm-projects-list');
-            if (pmProjectsTbody) {
-                pmProjectsTbody.innerHTML = '';
-                if (myProjects.length === 0) {
-                    pmProjectsTbody.innerHTML = '<tr><td colspan="6" class="text-center">담당 중인 프로젝트가 없습니다.</td></tr>';
-                } else {
-                    myProjects.forEach(p => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td><a href="#project-detail/${p.id}" style="font-weight:700; color:var(--primary); text-decoration:none;">${p.name}</a></td>
-                            <td>${p.customer || '-'}</td>
-                            <td>${p.startDate || '-'}</td>
-                            <td>${p.endDate || '-'}</td>
-                            <td>
-                                <div class="progress-container">
-                                    <div class="progress-bar" style="width: ${p.progress}%;"></div>
-                                    <span class="progress-text">${p.progress}%</span>
-                                </div>
-                            </td>
-                            <td><span class="badge ${p.status === 'Completed' ? 'badge-success' : (p.status === 'Delay' ? 'badge-danger' : 'badge-primary')}">${p.status}</span></td>
-                        `;
-                        pmProjectsTbody.appendChild(tr);
-                    });
-                }
-            }
-
-            // Filter PM Risks (unresolved and belonging to PM projects)
-            const myProjectIds = myProjects.map(p => p.id);
-            const myRisks = (this.state.issues || []).filter(i => myProjectIds.includes(i.projectId) && i.status !== '완료');
-            const pmRisksTbody = document.getElementById('pm-risks-list');
-            if (pmRisksTbody) {
-                pmRisksTbody.innerHTML = '';
-                if (myRisks.length === 0) {
-                    pmRisksTbody.innerHTML = '<tr><td colspan="4" class="text-center">진행 중인 리스크가 없습니다.</td></tr>';
-                } else {
-                    myRisks.forEach(i => {
-                        const proj = this.state.projects.find(p => p.id === i.projectId);
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td style="font-size:11px; font-weight:700;">${proj ? proj.name : '-'}</td>
-                            <td style="font-weight:600; color:var(--text-main);">${i.title}</td>
-                            <td><span class="badge ${i.priority === '높음' ? 'badge-danger' : 'badge-warning'}">${i.priority}</span></td>
-                            <td><span class="badge badge-outline">${i.status}</span></td>
-                        `;
-                        pmRisksTbody.appendChild(tr);
-                    });
-                }
-            }
-
-            // Filter PM Action Items (unresolved and belonging to PM projects)
-            const myActions = (this.state.actionItems || []).filter(a => myProjectIds.includes(a.projectId) && a.status !== '완료');
-            const pmActionsTbody = document.getElementById('pm-actions-list');
-            if (pmActionsTbody) {
-                pmActionsTbody.innerHTML = '';
-                if (myActions.length === 0) {
-                    pmActionsTbody.innerHTML = '<tr><td colspan="4" class="text-center">미완료 Action Item이 없습니다.</td></tr>';
-                } else {
-                    myActions.forEach(a => {
-                        const proj = this.state.projects.find(p => p.id === a.projectId);
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td style="font-size:11px; font-weight:700;">${proj ? proj.name : '-'}</td>
-                            <td style="font-weight:600; color:var(--text-main);">${a.title}</td>
-                            <td>${a.assignee || '-'}</td>
-                            <td>${a.dueDate || '-'}</td>
-                        `;
-                        pmActionsTbody.appendChild(tr);
-                    });
-                }
-            }
-        } else if (role === 'WORKER') {
-            pmSections.style.display = 'none';
-            workerSections.style.display = 'flex';
-
-            // Filter Worker projects (memberIds contains worker's email or p.id is in user.assignedProjectIds)
-            const participatingProjects = this.state.projects.filter(p => (p.memberIds && p.memberIds.includes(user.email)) || (user.assignedProjectIds && user.assignedProjectIds.includes(p.id)));
-            const workerTasksTbody = document.getElementById('worker-tasks-list');
-            if (workerTasksTbody) {
-                workerTasksTbody.innerHTML = '';
-                if (participatingProjects.length === 0) {
-                    workerTasksTbody.innerHTML = '<tr><td colspan="6" class="text-center">참여 중인 프로젝트가 없습니다.</td></tr>';
-                } else {
-                    participatingProjects.forEach(p => {
-                        // Find role in resources list
-                        const res = p.resourcesList ? p.resourcesList.find(r => r.name === user.name) : null;
-                        const roleInProject = res ? res.role : '수행담당자';
-
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td><a href="#project-detail/${p.id}" style="font-weight:700; color:var(--primary); text-decoration:none;">${p.name}</a></td>
-                            <td><span style="font-size:11px; font-weight:700; background:rgba(16, 185, 129, 0.12); color:#10b981; padding:2px 6px; border-radius:4px;">${roleInProject}</span></td>
-                            <td>${p.startDate || '-'}</td>
-                            <td>${p.endDate || '-'}</td>
-                            <td>
-                                <div class="progress-container">
-                                    <div class="progress-bar" style="width: ${p.progress}%;"></div>
-                                    <span class="progress-text">${p.progress}%</span>
-                                </div>
-                            </td>
-                            <td><span class="badge ${p.status === 'Completed' ? 'badge-success' : (p.status === 'Delay' ? 'badge-danger' : 'badge-primary')}">${p.status}</span></td>
-                        `;
-                        workerTasksTbody.appendChild(tr);
-                    });
-                }
-            }
-
-            // Filter Worker Action Items (assigned to this worker, status unresolved)
-            const workerActions = (this.state.actionItems || []).filter(a => (a.assignee === user.name || a.assigneeId === user.email) && a.status !== '완료');
-            const workerActionsTbody = document.getElementById('worker-actions-list');
-            if (workerActionsTbody) {
-                workerActionsTbody.innerHTML = '';
-                if (workerActions.length === 0) {
-                    workerActionsTbody.innerHTML = '<tr><td colspan="4" class="text-center">나에게 배정된 미완료 Action Item이 없습니다.</td></tr>';
-                } else {
-                    workerActions.forEach(a => {
-                        const proj = this.state.projects.find(p => p.id === a.projectId);
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td style="font-size:11px; font-weight:700;">${proj ? proj.name : '-'}</td>
-                            <td style="font-weight:600; color:var(--text-main);">${a.title}</td>
-                            <td><span class="badge ${a.status === '진행중' ? 'badge-primary' : 'badge-outline'}">${a.status}</span></td>
-                            <td>${a.dueDate || '-'}</td>
-                        `;
-                        workerActionsTbody.appendChild(tr);
-                    });
-                }
-            }
-        }
+        this.renderDashboard();
     }
 
     // ============================================================

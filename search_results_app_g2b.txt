@@ -1,0 +1,21 @@
+Line 3637: this.renderG2BAnnouncements();
+Line 3646: renderG2BAnnouncements() {
+Line 10: g2bAnnouncements: [], // G2B announcements list
+Line 989: if (!this.state.g2bAnnouncements) this.state.g2bAnnouncements = [];
+Line 989: if (!this.state.g2bAnnouncements) this.state.g2bAnnouncements = [];
+Line 1642: if (!this.state.g2bAnnouncements || this.state.g2bAnnouncements.length === 0) {
+Line 1642: if (!this.state.g2bAnnouncements || this.state.g2bAnnouncements.length === 0) {
+Line 1643: this.state.g2bAnnouncements = mockG2B;
+Line 3651: const announcements = this.state.g2bAnnouncements || [];
+Line 3727: const ann = this.state.g2bAnnouncements.find(a => a.id === announcementId);
+Line 10: g2bAnnouncements: [], // G2B announcements list
+Line 466: 'resetToMockData', 'registerBiddingProjectFromG2B'
+Line 548: 'registerBiddingProjectFromG2B',
+Line 612: 'resetToMockData', 'registerBiddingProjectFromG2B'
+Line 1594: const mockG2B = [
+Line 1643: this.state.g2bAnnouncements = mockG2B;
+Line 3636: // 2. Render G2B Announcements (Right Panel)
+Line 3637: this.renderG2BAnnouncements();
+Line 3646: renderG2BAnnouncements() {
+Line 3712: : `<button class="btn btn-xs btn-primary" onclick="app.registerBiddingProjectFromG2B('${ann.id}')"><i data-lucide="plus" style="width:11px; height:11px; margin-right:4px;"></i> 입찰 등록</button>`
+Line 3726: registerBiddingProjectFromG2B(announcementId) {

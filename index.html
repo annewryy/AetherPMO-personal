@@ -298,288 +298,217 @@
                         </button>
                     </div>
 
-                    <!-- 1. General/Exec View -->
+                    <!-- 1. General/Exec View (Now PM-Centric Redesigned Dashboard) -->
                     <div id="dashboard-exec-view" style="display: flex; flex-direction: column; gap: 20px;">
-                        <!-- Statistics Cards -->
+                        <!-- Redesigned 7 KPI Cards -->
                         <div class="stats-grid">
-                            <!-- 1. 전체 사업 수 -->
-                            <div class="stat-card" onclick="window.location.hash = 'projects';">
+                            <!-- 1. 전체 프로젝트 -->
+                            <div class="stat-card" id="kpi-total-projects" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
                                 <div class="stat-card-header">
-                                    <span class="stat-title">전체 사업 수</span>
+                                    <span class="stat-title">전체 프로젝트</span>
                                     <div class="stat-icon icon-bg-primary">
                                         <i data-lucide="folder"></i>
                                     </div>
                                 </div>
                                 <div class="stat-value" id="stat-total-projects">0</div>
-                                <div class="stat-subtext">등록된 전체 사업</div>
+                                <div class="stat-subtext">등록된 전체 프로젝트</div>
                             </div>
                             
-                            <!-- 2. 진행중 사업 수 -->
-                            <div class="stat-card" onclick="window.location.hash = 'projects';">
+                            <!-- 2. 진행중 -->
+                            <div class="stat-card" id="kpi-active-projects" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
                                 <div class="stat-card-header">
-                                    <span class="stat-title">진행중 사업 수</span>
+                                    <span class="stat-title">진행중</span>
                                     <div class="stat-icon icon-bg-info">
                                         <i data-lucide="play-circle"></i>
                                     </div>
                                 </div>
                                 <div class="stat-value text-info" id="stat-active-projects">0</div>
-                                <div class="stat-subtext">수행 및 보류 단계</div>
+                                <div class="stat-subtext">수행 및 보류 프로젝트</div>
                             </div>
 
-                            <!-- 3. 완료 사업 수 -->
-                            <div class="stat-card" onclick="window.location.hash = 'projects';">
+                            <!-- 3. 입찰 -->
+                            <div class="stat-card" id="kpi-bidding-projects" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
                                 <div class="stat-card-header">
-                                    <span class="stat-title">완료 사업 수</span>
-                                    <div class="stat-icon icon-bg-success">
-                                        <i data-lucide="check-circle2"></i>
+                                    <span class="stat-title">입찰</span>
+                                    <div class="stat-icon icon-bg-warning">
+                                        <i data-lucide="file-text"></i>
                                     </div>
                                 </div>
-                                <div class="stat-value text-success" id="stat-completed-projects">0</div>
-                                <div class="stat-subtext">종료 및 검수완료</div>
+                                <div class="stat-value text-warning" id="stat-bidding-projects">0</div>
+                                <div class="stat-subtext">입찰/제안 단계 프로젝트</div>
                             </div>
 
-                            <!-- 4. 지연 사업 수 -->
-                            <div class="stat-card" onclick="window.location.hash = 'projects';">
+                            <!-- 4. 지연 -->
+                            <div class="stat-card" id="kpi-delayed-projects" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
                                 <div class="stat-card-header">
-                                    <span class="stat-title">지연 사업 수</span>
+                                    <span class="stat-title">지연</span>
                                     <div class="stat-icon icon-bg-danger">
                                         <i data-lucide="alert-circle"></i>
                                     </div>
                                 </div>
                                 <div class="stat-value text-danger" id="stat-delayed-projects">0</div>
-                                <div class="stat-subtext">일정 초과 및 지연 상태</div>
+                                <div class="stat-subtext">일정 초과 및 지연 프로젝트</div>
                             </div>
 
-                            <!-- 5. 미해결 리스크 -->
-                            <div class="stat-card" onclick="window.location.hash = 'issues';">
+                            <!-- 5. 오늘 마감 -->
+                            <div class="stat-card" id="kpi-today-due-projects" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
                                 <div class="stat-card-header">
-                                    <span class="stat-title">미해결 리스크</span>
+                                    <span class="stat-title">오늘 마감</span>
                                     <div class="stat-icon icon-bg-danger">
-                                        <i data-lucide="alert-triangle"></i>
+                                        <i data-lucide="calendar"></i>
                                     </div>
                                 </div>
-                                <div class="stat-value text-danger" id="stat-unresolved-risks">0</div>
-                                <div class="stat-subtext">발생 및 조치중인 리스크</div>
+                                <div class="stat-value text-danger" id="stat-today-due-projects">0</div>
+                                <div class="stat-subtext">오늘 종료 예정 프로젝트</div>
                             </div>
 
-                            <!-- 6. 미완료 Action Item -->
-                            <div class="stat-card" onclick="window.location.hash = 'action-items';">
+                            <!-- 6. 미완료 Action -->
+                            <div class="stat-card" id="kpi-uncompleted-actions" onclick="window.location.hash = 'action-items';" style="cursor:pointer;">
                                 <div class="stat-card-header">
-                                    <span class="stat-title">미완료 Action Item</span>
+                                    <span class="stat-title">미완료 Action</span>
                                     <div class="stat-icon icon-bg-warning">
                                         <i data-lucide="check-square"></i>
                                     </div>
                                 </div>
                                 <div class="stat-value text-warning" id="stat-uncompleted-actions">0</div>
-                                <div class="stat-subtext">대기 및 진행중 항목</div>
+                                <div class="stat-subtext">대기 및 진행 Action Item</div>
                             </div>
 
-                            <!-- 7. 금월 매출 -->
-                            <div class="stat-card">
+                            <!-- 7. 미조치 Risk -->
+                            <div class="stat-card" id="kpi-unresolved-risks" onclick="window.location.hash = 'issues';" style="cursor:pointer;">
                                 <div class="stat-card-header">
-                                    <span class="stat-title">금월 매출</span>
-                                    <div class="stat-icon icon-bg-success">
-                                        <i data-lucide="trending-up"></i>
+                                    <span class="stat-title">미조치 Risk</span>
+                                    <div class="stat-icon icon-bg-danger">
+                                        <i data-lucide="alert-triangle"></i>
                                     </div>
                                 </div>
-                                <div class="stat-value text-success" id="stat-monthly-revenue">0 원</div>
-                                <div class="stat-subtext">당월 검수 완료 기준</div>
-                            </div>
-
-                            <!-- 8. 투입 인력 수 -->
-                            <div class="stat-card">
-                                <div class="stat-card-header">
-                                    <span class="stat-title">투입 인력 수</span>
-                                    <div class="stat-icon icon-bg-primary">
-                                        <i data-lucide="users"></i>
-                                    </div>
-                                </div>
-                                <div class="stat-value text-primary" id="stat-total-resources">0 명</div>
-                                <div class="stat-subtext">수행중 사업 투입인원</div>
+                                <div class="stat-value text-danger" id="stat-unresolved-risks">0</div>
+                                <div class="stat-subtext">발생 및 조치 중 리스크</div>
                             </div>
                         </div>
 
-                        <!-- Charts & Recent Activity section -->
-                        <div class="dashboard-grid">
-                            <!-- Left panel: Charts & Stats -->
-                            <div class="dashboard-card card-chart">
-                                <h3>프로젝트 상태 분포</h3>
+                        <!-- Redesigned Charts Section -->
+                        <div class="dashboard-chart-grid">
+                            <!-- 1. 프로젝트 진행률 가로 막대 차트 -->
+                            <div class="dashboard-section-card" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
+                                <div class="card-header-actions">
+                                    <h3><i data-lucide="bar-chart-2" class="chart-header-icon mr-2"></i>프로젝트 진행률</h3>
+                                </div>
+                                <div class="chart-scroll-container" id="dashboard-progress-chart-container">
+                                    <!-- Dynamic WBS Progress Bars -->
+                                </div>
+                            </div>
+
+                            <!-- 2. 사업유형 도넛 차트 -->
+                            <div class="dashboard-section-card" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
+                                <div class="card-header-actions">
+                                    <h3><i data-lucide="pie-chart" class="chart-header-icon mr-2"></i>사업유형 분포</h3>
+                                </div>
                                 <div class="chart-wrapper">
                                     <div class="svg-chart-container">
                                         <svg class="donut-chart" viewBox="0 0 42 42" width="100%" height="100%">
                                             <circle class="donut-hole" cx="21" cy="21" r="15.91549430918954" fill="transparent"></circle>
                                             <circle class="donut-ring" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="var(--bg-card-border)" stroke-width="4"></circle>
-                                            <!-- Segments dynamically computed in JS -->
-                                            <g id="donut-segments-group"></g>
+                                            <g id="donut-business-type-segments-group"></g>
                                         </svg>
                                         <div class="chart-center-text">
-                                            <span id="chart-center-value">0</span>
+                                            <span id="chart-business-type-center-value">0</span>
                                             <span class="label">전체 사업 수</span>
                                         </div>
                                     </div>
-                                    <div class="chart-legend" id="chart-status-legend">
-                                        <!-- Legend dynamically computed -->
+                                    <div class="chart-legend" id="chart-business-type-legend">
+                                        <!-- Dynamic business type legend -->
                                     </div>
-                                </div>
-                            </div>
-
-                            <!-- Right panel: Recent Activity Logs -->
-                            <div class="dashboard-card card-activity">
-                                <div class="card-header-actions">
-                                    <h3>최근 활동 기록</h3>
-                                    <button class="text-btn" onclick="app.clearActivityLogs()">로그 초기화</button>
-                                </div>
-                                <div class="timeline" id="recent-activities">
-                                    <div class="empty-state">최근 활동 기록이 없습니다.</div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Lower Section: Active Projects Table -->
-                        <div class="dashboard-card projects-summary-table-card">
+                        <!-- 오늘 해야할 일 Section (3열 분할) -->
+                        <div class="dashboard-section-card">
                             <div class="card-header-actions">
-                                <h3>진행 중인 프로젝트 요약</h3>
-                                <a href="#projects" class="text-btn" onclick="app.switchView('projects')">전체보기 <i data-lucide="arrow-right"></i></a>
+                                <h3><i data-lucide="calendar" class="chart-header-icon mr-2" style="color: var(--primary);"></i>오늘 해야할 일</h3>
                             </div>
-                            <div class="table-container">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>프로젝트명</th>
-                                            <th>고객사</th>
-                                            <th>PM</th>
-                                            <th>진행률</th>
-                                            <th>리스크 수</th>
-                                            <th>상태</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="dashboard-projects-list">
-                                        <!-- Dynamic rows -->
-                                    </tbody>
-                                </table>
+                            <div class="dashboard-sub-grid">
+                                <!-- 1. 오늘/지연 WBS 일정 -->
+                                <div class="sub-card-container" id="today-wbs-container" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
+                                    <div class="sub-card-header">
+                                        <span class="sub-card-title">오늘/지연 WBS 일정</span>
+                                        <span class="badge badge-error" id="today-wbs-badge">0</span>
+                                    </div>
+                                    <div class="sub-card-list" id="today-wbs-list">
+                                        <!-- Dynamic list -->
+                                    </div>
+                                </div>
+
+                                <!-- 2. 오늘/지연 Action Item -->
+                                <div class="sub-card-container" id="today-actions-container" onclick="window.location.hash = 'action-items';" style="cursor:pointer;">
+                                    <div class="sub-card-header">
+                                        <span class="sub-card-title">오늘/지연 Action Item</span>
+                                        <span class="badge badge-error" id="today-actions-badge">0</span>
+                                    </div>
+                                    <div class="sub-card-list" id="today-actions-list">
+                                        <!-- Dynamic list -->
+                                    </div>
+                                </div>
+
+                                <!-- 3. 오늘/지연 제출 산출물 -->
+                                <div class="sub-card-container" id="today-artifacts-container" onclick="window.location.hash = 'artifacts';" style="cursor:pointer;">
+                                    <div class="sub-card-header">
+                                        <span class="sub-card-title">오늘/지연 제출 산출물</span>
+                                        <span class="badge badge-error" id="today-artifacts-badge">0</span>
+                                    </div>
+                                    <div class="sub-card-list" id="today-artifacts-list">
+                                        <!-- Dynamic list -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 최근 활동 Section (3열 분할) -->
+                        <div class="dashboard-section-card">
+                            <div class="card-header-actions">
+                                <h3><i data-lucide="clock" class="chart-header-icon mr-2" style="color: var(--primary);"></i>최근 활동</h3>
+                            </div>
+                            <div class="dashboard-sub-grid">
+                                <!-- 1. 최근 공문 -->
+                                <div class="sub-card-container" id="recent-docs-container" onclick="window.location.hash = 'official-docs';" style="cursor:pointer;">
+                                    <div class="sub-card-header">
+                                        <span class="sub-card-title">최근 공문</span>
+                                    </div>
+                                    <div class="sub-card-list" id="recent-docs-list">
+                                        <!-- Dynamic list -->
+                                    </div>
+                                </div>
+
+                                <!-- 2. 최근 회의록 -->
+                                <div class="sub-card-container" id="recent-meetings-container" onclick="window.location.hash = 'meetings';" style="cursor:pointer;">
+                                    <div class="sub-card-header">
+                                        <span class="sub-card-title">최근 회의록</span>
+                                    </div>
+                                    <div class="sub-card-list" id="recent-meetings-list">
+                                        <!-- Dynamic list -->
+                                    </div>
+                                </div>
+
+                                <!-- 3. 최근 업로드 산출물 -->
+                                <div class="sub-card-container" id="recent-artifacts-container" onclick="window.location.hash = 'artifacts';" style="cursor:pointer;">
+                                    <div class="sub-card-header">
+                                        <span class="sub-card-title">최근 업로드 산출물</span>
+                                    </div>
+                                    <div class="sub-card-list" id="recent-artifacts-list">
+                                        <!-- Dynamic list -->
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 2. Personalized Dashboard View -->
+                    <!-- 2. Personalized Dashboard View (Preserved for structure & future expansion) -->
                     <div id="dashboard-personalized-view" style="display: none; flex-direction: column; gap: 20px; width: 100%;">
-                        <!-- PM View Sections -->
-                        <div id="pm-dashboard-sections" style="display: none; flex-direction: column; gap: 20px;">
-                            <!-- My Projects Card -->
-                            <div class="dashboard-card">
-                                <h3><i data-lucide="folder" class="text-primary vertical-align-middle mr-2"></i> 내 프로젝트</h3>
-                                <p class="card-desc">내가 관리자로 지정되어 있는 프로젝트 목록 및 실시간 진행률 현황입니다.</p>
-                                <div class="table-container mt-3">
-                                    <table class="data-table">
-                                        <thead>
-                                            <tr>
-                                                <th>프로젝트명</th>
-                                                <th>고객사</th>
-                                                <th>시작일</th>
-                                                <th>종료일</th>
-                                                <th>진행률</th>
-                                                <th>상태</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="pm-projects-list">
-                                            <!-- Dynamic PM Projects -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                            
-                            <!-- Grid for Risks and Action Items -->
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                                <!-- My Risks Card -->
-                                <div class="dashboard-card">
-                                    <h3><i data-lucide="alert-triangle" class="text-danger vertical-align-middle mr-2"></i> 내 리스크</h3>
-                                    <p class="card-desc">내 프로젝트에서 발생한 미해결 리스크 현황입니다.</p>
-                                    <div class="table-container mt-3">
-                                        <table class="data-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>프로젝트</th>
-                                                    <th>리스크 내용</th>
-                                                    <th>우선순위</th>
-                                                    <th>상태</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="pm-risks-list">
-                                                <!-- Dynamic PM Risks -->
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                                
-                                <!-- My Action Items Card -->
-                                <div class="dashboard-card">
-                                    <h3><i data-lucide="check-square" class="text-warning vertical-align-middle mr-2"></i> 내 Action Item</h3>
-                                    <p class="card-desc">내 프로젝트의 미완료 조치사항 목록입니다.</p>
-                                    <div class="table-container mt-3">
-                                        <table class="data-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>프로젝트</th>
-                                                    <th>Action Item</th>
-                                                    <th>담당자</th>
-                                                    <th>기한</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="pm-actions-list">
-                                                <!-- Dynamic PM Action Items -->
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Worker View Sections -->
-                        <div id="worker-dashboard-sections" style="display: none; flex-direction: column; gap: 20px;">
-                            <!-- My Tasks (Participating Projects) -->
-                            <div class="dashboard-card">
-                                <h3><i data-lucide="clipboard-list" class="text-primary vertical-align-middle mr-2"></i> 내 업무 (참여 프로젝트)</h3>
-                                <p class="card-desc">내가 수행담당자 또는 참여인력으로 맵핑되어 있는 프로젝트 목록입니다.</p>
-                                <div class="table-container mt-3">
-                                    <table class="data-table">
-                                        <thead>
-                                            <tr>
-                                                <th>프로젝트명</th>
-                                                <th>역할</th>
-                                                <th>시작일</th>
-                                                <th>종료일</th>
-                                                <th>진행률</th>
-                                                <th>상태</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="worker-tasks-list">
-                                            <!-- Dynamic Worker Projects -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                            
-                            <!-- My Action Items (Assigned only to Worker) -->
-                            <div class="dashboard-card">
-                                <h3><i data-lucide="check-square" class="text-warning vertical-align-middle mr-2"></i> 내 Action Item</h3>
-                                <p class="card-desc">나에게 배정된 미완료 Action Item 목록입니다.</p>
-                                <div class="table-container mt-3">
-                                    <table class="data-table">
-                                        <thead>
-                                            <tr>
-                                                <th>프로젝트</th>
-                                                <th>Action Item</th>
-                                                <th>상태</th>
-                                                <th>기한</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="worker-actions-list">
-                                            <!-- Dynamic Worker Action Items -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- PM View Sections (Preserved) -->
+                        <div id="pm-dashboard-sections" style="display: none;"></div>
+                        <!-- Worker View Sections (Preserved) -->
+                        <div id="worker-dashboard-sections" style="display: none;"></div>
                     </div>
                 </section>
 
@@ -1158,9 +1087,14 @@
                                     <i data-lucide="chevron-right" style="width:12px; height:12px; margin: 0 4px; color: var(--text-muted);"></i>
                                     <span id="path-project-stage" class="text-primary font-bold">착수단계 템플릿</span>
                                 </div>
-                                <button class="btn btn-primary" id="btn-add-global-template" onclick="app.openNewGlobalTemplateModal()" style="display:none;">
-                                    <i data-lucide="plus"></i> 새 템플릿 등록
-                                </button>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn btn-outline-primary" id="btn-bulk-download-templates" onclick="app.downloadSelectedTemplates()" disabled style="display:inline-flex; align-items:center; gap:4px; font-size: 12px; padding: 6px 12px;">
+                                        <i data-lucide="download-cloud" style="width:14px; height:14px;"></i> 선택한 템플릿 다운로드 <span id="selected-templates-count"></span>
+                                    </button>
+                                    <button class="btn btn-primary" id="btn-add-global-template" onclick="app.openNewGlobalTemplateModal()" style="display:none;">
+                                        <i data-lucide="plus"></i> 새 템플릿 등록
+                                    </button>
+                                </div>
                             </div>
 
                             <!-- Templates Table -->
@@ -1169,12 +1103,14 @@
                                     <table class="data-table">
                                         <thead>
                                             <tr>
-                                                <th>템플릿명</th>
-                                                <th>산출물 구분</th>
-                                                <th>버전</th>
-                                                <th>최종수정일</th>
-                                                <th>다운로드 파일</th>
-                                                <th style="width: 200px;" class="text-center">작업</th>
+                                                <th style="width: 40px;" class="text-center">
+                                                    <input type="checkbox" id="th-template-select-all" onchange="app.toggleAllTemplates(this.checked)">
+                                                </th>
+                                                <th style="width: 35%;">템플릿명</th>
+                                                <th style="width: 90px;">유형</th>
+                                                <th style="width: 55px;" class="text-center">버전</th>
+                                                <th style="width: auto;">파일</th>
+                                                <th style="width: 120px;" class="text-center">작업</th>
                                             </tr>
                                         </thead>
                                         <tbody id="global-templates-tbody">
@@ -2512,80 +2448,113 @@
         </div>
     </div>
 
+    <!-- PDF PREVIEW DIALOG -->
+    <div class="modal-overlay" id="pdf-preview-modal">
+        <div class="modal-card" style="max-width: 900px; width: 90%; height: 85%;">
+            <div class="modal-header">
+                <h2 id="pdf-preview-modal-title">PDF 미리보기</h2>
+                <button class="modal-close-btn" onclick="app.closePDFPreviewModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 0; height: calc(100% - 60px); overflow: hidden; display: flex; align-items: center; justify-content: center; background: #1e293b;">
+                <iframe id="pdf-preview-iframe" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+            </div>
+        </div>
+    </div>
+
     <!-- GLOBAL TEMPLATE CREATION / EDITION DIALOG -->
     <div class="modal-overlay" id="global-template-modal">
-        <div class="modal-card mini-modal">
+        <div class="modal-card template-modal-card">
             <div class="modal-header">
                 <h2 id="global-template-modal-title">새 템플릿 등록</h2>
                 <button class="modal-close-btn" onclick="app.closeGlobalTemplateModal()">&times;</button>
             </div>
             <form id="global-template-form" onsubmit="event.preventDefault(); app.saveGlobalTemplate();">
-                <input type="hidden" id="global-template-id-field">
-                
-                <div class="form-group">
-                    <label for="global-template-name">템플릿명 <span class="required">*</span></label>
-                    <input type="text" id="global-template-name" required placeholder="예: 착수계">
-                </div>
-                
-                <div class="form-group mt-3">
-                    <label for="global-template-type">프로젝트 유형 <span class="required">*</span></label>
-                    <select id="global-template-type" required>
-                        <option value="operation">운영사업</option>
-                        <option value="construction">구축사업</option>
-                        <option value="sw-separate">SW분리발주사업</option>
-                    </select>
-                </div>
-                
-                <div class="form-group mt-3">
-                    <label for="global-template-stage">단계 구분 <span class="required">*</span></label>
-                    <select id="global-template-stage" required>
-                        <option value="initiation">착수단계 템플릿</option>
-                        <option value="execution">수행단계 템플릿</option>
-                        <option value="closing">종료단계 템플릿</option>
-                    </select>
-                </div>
-                
-                <div class="form-group mt-3">
-                    <label for="global-template-category">산출물 구분 (시스템 연계용) <span class="required">*</span></label>
-                    <select id="global-template-category" required>
-                        <option value="Requirements">요구사항 정의서</option>
-                        <option value="Architecture Design">시스템 설계서</option>
-                        <option value="Source Code">소스코드/릴리즈</option>
-                        <option value="Test Plan">테스트 계획/결과서</option>
-                        <option value="User Manual">사용자 매뉴얼</option>
-                        <option value="Deployment Guide">배포 정의서</option>
-                        <option value="Final Report">완료 보고서</option>
-                        <option value="Etc" selected>기타 산출물</option>
-                    </select>
-                </div>
-                
-                <div class="form-group mt-3">
-                    <label for="global-template-version">버전 <span class="required">*</span></label>
-                    <input type="text" id="global-template-version" required value="v1.0.0">
-                </div>
-
-                <div class="form-group mt-3">
-                    <label for="global-template-file-input">템플릿 파일 <span class="required" id="file-input-required">*</span></label>
-                    <input type="file" id="global-template-file-input" accept=".docx,.xlsx,.pptx,.pdf" onchange="app.handleTemplateFileChange(event)">
-                    <div id="global-template-file-info" class="text-xs text-muted mt-1" style="display:none; color: var(--text-muted);"></div>
-                </div>
-                
-                <div class="form-group mt-3">
-                    <label for="global-template-filename">다운로드 파일명 <span class="required">*</span></label>
-                    <input type="text" id="global-template-filename" required readonly placeholder="파일을 선택하면 자동 입력됩니다.">
-                </div>
-                
-                <div class="form-group mt-3">
-                    <label for="global-template-filesize">파일 크기 <span class="required">*</span></label>
-                    <input type="text" id="global-template-filesize" required readonly placeholder="파일을 선택하면 자동 입력됩니다.">
-                </div>
-
-                <div class="form-group mt-3">
-                    <label for="global-template-date">최종 수정일 <span class="required">*</span></label>
-                    <input type="date" id="global-template-date" required>
+                <div class="modal-body-scroll">
+                    <input type="hidden" id="global-template-id-field">
+                    
+                    <!-- 템플릿명 (1컬럼 전체 너비) -->
+                    <div class="form-group mb-4">
+                        <label for="global-template-name">템플릿명 <span class="required">*</span></label>
+                        <input type="text" id="global-template-name" required placeholder="예: 착수계">
+                    </div>
+                    
+                    <!-- 2컬럼 그리드 레이아웃 -->
+                    <div class="form-grid">
+                        <!-- 프로젝트 유형 / 단계 구분 -->
+                        <div class="form-group">
+                            <label for="global-template-type">프로젝트 유형 <span class="required">*</span></label>
+                            <select id="global-template-type" required onchange="app.updateTemplateCategorySelect(this.value)">
+                                <option value="operation">운영사업</option>
+                                <option value="construction">구축사업</option>
+                                <option value="sw-separate">SW분리발주사업</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="global-template-stage">단계 구분 <span class="required">*</span></label>
+                            <select id="global-template-stage" required>
+                                <option value="initiation">착수단계 템플릿</option>
+                                <option value="execution">수행단계 템플릿</option>
+                                <option value="closing">종료단계 템플릿</option>
+                            </select>
+                        </div>
+                        
+                        <!-- 산출물 구분 / 버전 -->
+                        <div class="form-group">
+                            <label for="global-template-category">산출물 구분 (시스템 연계용) <span class="required">*</span></label>
+                            <select id="global-template-category" required onchange="app.handleTemplateCategoryChange()">
+                                <!-- JS에서 동적으로 채워집니다 -->
+                            </select>
+                            <div id="global-template-custom-category-group" style="display: none; margin-top: 8px;">
+                                <label for="global-template-custom-category" style="font-size: 11px;">구분 직접 입력 <span class="required">*</span></label>
+                                <input type="text" id="global-template-custom-category" placeholder="원하는 문서명을 직접 입력하세요.">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="global-template-version">버전 <span class="required">*</span></label>
+                            <input type="text" id="global-template-version" required value="v1.0.0">
+                        </div>
+                        
+                        <!-- 다운로드 파일명 / 파일 크기 -->
+                        <div class="form-group">
+                            <label for="global-template-filename">다운로드 파일명 <span class="required">*</span></label>
+                            <input type="text" id="global-template-filename" required readonly placeholder="파일을 선택하면 자동 입력됩니다.">
+                        </div>
+                        <div class="form-group">
+                            <label for="global-template-filesize">파일 크기 <span class="required">*</span></label>
+                            <input type="text" id="global-template-filesize" required readonly placeholder="파일을 선택하면 자동 입력됩니다.">
+                        </div>
+                        
+                        <!-- 최종 수정일 / 수정자 -->
+                        <div class="form-group">
+                            <label for="global-template-date">최종 수정일 <span class="required">*</span></label>
+                            <input type="date" id="global-template-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="global-template-author">수정자</label>
+                            <input type="text" id="global-template-author" readonly placeholder="현재 사용자 자동 입력">
+                        </div>
+                    </div>
+                    
+                    <!-- 파일 업로드 영역 (Compact) -->
+                    <div class="form-group mt-4">
+                        <label>템플릿 파일 <span class="required" id="file-input-required">*</span></label>
+                        <div id="template-drop-zone" class="upload-drop-zone compact" onclick="document.getElementById('global-template-file-input').click();">
+                            <i data-lucide="upload-cloud" class="upload-icon" style="width: 20px; height: 20px; margin-bottom: 4px;"></i>
+                            <p id="drop-zone-text" style="font-size: 11px; margin-bottom: 2px;">파일을 여기에 드래그 앤 드롭하거나 클릭하여 선택하세요.</p>
+                            <span class="upload-limit" style="font-size: 10px;">지원 확장자: docx, xlsx, pptx, pdf, hwp, hwpx</span>
+                        </div>
+                        <input type="file" id="global-template-file-input" accept=".docx,.xlsx,.pptx,.pdf,.hwp,.hwpx" onchange="app.handleTemplateFileChange(event)" style="display:none;">
+                        <div id="global-template-file-info" class="text-xs text-muted mt-2" style="display:none; color: var(--text-muted); font-size: 11px; font-weight: 500;"></div>
+                    </div>
                 </div>
                 
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="app.closeGlobalTemplateModal()">취소</button>
+                    <button type="submit" class="btn btn-primary">저장하기</button>
+                </div>
+            </form>
+        </div>
+    </div>
                     <button type="button" class="btn btn-outline" onclick="app.closeGlobalTemplateModal()">취소</button>
                     <button type="submit" class="btn btn-primary">저장하기</button>
                 </div>
@@ -3798,6 +3767,7 @@
     <!-- Supabase client and config -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <!-- Core App logic script -->
     <script src="app.js"></script>
 </body>
