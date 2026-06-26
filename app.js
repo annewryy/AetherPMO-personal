@@ -4666,10 +4666,7 @@ class AetherPMO {
         }
 
         // ── 권한 체크 ────────────────────────────────────────────────
-        const hasTemplatePermission = this.currentUser && (
-            this.currentUser.email === 'pm@aetherpmo.com' ||
-            this.currentUser.email === 'admin@aetherpmo.com'
-        );
+        const hasTemplatePermission = this.checkTemplatePermission();
         const btnAdd = document.getElementById('btn-add-global-template');
         if (btnAdd) {
             btnAdd.style.display = hasTemplatePermission ? 'block' : 'none';
@@ -8326,14 +8323,12 @@ class AetherPMO {
 
     checkTemplatePermission() {
         if (!this.currentUser) return false;
-        const hasRole = this.currentUser.role === 'SYS_ADMIN' || this.currentUser.role === 'PM';
-        const hasEmail = this.currentUser.email === 'pm@aetherpmo.com' || this.currentUser.email === 'admin@aetherpmo.com';
-        return hasRole || hasEmail;
+        return this.currentUser.role === 'SYS_ADMIN' || this.currentUser.role === 'PM';
     }
 
     openNewGlobalTemplateModal() {
         if (!this.checkTemplatePermission()) {
-            alert('권한이 없습니다. pm@aetherpmo.com 또는 admin@aetherpmo.com 계정만 산출물 템플릿을 등록/수정/삭제할 수 있습니다.');
+            alert('권한이 없습니다. PM 또는 관리자(SYS_ADMIN) 계정만 산출물 템플릿을 등록/수정/삭제할 수 있습니다.');
             return;
         }
         document.getElementById('global-template-modal-title').textContent = '표준 템플릿 양식 등록';
@@ -8376,7 +8371,7 @@ class AetherPMO {
 
     openEditGlobalTemplateModal(id) {
         if (!this.checkTemplatePermission()) {
-            alert('권한이 없습니다. pm@aetherpmo.com 또는 admin@aetherpmo.com 계정만 산출물 템플릿을 등록/수정/삭제할 수 있습니다.');
+            alert('권한이 없습니다. PM 또는 관리자(SYS_ADMIN) 계정만 산출물 템플릿을 등록/수정/삭제할 수 있습니다.');
             return;
         }
         const temp = this.state.globalTemplates.find(t => t.id === id);
@@ -8444,7 +8439,7 @@ class AetherPMO {
 
     async saveGlobalTemplate() {
         if (!this.checkTemplatePermission()) {
-            alert('권한이 없습니다. pm@aetherpmo.com 또는 admin@aetherpmo.com 계정만 산출물 템플릿을 등록/수정/삭제할 수 있습니다.');
+            alert('권한이 없습니다. PM 또는 관리자(SYS_ADMIN) 계정만 산출물 템플릿을 등록/수정/삭제할 수 있습니다.');
             return;
         }
         const id = document.getElementById('global-template-id-field').value;
@@ -8631,7 +8626,7 @@ class AetherPMO {
 
     async deleteGlobalTemplate(id) {
         if (!this.checkTemplatePermission()) {
-            alert('권한이 없습니다. pm@aetherpmo.com 또는 admin@aetherpmo.com 계정만 산출물 템플릿을 등록/수정/삭제할 수 있습니다.');
+            alert('권한이 없습니다. PM 또는 관리자(SYS_ADMIN) 계정만 산출물 템플릿을 등록/수정/삭제할 수 있습니다.');
             return;
         }
         const temp = this.state.globalTemplates.find(t => t.id === id);
