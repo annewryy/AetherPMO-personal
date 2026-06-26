@@ -8485,13 +8485,21 @@ class AetherPMO {
 
                 // Supabase Storage 업로드
                 if (this.useSupabase) {
+                    console.log('[saveGlobalTemplate] 파일 업로드 프로세스 시작');
+                    console.log('- upload bucket: artifact-templates');
+                    console.log('- target file path:', filePath);
+                    console.log('- file info:', { name: file.name, size: file.size, type: file.type });
+
                     const { data: uploadData, error: uploadErr } = await this.supabase.storage
                         .from('artifact-templates')
                         .upload(filePath, file);
 
                     if (uploadErr) {
+                        console.error('[saveGlobalTemplate] 파일 업로드 실패 (error):', uploadErr);
                         throw uploadErr;
                     }
+
+                    console.log('[saveGlobalTemplate] 파일 업로드 성공 (data):', uploadData);
                 }
             }
 
