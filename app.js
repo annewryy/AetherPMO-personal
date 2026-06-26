@@ -5924,6 +5924,20 @@ class AetherPMO {
         }
     }
 
+    handlePmChange(value) {
+        const customInput = document.getElementById('project-manager-custom');
+        if (customInput) {
+            if (value === 'custom') {
+                customInput.style.display = 'block';
+                customInput.value = '';
+                customInput.focus();
+            } else {
+                customInput.style.display = 'none';
+                customInput.value = '';
+            }
+        }
+    }
+
     saveProjectForm() {
         const id = document.getElementById('project-id-field').value;
         const name = document.getElementById('project-name').value.trim();
@@ -5937,9 +5951,24 @@ class AetherPMO {
             return;
         }
         const managerSelect = document.getElementById('project-manager-select');
-        const managerId = managerSelect ? managerSelect.value : null;
-        const matchedUser = this.state.users ? this.state.users.find(u => (u.id === managerId || u.email === managerId)) : null;
-        const manager = matchedUser ? matchedUser.name : '안유경';
+        const selectVal = managerSelect ? managerSelect.value : '';
+        let manager = '안유경';
+        let managerId = null;
+
+        if (selectVal === 'custom') {
+            const customInput = document.getElementById('project-manager-custom');
+            manager = customInput ? customInput.value.trim() : '';
+            if (!manager) {
+                alert('프로젝트 매니저 이름을 입력해주세요.');
+                return;
+            }
+        } else {
+            manager = selectVal;
+            const matchedUser = this.state.users ? this.state.users.find(u => u.name === manager || u.id === manager || u.email === manager) : null;
+            if (matchedUser) {
+                managerId = matchedUser.id;
+            }
+        }
         const customer = document.getElementById('project-customer').value.trim();
         const budget = Number(document.getElementById('project-budget').value);
         const startDate = document.getElementById('project-start-date').value;
@@ -11051,37 +11080,49 @@ class AetherPMO {
 
         select.innerHTML = '';
 
-        // Filter users
-        const pmUsers = (this.state.users || []).filter(u => ['PM', 'SYS_ADMIN', 'EXEC_ADMIN'].includes(u.role));
-        
-        // Sort PM and SYS_ADMIN first, then EXEC_ADMIN
-        pmUsers.sort((a, b) => {
-            const getOrder = (role) => {
-                if (role === 'PM') return 0;
-                if (role === 'SYS_ADMIN') return 1;
-                if (role === 'EXEC_ADMIN') return 2;
-                return 3;
-            };
-            return getOrder(a.role) - getOrder(b.role);
-        });
-
-        pmUsers.forEach(u => {
+        const defaultPms = ['안유경', '오병구', '지병경', '고상만'];
+        defaultPms.forEach(pm => {
             const opt = document.createElement('option');
-            opt.value = u.id || u.email;
-            const roleLabel = this.translateRoleLabel(u.role);
-            opt.textContent = `${u.name} (${roleLabel})`;
+            opt.value = pm;
+            opt.textContent = pm;
             select.appendChild(opt);
         });
 
+        const customOpt = document.createElement('option');
+        customOpt.value = 'custom';
+        customOpt.textContent = '직접 입력...';
+        select.appendChild(customOpt);
+
+        const customInput = document.getElementById('project-manager-custom');
+
         // Set selected value
         if (selectedIdOrName) {
-            const matchedOpt = Array.from(select.options).find(o => 
-                o.value === selectedIdOrName || 
-                o.textContent.startsWith(selectedIdOrName + ' ') ||
-                (this.state.users.find(u => (u.id === o.value || u.email === o.value))?.name === selectedIdOrName)
-            );
-            if (matchedOpt) {
-                select.value = matchedOpt.value;
+            // Check if selectedIdOrName corresponds to a profile ID/email first
+            let actualName = selectedIdOrName;
+            const matchedUser = this.state.users ? this.state.users.find(u => u.id === selectedIdOrName || u.email === selectedIdOrName) : null;
+            if (matchedUser) {
+                actualName = matchedUser.name;
+            }
+
+            const exists = defaultPms.includes(actualName);
+            if (exists) {
+                select.value = actualName;
+                if (customInput) {
+                    customInput.style.display = 'none';
+                    customInput.value = '';
+                }
+            } else {
+                select.value = 'custom';
+                if (customInput) {
+                    customInput.style.display = 'block';
+                    customInput.value = actualName;
+                }
+            }
+        } else {
+            select.value = defaultPms[0];
+            if (customInput) {
+                customInput.style.display = 'none';
+                customInput.value = '';
             }
         }
     }

@@ -1903,7 +1903,8 @@
                         </div>
                         <div class="form-group">
                             <label for="project-manager-select">프로젝트 매니저 <span class="required">*</span></label>
-                            <select id="project-manager-select" required></select>
+                            <select id="project-manager-select" required onchange="app.handlePmChange(this.value)"></select>
+                            <input type="text" id="project-manager-custom" placeholder="매니저명 직접 입력" style="display: none; margin-top: 8px;">
                         </div>
                         <div class="form-group">
                             <label for="project-customer">고객기관 <span class="required">*</span></label>
