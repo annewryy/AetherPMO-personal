@@ -8066,7 +8066,12 @@ class AetherPMO {
 
         } catch (err) {
             console.error('[downloadGlobalTemplate] 다운로드 실패:', err);
-            this.showToast('파일 다운로드에 실패했습니다.', 'error');
+            const errMsg = (err.message || err.error_description || String(err)).toLowerCase();
+            if (errMsg.includes('not found') || errMsg.includes('not_found') || errMsg.includes('404')) {
+                this.showToast('Storage에 실제 파일이 존재하지 않거나 SELECT 권한이 없습니다.', 'error');
+            } else {
+                this.showToast('파일 다운로드에 실패했습니다.', 'error');
+            }
         }
 
         this.saveState();
