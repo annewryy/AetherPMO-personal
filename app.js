@@ -4725,7 +4725,7 @@ class AetherPMO {
                 const isPDF = ext === 'pdf';
                 const previewBtn = isPDF
                     ? `
-                        <button class="btn btn-xs btn-outline-info" onclick="app.previewPDF('${temp.id}'); event.stopPropagation();" style="padding: 2px 6px; font-size: 10px; margin-left: 6px; display:inline-flex; align-items:center; gap:2px; flex-shrink:0;">
+                        <button type="button" class="btn btn-xs btn-outline-info" onclick="event.stopPropagation(); app.previewPDF('${temp.id}');" style="padding: 2px 6px; font-size: 10px; margin-left: 6px; display:inline-flex; align-items:center; gap:2px; flex-shrink:0;">
                             <i data-lucide="eye" style="width:10px; height:10px;"></i> 미리보기
                         </button>
                     `
@@ -4735,7 +4735,7 @@ class AetherPMO {
                     <div style="display:flex; flex-direction:column; gap:2px; justify-content:center; text-align:left; width: 100%; overflow:hidden;">
                         <div style="display:flex; align-items:center; gap:4px; width:100%; overflow:hidden;">
                             <i data-lucide="download" class="text-primary" style="width:13px; height:13px; flex-shrink:0;"></i>
-                            <a href="#" class="file-name-link font-bold text-xs text-ellipsis" style="max-width: calc(100% - 20px);" title="${temp.fileName}" onclick="event.preventDefault(); app.downloadGlobalTemplate('${temp.id}')">
+                            <a href="#" class="file-name-link font-bold text-xs text-ellipsis" style="max-width: calc(100% - 20px);" title="${temp.fileName}" onclick="event.preventDefault(); event.stopPropagation(); app.downloadGlobalTemplate('${temp.id}'); return false;">
                                 ${temp.fileName}
                             </a>
                             ${previewBtn}
@@ -4747,17 +4747,17 @@ class AetherPMO {
                 const actionHtml = hasTemplatePermission
                     ? `
                         <div class="actions-flex" style="justify-content:center; gap:8px;">
-                            <button class="btn btn-xs btn-outline" onclick="app.openEditGlobalTemplateModal('${temp.id}')">
+                            <button type="button" class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.openEditGlobalTemplateModal('${temp.id}')">
                                 <i data-lucide="edit" style="width:11px; height:11px; margin-right:2px;"></i> 수정
                             </button>
-                            <button class="btn btn-xs btn-danger" onclick="app.deleteGlobalTemplate('${temp.id}')">
+                            <button type="button" class="btn btn-xs btn-danger" onclick="event.stopPropagation(); app.deleteGlobalTemplate('${temp.id}')">
                                 <i data-lucide="trash-2" style="width:11px; height:11px; margin-right:2px;"></i> 삭제
                             </button>
                         </div>
                     `
                     : `
                         <div style="text-align:center;">
-                            <button class="btn btn-xs btn-primary" onclick="app.downloadGlobalTemplate('${temp.id}')">
+                            <button type="button" class="btn btn-xs btn-primary" onclick="event.stopPropagation(); app.downloadGlobalTemplate('${temp.id}')">
                                 <i data-lucide="download" style="width:11px; height:11px; margin-right:2px;"></i> 다운로드
                             </button>
                         </div>
@@ -7895,13 +7895,14 @@ class AetherPMO {
 
     async downloadGlobalTemplate(id) {
         const temp = this.state.globalTemplates.find(t => t.id === id);
-        if (!temp) return;
+        if (!temp) {
+            console.error('[downloadGlobalTemplate] 템플릿을 찾을 수 없습니다. id:', id);
+            return;
+        }
 
         this.addActivityLog(null, null, 'artifact', `표준 템플릿 다운로드: ${temp.name} (${temp.fileName})`);
 
-        if (!this.state.recentlyDownloaded) {
-            this.state.recentlyDownloaded = [];
-        }
+        if (!this.state.recentlyDownloaded) this.state.recentlyDownloaded = [];
         if (!this.state.recentlyDownloaded.includes(temp.id)) {
             this.state.recentlyDownloaded.push(temp.id);
         }
@@ -7912,44 +7913,62 @@ class AetherPMO {
 
         if (this.useSupabase && temp.filePath) {
             try {
-                // DB download_count 업데이트 (비동기로 실행)
+                // DB download_count 업데이트 (비동기)
                 this.supabase
                     .from('artifacts')
                     .update({ download_count: newCount })
                     .eq('id', temp.id)
                     .then(({ error }) => {
-                        if (error) console.error('Failed to update download count:', error);
+                        if (error) console.error('[downloadGlobalTemplate] download_count 업데이트 실패:', error);
                     });
 
-                const { data, error } = await this.supabase.storage
+                // ① Blob 직접 다운로드 (가장 안정적)
+                const { data: blobData, error: blobError } = await this.supabase.storage
                     .from('artifact-templates')
-                    .createSignedUrl(temp.filePath, 60, {
-                        download: temp.fileName
-                    });
+                    .download(temp.filePath);
 
-                if (error) {
-                    throw error;
-                }
+                if (blobData && !blobError) {
+                    // Blob 성공 → 브라우저 다운로드 실행
+                    const url = URL.createObjectURL(blobData);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = temp.fileName || temp.name || 'template';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                    this.showToast('템플릿 다운로드가 시작되었습니다.', 'success');
+                } else {
+                    // ② Blob 실패 시 SignedURL 방식으로 폴백
+                    console.warn('[downloadGlobalTemplate] Blob 다운로드 실패, SignedURL로 폴백:', blobError);
+                    const { data: signedData, error: signedError } = await this.supabase.storage
+                        .from('artifact-templates')
+                        .createSignedUrl(temp.filePath, 60, { download: temp.fileName });
 
-                if (data && data.signedUrl) {
+                    if (signedError || !signedData?.signedUrl) {
+                        throw signedError || new Error('Signed URL을 생성할 수 없습니다.');
+                    }
+
                     const link = document.createElement('a');
-                    link.href = data.signedUrl;
+                    link.href = signedData.signedUrl;
                     link.download = temp.fileName;
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
                     this.showToast('템플릿 다운로드가 시작되었습니다.', 'success');
-                } else {
-                    throw new Error('다운로드 URL을 생성할 수 없습니다.');
                 }
             } catch (err) {
-                console.error('Download template error:', err);
-                this.showToast('템플릿 다운로드 실패: ' + err.message, 'error');
+                console.error('[downloadGlobalTemplate] 개별 템플릿 다운로드 실패:', err);
+                this.showToast('파일 다운로드에 실패했습니다: ' + (err.message || err), 'error');
             }
+        } else if (!temp.filePath) {
+            console.warn('[downloadGlobalTemplate] filePath가 없는 템플릿:', temp);
+            this.showToast('이 템플릿에는 연결된 파일이 없습니다.', 'error');
         } else {
-            alert(`[다운로드 완료] 공공 SI 표준 템플릿 파일이 성공적으로 다운로드되었습니다.\n\n파일명: ${temp.fileName}\n파일 크기: ${temp.fileSize}\n\n다운로드한 파일은 WBS 또는 산출물 관리에서 불러와 사용할 수 있습니다.`);
+            // Supabase 미사용 로컬 모드 (개발/테스트용)
+            alert(`[다운로드 완료] 공공 SI 표준 템플릿 파일이 성공적으로 다운로드되었습니다.\n\n파일명: ${temp.fileName}\n파일 크기: ${temp.fileSize}`);
         }
-        
+
         this.saveState();
         this.renderArtifacts();
     }
