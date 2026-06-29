@@ -97,6 +97,14 @@ class AetherPMO {
             console.log('[Supabase] Disabled or not configured. Running in LocalStorage fallback mode.');
         }
 
+        this.demoMode = false;
+        this.presentationMode = false;
+        this.tourStep = 1;
+        this.aiChatOpen = false;
+        this._savedState = null;
+        this._savedUseSupabase = null;
+        this.dashboardMode = 'ai-portal';
+
         // Bind lifecycle events
         window.addEventListener('DOMContentLoaded', () => this.init());
         window.addEventListener('hashchange', () => this.handleRouting());
@@ -129,6 +137,9 @@ class AetherPMO {
         
         // Initialize sidebar mode
         this.initSidebarMode();
+        
+        // Initialize demo and presentation modes
+        this.initDemoAndPresentation();
         
         // Initialise Lucide icons
         if (typeof lucide !== 'undefined') {
@@ -740,8 +751,10 @@ class AetherPMO {
      */
     async saveState(type = null, data = null, extra = null) {
         try {
-            localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
-            if (this.useSupabase && type) {
+            if (!this.demoMode) {
+                localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+            }
+            if (this.useSupabase && type && !this.demoMode) {
                 await this.syncDb(type, data, extra);
             }
         } catch (e) {
@@ -2861,6 +2874,12 @@ class AetherPMO {
             const modeBtn = e.target.closest('#sidebar-mode-btn');
             const modeItem = e.target.closest('.sidebar-mode-item');
 
+            // Auto-close health criteria tooltip when clicking elsewhere
+            const tooltip = document.getElementById('health-criteria-tooltip');
+            if (tooltip && !e.target.closest('.health-criteria-tooltip-container')) {
+                tooltip.style.display = 'none';
+            }
+
             if (modeBtn) {
                 console.log('[Sidebar Mode] Document click delegation: #sidebar-mode-btn matched');
                 e.preventDefault();
@@ -3443,15 +3462,68 @@ class AetherPMO {
        ========================================================================== */
     renderDashboard() {
         this.updateProjectsOverdueStatus();
-        
-        // 1. 날짜 구하기 (YYYY-MM-DD)
+
+        if (this.dashboardMode === 'ai-portal') {
+            const portalView = document.getElementById('ai-first-portal-view');
+            const classicView = document.getElementById('classic-dashboard-view');
+            if (portalView) portalView.style.display = 'flex';
+            if (classicView) classicView.style.display = 'none';
+
+            const titleText = document.getElementById('dashboard-title-text');
+            const subtitleText = document.getElementById('dashboard-subtitle-text');
+            if (titleText) {
+                titleText.innerHTML = '<i data-lucide="sparkles" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> Aether AI First Portal';
+            }
+            if (subtitleText) {
+                subtitleText.textContent = 'AI 에이전트가 주도하는 지능형 사업관리 커맨드 센터';
+            }
+
+            const toggleBtn = document.getElementById('btn-toggle-dashboard-mode');
+            if (toggleBtn) {
+                toggleBtn.innerHTML = '<i data-lucide="layout-dashboard" style="width:14px; height:14px; margin-right:4px;"></i> 기존 대시보드 보기';
+            }
+
+            this.renderAIPortal();
+        } else {
+            const portalView = document.getElementById('ai-first-portal-view');
+            const classicView = document.getElementById('classic-dashboard-view');
+            if (portalView) portalView.style.display = 'none';
+            if (classicView) classicView.style.display = 'flex';
+
+            const titleText = document.getElementById('dashboard-title-text');
+            const subtitleText = document.getElementById('dashboard-subtitle-text');
+            if (titleText) {
+                titleText.innerHTML = '<i data-lucide="layout-dashboard" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> 통합 PMO 대시보드';
+            }
+            if (subtitleText) {
+                subtitleText.textContent = '전체 프로젝트 진행 상태 및 사업 관리 요약';
+            }
+
+            const toggleBtn = document.getElementById('btn-toggle-dashboard-mode');
+            if (toggleBtn) {
+                toggleBtn.innerHTML = '<i data-lucide="sparkles" style="width:14px; height:14px; margin-right:4px;"></i> AI First 포털 보기';
+            }
+
+            this.renderClassicDashboard();
+        }
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    toggleDashboardMode() {
+        this.dashboardMode = this.dashboardMode === 'ai-portal' ? 'classic' : 'ai-portal';
+        this.renderDashboard();
+    }
+
+    renderClassicDashboard() {
         const today = new Date();
         const yyyy = today.getFullYear();
         const mm = String(today.getMonth() + 1).padStart(2, '0');
         const dd = String(today.getDate()).padStart(2, '0');
         const todayStr = `${yyyy}-${mm}-${dd}`;
 
-        // 2. KPI 계산
         const totalProjects = this.state.projects.length;
         const activeProjects = this.state.projects.filter(p => p.status === 'In Progress').length;
         const biddingProjects = this.state.projects.filter(p => p.status === 'Bidding').length;
@@ -3460,7 +3532,6 @@ class AetherPMO {
         const uncompletedActions = (this.state.actionItems || []).filter(a => a.status !== '완료' && a.status !== 'Completed').length;
         const unresolvedRisks = (this.state.issues || []).filter(i => i.status === '발생' || i.status === '조치중').length;
 
-        // 3. KPI 바인딩
         const doms = {
             'stat-total-projects': totalProjects,
             'stat-active-projects': activeProjects,
@@ -3475,21 +3546,530 @@ class AetherPMO {
             if (el) el.textContent = val;
         }
 
-        // 4. 프로젝트 진행률 가로 막대 차트
         this.renderDashboardProgressChart();
-
-        // 5. 사업유형 도넛 차트
         this.renderBusinessTypeDonutChart();
-
-        // 6. 오늘 해야할 일 (오늘 + 지연)
         this.renderTodayTasks(todayStr);
-
-        // 7. 최근 활동 3종
         this.renderRecentRedesignedActivities();
+    }
 
-        // 8. Lucide Icons refresh
+    renderAIPortal() {
+        const chatMsgsEl = document.getElementById('portal-chat-messages');
+        if (chatMsgsEl && chatMsgsEl.innerHTML.trim() === '') {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            const todayStr = `${yyyy}-${mm}-${dd}`;
+
+            const todayDueArtifacts = (this.state.artifacts || []).filter(a => a.dueDate === todayStr).map(a => a.file_name || a.title).join(', ') || '없음';
+            const delayedProjs = this.state.projects.filter(p => p.status === 'Delay').map(p => p.name).join(', ') || '없음';
+            const criticalIssues = (this.state.issues || []).filter(i => i.priority === 'Critical' && (i.status === '발생' || i.status === '조치중')).map(i => i.title).join(', ') || '없음';
+
+            const firstGreeting = `안녕하세요, 안유경 PM님. 오늘 AetherPMO가 먼저 확인한 사업관리 이슈를 브리핑드리겠습니다.`;
+            
+            const briefingCard = `
+                <div class="portal-briefing-bubble">
+                    <h4 style="margin:0 0 10px 0; font-size:13px; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:6px;">
+                        <i data-lucide="sparkles" style="width:14px; height:14px;"></i> 오늘의 AI 데일리 브리핑 리포트
+                    </h4>
+                    <div style="display:flex; flex-direction:column; gap:10px; font-size:11.5px; line-height:1.5;">
+                        <div>
+                            <strong>📅 오늘 마감 산출물:</strong> <span style="color:var(--text-muted);">${todayDueArtifacts}</span>
+                        </div>
+                        <div>
+                            <strong>⚠️ 지연/주의 프로젝트:</strong> <span style="color:#ef4444; font-weight:700;">${delayedProjs}</span>
+                        </div>
+                        <div>
+                            <strong>🔥 고위험 리스크:</strong> <span style="color:#f59e0b; font-weight:700;">${criticalIssues}</span>
+                        </div>
+                        <div>
+                            <strong>💡 AI 추천 조치:</strong> <span style="color:var(--text-main); font-weight:600;">GPU 클러스터 야간 배치 등록 및 테스트용 IP 임시 방화벽 예외 신청 공문 자동 초안 작성을 권장합니다.</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            this.appendPortalChatBubble(firstGreeting, 'ai');
+            setTimeout(() => {
+                this.appendPortalChatBubble(briefingCard, 'ai');
+            }, 300);
+        }
+
+        this.renderPortalHealthScores();
+        this.renderPortalRiskPredictions();
+        this.renderPortalPMRecommendations();
+    }
+
+    calculateProjectHealthScore(p) {
+        let score = 100;
+        if (p.status === 'Delay') {
+            score -= 25;
+        }
+        
+        const projIssues = (this.state.issues || []).filter(i => i.projectId === p.id && (i.status === '발생' || i.status === '조치중'));
+        projIssues.forEach(issue => {
+            if (issue.priority === 'Critical') score -= 15;
+            else if (issue.priority === 'High') score -= 10;
+            else score -= 5;
+        });
+
+        const missingTemplatesCount = (this.state.artifacts || []).filter(a => a.projectId === p.id && !a.file_path && !a.storage_path).length;
+        score -= missingTemplatesCount * 3;
+
+        const startDate = new Date(p.startDate);
+        const endDate = new Date(p.endDate);
+        const today = new Date();
+        let elapsedRatio = 0;
+        if (endDate > startDate) {
+            elapsedRatio = Math.min(1, Math.max(0, (today - startDate) / (endDate - startDate)));
+        }
+        const progress = p.progress || 0;
+        if (progress < (elapsedRatio * 100 - 15)) {
+            const gap = Math.floor((elapsedRatio * 100 - progress) / 2);
+            score -= Math.min(15, gap);
+        }
+        return Math.max(20, score);
+    }
+
+    getHealthDeductionDetails(p) {
+        const details = [];
+        if (p.status === 'Delay') {
+            details.push({ reason: '프로젝트 공식 일정 지연', points: 25 });
+        }
+        const projIssues = (this.state.issues || []).filter(i => i.projectId === p.id && (i.status === '발생' || i.status === '조치중'));
+        projIssues.forEach(issue => {
+            if (issue.priority === 'Critical') details.push({ reason: `[Critical] 리스크: ${issue.title}`, points: 15 });
+            else if (issue.priority === 'High') details.push({ reason: `[High] 리스크: ${issue.title}`, points: 10 });
+            else details.push({ reason: `[Medium/Low] 리스크: ${issue.title}`, points: 5 });
+        });
+        const missingTemplatesCount = (this.state.artifacts || []).filter(a => a.projectId === p.id && !a.file_path && !a.storage_path).length;
+        if (missingTemplatesCount > 0) {
+            details.push({ reason: `필수 제출 산출물 템플릿 미지출 (${missingTemplatesCount}건)`, points: missingTemplatesCount * 3 });
+        }
+        const startDate = new Date(p.startDate);
+        const endDate = new Date(p.endDate);
+        const today = new Date();
+        let elapsedRatio = 0;
+        if (endDate > startDate) {
+            elapsedRatio = Math.min(1, Math.max(0, (today - startDate) / (endDate - startDate)));
+        }
+        const progress = p.progress || 0;
+        if (progress < (elapsedRatio * 100 - 15)) {
+            const gap = Math.floor((elapsedRatio * 100 - progress) / 2);
+            details.push({ reason: `계획 대비 진척 지연 (경과 시간 ${Math.floor(elapsedRatio * 100)}% 대비 진척 ${progress}%)`, points: Math.min(15, gap) });
+        }
+        return details;
+    }
+
+    getDrawerActionsHtml(p) {
+        let rec = '';
+        let type = '';
+        if (p.id === 'proj-1') {
+            rec = 'Node.js 시뮬레이터 개발 리소스 배정';
+            type = 'engineer';
+        } else if (p.id === 'proj-2') {
+            rec = 'GPU 야간 배치 스케줄 등록';
+            type = 'schedule';
+        } else if (p.id === 'proj-6') {
+            rec = '방화벽 예외 신청 공문 생성';
+            type = 'official_doc';
+        } else {
+            rec = '산출물 보완 조치 등록';
+            type = 'rework';
+        }
+        return `
+            <div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:10px; border:1px solid var(--bg-card-border); display:flex; justify-content:space-between; align-items:center; width:100%;">
+                <span style="font-size:12px; color:var(--text-main); font-weight:600;">${rec}</span>
+                <button class="btn btn-primary btn-xs" onclick="app.executeRecommendation('${p.id}', '${type}')">즉시 조치 실행</button>
+            </div>
+        `;
+    }
+
+    renderPortalHealthScores() {
+        const listEl = document.getElementById('portal-health-score-list');
+        if (!listEl) return;
+
+        listEl.innerHTML = this.state.projects.map(p => {
+            const score = this.calculateProjectHealthScore(p);
+            const scoreClass = score >= 80 ? 'health-high' : score >= 60 ? 'health-medium' : 'health-low';
+            return `
+                <div style="background:rgba(255,255,255,0.01); border:1px solid var(--bg-card-border); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <a href="#project-detail/${p.id}" style="font-size:12px; font-weight:700; color:var(--text-main); text-decoration:none; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.name}</a>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="health-score-pill ${scoreClass}">${score}점</span>
+                            <span style="font-size:11px; color:var(--primary); cursor:pointer; text-decoration:underline;" onclick="app.openAICopilotAnalyze('${p.id}')">AI 심층 분석</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="flex:1; height:6px; background:var(--bg-input); border-radius:3px; overflow:hidden;">
+                            <div style="width:${p.progress}%; height:100%; background:var(--primary); border-radius:3px;"></div>
+                        </div>
+                        <span style="font-size:10px; font-weight:700; color:var(--text-muted); font-family:monospace; min-width:24px;">${p.progress}%</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    renderPortalRiskPredictions() {
+        const listEl = document.getElementById('portal-risk-prediction-list');
+        if (!listEl) return;
+
+        listEl.innerHTML = this.state.projects.map(p => {
+            let riskTitle = '협력사 일정 관리 리스크';
+            let prob = '45%';
+            let severity = 'Warning';
+            let reason = '디바이스 사양 및 WBS 검수 주기 단축 필요';
+            
+            if (p.status === 'Delay') {
+                riskTitle = '인프라 장비 및 칩셋 물류 지연';
+                prob = '92%';
+                severity = 'Critical';
+                reason = '수입 통관 일정 마찰로 인한 WBS 이탈 위험';
+            } else if ((p.progress || 0) < 50) {
+                riskTitle = '산출물 승인 단계 지연';
+                prob = '65%';
+                severity = 'Warning';
+                reason = '초기 요구정의서 승인 연기에 따른 개발 병목';
+            } else {
+                const projIssues = (this.state.issues || []).filter(i => i.projectId === p.id && (i.status === '발생' || i.status === '조치중'));
+                if (projIssues.length > 0) {
+                    riskTitle = '마일스톤 일정 준수 실패';
+                    prob = '78%';
+                    severity = 'Critical';
+                    reason = '계류 중인 오픈 이슈에 따른 선행 프로세스 마찰';
+                }
+            }
+
+            const badgeClass = severity === 'Critical' ? 'badge-error' : 'badge-warning';
+            return `
+                <div style="background:rgba(255,255,255,0.01); border:1px solid var(--bg-card-border); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:4px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:12px; font-weight:700; color:var(--text-main);">${riskTitle}</span>
+                        <span class="badge ${badgeClass}" style="font-size:10px; font-weight:700;">위험도 ${prob}</span>
+                    </div>
+                    <div style="font-size:11px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
+                        <span>원인: ${reason}</span>
+                        <span style="font-size:9.5px; color:var(--text-muted); font-style:italic;">(${p.name.substring(0, 8)}...)</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    renderPortalPMRecommendations() {
+        const listEl = document.getElementById('portal-pm-recommendation-list');
+        if (!listEl) return;
+
+        listEl.innerHTML = this.state.projects.map(p => {
+            let rec = '프로젝트 WBS 잔여 일정 조율 및 산출물 보완 조치 등록 권장';
+            let type = 'rework';
+            let btnText = '보완 조치';
+            
+            if (p.id === 'proj-1') {
+                rec = 'Node.js 시뮬레이터 개발을 위한 Node 엔지니어 추가 임시 배정';
+                type = 'engineer';
+                btnText = '엔지니어 배정';
+            } else if (p.id === 'proj-2') {
+                rec = 'GPU 연구 자원 경합 해결용 야간 배치 스케줄러 등록';
+                type = 'schedule';
+                btnText = '스케줄 등록';
+            } else if (p.id === 'proj-6') {
+                rec = '기재부 연동 테스트 임시 방화벽 예외 신청 공문 자동 생성';
+                type = 'official_doc';
+                btnText = '공문 초안 생성';
+            }
+
+            return `
+                <div style="background:rgba(255,255,255,0.01); border:1px solid var(--bg-card-border); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;">
+                    <div style="font-size:11.5px; line-height:1.4; color:var(--text-main); font-weight:600;">
+                        ${rec}
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:10px; color:var(--text-muted); font-style:italic;">대상: ${p.name.substring(0, 10)}...</span>
+                        <button class="btn btn-primary btn-xs" onclick="app.executeRecommendation('${p.id}', '${type}')" style="padding: 2px 10px; border-radius: 6px; font-size: 10.5px;">${btnText}</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    openAICopilotAnalyze(projectId) {
+        const project = this.state.projects.find(p => p.id === projectId);
+        if (!project) return;
+
+        const score = this.calculateProjectHealthScore(project);
+        const projectNameEl = document.getElementById('drawer-project-name');
+        if (projectNameEl) projectNameEl.textContent = project.name;
+        
+        const scoreBadge = document.getElementById('drawer-health-score-badge');
+        if (scoreBadge) {
+            scoreBadge.textContent = `${score}점`;
+            scoreBadge.className = 'badge ' + (score >= 80 ? 'health-high' : score >= 60 ? 'health-medium' : 'health-low');
+        }
+
+        // Render SVG Line Chart for 4-week trend
+        const chartWrapper = document.getElementById('drawer-svg-chart-wrapper');
+        if (chartWrapper) {
+            const points = [
+                Math.min(100, Math.max(20, score - 12)),
+                Math.min(100, Math.max(20, score - 7)),
+                Math.min(100, Math.max(20, score - 4)),
+                score
+            ];
+            const xCoords = [30, 130, 230, 330];
+            const yCoords = points.map(p => 20 + (100 - p) * 0.8);
+            const pathData = `M ${xCoords[0]} ${yCoords[0]} L ${xCoords[1]} ${yCoords[1]} L ${xCoords[2]} ${yCoords[2]} L ${xCoords[3]} ${yCoords[3]}`;
+            
+            chartWrapper.innerHTML = `
+                <svg viewBox="0 0 360 120" style="width:100%; height:100%; overflow:visible;">
+                    <line x1="30" y1="20" x2="330" y2="20" stroke="rgba(255,255,255,0.05)" stroke-dasharray="3,3" />
+                    <line x1="30" y1="60" x2="330" y2="60" stroke="rgba(255,255,255,0.05)" stroke-dasharray="3,3" />
+                    <line x1="30" y1="100" x2="330" y2="100" stroke="rgba(255,255,255,0.05)" stroke-dasharray="3,3" />
+                    <text x="30" y="118" fill="var(--text-muted)" font-size="9" text-anchor="middle">4주 전</text>
+                    <text x="130" y="118" fill="var(--text-muted)" font-size="9" text-anchor="middle">3주 전</text>
+                    <text x="230" y="118" fill="var(--text-muted)" font-size="9" text-anchor="middle">2주 전</text>
+                    <text x="330" y="118" fill="var(--text-muted)" font-size="9" text-anchor="middle">이번 주</text>
+                    <path d="${pathData}" fill="none" stroke="var(--primary)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                    ${points.map((p, i) => `
+                        <circle cx="${xCoords[i]}" cy="${yCoords[i]}" r="4" fill="var(--bg-modal)" stroke="var(--primary)" stroke-width="2" />
+                        <text x="${xCoords[i]}" y="${yCoords[i] - 8}" fill="var(--text-main)" font-size="10" font-weight="700" text-anchor="middle">${p}점</text>
+                    `).join('')}
+                </svg>
+            `;
+        }
+
+        // Render Deductions list
+        const deductionList = document.getElementById('drawer-deduction-list');
+        if (deductionList) {
+            const deductions = this.getHealthDeductionDetails(project);
+            if (deductions.length === 0) {
+                deductionList.innerHTML = `<li style="color:#10b981; font-style:italic;"><i data-lucide="check" style="width:12px; height:12px; display:inline-block; vertical-align:middle; margin-right:4px;"></i> 현재 감점 항목이 없으며 최적의 컨디션입니다.</li>`;
+            } else {
+                deductionList.innerHTML = deductions.map(d => `
+                    <li style="color:var(--text-main); display:flex; justify-content:space-between; width:100%;">
+                        <span style="color:var(--text-muted);"><i data-lucide="chevron-right" style="width:12px; height:12px; display:inline-block; vertical-align:middle; margin-right:4px;"></i> ${d.reason}</span>
+                        <span style="color:#ef4444; font-weight:700;">-${d.points}점</span>
+                    </li>
+                `).join('');
+            }
+        }
+
+        // AI Diagnosis text
+        let diagnosis = '';
+        if (score >= 80) {
+            diagnosis = `본 프로젝트는 현재 안정적인 범위에서 관리되고 있습니다. 리소스 배치가 양호하고 주요 산출물들이 일정에 맞게 제출되고 있어 WBS 마일스톤 준수 가능성이 90% 이상으로 예측됩니다. 현 상태의 투입 구조 유지를 권장합니다.`;
+        } else if (score >= 60) {
+            diagnosis = `현재 일부 주의가 필요한 수준의 리스크 요인이 감지되었습니다. WBS 진행 속도가 기 설정된 일정에 비해 다소 처지거나 미결 이슈가 계류되어 있습니다. 특히 핵심 산출물 및 보증 양식 검수가 늦어지는 현상이 감점의 주원인으로 분석되며, PM 차원의 리소스 재검토가 권장됩니다.`;
+        } else {
+            diagnosis = `본 프로젝트는 긴급 조치가 요구되는 경고 상태입니다. 일정 지연이 만성화되어 있고, 리스크 등급이 크리티컬한 상태로 장기간 누적되어 있어 마일스톤 납기 위반 확률이 매우 높습니다. PM 추천 예방 조치를 즉각 실행해 추가 공문 제출이나 인적 자원 증원을 신속하게 집행해야 합니다.`;
+        }
+        const diagnosisTextEl = document.getElementById('drawer-diagnosis-text');
+        if (diagnosisTextEl) diagnosisTextEl.textContent = diagnosis;
+
+        // Render drawer actions
+        const actionsContainer = document.getElementById('drawer-actions-container');
+        if (actionsContainer) actionsContainer.innerHTML = this.getDrawerActionsHtml(project);
+
+        // Open Drawer and Backdrop
+        const drawerEl = document.getElementById('ai-copilot-drawer');
+        const backdropEl = document.getElementById('ai-copilot-drawer-backdrop');
+        if (drawerEl) drawerEl.classList.add('open');
+        if (backdropEl) backdropEl.classList.add('open');
+        
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
+        }
+    }
+
+    closeAICopilotAnalyze() {
+        const drawerEl = document.getElementById('ai-copilot-drawer');
+        const backdropEl = document.getElementById('ai-copilot-drawer-backdrop');
+        if (drawerEl) drawerEl.classList.remove('open');
+        if (backdropEl) backdropEl.classList.remove('open');
+    }
+
+    async executeRecommendation(projectId, type) {
+        const executeAction = async () => {
+            const project = this.state.projects.find(p => p.id === projectId);
+            if (!project) return;
+            
+            if (type === 'engineer') {
+                project.resources = (project.resources || 0) + 1;
+                const newAction = {
+                    id: this.generateUuid(),
+                    projectId: projectId,
+                    title: '[AI 권장] Node.js 시뮬레이터 개발 리소스 추가 및 셋업',
+                    assignee: '안유경',
+                    dueDate: new Date(Date.now() + 7*24*60*60*1000).toISOString().substring(0, 10),
+                    status: '진행'
+                };
+                if (!this.state.actionItems) this.state.actionItems = [];
+                this.state.actionItems.push(newAction);
+                this.showToast('Node.js 엔지니어가 추가 배정되었으며 Action Item이 생성되었습니다.');
+            } else if (type === 'schedule') {
+                const newAction = {
+                    id: this.generateUuid(),
+                    projectId: projectId,
+                    title: '[AI 권장] GPU 클러스터 야간 배치 스케줄러 등록 및 테스트',
+                    assignee: '이영희',
+                    dueDate: new Date(Date.now() + 3*24*60*60*1000).toISOString().substring(0, 10),
+                    status: '진행'
+                };
+                if (!this.state.actionItems) this.state.actionItems = [];
+                this.state.actionItems.push(newAction);
+                this.showToast('GPU 야간 배치 스케줄링 승인 및 Action Item이 등록되었습니다.');
+            } else if (type === 'official_doc') {
+                const newDoc = {
+                    id: this.generateUuid(),
+                    projectId: projectId,
+                    docNo: `AETHER-PMO-AI-${Math.floor(Math.random() * 100000)}`,
+                    createdAt: new Date().toISOString().substring(0, 10),
+                    draftDept: '사업관리부',
+                    drafter: '안유경 PM',
+                    receiver: '기획재정부 차세대 사업단장',
+                    recipients: '배포부서 전체',
+                    executionDept: '인프라구축본부',
+                    relatedDoc: '',
+                    sentDate: new Date().toISOString().substring(0, 10),
+                    title: `[임시방화벽 신청] 기재부 차세대 연동 테스트 관련 IP 예외 신청 건`,
+                    writeGuide: 'AI 자동 초안',
+                    approvalStatus: '임시저장',
+                    approvalDate: '',
+                    approverName: '',
+                    consultantName: '',
+                    consultStatus: '대기',
+                    consultDate: '',
+                    bizName: project.name,
+                    projectCode: project.code || 'PRJ-TEMP',
+                    contractNo: 'CONT-2026-AI',
+                    bizPeriod: `${project.startDate} ~ ${project.endDate}`,
+                    content: `본 공문은 기재부 차세대 사업의 원활한 외부 연동 테스트를 위해 임시 방화벽 IP 예외 오픈을 신청하고자 발송합니다.\n\n대상 시스템: 기재부 연동 개발 서버\n요청 범위: 포트 443, 8080에 대한 외부 IP 대역 오픈\n신청 기간: 즉시 ~ 연동 테스트 완료시까지`,
+                    attachList: '1. 연동 IP 명세서 1부',
+                    files: [],
+                    status: '임시저장'
+                };
+                if (!this.state.officialDocs) this.state.officialDocs = [];
+                this.state.officialDocs.push(newDoc);
+                this.showToast('방화벽 예외 신청 공문 초안이 자동 생성되었습니다. (공문 관리 메뉴에서 확인 가능)');
+            } else {
+                this.showToast('추천 조치가 정상 적용되었습니다.');
+            }
+
+            await this.saveState();
+            this.closeAICopilotAnalyze();
+            this.renderDashboard();
+        };
+
+        if (!this.useSupabase) {
+            await executeAction();
+        } else {
+            if (confirm('AI 추천 조치를 실행하시겠습니까?\n실행 시 데이터베이스에 실시간 반영됩니다.')) {
+                await executeAction();
+            }
+        }
+    }
+
+    sendPortalPreset(text) {
+        const inputEl = document.getElementById('portal-chat-input');
+        if (inputEl) {
+            inputEl.value = text;
+            this.sendPortalChatMessage();
+        }
+    }
+
+    async sendPortalChatMessage() {
+        const inputEl = document.getElementById('portal-chat-input');
+        if (!inputEl) return;
+        const text = inputEl.value.trim();
+        if (!text) return;
+
+        inputEl.value = '';
+        this.appendPortalChatBubble(text, 'user');
+
+        const typingId = 'typing-' + Math.random().toString(36).substring(2, 9);
+        const chatMsgsEl = document.getElementById('portal-chat-messages');
+        if (chatMsgsEl) {
+            const typingEl = document.createElement('div');
+            typingEl.className = 'portal-chat-msg-row ai';
+            typingEl.id = typingId;
+            typingEl.innerHTML = `
+                <div class="portal-chat-bubble" style="background:var(--bg-hover-item); border:1px solid var(--bg-card-border); color:var(--text-muted); font-style:italic; display:flex; align-items:center; gap:6px;">
+                    <span class="typing-dot" style="animation:pulse 1.2s infinite; font-size:10px;">●</span>
+                    <span>Aether AI 분석중...</span>
+                </div>
+            `;
+            chatMsgsEl.appendChild(typingEl);
+            chatMsgsEl.scrollTop = chatMsgsEl.scrollHeight;
+        }
+
+        setTimeout(() => {
+            const typingIndicator = document.getElementById(typingId);
+            if (typingIndicator) typingIndicator.remove();
+
+            let reply = '';
+            const lowerText = text.toLowerCase();
+            
+            const totalProjs = this.state.projects.length;
+            const activeProjs = this.state.projects.filter(p => p.status === 'In Progress' || p.status === 'Delay').length;
+            const delayedProjs = this.state.projects.filter(p => p.status === 'Delay').length;
+            const unresolvedRisks = (this.state.issues || []).filter(i => i.status === '발생' || i.status === '조치중').length;
+            const actionItemsLeft = (this.state.actionItems || []).filter(a => a.status !== '완료' && a.status !== 'Completed').length;
+            
+            if (lowerText.includes('briefing') || lowerText.includes('브리핑') || lowerText.includes('안녕') || lowerText.includes('시작')) {
+                reply = `📊 **전체 프로젝트 현황 분석 리포트**<br><br>
+                현재 관리 중인 총 **${totalProjs}개**의 사업 중 활성화된 프로젝트는 **${activeProjs}개**이며, 이 중 **${delayedProjs}개**의 사업에서 병목에 따른 공식 지연이 감지되었습니다.<br><br>
+                미결 리스크는 **${unresolvedRisks}건**, 잔여 Action Item은 **${actionItemsLeft}건**입니다.<br><br>
+                특히 **[AI 기반 다국어 고객 상담 어시스턴트 개발]** 사업의 인프라 수급 지연(GPU 자원 경합) 영향으로 건강도가 **62점**으로 주의 단계입니다. AI 추천 조치를 활용하여 야간 배치 조정을 실행하는 것을 권장합니다.`;
+            } else if (lowerText.includes('risk') || lowerText.includes('리스크') || lowerText.includes('위험') || lowerText.includes('예측')) {
+                reply = `⚠️ **AI 기반 리스크 경보 및 예측 요약 (Rule-based 추정)**<br><br>
+                1. **다국어 상담 어시스턴트 개발**: GPU 연구 자원 경합에 의한 학습 스케줄 지연 확률 **85%** (High)<br>
+                2. **스마트홈 IoT 플랫폼 구축**: 칩셋 물류 지연 및 요구정의 양식 미지출로 인한 마일스톤 이탈 위험 **62%** (Warning)<br>
+                3. **기획재정부 연동망**: 망 분리 인프라 협의 지연에 따른 검수 일정 이탈 위험 **78%** (High)<br><br>
+                * 본 리스크 예측은 기재된 정보 기반의 Rule-based 추정치입니다.`;
+            } else if (lowerText.includes('action') || lowerText.includes('액션') || lowerText.includes('할 일') || lowerText.includes('일정')) {
+                reply = `📅 **Action Item 실태 요약**<br><br>
+                - 현재 총 미완료 Action Item은 **${actionItemsLeft}개**입니다.<br>
+                - 지연 및 마감 임박 상태인 주요 Action Item:<br>
+                  * "공급사 납기 재조정 회의" (담당: 안유경, 기한: 오늘)<br>
+                  * "GPU 자원 확보 부서 간 합의문 작성" (담당: 이영희, 기한: 2일 남음)<br><br>
+                각 담당자에게 알림이 발송되었으며, 필요시 PM 권한으로 추가 조치를 배정하세요.`;
+            } else {
+                reply = `Aether AI 어시스턴트입니다.<br><br>질문하신 "${text}"에 대해 프로젝트 데이터베이스를 분석 중입니다. 현재 활성화된 프로젝트 수는 **${totalProjs}개**, 미결 리스크는 **${unresolvedRisks}건**입니다. 구체적인 프로젝트 명칭이나 '리스크 예측', 'Daily Briefing' 등의 키워드로 질문하시면 상세한 데이터 기반 리포트를 제공해 드릴 수 있습니다.`;
+            }
+
+            this.appendPortalChatBubble(reply, 'ai');
+        }, 1200);
+    }
+
+    appendPortalChatBubble(content, sender) {
+        const chatMsgsEl = document.getElementById('portal-chat-messages');
+        if (!chatMsgsEl) return;
+        
+        const row = document.createElement('div');
+        row.className = `portal-chat-msg-row ${sender}`;
+        row.style.width = '100%';
+        row.style.margin = '4px 0';
+        row.style.display = 'flex';
+        row.style.justifyContent = sender === 'user' ? 'flex-end' : 'flex-start';
+        
+        const bubble = document.createElement('div');
+        bubble.className = 'portal-chat-bubble';
+        bubble.innerHTML = content;
+        
+        row.appendChild(bubble);
+        chatMsgsEl.appendChild(row);
+        chatMsgsEl.scrollTop = chatMsgsEl.scrollHeight;
+    }
+
+    toggleHealthCriteriaTooltip(event) {
+        if (event) {
+            event.stopPropagation();
+        }
+        const el = document.getElementById('health-criteria-tooltip');
+        if (el) {
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
         }
     }
 
@@ -7815,6 +8395,14 @@ class AetherPMO {
         document.getElementById('det-meet-decisions').textContent = meet.decisions || '-';
         document.getElementById('det-meet-remarks').textContent = meet.remarks || '-';
 
+        // Reset AI Summary layout
+        const loader = document.getElementById('ai-summary-loading');
+        const result = document.getElementById('ai-summary-result');
+        const btn = document.getElementById('btn-ai-summarize');
+        if (loader) loader.style.display = 'none';
+        if (result) result.style.display = 'none';
+        if (btn) btn.disabled = false;
+
         document.getElementById('meeting-minutes-detail-modal').classList.add('open');
     }
 
@@ -11143,6 +11731,865 @@ class AetherPMO {
             var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
+    }
+
+    // ==========================================
+    // SaaS Presentation & Demo Mode Methods
+    // ==========================================
+
+    initDemoAndPresentation() {
+        console.log('[SaaS Demo] Initializing presentation controls...');
+        const watermark = document.getElementById('demo-watermark');
+        if (watermark) watermark.style.display = 'none';
+        
+        const tourConsole = document.getElementById('presentation-tour-console');
+        if (tourConsole) tourConsole.classList.remove('active');
+        
+        window.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') {
+                e.preventDefault();
+                this.togglePresentationMode();
+            }
+            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
+                e.preventDefault();
+                this.toggleDemoMode();
+            }
+        });
+    }
+
+    toggleDemoMode() {
+        const toggleBtn = document.getElementById('demo-mode-toggle-btn');
+        const icon = document.getElementById('demo-mode-icon');
+        const label = document.getElementById('demo-mode-label');
+        
+        if (!this.demoMode) {
+            this.demoMode = true;
+            this._savedUseSupabase = this.useSupabase;
+            this.useSupabase = false;
+            this._savedState = JSON.parse(JSON.stringify(this.state));
+            
+            this.loadDemoDatabase();
+            
+            if (toggleBtn) toggleBtn.classList.add('active');
+            if (icon) {
+                icon.setAttribute('data-lucide', 'sparkles');
+                icon.style.color = '#10b981';
+            }
+            if (label) {
+                label.textContent = 'Demo Mode On';
+                label.style.color = '#10b981';
+            }
+            this.showToast('발표용 데모 모드가 활성화되었습니다. (데모 데이터 로드 완료)', 'success');
+        } else {
+            this.demoMode = false;
+            this.useSupabase = this._savedUseSupabase;
+            
+            if (this._savedState) {
+                this.state = this._savedState;
+                this._savedState = null;
+            } else {
+                this.loadState();
+            }
+            
+            if (toggleBtn) toggleBtn.classList.remove('active');
+            if (icon) {
+                icon.setAttribute('data-lucide', 'play');
+                icon.style.color = '';
+            }
+            if (label) {
+                label.textContent = 'Demo Mode Off';
+                label.style.color = '';
+            }
+            this.showToast('데모 모드가 비활성화되었습니다. (실제 데이터 복구 완료)', 'info');
+        }
+        
+        if (window.lucide) window.lucide.createIcons();
+        this.handleRouting();
+    }
+
+    loadDemoDatabase() {
+        console.log('[SaaS Demo] Populating high-fidelity demo database...');
+        
+        const projects = [
+            {
+                id: 'proj-1',
+                projectCode: 'P2026-001',
+                name: '차세대 스마트홈 IoT 플랫폼 구축',
+                desc: '가전 기기 및 센서 연동 스마트홈 IoT 백엔드 플랫폼 구축',
+                dept: '플랫폼개발본부',
+                manager: '안유경',
+                managerId: 'pm-1',
+                startDate: '2026-03-02',
+                endDate: '2026-08-31',
+                customer: '오케스트로 스마트홈 사업부',
+                budget: 2450000000,
+                milestones: '착수 보고 (2026-03-10)\n기능 요구사항 정의 (2026-04-15)\nAPI 게이트웨이 구축 (2026-05-30)\n통합 연동 테스트 (2026-07-15)\n최종 완료 (2026-08-31)',
+                inspectionDate: '2026-08-25',
+                remarks: '클라우드 네이티브 기반 MSA 설계',
+                status: 'In Progress',
+                progress: 65,
+                resources: 15,
+                businessType: 'sw-separate'
+            },
+            {
+                id: 'proj-2',
+                projectCode: 'P2026-002',
+                name: 'AI 기반 다국어 고객 상담 어시스턴트 개발',
+                desc: 'LLM 미세조정을 통한 다국어 챗봇 및 상담 자동 요약 시스템',
+                dept: 'AI혁신본부',
+                manager: '이영희',
+                managerId: 'pm-2',
+                startDate: '2026-04-10',
+                endDate: '2026-06-30',
+                customer: '글로벌 서비스 테크',
+                budget: 1200000000,
+                milestones: '착수 회의 (2026-04-12)\n모델 파인튜닝 시작 (2026-05-01)\nUI 프로토타입 완료 (2026-05-20)\n1차 베타 오픈 (2026-06-15)\n서비스 이관 (2026-06-30)',
+                inspectionDate: '2026-06-25',
+                remarks: 'GPU 클러스터 자원 병목 이슈 모니터링 필요',
+                status: 'Delay',
+                progress: 40,
+                resources: 8,
+                businessType: 'sw-separate'
+            },
+            {
+                id: 'proj-3',
+                projectCode: 'P2026-003',
+                name: '전사 통합 ERP 시스템 고도화 및 클라우드 이전',
+                desc: '노후 ERP 고도화 및 하이브리드 클라우드 인프라 아키텍처 전환',
+                dept: '클라우드개발본부',
+                manager: '김철수',
+                managerId: 'pm-3',
+                startDate: '2026-06-15',
+                endDate: '2027-03-31',
+                customer: '한국제조그룹',
+                budget: 8900000000,
+                milestones: '컨설팅 완료 (2026-07-31)\n아키텍처 설계 (2026-09-30)\n마이그레이션 (2026-12-31)\n병행 가동 (2027-02-28)',
+                inspectionDate: '2027-03-25',
+                remarks: '초대형 사업, 리스크 관리 주 단위 수행',
+                status: 'In Progress',
+                progress: 20,
+                resources: 35,
+                businessType: 'operation'
+            },
+            {
+                id: 'proj-4',
+                projectCode: 'P2026-004',
+                name: '국민은행 마이데이터 분석 솔루션 도입',
+                desc: '금융 마이데이터 수집용 빅데이터 플랫폼 고도화 및 시각화 대시보드',
+                dept: '빅데이터기획부',
+                manager: '박지민',
+                managerId: 'pm-4',
+                startDate: '2025-09-01',
+                endDate: '2026-02-28',
+                customer: 'KB국민은행',
+                budget: 1800000000,
+                milestones: '하드웨어 입고 (2025-09-20)\n수집 모듈 연동 (2025-11-15)\n테스트 완료 (2026-01-30)\n안정화 종료 (2026-02-28)',
+                inspectionDate: '2026-02-25',
+                remarks: '검수 완료 및 안정적인 운영 이관 종료',
+                status: 'Completed',
+                progress: 100,
+                resources: 12,
+                businessType: 'operation'
+            },
+            {
+                id: 'proj-5',
+                projectCode: 'P2026-005',
+                name: '대법원 차세대 등기정보시스템 구축 및 인프라 보강',
+                desc: '등기 서비스 24시간 가용성 확보를 위한 이중화 백업 스토리지 보강',
+                dept: '공공컨설팅부',
+                manager: '이영희',
+                managerId: 'pm-2',
+                startDate: '2026-05-10',
+                endDate: '2026-11-30',
+                customer: '대법원 정보화부',
+                budget: 4200000000,
+                milestones: '착수계 접수 (2026-05-15)\n기본 분석 완료 (2026-07-10)\n장비 설치 (2026-09-15)\n준공 완료 (2026-11-30)',
+                inspectionDate: '2026-11-20',
+                remarks: '공공 컴플라이언스 철저 준수 필요',
+                status: 'In Progress',
+                progress: 30,
+                resources: 11,
+                businessType: 'construction'
+            },
+            {
+                id: 'proj-6',
+                projectCode: 'P2026-006',
+                name: '기획재정부 차세대 예산결산 관리 시스템 구축',
+                desc: '국가 예산 및 결산 데이터를 처리하는 공공 재정 분산 아키텍처',
+                dept: '클라우드개발본부',
+                manager: '안유경',
+                managerId: 'pm-1',
+                startDate: '2025-10-01',
+                endDate: '2026-07-31',
+                customer: '기획재정부',
+                budget: 6500000000,
+                milestones: '요구분석 (2025-11-15)\nDB 아키텍처 수립 (2026-01-30)\n기능 구현 완료 (2026-05-10)\n공동 연동 테스트 (2026-06-30)\n실 가동 (2026-07-31)',
+                inspectionDate: '2026-07-25',
+                remarks: '보안 심의 및 방화벽 예외 승인 절차 병행',
+                status: 'In Progress',
+                progress: 85,
+                resources: 22,
+                businessType: 'sw-separate'
+            },
+            {
+                id: 'proj-7',
+                projectCode: 'P2026-007',
+                name: '서울시 스마트 교통 정보 시스템 고도화',
+                desc: '실시간 버스 및 지하철 운행 패턴 인공지능 분석 및 대외 연계 API',
+                dept: '빅데이터기획부',
+                manager: '김영호',
+                managerId: 'pm-5',
+                startDate: '2026-01-15',
+                endDate: '2026-09-30',
+                customer: '서울시 교통정보과',
+                budget: 3100000000,
+                milestones: '착수 (2026-02-01)\n알고리즘 검증 (2026-04-30)\nAPI 게이트웨이 통합 (2026-07-15)\n최종 준공 (2026-09-30)',
+                inspectionDate: '2026-09-20',
+                remarks: '시민 편의 제공용 실시간 서비스',
+                status: 'In Progress',
+                progress: 55,
+                resources: 10,
+                businessType: 'sw-separate'
+            },
+            {
+                id: 'proj-8',
+                projectCode: 'P2026-008',
+                name: '한국전력 스마트그리드 데이터 레이크 구축',
+                desc: '송배전 전력망 실시간 계측 로그 수집 및 고성능 시계열 분석 플랫폼',
+                dept: '플랫폼개발본부',
+                manager: '한민우',
+                managerId: 'pm-6',
+                startDate: '2026-04-01',
+                endDate: '2026-12-31',
+                customer: '한국전력공사',
+                budget: 4800000000,
+                milestones: 'Hadoop/Kafka 클러스터 구성 (2026-05-30)\n데이터 파이프라인 수립 (2026-08-31)\n분석 쿼리 튜닝 (2026-10-31)\n서비스 오픈 (2026-12-31)',
+                inspectionDate: '2026-12-20',
+                remarks: 'Kafka 연계 대역폭 부족 이슈 분석중',
+                status: 'In Progress',
+                progress: 25,
+                resources: 14,
+                businessType: 'operation'
+            },
+            {
+                id: 'proj-9',
+                projectCode: 'P2026-009',
+                name: '인천공항 제2여객터미널 통합 관제 시스템 백업 고도화',
+                desc: '관제 시스템 무중단 고가용성 하드웨어 교체 및 OS 커널 튜닝',
+                dept: '공공컨설팅부',
+                manager: '신동엽',
+                managerId: 'pm-7',
+                startDate: '2025-12-01',
+                endDate: '2026-05-31',
+                customer: '인천국제공항공사',
+                budget: 2200000000,
+                milestones: '자재 검수 (2025-12-15)\n시스템 가동 정지 스케줄 확정 (2026-02-10)\n장비 가동 (2026-04-30)\n이관 완료 (2026-05-31)',
+                inspectionDate: '2026-05-25',
+                remarks: '성공적으로 완료되어 사후 모니터링 단계',
+                status: 'Completed',
+                progress: 100,
+                resources: 9,
+                businessType: 'construction'
+            },
+            {
+                id: 'proj-10',
+                projectCode: 'P2026-010',
+                name: '중소벤처기업부 클라우드 전환 컨설팅 및 보안 강화',
+                desc: '산하기관 서버의 공공 클라우드(G-Cloud) 마이그레이션 로드맵 컨설팅',
+                dept: '공공컨설팅부',
+                manager: '강호동',
+                managerId: 'pm-8',
+                startDate: '2025-11-01',
+                endDate: '2026-04-30',
+                customer: '중소벤처기업부 정보화본부',
+                budget: 850000000,
+                milestones: '자산 현황 분석 (2025-12-01)\n보안 규정 검토 (2026-02-15)\n로드맵 작성 (2026-03-31)\n보고서 완료 (2026-04-30)',
+                inspectionDate: '2026-04-20',
+                remarks: '클라우드 가이드라인 충족 확인',
+                status: 'Completed',
+                progress: 100,
+                resources: 6,
+                businessType: 'operation'
+            }
+        ];
+
+        const issues = [
+            {
+                id: 'issue-1',
+                projectId: 'proj-1',
+                projectName: '차세대 스마트홈 IoT 플랫폼 구축',
+                title: 'IoT 게이트웨이 시제품 수급 지연',
+                desc: '중국 협력사 칩셋 공급 차질에 따른 테스트 게이트웨이 1차분 2주일 수급 지연 예상. 우회 자재 조달 방안 또는 가상 에뮬레이터 개발 대체 진행중.',
+                status: 'Open',
+                priority: 'High',
+                reporter: '안유경',
+                created: '2026-05-15',
+                remarks: '가상 에뮬레이터 프로토타입 작성 완료하여 1차 연동 테스트 적용 가능'
+            },
+            {
+                id: 'issue-2',
+                projectId: 'proj-2',
+                projectName: 'AI 기반 다국어 고객 상담 어시스턴트 개발',
+                title: 'GPU 인프라 할당 및 성능 병목 현상',
+                desc: 'LLM 미세 조정을 위한 멀티 노드 GPU 할당이 타 서비스 연구와 중복되어 자원 부족. 대기 시간이 길어지며 모델 성능 튜닝 테스트 일정 지연.',
+                status: 'Open',
+                priority: 'Critical',
+                reporter: '이영희',
+                created: '2026-05-20',
+                remarks: 'IT지원본부와 일정 조율 및 자원 분산 할당 우선순위 승인 협의 진행중'
+            },
+            {
+                id: 'issue-3',
+                projectId: 'proj-7',
+                projectName: '서울시 스마트 교통 정보 시스템 고도화',
+                title: '고객사 실무 담당자 변경에 따른 요구사항 검토 지연',
+                desc: '서울시 교통정보과 상반기 인사이동으로 신임 담당 주무관의 기존 설계 요구사항에 대한 전면 재검토 및 협의 기간 추가 발생.',
+                status: 'Open',
+                priority: 'Medium',
+                reporter: '김영호',
+                created: '2026-06-02',
+                remarks: '변경 사항에 대한 요약 문서 제공 및 착수 세미나 긴급 개최 예정'
+            },
+            {
+                id: 'issue-4',
+                projectId: 'proj-8',
+                projectName: '한국전력 스마트그리드 데이터 레이크 구축',
+                title: '데이터 연계용 대용량 Kafka 클러스터 네트워크 대역폭 제한',
+                desc: '로그 수집 서버와 하둡 인프라 간 초당 수만 건 데이터 전송 시 한전 사내 전산망 로컬 스위치 대역폭 초과로 데이터 유실 발생 가능성 확인.',
+                status: 'Open',
+                priority: 'High',
+                reporter: '한민우',
+                created: '2026-06-10',
+                remarks: '압축 알고리즘 적용 및 야간 배치 전송 비중 조절안 수립'
+            },
+            {
+                id: 'issue-5',
+                projectId: 'proj-6',
+                projectName: '기획재정부 차세대 예산결산 관리 시스템 구축',
+                title: '기재부 재정 데이터 수집 연계 테스트 방화벽 차단',
+                desc: '외부 연동 게이트웨이 테스트 중 보안 침입 차단 시스템에 의해 통신 포트 차단됨.',
+                status: 'Resolved',
+                priority: 'High',
+                reporter: '안유경',
+                created: '2026-04-18',
+                remarks: '기재부 정보보안 부서와 공문 발송 및 임시 IP/포트 승인 획득으로 정상 처리 완료'
+            }
+        ];
+
+        const actionItems = [];
+        const managers = ['안유경', '이영희', '김철수', '박지민', '김영호', '한민우', '신동엽', '강호동'];
+        for (let i = 1; i <= 20; i++) {
+            const projIdx = (i % 8);
+            const proj = projects[projIdx];
+            const statusVal = (i % 3 === 0) ? 'Completed' : ((i % 3 === 1) ? 'In Progress' : 'Pending');
+            const priorityVal = (i % 4 === 0) ? 'Critical' : ((i % 4 === 1) ? 'High' : ((i % 4 === 2) ? 'Medium' : 'Low'));
+            const dateOffset = i * 2;
+            
+            actionItems.push({
+                id: `act-${i}`,
+                projectId: proj.id,
+                projectName: proj.name,
+                title: `${proj.name} - Action Item #${i}: ${i % 2 === 0 ? '보안 요건 검토 및 인프라 설계서 보완' : '핵심 모듈 아키텍처 설계 회의록 배포'}`,
+                content: `프로젝트 일정 관리 기준에 따른 Action Item 검증 및 담당자별 이행 실태 수시 피드백 필요. 세부 내용 문서 및 관련 산출물 연계 체크 완료 요망.`,
+                status: statusVal,
+                priority: priorityVal,
+                assignee: managers[(i + 2) % managers.length],
+                dueDate: `2026-06-${10 + dateOffset}`,
+                completedDate: statusVal === 'Completed' ? `2026-06-${8 + dateOffset}` : null
+            });
+        }
+
+        const artifacts = [];
+        const artCategories = ['Requirements', 'Architecture Design', 'Source Code', 'Test Cases', 'Manuals', 'Deployments', 'Reports', 'Etc'];
+        const artExtensions = ['pdf', 'docx', 'xlsx', 'zip', 'pptx'];
+        const artStages = ['initiation', 'execution', 'closing'];
+
+        let artIdCounter = 1;
+        projects.forEach((proj, pIdx) => {
+            for (let a = 1; a <= 8; a++) {
+                const catIdx = (a - 1) % artCategories.length;
+                const category = artCategories[catIdx];
+                const stage = artStages[(a - 1) % artStages.length];
+                const ext = artExtensions[(pIdx + a) % artExtensions.length];
+                
+                const artId = `art-${artIdCounter++}`;
+                let fileName = '';
+                let title = '';
+                
+                switch(category) {
+                    case 'Requirements':
+                        title = `${proj.name} - 요구사항 정의서 v1.${a}`;
+                        fileName = `${proj.id}_Requirements_v1.${a}.${ext}`;
+                        break;
+                    case 'Architecture Design':
+                        title = `${proj.name} - 시스템 아키텍처 설계서`;
+                        fileName = `${proj.id}_SAD_v1.0.${ext}`;
+                        break;
+                    case 'Source Code':
+                        title = `${proj.name} - Core 모듈 패키지 소스`;
+                        fileName = `${proj.id}_SourceCode_v1.0.0.zip`;
+                        break;
+                    case 'Test Cases':
+                        title = `${proj.name} - 통합 테스트 시나리오`;
+                        fileName = `${proj.id}_IntegrationTest_Scenario.${ext}`;
+                        break;
+                    case 'Manuals':
+                        title = `${proj.name} - 사용자 및 관리자 매뉴얼`;
+                        fileName = `${proj.id}_User_Manual_Draft.${ext}`;
+                        break;
+                    case 'Deployments':
+                        title = `${proj.name} - 클라우드 아키텍처 배포 사양서`;
+                        fileName = `${proj.id}_Deployment_Spec.${ext}`;
+                        break;
+                    case 'Reports':
+                        title = `${proj.name} - ${(a === 7) ? '착수 보고서 및 사업수행계획서' : '주간 수행 경과 보고서'}`;
+                        fileName = `${proj.id}_ProjectReport_${a}.${ext}`;
+                        break;
+                    default:
+                        title = `${proj.name} - 외부 인터페이스 정의서`;
+                        fileName = `${proj.id}_API_Spec_v1.${a}.${ext}`;
+                }
+
+                let artStatus = 'Approved';
+                if (proj.status === 'Delay') {
+                    artStatus = (a % 2 === 0) ? 'Reviewing' : 'Approved';
+                } else if (proj.progress < 50 && stage !== 'initiation') {
+                    artStatus = (a % 3 === 0) ? 'Pending' : 'Reviewing';
+                }
+
+                const fileSizes = ['1.2 MB', '4.5 MB', '15.8 MB', '8.9 MB', '24.1 MB'];
+                
+                artifacts.push({
+                    id: artId,
+                    projectId: proj.id,
+                    projectName: proj.name,
+                    title: title,
+                    category: category,
+                    stage: stage,
+                    version: `1.0.${a}`,
+                    author: proj.manager,
+                    status: artStatus,
+                    fileName: fileName,
+                    fileSize: fileSizes[(pIdx + a) % fileSizes.length],
+                    uploadedAt: `2026-05-${10 + a}`,
+                    submitDate: `2026-05-${10 + a}`
+                });
+            }
+        });
+
+        const meetingMinutes = [
+            {
+                id: 'meet-1',
+                projectId: 'proj-1',
+                projectName: '차세대 스마트홈 IoT 플랫폼 구축',
+                title: 'IoT 게이트웨이 우회 자재 조달 및 아키텍처 실무 회의',
+                meetDate: '2026-05-18T14:00',
+                location: '본사 6층 소회의실 B',
+                attendees: '안유경 PM, 박성민 수석, 이수진 선임, 중국 공급사 한국지사 기술팀',
+                agenda: '스마트홈 IoT 게이트웨이 메인 칩셋 수급 지연 우회 대책 수립',
+                decisions: '가상 IoT 게이트웨이 시뮬레이터(Node.js 기반) 긴급 개발 투입',
+                remarks: '가상 에뮬레이터 프로토타입 작성 완료하여 1차 연동 테스트 적용 가능',
+                content: `스마트홈 IoT 게이트웨이 시제품용 메인 칩셋 수급 지연에 대해 장시간 토론함.\n\n[회의 요약]\n1. 중국 공급사의 물류 지연으로 기한 내 시제품 확보가 어려운 점 확인.\n2. 이를 극복하기 위해 소프트웨어 에뮬레이터를 먼저 구축하여 API 연동 테스트를 조기 시행하기로 함.\n3. 핵심 보안 프로토콜 규격은 모듈별로 명세화하여 6월 15일까지 각 파트별 검증 완료 필요.\n\n[주요 결정사항]\n- 가상 IoT 게이트웨이 시뮬레이터(Node.js 기반) 긴급 개발 투입\n- 차주 주간 회의 전까지 칩셋 수급 일정 재조정 후 공문 발송`
+            },
+            {
+                id: 'meet-2',
+                projectId: 'proj-2',
+                projectName: 'AI 기반 다국어 고객 상담 어시스턴트 개발',
+                title: 'LLM 파인튜닝용 인프라 자원 협의 및 UI 프로토타입 검토',
+                meetDate: '2026-05-22T10:00',
+                location: '본사 12층 보드룸',
+                attendees: '이영희 PM, 최민호 책임연구원, 김진수 디자이너',
+                agenda: 'LLM 파인튜닝용 인프라 자원 협의 및 UI 프로토타입 검토',
+                decisions: 'GPU 자원은 야간 오프라인 배치 훈련으로 23시~07시 사용권을 임시 할당 받음',
+                remarks: 'BLEU 벤치마킹 테스트 코드는 6월 1일까지 완료',
+                content: `1. GPU 클러스터 자원 배분 이슈에 대해 IT지원팀과 사전 조율한 결과를 보고함.\n2. UI 대시보드 프로토타입 피드백: 고객 대응 챗봇 대화창의 반응 속도가 1.5초를 초과하지 않도록 컴포넌트 경량화 필요.\n3. 1차 번역 정확도 검증(BLEU 스코어 0.45 확보 대상) 테스트 데이터 구성 완료 필요.\n\n[회의 요약]\n- GPU 자원은 야간 오프라인 배치 훈련으로 23시~07시 사용권을 임시 할당 받음.\n- UI 모형 시안 검수에서 다크 모드 테마 일관성을 높이도록 재보정 필요.\n- BLEU 벤치마킹 테스트 코드는 6월 1일까지 완료.`
+            }
+        ];
+
+        const templateSlots = [];
+        projects.forEach(proj => {
+            const categories = ['InitiationReport', 'ProjectExecutionPlan', 'PrepaymentApplication', 'InspectionRequest', 'ProgressApplication', 'BalanceApplication', 'ClosingReport'];
+            categories.forEach((cat, index) => {
+                templateSlots.push({
+                    id: `slot-${proj.id}-${cat}`,
+                    projectId: proj.id,
+                    projectName: proj.name,
+                    category: cat,
+                    fileName: (index < 2 || proj.progress === 100) ? `${proj.id}_${cat}_Draft.pdf` : null,
+                    fileSize: (index < 2 || proj.progress === 100) ? '2.4 MB' : null,
+                    uploadedAt: (index < 2 || proj.progress === 100) ? '2026-04-12' : null,
+                    status: (index < 2 || proj.progress === 100) ? 'Approved' : 'Pending'
+                });
+            });
+        });
+
+        this.state.projects = projects;
+        this.state.issues = issues;
+        this.state.actionItems = actionItems;
+        this.state.artifacts = artifacts;
+        this.state.meetingMinutes = meetingMinutes;
+        this.state.templateSlots = templateSlots;
+
+        this.activeProjectId = projects[0].id;
+    }
+
+    togglePresentationMode() {
+        const body = document.body;
+        const tourConsole = document.getElementById('presentation-tour-console');
+        const watermark = document.getElementById('demo-watermark');
+        
+        if (!this.presentationMode) {
+            this.presentationMode = true;
+            body.classList.add('presentation-mode-active');
+            if (tourConsole) tourConsole.classList.add('active');
+            if (watermark) watermark.style.display = 'block';
+            
+            this.setSidebarMode('compact');
+            
+            this.tourStep = 1;
+            this.applyTourStep();
+            this.showToast('발표 모드가 시작되었습니다. 하단 콘솔의 시나리오 가이드를 확인하세요.', 'success');
+        } else {
+            this.presentationMode = false;
+            body.classList.remove('presentation-mode-active');
+            if (tourConsole) tourConsole.classList.remove('active');
+            if (watermark) watermark.style.display = 'none';
+            
+            this.setSidebarMode('expanded');
+            this.showToast('발표 모드가 종료되었습니다.', 'info');
+        }
+    }
+
+    setSidebarMode(mode) {
+        const smiCompact = document.getElementById('smi-compact');
+        const smiExpanded = document.getElementById('smi-expanded');
+        
+        if (mode === 'compact' && smiCompact) {
+            smiCompact.click();
+        } else if (mode === 'expanded' && smiExpanded) {
+            smiExpanded.click();
+        }
+    }
+
+    nextTourStep() {
+        if (this.tourStep < 4) {
+            this.tourStep++;
+            this.applyTourStep();
+        } else {
+            this.showToast('발표 시나리오가 모두 완료되었습니다!', 'success');
+        }
+    }
+
+    prevTourStep() {
+        if (this.tourStep > 1) {
+            this.tourStep--;
+            this.applyTourStep();
+        }
+    }
+
+    applyTourStep() {
+        const stepTitle = document.getElementById('tour-step-title');
+        const stepDesc = document.getElementById('tour-step-description');
+        const stepIndicator = document.getElementById('tour-step-indicator');
+        
+        if (!stepTitle || !stepDesc || !stepIndicator) return;
+        
+        stepIndicator.textContent = `${this.tourStep} / 4`;
+        
+        const chatPanel = document.getElementById('ai-chat-panel');
+        if (chatPanel && this.tourStep !== 4) {
+            chatPanel.classList.remove('open');
+            this.aiChatOpen = false;
+        }
+
+        switch(this.tourStep) {
+            case 1:
+                stepTitle.textContent = "1단계: 통합 PMO 대시보드 - 전체 사업 개요 분석";
+                stepDesc.textContent = "발표 멘트: 본 화면은 전사 프로젝트의 추진 현황, 주요 마일스톤, 리스크 및 재정 지표를 한눈에 볼 수 있도록 설계된 통합 PMO 대시보드입니다. 모든 지표들은 MSA 및 AI 추천 엔진의 결과물을 바탕으로 실시간 요약되어 의사결정을 지원합니다.";
+                window.location.hash = '#dashboard';
+                break;
+            case 2:
+                stepTitle.textContent = "2단계: 프로젝트 현황 및 상세 실태 조사";
+                stepDesc.textContent = "발표 멘트: 다음은 프로젝트 목록 및 필터링 관리 화면입니다. 대형 스마트홈 IoT 구축 사업부터 공공 차세대 결산 시스템까지 다각화된 사업 형태로 관리하며 WBS 진척도, 예산 분석 리포트를 즉각적으로 파악할 수 있습니다.";
+                window.location.hash = '#projects';
+                break;
+            case 3:
+                stepTitle.textContent = "3단계: 산출물 표준 관리 및 템플릿 검증";
+                stepDesc.textContent = "발표 멘트: 이어서 산출물 관리 화면입니다. 각 사업 단계별 필수 산출물 템플릿 가이드라인을 제공하며 미작성 템플릿의 누락 여부를 자동 점검하고, 드래그 앤 드롭 업로드 및 압축 일괄 다운로드를 지원합니다.";
+                window.location.hash = '#artifacts/initiation';
+                break;
+            case 4:
+                stepTitle.textContent = "4단계: AI 어시스턴트 협업 및 지능형 회의록 분석";
+                stepDesc.textContent = "발표 멘트: 마지막으로 AI 협업 기능입니다. 우측 하단의 AI 어시스턴트 챗봇을 통해 자연어로 현황 파악이 가능하며, 회의록 상세 창에서 클릭 한번으로 생성된 AI 요약을 기반으로 핵심 Action Item을 표준 DB에 즉시 등록 및 전파합니다.";
+                
+                setTimeout(() => {
+                    if (this.tourStep === 4) {
+                        const panel = document.getElementById('ai-chat-panel');
+                        if (panel) {
+                            panel.classList.add('open');
+                            this.aiChatOpen = true;
+                            this.addBotMessage("발표 시나리오의 4단계인 AI 협업 화면입니다. 왼쪽 회의록 메뉴로 이동하시거나, 저에게 '지연 중인 프로젝트 리스크 분석'에 대해 물어보시면 상세 내용을 알려드릴게요.");
+                        }
+                    }
+                }, 1000);
+                break;
+        }
+    }
+
+    toggleAIChat() {
+        const panel = document.getElementById('ai-chat-panel');
+        if (!panel) return;
+        
+        if (!this.aiChatOpen) {
+            panel.classList.add('open');
+            this.aiChatOpen = true;
+        } else {
+            panel.classList.remove('open');
+            this.aiChatOpen = false;
+        }
+    }
+
+    sendAIPreset(text) {
+        this.addUserMessage(text);
+        this.generateAIResponse(text);
+    }
+
+    sendAIMessage() {
+        const input = document.getElementById('ai-chat-input');
+        if (!input || !input.value.trim()) return;
+        
+        const query = input.value.trim();
+        this.addUserMessage(query);
+        input.value = '';
+        
+        this.generateAIResponse(query);
+    }
+
+    addUserMessage(text) {
+        const container = document.getElementById('ai-chat-messages');
+        if (!container) return;
+        
+        const presets = document.getElementById('ai-presets-container');
+        if (presets) presets.remove();
+        
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'ai-message user';
+        msgDiv.textContent = text;
+        container.appendChild(msgDiv);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    addBotMessage(text) {
+        const container = document.getElementById('ai-chat-messages');
+        if (!container) return;
+        
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'ai-message bot';
+        msgDiv.innerHTML = text.replace(/\n/g, '<br>');
+        container.appendChild(msgDiv);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    showTypingIndicator() {
+        const container = document.getElementById('ai-chat-messages');
+        if (!container) return null;
+        
+        const indicator = document.createElement('div');
+        indicator.className = 'ai-message bot typing-indicator';
+        indicator.id = 'ai-typing-indicator';
+        indicator.innerHTML = '<span></span><span></span><span></span>';
+        container.appendChild(indicator);
+        container.scrollTop = container.scrollHeight;
+        return indicator;
+    }
+
+    generateAIResponse(query) {
+        const indicator = this.showTypingIndicator();
+        
+        setTimeout(() => {
+            if (indicator) indicator.remove();
+            
+            let response = '';
+            const projects = this.state.projects || [];
+            const issues = this.state.issues || [];
+            const actionItems = this.state.actionItems || [];
+            
+            const activeProjectsCount = projects.filter(p => p.status !== 'Completed').length;
+            const completedCount = projects.filter(p => p.status === 'Completed').length;
+            const delayedProjects = projects.filter(p => p.status === 'Delay');
+            
+            if (query.includes('현황 요약') || query.includes('프로젝트 현황')) {
+                const totalProgress = projects.reduce((sum, p) => sum + p.progress, 0);
+                const avgProgress = projects.length > 0 ? (totalProgress / projects.length).toFixed(1) : 0;
+                
+                response = `📊 **전사 프로젝트 현황 요약 분석**\n\n` +
+                           `현재 총 **${projects.length}개**의 프로젝트가 등록되어 있습니다.\n` +
+                           `- **수행 중 (미완료)**: ${activeProjectsCount}개\n` +
+                           `- **지연 중**: ${delayedProjects.length}개 (주의 필요)\n` +
+                           `- **완료됨**: ${completedCount}개\n` +
+                           `- **전체 평균 진척도**: ${avgProgress}%\n\n` +
+                           `특히 **[${delayedProjects.map(p => p.name).join(', ')}]** 사업의 인프라 병목 현상에 따른 예방 조치가 필요합니다. 상세 리포트는 프로젝트 상세 메뉴에서 파악해 보세요.`;
+            } else if (query.includes('지연') || query.includes('리스크') || query.includes('위험')) {
+                if (issues.length > 0) {
+                    response = `⚠️ **지연 및 리스크 집중 검토**\n\n` +
+                               `현재 리스크 관리 등급 'High' 이상인 항목은 다음과 같습니다:\n\n`;
+                    issues.forEach((iss, index) => {
+                        response += `${index + 1}. **[${iss.projectName}]**\n` +
+                                    `   - 리스크: ${iss.title}\n` +
+                                    `   - 중요도: ${iss.priority} | 상태: ${iss.status}\n` +
+                                    `   - 대응 방안: ${iss.remarks || '우회 조달 및 일정 보정'}\n\n`;
+                    });
+                    response += `IT 리소스 충원 및 유관 부서와의 공문 협의 절차를 통해 해당 마일스톤이 전체 일정에 미치는 지연 영향을 3일 이내로 축소할 것을 권장합니다.`;
+                } else {
+                    response = `✅ 현재 전사 프로젝트 중 '지연' 상태로 분류된 특별한 리스크 프로젝트는 감지되지 않았습니다. 모든 핵심 이정표(Milestones)가 계획 대비 순조롭게 진척되고 있습니다.`;
+                }
+            } else if (query.includes('Action Item') || query.includes('액션 아이템')) {
+                const pendingActions = actionItems.filter(a => a.status !== 'Completed');
+                response = `📅 **Action Item 이행 분석**\n\n` +
+                           `현재 미완료 상태인 핵심 Action Item은 총 **${pendingActions.length}건**입니다.\n` +
+                           `금주 기한인 상위 3건은 다음과 같습니다:\n\n`;
+                pendingActions.slice(0, 3).forEach((act, index) => {
+                    response += `${index + 1}. **${act.title}**\n` +
+                                `   - 담당자: ${act.assignee} | 기한: ${act.dueDate}\n` +
+                                `   - 중요도: ${act.priority}\n`;
+                });
+                response += `\n지정된 기한 내 완료율이 85% 이상 유지되도록 해당 담당자에게 자동 알림 메일을 전파할 수 있습니다.`;
+            } else {
+                response = `🤖 **Aether AI 비서 답변**\n\n` +
+                           `질문하신 "${query}"에 대한 분석 결과입니다:\n` +
+                           `현재 데모 모드 인메모리 엔진이 활성화되어 있으며, 총 **${projects.length}개** 프로젝트 및 **${issues.length}개** 리스크 이슈의 컨텍스트를 실시간 학습하고 있습니다.\n\n` +
+                           `추가로 지원해 드릴 업무가 있으시면 말씀해 주세요.`;
+            }
+            
+            this.addBotMessage(response);
+            
+            const container = document.getElementById('ai-chat-messages');
+            if (container) {
+                const presetsDiv = document.createElement('div');
+                presetsDiv.className = 'ai-presets-container';
+                presetsDiv.id = 'ai-presets-container';
+                presetsDiv.innerHTML = `
+                    <button class="ai-preset-chip" onclick="app.sendAIPreset('전체 프로젝트 현황 요약')">📊 전체 프로젝트 현황 요약</button>
+                    <button class="ai-preset-chip" onclick="app.sendAIPreset('지연 중인 프로젝트 리스크 분석')">⚠️ 지연 중인 프로젝트 리스크 분석</button>
+                    <button class="ai-preset-chip" onclick="app.sendAIPreset('오늘 기한인 Action Item 목록')">📅 오늘 기한인 Action Item 목록</button>
+                `;
+                container.appendChild(presetsDiv);
+                container.scrollTop = container.scrollHeight;
+            }
+        }, 1200);
+    }
+
+    aiSummarizeMeetingMinutes() {
+        const container = document.getElementById('meet-ai-summary-container');
+        const btn = document.getElementById('btn-ai-summarize-minutes');
+        
+        if (!container) return;
+        
+        if (btn) btn.disabled = true;
+        container.style.display = 'block';
+        
+        // Render dynamic loading screen
+        container.innerHTML = `
+            <div id="ai-summary-loading" class="ai-summary-loading" style="display:flex; align-items:center; gap:10px; padding:20px; background:rgba(67, 56, 202, 0.05); border:1px dashed var(--primary); border-radius:8px; justify-content:center; color:var(--primary); font-weight:500;">
+                <span class="loading-spinner" style="width:18px; height:18px; border:2px solid var(--primary); border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite;"></span>
+                <span>AI 요약 분석 보고서 생성 중...</span>
+            </div>
+        `;
+        
+        setTimeout(() => {
+            // Render AI Summary Report Card
+            container.innerHTML = `
+                <div id="ai-summary-result" class="ai-summary-result animate-scale-up" style="background:var(--card-bg, #1e1e38); border:1px solid rgba(67, 56, 202, 0.3); border-radius:8px; padding:16px; margin-top:12px;">
+                    <div class="ai-summary-header" style="display:flex; align-items:center; gap:8px; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
+                        <i data-lucide="sparkles" style="color:var(--primary); width:16px; height:16px;"></i>
+                        <h4 style="margin:0; font-size:14px; font-weight:600; color:var(--text-main);">AI 분석 및 추천 요약 보고서</h4>
+                    </div>
+                    <div class="ai-summary-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:12px; line-height:1.5;">
+                        <div class="ai-summary-section">
+                            <h5 style="margin:0 0 6px 0; font-size:12px; color:var(--primary); font-weight:600;">📝 핵심 회의 요약</h5>
+                            <p id="ai-summary-text" style="margin:0; color:var(--text-muted, #94a3b8);">본 회의에서는 주요 프로젝트 진행 현황 및 긴급 자원 공급망 확보 대책에 대해 상세히 논의했습니다. 칩셋 수급 일정 및 GPU 자원 파인튜닝 배치 스케줄링 승인을 얻어 일정을 보전하였습니다.</p>
+                        </div>
+                        <div class="ai-summary-section">
+                            <h5 style="margin:0 0 6px 0; font-size:12px; color:var(--primary); font-weight:600;">💡 주요 결정사항</h5>
+                            <p id="ai-summary-decisions" style="margin:0; color:var(--text-muted, #94a3b8);">가상 게이트웨이 시뮬레이터를 조기 투입하고, IT본부와 협의하여 야간 시간대에 한해 연구용 GPU 가용 노드를 전용 임시 할당하기로 확정하였습니다.</p>
+                        </div>
+                        <div class="ai-summary-section full-width" style="grid-column:1 / span 2; border-top:1px solid rgba(255,255,255,0.05); padding-top:10px; margin-top:4px;">
+                            <h5 style="margin:0 0 6px 0; font-size:12px; color:var(--primary); font-weight:600;">📅 추천 Action Item 등록 권장</h5>
+                            <ul id="ai-summary-actions-list" style="margin:0; padding-left:16px; color:var(--text-muted, #94a3b8);">
+                                <li><strong style="color:var(--primary);">[안유경]</strong> 가상 IoT 게이트웨이 시뮬레이터(Node.js) 설계 (~06-15)</li>
+                                <li><strong style="color:var(--primary);">[이영희]</strong> LLM 훈련용 GPU 야간 스케줄러 설정 및 IT본부 통보 (~06-08)</li>
+                                <li><strong style="color:var(--primary);">[김철수]</strong> 고객사 주무관 교체에 따른 착수 요약 보고서 수정 배포 (~06-10)</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="ai-summary-actions" style="margin-top:16px; display:flex; justify-content:flex-end;">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="app.aiRegisterActionItems()">
+                            <i data-lucide="check" style="width:14px; height:14px; margin-right:4px;"></i>추천 Action Item에 즉시 등록
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            if (btn) btn.disabled = false;
+            if (window.lucide) window.lucide.createIcons();
+            this.showToast('AI 요약 보고서 및 추천 Action Item이 정상 생성되었습니다.', 'success');
+        }, 1500);
+    }
+
+    async aiRegisterActionItems() {
+        const projectId = this.activeProjectId || 'proj-1';
+        const projects = this.state.projects || [];
+        const activeProj = projects.find(p => p.id === projectId) || projects[0] || { name: '차세대 스마트홈 IoT 플랫폼 구축', id: 'proj-1' };
+        
+        const itemsToRegister = [
+            {
+                id: 'ai-act-' + this.generateUuid().substring(0, 8),
+                projectId: activeProj.id,
+                projectName: activeProj.name,
+                title: `[AI 추천] 가상 IoT 게이트웨이 시뮬레이터(Node.js) 설계`,
+                content: `AI 회의록 요약에 의해 생성된 긴급 Action Item입니다. 칩셋 수급 지연을 우회하기 위한 시뮬레이터 구성입니다.`,
+                status: 'Pending',
+                priority: 'High',
+                assignee: '안유경',
+                dueDate: '2026-06-15',
+                completedDate: null
+            },
+            {
+                id: 'ai-act-' + this.generateUuid().substring(0, 8),
+                projectId: activeProj.id,
+                projectName: activeProj.name,
+                title: `[AI 추천] LLM 훈련용 GPU 야간 스케줄러 설정 및 통보`,
+                content: `AI 회의록 요약에 의해 생성된 긴급 Action Item입니다. 야간 시간대를 활용한 미세 조정 스케줄 설계입니다.`,
+                status: 'Pending',
+                priority: 'High',
+                assignee: '이영희',
+                dueDate: '2026-06-08',
+                completedDate: null
+            },
+            {
+                id: 'ai-act-' + this.generateUuid().substring(0, 8),
+                projectId: activeProj.id,
+                projectName: activeProj.name,
+                title: `[AI 추천] 고객사 주무관 교체에 따른 착수 요약 보고서 배포`,
+                content: `AI 회의록 요약에 의해 생성된 긴급 Action Item입니다. 인사 이동에 따른 신속 대응 조치입니다.`,
+                status: 'Pending',
+                priority: 'Medium',
+                assignee: '김철수',
+                dueDate: '2026-06-10',
+                completedDate: null
+            }
+        ];
+        
+        for (const item of itemsToRegister) {
+            this.state.actionItems.unshift(item);
+            await this.saveState('action_upsert', item);
+        }
+        
+        this.showToast('추천 Action Item 3건이 프로젝트에 즉시 등록 및 동기화되었습니다.', 'success');
+        this.handleRouting();
+        
+        const detailModal = document.getElementById('meeting-minutes-detail-modal');
+        if (detailModal) detailModal.classList.remove('open');
     }
 }
 

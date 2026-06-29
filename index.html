@@ -92,9 +92,9 @@
             </div>
 
             <nav class="sidebar-nav">
-                <a href="#dashboard" class="nav-item active" data-view="dashboard" data-tooltip="Home">
-                    <i data-lucide="layout-dashboard"></i>
-                    <span>Home</span>
+                <a href="#dashboard" class="nav-item active" data-view="dashboard" data-tooltip="Aether AI">
+                    <i data-lucide="sparkles"></i>
+                    <span>Aether AI</span>
                 </a>
                 
                 <div class="nav-item-wrapper" id="nav-wrapper-projects">
@@ -276,6 +276,17 @@
                         </div>
                     </div>
 
+                    <!-- Presentation Mode Toggle -->
+                    <button class="header-btn" id="btn-presentation-mode" title="발표 모드 토글" onclick="app.togglePresentationMode()" style="margin-right: 8px;">
+                        <i data-lucide="tv-2"></i>
+                    </button>
+
+                    <!-- Demo Mode Switch -->
+                    <div class="demo-mode-toggle-wrapper" id="demo-mode-toggle-btn" style="display:flex; align-items:center; gap:8px; margin-right:12px; background:var(--bg-hover-item); padding:4px 12px; border-radius:20px; border:1px solid var(--bg-card-border); cursor:pointer;" onclick="app.toggleDemoMode()">
+                        <i data-lucide="play" id="demo-mode-icon" style="width:14px; height:14px; color:var(--text-muted);"></i>
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted);" id="demo-mode-label">Demo Mode Off</span>
+                    </div>
+
                     <div class="current-date-badge">
                         <i data-lucide="calendar"></i>
                         <span id="current-date-display">2026-05-28</span>
@@ -290,16 +301,118 @@
                 <section id="view-dashboard" class="content-view active">
                     <div class="view-header">
                         <div>
-                            <h1>Home</h1>
-                            <p class="subtitle">전체 프로젝트 진행 상태 및 사업 관리 요약</p>
+                            <h1 id="dashboard-title-text"><i data-lucide="sparkles" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> Aether AI First Portal</h1>
+                            <p class="subtitle" id="dashboard-subtitle-text">AI 에이전트가 주도하는 지능형 사업관리 커맨드 센터</p>
                         </div>
-                        <button class="btn btn-primary" onclick="app.openNewProjectModal()">
-                            <i data-lucide="plus"></i> 새 프로젝트 등록
-                        </button>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <button class="btn btn-outline btn-sm" id="btn-toggle-dashboard-mode" onclick="app.toggleDashboardMode()">
+                                <i data-lucide="layout-dashboard" style="width:14px; height:14px; margin-right:4px;"></i> 기존 대시보드 보기
+                            </button>
+                            <button class="btn btn-primary btn-sm" onclick="app.openNewProjectModal()">
+                                <i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 새 프로젝트 등록
+                            </button>
+                        </div>
                     </div>
 
-                    <!-- 1. General/Exec View (Now PM-Centric Redesigned Dashboard) -->
-                    <div id="dashboard-exec-view" style="display: flex; flex-direction: column; gap: 20px;">
+                    <!-- AI First UX Portal container -->
+                    <div id="ai-first-portal-view" style="display: flex; gap: 24px; min-height: 600px; flex-wrap: wrap;">
+                        <!-- Left Column: Conversational AI Command Core -->
+                        <div class="ai-chat-column" style="flex: 1.3; min-width: 380px; display: flex; flex-direction: column; gap: 20px;">
+                            <!-- AI Daily Briefing Conversation Frame -->
+                            <div class="dashboard-section-card" style="flex: 1; display: flex; flex-direction: column; min-height: 480px; padding: 20px;">
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 12px;">
+                                    <div class="stat-icon icon-bg-primary" style="width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center;">
+                                        <i data-lucide="bot" style="color:var(--primary); width:18px; height:18px;"></i>
+                                    </div>
+                                    <div>
+                                        <h3 style="margin:0; font-size:14px; font-weight:700;">Aether PMO AI 에이전트</h3>
+                                        <span style="font-size:10px; color:#10b981; font-weight:600; display:flex; align-items:center; gap:4px;">
+                                            <span style="width:6px; height:6px; background-color:#10b981; border-radius:50%; display:inline-block; animation:pulse 2s infinite;"></span> AI Agent Active
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <!-- AI Chat Messages Area -->
+                                <div id="portal-chat-messages" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-right: 8px; margin-bottom: 16px;">
+                                    <!-- Dynamic Morning Greeting and Daily Briefing will be rendered here -->
+                                </div>
+
+                                <!-- AI Command Input block -->
+                                <div style="border-top:1px solid var(--bg-card-border); padding-top:16px;">
+                                    <div style="display: flex; gap: 8px; position: relative;">
+                                        <input type="text" id="portal-chat-input" placeholder="Aether AI에게 질문하거나 지시하세요 (예: '지연 리스크 해결책 요약')..." style="width: 100%; padding: 12px 48px 12px 16px; border-radius: 12px; background: var(--bg-input); border: 1px solid var(--bg-card-border); color: var(--text-main); font-size: 13px; outline: none; transition: border-color 0.2s;" onkeydown="if(event.key==='Enter') app.sendPortalChatMessage()">
+                                        <button type="button" class="btn btn-primary" onclick="app.sendPortalChatMessage()" style="position: absolute; right: 6px; top: 6px; bottom: 6px; padding: 0 14px; border-radius: 8px; font-size: 12px;">
+                                            <i data-lucide="send" style="width:14px; height:14px;"></i>
+                                        </button>
+                                    </div>
+                                    <div class="ai-presets-container" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;">
+                                        <button class="ai-preset-chip" onclick="app.sendPortalPreset('오늘의 Daily Briefing 브리핑해줘')">💡 Daily Briefing</button>
+                                        <button class="ai-preset-chip" onclick="app.sendPortalPreset('지연 가능성이 높은 리스크 예측해줘')">⚠️ 리스크 집중 예측</button>
+                                        <button class="ai-preset-chip" onclick="app.sendPortalPreset('Action Item 이행 분석해줘')">📅 Action Item 분석</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: PMO Analytics Column -->
+                        <div class="ai-analytics-column" style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 20px;">
+                            <!-- Project Health Score Card -->
+                            <div class="dashboard-section-card" style="padding: 20px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px;">
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <i data-lucide="heart" style="color:var(--danger); width:16px; height:16px;"></i>
+                                        <h3 style="margin:0; font-size:13px; font-weight:700;">Project Health Score</h3>
+                                    </div>
+                                    <div class="health-criteria-tooltip-container" style="position:relative;">
+                                        <span class="badge badge-info" style="cursor:pointer; font-size:10px;" onclick="app.toggleHealthCriteriaTooltip(event)">산정 기준 보기</span>
+                                        <div class="health-criteria-tooltip" id="health-criteria-tooltip" style="display:none; position:absolute; right:0; top:24px; width:280px; background:var(--bg-modal, #1e1e38); border:1px solid var(--bg-card-border); border-radius:8px; padding:12px; box-shadow:var(--shadow-lg); z-index:110; font-size:11px; line-height:1.5;">
+                                            <h5 style="margin:0 0 6px 0; color:var(--primary); font-weight:600;">건강도 점수 산정 방식</h5>
+                                            <ul style="margin:0; padding-left:14px; color:var(--text-muted);">
+                                                <li>기본 100점 시작</li>
+                                                <li>지연 상태(Delay) 돌입 시: <strong>-25점</strong></li>
+                                                <li>오픈 리스크 중요도별: <strong>Critical -15점, High -10점, Medium -5점</strong></li>
+                                                <li>산출물 제출 템플릿 미지출: <strong>건당 -3점</strong></li>
+                                                <li>진행률 대비 일정 경과 차이: <strong>최대 -15점</strong></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="portal-health-score-list" style="display:flex; flex-direction:column; gap:12px; max-height:280px; overflow-y:auto; padding-right:4px;">
+                                    <!-- Dynamic Health scores list -->
+                                </div>
+                            </div>
+
+                            <!-- AI Risk Prediction Card -->
+                            <div class="dashboard-section-card" style="padding: 20px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px;">
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <i data-lucide="trending-up" style="color:var(--warning); width:16px; height:16px;"></i>
+                                        <h3 style="margin:0; font-size:13px; font-weight:700;">AI Risk Prediction</h3>
+                                    </div>
+                                    <span style="font-size:9px; color:var(--text-muted); font-style:italic;">* Rule-based 추정</span>
+                                </div>
+                                <div id="portal-risk-prediction-list" style="display:flex; flex-direction:column; gap:10px; max-height:240px; overflow-y:auto; padding-right:4px;">
+                                    <!-- Dynamic Risk predictions list -->
+                                </div>
+                            </div>
+
+                            <!-- PM Recommendation Card -->
+                            <div class="dashboard-section-card" style="padding: 20px;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px;">
+                                    <i data-lucide="check-circle" style="color:var(--primary); width:16px; height:16px;"></i>
+                                    <h3 style="margin:0; font-size:13px; font-weight:700;">AI PM Recommendation</h3>
+                                </div>
+                                <div id="portal-pm-recommendation-list" style="display:flex; flex-direction:column; gap:10px; max-height:240px; overflow-y:auto; padding-right:4px;">
+                                    <!-- Dynamic PM recommendations list -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Classic Dashboard wrapper (Initially hidden) -->
+                    <div id="classic-dashboard-view" style="display: none; flex-direction: column; gap: 20px;">
+                        <!-- 1. General/Exec View (Now PM-Centric Redesigned Dashboard) -->
+                        <div id="dashboard-exec-view" style="display: flex; flex-direction: column; gap: 20px;">
                         <!-- Redesigned 7 KPI Cards -->
                         <div class="stats-grid">
                             <!-- 1. 전체 프로젝트 -->
@@ -509,6 +622,7 @@
                         <div id="pm-dashboard-sections" style="display: none;"></div>
                         <!-- Worker View Sections (Preserved) -->
                         <div id="worker-dashboard-sections" style="display: none;"></div>
+                    </div>
                     </div>
                 </section>
 
@@ -3368,8 +3482,18 @@
                         <td id="det-meet-remarks">-</td>
                     </tr>
                 </table>
+                
+                <!-- AI Summary Report Container -->
+                <div id="meet-ai-summary-container" class="meet-ai-summary-container" style="display:none; margin-top:16px;">
+                    <!-- Will be populated dynamically by app.js -->
+                </div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
+                <button type="button" class="btn btn-outline btn-sm" id="btn-ai-summarize-minutes" onclick="app.aiSummarizeMeetingMinutes()">
+                    <i data-lucide="sparkles" style="width:14px; height:14px; margin-right:4px;"></i> AI 요약 보고서 생성
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('meeting-minutes-detail-modal').classList.remove('open')">닫기</button>
+            </div>
         </div>
     </div>
 
@@ -3769,6 +3893,127 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- AI Assistant Floating Widget -->
+    <div id="ai-chat-widget" class="ai-chat-widget">
+        <!-- Floating Chat Bubble -->
+        <button id="ai-chat-bubble" class="ai-chat-bubble" onclick="app.toggleAIChat()" title="AI 어시스턴트">
+            <i data-lucide="bot" class="ai-bot-icon"></i>
+            <span class="ai-status-indicator"></span>
+        </button>
+        
+        <!-- Chat Panel -->
+        <div id="ai-chat-panel" class="ai-chat-panel">
+            <div class="ai-chat-header">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div class="ai-avatar-badge"><i data-lucide="bot" style="width:16px; height:16px;"></i></div>
+                    <div>
+                        <h4 style="margin:0; font-size:13px; font-weight:700;">Aether AI 어시스턴트</h4>
+                        <span style="font-size:10px; color:#10b981; font-weight:500;">● Online (Demo State Engine)</span>
+                    </div>
+                </div>
+                <button class="ai-chat-close" onclick="app.toggleAIChat()">&times;</button>
+            </div>
+            
+            <div class="ai-chat-messages" id="ai-chat-messages">
+                <div class="ai-message bot">
+                    안녕하세요! AetherPMO AI 어시스턴트입니다. 프로젝트 분석, 실시간 리스크 검토 및 Action Item 요약 등에 대해 질문해보세요. 아래 추천 질문을 클릭하시거나 직접 입력하실 수 있습니다.
+                </div>
+                <div class="ai-presets-container" id="ai-presets-container">
+                    <button class="ai-preset-chip" onclick="app.sendAIPreset('전체 프로젝트 현황 요약')">📊 전체 프로젝트 현황 요약</button>
+                    <button class="ai-preset-chip" onclick="app.sendAIPreset('지연 중인 프로젝트 리스크 분석')">⚠️ 지연 중인 프로젝트 리스크 분석</button>
+                    <button class="ai-preset-chip" onclick="app.sendAIPreset('오늘 기한인 Action Item 목록')">📅 오늘 기한인 Action Item 목록</button>
+                </div>
+            </div>
+            
+            <form class="ai-chat-input-area" onsubmit="event.preventDefault(); app.sendAIMessage();">
+                <input type="text" id="ai-chat-input" placeholder="AI에게 질문해보세요..." autocomplete="off">
+                <button type="submit" class="ai-send-btn" id="ai-send-btn">
+                    <i data-lucide="send" style="width:14px; height:14px;"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 20. AI COPILOT ANALYZE SLIDING DRAWER -->
+    <div class="ai-copilot-drawer-backdrop" id="ai-copilot-drawer-backdrop" onclick="app.closeAICopilotAnalyze()"></div>
+    <div class="ai-copilot-drawer" id="ai-copilot-drawer">
+        <div class="drawer-header" style="position: sticky; top: 0; background: var(--bg-modal, #1e1e38); z-index: 10; display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--bg-card-border);">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i data-lucide="sparkles" class="text-primary" style="width:18px; height:18px;"></i>
+                <h2 id="drawer-project-name" style="margin:0; font-size:14px; font-weight:700; color:var(--text-main);">프로젝트 심층 진단</h2>
+            </div>
+            <button class="drawer-close-btn" onclick="app.closeAICopilotAnalyze()" style="background:none; border:none; color:var(--text-muted); font-size:24px; cursor:pointer; line-height:1; padding:4px;">&times;</button>
+        </div>
+        <div class="drawer-body" style="padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto;">
+            <!-- Health Score Analytics -->
+            <div class="drawer-section">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <span style="font-weight:600; font-size:13px; color:var(--text-main);">AI Project Health Score</span>
+                    <span class="badge" id="drawer-health-score-badge" style="font-size:13px; font-weight:700; padding:4px 10px;">85점</span>
+                </div>
+                <div class="health-trend-chart-container" style="background:rgba(255,255,255,0.02); border-radius:12px; padding:16px; border:1px solid var(--bg-card-border);">
+                    <h5 style="margin:0 0 10px 0; font-size:11px; color:var(--text-muted); font-weight:600;">건강도 변동 트렌드 (최근 4주)</h5>
+                    <div id="drawer-svg-chart-wrapper" style="height:120px; width:100%;">
+                        <!-- Will be populated dynamically by app.js -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Health Deductions Summary -->
+            <div class="drawer-section">
+                <h4 style="font-size:13px; font-weight:600; margin:0 0 8px 0; color:var(--primary); display:flex; align-items:center; gap:6px;">
+                    <i data-lucide="info" style="width:14px; height:14px;"></i> 감점 세부 내역
+                </h4>
+                <ul class="drawer-deduction-list" id="drawer-deduction-list" style="list-style:none; padding:0; margin:0; font-size:12px; display:flex; flex-direction:column; gap:8px;">
+                    <!-- Will be populated dynamically by app.js -->
+                </ul>
+            </div>
+
+            <!-- AI Diagnosis Narrative -->
+            <div class="drawer-section" style="border-top:1px solid var(--bg-card-border); padding-top:16px;">
+                <h4 style="font-size:13px; font-weight:600; margin:0 0 8px 0; color:var(--primary); display:flex; align-items:center; gap:6px;">
+                    <i data-lucide="bot" style="width:14px; height:14px;"></i> AI 심층 진단 리포트
+                </h4>
+                <p id="drawer-diagnosis-text" style="font-size:12px; line-height:1.6; color:var(--text-muted); margin:0;">
+                    <!-- Will be populated dynamically by app.js -->
+                </p>
+            </div>
+            
+            <!-- Recommended Action Items list -->
+            <div class="drawer-section" style="border-top:1px solid var(--bg-card-border); padding-top:16px;">
+                <h4 style="font-size:13px; font-weight:600; margin:0 0 10px 0; color:var(--primary); display:flex; align-items:center; gap:6px;">
+                    <i data-lucide="check-circle" style="width:14px; height:14px;"></i> AI 권장 예방 조치
+                </h4>
+                <div id="drawer-actions-container" style="display:flex; flex-direction:column; gap:8px;">
+                    <!-- Will be populated dynamically by app.js -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Presentation Tour Console (Floating Bottom Panel) -->
+    <div id="presentation-tour-console" class="presentation-tour-console">
+        <div class="tour-console-content">
+            <div class="tour-header">
+                <i data-lucide="tv-2" class="tour-icon"></i>
+                <span class="tour-badge">발표 모드 시나리오</span>
+            </div>
+            <div class="tour-body">
+                <h4 id="tour-step-title" style="margin: 0 0 4px 0; font-size:13px; font-weight:700;">1단계: 대시보드 개요</h4>
+                <p id="tour-step-description" style="margin:0; font-size:11px; color:var(--text-muted);">통합 프로젝트 관리 대시보드입니다. PM 중심의 KPI 카드 및 SVG 차트를 통해 실시간 현황을 제공합니다.</p>
+            </div>
+            <div class="tour-actions" style="display:flex; align-items:center; gap:8px;">
+                <button class="btn btn-outline btn-xs" id="tour-prev-btn" onclick="app.prevTourStep()">이전</button>
+                <span id="tour-step-indicator" style="font-size:11px; font-weight:700; color:var(--text-main); font-family:monospace; min-width:30px; text-align:center;">1 / 4</span>
+                <button class="btn btn-primary btn-xs" id="tour-next-btn" onclick="app.nextTourStep()">다음</button>
+                <button class="btn btn-danger btn-xs" onclick="app.togglePresentationMode()" style="margin-left: 12px;">종료</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Watermark for Presentation Mode -->
+    <div class="demo-watermark" id="demo-watermark">AetherPMO Demo</div>
+
     <!-- Core App logic script -->
     <script src="app.js"></script>
 </body>
