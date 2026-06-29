@@ -738,14 +738,15 @@ class AetherPMO {
     /**
      * Save current state to local storage and sync with Supabase if active
      */
-    saveState(type = null, data = null, extra = null) {
+    async saveState(type = null, data = null, extra = null) {
         try {
             localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
             if (this.useSupabase && type) {
-                this.syncDb(type, data, extra);
+                await this.syncDb(type, data, extra);
             }
         } catch (e) {
-            console.error('Error saving state to LocalStorage:', e);
+            console.error('Error saving state:', e);
+            throw e;
         }
     }
 
@@ -789,7 +790,15 @@ class AetherPMO {
                         member_ids: p.memberIds || []
                     };
                     const { error } = await this.supabase.from('projects').upsert(projData);
-                    if (error) console.error('[Supabase Sync] project_upsert error:', error);
+                    if (error) {
+                        console.error('[Supabase Sync] project_upsert error details:', {
+                            code: error.code,
+                            message: error.message,
+                            details: error.details,
+                            hint: error.hint
+                        });
+                        throw error;
+                    }
                     break;
                 }
                 case 'project_delete': {
@@ -3199,7 +3208,7 @@ class AetherPMO {
         });
 
         // Update submenu items active state
-        document.querySelectorAll('.nav-submenu .submenu-item').forEach(subItem => {
+        document.querySelectorAll('.submenu-item').forEach(subItem => {
             subItem.classList.remove('active');
         });
 
@@ -6146,13 +6155,15 @@ class AetherPMO {
             this.saveState('member_upsert', newPmMember);
             
             // Map project ID to active PM's assignedProjectIds
-            if (this.currentUser.assignedProjectIds) {
+            if (this.currentUser && this.currentUser.assignedProjectIds) {
                 this.currentUser.assignedProjectIds.push(newId);
             }
-            const activeUserInState = this.state.users.find(u => u.email === this.currentUser.email);
-            if (activeUserInState && activeUserInState.assignedProjectIds) {
-                if (!activeUserInState.assignedProjectIds.includes(newId)) {
-                    activeUserInState.assignedProjectIds.push(newId);
+            if (this.currentUser) {
+                const activeUserInState = this.state.users.find(u => u.email === this.currentUser.email);
+                if (activeUserInState && activeUserInState.assignedProjectIds) {
+                    if (!activeUserInState.assignedProjectIds.includes(newId)) {
+                        activeUserInState.assignedProjectIds.push(newId);
+                    }
                 }
             }
 

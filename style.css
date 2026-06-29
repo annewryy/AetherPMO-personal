@@ -267,6 +267,14 @@ body {
     font-weight: 600;
     border-radius: 8px;
     transition: all var(--transition-fast);
+    border-left: 3px solid transparent;
+    outline: none;
+}
+
+.submenu-item::before,
+.submenu-item::after {
+    content: none !important;
+    display: none !important;
 }
 
 .submenu-item i {
