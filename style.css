@@ -738,6 +738,16 @@ body.dark-theme .toggle-slider {
     box-shadow: 0 4px 12px 0 var(--danger-glow);
 }
 
+.btn-warning {
+    background-color: var(--warning);
+    color: #ffffff;
+}
+
+.btn-warning:hover {
+    background-color: #d97706;
+    box-shadow: 0 4px 12px 0 var(--warning-glow);
+}
+
 .btn-success {
     background-color: var(--success);
     color: #ffffff;
