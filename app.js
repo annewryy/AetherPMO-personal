@@ -3553,46 +3553,115 @@ class AetherPMO {
     }
 
     renderAIPortal() {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+        const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+        const dayName = weekdays[today.getDay()];
+
+        // Set date in header
+        const dateEl = document.getElementById('portal-greeting-date');
+        if (dateEl) dateEl.textContent = `${yyyy}.${mm}.${dd} (${dayName})`;
+
+        // Compute KPI values
+        const activeCount = this.state.projects.filter(p => p.status === 'In Progress').length;
+        const todayDueArtifacts = (this.state.artifacts || []).filter(a => a.dueDate === todayStr);
+        const criticalIssues = (this.state.issues || []).filter(i =>
+            (i.priority === 'Critical' || i.priority === 'High') && (i.status === '발생' || i.status === '조치중')
+        );
+        const delayedProjs = this.state.projects.filter(p => p.status === 'Delay' || p.isOverdue);
+        const uncompletedActions = (this.state.actionItems || []).filter(a => a.status !== '완료' && a.status !== 'Completed');
+
+        // Update KPI Mini Bar
+        const kpiActive = document.getElementById('portal-kpi-active');
+        const kpiDue = document.getElementById('portal-kpi-today-due');
+        const kpiRisks = document.getElementById('portal-kpi-risks');
+        const kpiActions = document.getElementById('portal-kpi-actions');
+        if (kpiActive) kpiActive.textContent = activeCount;
+        if (kpiDue) kpiDue.textContent = todayDueArtifacts.length;
+        if (kpiRisks) kpiRisks.textContent = criticalIssues.length;
+        if (kpiActions) kpiActions.textContent = uncompletedActions.length;
+
+        // Update Briefing Card KPI numbers
+        const bToday = document.getElementById('briefing-today-due');
+        const bRisks = document.getElementById('briefing-risks');
+        const bDelayed = document.getElementById('briefing-delayed');
+        const bActions = document.getElementById('briefing-actions');
+        if (bToday) bToday.textContent = todayDueArtifacts.length;
+        if (bRisks) bRisks.textContent = criticalIssues.length;
+        if (bDelayed) bDelayed.textContent = delayedProjs.length;
+        if (bActions) bActions.textContent = uncompletedActions.length;
+
+        // Update Briefing Insight
+        const insightEl = document.getElementById('portal-briefing-insight');
+        if (insightEl) {
+            let insight = '';
+            if (delayedProjs.length > 0) {
+                const names = delayedProjs.slice(0, 2).map(p => `<strong style="color:#ef4444;">${p.name.substring(0, 10)}${p.name.length > 10 ? '...' : ''}</strong>`).join(', ');
+                insight = `⚠️ ${names} 등 <strong>${delayedProjs.length}개 프로젝트</strong>가 일정 지연 상태입니다. `;
+            }
+            if (criticalIssues.length > 0) {
+                insight += `🔥 <strong>${criticalIssues.length}건의 고위험 리스크</strong>가 즉각 조치가 필요합니다. `;
+            }
+            if (todayDueArtifacts.length > 0) {
+                insight += `📅 오늘 마감 산출물 <strong>${todayDueArtifacts.length}건</strong>을 확인하세요.`;
+            }
+            if (!insight) {
+                insight = `✅ 오늘 처리할 긴급 이슈가 없습니다. 전반적인 프로젝트 상태는 양호합니다.`;
+            }
+            insightEl.innerHTML = insight;
+        }
+
+        // Show loading overlay for fresh login, then fade in
         const chatMsgsEl = document.getElementById('portal-chat-messages');
-        if (chatMsgsEl && chatMsgsEl.innerHTML.trim() === '') {
-            const today = new Date();
-            const yyyy = today.getFullYear();
-            const mm = String(today.getMonth() + 1).padStart(2, '0');
-            const dd = String(today.getDate()).padStart(2, '0');
-            const todayStr = `${yyyy}-${mm}-${dd}`;
+        const overlay = document.getElementById('ai-portal-loading-overlay');
+        const isFirstLoad = chatMsgsEl && chatMsgsEl.innerHTML.trim() === '';
 
-            const todayDueArtifacts = (this.state.artifacts || []).filter(a => a.dueDate === todayStr).map(a => a.file_name || a.title).join(', ') || '없음';
-            const delayedProjs = this.state.projects.filter(p => p.status === 'Delay').map(p => p.name).join(', ') || '없음';
-            const criticalIssues = (this.state.issues || []).filter(i => i.priority === 'Critical' && (i.status === '발생' || i.status === '조치중')).map(i => i.title).join(', ') || '없음';
+        if (isFirstLoad) {
+            // Show loading state
+            const agentBadge = document.getElementById('ai-agent-status-badge');
+            if (agentBadge) {
+                agentBadge.innerHTML = '<span class="portal-status-dot"></span> AI Analyzing...';
+                agentBadge.className = 'portal-status-badge portal-status-analyzing';
+            }
+            if (overlay) {
+                overlay.style.display = 'flex';
+            }
 
-            const firstGreeting = `안녕하세요, 안유경 PM님. 오늘 AetherPMO가 먼저 확인한 사업관리 이슈를 브리핑드리겠습니다.`;
-            
-            const briefingCard = `
-                <div class="portal-briefing-bubble">
-                    <h4 style="margin:0 0 10px 0; font-size:13px; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:6px;">
-                        <i data-lucide="sparkles" style="width:14px; height:14px;"></i> 오늘의 AI 데일리 브리핑 리포트
-                    </h4>
-                    <div style="display:flex; flex-direction:column; gap:10px; font-size:11.5px; line-height:1.5;">
-                        <div>
-                            <strong>📅 오늘 마감 산출물:</strong> <span style="color:var(--text-muted);">${todayDueArtifacts}</span>
-                        </div>
-                        <div>
-                            <strong>⚠️ 지연/주의 프로젝트:</strong> <span style="color:#ef4444; font-weight:700;">${delayedProjs}</span>
-                        </div>
-                        <div>
-                            <strong>🔥 고위험 리스크:</strong> <span style="color:#f59e0b; font-weight:700;">${criticalIssues}</span>
-                        </div>
-                        <div>
-                            <strong>💡 AI 추천 조치:</strong> <span style="color:var(--text-main); font-weight:600;">GPU 클러스터 야간 배치 등록 및 테스트용 IP 임시 방화벽 예외 신청 공문 자동 초안 작성을 권장합니다.</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            this.appendPortalChatBubble(firstGreeting, 'ai');
             setTimeout(() => {
-                this.appendPortalChatBubble(briefingCard, 'ai');
-            }, 300);
+                if (overlay) overlay.style.display = 'none';
+                if (agentBadge) {
+                    agentBadge.innerHTML = '<span class="portal-status-dot"></span> AI Analysis Complete';
+                    agentBadge.className = 'portal-status-badge portal-status-active';
+                }
+
+                // Add AI greeting to chat area
+                if (chatMsgsEl && chatMsgsEl.innerHTML.trim() === '') {
+                    const todayDueNames = todayDueArtifacts.map(a => a.file_name || a.title).join(', ') || '없음';
+                    const criticalNames = criticalIssues.slice(0, 2).map(i => i.title).join(', ') || '없음';
+                    const additionalMsg = delayedProjs.length > 0
+                        ? `오늘 집중 점검이 필요한 프로젝트는 <strong>${delayedProjs.slice(0, 2).map(p => p.name.substring(0, 8)).join(', ')}</strong>입니다. 우측 리스크 카드의 '즉시 조치 실행' 버튼을 활용하세요.`
+                        : `오늘 프로젝트 전반 상태는 양호합니다. 산출물 마감(${todayDueNames}) 및 리스크(${criticalNames})를 확인하세요.`;
+
+                    this.appendPortalChatBubble(additionalMsg, 'ai');
+                }
+
+                // Animate right-column cards with stagger
+                ['portal-health-score-list', 'portal-risk-prediction-list', 'portal-pm-recommendation-list'].forEach((id, idx) => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.closest('.dashboard-section-card')?.classList.remove('portal-card-animate');
+                        void el.closest('.dashboard-section-card')?.offsetWidth; // force reflow
+                        el.closest('.dashboard-section-card')?.classList.add('portal-card-animate');
+                        if (el.closest('.dashboard-section-card')) {
+                            el.closest('.dashboard-section-card').style.animationDelay = `${idx * 0.12}s`;
+                        }
+                    }
+                });
+
+            }, 1500);
         }
 
         this.renderPortalHealthScores();
@@ -3689,23 +3758,31 @@ class AetherPMO {
         const listEl = document.getElementById('portal-health-score-list');
         if (!listEl) return;
 
-        listEl.innerHTML = this.state.projects.map(p => {
-            const score = this.calculateProjectHealthScore(p);
+        // Sort by score ascending (worst first) and show top 5 most critical
+        const scored = this.state.projects
+            .map(p => ({ p, score: this.calculateProjectHealthScore(p) }))
+            .sort((a, b) => a.score - b.score)
+            .slice(0, 5);
+
+        listEl.innerHTML = scored.map(({ p, score }) => {
             const scoreClass = score >= 80 ? 'health-high' : score >= 60 ? 'health-medium' : 'health-low';
+            const urgentBadge = score < 60 ? `<span style="font-size:9px; color:#ef4444; font-weight:700; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); padding:1px 5px; border-radius:4px;">즉각 조치</span>` : '';
+            const progressColor = score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444';
             return `
                 <div style="background:rgba(255,255,255,0.01); border:1px solid var(--bg-card-border); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <a href="#project-detail/${p.id}" style="font-size:12px; font-weight:700; color:var(--text-main); text-decoration:none; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.name}</a>
-                        <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+                        <a href="#project-detail/${p.id}" style="font-size:12px; font-weight:700; color:var(--text-main); text-decoration:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:160px;">${p.name}</a>
+                        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                            ${urgentBadge}
                             <span class="health-score-pill ${scoreClass}">${score}점</span>
-                            <span style="font-size:11px; color:var(--primary); cursor:pointer; text-decoration:underline;" onclick="app.openAICopilotAnalyze('${p.id}')">AI 심층 분석</span>
+                            <span style="font-size:10.5px; color:var(--primary); cursor:pointer; text-decoration:underline; white-space:nowrap;" onclick="app.openAICopilotAnalyze('${p.id}')">AI 분석</span>
                         </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <div style="flex:1; height:6px; background:var(--bg-input); border-radius:3px; overflow:hidden;">
-                            <div style="width:${p.progress}%; height:100%; background:var(--primary); border-radius:3px;"></div>
+                        <div style="flex:1; height:5px; background:var(--bg-input); border-radius:3px; overflow:hidden;">
+                            <div style="width:${p.progress}%; height:100%; background:${progressColor}; border-radius:3px; transition:width 0.4s ease;"></div>
                         </div>
-                        <span style="font-size:10px; font-weight:700; color:var(--text-muted); font-family:monospace; min-width:24px;">${p.progress}%</span>
+                        <span style="font-size:10px; font-weight:700; color:var(--text-muted); font-family:monospace; min-width:28px;">${p.progress}%</span>
                     </div>
                 </div>
             `;
@@ -3716,42 +3793,60 @@ class AetherPMO {
         const listEl = document.getElementById('portal-risk-prediction-list');
         if (!listEl) return;
 
-        listEl.innerHTML = this.state.projects.map(p => {
+        // Map each project to its risk data
+        const riskItems = this.state.projects.map(p => {
             let riskTitle = '협력사 일정 관리 리스크';
-            let prob = '45%';
+            let prob = 45;
             let severity = 'Warning';
             let reason = '디바이스 사양 및 WBS 검수 주기 단축 필요';
             
             if (p.status === 'Delay') {
                 riskTitle = '인프라 장비 및 칩셋 물류 지연';
-                prob = '92%';
+                prob = 92;
                 severity = 'Critical';
                 reason = '수입 통관 일정 마찰로 인한 WBS 이탈 위험';
             } else if ((p.progress || 0) < 50) {
                 riskTitle = '산출물 승인 단계 지연';
-                prob = '65%';
+                prob = 65;
                 severity = 'Warning';
                 reason = '초기 요구정의서 승인 연기에 따른 개발 병목';
             } else {
                 const projIssues = (this.state.issues || []).filter(i => i.projectId === p.id && (i.status === '발생' || i.status === '조치중'));
                 if (projIssues.length > 0) {
                     riskTitle = '마일스톤 일정 준수 실패';
-                    prob = '78%';
+                    prob = 78;
                     severity = 'Critical';
                     reason = '계류 중인 오픈 이슈에 따른 선행 프로세스 마찰';
                 }
             }
+            return { p, riskTitle, prob, severity, reason };
+        });
 
-            const badgeClass = severity === 'Critical' ? 'badge-error' : 'badge-warning';
+        // Sort: Critical first, then by probability descending, show top 5
+        const sorted = riskItems
+            .sort((a, b) => (b.severity === 'Critical' ? 1 : 0) - (a.severity === 'Critical' ? 1 : 0) || b.prob - a.prob)
+            .slice(0, 5);
+
+        listEl.innerHTML = sorted.map(({ p, riskTitle, prob, severity, reason }) => {
+            const isCritical = severity === 'Critical';
+            const barColor = isCritical ? '#ef4444' : '#f59e0b';
+            const badgeColor = isCritical ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)';
+            const badgeBorder = isCritical ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)';
+            const badgeText = isCritical ? '#ef4444' : '#f59e0b';
             return `
-                <div style="background:rgba(255,255,255,0.01); border:1px solid var(--bg-card-border); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:4px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-size:12px; font-weight:700; color:var(--text-main);">${riskTitle}</span>
-                        <span class="badge ${badgeClass}" style="font-size:10px; font-weight:700;">위험도 ${prob}</span>
+                <div style="background:rgba(255,255,255,0.01); border:1px solid var(--bg-card-border); ${isCritical ? 'border-left:3px solid #ef4444;' : ''} border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                        <span style="font-size:11.5px; font-weight:700; color:var(--text-main); flex:1;">${riskTitle}</span>
+                        <span style="font-size:9.5px; font-weight:700; background:${badgeColor}; color:${badgeText}; border:1px solid ${badgeBorder}; padding:2px 6px; border-radius:5px; white-space:nowrap; flex-shrink:0;">${severity === 'Critical' ? '🔥 위험' : '⚠️ 경고'} ${prob}%</span>
                     </div>
-                    <div style="font-size:11px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
-                        <span>원인: ${reason}</span>
-                        <span style="font-size:9.5px; color:var(--text-muted); font-style:italic;">(${p.name.substring(0, 8)}...)</span>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <div style="flex:1; height:4px; background:var(--bg-input); border-radius:2px; overflow:hidden;">
+                            <div style="width:${prob}%; height:100%; background:${barColor}; border-radius:2px;"></div>
+                        </div>
+                    </div>
+                    <div style="font-size:10.5px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
+                        <span>${reason}</span>
+                        <span style="font-size:9.5px; color:var(--text-muted); font-style:italic; flex-shrink:0; margin-left:6px;">${p.name.substring(0, 8)}...</span>
                     </div>
                 </div>
             `;
@@ -3762,33 +3857,59 @@ class AetherPMO {
         const listEl = document.getElementById('portal-pm-recommendation-list');
         if (!listEl) return;
 
-        listEl.innerHTML = this.state.projects.map(p => {
-            let rec = '프로젝트 WBS 잔여 일정 조율 및 산출물 보완 조치 등록 권장';
-            let type = 'rework';
-            let btnText = '보완 조치';
-            
-            if (p.id === 'proj-1') {
-                rec = 'Node.js 시뮬레이터 개발을 위한 Node 엔지니어 추가 임시 배정';
-                type = 'engineer';
-                btnText = '엔지니어 배정';
-            } else if (p.id === 'proj-2') {
-                rec = 'GPU 연구 자원 경합 해결용 야간 배치 스케줄러 등록';
-                type = 'schedule';
-                btnText = '스케줄 등록';
-            } else if (p.id === 'proj-6') {
-                rec = '기재부 연동 테스트 임시 방화벽 예외 신청 공문 자동 생성';
-                type = 'official_doc';
-                btnText = '공문 초안 생성';
-            }
+        // Priority-ordered hardcoded recommendations based on project state
+        const recommendations = [];
 
+        // High-priority: delayed projects first
+        this.state.projects.filter(p => p.status === 'Delay' || p.isOverdue).slice(0, 2).forEach(p => {
+            recommendations.push({
+                p, priority: 1,
+                icon: '🔥',
+                rec: `「${p.name.substring(0, 12)}」 지연 회복 계획 수립 및 이해관계자 보고서 즉시 작성`,
+                type: 'rework',
+                btnText: '계획 수립',
+                btnClass: 'btn-danger'
+            });
+        });
+
+        // Specific project recommendations
+        const proj1 = this.state.projects.find(p => p.id === 'proj-1');
+        if (proj1 && recommendations.length < 4) recommendations.push({
+            p: proj1, priority: 2,
+            icon: '👤',
+            rec: 'Node.js 시뮬레이터 개발을 위한 엔지니어 추가 임시 배정 요청',
+            type: 'engineer', btnText: '배정 요청', btnClass: 'btn-warning'
+        });
+        const proj2 = this.state.projects.find(p => p.id === 'proj-2');
+        if (proj2 && recommendations.length < 4) recommendations.push({
+            p: proj2, priority: 2,
+            icon: '🖥️',
+            rec: 'GPU 연구 자원 경합 해결용 야간 배치 스케줄러 등록',
+            type: 'schedule', btnText: '스케줄 등록', btnClass: 'btn-warning'
+        });
+        const proj6 = this.state.projects.find(p => p.id === 'proj-6');
+        if (proj6 && recommendations.length < 5) recommendations.push({
+            p: proj6, priority: 3,
+            icon: '📄',
+            rec: '기재부 연동 테스트 임시 방화벽 예외 신청 공문 자동 초안 생성',
+            type: 'official_doc', btnText: '공문 초안', btnClass: 'btn-primary'
+        });
+
+        // Fill with generic if under 3
+        this.state.projects.filter(p => !recommendations.find(r => r.p.id === p.id)).slice(0, 3 - recommendations.length).forEach(p => {
+            recommendations.push({ p, priority: 3, icon: '📋', rec: `「${p.name.substring(0, 10)}」 WBS 잔여 일정 조율 및 산출물 보완 조치 등록 권장`, type: 'rework', btnText: '조치 등록', btnClass: 'btn-primary' });
+        });
+
+        listEl.innerHTML = recommendations.slice(0, 5).map(({ p, icon, rec, type, btnText, btnClass, priority }) => {
+            const borderStyle = priority === 1 ? 'border-left:3px solid #ef4444;' : priority === 2 ? 'border-left:3px solid #f59e0b;' : '';
             return `
-                <div style="background:rgba(255,255,255,0.01); border:1px solid var(--bg-card-border); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;">
-                    <div style="font-size:11.5px; line-height:1.4; color:var(--text-main); font-weight:600;">
-                        ${rec}
+                <div style="background:rgba(255,255,255,0.01); border:1px solid var(--bg-card-border); ${borderStyle} border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;">
+                    <div style="font-size:11.5px; line-height:1.45; color:var(--text-main); font-weight:600;">
+                        ${icon} ${rec}
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-size:10px; color:var(--text-muted); font-style:italic;">대상: ${p.name.substring(0, 10)}...</span>
-                        <button class="btn btn-primary btn-xs" onclick="app.executeRecommendation('${p.id}', '${type}')" style="padding: 2px 10px; border-radius: 6px; font-size: 10.5px;">${btnText}</button>
+                        <span style="font-size:10px; color:var(--text-muted);">대상: <strong>${p.name.substring(0, 12)}${p.name.length > 12 ? '...' : ''}</strong></span>
+                        <button class="btn ${btnClass} btn-xs" onclick="app.executeRecommendation('${p.id}', '${type}')" style="padding: 3px 10px; border-radius: 6px; font-size: 10.5px; font-weight:700;">${btnText}</button>
                     </div>
                 </div>
             `;

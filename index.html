@@ -315,94 +315,172 @@
                     </div>
 
                     <!-- AI First UX Portal container -->
-                    <div id="ai-first-portal-view" style="display: flex; gap: 24px; min-height: 600px; flex-wrap: wrap;">
-                        <!-- Left Column: Conversational AI Command Core -->
-                        <div class="ai-chat-column" style="flex: 1.3; min-width: 380px; display: flex; flex-direction: column; gap: 20px;">
-                            <!-- AI Daily Briefing Conversation Frame -->
-                            <div class="dashboard-section-card" style="flex: 1; display: flex; flex-direction: column; min-height: 480px; padding: 20px;">
-                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 12px;">
-                                    <div class="stat-icon icon-bg-primary" style="width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center;">
-                                        <i data-lucide="bot" style="color:var(--primary); width:18px; height:18px;"></i>
+                    <!-- AI Analysis Loading Overlay -->
+                    <div id="ai-portal-loading-overlay" style="display:none; position:absolute; inset:0; background:var(--bg-main); z-index:50; align-items:center; justify-content:center; flex-direction:column; gap:12px; border-radius:12px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:8px; height:8px; border-radius:50%; background:var(--primary); animation:portalDotBounce 0.8s infinite; animation-delay:0s;"></div>
+                            <div style="width:8px; height:8px; border-radius:50%; background:var(--primary); animation:portalDotBounce 0.8s infinite; animation-delay:0.15s;"></div>
+                            <div style="width:8px; height:8px; border-radius:50%; background:var(--primary); animation:portalDotBounce 0.8s infinite; animation-delay:0.3s;"></div>
+                        </div>
+                        <p id="ai-loading-text" style="font-size:13px; color:var(--text-muted); font-weight:600; margin:0;">Aether AI is analyzing your projects...</p>
+                    </div>
+
+                    <!-- KPI Mini Summary Bar -->
+                    <div id="portal-kpi-mini-bar" class="portal-kpi-mini-bar">
+                        <div class="portal-kpi-mini-item" onclick="window.location.hash='projects'" style="cursor:pointer;">
+                            <span class="portal-kpi-mini-label">진행 프로젝트</span>
+                            <span class="portal-kpi-mini-value" id="portal-kpi-active">—</span>
+                        </div>
+                        <div class="portal-kpi-mini-divider"></div>
+                        <div class="portal-kpi-mini-item portal-kpi-mini-danger" onclick="window.location.hash='artifacts'" style="cursor:pointer;">
+                            <span class="portal-kpi-mini-label">오늘 마감</span>
+                            <span class="portal-kpi-mini-value" id="portal-kpi-today-due">—</span>
+                        </div>
+                        <div class="portal-kpi-mini-divider"></div>
+                        <div class="portal-kpi-mini-item portal-kpi-mini-warning" onclick="window.location.hash='issues'" style="cursor:pointer;">
+                            <span class="portal-kpi-mini-label">고위험 리스크</span>
+                            <span class="portal-kpi-mini-value" id="portal-kpi-risks">—</span>
+                        </div>
+                        <div class="portal-kpi-mini-divider"></div>
+                        <div class="portal-kpi-mini-item portal-kpi-mini-info" onclick="window.location.hash='action-items'" style="cursor:pointer;">
+                            <span class="portal-kpi-mini-label">미완료 Action Item</span>
+                            <span class="portal-kpi-mini-value" id="portal-kpi-actions">—</span>
+                        </div>
+                    </div>
+
+                    <div id="ai-first-portal-view" class="ai-portal-main-grid">
+                        <!-- Left Column: AI Briefing Console -->
+                        <div class="ai-chat-column">
+                            <!-- AI Agent Header -->
+                            <div class="dashboard-section-card portal-left-card">
+                                <!-- Agent Header Row -->
+                                <div class="portal-agent-header">
+                                    <div style="display:flex; align-items:center; gap:10px;">
+                                        <div class="portal-agent-avatar">
+                                            <i data-lucide="bot" style="color:var(--primary); width:18px; height:18px;"></i>
+                                        </div>
+                                        <div>
+                                            <div style="font-size:13px; font-weight:700; color:var(--text-main);">Aether PMO AI</div>
+                                            <div id="ai-agent-status-badge" class="portal-status-badge portal-status-active">
+                                                <span class="portal-status-dot"></span> AI Analysis Complete
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 style="margin:0; font-size:14px; font-weight:700;">Aether PMO AI 에이전트</h3>
-                                        <span style="font-size:10px; color:#10b981; font-weight:600; display:flex; align-items:center; gap:4px;">
-                                            <span style="width:6px; height:6px; background-color:#10b981; border-radius:50%; display:inline-block; animation:pulse 2s infinite;"></span> AI Agent Active
-                                        </span>
+                                    <div style="font-size:11px; color:var(--text-muted); text-align:right; line-height:1.4;">
+                                        <div id="portal-greeting-date" style="font-weight:600; color:var(--text-main);"></div>
+                                        <div>안유경 PM님</div>
                                     </div>
-                                </div>
-                                
-                                <!-- AI Chat Messages Area -->
-                                <div id="portal-chat-messages" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-right: 8px; margin-bottom: 16px;">
-                                    <!-- Dynamic Morning Greeting and Daily Briefing will be rendered here -->
                                 </div>
 
-                                <!-- AI Command Input block -->
-                                <div style="border-top:1px solid var(--bg-card-border); padding-top:16px;">
+                                <!-- Greeting Bubble (always shown) -->
+                                <div class="portal-greeting-bubble">
+                                    <div style="font-size:13px; font-weight:600; color:var(--text-main); margin-bottom:4px;">안녕하세요, 안유경 PM님. 👋</div>
+                                    <div style="font-size:12px; color:var(--text-muted); line-height:1.5;">오늘 AetherPMO가 먼저 확인한 사업관리 이슈를 브리핑드리겠습니다.</div>
+                                </div>
+
+                                <!-- AI Daily Briefing KPI Card (always shown) -->
+                                <div id="portal-daily-briefing-card" class="portal-daily-briefing-card">
+                                    <div class="portal-briefing-header">
+                                        <i data-lucide="sparkles" style="width:14px; height:14px; color:var(--primary);"></i>
+                                        <span>오늘의 AI 데일리 브리핑</span>
+                                    </div>
+                                    <div class="portal-briefing-kpi-grid">
+                                        <div class="portal-briefing-kpi-item portal-bkpi-danger">
+                                            <div class="portal-bkpi-num" id="briefing-today-due">0</div>
+                                            <div class="portal-bkpi-label">📅 오늘 마감</div>
+                                        </div>
+                                        <div class="portal-briefing-kpi-item portal-bkpi-warning">
+                                            <div class="portal-bkpi-num" id="briefing-risks">0</div>
+                                            <div class="portal-bkpi-label">🔥 고위험 리스크</div>
+                                        </div>
+                                        <div class="portal-briefing-kpi-item portal-bkpi-orange">
+                                            <div class="portal-bkpi-num" id="briefing-delayed">0</div>
+                                            <div class="portal-bkpi-label">⚠️ 주의 프로젝트</div>
+                                        </div>
+                                        <div class="portal-briefing-kpi-item portal-bkpi-info">
+                                            <div class="portal-bkpi-num" id="briefing-actions">0</div>
+                                            <div class="portal-bkpi-label">📋 미완료 Action</div>
+                                        </div>
+                                    </div>
+                                    <div id="portal-briefing-insight" class="portal-briefing-insight">
+                                        <!-- AI insight text rendered by JS -->
+                                    </div>
+                                </div>
+
+                                <!-- Chat messages area (compact) -->
+                                <div id="portal-chat-messages" class="portal-chat-messages-area">
+                                    <!-- Additional chat messages appended by JS -->
+                                </div>
+
+                                <!-- AI Command Input -->
+                                <div class="portal-chat-input-area">
                                     <div style="display: flex; gap: 8px; position: relative;">
-                                        <input type="text" id="portal-chat-input" placeholder="Aether AI에게 질문하거나 지시하세요 (예: '지연 리스크 해결책 요약')..." style="width: 100%; padding: 12px 48px 12px 16px; border-radius: 12px; background: var(--bg-input); border: 1px solid var(--bg-card-border); color: var(--text-main); font-size: 13px; outline: none; transition: border-color 0.2s;" onkeydown="if(event.key==='Enter') app.sendPortalChatMessage()">
-                                        <button type="button" class="btn btn-primary" onclick="app.sendPortalChatMessage()" style="position: absolute; right: 6px; top: 6px; bottom: 6px; padding: 0 14px; border-radius: 8px; font-size: 12px;">
+                                        <input type="text" id="portal-chat-input" placeholder="AI에게 질문하세요 (예: '지연 리스크 요약')" class="portal-chat-input-field" onkeydown="if(event.key==='Enter') app.sendPortalChatMessage()">
+                                        <button type="button" class="btn btn-primary portal-chat-send-btn" onclick="app.sendPortalChatMessage()">
                                             <i data-lucide="send" style="width:14px; height:14px;"></i>
                                         </button>
                                     </div>
-                                    <div class="ai-presets-container" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;">
+                                    <div class="ai-presets-container" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
                                         <button class="ai-preset-chip" onclick="app.sendPortalPreset('오늘의 Daily Briefing 브리핑해줘')">💡 Daily Briefing</button>
-                                        <button class="ai-preset-chip" onclick="app.sendPortalPreset('지연 가능성이 높은 리스크 예측해줘')">⚠️ 리스크 집중 예측</button>
-                                        <button class="ai-preset-chip" onclick="app.sendPortalPreset('Action Item 이행 분석해줘')">📅 Action Item 분석</button>
+                                        <button class="ai-preset-chip" onclick="app.sendPortalPreset('지연 가능성이 높은 리스크 예측해줘')">⚠️ 리스크 분석</button>
+                                        <button class="ai-preset-chip" onclick="app.sendPortalPreset('Action Item 이행 분석해줘')">📅 Action Item</button>
+                                        <button class="ai-preset-chip" onclick="app.sendPortalPreset('오늘 마감 산출물 알려줘')">📁 산출물 마감</button>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Right Column: PMO Analytics Column -->
-                        <div class="ai-analytics-column" style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 20px;">
-                            <!-- Project Health Score Card -->
-                            <div class="dashboard-section-card" style="padding: 20px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px;">
+                        <!-- Right Column: PMO Analytics (Prioritized) -->
+                        <div class="ai-analytics-column">
+                            <!-- [1순위] 오늘 가장 주의가 필요한 프로젝트 -->
+                            <div class="dashboard-section-card portal-right-card portal-card-priority-1">
+                                <div class="portal-card-header">
                                     <div style="display:flex; align-items:center; gap:8px;">
-                                        <i data-lucide="heart" style="color:var(--danger); width:16px; height:16px;"></i>
-                                        <h3 style="margin:0; font-size:13px; font-weight:700;">Project Health Score</h3>
+                                        <i data-lucide="alert-circle" style="color:#ef4444; width:16px; height:16px;"></i>
+                                        <h3 style="margin:0; font-size:13px; font-weight:700;">오늘 가장 주의가 필요한 프로젝트</h3>
                                     </div>
                                     <div class="health-criteria-tooltip-container" style="position:relative;">
-                                        <span class="badge badge-info" style="cursor:pointer; font-size:10px;" onclick="app.toggleHealthCriteriaTooltip(event)">산정 기준 보기</span>
+                                        <span class="badge badge-info" style="cursor:pointer; font-size:10px;" onclick="app.toggleHealthCriteriaTooltip(event)">산정 기준</span>
                                         <div class="health-criteria-tooltip" id="health-criteria-tooltip" style="display:none; position:absolute; right:0; top:24px; width:280px; background:var(--bg-modal, #1e1e38); border:1px solid var(--bg-card-border); border-radius:8px; padding:12px; box-shadow:var(--shadow-lg); z-index:110; font-size:11px; line-height:1.5;">
                                             <h5 style="margin:0 0 6px 0; color:var(--primary); font-weight:600;">건강도 점수 산정 방식</h5>
                                             <ul style="margin:0; padding-left:14px; color:var(--text-muted);">
                                                 <li>기본 100점 시작</li>
-                                                <li>지연 상태(Delay) 돌입 시: <strong>-25점</strong></li>
-                                                <li>오픈 리스크 중요도별: <strong>Critical -15점, High -10점, Medium -5점</strong></li>
-                                                <li>산출물 제출 템플릿 미지출: <strong>건당 -3점</strong></li>
-                                                <li>진행률 대비 일정 경과 차이: <strong>최대 -15점</strong></li>
+                                                <li>지연 상태(Delay): <strong>-25점</strong></li>
+                                                <li>리스크 중요도: <strong>Critical -15, High -10, Medium -5</strong></li>
+                                                <li>산출물 미제출: <strong>건당 -3점</strong></li>
+                                                <li>진행률 대비 일정 지연: <strong>최대 -15점</strong></li>
                                             </ul>
                                         </div>
                                     </div>
                                 </div>
-                                <div id="portal-health-score-list" style="display:flex; flex-direction:column; gap:12px; max-height:280px; overflow-y:auto; padding-right:4px;">
-                                    <!-- Dynamic Health scores list -->
+                                <div id="portal-health-score-list" class="portal-card-list">
+                                    <!-- Dynamic Health scores list (sorted by risk) -->
                                 </div>
                             </div>
 
-                            <!-- AI Risk Prediction Card -->
-                            <div class="dashboard-section-card" style="padding: 20px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px;">
+                            <!-- [2순위] AI가 예측한 주요 리스크 -->
+                            <div class="dashboard-section-card portal-right-card portal-card-priority-2">
+                                <div class="portal-card-header">
                                     <div style="display:flex; align-items:center; gap:8px;">
-                                        <i data-lucide="trending-up" style="color:var(--warning); width:16px; height:16px;"></i>
-                                        <h3 style="margin:0; font-size:13px; font-weight:700;">AI Risk Prediction</h3>
+                                        <i data-lucide="trending-up" style="color:#f59e0b; width:16px; height:16px;"></i>
+                                        <h3 style="margin:0; font-size:13px; font-weight:700;">AI가 예측한 주요 리스크</h3>
                                     </div>
                                     <span style="font-size:9px; color:var(--text-muted); font-style:italic;">* Rule-based 추정</span>
                                 </div>
-                                <div id="portal-risk-prediction-list" style="display:flex; flex-direction:column; gap:10px; max-height:240px; overflow-y:auto; padding-right:4px;">
+                                <div id="portal-risk-prediction-list" class="portal-card-list">
                                     <!-- Dynamic Risk predictions list -->
                                 </div>
                             </div>
 
-                            <!-- PM Recommendation Card -->
-                            <div class="dashboard-section-card" style="padding: 20px;">
-                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px;">
-                                    <i data-lucide="check-circle" style="color:var(--primary); width:16px; height:16px;"></i>
-                                    <h3 style="margin:0; font-size:13px; font-weight:700;">AI PM Recommendation</h3>
+                            <!-- [3순위] 지금 실행하면 좋은 조치 -->
+                            <div class="dashboard-section-card portal-right-card portal-card-priority-3">
+                                <div class="portal-card-header">
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <i data-lucide="zap" style="color:var(--primary); width:16px; height:16px;"></i>
+                                        <h3 style="margin:0; font-size:13px; font-weight:700;">지금 실행하면 좋은 조치</h3>
+                                    </div>
                                 </div>
-                                <div id="portal-pm-recommendation-list" style="display:flex; flex-direction:column; gap:10px; max-height:240px; overflow-y:auto; padding-right:4px;">
+                                <div id="portal-pm-recommendation-list" class="portal-card-list">
                                     <!-- Dynamic PM recommendations list -->
                                 </div>
                             </div>
