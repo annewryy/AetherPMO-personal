@@ -1,6 +1,20 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            var div = document.createElement('div');
+            div.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#0f172a;color:#ef4444;z-index:999999;padding:32px;font-family:monospace;font-size:14px;white-space:pre-wrap;overflow-y:auto;';
+            div.innerHTML = '<h1 style="color:#f87171;font-size:24px;margin-top:0;">[Global Javascript Error Detected]</h1>' + 
+                            '<h3 style="color:#fca5a5;">' + message + '</h3>' +
+                            '<p style="color:#cbd5e1;"><b>Source:</b> ' + source + '</p>' +
+                            '<p style="color:#cbd5e1;"><b>Line:</b> ' + lineno + ' | <b>Col:</b> ' + colno + '</p>' +
+                            '<p style="color:#94a3b8;"><b>Stack Trace:</b><br>' + (error && error.stack ? error.stack : 'N/A') + '</p>' +
+                            '<div style="margin-top:20px;"><button onclick="location.reload()" style="background:#3b82f6;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;">새로고침</button></div>';
+            document.body.appendChild(div);
+            return false;
+        };
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AetherPMO | 사업관리 플랫폼</title>
