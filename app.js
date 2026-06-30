@@ -5149,7 +5149,11 @@ class AetherPMO {
         }
     }
 
-    async fetchG2BAnnouncements() {
+    async fetchG2BAnnouncements(page = 1) {
+        if (this.g2bLoading) return;
+        this.g2bLoading = true;
+        this.g2bPageNo = page;
+
         const bidNtceNm = document.getElementById('g2b-filter-title').value.trim();
         const dminsttNm = document.getElementById('g2b-filter-customer').value.trim();
         const bgngDt = document.getElementById('g2b-filter-start-date').value;
@@ -5169,12 +5173,56 @@ class AetherPMO {
             `;
         }
 
+        // 6개월 조회기간 가드 검증
+        if (bgngDt && endDt) {
+            const cleanBgn = bgngDt.replace(/-/g, '').trim();
+            const cleanEnd = endDt.replace(/-/g, '').trim();
+            
+            const sYear = parseInt(cleanBgn.substring(0, 4));
+            const sMonth = parseInt(cleanBgn.substring(4, 6)) - 1;
+            const sDay = parseInt(cleanBgn.substring(6, 8));
+            const eYear = parseInt(cleanEnd.substring(0, 4));
+            const eMonth = parseInt(cleanEnd.substring(4, 6)) - 1;
+            const eDay = parseInt(cleanEnd.substring(6, 8));
+            
+            const startDate = new Date(sYear, sMonth, sDay);
+            const endDate = new Date(eYear, eMonth, eDay);
+            
+            const diffTime = endDate.getTime() - startDate.getTime();
+            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+            
+            if (diffDays > 186) {
+                alert('나라장터 공고 검색은 응답 지연 방지를 위해 최대 6개월 이내 기간만 조회할 수 있습니다.');
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="8" class="text-center text-error py-12" style="color: var(--danger); padding: 40px 16px;">
+                                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
+                                    <i data-lucide="alert-circle" style="width: 32px; height: 32px; color: var(--danger);"></i>
+                                    <span style="font-weight: 600; font-size: 15px; color: var(--text-main);">조회기간 범위 초과</span>
+                                    <span style="font-size: 13px; color: var(--text-muted); max-width: 450px; line-height: 1.6;">
+                                        나라장터 공고 검색은 응답 지연 방지를 위해 최대 6개월 이내 기간만 조회할 수 있습니다. 조회기간을 변경해 주세요.
+                                    </span>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    if (window.lucide) window.lucide.createIcons();
+                }
+                this.g2bLoading = false;
+                this.renderG2BPagination(0, 1);
+                return;
+            }
+        }
+
         try {
             const params = new URLSearchParams({
                 bidNtceNm,
                 dminsttNm,
                 bgngDt,
-                endDt
+                endDt,
+                pageNo: String(page),
+                numOfRows: '10'
             });
             const response = await fetch(`/api/g2b?${params.toString()}`);
             if (!response.ok) {
@@ -5182,6 +5230,7 @@ class AetherPMO {
             }
             const data = await response.json();
             this.state.g2bAnnouncements = data.announcements || [];
+            this.state.g2bTotalCount = data.totalCount || 0;
             this.renderG2BViewAnnouncements();
         } catch (e) {
             console.error('Failed to fetch G2B announcements:', e);
@@ -5203,6 +5252,9 @@ class AetherPMO {
                     window.lucide.createIcons();
                 }
             }
+            this.renderG2BPagination(0, page);
+        } finally {
+            this.g2bLoading = false;
         }
     }
 
@@ -5215,6 +5267,7 @@ class AetherPMO {
         tbody.innerHTML = '';
         if (announcements.length === 0) {
             tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-8">조회된 나라장터 공고가 없습니다. 검색 조건을 입력하고 검색해 주세요.</td></tr>';
+            this.renderG2BPagination(0, this.g2bPageNo || 1);
             return;
         }
 
@@ -5278,9 +5331,50 @@ class AetherPMO {
         });
 
         this.applyRolePermissions();
+        
+        // Render pagination controls
+        this.renderG2BPagination(this.state.g2bTotalCount || 0, this.g2bPageNo || 1);
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
+        }
+    }
+
+    renderG2BPagination(totalCount, currentPage) {
+        const container = document.getElementById('g2b-pagination-container');
+        if (!container) return;
+        
+        const announcements = this.state.g2bAnnouncements || [];
+        let totalPages = 1;
+        let hasNext = false;
+        
+        if (totalCount > 0) {
+            totalPages = Math.ceil(totalCount / 10) || 1;
+            hasNext = currentPage < totalPages;
+        } else {
+            totalPages = currentPage; 
+            hasNext = announcements.length === 10;
+        }
+        
+        const hasPrev = currentPage > 1;
+        
+        container.innerHTML = `
+            <div style="font-size: 13px; color: var(--text-muted);">
+                총 <span class="font-bold text-primary" style="color:var(--primary); font-weight:700;">${totalCount > 0 ? totalCount : announcements.length}</span> 건 검색됨
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <button class="btn btn-outline btn-xs" ${hasPrev ? '' : 'disabled'} onclick="app.fetchG2BAnnouncements(${currentPage - 1})">
+                    <i data-lucide="chevron-left" style="width:12px; height:12px; margin-right:2px; vertical-align:middle;"></i> 이전
+                </button>
+                <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">페이지 ${currentPage} / ${totalPages}</span>
+                <button class="btn btn-outline btn-xs" ${hasNext ? '' : 'disabled'} onclick="app.fetchG2BAnnouncements(${currentPage + 1})">
+                    다음 <i data-lucide="chevron-right" style="width:12px; height:12px; margin-left:2px; vertical-align:middle;"></i>
+                </button>
+            </div>
+        `;
+        
+        if (window.lucide) {
+            window.lucide.createIcons();
         }
     }
 
