@@ -2,6 +2,22 @@ const https = require('https');
 const http = require('http');
 const url = require('url');
 
+const extractXmlError = (xmlString) => {
+    if (!xmlString || typeof xmlString !== 'string') return null;
+    if (xmlString.includes('<errMsg>') || xmlString.includes('<returnAuthMsg>')) {
+        const codeMatch = xmlString.match(/<returnReasonCode>([^<]+)<\/returnReasonCode>/) ||
+                          xmlString.match(/<resultCode>([^<]+)<\/resultCode>/);
+        const msgMatch = xmlString.match(/<returnAuthMsg>([^<]+)<\/returnAuthMsg>/) ||
+                         xmlString.match(/<resultMsg>([^<]+)<\/resultMsg>/) ||
+                         xmlString.match(/<errMsg>([^<]+)<\/errMsg>/);
+        return {
+            code: codeMatch ? codeMatch[1].trim() : 'UNKNOWN',
+            msg: msgMatch ? msgMatch[1].trim() : 'Authentication or Gateway Error'
+        };
+    }
+    return null;
+};
+
 const fetchG2BData = (targetUrl) => {
     return new Promise((resolve, reject) => {
         const protocolClient = targetUrl.startsWith('https') ? https : http;
@@ -22,15 +38,15 @@ const fetchG2BData = (targetUrl) => {
             reject(err);
         });
 
-        // Set 10-second timeout on the request socket
-        req.setTimeout(10000, () => {
+        // Set 15-second timeout on the request socket
+        req.setTimeout(15000, () => {
             req.destroy(new Error('ETIMEDOUT'));
         });
 
         // Failsafe absolute timer
         timer = setTimeout(() => {
-            req.destroy(new Error('Timeout of 10000ms exceeded'));
-        }, 10000);
+            req.destroy(new Error('Timeout of 15000ms exceeded'));
+        }, 15000);
     });
 };
 
@@ -121,10 +137,13 @@ module.exports = async (req, res) => {
         const inqryBgnDt = bgngDt + '0000';
         const inqryEndDt = endDt + '2359';
 
+        const pageNo = query.pageNo || '1';
+        const numOfRows = query.numOfRows || '10';
+
         // Build query params with URLSearchParams (excluding serviceKey)
         const params = new URLSearchParams({
-            numOfRows: '10', // Reduced size for diagnostics
-            pageNo: '1',
+            numOfRows: numOfRows,
+            pageNo: pageNo,
             inqryDiv: '1', // 1: Registration date
             inqryBgnDt: inqryBgnDt,
             inqryEndDt: inqryEndDt,
@@ -135,11 +154,19 @@ module.exports = async (req, res) => {
             params.append('bidNtceNm', bidNtceNm);
         }
 
-        // Apply encodeURIComponent() to process.env.G2B_API_KEY exactly once
-        const finalKey = encodeURIComponent(serviceKey);
+        // Apply encodeURIComponent() to process.env.G2B_API_KEY exactly once, preventing double encoding
+        let rawKey = serviceKey;
+        try {
+            if (serviceKey.includes('%')) {
+                rawKey = decodeURIComponent(serviceKey);
+            }
+        } catch (e) {
+            console.warn('[Diagnostics] Failed to decode potentially encoded serviceKey:', e.message);
+        }
+        const finalKey = encodeURIComponent(rawKey);
 
-        // Target URL matching the approved service path: http://apis.data.go.kr/1230000/BidPublicInfoService
-        const requestUrl = `http://apis.data.go.kr/1230000/BidPublicInfoService/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
+        // Target URL matching the approved service path: https://apis.data.go.kr/1230000/ad/BidPublicInfoService
+        const requestUrl = `https://apis.data.go.kr/1230000/ad/BidPublicInfoService/getBidPblancListInfoServc?serviceKey=${finalKey}&${params.toString()}`;
 
         let responseBody = '';
         try {
@@ -147,8 +174,27 @@ module.exports = async (req, res) => {
             const result = await fetchG2BData(requestUrl);
             console.log(`[Response Log] Status: ${result.statusCode}, Raw Body: ${maskKey(result.data)}`);
             
-            // Validate if response is JSON (data.go.kr returns plain text/XML errors for auth failures)
-            JSON.parse(result.data);
+            // 1. Check if the response contains XML error (common for authentication failures)
+            const xmlErr = extractXmlError(result.data);
+            if (xmlErr) {
+                throw new Error(`OpenAPI Error (XML) - Code: ${xmlErr.code}, Message: ${xmlErr.msg}`);
+            }
+            
+            // 2. Validate if response is valid JSON
+            let parsedJson;
+            try {
+                parsedJson = JSON.parse(result.data);
+            } catch (jsonErr) {
+                const snippet = result.data ? result.data.substring(0, 200) : 'Empty response';
+                throw new Error(`Failed to parse response as JSON. Content preview: ${snippet}`);
+            }
+            
+            // 3. Check for OpenAPI business error inside JSON response
+            const header = parsedJson?.response?.header;
+            if (header && header.resultCode && header.resultCode !== '00') {
+                throw new Error(`OpenAPI Error (JSON) - Code: ${header.resultCode}, Message: ${header.resultMsg || 'Unknown Error'}`);
+            }
+            
             responseBody = result.data;
         } catch (err) {
             throw new Error(`G2B API failure on approved endpoint. Error: ${maskKey(err.message)}`);
@@ -193,6 +239,10 @@ module.exports = async (req, res) => {
 
     } catch (e) {
         console.error('Serverless function exception:', maskKey(e.message || e));
-        res.status(500).json({ error: 'Internal Server Error', details: maskKey(e.message || e) });
+        res.status(500).json({ 
+            error: true, 
+            message: 'Internal Server Error', 
+            details: maskKey(e.message || e) 
+        });
     }
 };

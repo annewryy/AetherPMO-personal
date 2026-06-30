@@ -5304,7 +5304,7 @@ class AetherPMO {
             endDateInput.value = formatDate(today);
         }
 
-        this.renderG2BViewAnnouncements();
+        this.fetchG2BAnnouncements();
     }
 
     focusBiddingPanel(panelName) {
