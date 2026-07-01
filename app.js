@@ -1129,7 +1129,6 @@ class AetherPMO {
             console.log('[projects from supabase]', projects);
             if (errProj) {
                 console.error('[projects error]', errProj);
-                projects = [];
             }
             if (errMem) console.error('Error loading project_members:', errMem);
 
