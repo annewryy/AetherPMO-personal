@@ -6761,15 +6761,15 @@ class AetherPMO {
         this.state.officialDocs = this.state.officialDocs || [];
         this.state.meetingMinutes = this.state.meetingMinutes || [];
 
-        const id = document.getElementById('project-id-field').value;
-        const name = document.getElementById('project-name').value.trim();
-        const desc = document.getElementById('project-desc').value.trim();
+        const id = document.getElementById('project-id-field')?.value || '';
+        const name = document.getElementById('project-name')?.value?.trim() || '';
+        const desc = document.getElementById('project-desc')?.value?.trim() || '';
         
-        const deptSelect = document.getElementById('project-dept').value;
-        const dept = deptSelect === 'custom' ? document.getElementById('project-dept-custom').value.trim() : deptSelect;
+        const deptSelect = document.getElementById('project-dept')?.value || '';
+        const dept = deptSelect === 'custom' ? (document.getElementById('project-dept-custom')?.value?.trim() || '') : deptSelect;
         
         if (deptSelect === 'custom' && !dept) {
-            alert('부서명을 입력해주세요.');
+            alert('필수값을 먼저 입력해주세요.');
             return;
         }
         const managerSelect = document.getElementById('project-manager-select');
@@ -6781,7 +6781,7 @@ class AetherPMO {
             const customInput = document.getElementById('project-manager-custom');
             manager = customInput ? customInput.value.trim() : '';
             if (!manager) {
-                alert('프로젝트 매니저 이름을 입력해주세요.');
+                alert('필수값을 먼저 입력해주세요.');
                 return;
             }
         } else {
@@ -6791,39 +6791,39 @@ class AetherPMO {
                 managerId = matchedUser.id;
             }
         }
-        const customer = document.getElementById('project-customer').value.trim();
-        const budget = Number(document.getElementById('project-budget').value);
-        const startDate = document.getElementById('project-start-date').value;
-        const endDate = document.getElementById('project-end-date').value;
-        const inspectionDate = document.getElementById('project-inspection-date').value;
-        const status = document.getElementById('project-status').value;
-        const resources = Math.max(Number(document.getElementById('project-resources').value), 0);
-        const milestones = document.getElementById('project-milestones').value.trim();
-        const remarks = document.getElementById('project-remarks').value.trim();
+        const customer = document.getElementById('project-customer')?.value?.trim() || '';
+        const budget = Number(document.getElementById('project-budget')?.value || 0);
+        const startDate = document.getElementById('project-start-date')?.value || '';
+        const endDate = document.getElementById('project-end-date')?.value || '';
+        const inspectionDate = document.getElementById('project-inspection-date')?.value || '';
+        const status = document.getElementById('project-status')?.value || 'Execution';
+        const resources = Math.max(Number(document.getElementById('project-resources')?.value || 0), 0);
+        const milestones = document.getElementById('project-milestones')?.value?.trim() || '';
+        const remarks = document.getElementById('project-remarks')?.value?.trim() || '';
 
         // Retrieve new fields
-        const projectCode = document.getElementById('project-code').value.trim();
-        const bizType = document.getElementById('project-biz-type').value.trim();
-        const contractDate = document.getElementById('project-contract-date').value;
-        const location = document.getElementById('project-location').value.trim();
-        const relatedBiz = document.getElementById('project-related-biz').value.trim();
-        const riskLevel = document.getElementById('project-risk-level').value;
-        const bidStatus = document.getElementById('project-bid-status').value;
+        const projectCode = document.getElementById('project-code')?.value?.trim() || '';
+        const bizType = document.getElementById('project-biz-type')?.value?.trim() || '';
+        const contractDate = document.getElementById('project-contract-date')?.value || '';
+        const location = document.getElementById('project-location')?.value?.trim() || '';
+        const relatedBiz = document.getElementById('project-related-biz')?.value?.trim() || '';
+        const riskLevel = document.getElementById('project-risk-level')?.value || '보통';
+        const bidStatus = document.getElementById('project-bid-status')?.value || '';
 
         // Bidding stage fields
-        const bidNumber = document.getElementById('project-bid-number').value.trim();
-        const customerName = document.getElementById('project-customer-name').value.trim();
-        const projectBudget = Number(document.getElementById('project-budget-bidding').value) || 0;
-        const businessType = document.getElementById('project-business-type').value;
-        const salesOwner = document.getElementById('project-sales-owner').value.trim();
-        const proposalOwner = document.getElementById('project-proposal-owner').value.trim();
-        const proposalPm = document.getElementById('project-proposal-pm').value.trim();
-        const businessManager = document.getElementById('project-business-manager').value.trim();
-        const contractOwner = document.getElementById('project-contract-owner').value.trim();
-        const legalOwner = document.getElementById('project-legal-owner').value.trim();
+        const bidNumber = document.getElementById('project-bid-number')?.value?.trim() || '';
+        const customerName = document.getElementById('project-customer-name')?.value?.trim() || '';
+        const projectBudget = Number(document.getElementById('project-budget-bidding')?.value || 0);
+        const businessType = document.getElementById('project-business-type')?.value || '';
+        const salesOwner = document.getElementById('project-sales-owner')?.value?.trim() || '';
+        const proposalOwner = document.getElementById('project-proposal-owner')?.value?.trim() || '';
+        const proposalPm = document.getElementById('project-proposal-pm')?.value?.trim() || '';
+        const businessManager = document.getElementById('project-business-manager')?.value?.trim() || '';
+        const contractOwner = document.getElementById('project-contract-owner')?.value?.trim() || '';
+        const legalOwner = document.getElementById('project-legal-owner')?.value?.trim() || '';
 
         if (!name || !manager || !customer || !budget || !inspectionDate) {
-            alert('필수 필드를 모두 입력해주세요.');
+            alert('필수값을 먼저 입력해주세요.');
             return;
         }
 
@@ -6837,8 +6837,8 @@ class AetherPMO {
             else if (sid === 'isp') sname = 'ISP 수립';
             else if (sid === 'closing') sname = '최종보고';
 
-            const progressVal = Number(document.getElementById(`wbs-progress-${sid}`).value || 0);
-            const weightVal = Number(document.getElementById(`wbs-weight-${sid}`).value || 0);
+            const progressVal = Number(document.getElementById(`wbs-progress-${sid}`)?.value || 0);
+            const weightVal = Number(document.getElementById(`wbs-weight-${sid}`)?.value || 0);
 
             return {
                 id: sid,
