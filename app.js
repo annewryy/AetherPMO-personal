@@ -1332,6 +1332,9 @@ class AetherPMO {
                 this.state.globalTemplates = this.getDefaultGlobalTemplates();
             }
 
+            this.state.users = this.state.users || this.getDefaultUsers();
+            this.state.projectMembers = this.state.projectMembers || [];
+
             console.log('[Supabase] Database state loaded successfully.');
 
             // Trigger Migration if DB contains no projects
@@ -6743,6 +6746,18 @@ class AetherPMO {
     }
 
     saveProjectForm() {
+        // Ensure all key state arrays are fully initialized to prevent 'Cannot read properties of undefined' errors
+        this.state = this.state || {};
+        this.state.projects = this.state.projects || [];
+        this.state.users = this.state.users || this.getDefaultUsers();
+        this.state.projectMembers = this.state.projectMembers || [];
+        this.state.checklists = this.state.checklists || [];
+        this.state.artifacts = this.state.artifacts || [];
+        this.state.issues = this.state.issues || [];
+        this.state.actionItems = this.state.actionItems || [];
+        this.state.officialDocs = this.state.officialDocs || [];
+        this.state.meetingMinutes = this.state.meetingMinutes || [];
+
         const id = document.getElementById('project-id-field').value;
         const name = document.getElementById('project-name').value.trim();
         const desc = document.getElementById('project-desc').value.trim();
@@ -6950,12 +6965,20 @@ class AetherPMO {
             this.saveState('member_upsert', newPmMember);
             
             // Map project ID to active PM's assignedProjectIds
-            if (this.currentUser && this.currentUser.assignedProjectIds) {
-                this.currentUser.assignedProjectIds.push(newId);
-            }
             if (this.currentUser) {
-                const activeUserInState = this.state.users.find(u => u.email === this.currentUser.email);
-                if (activeUserInState && activeUserInState.assignedProjectIds) {
+                if (!this.currentUser.assignedProjectIds) {
+                    this.currentUser.assignedProjectIds = [];
+                }
+                if (!this.currentUser.assignedProjectIds.includes(newId)) {
+                    this.currentUser.assignedProjectIds.push(newId);
+                }
+            }
+            if (this.currentUser && this.state.users) {
+                const activeUserInState = (this.state.users || []).find(u => u.email === this.currentUser.email);
+                if (activeUserInState) {
+                    if (!activeUserInState.assignedProjectIds) {
+                        activeUserInState.assignedProjectIds = [];
+                    }
                     if (!activeUserInState.assignedProjectIds.includes(newId)) {
                         activeUserInState.assignedProjectIds.push(newId);
                     }
