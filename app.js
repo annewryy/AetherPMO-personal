@@ -1356,7 +1356,7 @@ class AetherPMO {
                     milestones: "착수, 중간보고, 최종보고",
                     inspectionDate: "2026-06-30",
                     remarks: "시드 프로젝트 자동 생성",
-                    status: "Execution",
+                    status: "In Progress",
                     progress: 35,
                     resources: 3,
                     wbs: { stages: [] },
@@ -1380,7 +1380,7 @@ class AetherPMO {
                     milestones: "착수, 중간보고, 최종보고",
                     inspectionDate: "2026-12-31",
                     remarks: "시드 프로젝트 자동 생성",
-                    status: "Execution",
+                    status: "In Progress",
                     progress: 50,
                     resources: 3,
                     wbs: { stages: [] },
@@ -1404,7 +1404,7 @@ class AetherPMO {
                     milestones: "착수, 중간보고, 최종보고",
                     inspectionDate: "2026-12-31",
                     remarks: "시드 프로젝트 자동 생성",
-                    status: "Execution",
+                    status: "In Progress",
                     progress: 60,
                     resources: 3,
                     wbs: { stages: [] },
@@ -1428,7 +1428,7 @@ class AetherPMO {
                     milestones: "착수, 중간보고, 최종보고",
                     inspectionDate: "2026-05-31",
                     remarks: "시드 프로젝트 자동 생성",
-                    status: "Execution",
+                    status: "In Progress",
                     progress: 80,
                     resources: 3,
                     wbs: { stages: [] },
@@ -1452,7 +1452,7 @@ class AetherPMO {
                     milestones: "착수, 중간보고, 최종보고",
                     inspectionDate: "2026-12-31",
                     remarks: "시드 프로젝트 자동 생성",
-                    status: "Execution",
+                    status: "In Progress",
                     progress: 20,
                     resources: 3,
                     wbs: { stages: [] },
@@ -1476,7 +1476,7 @@ class AetherPMO {
                     milestones: "착수, 중간보고, 최종보고",
                     inspectionDate: "2026-12-31",
                     remarks: "시드 프로젝트 자동 생성",
-                    status: "Execution",
+                    status: "In Progress",
                     progress: 15,
                     resources: 3,
                     wbs: { stages: [] },
@@ -1500,7 +1500,7 @@ class AetherPMO {
                     milestones: "착수, 중간보고, 최종보고",
                     inspectionDate: "2026-12-31",
                     remarks: "시드 프로젝트 자동 생성",
-                    status: "Execution",
+                    status: "In Progress",
                     progress: 10,
                     resources: 3,
                     wbs: { stages: [] },
@@ -1524,7 +1524,7 @@ class AetherPMO {
                     milestones: "착수, 중간보고, 최종보고",
                     inspectionDate: "2026-12-31",
                     remarks: "시드 프로젝트 자동 생성",
-                    status: "Execution",
+                    status: "In Progress",
                     progress: 25,
                     resources: 3,
                     wbs: { stages: [] },
@@ -1548,7 +1548,7 @@ class AetherPMO {
                     milestones: "착수, 중간보고, 최종보고",
                     inspectionDate: "2026-12-31",
                     remarks: "시드 프로젝트 자동 생성",
-                    status: "Execution",
+                    status: "In Progress",
                     progress: 30,
                     resources: 3,
                     wbs: { stages: [] },
@@ -1572,7 +1572,7 @@ class AetherPMO {
                     milestones: "착수, 중간보고, 최종보고",
                     inspectionDate: "2026-11-30",
                     remarks: "시드 프로젝트 자동 생성",
-                    status: "Execution",
+                    status: "In Progress",
                     progress: 5,
                     resources: 3,
                     wbs: { stages: [] },
@@ -1596,7 +1596,7 @@ class AetherPMO {
                     milestones: "착수, 중간보고, 최종보고",
                     inspectionDate: "2026-12-31",
                     remarks: "시드 프로젝트 자동 생성",
-                    status: "Execution",
+                    status: "In Progress",
                     progress: 0,
                     resources: 3,
                     wbs: { stages: [] },
@@ -1620,7 +1620,7 @@ class AetherPMO {
                     milestones: "착수, 중간보고, 최종보고",
                     inspectionDate: "2027-02-12",
                     remarks: "시드 프로젝트 자동 생성",
-                    status: "Execution",
+                    status: "In Progress",
                     progress: 0,
                     resources: 3,
                     wbs: { stages: [] },
@@ -7432,10 +7432,10 @@ class AetherPMO {
                         const startVal = startIdx !== -1 ? (row[startIdx]?.trim() || '') : '';
                         const endVal = endIdx !== -1 ? (row[endIdx]?.trim() || '') : '';
                         
-                        let statusVal = statusIdx !== -1 ? (row[statusIdx]?.trim() || '') : 'Execution';
+                        let statusVal = statusIdx !== -1 ? (row[statusIdx]?.trim() || '') : 'In Progress';
                         // Convert status text to system standard
                         if (statusVal.includes('수행') || statusVal.toLowerCase().includes('progress') || statusVal.toLowerCase().includes('exec')) {
-                            statusVal = 'Execution';
+                            statusVal = 'In Progress';
                         } else if (statusVal.includes('입찰') || statusVal.toLowerCase().includes('bid')) {
                             statusVal = 'Bidding';
                         } else if (statusVal.includes('완료') || statusVal.toLowerCase().includes('comp')) {
@@ -7445,7 +7445,7 @@ class AetherPMO {
                         } else if (statusVal.includes('지연') || statusVal.toLowerCase().includes('delay')) {
                             statusVal = 'Delay';
                         } else if (!statusVal) {
-                            statusVal = 'Execution';
+                            statusVal = 'In Progress';
                         }
 
                         const progressVal = progressIdx !== -1 ? Math.min(Math.max(Number(row[progressIdx] || 0), 0), 100) : 0;
