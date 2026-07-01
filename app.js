@@ -533,6 +533,7 @@ class AetherPMO {
                 'openNewActionItemModal', 'openEditActionItemModal', 'deleteActionItem',
                 'openNewOfficialDocModal', 'openEditOfficialDocModal', 'deleteOfficialDoc',
                 'openNewMeetingMinutesModal', 'openEditMeetingMinutesModal', 'deleteMeetingMinutes',
+                'addNewResourceRow', 'editResourceRow', 'deleteResourceRow',
                 'triggerTemplateUpload', 'submitTemplateAsArtifact', 'deleteTemplateFile',
                 'openNewGlobalTemplateModal', 'openEditGlobalTemplateModal', 'deleteGlobalTemplate',
                 'openChecklistModal', 'clearActivityLogs', 'exportDatabase', 'importDatabase',
@@ -619,7 +620,8 @@ class AetherPMO {
                 'openNewGlobalTemplateModal', 'openEditGlobalTemplateModal', 'deleteGlobalTemplate',
                 'clearActivityLogs', 'exportDatabase', 'importDatabase', 'resetToMockData',
                 'registerBiddingProjectFromG2B',
-                'deleteArtifact', 'deleteIssue', 'deleteActionItem', 'deleteMeetingMinutes', 'deleteTemplateFile'
+                'deleteArtifact', 'deleteIssue', 'deleteActionItem', 'deleteMeetingMinutes', 'deleteTemplateFile',
+                'addNewResourceRow', 'deleteResourceRow'
             ];
             forbiddenSelectors.forEach(method => {
                 document.querySelectorAll(`[onclick*="${method}"]`).forEach(el => {
@@ -679,6 +681,7 @@ class AetherPMO {
                 'openNewActionItemModal', 'openEditActionItemModal', 'deleteActionItem',
                 'openNewOfficialDocModal', 'openEditOfficialDocModal', 'deleteOfficialDoc',
                 'openNewMeetingMinutesModal', 'openEditMeetingMinutesModal', 'deleteMeetingMinutes',
+                'addNewResourceRow', 'editResourceRow', 'deleteResourceRow',
                 'triggerTemplateUpload', 'submitTemplateAsArtifact', 'deleteTemplateFile',
                 'openNewGlobalTemplateModal', 'openEditGlobalTemplateModal', 'deleteGlobalTemplate',
                 'openChecklistModal', 'clearActivityLogs', 'exportDatabase', 'importDatabase',
@@ -3304,6 +3307,8 @@ class AetherPMO {
             this.renderOfficialDocs();
         } else if (viewName === 'meeting-minutes') {
             this.renderMeetingMinutes();
+        } else if (viewName === 'resources') {
+            this.renderResourcesView();
         } else if (viewName === 'backup') {
             this.renderUserManagementTable();
         } else if (viewName === 'my-account') {
@@ -8645,6 +8650,333 @@ class AetherPMO {
         if (btn) btn.disabled = false;
 
         document.getElementById('meeting-minutes-detail-modal').classList.add('open');
+    }
+
+    /* ==========================================================================
+       RESOURCE MANAGEMENT CONTROLLER (참여인력 관리)
+       ========================================================================== */
+    renderResourcesView() {
+        const projectFilterSelect = document.getElementById('resources-filter-project');
+        const deptFilterSelect = document.getElementById('resources-filter-dept');
+        
+        if (projectFilterSelect && projectFilterSelect.options.length <= 1) {
+            const projects = this.state.projects || [];
+            projects.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `${p.projectCode || p.id} - ${p.name}`;
+                projectFilterSelect.appendChild(opt);
+            });
+        }
+        
+        if (deptFilterSelect && deptFilterSelect.options.length <= 1) {
+            const members = this.state.projectMembers || [];
+            const depts = [...new Set(members.map(m => m.department).filter(Boolean))];
+            depts.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.textContent = d;
+                deptFilterSelect.appendChild(opt);
+            });
+        }
+
+        const projFilter = document.getElementById('resources-filter-project')?.value || 'all';
+        const deptFilter = document.getElementById('resources-filter-dept')?.value || 'all';
+        const keyword = (document.getElementById('resources-search-input')?.value || '').toLowerCase().trim();
+
+        let list = [...(this.state.projectMembers || [])];
+
+        if (projFilter !== 'all') {
+            list = list.filter(m => m.projectId === projFilter);
+        }
+        if (deptFilter !== 'all') {
+            list = list.filter(m => m.department === deptFilter);
+        }
+        if (keyword) {
+            list = list.filter(m => 
+                (m.name || '').toLowerCase().includes(keyword) || 
+                (m.participationRole || '').toLowerCase().includes(keyword) || 
+                (m.position || '').toLowerCase().includes(keyword)
+            );
+        }
+
+        const tbody = document.getElementById('resources-table-body');
+        if (!tbody) return;
+
+        if (this.editingResourceId === 'temp-new') {
+            const exists = list.some(m => m.id === 'temp-new');
+            if (!exists) {
+                list.push({
+                    id: 'temp-new',
+                    projectId: '',
+                    name: '',
+                    department: '',
+                    position: '',
+                    participationRole: '',
+                    isProjectManager: false,
+                    startDate: '',
+                    endDate: '',
+                    memo: ''
+                });
+            }
+        }
+
+        let html = '';
+        list.forEach((m, idx) => {
+            const isEditing = this.editingResourceId === m.id;
+            const project = this.state.projects.find(p => p.id === m.projectId);
+            const projName = project ? `${project.projectCode || project.id} - ${project.name}` : '-';
+
+            if (isEditing) {
+                const projOptions = (this.state.projects || []).map(p => 
+                    `<option value="${p.id}" ${p.id === m.projectId ? 'selected' : ''}>${p.projectCode || p.id} - ${p.name}</option>`
+                ).join('');
+
+                html += `
+                    <tr style="background: var(--bg-hover-item); border-bottom: 1px solid var(--bg-card-border);">
+                        <td style="padding: 8px 12px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
+                            <select id="edit-res-project" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; font-weight:600;">
+                                <option value="">-- 프로젝트 선택 --</option>
+                                ${projOptions}
+                            </select>
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
+                            <input type="text" id="edit-res-name" value="${m.name || ''}" placeholder="성명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
+                            <input type="text" id="edit-res-dept" value="${m.department || ''}" placeholder="부서명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
+                            <input type="text" id="edit-res-position" value="${m.position || ''}" placeholder="직급" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
+                            <input type="text" id="edit-res-role" value="${m.participationRole || ''}" placeholder="참여역할" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                        </td>
+                        <td style="padding: 8px 12px; text-align: center; border-right: 1px solid var(--bg-card-border);">
+                            <input type="checkbox" id="edit-res-pm" ${m.isProjectManager ? 'checked' : ''} style="width:16px; height:16px; cursor:pointer;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
+                            <input type="date" id="edit-res-start-date" value="${m.startDate || ''}" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
+                            <input type="date" id="edit-res-end-date" value="${m.endDate || ''}" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
+                            <input type="text" id="edit-res-memo" value="${m.memo || ''}" placeholder="비고" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                        </td>
+                        <td style="padding: 8px 12px; text-align: center; display: flex; justify-content: center; gap: 4px; height: 49px; align-items: center;">
+                            <button class="btn btn-xs btn-primary" onclick="app.saveResourceRow('${m.id}')" style="padding:4px 8px; display:flex; align-items:center; gap:2px;"><i data-lucide="check" style="width:12px; height:12px;"></i> 저장</button>
+                            <button class="btn btn-xs btn-outline" onclick="app.cancelResourceRowEdit()" style="padding:4px 8px; display:flex; align-items:center; gap:2px;"><i data-lucide="x" style="width:12px; height:12px;"></i> 취소</button>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                html += `
+                    <tr style="border-bottom: 1px solid var(--bg-card-border);">
+                        <td style="padding: 12px 16px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight:600;">${idx + 1}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-weight: 700; color: var(--text-main);">${projName}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-weight: 700; color: var(--text-main);">${m.name || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border);">${m.department || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-weight: 600;">${m.position || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border);">${m.participationRole || '-'}</td>
+                        <td style="padding: 12px 16px; text-align: center; border-right: 1px solid var(--bg-card-border);">
+                            ${m.isProjectManager ? `<span class="status-badge status-completed" style="padding:2px 6px; font-size:10px;">PM</span>` : `<span class="status-badge" style="background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; font-size:10px;">멤버</span>`}
+                        </td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-family: monospace;">${m.startDate || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-family: monospace;">${m.endDate || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted);">${m.memo || '-'}</td>
+                        <td style="padding: 12px 16px; text-align: center; display: flex; justify-content: center; gap: 4px; align-items: center;">
+                            <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.editResourceRow('${m.id}')" style="padding: 4px 6px;"><i data-lucide="edit-2" style="width:12px; height:12px;"></i></button>
+                            <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.deleteResourceRow('${m.id}')" style="padding: 4px 6px; border-color: var(--status-critical-border); color: var(--status-critical);"><i data-lucide="trash-2" style="width:12px; height:12px;"></i></button>
+                        </td>
+                    </tr>
+                `;
+            }
+        });
+
+        if (list.length === 0) {
+            html = `<tr><td colspan="11" style="padding: 32px; text-align: center; color: var(--text-muted); font-size: 14px;">조건에 부합하는 참여 인력 정보가 존재하지 않습니다.</td></tr>`;
+        }
+
+        tbody.innerHTML = html;
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    addNewResourceRow() {
+        if (this.state.session?.user?.role === 'VIEWER') {
+            this.showToast('권한이 없습니다.', 'error');
+            return;
+        }
+        this.editingResourceId = 'temp-new';
+        this.renderResourcesView();
+        
+        const tbody = document.getElementById('resources-table-body');
+        if (tbody && tbody.lastElementChild) {
+            tbody.lastElementChild.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+
+    editResourceRow(memberId) {
+        if (this.state.session?.user?.role === 'VIEWER') {
+            this.showToast('권한이 없습니다.', 'error');
+            return;
+        }
+        this.editingResourceId = memberId;
+        this.renderResourcesView();
+    }
+
+    cancelResourceRowEdit() {
+        this.editingResourceId = null;
+        this.renderResourcesView();
+    }
+
+    async saveResourceRow(memberId) {
+        if (this.state.session?.user?.role === 'VIEWER') {
+            this.showToast('권한이 없습니다.', 'error');
+            return;
+        }
+
+        const projectId = document.getElementById('edit-res-project')?.value || '';
+        const name = document.getElementById('edit-res-name')?.value?.trim() || '';
+        const department = document.getElementById('edit-res-dept')?.value?.trim() || '';
+        const position = document.getElementById('edit-res-position')?.value?.trim() || '';
+        const participationRole = document.getElementById('edit-res-role')?.value?.trim() || '';
+        const isProjectManager = document.getElementById('edit-res-pm')?.checked || false;
+        const startDate = document.getElementById('edit-res-start-date')?.value || null;
+        const endDate = document.getElementById('edit-res-end-date')?.value || null;
+        const memo = document.getElementById('edit-res-memo')?.value?.trim() || '';
+
+        if (!projectId) {
+            alert('프로젝트를 선택해주세요.');
+            return;
+        }
+        if (!name) {
+            alert('필수값을 먼저 입력해주세요.');
+            return;
+        }
+
+        const memberObj = {
+            id: memberId === 'temp-new' ? 'mem_' + Date.now() : memberId,
+            projectId,
+            name,
+            department,
+            position,
+            participationRole,
+            isProjectManager,
+            isActive: true,
+            startDate,
+            endDate,
+            memo
+        };
+
+        if (memberId === 'temp-new') {
+            this.state.projectMembers = this.state.projectMembers || [];
+            this.state.projectMembers.push(memberObj);
+        } else {
+            const idx = this.state.projectMembers.findIndex(m => m.id === memberId);
+            if (idx > -1) {
+                this.state.projectMembers[idx] = memberObj;
+            }
+        }
+
+        this.editingResourceId = null;
+        this.renderResourcesView();
+        
+        try {
+            await this.saveState('member_upsert', memberObj);
+            this.showToast('참여인력이 정상 저장되었습니다.', 'success');
+        } catch (err) {
+            console.error('Error saving member:', err);
+            this.showToast('데이터베이스 저장 중 오류가 발생했습니다.', 'error');
+        }
+    }
+
+    async deleteResourceRow(memberId) {
+        if (this.state.session?.user?.role === 'VIEWER') {
+            this.showToast('권한이 없습니다.', 'error');
+            return;
+        }
+
+        if (confirm('이 참여 인력을 정말 프로젝트에서 제외하시겠습니까?')) {
+            this.state.projectMembers = (this.state.projectMembers || []).filter(m => m.id !== memberId);
+            this.renderResourcesView();
+            
+            try {
+                await this.saveState('member_delete', memberId);
+                this.showToast('참여인력이 정상 삭제되었습니다.', 'success');
+            } catch (err) {
+                console.error('Error deleting member:', err);
+                this.showToast('데이터베이스 삭제 중 오류가 발생했습니다.', 'error');
+            }
+        }
+    }
+
+    exportResourcesToExcel() {
+        let list = [...(this.state.projectMembers || [])];
+
+        const projFilter = document.getElementById('resources-filter-project')?.value || 'all';
+        const deptFilter = document.getElementById('resources-filter-dept')?.value || 'all';
+        const keyword = (document.getElementById('resources-search-input')?.value || '').toLowerCase().trim();
+
+        if (projFilter !== 'all') {
+            list = list.filter(m => m.projectId === projFilter);
+        }
+        if (deptFilter !== 'all') {
+            list = list.filter(m => m.department === deptFilter);
+        }
+        if (keyword) {
+            list = list.filter(m => 
+                (m.name || '').toLowerCase().includes(keyword) || 
+                (m.participationRole || '').toLowerCase().includes(keyword) || 
+                (m.position || '').toLowerCase().includes(keyword)
+            );
+        }
+
+        const csvRows = [];
+        csvRows.push(['번호', '프로젝트 코드', '프로젝트명', '성명', '소속본부/부서', '직급', '참여역할', 'PM 여부', '투입시작일', '투입종료일', '비고'].map(h => `"${h}"`).join(','));
+
+        list.forEach((m, idx) => {
+            const project = this.state.projects.find(p => p.id === m.projectId);
+            const projCode = project ? (project.projectCode || project.id) : '-';
+            const projName = project ? project.name : '-';
+            const pmText = m.isProjectManager ? 'PM' : '멤버';
+
+            const row = [
+                idx + 1,
+                projCode,
+                projName,
+                m.name || '',
+                m.department || '',
+                m.position || '',
+                m.participationRole || '',
+                pmText,
+                m.startDate || '',
+                m.endDate || '',
+                m.memo || ''
+            ];
+            
+            const escapedRow = row.map(val => {
+                const str = String(val).replace(/"/g, '""');
+                return `"${str}"`;
+            });
+            csvRows.push(escapedRow.join(','));
+        });
+
+        const csvString = '\ufeff' + csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        
+        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `참여인력_관리_리스트_${dateStr}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        this.showToast('참여인력 리스트 엑셀 다운로드가 완료되었습니다.', 'success');
     }
 
     /* ==========================================================================
