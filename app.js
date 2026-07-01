@@ -1126,7 +1126,11 @@ class AetherPMO {
                 this.supabase.from('project_members').select('*')
             ]);
 
-            if (errProj) throw errProj;
+            console.log('[projects from supabase]', projects);
+            if (errProj) {
+                console.error('[projects error]', errProj);
+                throw errProj;
+            }
             if (errMem) console.error('Error loading project_members:', errMem);
 
             this.state.projectMembers = (projectMembers || []).map(m => ({
@@ -4994,17 +4998,18 @@ class AetherPMO {
         const fSearch = document.getElementById('project-search-input').value.toLowerCase().trim();
 
         const filtered = this.state.projects.filter(p => {
+            const pStatusClean = p.status?.trim() || '';
             let matchStage = false;
             if (this.activeProjectStageFilter === 'Bidding') {
-                matchStage = p.status === 'Bidding';
+                matchStage = pStatusClean === 'Bidding';
             } else if (this.activeProjectStageFilter === 'Active') {
-                matchStage = p.status === 'In Progress' || p.status === 'On Hold' || p.status === 'Delay' || p.status === 'Completed';
+                matchStage = pStatusClean === 'In Progress' || pStatusClean === 'On Hold' || pStatusClean === 'Delay' || pStatusClean === 'Completed';
             } else if (this.activeProjectStageFilter === 'Closed') {
-                matchStage = p.status === 'Completed';
+                matchStage = pStatusClean === 'Completed';
             }
 
             const matchDept = fDept === 'all' || p.dept === fDept;
-            const matchStatus = fStatus === 'all' || p.status === fStatus;
+            const matchStatus = fStatus === 'all' || pStatusClean === fStatus;
             const matchSearch = !fSearch || 
                 p.name.toLowerCase().includes(fSearch) || 
                 p.manager.toLowerCase().includes(fSearch) || 
@@ -5012,6 +5017,9 @@ class AetherPMO {
 
             return matchStage && matchDept && matchStatus && matchSearch;
         });
+
+        console.log('[renderProjects this.state.projects]', this.state.projects);
+        console.log('[renderProjects filtered]', filtered);
 
         grid.innerHTML = '';
 
