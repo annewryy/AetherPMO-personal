@@ -782,7 +782,6 @@ class AetherPMO {
                         manager_id: p.managerId || null,
                         start_date: p.startDate || null,
                         end_date: p.endDate || null,
-                        customer: p.customer,
                         budget: p.budget || p.projectBudget,
                         milestones: p.milestones,
                         inspection_date: p.inspectionDate || null,
@@ -792,7 +791,7 @@ class AetherPMO {
                         progress: p.progress,
                         resources: p.resources,
                         bid_number: p.bidNumber,
-                        customer_name: p.customerName,
+                        customer_name: p.customer || p.customerName || '',
                         project_budget: p.projectBudget || 0,
                         business_type: p.businessType,
                         sales_owner: p.salesOwner,
@@ -6753,7 +6752,7 @@ class AetherPMO {
         }
     }
 
-    saveProjectForm() {
+    async saveProjectForm() {
         // Ensure all key state arrays are fully initialized to prevent 'Cannot read properties of undefined' errors
         this.state = this.state || {};
         this.state.projects = this.state.projects || [];
@@ -6863,12 +6862,48 @@ class AetherPMO {
         });
         const finalProgress = totalWeight > 0 ? Math.round(weightedProgress * (100 / totalWeight)) : 0;
 
-        if (id) {
-            const index = this.state.projects.findIndex(p => p.id === id);
-            if (index !== -1) {
+        try {
+            if (id) {
+                // UPDATE PROCESS
+                const index = this.state.projects.findIndex(p => p.id === id);
+                if (index === -1) {
+                    alert('프로젝트를 찾을 수 없습니다.');
+                    return;
+                }
+
                 const old = this.state.projects[index];
                 const oldManagerId = old.managerId;
 
+                const updatedProject = { 
+                    ...old, 
+                    name, desc, dept, manager, managerId, startDate, endDate, status, bidStatus: status === 'Bidding' ? bidStatus : '',
+                    progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
+                    projectCode, bizType, contractDate, location, relatedBiz, riskLevel, wbs,
+                    bidNumber, customerName, projectBudget, businessType,
+                    salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner
+                };
+
+                // Supabase Sync
+                if (this.useSupabase) {
+                    // PM History inserting
+                    if (oldManagerId !== managerId) {
+                        const changedBy = this.currentUser ? this.currentUser.id : null;
+                        const { error: histError } = await this.supabase.from('project_manager_history').insert({
+                            project_id: id,
+                            old_manager_id: oldManagerId,
+                            new_manager_id: managerId,
+                            changed_by: changedBy,
+                            reason: '사업 정보 수정 모달에서 PM 변경'
+                        });
+                        if (histError) console.error('Error inserting PM history:', histError);
+                    }
+                    
+                    // Main Projects upsert
+                    await this.syncDb('project_upsert', updatedProject);
+                }
+
+                // Update Local State
+                this.state.projects[index] = updatedProject;
                 if (oldManagerId !== managerId) {
                     const changedBy = this.currentUser ? this.currentUser.id : null;
                     if (!this.state.projectManagerHistory) this.state.projectManagerHistory = [];
@@ -6881,148 +6916,156 @@ class AetherPMO {
                         changedAt: new Date().toISOString(),
                         reason: '사업 정보 수정 모달에서 PM 변경'
                     });
-
-                    if (this.useSupabase) {
-                        this.supabase.from('project_manager_history').insert({
-                            project_id: id,
-                            old_manager_id: oldManagerId,
-                            new_manager_id: managerId,
-                            changed_by: changedBy,
-                            reason: '사업 정보 수정 모달에서 PM 변경'
-                        }).then(({error}) => {
-                            if (error) console.error('Error inserting PM history:', error);
-                        });
-                    }
                 }
-                
-                this.state.projects[index] = { 
-                    ...old, 
-                    name, desc, dept, manager, managerId, startDate, endDate, status, bidStatus: status === 'Bidding' ? bidStatus : '',
-                    progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
-                    projectCode, bizType, contractDate, location, relatedBiz, riskLevel, wbs,
-                    // Bidding stage fields
+                this.addActivityLog(id, name, 'project', `사업 정보 수정: "${name}" (${this.translateStatus(status)})`);
+
+            } else {
+                // INSERT PROCESS
+                const newId = `proj-${Date.now()}`;
+                const defaultResourcesList = [
+                    { name: manager || '안유경', role: 'PM / 총괄', type: 'PM' },
+                    { name: '이영희', role: 'PL / 분석총괄', type: 'PL' },
+                    { name: '김철수', role: '수석컨설턴트', type: 'SC' }
+                ];
+
+                const newProject = { 
+                    id: newId, name, desc, dept, manager, startDate, endDate, status, bidStatus: status === 'Bidding' ? bidStatus : '', progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
+                    projectCode: projectCode || (status === 'Bidding' ? this.generateNextProjectCode() : `PRJ-2026-${String(Date.now()).substring(7)}`),
+                    bizType: bizType || 'SI 구축',
+                    contractDate: contractDate || startDate,
+                    location: location || '정부서울청사',
+                    relatedBiz: relatedBiz || '연계 구축 사업',
+                    riskLevel: riskLevel || '보통',
+                    wbs: wbs,
+                    resourcesList: defaultResourcesList,
+                    managerId: managerId || (this.currentUser ? (this.currentUser.id || this.currentUser.email) : 'pm@aetherpmo.com'),
+                    memberIds: [managerId || 'pm@aetherpmo.com', 'worker@aetherpmo.com'],
                     bidNumber, customerName, projectBudget, businessType,
                     salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
-                    consortiumMembers: old.consortiumMembers || [],
-                    vrbInfo: old.vrbInfo || {
-                        status: '미상신',
-                        plannedDate: '',
-                        submittedDate: '',
-                        approvedDate: '',
-                        vrbNumber: '',
-                        memo: ''
+                    consortiumMembers: [],
+                    vrbInfo: {
+                        status: '미상신', plannedDate: '', submittedDate: '', approvedDate: '', vrbNumber: '', memo: ''
                     }
                 };
 
-                this.addActivityLog(id, name, 'project', `사업 정보 수정: "${name}" (${this.translateStatus(status)})`);
-            }
-        } else {
-            const newId = `proj-${Date.now()}`;
-            const defaultResourcesList = [
-                { name: manager || '안유경', role: 'PM / 총괄', type: 'PM' },
-                { name: '이영희', role: 'PL / 분석총괄', type: 'PL' },
-                { name: '김철수', role: '수석컨설턴트', type: 'SC' }
-            ];
-
-            const newProject = { 
-                id: newId, name, desc, dept, manager, startDate, endDate, status, bidStatus: status === 'Bidding' ? bidStatus : '', progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
-                projectCode: projectCode || (status === 'Bidding' ? this.generateNextProjectCode() : `PRJ-2026-${String(Date.now()).substring(7)}`),
-                bizType: bizType || 'SI 구축',
-                contractDate: contractDate || startDate,
-                location: location || '정부서울청사',
-                relatedBiz: relatedBiz || '연계 구축 사업',
-                riskLevel: riskLevel || '보통',
-                wbs: wbs,
-                resourcesList: defaultResourcesList,
-                managerId: managerId || (this.currentUser ? (this.currentUser.id || this.currentUser.email) : 'pm@aetherpmo.com'),
-                memberIds: [managerId || 'pm@aetherpmo.com', 'worker@aetherpmo.com'],
-                // Bidding stage fields
-                bidNumber, customerName, projectBudget, businessType,
-                salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
-                consortiumMembers: [],
-                vrbInfo: {
-                    status: '미상신',
-                    plannedDate: '',
-                    submittedDate: '',
-                    approvedDate: '',
-                    vrbNumber: '',
-                    memo: ''
-                }
-            };
-
-            this.state.projects.push(newProject);
-
-            // Register selected PM as projectMember
-            if (!this.state.projectMembers) this.state.projectMembers = [];
-            const newPmMember = {
-                id: this.generateUuid(),
-                projectId: newId,
-                userId: managerId || null,
-                name: manager,
-                participationRole: 'PM',
-                department: dept || 'SI사업본부',
-                position: '부장',
-                roleName: '프로젝트 총괄 PM',
-                isActive: true,
-                startDate: startDate || null,
-                endDate: endDate || null,
-                memo: '프로젝트 생성 시 자동 등록',
-                isProjectManager: true
-            };
-            this.state.projectMembers.push(newPmMember);
-            this.saveState('member_upsert', newPmMember);
-            
-            // Map project ID to active PM's assignedProjectIds
-            if (this.currentUser) {
-                if (!this.currentUser.assignedProjectIds) {
-                    this.currentUser.assignedProjectIds = [];
-                }
-                if (!this.currentUser.assignedProjectIds.includes(newId)) {
-                    this.currentUser.assignedProjectIds.push(newId);
-                }
-            }
-            if (this.currentUser && this.state.users) {
-                const activeUserInState = (this.state.users || []).find(u => u.email === this.currentUser.email);
-                if (activeUserInState) {
-                    if (!activeUserInState.assignedProjectIds) {
-                        activeUserInState.assignedProjectIds = [];
-                    }
-                    if (!activeUserInState.assignedProjectIds.includes(newId)) {
-                        activeUserInState.assignedProjectIds.push(newId);
-                    }
-                }
-            }
-
-            this.preloadTemplateSlotsForProject(newId);
-
-            const defaultCats = [
-                { cat: 'Requirements', title: '요구사항정의서 사양 승인' },
-                { cat: 'Architecture Design', title: '시스템 설계 명세 수립' },
-                { cat: 'Source Code', title: '개발 빌드본 소스코드 제출' },
-                { cat: 'Test Plan', title: '테스트 결과 및 검증 완료' }
-            ];
-            defaultCats.forEach((item, index) => {
-                const newChk = {
-                    id: `chk-${Date.now()}-${index}`,
+                // PM member registration
+                const newPmMember = {
+                    id: this.generateUuid(),
                     projectId: newId,
-                    category: item.cat,
-                    title: item.title,
-                    checked: false
+                    userId: managerId || null,
+                    name: manager,
+                    participationRole: 'PM',
+                    department: dept || 'SI사업본부',
+                    position: '부장',
+                    roleName: '프로젝트 총괄 PM',
+                    isActive: true,
+                    startDate: startDate || null,
+                    endDate: endDate || null,
+                    memo: '프로젝트 생성 시 자동 등록',
+                    isProjectManager: true
                 };
-                this.state.checklists.push(newChk);
-                if (this.useSupabase) {
-                    this.syncDb('checklist_upsert', newChk);
-                }
-            });
 
-            this.addActivityLog(newId, name, 'project', `신규 사업 등록: "${name}"`);
+                // Sync to Supabase
+                if (this.useSupabase) {
+                    // 1. Insert Project
+                    await this.syncDb('project_upsert', newProject);
+
+                    // 2. Insert PM Member
+                    await this.syncDb('member_upsert', newPmMember);
+
+                    // 3. Insert Default Checklist items
+                    const defaultCats = [
+                        { cat: 'Requirements', title: '요구사항정의서 사양 승인' },
+                        { cat: 'Architecture Design', title: '시스템 설계 명세 수립' },
+                        { cat: 'Source Code', title: '개발 빌드본 소스코드 제출' },
+                        { cat: 'Test Plan', title: '테스트 결과 및 검증 완료' }
+                    ];
+                    for (let index = 0; index < defaultCats.length; index++) {
+                        const item = defaultCats[index];
+                        const newChk = {
+                            id: `chk-${Date.now()}-${index}`,
+                            projectId: newId,
+                            category: item.cat,
+                            title: item.title,
+                            checked: false
+                        };
+                        await this.syncDb('checklist_upsert', newChk);
+                    }
+                }
+
+                // Update Local State (Only on SUCCESS)
+                this.state.projects.push(newProject);
+                if (!this.state.projectMembers) this.state.projectMembers = [];
+                this.state.projectMembers.push(newPmMember);
+
+                // Map project ID to active PM's assignedProjectIds
+                if (this.currentUser) {
+                    if (!this.currentUser.assignedProjectIds) {
+                        this.currentUser.assignedProjectIds = [];
+                    }
+                    if (!this.currentUser.assignedProjectIds.includes(newId)) {
+                        this.currentUser.assignedProjectIds.push(newId);
+                    }
+                }
+                if (this.currentUser && this.state.users) {
+                    const activeUserInState = (this.state.users || []).find(u => u.email === this.currentUser.email);
+                    if (activeUserInState) {
+                        if (!activeUserInState.assignedProjectIds) {
+                            activeUserInState.assignedProjectIds = [];
+                        }
+                        if (!activeUserInState.assignedProjectIds.includes(newId)) {
+                            activeUserInState.assignedProjectIds.push(newId);
+                        }
+                    }
+                }
+
+                this.preloadTemplateSlotsForProject(newId);
+
+                // Load default local checklists in local mode
+                if (!this.useSupabase) {
+                    const defaultCats = [
+                        { cat: 'Requirements', title: '요구사항정의서 사양 승인' },
+                        { cat: 'Architecture Design', title: '시스템 설계 명세 수립' },
+                        { cat: 'Source Code', title: '개발 빌드본 소스코드 제출' },
+                        { cat: 'Test Plan', title: '테스트 결과 및 검증 완료' }
+                    ];
+                    defaultCats.forEach((item, index) => {
+                        const newChk = {
+                            id: `chk-${Date.now()}-${index}`,
+                            projectId: newId,
+                            category: item.cat,
+                            title: item.title,
+                            checked: false
+                        };
+                        this.state.checklists.push(newChk);
+                    });
+                }
+
+                this.addActivityLog(newId, name, 'project', `신규 사업 등록: "${name}"`);
+            }
+
+            // Sync the entire state representation to LocalStorage in local fallback mode
+            if (!this.useSupabase && !this.demoMode) {
+                localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+            }
+
+            // Reload state from Supabase to sync DB schema structures and show real-time changes
+            if (this.useSupabase) {
+                await this.loadStateFromSupabase();
+            }
+
+            this.updateProjectsOverdueStatus();
+            this.closeProjectModal();
+            this.handleRouting();
+            
+            // Show Success Notification
+            this.showToast(id ? '사업 정보가 성공적으로 수정되었습니다.' : '신규 사업이 성공적으로 등록되었습니다.', 'success');
+
+        } catch (dbError) {
+            console.error('[Supabase Save Error]', dbError);
+            const errMsg = dbError.message || dbError.details || '데이터베이스 저장 중 오류가 발생했습니다.';
+            alert(`저장 실패: ${errMsg}\n(입력 데이터를 확인하시고 다시 시도해주세요.)`);
         }
-        
-        this.updateProjectsOverdueStatus();
-        const projObj = id ? this.state.projects.find(p => p.id === id) : newProject;
-        this.saveState('project_upsert', projObj);
-        this.closeProjectModal();
-        this.handleRouting();
     }
 
     deleteProject(projectId) {
