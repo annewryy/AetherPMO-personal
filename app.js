@@ -4735,7 +4735,10 @@ class AetherPMO {
             card.className = 'project-card';
             card.innerHTML = `
                 <div class="project-card-header">
-                    <span class="project-dept-tag">${p.dept}</span>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="project-dept-tag">${p.dept}</span>
+                        <span style="font-family: monospace; font-size: 11px; font-weight: 600; color: var(--text-muted); background: var(--bg-hover-item); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--bg-card-border);">${p.projectCode || p.id}</span>
+                    </div>
                     <div style="display:flex; gap:6px; align-items:center;">
                         <span class="status-badge status-${p.status.toLowerCase().replace(' ', '')}">${this.translateStatus(p.status)}</span>
                         ${p.isOverdue && p.status !== 'Completed' ? `<span class="status-badge status-overdue">기간초과</span>` : ''}
