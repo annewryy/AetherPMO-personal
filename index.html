@@ -3952,14 +3952,14 @@
 
     <!-- 18. PROJECT MEMBERS MODAL -->
     <div class="modal-overlay" id="project-members-modal">
-        <div class="modal-card" style="max-width: 950px; width: 90%;">
+        <div class="modal-card" style="max-width: 950px; width: 90%; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-header">
                 <h2>참여 인력 관리</h2>
                 <button class="modal-close-btn" onclick="app.closeProjectMembersModal()">&times;</button>
             </div>
-            <div class="modal-body" style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; padding: 15px 0;">
+            <div class="modal-body" style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; padding: 15px 0; overflow: hidden; flex: 1; min-height: 0;">
                 <!-- Left Pane: Members List -->
-                <div style="border-right: 1px solid var(--bg-card-border); padding-right: 20px; display: flex; flex-direction: column; height: 500px;">
+                <div style="border-right: 1px solid var(--bg-card-border); padding-right: 20px; display: flex; flex-direction: column; max-height: 60vh; min-height: 350px; height: 100%;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                         <h3 style="margin:0; font-size:14px; font-weight:700;">참여 팀원 목록</h3>
                         <span class="text-xs text-muted" id="members-modal-count-label">총 0명 (투입 0명)</span>
@@ -3969,7 +3969,7 @@
                     </div>
                 </div>
                 <!-- Right Pane: Add/Edit Form -->
-                <div style="display: flex; flex-direction: column; height: 500px;">
+                <div style="display: flex; flex-direction: column; max-height: 60vh; min-height: 350px; height: 100%;">
                     <h3 style="margin:0 0 12px 0; font-size:14px; font-weight:700;" id="member-form-title">참여 인력 추가</h3>
                     <form id="member-form" onsubmit="event.preventDefault(); app.saveMemberForm();" style="display:flex; flex-direction:column; justify-content:space-between; height:100%;">
                         <div style="overflow-y:auto; flex:1; padding-right:5px; margin-bottom:12px;">
