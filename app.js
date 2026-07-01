@@ -7287,7 +7287,7 @@ class AetherPMO {
             this.addActivityLog(projectId, name, 'artifact', `신규 산출물 등록: "${name}" (${this.translateArtifactStatus(status)})`);
         }
 
-        const artObj = artifactId ? this.state.artifacts.find(a => a.id === artifactId) : newArt;
+        const artObj = id ? this.state.artifacts.find(a => a.id === id) : newArt;
         this.saveState('artifact_upsert', artObj);
         this.closeArtifactModal();
         this.handleRouting();
