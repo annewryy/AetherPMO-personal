@@ -1629,14 +1629,18 @@ class AetherPMO {
                 }
             ];
 
-            seedProjects.forEach(seed => {
-                const exists = (this.state.projects || []).some(p => p.projectCode === seed.projectCode);
-                if (!exists) {
-                    this.state.projects.push(seed);
-                }
-            });
-
-            console.log('[Supabase] Database state loaded successfully. Seeded fallback projects: ' + seedProjects.length);
+            // DB에서 로딩된 프로젝트가 한 건도 없을 때만 폴백용 로컬 시드를 활성화
+            if (!projects || projects.length === 0) {
+                seedProjects.forEach(seed => {
+                    const exists = (this.state.projects || []).some(p => p.projectCode === seed.projectCode);
+                    if (!exists) {
+                        this.state.projects.push(seed);
+                    }
+                });
+                console.log('[Supabase] Database state loaded successfully. Seeded fallback projects: ' + seedProjects.length);
+            } else {
+                console.log('[Supabase] Database state loaded successfully from projects table: ' + this.state.projects.length);
+            }
 
             // Trigger Migration if DB contains no projects
             if (this.state.projects.length === 0) {
@@ -3471,25 +3475,25 @@ class AetherPMO {
 
         if (mainRoute === 'my-account') {
             const tab = parts[1] || 'info';
-            this.switchView('my-account');
+            await this.switchView('my-account');
             this.switchAccountTab(tab);
             return;
         }
 
         if (mainRoute === 'project-detail' && parts[1]) {
-            this.switchView('project-detail', parts[1]);
+            await this.switchView('project-detail', parts[1]);
         } else if (mainRoute === 'projects') {
             const stage = parts[1];
             if (stage === 'bidding') {
                 this.activeProjectStageFilter = 'Bidding';
-                this.switchView('projects');
+                await this.switchView('projects');
             } else if (stage === 'active' || stage === 'closed') {
                 this.activeProjectStageFilter = 'Active';
-                this.switchView('projects');
+                await this.switchView('projects');
             } else if (stage === 'g2b') {
-                this.switchView('projects-g2b');
+                await this.switchView('projects-g2b');
             } else {
-                this.switchView('projects');
+                await this.switchView('projects');
             }
         } else if (mainRoute === 'artifacts') {
             let type = 'operation';
@@ -3506,16 +3510,16 @@ class AetherPMO {
 
             this.activeGlobalTemplateType  = type;
             this.activeGlobalTemplateStage = stage;
-            this.switchView('artifacts');
+            await this.switchView('artifacts');
         } else {
-            this.switchView(mainRoute);
+            await this.switchView(mainRoute);
         }
     }
 
     /**
      * Switch view display block/none
      */
-    switchView(viewName, params = null) {
+    async switchView(viewName, params = null) {
         document.querySelectorAll('.content-view').forEach(view => {
             view.classList.remove('active');
         });
@@ -3590,6 +3594,9 @@ class AetherPMO {
             this.renderDashboard();
             this.renderPersonalizedDashboard();
         } else if (viewName === 'projects') {
+            if (this.useSupabase) {
+                await this.loadStateFromSupabase();
+            }
             this.renderProjects();
         } else if (viewName === 'projects-g2b') {
             this.initG2BSearchView();
