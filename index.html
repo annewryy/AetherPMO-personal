@@ -732,9 +732,15 @@
                             <h1>프로젝트 목록</h1>
                             <p class="subtitle">등록된 전체 프로젝트를 분류별로 관리하고 모니터링합니다.</p>
                         </div>
-                        <button class="btn btn-primary" onclick="app.openNewProjectModal()">
-                            <i data-lucide="plus"></i> 새 프로젝트 등록
-                        </button>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <input type="file" id="project-csv-file-input" accept=".csv" style="display:none;" onchange="app.handleProjectCsvUpload(event)">
+                            <button class="btn btn-outline" onclick="document.getElementById('project-csv-file-input').click()">
+                                <i data-lucide="upload" style="width:14px; height:14px; margin-right:4px; display:inline-block; vertical-align:middle;"></i> CSV 일괄 등록
+                            </button>
+                            <button class="btn btn-primary" onclick="app.openNewProjectModal()">
+                                <i data-lucide="plus"></i> 새 프로젝트 등록
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Restructured Project Category Tabs -->

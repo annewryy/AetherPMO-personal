@@ -7068,6 +7068,259 @@ class AetherPMO {
         }
     }
 
+    // ----------------------------------------------------
+    // CSV IMPORT / PARSING LOGIC FOR BULK PROJECTS LOAD
+    // ----------------------------------------------------
+    async handleProjectCsvUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // Reset input field so same file can be selected again
+        event.target.value = '';
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const arrayBuffer = e.target.result;
+                const text = this.smartDecode(arrayBuffer);
+                const csvLines = this.parseCsv(text);
+                
+                if (csvLines.length < 2) {
+                    alert('가져올 데이터가 없는 빈 CSV 파일입니다.');
+                    return;
+                }
+
+                // 1. Map Headers to indices
+                const headers = csvLines[0].map(h => h.trim().toLowerCase());
+                
+                const codeIdx = headers.findIndex(h => h.includes('code') || h.includes('코드'));
+                const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('명') || h.includes('이름'));
+                const custIdx = headers.findIndex(h => h.includes('customer') || h.includes('고객') || h.includes('발주처'));
+                const pmIdx = headers.findIndex(h => h.includes('pm') || h.includes('책임자') || h.includes('담당자'));
+                const startIdx = headers.findIndex(h => h.includes('start') || h.includes('시작') || h.includes('착수'));
+                const endIdx = headers.findIndex(h => h.includes('end') || h.includes('종료') || h.includes('완료일'));
+                const statusIdx = headers.findIndex(h => h.includes('status') || h.includes('상태'));
+                const progressIdx = headers.findIndex(h => h.includes('progress') || h.includes('진척') || h.includes('진행률'));
+                const managerIdIdx = headers.findIndex(h => h.includes('manager_id') || h.includes('pm_id') || h.includes('매니저 id') || h.includes('pm id'));
+
+                if (nameIdx === -1) {
+                    alert('CSV 파일에 프로젝트명(Name) 열이 누락되었습니다. 헤더 구성을 확인해주세요.');
+                    return;
+                }
+
+                let successCount = 0;
+                const rowErrors = [];
+
+                // 2. Iterate each row (skip header)
+                for (let i = 1; i < csvLines.length; i++) {
+                    const row = csvLines[i];
+                    if (row.length === 0 || (row.length === 1 && row[0].trim() === '')) {
+                        continue; // Skip blank lines
+                    }
+
+                    const rowNumber = i + 1; // Human-friendly row number
+
+                    try {
+                        const nameVal = row[nameIdx]?.trim() || '';
+                        if (!nameVal) {
+                            rowErrors.push({ row: rowNumber, error: '프로젝트명이 누락되었습니다.' });
+                            continue;
+                        }
+
+                        let codeVal = codeIdx !== -1 ? (row[codeIdx]?.trim() || '') : '';
+                        const customerVal = custIdx !== -1 ? (row[custIdx]?.trim() || '') : '';
+                        const pmVal = pmIdx !== -1 ? (row[pmIdx]?.trim() || '') : '안유경';
+                        const startVal = startIdx !== -1 ? (row[startIdx]?.trim() || '') : '';
+                        const endVal = endIdx !== -1 ? (row[endIdx]?.trim() || '') : '';
+                        
+                        let statusVal = statusIdx !== -1 ? (row[statusIdx]?.trim() || '') : 'Execution';
+                        // Convert status text to system standard
+                        if (statusVal.includes('수행') || statusVal.toLowerCase().includes('progress') || statusVal.toLowerCase().includes('exec')) {
+                            statusVal = 'Execution';
+                        } else if (statusVal.includes('입찰') || statusVal.toLowerCase().includes('bid')) {
+                            statusVal = 'Bidding';
+                        } else if (statusVal.includes('완료') || statusVal.toLowerCase().includes('comp')) {
+                            statusVal = 'Completed';
+                        } else if (statusVal.includes('보류') || statusVal.toLowerCase().includes('hold')) {
+                            statusVal = 'On Hold';
+                        } else if (statusVal.includes('지연') || statusVal.toLowerCase().includes('delay')) {
+                            statusVal = 'Delay';
+                        } else if (!statusVal) {
+                            statusVal = 'Execution';
+                        }
+
+                        const progressVal = progressIdx !== -1 ? Math.min(Math.max(Number(row[progressIdx] || 0), 0), 100) : 0;
+                        let managerIdVal = managerIdIdx !== -1 ? (row[managerIdIdx]?.trim() || null) : null;
+
+                        if (!managerIdVal && pmVal) {
+                            const matchedUser = (this.state.users || []).find(u => u.name === pmVal || u.email === pmVal);
+                            if (matchedUser) {
+                                managerIdVal = matchedUser.id;
+                            }
+                        }
+
+                        // 3. Find duplicate to prevent conflict and do upsert
+                        let existingId = '';
+                        if (codeVal) {
+                            const match = (this.state.projects || []).find(p => p.projectCode === codeVal);
+                            if (match) {
+                                existingId = match.id;
+                            }
+                        } else {
+                            // Find match based on Name + Customer + StartDate
+                            const match = (this.state.projects || []).find(p => 
+                                p.name === nameVal && 
+                                (p.customer === customerVal || p.customerName === customerVal) && 
+                                p.startDate === startVal
+                            );
+                            if (match) {
+                                existingId = match.id;
+                                codeVal = match.projectCode;
+                            }
+                        }
+
+                        const finalId = existingId || `proj-${Date.now()}-${i}`;
+                        const finalCode = codeVal || `PRJ-2026-${String(Date.now()).substring(7)}-${i}`;
+
+                        // Build payload compatible with DB sync
+                        const projectObj = {
+                            id: finalId,
+                            name: nameVal,
+                            desc: `${nameVal} - CSV 일괄 등록 프로젝트`,
+                            dept: 'SI사업본부',
+                            manager: pmVal,
+                            managerId: managerIdVal || 'pm@aetherpmo.com',
+                            startDate: startVal || new Date().toISOString().substring(0, 10),
+                            endDate: endVal || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10),
+                            status: statusVal,
+                            progress: progressVal,
+                            resources: 3,
+                            customer: customerVal,
+                            customerName: customerVal,
+                            budget: 100000000,
+                            projectBudget: 100000000,
+                            milestones: '착수, 중간보고, 최종보고',
+                            inspectionDate: endVal || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10),
+                            remarks: 'CSV 일괄 업로더로 등록됨',
+                            projectCode: finalCode,
+                            bizType: 'SI 구축',
+                            contractDate: startVal || new Date().toISOString().substring(0, 10),
+                            location: '본사',
+                            relatedBiz: '',
+                            riskLevel: '보통',
+                            wbs: { stages: [] },
+                            resourcesList: [
+                                { name: pmVal, role: 'PM / 총괄', type: 'PM' }
+                            ],
+                            memberIds: [managerIdVal || 'pm@aetherpmo.com', 'worker@aetherpmo.com']
+                        };
+
+                        // 4. Save to Supabase (upsert)
+                        if (this.useSupabase) {
+                            await this.syncDb('project_upsert', projectObj);
+                        } else {
+                            // Fallback mock update/insert in state
+                            if (existingId) {
+                                const index = this.state.projects.findIndex(p => p.id === existingId);
+                                if (index !== -1) this.state.projects[index] = projectObj;
+                            } else {
+                                this.state.projects.push(projectObj);
+                            }
+                        }
+
+                        successCount++;
+                    } catch (rowError) {
+                        console.error(`Error parsing row ${rowNumber}:`, rowError);
+                        rowErrors.push({ row: rowNumber, error: rowError.message || '데이터베이스 처리 오류가 발생했습니다.' });
+                    }
+                }
+
+                // 5. Finalize state reload
+                if (this.useSupabase) {
+                    await this.loadStateFromSupabase();
+                } else if (!this.demoMode) {
+                    localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+                }
+
+                this.updateProjectsOverdueStatus();
+                this.handleRouting();
+
+                // 6. Report findings to the user
+                let reportMessage = `CSV 일괄 등록 결과:\n- 성공: ${successCount}건\n- 실패: ${rowErrors.length}건`;
+                if (rowErrors.length > 0) {
+                    reportMessage += '\n\n[실패 내역]';
+                    rowErrors.slice(0, 10).forEach(err => {
+                        reportMessage += `\n- ${err.row}번째 행: ${err.error}`;
+                    });
+                    if (rowErrors.length > 10) {
+                        reportMessage += `\n- 외 ${rowErrors.length - 10}건의 행에서 추가 오류 발생`;
+                    }
+                }
+                alert(reportMessage);
+
+            } catch (err) {
+                console.error('[CSV Process Global Error]', err);
+                alert('CSV 파일을 처리하는 도중 예상치 못한 오류가 발생했습니다: ' + err.message);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    smartDecode(arrayBuffer) {
+        const decoderUtf8 = new TextDecoder('utf-8', { fatal: true });
+        const decoderEucKr = new TextDecoder('euc-kr', { fatal: true });
+        
+        try {
+            // Try decoding as UTF-8 (Strict Mode)
+            return decoderUtf8.decode(arrayBuffer);
+        } catch (e) {
+            try {
+                // If UTF-8 fails, fallback to CP949 / EUC-KR
+                console.log('[smartDecode] UTF-8 decoding failed, trying EUC-KR/CP949 fallback.');
+                return decoderEucKr.decode(arrayBuffer);
+            } catch (e2) {
+                // Last resort non-strict UTF-8 decoding
+                return new TextDecoder('utf-8').decode(arrayBuffer);
+            }
+        }
+    }
+
+    parseCsv(text) {
+        const lines = [];
+        let row = [""];
+        let inQuotes = false;
+        
+        for (let i = 0; i < text.length; i++) {
+            const c = text[i];
+            const next = text[i + 1];
+            
+            if (c === '"') {
+                if (inQuotes && next === '"') {
+                    row[row.length - 1] += '"';
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (c === ',' && !inQuotes) {
+                row.push("");
+            } else if ((c === '\r' || c === '\n') && !inQuotes) {
+                if (c === '\r' && next === '\n') {
+                    i++;
+                }
+                lines.push(row);
+                row = [""];
+            } else {
+                row[row.length - 1] += c;
+            }
+        }
+        if (row.length > 1 || row[0] !== "") {
+            lines.push(row);
+        }
+        
+        // Trim headers and fields to clean up whitespace / Carriage returns
+        return lines.map(r => r.map(cell => cell.trim().replace(/^"|"$/g, '')));
+    }
+
     deleteProject(projectId) {
         const project = this.state.projects.find(p => p.id === projectId);
         if (!project) return;
