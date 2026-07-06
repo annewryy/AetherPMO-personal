@@ -7,7 +7,10 @@ class AetherPMO {
     constructor() {
         this.state = {
             projects: [],
-            g2bAnnouncements: [], // G2B announcements list
+            g2bAnnouncements: [], // G2B announcements list (bidding split panel use)
+            g2bOriginalItems: [],  // API로 받아온 나라장터 원본 목록
+            g2bFilteredItems: [],  // 화면에 표시할 나라장터 필터링 목록
+            g2bSearchKeyword: '',  // 나라장터 화면 내 검색어
             artifacts: [],
             checklists: [],
             activities: [],
@@ -5484,7 +5487,8 @@ class AetherPMO {
     }
 
     async registerBiddingProjectFromG2B(announcementNo) {
-        const ann = this.state.g2bAnnouncements.find(a => a.announcementNo === announcementNo);
+        const items = this.state.g2bOriginalItems.length > 0 ? this.state.g2bOriginalItems : this.state.g2bAnnouncements;
+        const ann = items.find(a => a.announcementNo === announcementNo);
         if (!ann) {
             alert('공고 정보를 찾을 수 없습니다.');
             return;
@@ -5636,7 +5640,7 @@ class AetherPMO {
     async fetchG2BAnnouncements(page = 1) {
         if (this.g2bLoading) return;
         this.g2bLoading = true;
-        this.g2bPageNo = page;
+        this.g2bPageNo = 1; // API 재호출 시 페이지는 1로 초기화
 
         const bidNtceNm = document.getElementById('g2b-filter-title').value.trim();
         const dminsttNm = document.getElementById('g2b-filter-customer').value.trim();
@@ -5694,30 +5698,47 @@ class AetherPMO {
                     if (window.lucide) window.lucide.createIcons();
                 }
                 this.g2bLoading = false;
+                this.state.g2bOriginalItems = [];
+                this.state.g2bFilteredItems = [];
                 this.renderG2BPagination(0, 1);
                 return;
             }
         }
 
         try {
+            // 한 번에 100건을 긁어와 로컬 캐시에 적재
             const params = new URLSearchParams({
                 bidNtceNm,
                 dminsttNm,
                 bgngDt,
                 endDt,
-                pageNo: String(page),
-                numOfRows: '10'
+                pageNo: '1',
+                numOfRows: '100'
             });
             const response = await fetch(`/api/g2b?${params.toString()}`);
             if (!response.ok) {
                 throw new Error('나라장터 API 호출에 실패했습니다.');
             }
             const data = await response.json();
-            this.state.g2bAnnouncements = data.announcements || [];
-            this.state.g2bTotalCount = data.totalCount || 0;
-            this.renderG2BViewAnnouncements();
+            
+            // 상태 분리: originalItems에 원본 저장 (g2bAnnouncements는 하위 호환성 유지)
+            this.state.g2bOriginalItems = data.announcements || [];
+            this.state.g2bAnnouncements = this.state.g2bOriginalItems;
+            this.state.g2bTotalCount = data.totalCount || this.state.g2bOriginalItems.length;
+            
+            // 로컬 검색어 인풋 초기화
+            const localSearchInput = document.getElementById('g2b-local-search-input');
+            if (localSearchInput) {
+                localSearchInput.value = '';
+            }
+            this.state.g2bSearchKeyword = '';
+
+            // 로컬 필터 실행 및 렌더링 호출
+            this.handleG2BLocalFilter(true);
         } catch (e) {
             console.error('Failed to fetch G2B announcements:', e);
+            this.state.g2bOriginalItems = [];
+            this.state.g2bFilteredItems = [];
             if (tbody) {
                 tbody.innerHTML = `
                     <tr>
@@ -5736,7 +5757,7 @@ class AetherPMO {
                     window.lucide.createIcons();
                 }
             }
-            this.renderG2BPagination(0, page);
+            this.renderG2BPagination(0, 1);
         } finally {
             this.g2bLoading = false;
         }
@@ -5746,19 +5767,23 @@ class AetherPMO {
         const tbody = document.getElementById('g2b-view-announcements-tbody');
         if (!tbody) return;
 
-        const announcements = this.state.g2bAnnouncements || [];
+        const filtered = this.state.g2bFilteredItems || [];
 
         tbody.innerHTML = '';
-        if (announcements.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-8">조회된 나라장터 공고가 없습니다. 검색 조건을 입력하고 검색해 주세요.</td></tr>';
-            this.renderG2BPagination(0, this.g2bPageNo || 1);
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-8">조회 조건 내 검색결과가 없습니다.</td></tr>';
+            this.renderG2BPagination(0, 1);
             return;
         }
 
         const today = new Date();
         today.setHours(0,0,0,0);
 
-        announcements.forEach(ann => {
+        // 페이징 처리: 로컬 슬라이싱 적용
+        const startIdx = ((this.g2bPageNo || 1) - 1) * 10;
+        const pageAnnouncements = filtered.slice(startIdx, startIdx + 10);
+
+        pageAnnouncements.forEach(ann => {
             const end = ann.endDate ? new Date(ann.endDate) : null;
             if (end) end.setHours(0,0,0,0);
 
@@ -5816,8 +5841,8 @@ class AetherPMO {
 
         this.applyRolePermissions();
         
-        // Render pagination controls
-        this.renderG2BPagination(this.state.g2bTotalCount || 0, this.g2bPageNo || 1);
+        // Render pagination controls (filtered count)
+        this.renderG2BPagination(filtered.length, this.g2bPageNo || 1);
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -5828,30 +5853,20 @@ class AetherPMO {
         const container = document.getElementById('g2b-pagination-container');
         if (!container) return;
         
-        const announcements = this.state.g2bAnnouncements || [];
-        let totalPages = 1;
-        let hasNext = false;
-        
-        if (totalCount > 0) {
-            totalPages = Math.ceil(totalCount / 10) || 1;
-            hasNext = currentPage < totalPages;
-        } else {
-            totalPages = currentPage; 
-            hasNext = announcements.length === 10;
-        }
-        
+        const totalPages = Math.ceil(totalCount / 10) || 1;
+        const hasNext = currentPage < totalPages;
         const hasPrev = currentPage > 1;
         
         container.innerHTML = `
             <div style="font-size: 13px; color: var(--text-muted);">
-                총 <span class="font-bold text-primary" style="color:var(--primary); font-weight:700;">${totalCount > 0 ? totalCount : announcements.length}</span> 건 검색됨
+                총 <span class="font-bold text-primary" style="color:var(--primary); font-weight:700;">${totalCount}</span> 건 검색됨
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
-                <button class="btn btn-outline btn-xs" ${hasPrev ? '' : 'disabled'} onclick="app.fetchG2BAnnouncements(${currentPage - 1})">
+                <button class="btn btn-outline btn-xs" ${hasPrev ? '' : 'disabled'} onclick="app.changeG2BPage(${currentPage - 1})">
                     <i data-lucide="chevron-left" style="width:12px; height:12px; margin-right:2px; vertical-align:middle;"></i> 이전
                 </button>
                 <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">페이지 ${currentPage} / ${totalPages}</span>
-                <button class="btn btn-outline btn-xs" ${hasNext ? '' : 'disabled'} onclick="app.fetchG2BAnnouncements(${currentPage + 1})">
+                <button class="btn btn-outline btn-xs" ${hasNext ? '' : 'disabled'} onclick="app.changeG2BPage(${currentPage + 1})">
                     다음 <i data-lucide="chevron-right" style="width:12px; height:12px; margin-left:2px; vertical-align:middle;"></i>
                 </button>
             </div>
@@ -5860,6 +5875,77 @@ class AetherPMO {
         if (window.lucide) {
             window.lucide.createIcons();
         }
+    }
+
+    // [로컬 필터링 및 검색어 동적 필터 구현] (API 재조회 절대 금지)
+    handleG2BLocalFilter(resetPage = false) {
+        const searchInput = document.getElementById('g2b-local-search-input');
+        const sortSelect = document.getElementById('g2b-local-sort');
+
+        const searchKeyword = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        this.state.g2bSearchKeyword = searchKeyword;
+        const sortVal = sortSelect ? sortSelect.value : 'endDateAsc';
+
+        // 1. 원본 캐시 데이터에서 필터링 수행
+        let filtered = [...(this.state.g2bOriginalItems || [])];
+
+        if (searchKeyword) {
+            filtered = filtered.filter(item => {
+                const nameMatch = (item.name || '').toLowerCase().includes(searchKeyword);
+                const customerMatch = (item.customer || '').toLowerCase().includes(searchKeyword);
+                const noMatch = (item.announcementNo || '').toLowerCase().includes(searchKeyword);
+                return nameMatch || customerMatch || noMatch;
+            });
+        }
+
+        // 2. 정렬 옵션 적용
+        if (sortVal === 'endDateAsc') {
+            filtered.sort((a, b) => new Date(a.endDate || '9999-12-31') - new Date(b.endDate || '9999-12-31'));
+        } else if (sortVal === 'endDateDesc') {
+            filtered.sort((a, b) => new Date(b.endDate || '1970-01-01') - new Date(a.endDate || '1970-01-01'));
+        } else if (sortVal === 'budgetDesc') {
+            filtered.sort((a, b) => (b.budget || 0) - (a.budget || 0));
+        } else if (sortVal === 'budgetAsc') {
+            filtered.sort((a, b) => (a.budget || 0) - (b.budget || 0));
+        } else if (sortVal === 'publishDateDesc') {
+            filtered.sort((a, b) => new Date(b.publishDate || '1970-01-01') - new Date(a.publishDate || '1970-01-01'));
+        }
+
+        // 3. 상태 업데이트 및 리렌더링
+        this.state.g2bFilteredItems = filtered;
+        if (resetPage) {
+            this.g2bPageNo = 1;
+        }
+
+        this.renderG2BViewAnnouncements();
+    }
+
+    // 200~300ms Debounce 적용 로컬 필터링 바인딩
+    handleG2BLocalFilterDebounced() {
+        if (this.g2bLocalFilterTimeout) {
+            clearTimeout(this.g2bLocalFilterTimeout);
+        }
+        this.g2bLocalFilterTimeout = setTimeout(() => {
+            this.handleG2BLocalFilter(true);
+        }, 250);
+    }
+
+    // 로컬 필터 초기화
+    resetG2BLocalFilter() {
+        const searchInput = document.getElementById('g2b-local-search-input');
+        const sortSelect = document.getElementById('g2b-local-sort');
+
+        if (searchInput) searchInput.value = '';
+        if (sortSelect) sortSelect.value = 'endDateAsc';
+
+        this.state.g2bSearchKeyword = '';
+        this.handleG2BLocalFilter(true);
+    }
+
+    // 로컬 페이징 처리
+    changeG2BPage(page) {
+        this.g2bPageNo = page;
+        this.renderG2BViewAnnouncements();
     }
 
     initG2BSearchView() {

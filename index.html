@@ -923,6 +923,35 @@
 
                     <!-- Search Results Card -->
                     <div class="dashboard-card" style="padding: 20px; flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                        
+                        <!-- 로컬 필터 및 검색 바 (API 추가 호출 없이 화면 단에서 고속 검색/정렬 제공) -->
+                        <div class="g2b-local-filter-bar" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--bg-card-border); flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 280px;">
+                                <div class="search-input-wrapper" style="flex: 1; max-width: 320px; position: relative;">
+                                    <i data-lucide="search" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--text-muted);"></i>
+                                    <input type="text" id="g2b-local-search-input" placeholder="결과 내 검색 (공고명, 수요기관, 공고번호)..." style="width: 100%; padding: 8px 12px 8px 32px; border-radius: 6px; border: 1px solid var(--bg-card-border); background: var(--bg-hover-item); color: var(--text-main); font-size: 13px;" oninput="app.handleG2BLocalFilterDebounced()">
+                                </div>
+                                <button class="btn btn-outline btn-xs" onclick="app.resetG2BLocalFilter()" style="height: 34px; display: inline-flex; align-items: center; gap: 4px; padding: 0 10px; border-radius: 6px; font-weight: 700;">
+                                    <i data-lucide="rotate-ccw" style="width: 12px; height: 12px;"></i> 초기화
+                                </button>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <label for="g2b-local-sort" style="font-size: 12px; font-weight: 600; color: var(--text-muted); white-space: nowrap;">정렬</label>
+                                    <select id="g2b-local-sort" onchange="app.handleG2BLocalFilter(true)" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--bg-card-border); background: var(--bg-hover-item); color: var(--text-main); font-size: 13px; cursor: pointer; height: 34px;">
+                                        <option value="endDateAsc">마감일 임박순</option>
+                                        <option value="endDateDesc">마감일 여유순</option>
+                                        <option value="budgetDesc">예산 높은순</option>
+                                        <option value="budgetAsc">예산 낮은순</option>
+                                        <option value="publishDateDesc">공고일 최신순</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-outline btn-xs" onclick="app.fetchG2BAnnouncements(1)" style="height: 34px; display: inline-flex; align-items: center; gap: 4px; padding: 0 10px; border-radius: 6px; font-weight: 700;" title="나라장터 API 실시간 재조회">
+                                    <i data-lucide="refresh-cw" style="width: 12px; height: 12px;"></i> 새로고침
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="table-container" style="flex: 1; overflow-y: auto;">
                             <table class="data-table">
                                 <thead>
