@@ -5408,7 +5408,11 @@ class AetherPMO {
         }
 
         // 2. Render G2B Announcements (Right Panel)
-        this.renderG2BAnnouncements();
+        if (!this.state.g2bAnnouncements || this.state.g2bAnnouncements.length === 0) {
+            this.fetchG2BAnnouncements(1, { isBiddingPanel: true });
+        } else {
+            this.renderG2BAnnouncements();
+        }
 
         this.applyRolePermissions();
 
