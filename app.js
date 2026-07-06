@@ -5991,6 +5991,23 @@ class AetherPMO {
         }, 300);
     }
 
+    // 입찰단계 우측 나라장터 공고조회용 API 즉시 검색 (검색 버튼 / 엔터키 입력 시)
+    handleG2BApiSearchImmediate() {
+        if (this.g2bApiSearchTimeout) {
+            clearTimeout(this.g2bApiSearchTimeout);
+        }
+        const keyword = document.getElementById('g2b-search-input')?.value?.trim() || '';
+        if (keyword.length === 1) {
+            alert('검색어는 최소 2글자 이상 입력해 주세요.');
+            const tbody = document.getElementById('g2b-announcements-tbody');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-8">검색어는 최소 2글자 이상 입력해 주세요.</td></tr>';
+            }
+            return;
+        }
+        this.fetchG2BAnnouncements(1, { bidNtceNm: keyword, isBiddingPanel: true });
+    }
+
     // [로컬 필터링 및 검색어 동적 필터 구현] (API 재조회 절대 금지)
     handleG2BLocalFilter(resetPage = false) {
         const searchInput = document.getElementById('g2b-local-search-input');

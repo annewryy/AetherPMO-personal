@@ -850,11 +850,15 @@
                                     <i data-lucide="search" class="text-info"></i>
                                     <h2>나라장터 공고조회</h2>
                                 </div>
-                                <div class="g2b-search-area">
-                                    <div class="search-input-wrapper">
+                                <div class="g2b-search-area" style="display: flex; gap: 8px; width: 100%;">
+                                    <div class="search-input-wrapper" style="flex: 1;">
                                         <i data-lucide="search"></i>
-                                        <input type="text" id="g2b-search-input" placeholder="공고명, 발주기관 검색..." oninput="app.handleG2BApiSearchDebounced()">
+                                        <input type="text" id="g2b-search-input" placeholder="공고명, 발주기관 검색..." oninput="app.handleG2BApiSearchDebounced()" onkeydown="if(event.key === 'Enter') { app.handleG2BApiSearchImmediate(); }">
                                     </div>
+                                    <button class="btn btn-sm btn-primary" onclick="app.handleG2BApiSearchImmediate()" style="height: 36px; padding: 0 12px; display: flex; align-items: center; gap: 4px; border-radius: 6px;">
+                                        <i data-lucide="search" style="width:14px; height:14px;"></i>
+                                        <span>검색</span>
+                                    </button>
                                 </div>
                             </div>
                             <div class="table-container" style="flex:1; overflow-y:auto; margin-top:12px;">
