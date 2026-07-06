@@ -804,6 +804,7 @@ class AetherPMO {
                         bid_status: p.bidStatus || null,
                         progress: p.progress,
                         resources: p.resources,
+                        bid_number: p.bidNumber || null,
                         customer_name: p.customer || p.customerName || '',
                         project_budget: p.projectBudget || 0,
                         business_type: p.businessType,
@@ -1911,6 +1912,7 @@ class AetherPMO {
                 bid_status: p.bidStatus,
                 progress: p.progress,
                 resources: p.resources,
+                bid_number: p.bidNumber || null,
                 customer_name: p.customerName,
                 project_budget: p.projectBudget || p.budget,
                 business_type: p.businessType,
@@ -5513,8 +5515,12 @@ class AetherPMO {
             { name: '안유경', role: 'PM / 총괄', type: 'PM' }
         ];
 
+        // project_code(내부 프로젝트 코드)와 bid_number(나라장터 공고번호)의 역할 분리
+        // 내부 코드가 없다면 자동 생성하여 UNIQUE 제약조건 충족시킴
+        const tempProjectCode = this.generateNextProjectCode();
+
         const projData = {
-            project_code: ann.announcementNo,
+            project_code: tempProjectCode,
             project_name: ann.name,
             desc: `${ann.announcementNo} 나라장터 연계 입찰 참여 프로젝트`,
             dept: '기획팀',
@@ -5525,6 +5531,7 @@ class AetherPMO {
             customer_name: ann.customer,
             budget: ann.budget,
             project_budget: ann.budget,
+            bid_number: ann.announcementNo, // 공고번호는 bid_number에 명시적 보관
             business_type: '용역',
             status: 'Bidding',
             bid_status: '제안준비중',
