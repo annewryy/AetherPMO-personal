@@ -68,6 +68,27 @@ const checkDateRangeExceeds = (startStr, endStr) => {
     const diffDays = diffTime / (1000 * 60 * 60 * 24);
     return diffDays > 186;
 };
+const normalizeString = (str) => {
+    if (!str) return '';
+    return str
+        .toLowerCase()
+        .replace(/\s+/g, '')                  // 모든 공백 제거
+        .normalize('NFC');                     // 한글 NFC 정규화
+};
+
+const matchesKeyword = (target, keyword) => {
+    if (!keyword) return true;
+    return normalizeString(target).includes(normalizeString(keyword));
+};
+
+const getPastDateString = (days) => {
+    const d = new Date();
+    const past = new Date(d.getTime() - days * 24 * 60 * 60 * 1000);
+    const yyyy = past.getFullYear();
+    const mm = String(past.getMonth() + 1).padStart(2, '0');
+    const dd = String(past.getDate()).padStart(2, '0');
+    return `${yyyy}${mm}${dd}`;
+};
 
 module.exports = async (req, res) => {
     // Enable CORS
@@ -243,135 +264,143 @@ module.exports = async (req, res) => {
             return;
 
         } else {
-            // Search mode: Fetch multiple pages in parallel chunks and filter
+            // Search mode: 하이브리드 쿼리 수집 및 중복 제거
             console.log(`[Search Mode] Keyword filter active. bidNtceNm='${bidNtceNm}', dminsttNm='${dminsttNm}'`);
 
-            const getPageUrl = (page) => {
-                const p = new URLSearchParams({
-                    numOfRows: '100', // Fetch 100 at a time for filtering efficiency
-                    pageNo: String(page),
+            // 1단계: 조달청 API 직접 검색 쿼리 전송 (최대 200건)
+            let directItems = [];
+            try {
+                const directParams = new URLSearchParams({
+                    numOfRows: '100',
+                    pageNo: '1',
                     inqryDiv: '1',
                     inqryBgnDt: inqryBgnDt,
                     inqryEndDt: inqryEndDt,
                     type: 'json'
                 });
-                return `https://apis.data.go.kr/1230000/ad/BidPublicInfoService/getBidPblancListInfoServc?serviceKey=${finalKey}&${p.toString()}`;
-            };
-
-            // 1. Fetch first page to assess totalCount
-            const firstPageUrl = getPageUrl(1);
-            console.log(`[Search Mode] Fetching page 1: ${firstPageUrl.split(finalKey).join('[MASKED]')}`);
-            
-            const firstResult = await fetchG2BData(firstPageUrl);
-            const firstXmlErr = extractXmlError(firstResult.data);
-            if (firstXmlErr) {
-                throw new Error(`OpenAPI Error (XML) - Code: ${firstXmlErr.code}, Message: ${firstXmlErr.msg}`);
-            }
-
-            let firstJson;
-            try {
-                firstJson = JSON.parse(firstResult.data);
-            } catch (e) {
-                throw new Error(`Failed to parse first page G2B JSON. Preview: ${firstResult.data ? firstResult.data.substring(0, 200) : 'N/A'}`);
-            }
-
-            const header = firstJson?.response?.header;
-            if (header && header.resultCode && header.resultCode !== '00') {
-                throw new Error(`OpenAPI Error (JSON) - Code: ${header.resultCode}, Message: ${header.resultMsg}`);
-            }
-
-            const totalCount = parseInt(firstJson?.response?.body?.totalCount || '0');
-            console.log(`[Search Mode] Total count inside date range reported by API: ${totalCount}`);
-
-            const itemsData = firstJson?.response?.body?.items;
-            let mergedItems = [];
-            if (itemsData) {
-                if (Array.isArray(itemsData)) mergedItems = [...itemsData];
-                else if (Array.isArray(itemsData.item)) mergedItems = [...itemsData.item];
-                else if (itemsData.item) mergedItems = [itemsData.item];
-            }
-
-            // 2. Assess extra pages required (Limit to maximum 10 pages / 1,000 items)
-            const maxPages = Math.min(Math.ceil(totalCount / 100), 10);
-            console.log(`[Search Mode] Need to fetch up to page ${maxPages} (capped at 10)`);
-
-            const extraPages = [];
-            for (let p = 2; p <= maxPages; p++) {
-                extraPages.push(p);
-            }
-
-            // 3. Batch concurrent request loops (concurrency size = 3)
-            const chunkSize = 3;
-            for (let i = 0; i < extraPages.length; i += chunkSize) {
-                const chunk = extraPages.slice(i, i + chunkSize);
-                console.log(`[Search Mode] Fetching batch pages: ${chunk}`);
+                if (bidNtceNm) directParams.append('bidNtceNm', bidNtceNm);
+                if (dminsttNm) directParams.append('dminsttNm', dminsttNm);
                 
-                const promises = chunk.map(page => fetchG2BData(getPageUrl(page)));
-                const responses = await Promise.all(promises);
-
-                for (let rIdx = 0; rIdx < responses.length; rIdx++) {
-                    const resData = responses[rIdx].data;
-                    const pageNum = chunk[rIdx];
-                    
-                    const xmlErr = extractXmlError(resData);
-                    if (xmlErr) {
-                        console.warn(`[Search Mode] Skip page ${pageNum} due to XML Error: ${xmlErr.msg}`);
-                        continue;
-                    }
-
-                    try {
-                        const parsed = JSON.parse(resData);
-                        const items = parsed?.response?.body?.items;
-                        if (items) {
-                            if (Array.isArray(items)) mergedItems = mergedItems.concat(items);
-                            else if (Array.isArray(items.item)) mergedItems = mergedItems.concat(items.item);
-                            else if (items.item) mergedItems.push(items.item);
-                        }
-                    } catch (e) {
-                        console.warn(`[Search Mode] Skip page ${pageNum} due to JSON parse error: ${e.message}`);
+                const directUrl = `https://apis.data.go.kr/1230000/ad/BidPublicInfoService/getBidPblancListInfoServc?serviceKey=${finalKey}&${directParams.toString()}`;
+                const directRes = await fetchG2BData(directUrl);
+                
+                const directXmlErr = extractXmlError(directRes.data);
+                if (!directXmlErr) {
+                    const directJson = JSON.parse(directRes.data);
+                    const items = directJson?.response?.body?.items;
+                    if (items) {
+                        if (Array.isArray(items)) directItems = [...items];
+                        else if (Array.isArray(items.item)) directItems = [...items.item];
+                        else if (items.item) directItems = [items.item];
                     }
                 }
+            } catch (e) {
+                console.warn('[Hybrid Search] Direct API query failed:', e.message);
             }
 
-            console.log(`[Search Mode] Aggregated raw items size: ${mergedItems.length}`);
-            if (mergedItems.length > 0) {
-                console.log('[Search Mode] Sample raw item fields:');
-                console.log(JSON.stringify(mergedItems.slice(0, 3).map(item => ({
-                    bidNtceNm: item.bidNtceNm,
-                    bidNtceNo: item.bidNtceNo,
-                    dminsttNm: item.dminsttNm,
-                    ntceInsttNm: item.ntceInsttNm
-                })), null, 2));
-            }
+            // 2단계: 검색어 없이 최근 30일 전체 공고 데이터 수집 (최대 300건)
+            const fetchRangeData = async (daysLimit) => {
+                const bDate = getPastDateString(daysLimit);
+                const eDate = getPastDateString(0);
+                const bDt = bDate + '0000';
+                const eDt = eDate + '2359';
+                
+                let collected = [];
+                // 최대 3페이지(300건)까지 가져와 병합
+                for (let p = 1; p <= 3; p++) {
+                    try {
+                        const rangeParams = new URLSearchParams({
+                            numOfRows: '100',
+                            pageNo: String(p),
+                            inqryDiv: '1',
+                            inqryBgnDt: bDt,
+                            inqryEndDt: eDt,
+                            type: 'json'
+                        });
+                        const rangeUrl = `https://apis.data.go.kr/1230000/ad/BidPublicInfoService/getBidPblancListInfoServc?serviceKey=${finalKey}&${rangeParams.toString()}`;
+                        const rangeRes = await fetchG2BData(rangeUrl);
+                        
+                        const xmlErr = extractXmlError(rangeRes.data);
+                        if (xmlErr) break;
+                        
+                        const rangeJson = JSON.parse(rangeRes.data);
+                        const items = rangeJson?.response?.body?.items;
+                        if (items) {
+                            if (Array.isArray(items)) collected = collected.concat(items);
+                            else if (Array.isArray(items.item)) collected = collected.concat(items.item);
+                            else if (items.item) collected.push(items.item);
+                        } else {
+                            break;
+                        }
+                    } catch (e) {
+                        console.warn(`[Hybrid Search] Range query failed for page ${p}:`, e.message);
+                        break;
+                    }
+                }
+                return collected;
+            };
 
-            // 4. Case-insensitive string matching
-            const searchTitle = bidNtceNm.toLowerCase().trim();
-            const searchCustomer = dminsttNm.toLowerCase().trim();
+            let rangeItems = await fetchRangeData(30);
 
-            let filteredList = mergedItems;
-            if (searchTitle) {
-                filteredList = filteredList.filter(item => {
-                    const name = String(item.bidNtceNm || '').toLowerCase().trim();
-                    const no = String(item.bidNtceNo || '').toLowerCase().trim();
-                    return name.includes(searchTitle) || no.includes(searchTitle);
+            // 3단계: 두 결과 병합 및 공고번호(bidNtceNo) 기준으로 중복 제거
+            let mergedRawItems = [...directItems, ...rangeItems];
+            const seenNoticeNos = new Set();
+            let uniqueItems = [];
+            
+            mergedRawItems.forEach(item => {
+                const no = item.bidNtceNo;
+                if (no && !seenNoticeNos.has(no)) {
+                    seenNoticeNos.add(no);
+                    uniqueItems.push(item);
+                }
+            });
+
+            // 4단계: 한글 정규화/공백제거 includes 로컬 부분 매칭 수행
+            const performLocalFiltering = (items) => {
+                let res = items;
+                if (bidNtceNm) {
+                    res = res.filter(item => 
+                        matchesKeyword(item.bidNtceNm || '', bidNtceNm) || 
+                        matchesKeyword(item.bidNtceNo || '', bidNtceNm)
+                    );
+                }
+                if (dminsttNm) {
+                    res = res.filter(item => 
+                        matchesKeyword(item.dminsttNm || '', dminsttNm) || 
+                        matchesKeyword(item.ntceInsttNm || '', dminsttNm)
+                    );
+                }
+                return res;
+            };
+
+            let finalFilteredList = performLocalFiltering(uniqueItems);
+            console.log(`[Hybrid Search] 30-day filtered matching items size: ${finalFilteredList.length}`);
+
+            // 5단계: 결과가 너무 적으면(5건 미만) 최근 90일 범위로 확장 수집 (확장 옵션 작동)
+            if (finalFilteredList.length < 5) {
+                console.log(`[Hybrid Search] Results count (${finalFilteredList.length}) is too low. Expanding search range to 90 days...`);
+                const extendedRangeItems = await fetchRangeData(90);
+                
+                // 다시 병합 및 중복 제거
+                let extendedRawItems = [...uniqueItems, ...extendedRangeItems];
+                const extendedSeen = new Set();
+                let extendedUnique = [];
+                extendedRawItems.forEach(item => {
+                    const no = item.bidNtceNo;
+                    if (no && !extendedSeen.has(no)) {
+                        extendedSeen.add(no);
+                        extendedUnique.push(item);
+                    }
                 });
-            }
-            if (searchCustomer) {
-                filteredList = filteredList.filter(item => {
-                    const customer = String(item.dminsttNm || '').toLowerCase().trim();
-                    const inst = String(item.ntceInsttNm || '').toLowerCase().trim();
-                    return customer.includes(searchCustomer) || inst.includes(searchCustomer);
-                });
+                
+                finalFilteredList = performLocalFiltering(extendedUnique);
+                console.log(`[Hybrid Search] Post-expansion final filtered list size: ${finalFilteredList.length}`);
             }
 
-            console.log(`[Search Mode] Filtered matching items size: ${filteredList.length}`);
-
-            // 5. Paginate client slice
+            // 6단계: 페이징 처리 및 리턴 포맷팅
             const startIndex = (clientPage - 1) * clientLimit;
             const endIndex = startIndex + clientLimit;
-            const slicedList = filteredList.slice(startIndex, endIndex);
-
-            console.log(`[Search Mode] Slicing matching items for page ${clientPage} (limit ${clientLimit}): size=${slicedList.length}`);
+            const slicedList = finalFilteredList.slice(startIndex, endIndex);
 
             const formattedList = slicedList.map((item, idx) => ({
                 id: `g2b-api-${idx}-${Date.now()}`,
@@ -386,8 +415,7 @@ module.exports = async (req, res) => {
                 asignBdgtAmt: Number(item.asignBdgtAmt || 0)
             }));
 
-            // Return filteredList.length as totalCount to maintain correct pagination UI
-            res.status(200).json({ announcements: formattedList, totalCount: filteredList.length });
+            res.status(200).json({ announcements: formattedList, totalCount: finalFilteredList.length });
             return;
         }
 
