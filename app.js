@@ -89,7 +89,13 @@ class AetherPMO {
                                   typeof window.supabase !== 'undefined';
 
         if (hasSupabaseConfig) {
-            this.supabase = window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey);
+            this.supabase = window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey, {
+                auth: {
+                    storage: window.sessionStorage,
+                    persistSession: true,
+                    detectSessionInUrl: false
+                }
+            });
             this.useSupabase = true;
             console.log('[Supabase] Enabled and initialized successfully.');
         } else {
@@ -9810,7 +9816,13 @@ class AetherPMO {
         const supabase = this.supabase || (() => {
             const cfg = window.SUPABASE_CONFIG;
             if (cfg && cfg.url && cfg.anonKey && typeof window.supabase !== 'undefined') {
-                return window.supabase.createClient(cfg.url, cfg.anonKey);
+                return window.supabase.createClient(cfg.url, cfg.anonKey, {
+                    auth: {
+                        storage: window.sessionStorage,
+                        persistSession: true,
+                        detectSessionInUrl: false
+                    }
+                });
             }
             return null;
         })();
