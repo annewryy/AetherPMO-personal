@@ -5534,7 +5534,7 @@ class AetherPMO {
             bid_number: ann.announcementNo, // 공고번호는 bid_number에 명시적 보관
             business_type: '용역',
             status: 'Bidding',
-            bid_status: '제안준비중',
+            bid_status: '제안 준비중',
             progress: 0,
             resources: 0,
             wbs: { stages: defaultWbsStages },
