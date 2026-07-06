@@ -150,8 +150,9 @@ module.exports = async (req, res) => {
 
         if (!bgngDt || !endDt) {
             const today = new Date();
+            const past = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
             const formatDate = (d) => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-            bgngDt = bgngDt || formatDate(today);
+            bgngDt = bgngDt || formatDate(past);
             endDt = endDt || formatDate(today);
         }
 

@@ -5671,6 +5671,21 @@ class AetherPMO {
             ? options.bidNtceNm 
             : (document.getElementById('g2b-filter-title')?.value?.trim() || '');
             
+        // 검색어가 1글자인 경우 API 호출 차단 (최소 2글자 제한)
+        if (bidNtceNm && bidNtceNm.length === 1) {
+            alert('검색어는 최소 2글자 이상 입력해 주세요.');
+            this.g2bLoading = false;
+            
+            const tbody = isBiddingPanel 
+                ? document.getElementById('g2b-announcements-tbody')
+                : document.getElementById('g2b-view-announcements-tbody');
+            if (tbody) {
+                const colspan = isBiddingPanel ? 7 : 8;
+                tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-muted py-8">검색어는 최소 2글자 이상 입력해 주세요.</td></tr>`;
+            }
+            return;
+        }
+
         const dminsttNm = options.dminsttNm !== undefined 
             ? options.dminsttNm 
             : (document.getElementById('g2b-filter-customer')?.value?.trim() || '');
@@ -5771,10 +5786,12 @@ class AetherPMO {
                 numOfRows: '100'
             });
             const response = await fetch(`/api/g2b?${params.toString()}`);
-            if (!response.ok) {
-                throw new Error('나라장터 API 호출에 실패했습니다.');
-            }
             const data = await response.json();
+            
+            if (!response.ok || data.error) {
+                const errMsg = data.details || data.message || '나라장터 API 호출에 실패했습니다.';
+                throw new Error(errMsg);
+            }
             
             // 상태 분리: originalItems에 원본 저장
             this.state.g2bOriginalItems = data.announcements || [];
@@ -5804,6 +5821,9 @@ class AetherPMO {
             console.error('Failed to fetch G2B announcements:', e);
             this.state.g2bOriginalItems = [];
             this.state.g2bFilteredItems = [];
+            
+            const errDetail = e.message || '공공데이터포털(data.go.kr) 서비스 장애 또는 일시적 네트워크 에러';
+            
             if (tbody) {
                 const colspan = isBiddingPanel ? 7 : 8;
                 tbody.innerHTML = `
@@ -5812,8 +5832,11 @@ class AetherPMO {
                             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
                                 <i data-lucide="alert-circle" style="width: 32px; height: 32px; color: var(--danger);"></i>
                                 <span style="font-weight: 600; font-size: 15px; color: var(--text-main);">나라장터 실시간 공고 조회 실패</span>
-                                <span style="font-size: 13px; color: var(--text-muted); max-width: 450px; line-height: 1.6; margin: 0 auto;">
-                                    공공데이터포털(data.go.kr)의 인증키가 아직 동기화 중이거나 일시적인 서비스 장애일 수 있습니다. 포털 시스템 반영을 기다리시거나 인증키 및 Vercel 환경변수 설정을 재확인해 주세요.
+                                <span style="font-size: 13px; color: var(--text-muted); max-width: 480px; line-height: 1.6; margin: 0 auto; word-break: break-all;">
+                                    오류 원인: ${errDetail}
+                                </span>
+                                <span style="font-size: 12px; color: var(--text-muted); max-width: 450px; line-height: 1.6; margin: 0 auto;">
+                                    공공데이터포털(data.go.kr)의 인증키 동기화 대기 중이거나 일시적인 OpenAPI 차단일 수 있습니다. 설정 정보를 확인해 주세요.
                                 </span>
                             </div>
                         </td>
@@ -5956,6 +5979,14 @@ class AetherPMO {
         }
         this.g2bApiSearchTimeout = setTimeout(() => {
             const keyword = document.getElementById('g2b-search-input')?.value?.trim() || '';
+            if (keyword.length === 1) {
+                alert('검색어는 최소 2글자 이상 입력해 주세요.');
+                const tbody = document.getElementById('g2b-announcements-tbody');
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-8">검색어는 최소 2글자 이상 입력해 주세요.</td></tr>';
+                }
+                return;
+            }
             this.fetchG2BAnnouncements(1, { bidNtceNm: keyword, isBiddingPanel: true });
         }, 300);
     }
