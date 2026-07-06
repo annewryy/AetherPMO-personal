@@ -25,6 +25,8 @@ class AetherPMO {
             theme: 'dark'
         };
 
+        this.g2bAnnouncementsMap = {};
+
         // Active context variables
         this.activeProjectId = null;
         this.activeProjectStageFilter = 'Active'; // Bidding | Active | Closed
@@ -5502,8 +5504,9 @@ class AetherPMO {
     }
 
     async registerBiddingProjectFromG2B(announcementNo) {
-        const items = this.state.g2bOriginalItems.length > 0 ? this.state.g2bOriginalItems : this.state.g2bAnnouncements;
-        const ann = items.find(a => a.announcementNo === announcementNo);
+        const ann = this.g2bAnnouncementsMap[announcementNo] || 
+                    (this.state.g2bOriginalItems || []).find(a => a.announcementNo === announcementNo) || 
+                    (this.state.g2bAnnouncements || []).find(a => a.announcementNo === announcementNo);
         if (!ann) {
             alert('공고 정보를 찾을 수 없습니다.');
             return;
@@ -5650,27 +5653,61 @@ class AetherPMO {
             this.saveState();
             alert(`"${newProject.name}" 공고가 입찰 참여 프로젝트로 정상 등록되었습니다. (로컬 저장됨)`);
 
-            // Update both views
-            this.renderG2BViewAnnouncements();
-            this.renderProjects();
+            // Update both views and panels
+            this.renderG2BViewAnnouncements(); // 대메뉴 뷰
+            this.renderG2BAnnouncements(); // 입찰단계 우측 패널 뷰
+            this.renderBiddingSplitPane(); // 입찰단계 좌측 패널 뷰
+            this.renderProjects(); // 일반 프로젝트 목록 뷰
         }
     }
 
-    async fetchG2BAnnouncements(page = 1) {
+    async fetchG2BAnnouncements(page = 1, options = {}) {
         if (this.g2bLoading) return;
         this.g2bLoading = true;
-        this.g2bPageNo = 1; // API 재호출 시 페이지는 1로 초기화
+        this.g2bPageNo = page;
 
-        const bidNtceNm = document.getElementById('g2b-filter-title').value.trim();
-        const dminsttNm = document.getElementById('g2b-filter-customer').value.trim();
-        const bgngDt = document.getElementById('g2b-filter-start-date').value;
-        const endDt = document.getElementById('g2b-filter-end-date').value;
+        // options에서 인자를 받거나, 대메뉴 필터 엘리먼트에서 획득
+        const bidNtceNm = options.bidNtceNm !== undefined 
+            ? options.bidNtceNm 
+            : (document.getElementById('g2b-filter-title')?.value?.trim() || '');
+            
+        const dminsttNm = options.dminsttNm !== undefined 
+            ? options.dminsttNm 
+            : (document.getElementById('g2b-filter-customer')?.value?.trim() || '');
 
-        const tbody = document.getElementById('g2b-view-announcements-tbody');
+        let bgngDt = options.bgngDt !== undefined 
+            ? options.bgngDt 
+            : (document.getElementById('g2b-filter-start-date')?.value || '');
+            
+        let endDt = options.endDt !== undefined 
+            ? options.endDt 
+            : (document.getElementById('g2b-filter-end-date')?.value || '');
+
+        const isBiddingPanel = options.isBiddingPanel || false;
+
+        // 날짜 필터가 없는 입찰단계 우측 검색 호출 등을 고려해 날짜가 비어있을 시 기본 30일 설정
+        if (!bgngDt || !endDt) {
+            const today = new Date();
+            const past = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+            const formatDate = (d) => {
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+            };
+            bgngDt = formatDate(past);
+            endDt = formatDate(today);
+        }
+
+        const tbody = isBiddingPanel 
+            ? document.getElementById('g2b-announcements-tbody')
+            : document.getElementById('g2b-view-announcements-tbody');
+
         if (tbody) {
+            const colspan = isBiddingPanel ? 7 : 8;
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="8" class="text-center py-8">
+                    <td colspan="${colspan}" class="text-center py-8">
                         <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
                             <span class="loading spinner-loading" style="border: 3px solid var(--bg-hover-item); border-top: 3px solid var(--primary); border-radius: 50%; width: 24px; height: 24px; display: inline-block; animation: spin 1s linear infinite;"></span>
                             <span style="font-size: 13px; color: var(--text-muted);">나라장터 실시간 공고를 검색하는 중입니다...</span>
@@ -5680,8 +5717,8 @@ class AetherPMO {
             `;
         }
 
-        // 6개월 조회기간 가드 검증
-        if (bgngDt && endDt) {
+        // 6개월 조회기간 가드 검증 (대메뉴 검색 시에만 검증)
+        if (!isBiddingPanel && bgngDt && endDt) {
             const cleanBgn = bgngDt.replace(/-/g, '').trim();
             const cleanEnd = endDt.replace(/-/g, '').trim();
             
@@ -5725,13 +5762,12 @@ class AetherPMO {
         }
 
         try {
-            // 한 번에 100건을 긁어와 로컬 캐시에 적재
             const params = new URLSearchParams({
                 bidNtceNm,
                 dminsttNm,
                 bgngDt,
                 endDt,
-                pageNo: '1',
+                pageNo: String(page),
                 numOfRows: '100'
             });
             const response = await fetch(`/api/g2b?${params.toString()}`);
@@ -5740,28 +5776,39 @@ class AetherPMO {
             }
             const data = await response.json();
             
-            // 상태 분리: originalItems에 원본 저장 (g2bAnnouncements는 하위 호환성 유지)
+            // 상태 분리: originalItems에 원본 저장
             this.state.g2bOriginalItems = data.announcements || [];
             this.state.g2bAnnouncements = this.state.g2bOriginalItems;
             this.state.g2bTotalCount = data.totalCount || this.state.g2bOriginalItems.length;
-            
-            // 로컬 검색어 인풋 초기화
-            const localSearchInput = document.getElementById('g2b-local-search-input');
-            if (localSearchInput) {
-                localSearchInput.value = '';
-            }
-            this.state.g2bSearchKeyword = '';
 
-            // 로컬 필터 실행 및 렌더링 호출
-            this.handleG2BLocalFilter(true);
+            // 공고 객체 캐싱 맵 적재 (등록 시 find 에러 영구 해결)
+            this.state.g2bOriginalItems.forEach(ann => {
+                if (ann.announcementNo) {
+                    this.g2bAnnouncementsMap[ann.announcementNo] = ann;
+                }
+            });
+            
+            if (isBiddingPanel) {
+                // 입찰단계 우측 패널 렌더러 호출
+                this.renderG2BAnnouncements();
+            } else {
+                // 대메뉴 로컬 검색어 인풋 초기화 및 렌더러 호출
+                const localSearchInput = document.getElementById('g2b-local-search-input');
+                if (localSearchInput) {
+                    localSearchInput.value = '';
+                }
+                this.state.g2bSearchKeyword = '';
+                this.handleG2BLocalFilter(true);
+            }
         } catch (e) {
             console.error('Failed to fetch G2B announcements:', e);
             this.state.g2bOriginalItems = [];
             this.state.g2bFilteredItems = [];
             if (tbody) {
+                const colspan = isBiddingPanel ? 7 : 8;
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="8" class="text-center text-error py-12" style="color: var(--danger); padding: 40px 16px;">
+                        <td colspan="${colspan}" class="text-center text-error py-12" style="color: var(--danger); padding: 40px 16px;">
                             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
                                 <i data-lucide="alert-circle" style="width: 32px; height: 32px; color: var(--danger);"></i>
                                 <span style="font-weight: 600; font-size: 15px; color: var(--text-main);">나라장터 실시간 공고 조회 실패</span>
@@ -5900,6 +5947,17 @@ class AetherPMO {
         if (window.lucide) {
             window.lucide.createIcons();
         }
+    }
+
+    // 입찰단계 우측 나라장터 공고조회용 API 실시간 검색 Debounce (API 연동 통합)
+    handleG2BApiSearchDebounced() {
+        if (this.g2bApiSearchTimeout) {
+            clearTimeout(this.g2bApiSearchTimeout);
+        }
+        this.g2bApiSearchTimeout = setTimeout(() => {
+            const keyword = document.getElementById('g2b-search-input')?.value?.trim() || '';
+            this.fetchG2BAnnouncements(1, { bidNtceNm: keyword, isBiddingPanel: true });
+        }, 300);
     }
 
     // [로컬 필터링 및 검색어 동적 필터 구현] (API 재조회 절대 금지)
