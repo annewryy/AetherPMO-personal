@@ -5307,22 +5307,28 @@ class AetherPMO {
 
         leftGrid.innerHTML = '';
         if (biddingProjects.length === 0) {
+            const hasAnyBidding = this.state.projects.some(p => p.status === 'Bidding');
+            const emptyMsg = hasAnyBidding 
+                ? '조건에 부합하는 입찰 프로젝트가 없습니다.' 
+                : '등록된 입찰 참여 프로젝트가 없습니다.';
             leftGrid.innerHTML = `
-                <div class="text-center text-muted py-5" style="grid-column: 1 / -1; padding: 48px 0; width:100%;">
+                <div class="text-center text-muted py-8" style="grid-column: 1 / -1; padding: 48px 0; width:100%;">
                     <i data-lucide="folder-open" style="width:40px; height:40px; margin-bottom:12px; opacity:0.5; display:inline-block;"></i>
-                    <p>조건에 부합하는 입찰 프로젝트가 없습니다.</p>
+                    <p style="font-size: 13px; font-weight: 500;">${emptyMsg}</p>
                 </div>
             `;
         } else {
+            const isValidDate = (d) => d instanceof Date && !isNaN(d.getTime());
+            
             biddingProjects.forEach(p => {
                 const today = new Date();
                 today.setHours(0,0,0,0);
                 const end = p.endDate ? new Date(p.endDate) : null;
-                if (end) end.setHours(0,0,0,0);
 
                 let dDayText = '-';
                 let dDayClass = 'dday-normal';
-                if (end) {
+                if (end && isValidDate(end)) {
+                    end.setHours(0,0,0,0);
                     const diffTime = end.getTime() - today.getTime();
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                     if (diffDays === 0) {
@@ -5337,6 +5343,9 @@ class AetherPMO {
                             dDayClass = 'dday-impending';
                         }
                     }
+                } else {
+                    dDayText = '마감일 미정';
+                    dDayClass = 'dday-normal';
                 }
 
                 const bidStatus = p.bidStatus || '제안 준비중';
@@ -5430,13 +5439,15 @@ class AetherPMO {
         const today = new Date();
         today.setHours(0,0,0,0);
 
+        const isValidDate = (d) => d instanceof Date && !isNaN(d.getTime());
+
         filtered.forEach(ann => {
             const end = ann.endDate ? new Date(ann.endDate) : null;
-            if (end) end.setHours(0,0,0,0);
 
             let dDayText = '-';
             let dDayClass = 'dday-normal';
-            if (end) {
+            if (end && isValidDate(end)) {
+                end.setHours(0,0,0,0);
                 const diffTime = end.getTime() - today.getTime();
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 if (diffDays === 0) {
@@ -5451,28 +5462,32 @@ class AetherPMO {
                         dDayClass = 'dday-impending';
                     }
                 }
+            } else {
+                dDayText = '마감일 미정';
+                dDayClass = 'dday-normal';
             }
 
             // Check if already registered
             const isRegistered = this.state.projects.some(p => p.name === ann.name || p.projectCode === ann.announcementNo);
 
             const tr = document.createElement('tr');
+            tr.style.height = '68px'; // 행 고정 높이 적용
             tr.innerHTML = `
                 <td>
-                    <span class="font-bold text-xs" style="max-width: 180px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${ann.name}">${ann.name}</span>
+                    <span class="font-bold text-xs" style="max-width: 240px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;" title="${ann.name}">${ann.name}</span>
                 </td>
                 <td class="text-xs font-bold">${ann.customer}</td>
                 <td class="text-xs text-muted font-bold">${ann.announcementNo}</td>
                 <td class="text-xs font-bold text-success">${ann.budget ? ann.budget.toLocaleString() + ' 원' : '-'}</td>
-                <td class="text-xs text-muted">
+                <td class="text-xs text-muted" style="min-width: 150px; white-space: nowrap;">
                     <div>공고: ${ann.publishDate}</div>
-                    <div style="margin-top:2px;">마감: ${ann.endDate}</div>
+                    <div style="margin-top:2px;">마감: ${ann.endDate || '-'}</div>
                 </td>
                 <td><span class="d-day-badge ${dDayClass}" style="font-size:10px; padding:2px 6px;">${dDayText}</span></td>
                 <td class="text-center">
                     ${isRegistered 
                         ? `<button class="btn btn-xs btn-outline" disabled style="opacity:0.6; cursor:not-allowed;"><i data-lucide="check" style="width:11px; height:11px; margin-right:4px;"></i> 등록 완료</button>`
-                        : `<button class="btn btn-xs btn-primary" onclick="app.registerBiddingProjectFromG2B('${ann.id}')"><i data-lucide="plus" style="width:11px; height:11px; margin-right:4px;"></i> 입찰 등록</button>`
+                        : `<button class="btn btn-xs btn-primary" onclick="app.registerBiddingProjectFromG2B('${ann.announcementNo}')"><i data-lucide="plus" style="width:11px; height:11px; margin-right:4px;"></i> 입찰 등록</button>`
                     }
                 </td>
             `;
@@ -5787,13 +5802,15 @@ class AetherPMO {
         const startIdx = ((this.g2bPageNo || 1) - 1) * 10;
         const pageAnnouncements = filtered.slice(startIdx, startIdx + 10);
 
+        const isValidDate = (d) => d instanceof Date && !isNaN(d.getTime());
+
         pageAnnouncements.forEach(ann => {
             const end = ann.endDate ? new Date(ann.endDate) : null;
-            if (end) end.setHours(0,0,0,0);
 
             let dDayText = '-';
             let dDayClass = 'dday-normal';
-            if (end) {
+            if (end && isValidDate(end)) {
+                end.setHours(0,0,0,0);
                 const diffTime = end.getTime() - today.getTime();
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 if (diffDays === 0) {
@@ -5808,22 +5825,26 @@ class AetherPMO {
                         dDayClass = 'dday-impending';
                     }
                 }
+            } else {
+                dDayText = '마감일 미정';
+                dDayClass = 'dday-normal';
             }
 
             // Check if already registered
             const isRegistered = this.state.projects.some(p => p.projectCode === ann.announcementNo);
 
             const tr = document.createElement('tr');
+            tr.style.height = '68px'; // 행 고정 높이 적용
             tr.innerHTML = `
                 <td class="font-bold text-xs" style="font-family: monospace;">${ann.announcementNo}</td>
                 <td>
-                    <span class="font-bold text-xs" style="max-width: 320px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${ann.name}">${ann.name}</span>
+                    <span class="font-bold text-xs" style="max-width: 280px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;" title="${ann.name}">${ann.name}</span>
                 </td>
                 <td class="text-xs font-bold">${ann.customer}</td>
                 <td class="text-xs text-muted">${ann.publishDate}</td>
-                <td class="text-xs font-bold">
+                <td class="text-xs font-bold" style="min-width: 150px; white-space: nowrap;">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <span>${ann.endDate}</span>
+                        <span>${ann.endDate || '-'}</span>
                         <span class="d-day-badge ${dDayClass}">${dDayText}</span>
                     </div>
                 </td>
