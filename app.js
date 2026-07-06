@@ -153,6 +153,7 @@ class AetherPMO {
     async checkAuth() {
         const loginSection = document.getElementById('login-section');
         const appSection = document.getElementById('app-section');
+        const aiChatWidget = document.getElementById('ai-chat-widget');
 
         if (this.useSupabase) {
             try {
@@ -163,6 +164,7 @@ class AetherPMO {
                     this.currentUser = null;
                     if (loginSection) loginSection.style.display = 'flex';
                     if (appSection) appSection.style.display = 'none';
+                    if (aiChatWidget) aiChatWidget.style.display = 'none';
 
                     // Auto fill email if remembered
                     const rememberedEmail = localStorage.getItem('aether_pmo_remember_email');
@@ -215,6 +217,7 @@ class AetherPMO {
 
                 if (loginSection) loginSection.style.display = 'none';
                 if (appSection) appSection.style.display = 'grid';
+                if (aiChatWidget) aiChatWidget.style.display = 'block';
 
                 // Update user info in sidebar & header
                 const profileName = document.getElementById('user-profile-name');
@@ -248,6 +251,7 @@ class AetherPMO {
             this.currentUser = null;
             if (loginSection) loginSection.style.display = 'flex';
             if (appSection) appSection.style.display = 'none';
+            if (aiChatWidget) aiChatWidget.style.display = 'none';
 
             // Auto fill email if remembered
             const rememberedEmail = localStorage.getItem('aether_pmo_remember_email');
@@ -276,6 +280,7 @@ class AetherPMO {
             
             if (loginSection) loginSection.style.display = 'none';
             if (appSection) appSection.style.display = 'grid';
+            if (aiChatWidget) aiChatWidget.style.display = 'block';
 
             // Update user info in sidebar & header
             const profileName = document.getElementById('user-profile-name');
