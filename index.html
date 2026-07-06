@@ -344,26 +344,45 @@
                         <p id="ai-loading-text" style="font-size:13px; color:var(--text-muted); font-weight:600; margin:0;">Aether AI is analyzing your projects...</p>
                     </div>
 
-                    <!-- KPI Mini Summary Bar -->
-                    <div id="portal-kpi-mini-bar" class="portal-kpi-mini-bar">
-                        <div class="portal-kpi-mini-item" onclick="window.location.hash='projects'" style="cursor:pointer;">
-                            <span class="portal-kpi-mini-label">진행 프로젝트</span>
-                            <span class="portal-kpi-mini-value" id="portal-kpi-active">—</span>
+                    <!-- [Zone 1] Today Action Banner (JS IDs 유지 — 기존 portal-kpi-* ID 숨김 요소로 보존) -->
+                    <!-- Hidden spans for JS backward-compatibility -->
+                    <span id="portal-kpi-active" style="display:none;">—</span>
+                    <span id="portal-kpi-today-due" style="display:none;">—</span>
+                    <span id="portal-kpi-risks" style="display:none;">—</span>
+                    <span id="portal-kpi-actions" style="display:none;">—</span>
+
+                    <div id="portal-kpi-mini-bar" class="portal-today-action-banner">
+                        <!-- 왼쪽: 오늘 현황 숫자 -->
+                        <div class="banner-left-group">
+                            <div class="banner-title-area">
+                                <i data-lucide="clipboard-check"></i>
+                                <span>오늘 해야 할 일</span>
+                            </div>
+                            <div class="banner-divider"></div>
+                            <a href="#artifacts" class="banner-stat banner-stat-danger" title="오늘 마감 산출물">
+                                <span class="banner-stat-value" id="banner-kpi-today-due">0</span>
+                                <span class="banner-stat-label">📅 오늘 마감</span>
+                            </a>
+                            <a href="#issues" class="banner-stat banner-stat-warning" title="지연 및 위험 프로젝트">
+                                <span class="banner-stat-value" id="banner-kpi-delayed">0</span>
+                                <span class="banner-stat-label">⚠️ 지연/위험</span>
+                            </a>
+                            <a href="#action-items" class="banner-stat banner-stat-info" title="미완료 Action Item">
+                                <span class="banner-stat-value" id="banner-kpi-actions">0</span>
+                                <span class="banner-stat-label">📋 미완료 Action</span>
+                            </a>
                         </div>
-                        <div class="portal-kpi-mini-divider"></div>
-                        <div class="portal-kpi-mini-item portal-kpi-mini-danger" onclick="window.location.hash='artifacts'" style="cursor:pointer;">
-                            <span class="portal-kpi-mini-label">오늘 마감</span>
-                            <span class="portal-kpi-mini-value" id="portal-kpi-today-due">—</span>
-                        </div>
-                        <div class="portal-kpi-mini-divider"></div>
-                        <div class="portal-kpi-mini-item portal-kpi-mini-warning" onclick="window.location.hash='issues'" style="cursor:pointer;">
-                            <span class="portal-kpi-mini-label">고위험 리스크</span>
-                            <span class="portal-kpi-mini-value" id="portal-kpi-risks">—</span>
-                        </div>
-                        <div class="portal-kpi-mini-divider"></div>
-                        <div class="portal-kpi-mini-item portal-kpi-mini-info" onclick="window.location.hash='action-items'" style="cursor:pointer;">
-                            <span class="portal-kpi-mini-label">미완료 Action Item</span>
-                            <span class="portal-kpi-mini-value" id="portal-kpi-actions">—</span>
+                        <!-- 오른쪽: 빠른 실행 버튼 -->
+                        <div class="banner-action-group">
+                            <button class="banner-action-btn banner-action-btn-report" onclick="app.sendPortalPreset('오늘 브리핑 보고서 생성해줘')" title="AI 보고서 생성">
+                                <i data-lucide="file-text"></i> 보고서 생성
+                            </button>
+                            <button class="banner-action-btn banner-action-btn-risk" onclick="window.location.hash='issues'" title="이슈/리스크 관리 화면 이동">
+                                <i data-lucide="alert-triangle"></i> 리스크 보기
+                            </button>
+                            <button class="banner-action-btn banner-action-btn-action" onclick="window.location.hash='action-items'" title="Action Item 관리 화면 이동">
+                                <i data-lucide="check-square"></i> Action 등록
+                            </button>
                         </div>
                     </div>
 
@@ -391,10 +410,28 @@
                                     </div>
                                 </div>
 
-                                <!-- Greeting Bubble (always shown) -->
+                                <!-- Greeting Bubble -->
                                 <div class="portal-greeting-bubble">
                                     <div style="font-size:13px; font-weight:600; color:var(--text-main); margin-bottom:4px;">안녕하세요, 안유경 PM님. 👋</div>
-                                    <div style="font-size:12px; color:var(--text-muted); line-height:1.5;">오늘 AetherPMO가 먼저 확인한 사업관리 이슈를 브리핑드리겠습니다.</div>
+                                    <div style="font-size:12px; color:var(--text-muted); line-height:1.5;">오늘 확인이 필요한 업무 현황입니다. 아래에서 즉시 조치하세요.</div>
+                                </div>
+
+                                <!-- [Zone 4] Today Tasks Copilot Card -->
+                                <div class="portal-copilot-today-card">
+                                    <div class="portal-copilot-header">
+                                        <div class="portal-copilot-title">
+                                            <i data-lucide="zap"></i>
+                                            오늘 확인이 필요한 업무
+                                        </div>
+                                        <span class="portal-copilot-badge" id="portal-copilot-total-badge">0건</span>
+                                    </div>
+                                    <div class="portal-copilot-task-list" id="portal-copilot-task-list">
+                                        <!-- Rendered by JS: renderPortalTodayTasks() -->
+                                        <div class="portal-copilot-empty">
+                                            <span class="portal-copilot-empty-icon">✅</span>
+                                            오늘 처리할 긴급 업무가 없습니다.
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- AI Daily Briefing KPI Card (always shown) -->
@@ -456,7 +493,7 @@
                                 <div class="portal-card-header">
                                     <div style="display:flex; align-items:center; gap:8px;">
                                         <i data-lucide="alert-circle" style="color:#ef4444; width:16px; height:16px;"></i>
-                                        <h3 style="margin:0; font-size:13px; font-weight:700;">오늘 가장 주의가 필요한 프로젝트</h3>
+                                        <h3 style="margin:0;">오늘 가장 주의가 필요한 프로젝트</h3>
                                     </div>
                                     <div class="health-criteria-tooltip-container" style="position:relative;">
                                         <span class="badge badge-info" style="cursor:pointer; font-size:10px;" onclick="app.toggleHealthCriteriaTooltip(event)">산정 기준</span>
@@ -473,7 +510,6 @@
                                     </div>
                                 </div>
                                 <div id="portal-health-score-list" class="portal-card-list">
-                                    <!-- Dynamic Health scores list (sorted by risk) -->
                                 </div>
                             </div>
 
@@ -482,7 +518,7 @@
                                 <div class="portal-card-header">
                                     <div style="display:flex; align-items:center; gap:8px;">
                                         <i data-lucide="trending-up" style="color:#f59e0b; width:16px; height:16px;"></i>
-                                        <h3 style="margin:0; font-size:13px; font-weight:700;">AI가 예측한 주요 리스크</h3>
+                                        <h3 style="margin:0;">AI가 예측한 주요 리스크</h3>
                                     </div>
                                     <span style="font-size:9px; color:var(--text-muted); font-style:italic;">* Rule-based 추정</span>
                                 </div>

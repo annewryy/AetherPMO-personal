@@ -6190,3 +6190,453 @@ body.presentation-mode-active .sidebar {
     outline: none;
     box-shadow: 0 0 0 2px var(--primary-glow);
 }
+
+/* ==========================================================================
+   AetherPMO UI/UX Redesign Override — Presentation & Readability System
+   (발표용 27인치/빔프로젝터 기준, 기능 변경 없음)
+   ========================================================================== */
+
+/* --- Phase 1-1: Typography System Override --- */
+.brand-name { font-size: 22px !important; }
+
+/* --- Phase 1-3: Sidebar Menu Enlargement --- */
+.nav-item {
+    font-size: 17px !important;
+    padding: 14px 18px !important;
+    border-radius: 10px !important;
+}
+.nav-item i {
+    width: 22px !important;
+    height: 22px !important;
+}
+.submenu-item {
+    font-size: 15px !important;
+    padding: 11px 16px !important;
+}
+.submenu-item i {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+/* Page title */
+.view-header h1 { font-size: 28px !important; }
+.subtitle { font-size: 15px !important; }
+
+/* Buttons */
+.btn { font-size: 15px !important; padding: 11px 20px !important; }
+.btn-sm { font-size: 14px !important; padding: 8px 16px !important; }
+.btn-xs { font-size: 13px !important; padding: 6px 12px !important; }
+
+/* --- Phase 1-2: Spacing System Override --- */
+.content-body { padding: 36px 40px !important; }
+.view-header { margin-bottom: 36px !important; }
+
+/* Stat Cards */
+.stats-grid { gap: 24px !important; margin-bottom: 32px !important; }
+.stat-card { padding: 28px 32px !important; border-radius: 20px !important; }
+.stat-card:hover { transform: translateY(-6px) !important; }
+.stat-value { font-size: 40px !important; letter-spacing: -1px !important; }
+.stat-title { font-size: 15px !important; }
+.stat-subtext { font-size: 13px !important; }
+.stat-icon { width: 44px !important; height: 44px !important; border-radius: 12px !important; }
+.stat-icon i { width: 22px !important; height: 22px !important; }
+
+/* Dashboard section cards */
+.dashboard-section-card {
+    padding: 28px 32px !important;
+    border-radius: 20px !important;
+}
+.dashboard-section-card:hover {
+    box-shadow: 0 10px 32px -4px rgba(99, 102, 241, 0.18), var(--shadow-glow) !important;
+}
+
+/* --- Phase 1-4: AI Portal Column Ratio --- */
+.ai-chat-column {
+    flex: 1 !important;
+    min-width: 340px !important;
+}
+.ai-analytics-column {
+    flex: 1.6 !important;
+    min-width: 340px !important;
+}
+.ai-portal-main-grid {
+    gap: 24px !important;
+    align-items: flex-start !important;
+}
+
+/* Portal card header titles */
+.portal-card-header h3 {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+}
+.portal-card-header i {
+    width: 20px !important;
+    height: 20px !important;
+}
+
+/* --- Phase 1-5: Zone 1 — Today Action Banner --- */
+.portal-today-action-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 22px 28px;
+    margin-bottom: 24px;
+    border-radius: 18px;
+    background: var(--bg-card);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+.portal-today-action-banner::before {
+    content: '';
+    position: absolute;
+    top: -40%; left: -10%;
+    width: 40%; height: 200%;
+    background: radial-gradient(ellipse, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
+    pointer-events: none;
+}
+body.light-theme .portal-today-action-banner {
+    border-color: rgba(79, 70, 229, 0.2);
+}
+
+.banner-left-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+    flex-wrap: wrap;
+}
+.banner-title-area {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 4px;
+    min-width: 140px;
+}
+.banner-title-area i {
+    width: 20px;
+    height: 20px;
+    color: var(--primary);
+}
+.banner-title-area span {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text-main);
+    white-space: nowrap;
+}
+
+.banner-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 18px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--bg-card-border);
+    cursor: pointer;
+    transition: all 0.18s ease;
+    min-width: 90px;
+    text-decoration: none;
+}
+body.light-theme .banner-stat {
+    background: rgba(0, 0, 0, 0.02);
+}
+.banner-stat:hover {
+    transform: translateY(-2px);
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+.banner-stat-value {
+    font-size: 32px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -1px;
+    font-feature-settings: "tnum";
+}
+.banner-stat-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-top: 4px;
+    white-space: nowrap;
+}
+.banner-stat-danger .banner-stat-value  { color: #ef4444; }
+.banner-stat-warning .banner-stat-value { color: #f59e0b; }
+.banner-stat-info .banner-stat-value    { color: var(--primary); }
+
+.banner-divider {
+    width: 1px;
+    height: 40px;
+    background: var(--bg-card-border);
+    flex-shrink: 0;
+    align-self: center;
+}
+
+.banner-action-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+}
+.banner-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid var(--bg-card-border);
+    transition: all 0.18s ease;
+    white-space: nowrap;
+    background: none;
+}
+.banner-action-btn i { width: 15px; height: 15px; }
+.banner-action-btn-report {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+    box-shadow: 0 4px 14px 0 var(--primary-glow);
+}
+.banner-action-btn-report:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px 0 var(--primary-glow);
+}
+.banner-action-btn-risk {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.3);
+}
+.banner-action-btn-risk:hover {
+    background: rgba(239, 68, 68, 0.18);
+    transform: translateY(-1px);
+    border-color: #ef4444;
+}
+.banner-action-btn-action {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border-color: rgba(245, 158, 11, 0.3);
+}
+.banner-action-btn-action:hover {
+    background: rgba(245, 158, 11, 0.18);
+    transform: translateY(-1px);
+    border-color: #f59e0b;
+}
+
+/* --- Phase 1-6: Zone 4 — Today Tasks Copilot Card --- */
+.portal-copilot-today-card {
+    background: rgba(99, 102, 241, 0.06);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+}
+body.light-theme .portal-copilot-today-card {
+    background: rgba(79, 70, 229, 0.04);
+    border-color: rgba(79, 70, 229, 0.15);
+}
+.portal-copilot-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.portal-copilot-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-main);
+}
+.portal-copilot-title i {
+    width: 18px;
+    height: 18px;
+    color: var(--primary);
+}
+.portal-copilot-badge {
+    background: var(--primary-light);
+    color: var(--primary);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    font-size: 13px;
+    font-weight: 800;
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+.portal-copilot-task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.portal-copilot-task-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--bg-card-border);
+    border-radius: 10px;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    text-decoration: none;
+}
+.portal-copilot-task-item:hover {
+    border-color: var(--primary);
+    background: var(--bg-card-hover);
+    transform: translateX(3px);
+}
+.portal-copilot-task-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.portal-copilot-task-emoji { font-size: 16px; flex-shrink: 0; }
+.portal-copilot-task-text {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+.portal-copilot-task-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    font-weight: 500;
+}
+.portal-copilot-task-arrow {
+    width: 15px; height: 15px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+.portal-copilot-empty {
+    text-align: center;
+    padding: 16px;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 600;
+}
+.portal-copilot-empty-icon {
+    font-size: 24px;
+    display: block;
+    margin-bottom: 6px;
+}
+
+/* Portal greeting bubble refinement */
+.portal-greeting-bubble {
+    border-radius: 12px !important;
+    margin-bottom: 4px !important;
+}
+.portal-greeting-bubble > div:first-child {
+    font-size: 16px !important;
+    font-weight: 800 !important;
+}
+.portal-greeting-bubble > div:last-child {
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+}
+
+/* Briefing KPI bigger */
+.portal-bkpi-num {
+    font-size: 36px !important;
+    font-weight: 900 !important;
+    letter-spacing: -1.5px !important;
+}
+.portal-bkpi-label {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+}
+.portal-daily-briefing-card {
+    border-radius: 14px !important;
+}
+.portal-briefing-header {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+}
+.portal-briefing-insight {
+    font-size: 14px !important;
+    line-height: 1.7 !important;
+    padding: 12px 14px !important;
+    border-radius: 10px !important;
+}
+
+.portal-left-card { padding: 24px !important; }
+
+/* Chat input */
+.portal-chat-input-field {
+    font-size: 14px !important;
+    padding: 12px 16px !important;
+    border-radius: 10px !important;
+}
+.portal-chat-send-btn {
+    padding: 12px 16px !important;
+    border-radius: 10px !important;
+}
+.ai-preset-chip {
+    font-size: 13px !important;
+    padding: 7px 14px !important;
+    border-radius: 20px !important;
+}
+
+/* Portal right cards */
+.portal-right-card {
+    padding: 24px !important;
+    border-radius: 18px !important;
+}
+
+/* Health score pill */
+.health-score-pill {
+    font-size: 13px !important;
+    padding: 4px 10px !important;
+    border-radius: 8px !important;
+    font-weight: 800 !important;
+}
+
+/* --- Phase 1-7: Responsive CSS (≤1366px) --- */
+@media (max-width: 1366px) {
+    .ai-portal-main-grid {
+        flex-direction: column !important;
+    }
+    .ai-chat-column,
+    .ai-analytics-column {
+        flex: none !important;
+        width: 100% !important;
+        min-width: unset !important;
+    }
+    .banner-action-group {
+        width: 100%;
+        justify-content: flex-end;
+    }
+}
+@media (max-width: 1100px) {
+    .content-body { padding: 24px 28px !important; }
+    .portal-today-action-banner {
+        padding: 16px 20px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+    }
+    .banner-action-group {
+        flex-wrap: wrap;
+        gap: 8px;
+        width: 100%;
+    }
+    .stat-value { font-size: 34px !important; }
+}
+
+/* Light theme overrides */
+body.light-theme .banner-stat { border-color: #e2e8f0; }
+body.light-theme .stat-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(238,242,255,0.7) 100%) !important;
+}
+body.dark-theme .portal-copilot-task-item {
+    background: rgba(15, 23, 42, 0.6);
+}

@@ -3901,7 +3901,7 @@ class AetherPMO {
         const delayedProjs = this.state.projects.filter(p => p.status === 'Delay' || p.isOverdue);
         const uncompletedActions = (this.state.actionItems || []).filter(a => a.status !== '완료' && a.status !== 'Completed');
 
-        // Update KPI Mini Bar
+        // Update KPI Mini Bar (hidden spans — backward compat)
         const kpiActive = document.getElementById('portal-kpi-active');
         const kpiDue = document.getElementById('portal-kpi-today-due');
         const kpiRisks = document.getElementById('portal-kpi-risks');
@@ -3910,6 +3910,16 @@ class AetherPMO {
         if (kpiDue) kpiDue.textContent = todayDueArtifacts.length;
         if (kpiRisks) kpiRisks.textContent = criticalIssues.length;
         if (kpiActions) kpiActions.textContent = uncompletedActions.length;
+
+        // [Zone 1] Update Action Banner KPI — real data, no hardcoding
+        const bannerDue = document.getElementById('banner-kpi-today-due');
+        const bannerDelayed = document.getElementById('banner-kpi-delayed');
+        const bannerActions = document.getElementById('banner-kpi-actions');
+        if (bannerDue) bannerDue.textContent = todayDueArtifacts.length;
+        // 지연/위험 = 지연 프로젝트 + 고위험 리스크 (criticalIssues 데이터 사용)
+        const delayedAndRisk = delayedProjs.length + criticalIssues.length;
+        if (bannerDelayed) bannerDelayed.textContent = delayedAndRisk;
+        if (bannerActions) bannerActions.textContent = uncompletedActions.length;
 
         // Update Briefing Card KPI numbers
         const bToday = document.getElementById('briefing-today-due');
@@ -3994,6 +4004,103 @@ class AetherPMO {
         this.renderPortalHealthScores();
         this.renderPortalRiskPredictions();
         this.renderPortalPMRecommendations();
+        this.renderPortalTodayTasks(todayDueArtifacts, delayedProjs, criticalIssues, uncompletedActions);
+    }
+
+    // [Zone 4] Copilot 오늘 할 일 카드 렌더링 (실제 데이터 기반, 하드코딩 없음)
+    renderPortalTodayTasks(todayDueArtifacts, delayedProjs, criticalIssues, uncompletedActions) {
+        const listEl = document.getElementById('portal-copilot-task-list');
+        const badgeEl = document.getElementById('portal-copilot-total-badge');
+        if (!listEl) return;
+
+        const tasks = [];
+
+        // [1] 오늘 마감 산출물
+        if (todayDueArtifacts && todayDueArtifacts.length > 0) {
+            todayDueArtifacts.slice(0, 2).forEach(a => {
+                tasks.push({
+                    emoji: '📅',
+                    text: a.file_name || a.title || '산출물 마감',
+                    meta: '오늘 마감 — 쿠릭하여 확인',
+                    href: '#artifacts',
+                    urgent: true,
+                });
+            });
+            if (todayDueArtifacts.length > 2) {
+                tasks.push({
+                    emoji: '📅',
+                    text: `무는 마감 산출물 ${todayDueArtifacts.length - 2}건 더`,
+                    meta: '산출물 화면에서 확인',
+                    href: '#artifacts',
+                    urgent: true,
+                });
+            }
+        }
+
+        // [2] 지연 프로젝트
+        if (delayedProjs && delayedProjs.length > 0) {
+            delayedProjs.slice(0, 2).forEach(p => {
+                tasks.push({
+                    emoji: '⚠️',
+                    text: `지연: ${p.name.substring(0, 14)}${p.name.length > 14 ? '...' : ''}`,
+                    meta: '일정 지연 프로젝트 — 클릭하여 확인',
+                    href: '#projects',
+                    urgent: true,
+                });
+            });
+        }
+
+        // [3] 지금 조치 필요 리스크
+        if (criticalIssues && criticalIssues.length > 0) {
+            criticalIssues.slice(0, 2).forEach(i => {
+                tasks.push({
+                    emoji: '🔥',
+                    text: i.title ? i.title.substring(0, 18) + (i.title.length > 18 ? '...' : '') : '지스크 이슈',
+                    meta: `${i.priority} 리스크 — 즉각 조치 필요`,
+                    href: '#issues',
+                    urgent: true,
+                });
+            });
+        }
+
+        // [4] 미완료 Action Item (최대 1건만 표시)
+        if (uncompletedActions && uncompletedActions.length > 0) {
+            const first = uncompletedActions[0];
+            tasks.push({
+                emoji: '📋',
+                text: first.title ? first.title.substring(0, 18) + (first.title.length > 18 ? '...' : '') : 'Action Item 대기중',
+                meta: `미완료 ${uncompletedActions.length}건 — Action Item 화면`,
+                href: '#action-items',
+                urgent: false,
+            });
+        }
+
+        // 뽅드 업데이트
+        if (badgeEl) badgeEl.textContent = `${tasks.length}건`;
+
+        if (tasks.length === 0) {
+            listEl.innerHTML = `
+                <div class="portal-copilot-empty">
+                    <span class="portal-copilot-empty-icon">✅</span>
+                    오늘 처리할 긴급 업무가 없습니다.
+                </div>`;
+            return;
+        }
+
+        listEl.innerHTML = tasks.map(t => `
+            <a href="${t.href}" class="portal-copilot-task-item">
+                <div class="portal-copilot-task-left">
+                    <span class="portal-copilot-task-emoji">${t.emoji}</span>
+                    <div>
+                        <div class="portal-copilot-task-text"${t.urgent ? ' style="color:#ef4444;"' : ''}>${t.text}</div>
+                        <div class="portal-copilot-task-meta">${t.meta}</div>
+                    </div>
+                </div>
+                <svg class="portal-copilot-task-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </a>`).join('');
+
+        // Lucide 아이콘 리프레시 (SVG 렌더링 후)
+        if (typeof lucide !== 'undefined') { try { lucide.createIcons(); } catch(e) {} }
     }
 
     calculateProjectHealthScore(p) {
