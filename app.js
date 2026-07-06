@@ -3914,11 +3914,11 @@ class AetherPMO {
         // [Zone 1] Update Action Banner KPI — real data, no hardcoding
         const bannerDue = document.getElementById('banner-kpi-today-due');
         const bannerDelayed = document.getElementById('banner-kpi-delayed');
+        const bannerRisks = document.getElementById('banner-kpi-risks');
         const bannerActions = document.getElementById('banner-kpi-actions');
         if (bannerDue) bannerDue.textContent = todayDueArtifacts.length;
-        // 지연/위험 = 지연 프로젝트 + 고위험 리스크 (criticalIssues 데이터 사용)
-        const delayedAndRisk = delayedProjs.length + criticalIssues.length;
-        if (bannerDelayed) bannerDelayed.textContent = delayedAndRisk;
+        if (bannerDelayed) bannerDelayed.textContent = delayedProjs.length; // 주의 프로젝트
+        if (bannerRisks) bannerRisks.textContent = criticalIssues.length; // 고위험 리스크
         if (bannerActions) bannerActions.textContent = uncompletedActions.length;
 
         // Update Briefing Card KPI numbers
@@ -3948,7 +3948,7 @@ class AetherPMO {
             if (!insight) {
                 insight = `✅ 오늘 처리할 긴급 이슈가 없습니다. 전반적인 프로젝트 상태는 양호합니다.`;
             }
-            insightEl.innerHTML = insight;
+            insightEl.innerHTML = this._renderMarkdown(insight);
         }
 
         // Show loading overlay for fresh login, then fade in
@@ -4192,31 +4192,37 @@ class AetherPMO {
         const listEl = document.getElementById('portal-health-score-list');
         if (!listEl) return;
 
-        // Sort by score ascending (worst first) and show top 5 most critical
         const scored = this.state.projects
             .map(p => ({ p, score: this.calculateProjectHealthScore(p) }))
             .sort((a, b) => a.score - b.score)
             .slice(0, 5);
 
-        listEl.innerHTML = scored.map(({ p, score }) => {
+        listEl.innerHTML = scored.map(({ p, score }, idx) => {
             const scoreClass = score >= 80 ? 'health-high' : score >= 60 ? 'health-medium' : 'health-low';
-            const urgentBadge = score < 60 ? `<span style="font-size:9px; color:#ef4444; font-weight:700; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); padding:1px 5px; border-radius:4px;">즉각 조치</span>` : '';
+            const urgentBadge = score < 60
+                ? `<span style="font-size:10px; color:#ef4444; font-weight:800; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); padding:2px 7px; border-radius:5px;">즉각 조치</span>` : '';
             const progressColor = score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444';
+            // 구별 배지: 발주기관 약칭 또는 프로젝트 코드
+            const clientCode = p.customer ? p.customer.substring(0, 4) : (p.projectCode ? p.projectCode.split('-').pop() : `P-${String(idx + 1).padStart(2, '0')}`);
+            const borderLeftColor = score < 60 ? '#ef4444' : score < 80 ? '#f59e0b' : '#10b981';
             return `
-                <div style="background:rgba(255,255,255,0.01); border:1px solid var(--bg-card-border); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
-                        <a href="#project-detail/${p.id}" style="font-size:12px; font-weight:700; color:var(--text-main); text-decoration:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:160px;">${p.name}</a>
+                <div style="background:rgba(255,255,255,0.02); border:1px solid var(--bg-card-border); border-left:3px solid ${borderLeftColor}; border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                        <div style="display:flex; align-items:flex-start; gap:7px; flex:1; min-width:0;">
+                            <span title="${p.customer || p.projectCode || ''}" style="font-size:10px; font-weight:800; background:var(--primary-light); color:var(--primary); border:1px solid var(--primary-glow); padding:2px 6px; border-radius:5px; white-space:nowrap; flex-shrink:0; margin-top:1px;">${clientCode}</span>
+                            <a href="#project-detail/${p.id}" title="${p.name}" style="font-size:13px; font-weight:700; color:var(--text-main); text-decoration:none; word-break:break-all; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${p.name}</a>
+                        </div>
                         <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
                             ${urgentBadge}
                             <span class="health-score-pill ${scoreClass}">${score}점</span>
-                            <span style="font-size:10.5px; color:var(--primary); cursor:pointer; text-decoration:underline; white-space:nowrap;" onclick="app.openAICopilotAnalyze('${p.id}')">AI 분석</span>
+                            <span style="font-size:11px; color:var(--primary); cursor:pointer; text-decoration:underline; white-space:nowrap;" onclick="app.openAICopilotAnalyze('${p.id}')">AI 분석</span>
                         </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
                         <div style="flex:1; height:5px; background:var(--bg-input); border-radius:3px; overflow:hidden;">
                             <div style="width:${p.progress}%; height:100%; background:${progressColor}; border-radius:3px; transition:width 0.4s ease;"></div>
                         </div>
-                        <span style="font-size:10px; font-weight:700; color:var(--text-muted); font-family:monospace; min-width:28px;">${p.progress}%</span>
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted); font-family:monospace; min-width:32px;">${p.progress}%</span>
                     </div>
                 </div>
             `;
@@ -4227,7 +4233,6 @@ class AetherPMO {
         const listEl = document.getElementById('portal-risk-prediction-list');
         if (!listEl) return;
 
-        // Map each project to its risk data
         const riskItems = this.state.projects.map(p => {
             let riskTitle = '협력사 일정 관리 리스크';
             let prob = 45;
@@ -4243,44 +4248,47 @@ class AetherPMO {
                 riskTitle = '산출물 승인 단계 지연';
                 prob = 65;
                 severity = 'Warning';
-                reason = '초기 요구정의서 승인 연기에 따른 개발 병목';
+                reason = '초기 요구정의서 승인 연기에 따른 개발 병목 발생 및 후속 일정 압박';
             } else {
                 const projIssues = (this.state.issues || []).filter(i => i.projectId === p.id && (i.status === '발생' || i.status === '조치중'));
                 if (projIssues.length > 0) {
                     riskTitle = '마일스톤 일정 준수 실패';
                     prob = 78;
                     severity = 'Critical';
-                    reason = '계류 중인 오픈 이슈에 따른 선행 프로세스 마찰';
+                    reason = '계류 중인 오픈 이슈에 따른 선행 프로세스 마찰 및 병목';
                 }
             }
             return { p, riskTitle, prob, severity, reason };
         });
 
-        // Sort: Critical first, then by probability descending, show top 5
         const sorted = riskItems
             .sort((a, b) => (b.severity === 'Critical' ? 1 : 0) - (a.severity === 'Critical' ? 1 : 0) || b.prob - a.prob)
             .slice(0, 5);
 
-        listEl.innerHTML = sorted.map(({ p, riskTitle, prob, severity, reason }) => {
+        listEl.innerHTML = sorted.map(({ p, riskTitle, prob, severity, reason }, idx) => {
             const isCritical = severity === 'Critical';
             const barColor = isCritical ? '#ef4444' : '#f59e0b';
-            const badgeColor = isCritical ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)';
-            const badgeBorder = isCritical ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)';
+            const badgeBg = isCritical ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)';
+            const badgeBorder = isCritical ? 'rgba(239,68,68,0.35)' : 'rgba(245,158,11,0.35)';
             const badgeText = isCritical ? '#ef4444' : '#f59e0b';
+            // 구별 배지: 발주기관 약칭 또는 프로젝트 코드
+            const clientCode = p.customer ? p.customer.substring(0, 4) : (p.projectCode ? p.projectCode.split('-').pop() : `R-${String(idx + 1).padStart(2, '0')}`);
+            const leftBorder = isCritical ? 'border-left:3px solid #ef4444;' : 'border-left:3px solid #f59e0b;';
             return `
-                <div style="background:rgba(255,255,255,0.01); border:1px solid var(--bg-card-border); ${isCritical ? 'border-left:3px solid #ef4444;' : ''} border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;">
+                <div title="${p.name}: ${reason}" style="background:rgba(255,255,255,0.02); border:1px solid var(--bg-card-border); ${leftBorder} border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:7px;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-                        <span style="font-size:11.5px; font-weight:700; color:var(--text-main); flex:1;">${riskTitle}</span>
-                        <span style="font-size:9.5px; font-weight:700; background:${badgeColor}; color:${badgeText}; border:1px solid ${badgeBorder}; padding:2px 6px; border-radius:5px; white-space:nowrap; flex-shrink:0;">${severity === 'Critical' ? '🔥 위험' : '⚠️ 경고'} ${prob}%</span>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <div style="flex:1; height:4px; background:var(--bg-input); border-radius:2px; overflow:hidden;">
-                            <div style="width:${prob}%; height:100%; background:${barColor}; border-radius:2px;"></div>
+                        <div style="display:flex; align-items:flex-start; gap:7px; flex:1; min-width:0;">
+                            <span style="font-size:10px; font-weight:800; background:${badgeBg}; color:${badgeText}; border:1px solid ${badgeBorder}; padding:2px 6px; border-radius:5px; white-space:nowrap; flex-shrink:0; margin-top:1px;">${clientCode}</span>
+                            <span style="font-size:13px; font-weight:700; color:var(--text-main); line-height:1.4;">${riskTitle}</span>
                         </div>
+                        <span style="font-size:10px; font-weight:800; background:${badgeBg}; color:${badgeText}; border:1px solid ${badgeBorder}; padding:3px 8px; border-radius:6px; white-space:nowrap; flex-shrink:0;">${isCritical ? '🔥' : '⚠️'} ${prob}%</span>
                     </div>
-                    <div style="font-size:10.5px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
-                        <span>${reason}</span>
-                        <span style="font-size:9.5px; color:var(--text-muted); font-style:italic; flex-shrink:0; margin-left:6px;">${p.name.substring(0, 8)}...</span>
+                    <div style="flex:1; height:4px; background:var(--bg-input); border-radius:2px; overflow:hidden;">
+                        <div style="width:${prob}%; height:100%; background:${barColor}; border-radius:2px;"></div>
+                    </div>
+                    <div style="font-size:12px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                        <span style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.5; flex:1;">${reason}</span>
+                        <span style="font-size:11px; color:var(--primary); font-weight:700; white-space:nowrap; flex-shrink:0;">${p.name.length > 6 ? p.name.substring(0, 6) + '…' : p.name}</span>
                     </div>
                 </div>
             `;
@@ -4291,7 +4299,6 @@ class AetherPMO {
         const listEl = document.getElementById('portal-pm-recommendation-list');
         if (!listEl) return;
 
-        // Priority-ordered hardcoded recommendations based on project state
         const recommendations = [];
 
         // High-priority: delayed projects first
@@ -4299,51 +4306,53 @@ class AetherPMO {
             recommendations.push({
                 p, priority: 1,
                 icon: '🔥',
-                rec: `「${p.name.substring(0, 12)}」 지연 회복 계획 수립 및 이해관계자 보고서 즉시 작성`,
+                rec: `「${p.name.substring(0, 14)}${p.name.length > 14 ? '…' : ''}」 지연 회복 계획 수립 및 이해관계자 보고서 즉시 작성`,
                 type: 'rework',
                 btnText: '계획 수립',
-                btnClass: 'btn-danger'
+                btnColor: '#ef4444',
+                btnHover: '#dc2626'
             });
         });
 
-        // Specific project recommendations
         const proj1 = this.state.projects.find(p => p.id === 'proj-1');
         if (proj1 && recommendations.length < 4) recommendations.push({
             p: proj1, priority: 2,
             icon: '👤',
             rec: 'Node.js 시뮬레이터 개발을 위한 엔지니어 추가 임시 배정 요청',
-            type: 'engineer', btnText: '배정 요청', btnClass: 'btn-warning'
+            type: 'engineer', btnText: '배정 요청',
+            btnColor: '#7c3aed', btnHover: '#6d28d9'
         });
         const proj2 = this.state.projects.find(p => p.id === 'proj-2');
         if (proj2 && recommendations.length < 4) recommendations.push({
             p: proj2, priority: 2,
             icon: '🖥️',
             rec: 'GPU 연구 자원 경합 해결용 야간 배치 스케줄러 등록',
-            type: 'schedule', btnText: '스케줄 등록', btnClass: 'btn-warning'
+            type: 'schedule', btnText: '스케줄 등록',
+            btnColor: '#7c3aed', btnHover: '#6d28d9'
         });
         const proj6 = this.state.projects.find(p => p.id === 'proj-6');
         if (proj6 && recommendations.length < 5) recommendations.push({
             p: proj6, priority: 3,
             icon: '📄',
             rec: '기재부 연동 테스트 임시 방화벽 예외 신청 공문 자동 초안 생성',
-            type: 'official_doc', btnText: '공문 초안', btnClass: 'btn-primary'
+            type: 'official_doc', btnText: '공문 초안',
+            btnColor: '#7c3aed', btnHover: '#6d28d9'
         });
 
-        // Fill with generic if under 3
         this.state.projects.filter(p => !recommendations.find(r => r.p.id === p.id)).slice(0, 3 - recommendations.length).forEach(p => {
-            recommendations.push({ p, priority: 3, icon: '📋', rec: `「${p.name.substring(0, 10)}」 WBS 잔여 일정 조율 및 산출물 보완 조치 등록 권장`, type: 'rework', btnText: '조치 등록', btnClass: 'btn-primary' });
+            recommendations.push({ p, priority: 3, icon: '📋', rec: `「${p.name.substring(0, 12)}${p.name.length > 12 ? '…' : ''}」 WBS 잔여 일정 조율 및 산출물 보완 조치 등록`, type: 'rework', btnText: '조치 등록', btnColor: '#7c3aed', btnHover: '#6d28d9' });
         });
 
-        listEl.innerHTML = recommendations.slice(0, 5).map(({ p, icon, rec, type, btnText, btnClass, priority }) => {
-            const borderStyle = priority === 1 ? 'border-left:3px solid #ef4444;' : priority === 2 ? 'border-left:3px solid #f59e0b;' : '';
+        listEl.innerHTML = recommendations.slice(0, 5).map(({ p, icon, rec, type, btnText, btnColor, btnHover, priority }) => {
+            const borderStyle = priority === 1 ? 'border-left:3px solid #ef4444;' : priority === 2 ? 'border-left:3px solid #7c3aed;' : '';
             return `
-                <div style="background:rgba(255,255,255,0.01); border:1px solid var(--bg-card-border); ${borderStyle} border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;">
-                    <div style="font-size:11.5px; line-height:1.45; color:var(--text-main); font-weight:600;">
+                <div style="background:rgba(255,255,255,0.02); border:1px solid var(--bg-card-border); ${borderStyle} border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:8px;">
+                    <div style="font-size:13px; line-height:1.5; color:var(--text-main); font-weight:600;">
                         ${icon} ${rec}
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-size:10px; color:var(--text-muted);">대상: <strong>${p.name.substring(0, 12)}${p.name.length > 12 ? '...' : ''}</strong></span>
-                        <button class="btn ${btnClass} btn-xs" onclick="app.executeRecommendation('${p.id}', '${type}')" style="padding: 3px 10px; border-radius: 6px; font-size: 10.5px; font-weight:700;">${btnText}</button>
+                        <span style="font-size:11px; color:var(--text-muted);">대상: <strong>${p.name.substring(0, 14)}${p.name.length > 14 ? '…' : ''}</strong></span>
+                        <button onclick="app.executeRecommendation('${p.id}', '${type}')" style="display:inline-flex; align-items:center; gap:5px; padding:8px 18px; border-radius:8px; font-family:var(--font-ui); font-size:13px; font-weight:800; cursor:pointer; border:none; background:${btnColor}; color:#ffffff; box-shadow:0 4px 12px rgba(0,0,0,0.3); transition:all 0.18s ease;" onmouseover="this.style.background='${btnHover}'; this.style.transform='translateY(-2px) scale(1.02)'; this.style.filter='brightness(1.2)'; this.style.boxShadow='0 6px 18px rgba(0,0,0,0.4)';" onmouseout="this.style.background='${btnColor}'; this.style.transform=''; this.style.filter=''; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.3)';">⚡ ${btnText}</button>
                     </div>
                 </div>
             `;
@@ -4611,11 +4620,45 @@ class AetherPMO {
         
         const bubble = document.createElement('div');
         bubble.className = 'portal-chat-bubble';
-        bubble.innerHTML = content;
+        // 마크다운 렌더링: **bold**, __bold__, - list, * list, \n 처리
+        const rendered = this._renderMarkdown(content);
+        bubble.innerHTML = rendered;
         
         row.appendChild(bubble);
         chatMsgsEl.appendChild(row);
         chatMsgsEl.scrollTop = chatMsgsEl.scrollHeight;
+    }
+
+    // 최소 마크다운 렌더러 (외부 라이브러리 없이)
+    _renderMarkdown(text) {
+        if (!text) return '';
+        let html = String(text);
+        
+        // <br> 태그를 임시로 개행 문자로 통일하여 줄 단위 정규식 일치율 확보
+        html = html.replace(/<br\s*\/?>/gi, '\n');
+        
+        // **bold** 또는 __bold__
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+        
+        // *italic* 또는 _italic_
+        html = html.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+        html = html.replace(/_([^_\n]+)_/g, '<em>$1</em>');
+        
+        // 리스트 아이템: 줄 시작부분에 - 또는 * 가 있는 경우
+        html = html.replace(/^\s*[\-\*]\s+(.+)$/gm, '<li style="margin:4px 0 4px 18px; list-style:disc;">$1</li>');
+        
+        // 연속된 li 그룹들을 하나의 ul로 올바르게 묶기
+        html = html.replace(/(<li[^>]*>.*?<\/li>\s*)+/gs, (match) => {
+            return `<ul style="margin:8px 0; padding-left:0; list-style:none;">${match}</ul>`;
+        });
+        
+        // 줄바꿈 → <br>
+        html = html.trim().replace(/\n/g, '<br>');
+        
+        // 연속 <br> 방지 및 정리
+        html = html.replace(/(<br>){3,}/g, '<br><br>');
+        return html;
     }
 
     toggleHealthCriteriaTooltip(event) {

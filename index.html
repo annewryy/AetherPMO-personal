@@ -363,9 +363,13 @@
                                 <span class="banner-stat-value" id="banner-kpi-today-due">0</span>
                                 <span class="banner-stat-label">📅 오늘 마감</span>
                             </a>
-                            <a href="#issues" class="banner-stat banner-stat-warning" title="지연 및 위험 프로젝트">
+                            <a href="#projects" class="banner-stat banner-stat-warning" title="주의 프로젝트 (일정 지연)">
                                 <span class="banner-stat-value" id="banner-kpi-delayed">0</span>
-                                <span class="banner-stat-label">⚠️ 지연/위험</span>
+                                <span class="banner-stat-label">⚠️ 주의 프로젝트</span>
+                            </a>
+                            <a href="#issues" class="banner-stat banner-stat-danger" title="고위험 리스크 (조치 필요)">
+                                <span class="banner-stat-value" id="banner-kpi-risks">0</span>
+                                <span class="banner-stat-label">🔥 고위험 리스크</span>
                             </a>
                             <a href="#action-items" class="banner-stat banner-stat-info" title="미완료 Action Item">
                                 <span class="banner-stat-value" id="banner-kpi-actions">0</span>
@@ -434,30 +438,18 @@
                                     </div>
                                 </div>
 
-                                <!-- AI Daily Briefing KPI Card (always shown) -->
+                                <!-- AI Briefing: 인사이트 텍스트만 유지 (KPI 교복 제거) -->
                                 <div id="portal-daily-briefing-card" class="portal-daily-briefing-card">
                                     <div class="portal-briefing-header">
                                         <i data-lucide="sparkles" style="width:14px; height:14px; color:var(--primary);"></i>
-                                        <span>오늘의 AI 데일리 브리핑</span>
+                                        <span>AI 스마트 브리핑</span>
                                     </div>
-                                    <div class="portal-briefing-kpi-grid">
-                                        <div class="portal-briefing-kpi-item portal-bkpi-danger">
-                                            <div class="portal-bkpi-num" id="briefing-today-due">0</div>
-                                            <div class="portal-bkpi-label">📅 오늘 마감</div>
-                                        </div>
-                                        <div class="portal-briefing-kpi-item portal-bkpi-warning">
-                                            <div class="portal-bkpi-num" id="briefing-risks">0</div>
-                                            <div class="portal-bkpi-label">🔥 고위험 리스크</div>
-                                        </div>
-                                        <div class="portal-briefing-kpi-item portal-bkpi-orange">
-                                            <div class="portal-bkpi-num" id="briefing-delayed">0</div>
-                                            <div class="portal-bkpi-label">⚠️ 주의 프로젝트</div>
-                                        </div>
-                                        <div class="portal-briefing-kpi-item portal-bkpi-info">
-                                            <div class="portal-bkpi-num" id="briefing-actions">0</div>
-                                            <div class="portal-bkpi-label">📋 미완료 Action</div>
-                                        </div>
-                                    </div>
+                                    <!-- KPI 교복 제거됨: 위에 통합 KPI 배너로 이동 -->
+                                    <!-- hidden 스팬으로 JS 호환성 유지 -->
+                                    <span id="briefing-today-due" style="display:none;">0</span>
+                                    <span id="briefing-risks" style="display:none;">0</span>
+                                    <span id="briefing-delayed" style="display:none;">0</span>
+                                    <span id="briefing-actions" style="display:none;">0</span>
                                     <div id="portal-briefing-insight" class="portal-briefing-insight">
                                         <!-- AI insight text rendered by JS -->
                                     </div>

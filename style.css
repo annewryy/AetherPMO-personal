@@ -6334,35 +6334,36 @@ body.light-theme .portal-today-action-banner {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 10px 18px;
-    border-radius: 12px;
+    padding: 12px 24px;
+    border-radius: 14px;
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid var(--bg-card-border);
     cursor: pointer;
     transition: all 0.18s ease;
-    min-width: 90px;
+    min-width: 120px;
     text-decoration: none;
 }
 body.light-theme .banner-stat {
     background: rgba(0, 0, 0, 0.02);
 }
 .banner-stat:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     border-color: var(--primary);
     background: var(--primary-light);
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.15);
 }
 .banner-stat-value {
-    font-size: 32px;
+    font-size: 48px;
     font-weight: 900;
     line-height: 1;
-    letter-spacing: -1px;
+    letter-spacing: -1.5px;
     font-feature-settings: "tnum";
 }
 .banner-stat-label {
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
     color: var(--text-muted);
-    margin-top: 4px;
+    margin-top: 6px;
     white-space: nowrap;
 }
 .banner-stat-danger .banner-stat-value  { color: #ef4444; }
@@ -6629,11 +6630,23 @@ body.light-theme .portal-copilot-today-card {
         gap: 8px;
         width: 100%;
     }
-    .stat-value { font-size: 34px !important; }
+    .banner-stat-value { font-size: 34px !important; }
 }
 
 /* Light theme overrides */
-body.light-theme .banner-stat { border-color: #e2e8f0; }
+body.light-theme .portal-today-action-banner {
+    background: rgba(255, 255, 255, 0.7) !important;
+    border-color: rgba(99, 102, 241, 0.2) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+body.light-theme .banner-stat {
+    background: rgba(0, 0, 0, 0.03) !important;
+    border-color: #e2e8f0 !important;
+}
+body.light-theme .banner-stat:hover {
+    background: rgba(99, 102, 241, 0.08) !important;
+    border-color: var(--primary) !important;
+}
 body.light-theme .stat-card {
     background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(238,242,255,0.7) 100%) !important;
 }
