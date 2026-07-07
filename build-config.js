@@ -12,3 +12,13 @@ window.SUPABASE_CONFIG = {
 
 fs.writeFileSync('supabase-config.js', configContent);
 console.log('supabase-config.js successfully generated.');
+
+// ── 캐시버스팅: app.js 버전 파라미터를 커밋 해시(또는 타임스탬프)로 자동 갱신 ──
+const buildVersion = process.env.VERCEL_GIT_COMMIT_SHA
+    ? process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7)
+    : Date.now().toString(36);
+
+let html = fs.readFileSync('index.html', 'utf-8');
+html = html.replace(/app\.js\?v=[^"']+/, `app.js?v=${buildVersion}`);
+fs.writeFileSync('index.html', html);
+console.log(`app.js cache-busting version updated to: ${buildVersion}`);
