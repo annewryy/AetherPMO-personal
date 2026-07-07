@@ -9795,7 +9795,6 @@ class AetherPMO {
        ========================================================================== */
     renderResourcesView() {
         const projectFilterSelect = document.getElementById('resources-filter-project');
-        const deptFilterSelect = document.getElementById('resources-filter-dept');
         
         if (projectFilterSelect && projectFilterSelect.options.length <= 1) {
             const projects = this.state.projects || [];
@@ -9806,20 +9805,9 @@ class AetherPMO {
                 projectFilterSelect.appendChild(opt);
             });
         }
-        
-        if (deptFilterSelect && deptFilterSelect.options.length <= 1) {
-            const resources = this.state.resources || [];
-            const depts = [...new Set(resources.map(r => r.department).filter(Boolean))];
-            depts.forEach(d => {
-                const opt = document.createElement('option');
-                opt.value = d;
-                opt.textContent = d;
-                deptFilterSelect.appendChild(opt);
-            });
-        }
 
         const projFilter = document.getElementById('resources-filter-project')?.value || 'all';
-        const deptFilter = document.getElementById('resources-filter-dept')?.value || 'all';
+        const typeFilter = document.getElementById('resources-filter-type')?.value || 'all';
         const keyword = this.safeText(document.getElementById('resources-search-input')?.value).trim();
 
         let list = [...(this.state.resources || [])];
@@ -9831,8 +9819,8 @@ class AetherPMO {
                 return pmList.some(pm => pm.projectId === projFilter);
             });
         }
-        if (deptFilter !== 'all') {
-            list = list.filter(r => r.department === deptFilter);
+        if (typeFilter !== 'all') {
+            list = list.filter(r => r.employmentType === typeFilter);
         }
         if (keyword) {
             list = list.filter(r => 
