@@ -8378,6 +8378,7 @@ class AetherPMO {
         const fileName = this.tempAttachedFile ? this.tempAttachedFile.name : '';
         const fileSize = this.tempAttachedFile ? this.tempAttachedFile.size : '';
 
+        let newArt = null;
         if (id) {
             const index = this.state.artifacts.findIndex(a => a.id === id);
             if (index !== -1) {
@@ -8434,7 +8435,7 @@ class AetherPMO {
             }
         } else {
             const newId = this.generateUuid();
-            const newArt = {
+            newArt = {
                 id: newId,
                 projectId,
                 name,
