@@ -237,6 +237,24 @@ CREATE TABLE IF NOT EXISTS public.activity_logs (
 
 
 -- ==========================================
+-- 12. Resources Table (Master Personnel List)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS public.resources (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    employment_type TEXT NOT NULL DEFAULT 'regular' CHECK (employment_type IN ('regular', 'outsourcing', 'project_contract', 'turnkey')),
+    department TEXT, -- 소속본부/부서
+    position TEXT, -- 직급
+    role_name TEXT, -- 역할 (직무)
+    user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL, -- 계정연동 사용자 ID
+    is_active BOOLEAN NOT NULL DEFAULT true, -- 비활성화 여부 (소프트 삭제)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+
+
+-- ==========================================
 -- Row Level Security (RLS) Policies
 -- ==========================================
 
@@ -252,6 +270,7 @@ ALTER TABLE public.action_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.official_docs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.checklists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.resources ENABLE ROW LEVEL SECURITY;
 
 -- 1. Profiles Policies
 CREATE POLICY "Allow select for all profiles" ON public.profiles
@@ -380,3 +399,22 @@ CREATE POLICY "Allow select for all activity_logs" ON public.activity_logs
     FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Allow insert for all authenticated users on activity_logs" ON public.activity_logs
     FOR INSERT TO authenticated WITH CHECK (true);
+
+-- 12. Resources Policies
+CREATE POLICY "Allow select for all resources" ON public.resources
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow all for SYS_ADMIN and PM on resources" ON public.resources
+    FOR ALL TO authenticated USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles pr
+            WHERE pr.id = auth.uid()
+            AND pr.role IN ('SYS_ADMIN', 'PM')
+        )
+    );
+
+-- ==========================================
+-- Grant Privileges to Supabase Roles
+-- ==========================================
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated, anon;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated, anon;

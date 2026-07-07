@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS public.project_members (
     start_date DATE,
     end_date DATE,
     memo TEXT,
+    employment_type TEXT NOT NULL DEFAULT 'regular' CHECK (employment_type IN ('regular', 'outsourcing', 'project_contract', 'turnkey')),
+    resource_id UUID REFERENCES public.resources(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );

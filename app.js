@@ -21,6 +21,7 @@ class AetherPMO {
             meetingMinutes: [], // Meeting Minutes
             globalTemplates: [],
             projectMembers: [],
+            resources: [],
             recentlyDownloaded: [],
             theme: 'dark'
         };
@@ -788,6 +789,10 @@ class AetherPMO {
             switch(type) {
                 case 'project_upsert': {
                     const p = data;
+                    if (!this.isUuid(p.id)) {
+                        console.warn(`[Supabase Sync] Skipping project_upsert for legacy non-UUID id: ${p.id}`);
+                        break;
+                    }
                     const projData = {
                         id: p.id,
                         project_code: p.projectCode || p.id,
@@ -795,7 +800,7 @@ class AetherPMO {
                         desc: p.desc,
                         dept: p.dept,
                         pm_name: p.manager,
-                        manager_id: p.managerId || null,
+                        manager_id: this.isUuid(p.managerId) ? p.managerId : null,
                         start_date: p.startDate || null,
                         end_date: p.endDate || null,
                         budget: p.budget || p.projectBudget,
@@ -833,38 +838,86 @@ class AetherPMO {
                     break;
                 }
                 case 'project_delete': {
+                    if (!this.isUuid(data)) {
+                        console.warn(`[Supabase Sync] Skipping project_delete for legacy non-UUID id: ${data}`);
+                        break;
+                    }
                     const { error } = await this.supabase.from('projects').delete().eq('id', data);
                     if (error) console.error('[Supabase Sync] project_delete error:', error);
                     break;
                 }
                 case 'member_upsert': {
                     const m = data;
+                    if (!this.isUuid(m.id)) {
+                        console.warn(`[Supabase Sync] Skipping member_upsert: invalid member id: ${m.id}`);
+                        break;
+                    }
+                    const projectId = m.projectId || m.project_id;
+                    if (!this.isUuid(projectId)) {
+                        console.warn(`[Supabase Sync] Skipping member_upsert: invalid projectId: ${projectId}`);
+                        break;
+                    }
+                    const resourceId = this.isUuid(m.resourceId) ? m.resourceId : null;
                     const dbMember = {
                         id: m.id,
-                        project_id: m.projectId,
-                        user_id: m.userId || null,
-                        name: m.name,
-                        role_name: m.roleName,
-                        position: m.position,
-                        department: m.department,
-                        participation_role: m.participationRole,
-                        is_project_manager: m.isProjectManager || false,
-                        is_active: m.isActive,
+                        project_id: projectId,
+                        name: m.name || '',
+                        role_name: m.roleName || m.participationRole || '',
+                        employment_type: m.employmentType || 'regular',
                         start_date: m.startDate || null,
                         end_date: m.endDate || null,
-                        memo: m.memo
+                        participation_rate: m.participationRate || 100
                     };
+                    // resource_id는 유효한 UUID일 때만 포함 (null 시 생략하여 DB 기본값 유지)
+                    if (resourceId) dbMember.resource_id = resourceId;
                     const { error } = await this.supabase.from('project_members').upsert(dbMember);
-                    if (error) console.error('[Supabase Sync] member_upsert error:', error);
+                    if (error) console.error('[Supabase Sync] member_upsert error:', error, 'payload:', dbMember);
                     break;
                 }
                 case 'member_delete': {
+                    if (!this.isUuid(data)) {
+                        console.warn(`[Supabase Sync] Skipping member_delete for legacy non-UUID id: ${data}`);
+                        break;
+                    }
                     const { error } = await this.supabase.from('project_members').delete().eq('id', data);
                     if (error) console.error('[Supabase Sync] member_delete error:', error);
                     break;
                 }
+                case 'resource_upsert': {
+                    const r = data;
+                    if (!this.isUuid(r.id)) {
+                        console.warn(`[Supabase Sync] Skipping resource_upsert for legacy non-UUID id: ${r.id}`);
+                        break;
+                    }
+                    const dbResource = {
+                        id: r.id,
+                        name: r.name,
+                        employment_type: r.employmentType || 'regular',
+                        department: r.department,
+                        position: r.position,
+                        role_name: r.roleName,
+                        user_id: this.isUuid(r.userId) ? r.userId : null,
+                        is_active: r.isActive !== false
+                    };
+                    const { error } = await this.supabase.from('resources').upsert(dbResource);
+                    if (error) console.error('[Supabase Sync] resource_upsert error:', error);
+                    break;
+                }
+                case 'resource_delete': {
+                    if (!this.isUuid(data)) {
+                        console.warn(`[Supabase Sync] Skipping resource_delete for legacy non-UUID id: ${data}`);
+                        break;
+                    }
+                    const { error } = await this.supabase.from('resources').update({ is_active: false }).eq('id', data);
+                    if (error) console.error('[Supabase Sync] resource_delete error:', error);
+                    break;
+                }
                 case 'consortium_sync': {
                     const projectId = data;
+                    if (!this.isUuid(projectId)) {
+                        console.warn(`[Supabase Sync] Skipping consortium_sync for legacy non-UUID projectId: ${projectId}`);
+                        break;
+                    }
                     const members = extra || [];
                     const { error: delErr } = await this.supabase.from('consortium_members').delete().eq('project_id', projectId);
                     if (delErr) console.error('[Supabase Sync] consortium_sync delete error:', delErr);
@@ -886,6 +939,10 @@ class AetherPMO {
                 }
                 case 'vrb_upsert': {
                     const projectId = data;
+                    if (!this.isUuid(projectId)) {
+                        console.warn(`[Supabase Sync] Skipping vrb_upsert for legacy non-UUID projectId: ${projectId}`);
+                        break;
+                    }
                     const vrb = extra || {};
                     const vrbData = {
                         project_id: projectId,
@@ -902,6 +959,10 @@ class AetherPMO {
                 }
                 case 'artifact_upsert': {
                     const a = data;
+                    if (!this.isUuid(a.id) || !this.isUuid(a.projectId)) {
+                        console.warn(`[Supabase Sync] Skipping artifact_upsert for legacy non-UUID id: ${a.id} or projectId: ${a.projectId}`);
+                        break;
+                    }
                     const artData = {
                         id: a.id,
                         project_id: a.projectId,
@@ -910,7 +971,7 @@ class AetherPMO {
                         version: a.version,
                         description: a.description,
                         author: a.author,
-                        author_id: a.authorId || null,
+                        author_id: this.isUuid(a.authorId) ? a.authorId : null,
                         reviewer: a.reviewer,
                         approver: a.approver,
                         due_date: a.dueDate || null,
@@ -924,12 +985,20 @@ class AetherPMO {
                     break;
                 }
                 case 'artifact_delete': {
+                    if (!this.isUuid(data)) {
+                        console.warn(`[Supabase Sync] Skipping artifact_delete for legacy non-UUID id: ${data}`);
+                        break;
+                    }
                     const { error } = await this.supabase.from('artifacts').delete().eq('id', data);
                     if (error) console.error('[Supabase Sync] artifact_delete error:', error);
                     break;
                 }
                 case 'checklist_upsert': {
                     const c = data;
+                    if (!this.isUuid(c.id) || !this.isUuid(c.projectId)) {
+                        console.warn(`[Supabase Sync] Skipping checklist_upsert for legacy non-UUID id: ${c.id} or projectId: ${c.projectId}`);
+                        break;
+                    }
                     const chkData = {
                         id: c.id,
                         project_id: c.projectId,
@@ -943,6 +1012,10 @@ class AetherPMO {
                 }
                 case 'issue_upsert': {
                     const i = data;
+                    if (!this.isUuid(i.id) || !this.isUuid(i.projectId)) {
+                        console.warn(`[Supabase Sync] Skipping issue_upsert for legacy non-UUID id: ${i.id} or projectId: ${i.projectId}`);
+                        break;
+                    }
                     const issData = {
                         id: i.id,
                         project_id: i.projectId,
@@ -950,7 +1023,7 @@ class AetherPMO {
                         type: i.type,
                         priority: i.priority,
                         owner: i.owner,
-                        owner_id: i.ownerId || null,
+                        owner_id: this.isUuid(i.ownerId) ? i.ownerId : null,
                         reported_date: i.reportedDate,
                         resolved_date: i.resolvedDate || null,
                         status: i.status,
@@ -961,18 +1034,26 @@ class AetherPMO {
                     break;
                 }
                 case 'issue_delete': {
+                    if (!this.isUuid(data)) {
+                        console.warn(`[Supabase Sync] Skipping issue_delete for legacy non-UUID id: ${data}`);
+                        break;
+                    }
                     const { error } = await this.supabase.from('issues').delete().eq('id', data);
                     if (error) console.error('[Supabase Sync] issue_delete error:', error);
                     break;
                 }
                 case 'action_upsert': {
                     const a = data;
+                    if (!this.isUuid(a.id) || !this.isUuid(a.projectId)) {
+                        console.warn(`[Supabase Sync] Skipping action_upsert for legacy non-UUID id: ${a.id} or projectId: ${a.projectId}`);
+                        break;
+                    }
                     const actData = {
                         id: a.id,
                         project_id: a.projectId,
                         title: a.title,
                         assignee: a.assignee,
-                        assignee_id: a.assigneeId || null,
+                        assignee_id: this.isUuid(a.assigneeId) ? a.assigneeId : null,
                         due_date: a.dueDate || null,
                         status: a.status,
                         confirm_comment: a.confirmComment
@@ -982,12 +1063,20 @@ class AetherPMO {
                     break;
                 }
                 case 'action_delete': {
+                    if (!this.isUuid(data)) {
+                        console.warn(`[Supabase Sync] Skipping action_delete for legacy non-UUID id: ${data}`);
+                        break;
+                    }
                     const { error } = await this.supabase.from('action_items').delete().eq('id', data);
                     if (error) console.error('[Supabase Sync] action_delete error:', error);
                     break;
                 }
                 case 'doc_upsert': {
                     const d = data;
+                    if (!this.isUuid(d.id) || !this.isUuid(d.projectId)) {
+                        console.warn(`[Supabase Sync] Skipping doc_upsert for legacy non-UUID id: ${d.id} or projectId: ${d.projectId}`);
+                        break;
+                    }
                     const docData = {
                         id: d.id,
                         project_id: d.projectId,
@@ -996,7 +1085,7 @@ class AetherPMO {
                         category: d.category,
                         draft_dept: d.draftDept,
                         drafter: d.drafter,
-                        drafter_id: d.drafterId || null,
+                        drafter_id: this.isUuid(d.drafterId) ? d.drafterId : null,
                         draft_date: d.draftDate,
                         approval_line: d.approvalLine || [],
                         current_approver: d.currentApprover,
@@ -1008,12 +1097,20 @@ class AetherPMO {
                     break;
                 }
                 case 'doc_delete': {
+                    if (!this.isUuid(data)) {
+                        console.warn(`[Supabase Sync] Skipping doc_delete for legacy non-UUID id: ${data}`);
+                        break;
+                    }
                     const { error } = await this.supabase.from('official_docs').delete().eq('id', data);
                     if (error) console.error('[Supabase Sync] doc_delete error:', error);
                     break;
                 }
                 case 'meeting_upsert': {
                     const m = data;
+                    if (!this.isUuid(m.id) || !this.isUuid(m.projectId)) {
+                        console.warn(`[Supabase Sync] Skipping meeting_upsert for legacy non-UUID id: ${m.id} or projectId: ${m.projectId}`);
+                        break;
+                    }
                     const meetData = {
                         id: m.id,
                         project_id: m.projectId,
@@ -1023,23 +1120,31 @@ class AetherPMO {
                         attendees: m.attendees || [],
                         content: m.content,
                         remarks: m.remarks,
-                        author_id: m.authorId || null
+                        author_id: this.isUuid(m.authorId) ? m.authorId : null
                     };
                     const { error } = await this.supabase.from('meeting_minutes').upsert(meetData);
                     if (error) console.error('[Supabase Sync] meeting_upsert error:', error);
                     break;
                 }
                 case 'meeting_delete': {
+                    if (!this.isUuid(data)) {
+                        console.warn(`[Supabase Sync] Skipping meeting_delete for legacy non-UUID id: ${data}`);
+                        break;
+                    }
                     const { error } = await this.supabase.from('meeting_minutes').delete().eq('id', data);
                     if (error) console.error('[Supabase Sync] meeting_delete error:', error);
                     break;
                 }
                 case 'activity_upsert': {
                     const a = data;
+                    if (!this.isUuid(a.id) || !this.isUuid(a.projectId)) {
+                        console.warn(`[Supabase Sync] Skipping activity_upsert for legacy non-UUID id: ${a.id} or projectId: ${a.projectId}`);
+                        break;
+                    }
                     const actData = {
                         id: a.id,
                         project_id: a.projectId,
-                        user_id: a.userId || null,
+                        user_id: this.isUuid(a.userId) ? a.userId : null,
                         type: a.type,
                         text: a.text,
                         date: a.date
@@ -1050,6 +1155,10 @@ class AetherPMO {
                 }
                 case 'profile_upsert': {
                     const p = data;
+                    if (!this.isUuid(p.id)) {
+                        console.warn(`[Supabase Sync] Skipping profile_upsert for legacy non-UUID id: ${p.id}`);
+                        break;
+                    }
                     const profData = {
                         id: p.id,
                         name: p.name,
@@ -1102,6 +1211,7 @@ class AetherPMO {
                     if (!this.state.recentlyDownloaded) this.state.recentlyDownloaded = [];
                     if (!this.state.globalTemplates) this.state.globalTemplates = this.getDefaultGlobalTemplates();
                     if (!this.state.projectMembers) this.state.projectMembers = this.getDefaultProjectMembers();
+                    if (!this.state.resources) this.state.resources = this.getDefaultResources();
 
                     this.migrateDataStructure();
                 } catch (e) {
@@ -1129,7 +1239,8 @@ class AetherPMO {
                 { data: actionItems, error: errAI },
                 { data: officialDocs, error: errDoc },
                 { data: meetingMinutes, error: errMeet },
-                { data: projectMembers, error: errMem }
+                { data: projectMembers, error: errMem },
+                { data: resources, error: errRes }
             ] = await Promise.all([
                 this.supabase.from('projects').select('*'),
                 this.supabase.from('artifacts').select('*'),
@@ -1139,7 +1250,8 @@ class AetherPMO {
                 this.supabase.from('action_items').select('*'),
                 this.supabase.from('official_docs').select('*'),
                 this.supabase.from('meeting_minutes').select('*'),
-                this.supabase.from('project_members').select('*')
+                this.supabase.from('project_members').select('*'),
+                this.supabase.from('resources').select('*')
             ]);
 
             console.log('[projects from supabase]', projects);
@@ -1147,21 +1259,39 @@ class AetherPMO {
                 console.error('[projects error]', errProj);
             }
             if (errMem) console.error('Error loading project_members:', errMem);
+            if (errRes) console.error('Error loading resources:', errRes);
 
-            this.state.projectMembers = (projectMembers || []).map(m => ({
-                id: m.id,
-                projectId: m.project_id,
-                userId: m.user_id,
-                name: m.name,
-                roleName: m.role_name,
-                position: m.position,
-                department: m.department,
-                participationRole: m.participation_role,
-                isProjectManager: m.is_project_manager,
-                isActive: m.is_active,
-                startDate: m.start_date,
-                endDate: m.end_date,
-                memo: m.memo
+            this.state.projectMembers = (projectMembers || []).map(m => {
+                const r = (resources || []).find(res => res.id === m.resource_id) || {};
+                return {
+                    id: m.id,
+                    projectId: m.project_id,
+                    userId: r.user_id || m.user_id || null,
+                    name: m.name || r.name || '',
+                    roleName: m.role_name || r.role_name || '',
+                    position: r.position || m.position || '',
+                    department: r.department || m.department || '',
+                    participationRole: m.participation_role || m.role_name || 'DEV',
+                    isProjectManager: m.is_project_manager || m.role_name === 'PM',
+                    isActive: r.is_active !== false,
+                    startDate: m.start_date,
+                    endDate: m.end_date,
+                    memo: m.memo || '',
+                    employmentType: m.employment_type || r.employment_type || 'regular',
+                    resourceId: m.resource_id,
+                    participationRate: m.participation_rate || 100
+                };
+            });
+
+            this.state.resources = (resources || []).map(r => ({
+                id: r.id,
+                name: r.name,
+                employmentType: r.employment_type || 'regular',
+                department: r.department,
+                position: r.position,
+                roleName: r.role_name,
+                userId: r.user_id,
+                isActive: r.is_active !== false
             }));
 
             this.state.projects = (projects || []).map(p => ({
@@ -3084,6 +3214,11 @@ class AetherPMO {
             meetingMinutes: mockMeetingMinutes,
             activities: mockActivities,
             templateSlots: [],
+            users: this.getDefaultUsers(),
+            userRole: 'PM',
+            globalTemplates: this.getDefaultGlobalTemplates(),
+            projectMembers: this.getDefaultProjectMembers(),
+            resources: this.getDefaultResources(),
             theme: 'dark'
         };
 
@@ -3678,7 +3813,7 @@ class AetherPMO {
             return;
         }
 
-        const lowercaseQuery = query.toLowerCase();
+        const lowercaseQuery = this.safeText(query);
         const activeNav = document.querySelector('.sidebar-nav .nav-item.active');
         const currentView = activeNav ? activeNav.getAttribute('data-view') : 'dashboard';
 
@@ -3690,9 +3825,9 @@ class AetherPMO {
             this.renderArtifacts();
         } else if (currentView === 'dashboard') {
             const filteredProjs = this.state.projects.filter(p => 
-                p.name.toLowerCase().includes(lowercaseQuery) || 
-                p.manager.toLowerCase().includes(lowercaseQuery) ||
-                (p.customer && p.customer.toLowerCase().includes(lowercaseQuery))
+                this.safeText(p.name).includes(lowercaseQuery) || 
+                this.safeText(p.manager).includes(lowercaseQuery) ||
+                this.safeText(p.customer).includes(lowercaseQuery)
             );
             this.renderDashboardProjectsTable(filteredProjs);
         }
@@ -4655,7 +4790,7 @@ class AetherPMO {
         
         // 연속된 li 그룹들을 하나의 ul로 올바르게 묶기
         html = html.replace(/(<li[^>]*>.*?<\/li>\s*)+/gs, (match) => {
-            return `<ul style="margin:8px 0; padding-left:0; list-style:none;">${match}</ul>`;
+            return `<ul style="margin:8px 0; padding-left:0; list-style:none;">${match.replace(/\r?\n/g, '')}</ul>`;
         });
         
         // 줄바꿈 → <br>
@@ -5160,7 +5295,7 @@ class AetherPMO {
         const fDept = document.getElementById('project-filter-dept').value;
         const fStatusSelect = document.getElementById('project-filter-status');
         const fStatus = fStatusSelect ? fStatusSelect.value : 'all';
-        const fSearch = document.getElementById('project-search-input').value.toLowerCase().trim();
+        const fSearch = this.safeText(document.getElementById('project-search-input').value).trim();
 
         const filtered = this.state.projects.filter(p => {
             const pStatusClean = p.status?.trim() || '';
@@ -5176,9 +5311,9 @@ class AetherPMO {
             const matchDept = fDept === 'all' || p.dept === fDept;
             const matchStatus = fStatus === 'all' || pStatusClean === fStatus;
             const matchSearch = !fSearch || 
-                p.name.toLowerCase().includes(fSearch) || 
-                p.manager.toLowerCase().includes(fSearch) || 
-                p.desc.toLowerCase().includes(fSearch);
+                this.safeText(p.name).includes(fSearch) || 
+                this.safeText(p.manager).includes(fSearch) || 
+                this.safeText(p.desc).includes(fSearch);
 
             return matchStage && matchDept && matchStatus && matchSearch;
         });
@@ -5425,14 +5560,14 @@ class AetherPMO {
         const tbody = document.getElementById('g2b-announcements-tbody');
         if (!tbody) return;
 
-        const searchVal = document.getElementById('g2b-search-input').value.toLowerCase().trim();
+        const searchVal = this.safeText(document.getElementById('g2b-search-input').value).trim();
         const announcements = this.state.g2bAnnouncements || [];
 
         const filtered = announcements.filter(ann => {
             const matchSearch = !searchVal || 
-                ann.name.toLowerCase().includes(searchVal) || 
-                ann.customer.toLowerCase().includes(searchVal) ||
-                ann.announcementNo.toLowerCase().includes(searchVal);
+                this.safeText(ann.name).includes(searchVal) || 
+                this.safeText(ann.customer).includes(searchVal) ||
+                this.safeText(ann.announcementNo).includes(searchVal);
             return matchSearch;
         });
 
@@ -6017,7 +6152,7 @@ class AetherPMO {
         const searchInput = document.getElementById('g2b-local-search-input');
         const sortSelect = document.getElementById('g2b-local-sort');
 
-        const searchKeyword = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const searchKeyword = searchInput ? this.safeText(searchInput.value).trim() : '';
         this.state.g2bSearchKeyword = searchKeyword;
         const sortVal = sortSelect ? sortSelect.value : 'endDateAsc';
 
@@ -6026,9 +6161,9 @@ class AetherPMO {
 
         if (searchKeyword) {
             filtered = filtered.filter(item => {
-                const nameMatch = (item.name || '').toLowerCase().includes(searchKeyword);
-                const customerMatch = (item.customer || '').toLowerCase().includes(searchKeyword);
-                const noMatch = (item.announcementNo || '').toLowerCase().includes(searchKeyword);
+                const nameMatch = this.safeText(item.name).includes(searchKeyword);
+                const customerMatch = this.safeText(item.customer).includes(searchKeyword);
+                const noMatch = this.safeText(item.announcementNo).includes(searchKeyword);
                 return nameMatch || customerMatch || noMatch;
             });
         }
@@ -6754,6 +6889,17 @@ class AetherPMO {
                         ? '' 
                         : ' <span class="badge badge-xs" style="background:var(--bg-card-border); color:var(--text-muted); font-size:9px; padding:0 4px; margin-left:4px;">제외</span>';
                     const deptText = res.department ? ` • ${res.department}` : '';
+                    
+                    const typeLabel = this.translateEmploymentType(res.employmentType);
+                    const typeColorMap = {
+                        regular: { bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.3)', text: '#10b981' },
+                        outsourcing: { bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.3)', text: '#3b82f6' },
+                        project_contract: { bg: 'rgba(139, 92, 246, 0.1)', border: 'rgba(139, 92, 246, 0.3)', text: '#8b5cf6' },
+                        turnkey: { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', text: '#f59e0b' }
+                    };
+                    const badgeStyle = typeColorMap[res.employmentType || 'regular'] || typeColorMap.regular;
+                    const typeBadge = ` <span class="badge" style="background:${badgeStyle.bg}; color:${badgeStyle.text}; border:1px solid ${badgeStyle.border}; font-size:9px; padding:1px 6px; border-radius:4px; font-weight:700; margin-left:6px;">${typeLabel}</span>`;
+
                     return `
                         <div style="display:flex; align-items:center; gap:10px; opacity: ${res.isActive ? 1 : 0.6};">
                             <div class="personnel-circle" style="width:32px; height:32px; border-radius:50%; background:${color}; color:#ffffff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; border:1px solid rgba(255,255,255,0.1); flex-shrink:0;">
@@ -6762,6 +6908,7 @@ class AetherPMO {
                             <div style="display:flex; flex-direction:column; gap:1px;">
                                 <span style="font-size:12px; font-weight:700; display:flex; align-items:center;">
                                     ${res.name}
+                                    ${typeBadge}
                                     ${statusBadge}
                                 </span>
                                 <span style="font-size:10px; color:var(--text-muted);">${res.participationRole}${res.roleName ? ` (${res.roleName})` : ''}${deptText}</span>
@@ -7077,7 +7224,7 @@ class AetherPMO {
         else if (category === '4') catStr = 'Test Plan';
 
         const newChk = {
-            id: `chk-${Date.now()}`,
+            id: this.generateUuid(),
             projectId: this.activeProjectId,
             category: catStr,
             title: input.trim(),
@@ -7196,7 +7343,7 @@ class AetherPMO {
         }
 
         const newArt = {
-            id: `art-${Date.now()}`,
+            id: this.generateUuid(),
             projectId: slot.projectId,
             name: slot.title,
             category: slot.category,
@@ -7616,7 +7763,7 @@ class AetherPMO {
 
             } else {
                 // INSERT PROCESS
-                const newId = `proj-${Date.now()}`;
+                const newId = this.generateUuid();
                 const defaultResourcesList = [
                     { name: manager || '안유경', role: 'PM / 총괄', type: 'PM' },
                     { name: '이영희', role: 'PL / 분석총괄', type: 'PL' },
@@ -7678,7 +7825,7 @@ class AetherPMO {
                     for (let index = 0; index < defaultCats.length; index++) {
                         const item = defaultCats[index];
                         const newChk = {
-                            id: `chk-${Date.now()}-${index}`,
+                            id: this.generateUuid(),
                             projectId: newId,
                             category: item.cat,
                             title: item.title,
@@ -7726,7 +7873,7 @@ class AetherPMO {
                     ];
                     defaultCats.forEach((item, index) => {
                         const newChk = {
-                            id: `chk-${Date.now()}-${index}`,
+                            id: this.generateUuid(),
                             projectId: newId,
                             category: item.cat,
                             title: item.title,
@@ -7874,7 +8021,7 @@ class AetherPMO {
                             }
                         }
 
-                        const finalId = existingId || `proj-${Date.now()}-${i}`;
+                        const finalId = existingId || this.generateUuid();
                         const finalCode = codeVal || `PRJ-2026-${String(Date.now()).substring(7)}-${i}`;
 
                         // Build payload compatible with DB sync
@@ -8278,7 +8425,7 @@ class AetherPMO {
                 this.addActivityLog(projectId, name, 'artifact', `산출물 수정: "${name}" (${this.translateArtifactStatus(status)})`);
             }
         } else {
-            const newId = `art-${Date.now()}`;
+            const newId = this.generateUuid();
             const newArt = {
                 id: newId,
                 projectId,
@@ -8456,7 +8603,7 @@ class AetherPMO {
 
         const filterProj = projFilter.value;
         const filterStat = statFilter.value;
-        const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const query = searchInput ? this.safeText(searchInput.value).trim() : '';
 
         const filtered = (this.state.issues || []).filter(iss => {
             const project = this.state.projects.find(p => p.id === iss.projectId);
@@ -8465,8 +8612,8 @@ class AetherPMO {
             const matchProj = filterProj === 'all' ? isProjectActive : iss.projectId === filterProj;
             const matchStat = filterStat === 'all' || iss.status === filterStat;
             const matchQuery = !query || 
-                iss.title.toLowerCase().includes(query) || 
-                iss.owner.toLowerCase().includes(query);
+                this.safeText(iss.title).includes(query) || 
+                this.safeText(iss.owner).includes(query);
 
             return matchProj && matchStat && matchQuery;
         });
@@ -8604,7 +8751,7 @@ class AetherPMO {
                 this.addActivityLog(projectId, title, 'review', `리스크 수정: "${title}" (${status})`);
             }
         } else {
-            const newId = `iss-${Date.now()}`;
+            const newId = this.generateUuid();
             this.state.issues.push({
                 id: newId,
                 projectId, title, type, priority, owner, status, reportedDate,
@@ -8680,7 +8827,7 @@ class AetherPMO {
 
         const filterProj = projFilter.value;
         const filterStat = statFilter.value;
-        const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const query = searchInput ? this.safeText(searchInput.value).trim() : '';
 
         const filtered = (this.state.actionItems || []).filter(act => {
             const project = this.state.projects.find(p => p.id === act.projectId);
@@ -8689,8 +8836,8 @@ class AetherPMO {
             const matchProj = filterProj === 'all' ? isProjectActive : act.projectId === filterProj;
             const matchStat = filterStat === 'all' || act.status === filterStat;
             const matchQuery = !query || 
-                act.title.toLowerCase().includes(query) || 
-                act.owner.toLowerCase().includes(query);
+                this.safeText(act.title).includes(query) || 
+                this.safeText(act.owner).includes(query);
 
             return matchProj && matchStat && matchQuery;
         });
@@ -8824,7 +8971,7 @@ class AetherPMO {
                 this.addActivityLog(projectId, title, 'review', `Action Item 수정: "${title}" (${status})`);
             }
         } else {
-            const newId = `act-${Date.now()}`;
+            const newId = this.generateUuid();
             this.state.actionItems.push({
                 id: newId,
                 projectId, title, owner, status, dueDate,
@@ -8921,7 +9068,7 @@ class AetherPMO {
 
         const filterProj = projFilter.value;
         const filterStat = statFilter.value;
-        const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const query = searchInput ? this.safeText(searchInput.value).trim() : '';
 
         const filtered = (this.state.officialDocs || []).filter(doc => {
             const project = this.state.projects.find(p => p.id === doc.projectId);
@@ -8930,10 +9077,10 @@ class AetherPMO {
             const matchProj = filterProj === 'all' ? isProjectActive : doc.projectId === filterProj;
             const matchStat = filterStat === 'all' || doc.approvalStatus === filterStat || doc.status === filterStat;
             const matchQuery = !query || 
-                (doc.title || '').toLowerCase().includes(query) || 
-                (doc.docNo || '').toLowerCase().includes(query) || 
-                (doc.receiver || '').toLowerCase().includes(query) ||
-                (doc.drafter || '').toLowerCase().includes(query);
+                this.safeText(doc.title).includes(query) || 
+                this.safeText(doc.docNo).includes(query) || 
+                this.safeText(doc.receiver).includes(query) ||
+                this.safeText(doc.drafter).includes(query);
 
             return matchProj && matchStat && matchQuery;
         });
@@ -9172,7 +9319,7 @@ class AetherPMO {
                 this.addActivityLog(projectId, title, 'review', `공문 수정: "${title}" (${approvalStatus})`);
             }
         } else {
-            const newId = `doc-${Date.now()}`;
+            const newId = this.generateUuid();
             this.state.officialDocs.push({ id: newId, ...newData });
             this.addActivityLog(projectId, title, 'review', `신규 공문 등록: "${title}" (${approvalStatus})`);
         }
@@ -9388,7 +9535,7 @@ class AetherPMO {
         }
 
         const filterProj = projFilter.value;
-        const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const query = searchInput ? this.safeText(searchInput.value).trim() : '';
 
 
 
@@ -9404,11 +9551,11 @@ class AetherPMO {
 
             const matchQuery = !query || 
 
-                meet.title.toLowerCase().includes(query) || 
+                this.safeText(meet.title).includes(query) || 
 
-                meet.agenda.toLowerCase().includes(query) || 
+                this.safeText(meet.agenda).includes(query) || 
 
-                meet.location.toLowerCase().includes(query);
+                this.safeText(meet.location).includes(query);
 
 
 
@@ -9596,7 +9743,7 @@ class AetherPMO {
                 this.addActivityLog(projectId, title, 'review', `회의록 수정: "${title}"`);
             }
         } else {
-            const newId = `meet-${Date.now()}`;
+            const newId = this.generateUuid();
             this.state.meetingMinutes.push({
                 id: newId,
                 projectId, title, meetDate, location, attendees, agenda, decisions, remarks
@@ -9661,8 +9808,8 @@ class AetherPMO {
         }
         
         if (deptFilterSelect && deptFilterSelect.options.length <= 1) {
-            const members = this.state.projectMembers || [];
-            const depts = [...new Set(members.map(m => m.department).filter(Boolean))];
+            const resources = this.state.resources || [];
+            const depts = [...new Set(resources.map(r => r.department).filter(Boolean))];
             depts.forEach(d => {
                 const opt = document.createElement('option');
                 opt.value = d;
@@ -9673,21 +9820,26 @@ class AetherPMO {
 
         const projFilter = document.getElementById('resources-filter-project')?.value || 'all';
         const deptFilter = document.getElementById('resources-filter-dept')?.value || 'all';
-        const keyword = (document.getElementById('resources-search-input')?.value || '').toLowerCase().trim();
+        const keyword = this.safeText(document.getElementById('resources-search-input')?.value).trim();
 
-        let list = [...(this.state.projectMembers || [])];
+        let list = [...(this.state.resources || [])];
+        list = list.filter(r => r.isActive !== false);
 
         if (projFilter !== 'all') {
-            list = list.filter(m => m.projectId === projFilter);
+            list = list.filter(r => {
+                const pmList = (this.state.projectMembers || []).filter(pm => pm.resourceId === r.id);
+                return pmList.some(pm => pm.projectId === projFilter);
+            });
         }
         if (deptFilter !== 'all') {
-            list = list.filter(m => m.department === deptFilter);
+            list = list.filter(r => r.department === deptFilter);
         }
         if (keyword) {
-            list = list.filter(m => 
-                (m.name || '').toLowerCase().includes(keyword) || 
-                (m.participationRole || '').toLowerCase().includes(keyword) || 
-                (m.position || '').toLowerCase().includes(keyword)
+            list = list.filter(r => 
+                this.safeText(r.name).includes(keyword) || 
+                this.safeText(r.department).includes(keyword) || 
+                this.safeText(r.position).includes(keyword) || 
+                this.safeText(r.roleName).includes(keyword)
             );
         }
 
@@ -9695,91 +9847,133 @@ class AetherPMO {
         if (!tbody) return;
 
         if (this.editingResourceId === 'temp-new') {
-            const exists = list.some(m => m.id === 'temp-new');
+            const exists = list.some(r => r.id === 'temp-new');
             if (!exists) {
                 list.push({
                     id: 'temp-new',
-                    projectId: '',
                     name: '',
+                    employmentType: 'regular',
                     department: '',
                     position: '',
-                    participationRole: '',
-                    isProjectManager: false,
-                    startDate: '',
-                    endDate: '',
-                    memo: ''
+                    roleName: '',
+                    userId: '',
+                    isActive: true
                 });
             }
         }
 
         let html = '';
-        list.forEach((m, idx) => {
-            const isEditing = this.editingResourceId === m.id;
-            const project = this.state.projects.find(p => p.id === m.projectId);
-            const projName = project ? `${project.projectCode || project.id} - ${project.name}` : '-';
+        list.forEach((r, idx) => {
+            const isEditing = this.editingResourceId === r.id;
+            const participations = (this.state.projectMembers || []).filter(pm => pm.resourceId === r.id && pm.isActive !== false);
 
             if (isEditing) {
-                const projOptions = (this.state.projects || []).map(p => 
-                    `<option value="${p.id}" ${p.id === m.projectId ? 'selected' : ''}>${p.projectCode || p.id} - ${p.name}</option>`
+                const userOptions = (this.state.users || []).map(u => 
+                    `<option value="${u.id || u.email}" ${u.id === r.userId || u.email === r.userId ? 'selected' : ''}>${u.name} (${u.email})</option>`
                 ).join('');
+
+                const typeOptions = [
+                    { value: 'regular', label: '정규직' },
+                    { value: 'outsourcing', label: '자사화' },
+                    { value: 'project_contract', label: '프로젝트 계약직' },
+                    { value: 'turnkey', label: '외부(턴키)' }
+                ].map(opt => `<option value="${opt.value}" ${opt.value === r.employmentType ? 'selected' : ''}>${opt.label}</option>`).join('');
 
                 html += `
                     <tr style="background: var(--bg-hover-item); border-bottom: 1px solid var(--bg-card-border);">
                         <td style="padding: 8px 12px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-size:11px;">
+                            ${participations.map(pm => {
+                                const p = this.state.projects.find(proj => proj.id === pm.projectId);
+                                return p ? `<div>${p.name}</div>` : '';
+                            }).join('') || '미할당'}
+                        </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <select id="edit-res-project" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; font-weight:600;">
-                                <option value="">-- 프로젝트 선택 --</option>
-                                ${projOptions}
+                            <input type="text" id="edit-res-name" value="${r.name || ''}" placeholder="성명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                            <select id="edit-res-user-id" style="width:100%; height:28px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:11px; margin-top:4px;">
+                                <option value="">-- 계정 연동 안함 --</option>
+                                ${userOptions}
                             </select>
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <input type="text" id="edit-res-name" value="${m.name || ''}" placeholder="성명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                            <select id="edit-res-employment-type" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; font-weight:600;">
+                                ${typeOptions}
+                            </select>
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <input type="text" id="edit-res-dept" value="${m.department || ''}" placeholder="부서명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                            <input type="text" id="edit-res-dept" value="${r.department || ''}" placeholder="부서명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <input type="text" id="edit-res-position" value="${m.position || ''}" placeholder="직급" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                            <input type="text" id="edit-res-position" value="${r.position || ''}" placeholder="직급" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <input type="text" id="edit-res-role" value="${m.participationRole || ''}" placeholder="참여역할" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                            <input type="text" id="edit-res-role-name" value="${r.roleName || ''}" placeholder="참여역할" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
                         </td>
-                        <td style="padding: 8px 12px; text-align: center; border-right: 1px solid var(--bg-card-border);">
-                            <input type="checkbox" id="edit-res-pm" ${m.isProjectManager ? 'checked' : ''} style="width:16px; height:16px; cursor:pointer;">
+                        <td style="padding: 8px 12px; text-align: center; border-right: 1px solid var(--bg-card-border); font-size:11px;">
+                            ${participations.map(pm => `<div>${pm.participationRole === 'PM' || pm.isProjectManager ? 'PM' : '멤버'}</div>`).join('') || '-'}
                         </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <input type="date" id="edit-res-start-date" value="${m.startDate || ''}" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:11px;">
+                            ${participations.map(pm => `<div>${pm.startDate || '-'}</div>`).join('') || '-'}
                         </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <input type="date" id="edit-res-end-date" value="${m.endDate || ''}" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:11px;">
+                            ${participations.map(pm => `<div>${pm.endDate || '-'}</div>`).join('') || '-'}
                         </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <input type="text" id="edit-res-memo" value="${m.memo || ''}" placeholder="비고" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:11px;">
+                            ${participations.map(pm => `<div>${pm.memo || '-'}</div>`).join('') || '-'}
                         </td>
-                        <td style="padding: 8px 12px; text-align: center; display: flex; justify-content: center; gap: 4px; height: 49px; align-items: center;">
-                            <button class="btn btn-xs btn-primary" onclick="app.saveResourceRow('${m.id}')" style="padding:4px 8px; display:flex; align-items:center; gap:2px;"><i data-lucide="check" style="width:12px; height:12px;"></i> 저장</button>
+                        <td style="padding: 8px 12px; text-align: center; display: flex; justify-content: center; gap: 4px; height: 75px; align-items: center;">
+                            <button class="btn btn-xs btn-primary" onclick="app.saveResourceRow('${r.id}')" style="padding:4px 8px; display:flex; align-items:center; gap:2px;"><i data-lucide="check" style="width:12px; height:12px;"></i> 저장</button>
                             <button class="btn btn-xs btn-outline" onclick="app.cancelResourceRowEdit()" style="padding:4px 8px; display:flex; align-items:center; gap:2px;"><i data-lucide="x" style="width:12px; height:12px;"></i> 취소</button>
                         </td>
                     </tr>
                 `;
             } else {
+                const linkedUser = (this.state.users || []).find(u => u.id === r.userId || u.email === r.userId);
+                const nameDisplay = linkedUser 
+                    ? `<div><strong>${r.name || '-'}</strong></div><div class="text-xs text-muted" style="margin-top:2px; font-size:10px;"><i data-lucide="link" style="width:10px; height:10px; display:inline-block; vertical-align:middle; margin-right:2px;"></i>${linkedUser.email}</div>`
+                    : `<strong>${r.name || '-'}</strong>`;
+
+                const typeLabel = this.translateEmploymentType(r.employmentType);
+                const typeColorMap = {
+                    regular: { bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.3)', text: '#10b981' },
+                    outsourcing: { bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.3)', text: '#3b82f6' },
+                    project_contract: { bg: 'rgba(139, 92, 246, 0.1)', border: 'rgba(139, 92, 246, 0.3)', text: '#8b5cf6' },
+                    turnkey: { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', text: '#f59e0b' }
+                };
+                const badgeStyle = typeColorMap[r.employmentType || 'regular'] || typeColorMap.regular;
+                const typeBadge = `<span class="badge" style="background:${badgeStyle.bg}; color:${badgeStyle.text}; border:1px solid ${badgeStyle.border}; font-size:10px; padding:2px 8px; border-radius:4px; font-weight:700;">${typeLabel}</span>`;
+
                 html += `
                     <tr style="border-bottom: 1px solid var(--bg-card-border);">
                         <td style="padding: 12px 16px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight:600;">${idx + 1}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-weight: 700; color: var(--text-main);">${projName}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-weight: 700; color: var(--text-main);">${m.name || '-'}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border);">${m.department || '-'}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-weight: 600;">${m.position || '-'}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border);">${m.participationRole || '-'}</td>
-                        <td style="padding: 12px 16px; text-align: center; border-right: 1px solid var(--bg-card-border);">
-                            ${m.isProjectManager ? `<span class="status-badge status-completed" style="padding:2px 6px; font-size:10px;">PM</span>` : `<span class="status-badge" style="background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; font-size:10px;">멤버</span>`}
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:11px;">
+                            ${participations.map(pm => {
+                                const p = this.state.projects.find(proj => proj.id === pm.projectId);
+                                return p ? `<div style="margin-bottom:4px; font-weight:700; color:var(--text-main);">${p.name}</div>` : '';
+                            }).join('') || '<span class="text-muted">-</span>'}
                         </td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-family: monospace;">${m.startDate || '-'}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-family: monospace;">${m.endDate || '-'}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted);">${m.memo || '-'}</td>
-                        <td style="padding: 12px 16px; text-align: center; display: flex; justify-content: center; gap: 4px; align-items: center;">
-                            <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.editResourceRow('${m.id}')" style="padding: 4px 6px;"><i data-lucide="edit-2" style="width:12px; height:12px;"></i></button>
-                            <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.deleteResourceRow('${m.id}')" style="padding: 4px 6px; border-color: var(--status-critical-border); color: var(--status-critical);"><i data-lucide="trash-2" style="width:12px; height:12px;"></i></button>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border);">${nameDisplay}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align:center;">${typeBadge}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border);">${r.department || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-weight: 600;">${r.position || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border);">${r.roleName || '-'}</td>
+                        <td style="padding: 12px 16px; text-align: center; border-right: 1px solid var(--bg-card-border); font-size:11px;">
+                            ${participations.map(pm => {
+                                return `<div style="margin-bottom:4px;">${pm.participationRole === 'PM' || pm.isProjectManager ? '<span class="status-badge status-completed" style="padding:1px 4px; font-size:9px;">PM</span>' : '<span class="status-badge" style="background:var(--bg-hover-item); color:var(--text-muted); padding:1px 4px; font-size:9px;">멤버</span>'}</div>`;
+                            }).join('') || '-'}
+                        </td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-family: monospace; font-size:11px;">
+                            ${participations.map(pm => `<div style="margin-bottom:4px;">${pm.startDate || '-'}</div>`).join('') || '-'}
+                        </td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-family: monospace; font-size:11px;">
+                            ${participations.map(pm => `<div style="margin-bottom:4px;">${pm.endDate || '-'}</div>`).join('') || '-'}
+                        </td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-size:11px;">
+                            ${participations.map(pm => `<div style="margin-bottom:4px;">${pm.memo || '-'}</div>`).join('') || '-'}
+                        </td>
+                        <td style="padding: 12px 16px; text-align: center; display: flex; justify-content: center; gap: 4px; align-items: center; min-height: 48px;">
+                            <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.editResourceRow('${r.id}')" style="padding: 4px 6px;"><i data-lucide="edit-2" style="width:12px; height:12px;"></i></button>
+                            <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.deleteResourceRow('${r.id}')" style="padding: 4px 6px; border-color: var(--status-critical-border); color: var(--status-critical);"><i data-lucide="trash-2" style="width:12px; height:12px;"></i></button>
                         </td>
                     </tr>
                 `;
@@ -9787,7 +9981,7 @@ class AetherPMO {
         });
 
         if (list.length === 0) {
-            html = `<tr><td colspan="11" style="padding: 32px; text-align: center; color: var(--text-muted); font-size: 14px;">조건에 부합하는 참여 인력 정보가 존재하지 않습니다.</td></tr>`;
+            html = `<tr><td colspan="12" style="padding: 32px; text-align: center; color: var(--text-muted); font-size: 14px;">조건에 부합하는 참여 인력 정보가 존재하지 않습니다.</td></tr>`;
         }
 
         tbody.innerHTML = html;
@@ -9808,12 +10002,12 @@ class AetherPMO {
         }
     }
 
-    editResourceRow(memberId) {
+    editResourceRow(resId) {
         if (this.state.session?.user?.role === 'VIEWER') {
             this.showToast('권한이 없습니다.', 'error');
             return;
         }
-        this.editingResourceId = memberId;
+        this.editingResourceId = resId;
         this.renderResourcesView();
     }
 
@@ -9822,129 +10016,164 @@ class AetherPMO {
         this.renderResourcesView();
     }
 
-    async saveResourceRow(memberId) {
+    async saveResourceRow(resId) {
         if (this.state.session?.user?.role === 'VIEWER') {
             this.showToast('권한이 없습니다.', 'error');
             return;
         }
 
-        const projectId = document.getElementById('edit-res-project')?.value || '';
         const name = document.getElementById('edit-res-name')?.value?.trim() || '';
+        const userId = document.getElementById('edit-res-user-id')?.value || null;
+        const employmentType = document.getElementById('edit-res-employment-type')?.value || 'regular';
         const department = document.getElementById('edit-res-dept')?.value?.trim() || '';
         const position = document.getElementById('edit-res-position')?.value?.trim() || '';
-        const participationRole = document.getElementById('edit-res-role')?.value?.trim() || '';
-        const isProjectManager = document.getElementById('edit-res-pm')?.checked || false;
-        const startDate = document.getElementById('edit-res-start-date')?.value || null;
-        const endDate = document.getElementById('edit-res-end-date')?.value || null;
-        const memo = document.getElementById('edit-res-memo')?.value?.trim() || '';
+        const roleName = document.getElementById('edit-res-role-name')?.value?.trim() || '';
 
-        if (!projectId) {
-            alert('프로젝트를 선택해주세요.');
-            return;
-        }
         if (!name) {
-            alert('필수값을 먼저 입력해주세요.');
+            alert('성명을 입력해주세요.');
             return;
         }
 
-        const memberObj = {
-            id: memberId === 'temp-new' ? 'mem_' + Date.now() : memberId,
-            projectId,
+        const finalId = resId === 'temp-new' ? this.generateUuid() : resId;
+
+        const resourceObj = {
+            id: finalId,
             name,
+            employmentType,
             department,
             position,
-            participationRole,
-            isProjectManager,
-            isActive: true,
-            startDate,
-            endDate,
-            memo
+            roleName,
+            userId,
+            isActive: true
         };
 
-        if (memberId === 'temp-new') {
-            this.state.projectMembers = this.state.projectMembers || [];
-            this.state.projectMembers.push(memberObj);
+        if (resId === 'temp-new') {
+            if (!this.state.resources) this.state.resources = [];
+            this.state.resources.push(resourceObj);
         } else {
-            const idx = this.state.projectMembers.findIndex(m => m.id === memberId);
+            const idx = this.state.resources.findIndex(r => r.id === resId);
             if (idx > -1) {
-                this.state.projectMembers[idx] = memberObj;
+                this.state.resources[idx] = resourceObj;
             }
         }
+
+        // Bidirectional sync: update any corresponding project members
+        (this.state.projectMembers || []).forEach(m => {
+            if (m.resourceId === finalId) {
+                m.name = name;
+                m.userId = userId;
+                m.employmentType = employmentType;
+                m.department = department;
+                m.position = position;
+                m.roleName = roleName;
+                this.saveState('member_upsert', m);
+            }
+        });
 
         this.editingResourceId = null;
         this.renderResourcesView();
         
         try {
-            await this.saveState('member_upsert', memberObj);
-            this.showToast('참여인력이 정상 저장되었습니다.', 'success');
+            await this.saveState('resource_upsert', resourceObj);
+            this.showToast('인력 정보가 정상 저장되었습니다.', 'success');
         } catch (err) {
-            console.error('Error saving member:', err);
+            console.error('Error saving resource:', err);
             this.showToast('데이터베이스 저장 중 오류가 발생했습니다.', 'error');
         }
     }
 
-    async deleteResourceRow(memberId) {
+    async deleteResourceRow(resId) {
         if (this.state.session?.user?.role === 'VIEWER') {
             this.showToast('권한이 없습니다.', 'error');
             return;
         }
 
-        if (confirm('이 참여 인력을 정말 프로젝트에서 제외하시겠습니까?')) {
-            this.state.projectMembers = (this.state.projectMembers || []).filter(m => m.id !== memberId);
-            this.renderResourcesView();
-            
-            try {
-                await this.saveState('member_delete', memberId);
-                this.showToast('참여인력이 정상 삭제되었습니다.', 'success');
-            } catch (err) {
-                console.error('Error deleting member:', err);
-                this.showToast('데이터베이스 삭제 중 오류가 발생했습니다.', 'error');
+        if (confirm('이 인력을 마스터 목록에서 제외하시겠습니까? 관련 프로젝트 참여 정보도 모두 비활성화됩니다.')) {
+            const res = (this.state.resources || []).find(r => r.id === resId);
+            if (res) {
+                res.isActive = false;
+                
+                // Deactivate all matching project members
+                (this.state.projectMembers || []).forEach(m => {
+                    if (m.resourceId === resId) {
+                        m.isActive = false;
+                        this.saveState('member_upsert', m);
+                    }
+                });
+
+                this.renderResourcesView();
+
+                try {
+                    await this.saveState('resource_upsert', res); // soft delete via isActive = false
+                    this.showToast('인력이 비활성화되었습니다.', 'success');
+                } catch (err) {
+                    console.error('Error deactivating resource:', err);
+                    this.showToast('데이터베이스 저장 중 오류가 발생했습니다.', 'error');
+                }
             }
         }
     }
 
     exportResourcesToExcel() {
-        let list = [...(this.state.projectMembers || [])];
-
         const projFilter = document.getElementById('resources-filter-project')?.value || 'all';
         const deptFilter = document.getElementById('resources-filter-dept')?.value || 'all';
-        const keyword = (document.getElementById('resources-search-input')?.value || '').toLowerCase().trim();
+        const keyword = this.safeText(document.getElementById('resources-search-input')?.value).trim();
+
+        let list = [...(this.state.resources || [])];
+        list = list.filter(r => r.isActive !== false);
 
         if (projFilter !== 'all') {
-            list = list.filter(m => m.projectId === projFilter);
+            list = list.filter(r => {
+                const pmList = (this.state.projectMembers || []).filter(pm => pm.resourceId === r.id);
+                return pmList.some(pm => pm.projectId === projFilter);
+            });
         }
         if (deptFilter !== 'all') {
-            list = list.filter(m => m.department === deptFilter);
+            list = list.filter(r => r.department === deptFilter);
         }
         if (keyword) {
-            list = list.filter(m => 
-                (m.name || '').toLowerCase().includes(keyword) || 
-                (m.participationRole || '').toLowerCase().includes(keyword) || 
-                (m.position || '').toLowerCase().includes(keyword)
+            list = list.filter(r => 
+                this.safeText(r.name).includes(keyword) || 
+                this.safeText(r.department).includes(keyword) || 
+                this.safeText(r.position).includes(keyword) || 
+                this.safeText(r.roleName).includes(keyword)
             );
         }
 
         const csvRows = [];
-        csvRows.push(['번호', '프로젝트 코드', '프로젝트명', '성명', '소속본부/부서', '직급', '참여역할', 'PM 여부', '투입시작일', '투입종료일', '비고'].map(h => `"${h}"`).join(','));
+        csvRows.push(['번호', '성명', '인력구분', '소속본부/부서', '직급', '참여역할', '프로젝트', 'PM 여부', '투입시작일', '투입종료일', '비고'].map(h => `"${h}"`).join(','));
 
-        list.forEach((m, idx) => {
-            const project = this.state.projects.find(p => p.id === m.projectId);
-            const projCode = project ? (project.projectCode || project.id) : '-';
-            const projName = project ? project.name : '-';
-            const pmText = m.isProjectManager ? 'PM' : '멤버';
+        list.forEach((r, idx) => {
+            const typeLabel = this.translateEmploymentType(r.employmentType);
+            const participations = (this.state.projectMembers || []).filter(pm => pm.resourceId === r.id && pm.isActive !== false);
+            
+            const projText = participations.map(pm => {
+                const p = this.state.projects.find(proj => proj.id === pm.projectId);
+                return p ? p.name : '';
+            }).filter(Boolean).join('\n');
+
+            const roleText = r.roleName || '-';
+
+            const pmText = participations.map(pm => {
+                return pm.participationRole === 'PM' || pm.isProjectManager ? 'PM' : '멤버';
+            }).join('\n') || '-';
+
+            const startText = participations.map(pm => pm.startDate || '-').join('\n') || '-';
+            const endText = participations.map(pm => pm.endDate || '-').join('\n') || '-';
+            const memoText = participations.map(pm => pm.memo || '-').join('\n') || '-';
 
             const row = [
                 idx + 1,
-                projCode,
-                projName,
-                m.name || '',
-                m.department || '',
-                m.position || '',
-                m.participationRole || '',
+                r.name || '',
+                typeLabel,
+                r.department || '',
+                r.position || '',
+                roleText,
+                projText,
                 pmText,
-                m.startDate || '',
-                m.endDate || '',
-                m.memo || ''
+                startText,
+                endText,
+                memoText
             ];
             
             const escapedRow = row.map(val => {
@@ -9961,13 +10190,13 @@ class AetherPMO {
         
         const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
         link.setAttribute('href', url);
-        link.setAttribute('download', `참여인력_관리_리스트_${dateStr}.csv`);
+        link.setAttribute('download', `인력관리_마스터_리스트_${dateStr}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         
-        this.showToast('참여인력 리스트 엑셀 다운로드가 완료되었습니다.', 'success');
+        this.showToast('인력 마스터 리스트 엑셀 다운로드가 완료되었습니다.', 'success');
     }
 
     /* ==========================================================================
@@ -10027,7 +10256,7 @@ class AetherPMO {
     addActivityLog(projectId, artifactName, type, text) {
         const project = this.state.projects.find(p => p.id === projectId);
         const newLog = {
-            id: `act-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            id: this.generateUuid(),
             projectId: projectId || null,
             projectName: project ? project.name : '',
             type,
@@ -12945,6 +13174,23 @@ class AetherPMO {
             }
         }
 
+        // Populating resource select box
+        const resourceSelect = document.getElementById('member-resource-select');
+        if (resourceSelect) {
+            resourceSelect.innerHTML = '<option value="">-- 직접 입력 또는 마스터 선택 --</option>';
+            if (this.state.resources) {
+                const activeResList = this.state.resources.filter(r => r.isActive !== false);
+                activeResList.forEach(r => {
+                    const option = document.createElement('option');
+                    option.value = r.id;
+                    const typeLabel = this.translateEmploymentType(r.employmentType);
+                    const info = [r.department, r.position, r.roleName].filter(Boolean).join(' / ') || typeLabel;
+                    option.textContent = `${r.name} (${typeLabel}) [${info}]`;
+                    resourceSelect.appendChild(option);
+                });
+            }
+        }
+
         this.resetMemberForm();
         this.renderMembersModalList();
         document.getElementById('project-members-modal').classList.add('open');
@@ -12974,9 +13220,43 @@ class AetherPMO {
         }
     }
 
+    onMemberResourceSelectChange() {
+        const resourceSelect = document.getElementById('member-resource-select');
+        const selectedOption = resourceSelect.options[resourceSelect.selectedIndex];
+
+        if (selectedOption && selectedOption.value) {
+            const resId = selectedOption.value;
+            const res = this.state.resources.find(r => r.id === resId);
+            if (res) {
+                document.getElementById('member-name').value = res.name || '';
+                document.getElementById('member-employment-type').value = res.employmentType || 'regular';
+                document.getElementById('member-department').value = res.department || '';
+                document.getElementById('member-position').value = res.position || '';
+                document.getElementById('member-role-name').value = res.roleName || '';
+                if (res.userId) {
+                    document.getElementById('member-user-select').value = res.userId;
+                }
+            }
+        } else {
+            // cleared
+            document.getElementById('member-name').value = '';
+            document.getElementById('member-employment-type').value = 'regular';
+            document.getElementById('member-department').value = '';
+            document.getElementById('member-position').value = '';
+            document.getElementById('member-role-name').value = '';
+            document.getElementById('member-user-select').value = '';
+        }
+    }
+
     resetMemberForm() {
         document.getElementById('member-id').value = '';
         document.getElementById('member-user-select').value = '';
+        if (document.getElementById('member-resource-select')) {
+            document.getElementById('member-resource-select').value = '';
+        }
+        if (document.getElementById('member-employment-type')) {
+            document.getElementById('member-employment-type').value = 'regular';
+        }
         document.getElementById('member-name').value = '';
         document.getElementById('member-part-role').value = 'DEV';
         document.getElementById('member-department').value = '';
@@ -13047,12 +13327,23 @@ class AetherPMO {
                 ? `${m.startDate || ''} ~ ${m.endDate || ''}`
                 : '기간 미지정';
 
+            const typeLabel = this.translateEmploymentType(m.employmentType);
+            const typeColorMap = {
+                regular: { bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.3)', text: '#10b981' },
+                outsourcing: { bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.3)', text: '#3b82f6' },
+                project_contract: { bg: 'rgba(139, 92, 246, 0.1)', border: 'rgba(139, 92, 246, 0.3)', text: '#8b5cf6' },
+                turnkey: { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', text: '#f59e0b' }
+            };
+            const badgeStyle = typeColorMap[m.employmentType || 'regular'] || typeColorMap.regular;
+            const typeBadge = `<span class="status-badge" style="background:${badgeStyle.bg}; color:${badgeStyle.text}; border:1px solid ${badgeStyle.border}; font-size:10px; padding:2px 6px; font-weight:700;">${typeLabel}</span>`;
+
             return `
                 <div class="dashboard-card" style="margin-bottom:10px; padding:12px; background: var(--bg-card-hover); border-color: ${m.isActive ? 'var(--bg-card-border)' : 'transparent'}; opacity: ${m.isActive ? 1 : 0.65};">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                         <div>
                             <div style="display:flex; align-items:center; gap:8px;">
                                 <span style="font-size:13px; font-weight:700;">${m.name}</span>
+                                ${typeBadge}
                                 <span class="${roleBadgeClass}" style="font-size:10px; padding:2px 6px;">${roleLabels[m.participationRole] || m.participationRole}</span>
                                 ${activeStatusText}
                             </div>
@@ -13088,6 +13379,12 @@ class AetherPMO {
         document.getElementById('member-start-date').value = member.startDate || '';
         document.getElementById('member-end-date').value = member.endDate || '';
         document.getElementById('member-memo').value = member.memo || '';
+        if (document.getElementById('member-resource-select')) {
+            document.getElementById('member-resource-select').value = member.resourceId || '';
+        }
+        if (document.getElementById('member-employment-type')) {
+            document.getElementById('member-employment-type').value = member.employmentType || 'regular';
+        }
 
         document.getElementById('member-form-title').textContent = '참여 인력 수정';
         document.getElementById('btn-save-member').textContent = '수정';
@@ -13109,10 +13406,53 @@ class AetherPMO {
         const startDate = document.getElementById('member-start-date').value || null;
         const endDate = document.getElementById('member-end-date').value || null;
         const memo = document.getElementById('member-memo').value.trim();
+        const employmentType = document.getElementById('member-employment-type')?.value || 'regular';
+        let resourceId = document.getElementById('member-resource-select')?.value || null;
 
         if (!name) {
             alert('이름을 입력해주세요.');
             return;
+        }
+
+        // Always sync with resources master table first
+        let existingRes = null;
+        if (this.isUuid(resourceId)) {
+            existingRes = (this.state.resources || []).find(r => r.id === resourceId);
+        }
+        if (!existingRes && userId) {
+            existingRes = (this.state.resources || []).find(r => r.userId === userId);
+        }
+        if (!existingRes) {
+            existingRes = (this.state.resources || []).find(r => 
+                this.safeText(r.name) === this.safeText(name) && 
+                r.employmentType === employmentType
+            );
+        }
+
+        if (existingRes) {
+            resourceId = existingRes.id;
+            existingRes.name = name;
+            existingRes.department = department;
+            existingRes.position = position;
+            existingRes.roleName = roleName;
+            existingRes.userId = userId;
+            existingRes.isActive = true;
+            await this.saveState('resource_upsert', existingRes);
+        } else {
+            resourceId = this.generateUuid();
+            const newRes = {
+                id: resourceId,
+                name,
+                employmentType,
+                department,
+                position,
+                roleName,
+                userId,
+                isActive: true
+            };
+            if (!this.state.resources) this.state.resources = [];
+            this.state.resources.push(newRes);
+            await this.saveState('resource_upsert', newRes);
         }
 
         const isNew = !memberId;
@@ -13131,7 +13471,10 @@ class AetherPMO {
             startDate,
             endDate,
             memo,
-            isProjectManager: participationRole === 'PM'
+            isProjectManager: participationRole === 'PM',
+            employmentType,
+            resourceId,
+            participationRate: 100
         };
 
         if (isNew) {
@@ -13176,7 +13519,7 @@ class AetherPMO {
             }
         }
 
-        this.saveState('member_upsert', memberObj);
+        await this.saveState('member_upsert', memberObj);
 
         alert(isNew ? '참여 인력이 추가되었습니다.' : '참여 인력 정보가 수정되었습니다.');
         this.resetMemberForm();
@@ -13200,7 +13543,7 @@ class AetherPMO {
 
         if (confirm(`[${member.name}] 팀원을 투입 인력에서 제외하시겠습니까?\n물리 삭제가 아닌 비활성화(is_active = false) 처리됩니다.`)) {
             member.isActive = false;
-            this.saveState('member_upsert', member);
+            await this.saveState('member_upsert', member);
             this.renderMembersModalList();
             
             const currentHash = window.location.hash.substring(1) || 'dashboard';
@@ -13297,10 +13640,88 @@ class AetherPMO {
     }
 
     generateUuid() {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
             var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
+    }
+
+    isUuid(str) {
+        if (typeof str !== 'string') return false;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        return uuidRegex.test(str);
+    }
+
+    safeText(value) {
+        return String(value || '').toLowerCase();
+    }
+
+    translateEmploymentType(type) {
+        const mapping = {
+            regular: '정규직',
+            outsourcing: '자사화',
+            project_contract: '프로젝트 계약직',
+            turnkey: '외부(턴키)'
+        };
+        return mapping[type] || type || '정규직';
+    }
+
+    getDefaultResources() {
+        return [
+            {
+                id: 'res-1',
+                name: '안유경',
+                employmentType: 'regular',
+                department: 'SI사업본부',
+                position: '부장',
+                roleName: 'PM',
+                userId: 'pm@aetherpmo.com',
+                isActive: true
+            },
+            {
+                id: 'res-2',
+                name: '김철수',
+                employmentType: 'regular',
+                department: '인프라솔루션팀',
+                position: '과장',
+                roleName: 'TA',
+                userId: 'worker@aetherpmo.com',
+                isActive: true
+            },
+            {
+                id: 'res-3',
+                name: '이영희',
+                employmentType: 'outsourcing',
+                department: '개발팀',
+                position: '선임연구원',
+                roleName: 'DEV',
+                userId: null,
+                isActive: true
+            },
+            {
+                id: 'res-4',
+                name: '박민수',
+                employmentType: 'project_contract',
+                department: '기획팀',
+                position: '책임연구원',
+                roleName: 'PL',
+                userId: null,
+                isActive: true
+            },
+            {
+                id: 'res-5',
+                name: '최동훈',
+                employmentType: 'turnkey',
+                department: '외부협력사',
+                position: '차장',
+                roleName: 'AA',
+                userId: null,
+                isActive: true
+            }
+        ];
     }
 
     // ==========================================
@@ -13955,7 +14376,7 @@ class AetherPMO {
         
         const msgDiv = document.createElement('div');
         msgDiv.className = 'ai-message bot';
-        msgDiv.innerHTML = text.replace(/\n/g, '<br>');
+        msgDiv.innerHTML = this._renderMarkdown(text);
         container.appendChild(msgDiv);
         container.scrollTop = container.scrollHeight;
     }
