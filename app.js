@@ -7520,7 +7520,11 @@ class AetherPMO {
         document.getElementById('project-inspection-date').value = project.inspectionDate || '';
         document.getElementById('project-status').value = project.status;
         document.getElementById('project-progress').value = project.progress;
-        document.getElementById('project-resources').value = project.resources || 0;
+        // 투입 인력 수 = 해당 프로젝트의 is_active 참여인력 자동 계산
+        const activeMemberCount = (this.state.projectMembers || []).filter(
+            m => m.projectId === project.id && m.isActive !== false
+        ).length;
+        document.getElementById('project-resources').value = activeMemberCount;
         document.getElementById('project-milestones').value = project.milestones || '';
         document.getElementById('project-remarks').value = project.remarks || '';
 
@@ -7643,7 +7647,11 @@ class AetherPMO {
         const endDate = document.getElementById('project-end-date')?.value || '';
         const inspectionDate = document.getElementById('project-inspection-date')?.value || '';
         const status = document.getElementById('project-status')?.value || 'Execution';
-        const resources = Math.max(Number(document.getElementById('project-resources')?.value || 0), 0);
+        // 투입 인력 수: 저장 시에도 is_active 참여인력 수로 자동 계산 (수동 입력값 무시)
+        const editingProjId = document.getElementById('project-id-field')?.value || '';
+        const resources = editingProjId
+            ? (this.state.projectMembers || []).filter(m => m.projectId === editingProjId && m.isActive !== false).length
+            : 0;
         const milestones = document.getElementById('project-milestones')?.value?.trim() || '';
         const remarks = document.getElementById('project-remarks')?.value?.trim() || '';
 
