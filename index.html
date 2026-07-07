@@ -805,12 +805,20 @@
                                     <option value="Completed">종료</option>
                                 </select>
                             </div>
-                            <div class="filter-group-search">
+                            <div class="filter-group-search" style="flex:1;">
                                 <label for="project-search-input">&nbsp;</label>
                                 <div class="search-input-wrapper">
                                     <i data-lucide="search"></i>
                                     <input type="text" id="project-search-input" placeholder="프로젝트명, 매니저 검색...">
                                 </div>
+                            </div>
+                            <div class="view-mode-toggle" style="display:flex; align-items:center; gap:4px; background:var(--bg-input); padding:4px; border-radius:8px; border:1px solid var(--bg-card-border); align-self: flex-end; height:38px; margin-bottom: 2px;">
+                                <button type="button" class="view-mode-btn active" id="view-mode-card" onclick="app.setProjectListViewMode('card')" style="width:30px; height:30px; border-radius:6px; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; background:var(--primary); color:white; transition:all 0.2s;" title="카드형 보기">
+                                    <i data-lucide="grid" style="width:16px; height:16px;"></i>
+                                </button>
+                                <button type="button" class="view-mode-btn" id="view-mode-list" onclick="app.setProjectListViewMode('list')" style="width:30px; height:30px; border-radius:6px; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; background:transparent; color:var(--text-muted); transition:all 0.2s;" title="리스트형 보기">
+                                    <i data-lucide="list" style="width:16px; height:16px;"></i>
+                                </button>
                             </div>
                         </div>
 
