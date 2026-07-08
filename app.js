@@ -5345,8 +5345,8 @@ class AetherPMO {
             const matchStatus = fStatus === 'all' || pStatusClean === fStatus;
             const matchSearch = !fSearch || 
                 this.safeText(p.name).includes(fSearch) || 
-                this.safeText(p.manager).includes(fSearch) || 
-                this.safeText(p.desc).includes(fSearch);
+                this.safeText(p.projectCode).includes(fSearch) || 
+                this.safeText(p.manager).includes(fSearch);
 
             return matchStage && matchDept && matchStatus && matchSearch;
         });
@@ -5381,6 +5381,11 @@ class AetherPMO {
             const pArtifacts = this.state.artifacts.filter(a => a.projectId === p.id);
             const approved = pArtifacts.filter(a => a.status === 'Approved').length;
             const review = pArtifacts.filter(a => a.status === 'Under Review').length;
+            
+            // 실시간 투입인력 수 계산 (isActive !== false인 멤버들의 개수)
+            const activeMembersCount = (this.state.projectMembers || []).filter(
+                m => m.projectId === p.id && m.isActive !== false
+            ).length;
 
             const isList = this.projectListViewMode === 'list';
             const element = document.createElement('div');
@@ -5429,7 +5434,7 @@ class AetherPMO {
                     <div style="flex: 1.2; min-width: 180px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted);">
                         <div style="display:flex; justify-content:space-between;">
                             <span>PM: <strong style="color: var(--text-main);">${p.manager}</strong></span>
-                            <span>인원: <strong style="color: var(--text-main);">${p.resources || 0}명</strong></span>
+                            <span>인원: <strong style="color: var(--text-main);">${activeMembersCount}명</strong></span>
                         </div>
                         <div style="font-size: 11px;">
                             <i data-lucide="calendar" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 4px; margin-top:-2px;"></i>
@@ -5486,7 +5491,7 @@ class AetherPMO {
                         </div>
                         <div class="detail-row">
                             <span>투입 인력</span>
-                            <span>${p.resources || 0} 명</span>
+                            <span>${activeMembersCount} 명</span>
                         </div>
                     </div>
 
