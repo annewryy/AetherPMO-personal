@@ -5924,6 +5924,20 @@ class AetherPMO {
         }
     }
 
+    handleG2BCustomerSelectChange() {
+        const selectEl = document.getElementById('g2b-filter-customer-select');
+        const inputEl = document.getElementById('g2b-filter-customer');
+        if (selectEl && inputEl) {
+            if (selectEl.value === 'custom') {
+                inputEl.style.display = 'block';
+                inputEl.focus();
+            } else {
+                inputEl.style.display = 'none';
+                inputEl.value = '';
+            }
+        }
+    }
+
     async fetchG2BAnnouncements(page = 1, options = {}) {
         if (this.g2bLoading) return;
         this.g2bLoading = true;
@@ -5949,9 +5963,22 @@ class AetherPMO {
             return;
         }
 
-        const dminsttNm = options.dminsttNm !== undefined 
-            ? options.dminsttNm 
-            : (document.getElementById('g2b-filter-customer')?.value?.trim() || '');
+        let dminsttNm = '';
+        if (options.dminsttNm !== undefined) {
+            dminsttNm = options.dminsttNm;
+        } else {
+            const selectEl = document.getElementById('g2b-filter-customer-select');
+            const inputEl = document.getElementById('g2b-filter-customer');
+            if (selectEl) {
+                if (selectEl.value === 'custom') {
+                    dminsttNm = inputEl ? inputEl.value.trim() : '';
+                } else if (selectEl.value !== 'all') {
+                    dminsttNm = selectEl.value;
+                }
+            } else {
+                dminsttNm = inputEl ? inputEl.value.trim() : '';
+            }
+        }
 
         let bgngDt = options.bgngDt !== undefined 
             ? options.bgngDt 
