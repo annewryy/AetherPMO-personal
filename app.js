@@ -824,6 +824,7 @@ class AetherPMO {
                         business_manager: p.businessManager,
                         contract_owner: p.contractOwner,
                         legal_owner: p.legalOwner,
+                        location: p.location || '',
                         wbs: p.wbs || { stages: [] },
                         resources_list: p.resourcesList || [],
                         member_ids: p.memberIds || []
@@ -1311,6 +1312,7 @@ class AetherPMO {
                 budget: Number(p.budget || 0),
                 milestones: p.milestones,
                 inspectionDate: p.inspection_date,
+                location: p.location || '정부서울청사',
                 remarks: p.remarks,
                 status: p.status,
                 bidStatus: p.bid_status,
