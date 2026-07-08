@@ -1,0 +1,6 @@
+{
+  "description": "동료 커밋 워처 상태. routine이 분석 후 last_analyzed_sha를 갱신한다.",
+  "watch_branch": "origin/main",
+  "my_authors": ["박너울", "neoul88@gmail.com"],
+  "last_analyzed_sha": "c06cbae1f9eca50171db41dbf29aca8e3f885d56"
+}

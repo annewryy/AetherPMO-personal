@@ -8,6 +8,10 @@ node_modules/
 .vscode/
 .idea/
 
+# 새 Vue 프론트(web/) 빌드 산출물 — /app 경로로 배포됨(소스는 web/에)
+/app/
+web/dist/
+
 # Local backup files
 *.json.bak
 *.bak

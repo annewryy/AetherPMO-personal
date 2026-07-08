@@ -1,0 +1,24 @@
+{
+  "name": "aetherpms-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "AetherPMS 신규 프론트(Vue3+Vite+TS) — /app 경로 배포. 동료 루트 버전(/)과 공존.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "type-check": "vue-tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "vue": "^3.4.0",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0",
+    "vue-tsc": "^2.0.0"
+  }
+}

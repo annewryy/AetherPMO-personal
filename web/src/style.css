@@ -1,0 +1,44 @@
+/* 전역 베이스 — 다크 테마 토큰(동료 UI 색 계열 유지: #0f1117 배경, 보라 포인트 #8b5cf6).
+   화면별 스타일은 각 컴포넌트 scoped CSS로 작성한다(0004 스타일 절). */
+:root {
+  --bg: #0f1117;
+  --panel: #161a23;
+  --panel-2: #1f2937;
+  --border: #262c3a;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --accent: #8b5cf6;
+  --yellow: #fbbf24;
+  --green: #34d399;
+  --blue: #3b82f6;
+  --red: #ef4444;
+
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Apple SD Gothic Neo', sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* 공용 버튼 프리미티브 — placeholder 정책(0004 §조작면 완결성) 버튼 포함 전 화면 공유 */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--panel); color: var(--text);
+  font-size: 13px; padding: 7px 14px; cursor: pointer;
+  font-family: inherit;
+}
+.btn:hover { background: var(--panel-2); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: #7c4ce6; }
+.btn-sm { font-size: 12px; padding: 3px 10px; border-radius: 6px; }
+.btn-danger { color: var(--red); }
+/* 0011 작업 화면 — 비활성 컨트롤(폴백 모드·전이 조건 미충족 등) 공통 표시 */
+.btn:disabled,
+.btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.btn:disabled:hover,
+.btn[disabled]:hover { background: var(--panel); }
+.btn-primary:disabled:hover,
+.btn-primary[disabled]:hover { background: var(--accent); }

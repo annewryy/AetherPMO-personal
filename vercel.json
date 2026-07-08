@@ -1,4 +1,7 @@
 {
-  "buildCommand": "node build-config.js",
-  "outputDirectory": "."
+  "buildCommand": "node build-config.js && npm --prefix web install && npm --prefix web run build",
+  "outputDirectory": ".",
+  "rewrites": [
+    { "source": "/app/(.*)", "destination": "/app/index.html" }
+  ]
 }
