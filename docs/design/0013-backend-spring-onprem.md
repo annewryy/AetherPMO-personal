@@ -83,14 +83,17 @@ On-prem 단일테넌트는 고객 운영팀이 인프라를 떠안는다. 풀 MS
 ### B-2. 커스텀 seam = Port/Adapter (납품처별 교체)
 납품 시 커스터마이즈 확률이 높은 3곳을 인터페이스로 격리, 설정으로 어댑터 선택:
 ```
-UserPort      → AmaranthSsoAdapter | CustomerAdAdapter | LocalAccountAdapter
-FilePort      → AmaranthOnechamberAdapter | S3Adapter | NasAdapter
-ApprovalPort  → AmaranthApprovalAdapter | NoopAdapter
+UserPort      → LocalAccountAdapter(기본) | AmaranthSyncAdapter(선택 동기화) | CustomerAdAdapter
+FilePort      → NasAdapter(기본) | S3Adapter | AmaranthOnechamberAdapter
+ApprovalPort  → AmaranthApprovalAdapter(아마란스 필수) | NoopAdapter
 ```
 - 코어 도메인(프로젝트·태스크·산출물·이슈·워크플로·신호·코멘트)은 Port만 의존, 어댑터 구현 모름.
 - 기본 = in-process 어댑터(모놀리스 내 모듈). **특정 납품의 통합이 무거우면 그 어댑터만
-  별도 마이크로서비스로 분리**(REST/gRPC) — 코어 무변경. 개인정보 원칙(0005: 내부=사번+이름만
-  저장·조회만)이 UserPort 계약에 반영.
+  별도 마이크로서비스로 분리**(REST/gRPC) — 코어 무변경.
+- **자체완결 반영(0005, 2026-07-09 전환)**: UserPort 기본은 **로컬 계정/DB**(PMS 자체 로그인,
+  인력 정보 우리 DB 소유). `AmaranthSyncAdapter`는 내부 인력 정보를 **pull→upsert 하는 선택적
+  동기화**(SSO 위임 아님) — 연동이 끊겨도 코어는 저장값으로 동작. `ApprovalPort`(결재)만 아마란스
+  필수 게이트(NoopAdapter면 결재 기능만 비활성).
 - 모듈 경계: Spring Modulith 또는 Gradle 멀티모듈로 강제(도메인↔어댑터 의존 방향 검증).
 
 ### B-3. 커스터마이즈 전략(납품 시)
@@ -126,10 +129,11 @@ file   : NAS/오브젝트 스토리지 — 산출물 등 파일                 
   납품만 K8s(Helm) 옵션. **양쪽 동일 컨테이너 이미지**라 패키징 투자 공유.
 
 ### C-4. 파일서버(FilePort) 어댑터
-- 지금(개발): 개발환경 **NAS** 사용.
+- **기본 = 개발서버 NAS 확정(2026-07-09)**. 산출물 등 파일 바이트를 **NAS에 보관**(아마란스 원챔버
+  참조 방식 폐기). 코어는 `FilePort`만 의존.
+- 접근 방식은 어댑터가 흡수: **NFS/SMB 마운트**(기본) or **S3 API**(NAS S3 게이트웨이). 아마란스
+  원챔버 어댑터는 특정 납품 옵션으로만 잔존(기본 아님).
 - 납품: 고객 스토리지 있으면 연동 / 없으면 **NAS를 함께 구축·판매**.
-- 어댑터가 접근 방식 흡수: NFS/SMB 마운트 or S3 API(NAS S3 게이트웨이) or 아마란스 원챔버.
-  코어는 `FilePort`만 의존.
 
 ### C-5. 환경 분리 / 이행
 - dev: Supabase 대신 MariaDB. 프론트 Supabase 폴백은 **dev 전용** 격하, 프로덕션은 API_BASE(Spring)만.
