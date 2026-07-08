@@ -3465,10 +3465,10 @@ class AetherPMO {
         }
 
         // Project Filters
-        const pDept = document.getElementById('project-filter-dept');
+        const pLocation = document.getElementById('project-filter-location');
         const pStatus = document.getElementById('project-filter-status');
         const pSearch = document.getElementById('project-search-input');
-        if (pDept) pDept.addEventListener('change', () => this.renderProjects());
+        if (pLocation) pLocation.addEventListener('change', () => this.renderProjects());
         if (pStatus) pStatus.addEventListener('change', () => this.renderProjects());
         if (pSearch) pSearch.addEventListener('input', () => this.renderProjects());
 
@@ -5327,7 +5327,8 @@ class AetherPMO {
             }
         }
 
-        const fDept = document.getElementById('project-filter-dept').value;
+        const fLocationEl = document.getElementById('project-filter-location');
+        const fLocation = fLocationEl ? fLocationEl.value : 'all';
         const fStatusSelect = document.getElementById('project-filter-status');
         const fStatus = fStatusSelect ? fStatusSelect.value : 'all';
         const fSearch = this.safeText(document.getElementById('project-search-input').value).trim();
@@ -5343,14 +5344,14 @@ class AetherPMO {
                 matchStage = pStatusClean === 'Completed';
             }
 
-            const matchDept = fDept === 'all' || p.dept === fDept;
+            const matchLocation = fLocation === 'all' || (p.location || '정부서울청사') === fLocation;
             const matchStatus = fStatus === 'all' || pStatusClean === fStatus;
             const matchSearch = !fSearch || 
                 this.safeText(p.name).includes(fSearch) || 
                 this.safeText(p.projectCode).includes(fSearch) || 
                 this.safeText(p.manager).includes(fSearch);
 
-            return matchStage && matchDept && matchStatus && matchSearch;
+            return matchStage && matchLocation && matchStatus && matchSearch;
         });
 
         console.log('[renderProjects this.state.projects]', this.state.projects);
