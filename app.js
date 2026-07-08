@@ -9926,6 +9926,23 @@ class AetherPMO {
     /* ==========================================================================
        RESOURCE MANAGEMENT CONTROLLER (참여인력 관리)
        ========================================================================== */
+    handleResourceAllTypesChange(allCb) {
+        document.querySelectorAll('.res-type-checkbox').forEach(cb => {
+            cb.checked = allCb.checked;
+        });
+        this.renderResourcesView();
+    }
+
+    handleResourceSubTypesChange() {
+        const subCbs = document.querySelectorAll('.res-type-checkbox');
+        const allCb = document.getElementById('res-type-all');
+        if (allCb) {
+            const allChecked = Array.from(subCbs).every(cb => cb.checked);
+            allCb.checked = allChecked;
+        }
+        this.renderResourcesView();
+    }
+
     renderResourcesView() {
         const projectFilterSelect = document.getElementById('resources-filter-project');
         
@@ -9940,7 +9957,12 @@ class AetherPMO {
         }
 
         const projFilter = document.getElementById('resources-filter-project')?.value || 'all';
-        const typeFilter = document.getElementById('resources-filter-type')?.value || 'all';
+        
+        // 다중 체크박스에서 선택된 항목 수집
+        const checkedTypes = Array.from(document.querySelectorAll('.res-type-checkbox'))
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+
         const keyword = this.safeText(document.getElementById('resources-search-input')?.value).trim();
 
         let list = [...(this.state.resources || [])];
@@ -9952,9 +9974,9 @@ class AetherPMO {
                 return pmList.some(pm => pm.projectId === projFilter);
             });
         }
-        if (typeFilter !== 'all') {
-            list = list.filter(r => r.employmentType === typeFilter);
-        }
+        
+        // 다중 선택된 인력구분 매칭 (선택된 타입 리스트에 속하는 인력만)
+        list = list.filter(r => checkedTypes.includes(r.employmentType));
         if (keyword) {
             list = list.filter(r => 
                 this.safeText(r.name).includes(keyword) || 
