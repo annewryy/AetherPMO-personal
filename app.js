@@ -5344,7 +5344,12 @@ class AetherPMO {
                 matchStage = pStatusClean === 'Completed';
             }
 
-            const matchLocation = fLocation === 'all' || (p.location || '정부서울청사') === fLocation;
+            const pLoc = p.location || '정부서울청사';
+            const normLoc = pLoc.includes('서울') ? '서울' :
+                            pLoc.includes('대전') ? '대전' :
+                            pLoc.includes('대구') ? '대구' :
+                            pLoc.includes('광주') ? '광주' : '기타';
+            const matchLocation = fLocation === 'all' || normLoc === fLocation;
             const matchStatus = fStatus === 'all' || pStatusClean === fStatus;
             const matchSearch = !fSearch || 
                 this.safeText(p.name).includes(fSearch) || 
