@@ -101,6 +101,16 @@ body.dark-theme {
     --badge-border: #4F46E5;
 }
 
+/* Select Option Theme Styles to prevent unreadable text in dark mode */
+body.dark-theme select option {
+    background-color: #0f172a;
+    color: #f8fafc;
+}
+body.light-theme select option {
+    background-color: #ffffff;
+    color: #1e293b;
+}
+
 /* --- Core Reset & Styles --- */
 * {
     margin: 0;
