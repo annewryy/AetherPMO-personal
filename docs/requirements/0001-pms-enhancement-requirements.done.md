@@ -1,5 +1,12 @@
 # AetherPMO 기능 개선 요구사항
 
+> **반영 (2026-07-09)**: 설계 반영 완료.
+> - §1 인력 마스터/신원 → [0005](../design/0005-auth-identity.md) (자체완결·단일 사람 마스터로 흡수)
+> - §1-3/§1-5 인력관리 조회·상세·이력 → [0014](../design/0014-resource-management.md)
+> - §2 수행단계 카드/리스트·수행장소 필터 → [0015](../design/0015-project-list-view.md)
+> - §3 나라장터 기관·공고유형 → [0016](../design/0016-g2b-notice-search.md)
+> - 파일/아마란스 경계 정합 → [0013](../design/0013-backend-spring-onprem.md) §B-2·C-4
+
 - **문서 상태**: Draft
 - **작성일**: 2026-07-08
 - **작성자**: 안유경

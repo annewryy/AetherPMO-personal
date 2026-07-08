@@ -6,6 +6,6 @@
   "requirements": {
     "dir": "docs/requirements/",
     "note": "반영 마커(> 반영: docs/design/NNNN ...)가 있는 문서는 검토 완료로 스킵. 아래는 검토 완료 목록.",
-    "reviewed": []
+    "reviewed": ["0001-pms-enhancement-requirements (→ 0005·0013·0014·0015·0016, 2026-07-09)"]
   }
 }
