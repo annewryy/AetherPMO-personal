@@ -59,11 +59,12 @@ depends: [0003, 0010, 0013]
 
 - **연결**: `pms_project_member.person_id` FK 신설 → 현행 비정규화 `name`/`department` 등을 마스터 조인으로
   대체(0010 B-1). **이력성 스냅샷(audit_log·comment·deliverable_version)의 이름은 시점 고정이라 유지**.
-- **dedup 키**: 내부 = `amaranth_emp_no`(안정). 외부 = 별도 키 결정 필요(`name + employment_type`은
-  동명이인에 취약 → email 또는 명시적 확인 UI 검토).
-- **`employment_type` 구분값**: 유경님 §1-3의 5종(정규직/자사화/프로젝트 계약직/외주(턴키)/프리랜서)으로
-  확정 필요 — 현행 제품 스키마(`pms_project_member.employment_type`: regular/outsourcing/project_contract/
-  turnkey, 4종)와 **매핑·프리랜서 추가** 정리. (구현 시 코드값 확정)
+- **dedup 키 (2026-07-09 확정)**: 내부 = `amaranth_emp_no`(안정, `user_uid` 폴백). 외부 = 앱계층
+  find-or-insert `name + company_id + employment_type`. **동명이인 병합 위험은 dev 단계에서 감수**,
+  실운영 전 재검토(email 우선 키 or 병합 전 확인 UI). ⇒ 구현: V7(batch3).
+- **`employment_type` 구분값 (2026-07-09 확정)**: 5종 코드 `regular`(정규직) · `insourced`(자사화) ·
+  `project_contract`(프로젝트 계약직) · `turnkey`(외주/턴키) · `freelancer`(프리랜서). 레거시 4종에서
+  **`outsourcing`→`turnkey` 흡수**(외주≈턴키). ⇒ 구현: V6(batch3).
 
 ## C. 아마란스 동기화 (선택적 소스)
 
@@ -103,9 +104,9 @@ depends: [0003, 0010, 0013]
 
 ## 미결 / 후속
 
-- `pms_person` 마이그레이션(V-차기, V1~V4 불변) + `pms_project_member.person_id` FK + 비정규화 컬럼 정리.
-- `employment_type` 코드값 5종 확정 및 기존 4종 매핑.
-- 외부 인력 dedup 키 확정.
+- ~~`pms_person` 마이그레이션 + `person_id` FK~~ → **구현됨(V7, batch3)**. 비정규화 컬럼 최종 정리는 점진.
+- ~~`employment_type` 5종·매핑~~ → **확정·구현(V6, batch3)**. ~~외부 dedup 키~~ → **확정(현상태 유지)**.
+- 내부/외부 분류: 백필이 `user_uid` 없는 인력을 EXTERNAL로 분류(시드 한계). 실데이터(사번/계정)에선 정상.
 - 인증 토큰/세션 방식(JWT vs 세션) 및 권한 매트릭스 — 별도 상세.
 - **인력관리 화면·상세·프로젝트 이력**(유경님 §1-3/§1-5)은 별도 설계 문서로 분리(본 문서는 신원/마스터/인증
   뼈대까지).
