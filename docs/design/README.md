@@ -31,17 +31,21 @@ DRAFT 설계 작성 → 검토·수정 → status: CONFIRMED 커밋   ← "확�
 3. **사람 게이트**: 에이전트는 PR까지만. 머지와 설계 반영 결정은 사람이 한다.
 4. 구현이 머지되면 `status: IMPLEMENTED` + 구현 커밋/PR 링크 추가.
 
-## 처리 완료 표시 규칙 (2026-07-08 — 재검토 방지)
+## 처리 완료 표시 규칙 (2026-07-08 — 파일명으로 한눈에)
 
-이미 처리한 것은 표시해 루틴·사람이 다시 안 보게 한다.
-- **설계 문서(`docs/design/`)**: 구현·병합되면 프론트매터 `status: IMPLEMENTED`(위 규칙 4).
-  루틴은 `IMPLEMENTED`/`REJECTED`를 완료로 보고 건너뛴다.
-- **요구사항 문서(`docs/requirements/`)**: 너울님이 검토·반영하면 문서 상단에 반영 마커를 단다.
-  ```
-  > 반영: docs/design/NNNN (YYYY-MM-DD, 너울) — [검토완료]
-  ```
-  루틴은 이 마커가 있으면 검토 완료로 보고 건너뛴다. **동료 AI는 이 마커를 지우지 않는다**
-  (요구사항 내용은 계속 추가·수정 가능, 마커만 보존).
+완료된 것은 **파일명 `.done` 접미사**로 표시한다 — 폴더 목록만 봐도 진행/완료가 구분된다.
+정렬(NNNN 순) 유지, git이 rename 추적.
+```
+docs/design/0009-admin-pages.done.md            ← 구현·병합 완료
+docs/design/0013-backend-spring-onprem.md       ← 진행중(.done 없음)
+docs/requirements/0001-...-requirements.done.md ← 검토·설계 반영 완료
+```
+- **설계 문서**: 구현·병합되면 `NNNN-슬러그.md` → `NNNN-슬러그.done.md`로 rename.
+  (프론트매터 `status`는 DRAFT→CONFIRMED 생명주기 유지 — 빌드 트리거. `.done`은 "구현 끝" 글랜스.)
+- **요구사항 문서**: 너울님이 검토·설계 반영하면 `.done.md`로 rename + 문서 상단에 반영 대상 한 줄
+  (`> 반영: docs/design/NNNN (YYYY-MM-DD)`)만 남긴다(어디 반영됐는지 추적용).
+- 루틴·사람은 **`.done.md`로 끝나는 파일은 건너뛴다.** 동료 AI는 너울님이 붙인 `.done`을
+  임의로 떼지 않는다(요구사항 내용 추가·수정은 자유, 완료 표식만 보존).
 
 ## 프론트매터 형식
 
