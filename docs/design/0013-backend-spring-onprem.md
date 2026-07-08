@@ -8,17 +8,20 @@ depends: [0003, 0005]
 
 # 백엔드 재플랫폼 + On-prem 솔루션 아키텍처
 
-## 결정 (2026-07-08)
+## 결정 (2026-07-08, **지금 Spring + MariaDB로 전환 확정**)
 - 백엔드: **Fastify/Node/TS → Spring Boot 3 + Spring Data JPA/Hibernate**
-- DB: **Supabase(PostgreSQL) → MariaDB** (온프렘 표준, 판매 종속 제거)
+- DB: **Supabase(PostgreSQL) → MariaDB** (지금 바로. 온프렘 표준, 판매 종속 제거)
+- **구현 순서: 지금 Spring+MariaDB로 전환(B안 — 플랫폼 먼저)**. 나라장터·입찰 등 **큰 신규 기능을
+  Node·Spring 두 번 짓는 이중작업을 피한다** — 새 기능은 Spring에서 한 번만. Node 백엔드
+  (impl/0003)는 **계약 검증 참조 구현(테스트 오라클)**로 동결(프로덕션 병행 아님).
+  ⇒ **MariaDB 스키마 이식 + RLS→앱계층 이전이 지금의 첫 관문**(연기 아님).
 - 판매 모델: **On-prem 단일테넌트** (SI 납품형)
 - 아키텍처: **헥사고날 모듈러 모놀리스** — 커스텀 지점(사용자·파일·결재)만 Port/Adapter 격리
 - 프론트(`/app` Vue): **불변** — REST 계약(엔드포인트·camelCase·`{message}`)만 유지하면 그대로 동작
-- 구현 순서: **A안(기능 먼저 → 일괄 변환)** + **조기 파일럿**. 요구사항이 아직 움직이므로 가벼운
-  Node로 완성도를 올려 계약을 굳힌 뒤 일괄 Spring 포팅. Node 구현은 **계약 검증 참조 구현
-  (테스트 오라클)**로 존치(프로덕션 병행 아님). 단, MariaDB/JPA 지뢰의 빅뱅화를 막기 위해
-  **작은 파일럿을 지금**: ①진척 롤업 재귀 CTE 1개 ②트랜잭션 쓰기(발번+코멘트) 1개
-  ③jsonb·uuid 컬럼 왕복. 변환 트리거 = Phase 1 + 핵심 Phase 2 계약 동결 시점.
+
+> 순서: **① MariaDB 스키마 이식(pms_* → MariaDB 방언, RLS→앱계층) → ② Spring+JPA로 계약 보존
+> 재구현(Node를 오라클로 diff 검증) → ③ 새 기능(나라장터·입찰)은 Spring에서 → ④ 개발서버 배포.**
+> 레거시(`/`)는 자기 Supabase Postgres에 잔류(이행기), 제품(`/app`+Spring)은 MariaDB로 독립.
 
 ## A0. 현행 데이터 계층과 경계 (2026-07-08 확인)
 **지금은 셋 다 하나의 Supabase Postgres를 공유한다** — 동료 레거시(`/`)·새 `/app`·Node 백엔드.
