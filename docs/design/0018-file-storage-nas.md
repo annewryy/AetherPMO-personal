@@ -76,7 +76,19 @@ FilePort:
 - **P3**: 산출물 제출(버전) + 카탈로그 템플릿 다운로드 → `stub('amaranth')` 대체.
 - **P4**: 접근제어(0005 연동), 대용량 presigned, (선택) 스캔·감사.
 
+## I. MinIO → 실 NAS 전환 리스크 (중요 — "설정만 바꾸면 끝"이 아님)
+MinIO로 만든 **앱 로직·API·데이터모델은 그대로 재사용**되지만, 실 NAS 연결은 NAS 종류에 좌우된다.
+- **경우 A — NAS가 S3 게이트웨이 지원**: 대체로 config 교체(endpoint/bucket/keys)로 되나 **호환성 튜닝 1~2일**:
+  path-style(`pathStyleAccess=true`) 필수, presigned URL은 **브라우저가 NAS 엔드포인트에 직접 접근 가능해야**
+  동작(내부망 전용이면 앱 경유 폴백), **CORS** 설정, TLS/자체서명 인증서, multipart·버킷생성 지원 여부.
+- **경우 B — NAS가 NFS/SMB만**: `S3Adapter` 불가 → **`NfsAdapter`(마운트)로 교체**. **FilePort 뒤라 앱·API·
+  데이터모델은 불변**, 어댑터만 교체(재작성 아님).
+- **리스크 완화 설계**: ① FilePort 추상화(코어 불변) ② **presigned + proxied(앱 스트리밍) 둘 다 지원**(NAS에서
+  presigned/CORS 막히면 폴백) ③ **NAS 확보 즉시 호환성 스모크 테스트 먼저**(연결·path-style·presigned·CORS
+  30분 확인) → 어댑터·모드 확정 후 본구현.
+
 ## 미결 / 인프라 확인 필요
-- **NAS가 S3 게이트웨이를 지원하는가**(→ S3Adapter) vs NFS/SMB만(→ NfsAdapter). 인프라팀 확인.
+- **개발서버 NAS 정체 3개 확인(결정적)**: ① S3 게이트웨이 지원 여부 ② 벤더/모델 ③ 내부망 전용 여부.
+  → 이걸로 경우 A/B와 튜닝 범위 확정.
 - 파일 크기 상한·허용 타입 확정, 보존/삭제(soft delete) 정책, checksum 도입 여부.
 - 로컬 MinIO를 compose에 상시 둘지(개발 편의) vs 프로파일 분리.
