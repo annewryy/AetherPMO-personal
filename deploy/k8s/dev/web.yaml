@@ -1,0 +1,61 @@
+# web (nginx) — /app 정적 서빙 + /api 리버스프록시(→ app Service). Ingress로 외부 노출.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: aetherpms-dev
+spec:
+  selector:
+    app: aetherpms-web
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aetherpms-web
+  namespace: aetherpms-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aetherpms-web
+  template:
+    metadata:
+      labels:
+        app: aetherpms-web
+    spec:
+      containers:
+        - name: web
+          image: REGISTRY_PLACEHOLDER/aetherpms-web:dev   # Jenkins가 SHA 태그로 교체
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet: { path: /app/, port: 80 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "50m", memory: "64Mi" }
+            limits:   { memory: "128Mi" }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aetherpms-web
+  namespace: aetherpms-dev
+  # annotations: 클러스터 인그레스 컨트롤러에 맞게(nginx/traefik 등)
+spec:
+  # ingressClassName: <클러스터 값>
+  rules:
+    - host: HOST_PLACEHOLDER          # 예: aetherpms-dev.우리도메인 — 인프라팀 지정
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80

@@ -1,8 +1,9 @@
 // P1-5 전역 횡단 목록 공용 로직 — PMO는 전체 프로젝트를 가로질러 본다.
 // 4개 화면(이슈/액션아이템/공문/회의록)이 공유: 프로젝트·상태 필터 + 텍스트 검색.
 // 데이터는 기존 dataClient 전체 list() 재사용(이미 전 프로젝트 조회임).
-import { ref, computed, onMounted, type Ref } from 'vue';
+import { ref, computed, onMounted, watch, type Ref } from 'vue';
 import { dataClient } from './dataClient';
+import { DEFAULT_PAGE_SIZE, usePagination } from './pagination';
 import type { Project } from '../types';
 
 export interface GlobalListOptions<T> {
@@ -59,6 +60,14 @@ export function useGlobalList<T extends { projectId: number }>(opts: GlobalListO
     });
   });
 
+  // 배치8 — 공통 클라이언트 페이징. 전 전역 목록(이슈/액션/공문/회의록)이 동일 방식으로 페이징한다.
+  const pageSize = ref<number>(DEFAULT_PAGE_SIZE);
+  const { page, total, totalPages, paged, goPage, resetPage, setPageSize, rowNo } =
+    usePagination(filtered, pageSize);
+
+  // 필터/검색 변경 시 1페이지로 리셋(회귀 금지).
+  watch([projectFilter, statusFilter, query], () => resetPage());
+
   async function reloadItems() {
     // 0011 B-7: 신규 등록 후 목록 갱신(프로젝트 목록은 유지)
     try {
@@ -83,5 +92,7 @@ export function useGlobalList<T extends { projectId: number }>(opts: GlobalListO
     projectFilter, statusFilter, query,
     projectName, projectCode, projectOptions, statusOptions, filtered,
     reloadItems,
+    // 배치8 페이징
+    pageSize, page, total, totalPages, paged, goPage, setPageSize, rowNo,
   };
 }

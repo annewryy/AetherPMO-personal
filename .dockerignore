@@ -1,0 +1,24 @@
+# web 이미지 빌드 컨텍스트(=저장소 루트) 축소. web/ 와 deploy/ 만 사실상 필요.
+**/node_modules
+.git
+.gradle
+**/build
+**/dist
+/app
+.idea
+.DS_Store
+*.log
+# 레거시/백엔드 자산은 web 빌드에 불필요
+app.js
+index.html
+style.css
+favicon.png
+server
+server-spring
+api
+docs
+*.sql
+*.ps1
+*.py
+*.csv
+*.txt

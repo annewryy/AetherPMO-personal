@@ -1,0 +1,8 @@
+# AetherPMS 개발 네임스페이스 (0013 §C — dev 올인원을 우리 K8s에)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aetherpms-dev
+  labels:
+    app.kubernetes.io/part-of: aetherpms
+    env: dev

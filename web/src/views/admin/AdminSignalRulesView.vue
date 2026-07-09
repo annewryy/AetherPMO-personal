@@ -2,10 +2,13 @@
 // 0009 모듈 1 / 0007 §2.5 — 신호 규칙 룰 빌더 (/app/admin/signal-rules)
 // 사용자 등록형: 목록(전역/프로젝트 필터, 활성 토글) + 미니 룰 빌더 폼(사람 문장 미리보기).
 // 첫 실제 쓰기 화면 — 쓰기는 API_BASE 필수, 폴백에선 목록 읽기 + 안내만.
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { dataClient } from '../../lib/dataClient';
 import type { Project, SignalRule, SignalRuleInput } from '../../types';
 import StateNotice from '../../components/StateNotice.vue';
+import PageSizeSelect from '../../components/PageSizeSelect.vue';
+import Pager from '../../components/Pager.vue';
+import { DEFAULT_PAGE_SIZE, usePagination } from '../../lib/pagination';
 
 const apiMode = computed(() => !!window.API_BASE);
 
@@ -49,6 +52,12 @@ const filtered = computed(() =>
     return r.projectId === scopeFilter.value;
   }),
 );
+
+// 배치8 — 공통 클라이언트 페이징. 범위 필터 변경 시 1페이지 리셋.
+const pageSize = ref<number>(DEFAULT_PAGE_SIZE);
+const { page, total, totalPages, paged, goPage, resetPage, setPageSize, rowNo } =
+  usePagination(filtered, pageSize);
+watch(scopeFilter, () => resetPage());
 
 // ---- 사람 문장(조건·미리보기 공용 — 0007 §2.5) --------------------------------
 function humanSentence(metric: string, operator: string, threshold: number | null, action: string, projectId: number | null): string {
@@ -281,12 +290,18 @@ onMounted(async () => {
       필터 조건에 맞는 규칙이 없습니다.
     </div>
 
+    <div v-if="!loading && filtered.length > 0" class="list-head">
+      <span class="count">총 <strong>{{ total.toLocaleString('ko-KR') }}</strong>건</span>
+      <PageSizeSelect :model-value="pageSize" @update:model-value="setPageSize" />
+    </div>
+
     <table v-if="!loading && filtered.length > 0" class="grid">
       <thead>
-        <tr><th>이름</th><th>적용 범위</th><th>지표</th><th>조건</th><th>액션</th><th>활성</th><th>동작</th></tr>
+        <tr><th class="no">No.</th><th>이름</th><th>적용 범위</th><th>지표</th><th>조건</th><th>액션</th><th>활성</th><th>동작</th></tr>
       </thead>
       <tbody>
-        <tr v-for="r in filtered" :key="r.ruleId" :class="{ off: !r.enabled }">
+        <tr v-for="(r, idx) in paged" :key="r.ruleId" :class="{ off: !r.enabled }">
+          <td class="no">{{ rowNo(idx) }}</td>
           <td class="name" :title="humanSentence(r.metric, r.operator, r.threshold, r.action, r.projectId)">{{ r.name }}</td>
           <td>
             <span class="scope-badge" :class="{ global: r.projectId == null }">{{ projectName(r.projectId) }}</span>
@@ -308,6 +323,12 @@ onMounted(async () => {
         </tr>
       </tbody>
     </table>
+
+    <Pager
+      v-if="!loading && filtered.length > 0"
+      :page="page" :total-pages="totalPages" :total="total"
+      @update:page="goPage"
+    />
   </div>
 </template>
 
@@ -359,9 +380,13 @@ onMounted(async () => {
 }
 .form-actions { display: flex; gap: 8px; margin-top: 14px; }
 
+.list-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
+.count { font-size: 13px; color: var(--muted); }
+.count strong { color: var(--text); }
 .grid { border-collapse: collapse; width: 100%; font-size: 13px; }
 .grid th, .grid td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
 .grid th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.grid .no { width: 48px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .grid tr.off td { opacity: 0.55; }
 .name { font-weight: 600; }
 .mono { font-family: ui-monospace, monospace; font-size: 12px; }

@@ -9,12 +9,15 @@ import type { Issue } from '../types';
 import StateNotice from '../components/StateNotice.vue';
 import GlobalListToolbar from '../components/GlobalListToolbar.vue';
 import IssueFormModal from '../components/IssueFormModal.vue';
+import PageSizeSelect from '../components/PageSizeSelect.vue';
+import Pager from '../components/Pager.vue';
 
 const router = useRouter();
 
 const {
   items, projects, loading, loadError, projectFilter, statusFilter, query,
   projectName, projectCode, projectOptions, statusOptions, filtered, reloadItems,
+  pageSize, page, total, totalPages, paged, goPage, setPageSize, rowNo,
 } = useGlobalList<Issue>({
   load: () => dataClient.issues.list(),
   // 0010 A-4: 코드는 검색(정확 일치 지향) 대상에 포함 — 정렬 키로는 쓰지 않는다
@@ -62,12 +65,18 @@ const fmtDate = (v: string | null) => (v ? String(v).split('T')[0] : '—');
       필터 조건에 맞는 이슈가 없습니다.
     </div>
 
+    <div v-if="!loading && filtered.length > 0" class="list-head">
+      <span class="count">총 <strong>{{ total.toLocaleString('ko-KR') }}</strong>건</span>
+      <PageSizeSelect :model-value="pageSize" @update:model-value="setPageSize" />
+    </div>
+
     <table v-if="!loading && filtered.length > 0" class="grid">
       <thead>
-        <tr><th>프로젝트</th><th>제목</th><th>유형</th><th>우선순위</th><th>담당</th><th>발생일</th><th>상태</th><th>동작</th></tr>
+        <tr><th class="no">No.</th><th>프로젝트</th><th>제목</th><th>유형</th><th>우선순위</th><th>담당</th><th>발생일</th><th>상태</th><th>동작</th></tr>
       </thead>
       <tbody>
-        <tr v-for="i in filtered" :key="i.id" class="row" @click="openProject(i)">
+        <tr v-for="(i, idx) in paged" :key="i.id" class="row" @click="openProject(i)">
+          <td class="no">{{ rowNo(idx) }}</td>
           <td class="proj">{{ projectName(i.projectId) }}</td>
           <td class="name">
             <span v-if="issueCode(i)" class="dcode">{{ issueCode(i) }}</span>
@@ -93,6 +102,12 @@ const fmtDate = (v: string | null) => (v ? String(v).split('T')[0] : '—');
       </tbody>
     </table>
 
+    <Pager
+      v-if="!loading && filtered.length > 0"
+      :page="page" :total-pages="totalPages" :total="total"
+      @update:page="goPage"
+    />
+
     <IssueFormModal
       v-if="showForm" :projects="projects"
       @created="onCreated" @close="showForm = false"
@@ -107,9 +122,13 @@ const fmtDate = (v: string | null) => (v ? String(v).split('T')[0] : '—');
   padding: 16px; border-radius: 8px;
   background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 13px;
 }
+.list-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
+.count { font-size: 13px; color: var(--muted); }
+.count strong { color: var(--text); }
 .grid { border-collapse: collapse; width: 100%; font-size: 13px; }
 .grid th, .grid td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
 .grid th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.grid .no { width: 48px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .row { cursor: pointer; }
 .row:hover { background: var(--panel); }
 .proj { color: var(--muted); }

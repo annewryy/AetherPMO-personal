@@ -4,12 +4,15 @@
 //  - 트리: CatalogView의 트리 컴포넌트(CatalogNodeItem) 재사용(별도 쿼리 금지 — catalog.tree() 하나).
 //  - 검색: name·code 텍스트 필터. 검색 시 결과 행 클릭은 카탈로그(P1-3)로 딥링크 유지.
 //  - 트리에서 산출물/태스크 클릭 → 동일 딥링크(?node=<id>).
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
 import type { CatalogNode } from '../types';
 import StateNotice from '../components/StateNotice.vue';
 import CatalogNodeItem from '../components/CatalogNodeItem.vue';
+import PageSizeSelect from '../components/PageSizeSelect.vue';
+import Pager from '../components/Pager.vue';
+import { DEFAULT_PAGE_SIZE, usePagination } from '../lib/pagination';
 
 const router = useRouter();
 
@@ -53,6 +56,12 @@ const filtered = computed(() => {
 const selectedPhase = computed(() =>
   tree.value.find((p) => p.id === selectedPhaseId.value) ?? null,
 );
+
+// 배치8 — 평면(목록) 뷰 공통 페이징. 검색/뷰변경 시 1페이지 리셋.
+const pageSize = ref<number>(DEFAULT_PAGE_SIZE);
+const { page, total, totalPages, paged, goPage, resetPage, setPageSize, rowNo } =
+  usePagination(filtered, pageSize);
+watch([query, viewMode], () => resetPage());
 
 function countByType(node: CatalogNode, type: string): number {
   let n = node.nodeType === type ? 1 : 0;
@@ -135,12 +144,18 @@ onMounted(async () => {
     <!-- 평면 목록 뷰 -->
     <template v-if="!loading && !loadError && deliverables.length > 0 && viewMode === 'flat'">
       <div v-if="filtered.length === 0" class="notice">검색 조건에 맞는 산출물이 없습니다.</div>
-      <table v-else class="grid">
+      <template v-else>
+      <div class="list-head">
+        <span class="lcount">총 <strong>{{ total.toLocaleString('ko-KR') }}</strong>건</span>
+        <PageSizeSelect :model-value="pageSize" @update:model-value="setPageSize" />
+      </div>
+      <table class="grid">
         <thead>
-          <tr><th>코드</th><th>산출물명</th><th>분류</th><th>소속 경로</th><th>비고</th></tr>
+          <tr><th class="no">No.</th><th>코드</th><th>산출물명</th><th>분류</th><th>소속 경로</th><th>비고</th></tr>
         </thead>
         <tbody>
-          <tr v-for="{ node, path } in filtered" :key="node.id" class="row" @click="openInCatalog(node.id)">
+          <tr v-for="({ node, path }, idx) in paged" :key="node.id" class="row" @click="openInCatalog(node.id)">
+            <td class="no">{{ rowNo(idx) }}</td>
             <td class="code">{{ node.code || '—' }}</td>
             <td class="name">{{ node.name }}</td>
             <td>{{ node.deliverableCategory || '—' }}</td>
@@ -154,6 +169,8 @@ onMounted(async () => {
           </tr>
         </tbody>
       </table>
+      <Pager :page="page" :total-pages="totalPages" :total="total" @update:page="goPage" />
+      </template>
     </template>
 
     <!-- 트리 뷰에서 검색어가 있으면 매칭 목록도 함께(딥링크 유지) -->
@@ -223,9 +240,13 @@ onMounted(async () => {
   padding: 16px; border-radius: 8px;
   background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 13px;
 }
+.list-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
+.lcount { font-size: 13px; color: var(--muted); }
+.lcount strong { color: var(--text); }
 .grid { border-collapse: collapse; width: 100%; font-size: 13px; }
 .grid th, .grid td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
 .grid th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.grid .no { width: 48px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .row { cursor: pointer; }
 .row:hover { background: var(--panel); }
 .code { font-family: ui-monospace, monospace; color: var(--muted); }

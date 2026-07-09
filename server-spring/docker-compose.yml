@@ -1,0 +1,25 @@
+# AetherPMS 개발용 MariaDB (0013 §C S-tier 올인원의 db 컴포넌트).
+# 사용:  cd server-spring && docker compose up -d
+#        DATABASE_URL=jdbc:mariadb://localhost:3306/aetherpms ./gradlew bootRun
+services:
+  db:
+    image: mariadb:11
+    container_name: aetherpms-mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: aetherpms
+      MARIADB_USER: aetherpms
+      MARIADB_PASSWORD: aetherpms
+      MARIADB_ROOT_PASSWORD: rootpw
+    ports:
+      - "3306:3306"
+    volumes:
+      - aetherpms_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  aetherpms_db:

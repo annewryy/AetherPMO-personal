@@ -1,0 +1,65 @@
+# MariaDB (stateful) — dev 클러스터 내 단일 인스턴스. Service 이름 'db'로 고정해
+# app의 DATABASE_URL=jdbc:mariadb://db:3306/aetherpms 를 Compose와 동일하게 재사용.
+# 실운영(M/L 티어)은 DB를 클러스터 밖 별도로 분리(0013 §C-2) — 이건 dev 전용.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: aetherpms-dev
+spec:
+  selector:
+    app: aetherpms-db
+  ports:
+    - port: 3306
+      targetPort: 3306
+  clusterIP: None            # headless (StatefulSet)
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: aetherpms-db
+  namespace: aetherpms-dev
+spec:
+  serviceName: db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aetherpms-db
+  template:
+    metadata:
+      labels:
+        app: aetherpms-db
+    spec:
+      containers:
+        - name: mariadb
+          image: mariadb:11
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MARIADB_DATABASE
+              value: aetherpms
+            # 자격증명은 Secret에서 주입(secret.example.yaml 참고 — 실값은 커밋 금지)
+            - name: MARIADB_USER
+              valueFrom: { secretKeyRef: { name: aetherpms-db-secret, key: username } }
+            - name: MARIADB_PASSWORD
+              valueFrom: { secretKeyRef: { name: aetherpms-db-secret, key: password } }
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom: { secretKeyRef: { name: aetherpms-db-secret, key: root-password } }
+          readinessProbe:
+            exec:
+              command: ["healthcheck.sh", "--connect", "--innodb_initialized"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+        # storageClassName: <클러스터 기본값 사용 or 지정>

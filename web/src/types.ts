@@ -29,12 +29,67 @@ export interface Project {
   resources: number;
   bidNumber: string | null;
   customerName: string;
+  location: string | null;    // 수행장소 (pms_project.location, 자유텍스트)
   projectBudget: number;      // contract_amount
   businessType: string;
   stage: ProjectStage;        // project_stage
+  announcementNo: string | null;  // 나라장터 공고번호(pms_project.announcement_no) — 공고→입찰 라운드트립(0017)
   sourceProjectId: number | null; // ← A단계 lineage: 입찰→수행 원본 프로젝트
   consortiumMembers: ConsortiumMember[];
   vrbInfo: VrbInfo | null;
+}
+
+// GET /api/projects 서버측 필터(0015 §B — 클라이언트 필터링 금지, 서버 쿼리로 전달).
+//   location: 서울/대전/대구/광주/기타 (자유텍스트 LIKE, '기타'=4종 외).
+//   status: 프로젝트 상태(선택). 인자 없으면 전체 반환(하위호환).
+export type ProjectLocationFilter = '서울' | '대전' | '대구' | '광주' | '기타';
+
+export interface ProjectFilters {
+  location?: ProjectLocationFilter | string;
+  status?: string;
+}
+
+// 프로젝트 생성 입력 (0017 — POST /api/projects, camelCase 화이트리스트).
+//   다른 도메인 create 입력(snake_case)과 달리 이 API는 camelCase 본문을 받는다(백엔드 P1 계약).
+//   필수: name. 그 외 선택. 화이트리스트 밖 키는 백엔드가 400.
+//   미지정 기본값(백엔드): stage=BIDDING, status=입찰, bidStatus=제안준비중. 발번(-B) 자동.
+export interface ProjectCreateInput {
+  name: string;                       // 필수
+  customerName?: string;
+  clientCompanyId?: number | null;
+  // 배치16 — 나라장터 수요기관코드. 백엔드가 pms_company.agency_code 매칭, 없으면 CLIENT 자동생성·연결.
+  clientAgencyCode?: string;
+  budget?: number;
+  contractAmount?: number;
+  announcementNo?: string;
+  proposalDeadline?: string;          // yyyy-MM-dd
+  businessType?: string;
+  description?: string;
+  team?: string;
+  dept?: string;
+  location?: string;
+  pmName?: string;
+  pmId?: number | null;
+  bidStatus?: string;
+  status?: string;
+  stage?: ProjectStage;
+  plannedStartDate?: string;
+  plannedEndDate?: string;
+  remarks?: string;
+  milestones?: string;
+  // 0017 §C 테일러링 — 선택 카탈로그 노드. 백엔드(P3a)가 선택분을 pms_task/deliverable로 전개.
+  //   미전송/빈 배열이면 기본 생성(하위호환). 화이트리스트 밖 키가 아닌 선택 배열이다.
+  tailoring?: TailoringEntry[];
+}
+
+// 0017 §C 테일러링 엔트리 — 생성 시 함께 보내는 카탈로그 선택 1건.
+//   catalogNodeId: 선택한 카탈로그 노드(PHASE/ACTIVITY/TASK/DELIVERABLE) id.
+//   isSelected: 기본 true(포함). false면 제외 의사(현재 UI는 선택분만 true로 수집).
+//   excludeReason: 제외 사유(선택) — isSelected=false와 함께 쓰는 백엔드 감사용 필드.
+export interface TailoringEntry {
+  catalogNodeId: number;
+  isSelected?: boolean;
+  excludeReason?: string;
 }
 
 export interface ProjectMember {
@@ -214,6 +269,9 @@ export interface CatalogNode {
   seqNo: number | null;
   deliverableCategory: string | null;
   stage: string | null;          // BIDDING/EXECUTION 등
+  templateFileRef: string | null; // 산출물 템플릿 파일 참조(파일명/텍스트) — 실열람은 FilePort 도입 후(0017 §C-1)
+  // template_tags: 백엔드가 jsonAny로 파싱(배열/객체/문자열/null). 프론트는 콤마·JSON 관용 파싱.
+  templateTags: string | string[] | Record<string, unknown> | null;
   workflowId: number | null;
   isActive: boolean;             // 0009 소프트 비활성 — false면 조회·신규 테일러링에서 제외
   children: CatalogNode[];
@@ -479,9 +537,206 @@ export interface Company {
   name: string;                  // company_name
   type: CompanyType | null;      // company_type
   isActive: boolean;
+  agencyCode?: string | null;    // agency_code — 기관코드(없으면 null). 배치16.
 }
 
 export type CompanyInput = Omit<Company, 'id'>;
+
+// ---- 인력관리 (0014 / 0005 §B — 단일 사람 마스터 pms_person) --------------------
+// GET /api/persons · /api/persons/{id} · /api/persons/{id}/projects 응답(camelCase DTO).
+// 읽기 전용 — 저장/동기화는 0005 소관. 신규 조회라 dataClient.persons가 이 형태로 반환한다.
+
+// employmentType 코드(0005 B 확정). 라벨 매핑은 lib/personLabels.ts.
+export type EmploymentType =
+  | 'regular'           // 정규직
+  | 'insourced'         // 자사화
+  | 'project_contract'  // 프로젝트 계약직
+  | 'turnkey'           // 외주(턴키)
+  | 'freelancer';       // 프리랜서
+
+// 인력 원천: 내부(아마란스 위임) / 외부(PMS 소유)
+export type PersonSource = 'INTERNAL' | 'EXTERNAL';
+
+export interface Person {
+  personId: number;
+  source: PersonSource | string;
+  amaranthEmpNo: string | null;      // 내부 인력 사번(아마란스). 외부는 null
+  name: string;
+  employmentType: EmploymentType | string;
+  companyId: number | null;
+  companyName: string | null;
+  department: string | null;
+  position: string | null;
+  phone: string | null;
+  email: string | null;
+  status: string | null;             // 재직상태
+  // 목록에만 존재(GET /api/persons). 상세(GET /api/persons/{id})에는 없을 수 있음.
+  activeProjectCount?: number;
+}
+
+// GET /api/persons/{id}/projects 한 항목 — 참여 이력(시간순). pms_project_member→pms_project.
+export interface PersonProjectHistory {
+  projectId: number;
+  projectName: string | null;
+  customerName: string | null;
+  location: string | null;
+  status: string | null;             // 프로젝트 상태
+  startDate: string | null;          // 프로젝트 계획 시작
+  endDate: string | null;            // 프로젝트 계획 종료
+  actualStartDate: string | null;
+  actualEndDate: string | null;
+  role: string | null;               // participation_role 코드
+  roleName: string | null;           // 역할 표시명
+  isProjectManager: boolean;
+  memberStartDate: string | null;    // 멤버십 투입일
+  memberEndDate: string | null;      // 멤버십 철수일
+  isActive: boolean;                 // 활성 멤버십 여부
+}
+
+// GET /api/persons 서버측 필터(0014 A — 클라이언트 필터링 금지, 서버 쿼리로 전달).
+export interface PersonFilters {
+  employmentTypes?: string[];        // 복수선택 → 콤마 조립
+  match?: 'or' | 'and';              // 기본 or
+  name?: string;
+  company?: string;
+  projectId?: number | null;
+  location?: string;
+  customer?: string;
+}
+
+// ---- 나라장터 공고조회 (0016 §A·§B — GET /api/bid-agencies · /api/bid-notices) --------
+// 백엔드 전용(Supabase 폴백 없음). 모든 필터는 서버 파라미터로 전달(클라 필터 금지).
+
+// 기관 마스터 (GET /api/bid-agencies) — 드롭다운 옵션. isDefault면 기본 선택.
+export interface BidAgency {
+  id: number;
+  agencyName: string;   // 나라장터 조회 키(dminsttNm)로 사용
+  sortOrder: number;
+  isDefault: boolean;
+}
+
+// 공고유형: all=전체 / main=본공고 / pre_spec=사전규격.
+//   pre_spec은 현재 백엔드 게이트 off(빈 결과) — UI에서 "준비중" 비활성 처리.
+export type BidNoticeType = 'all' | 'main' | 'pre_spec';
+
+// 공고 조회 결과 단건 (notices[] 항목). 레거시 g2b.js 계약 유지.
+//   publishDate/endDate는 yyyy-MM-dd 또는 "-", budget은 숫자(0 가능), url은 상세 링크.
+export interface BidNotice {
+  announcementNo: string;
+  noticeType: 'main' | 'pre_spec';   // Badge용
+  name: string;
+  customer: string;                  // 기관(수요기관)
+  publishDate: string;               // 공고일
+  endDate: string;                   // 마감일
+  budget: number;                    // 예산(원)
+  url: string;                       // 상세 링크(새 탭)
+}
+
+// GET /api/bid-notices 서버측 필터(전부 쿼리스트링). 기간은 선택(없으면 백엔드 최근 30일).
+export interface BidNoticeFilters {
+  agency?: string;        // 기관명(드롭다운 선택 또는 직접입력)
+  noticeType?: BidNoticeType;
+  keyword?: string;
+  bgngDt?: string;        // YYYYMMDDHHMM (선택)
+  endDt?: string;         // YYYYMMDDHHMM (선택)
+  page?: number;          // 1-base
+  numOfRows?: number;     // 페이지 크기
+}
+
+// GET /api/bid-notices 응답 — 목록 + 총건수(페이징).
+export interface BidNoticeResult {
+  notices: BidNotice[];
+  totalCount: number;
+}
+
+// 공고규격서 첨부 1건 (BidNoticeDetail.specDocs[] 항목).
+//   url: 나라장터 규격서 URL(원문 링크), fileName: 파일명(둘 다 null 가능).
+export interface SpecDoc {
+  url: string | null;
+  fileName: string | null;
+}
+
+// 나라장터 공고 단건 리치 상세 (GET /api/bid-notices/{bidNtceNo} — 배치14 / 0017 §A).
+//   inqryDiv=2 풀필드. 백엔드가 값 없는 필드는 null로 명시 노출(스키마 안정).
+//   더미데이터 금지([[no-dummy-data]]): 상세 페이지는 실제 값만 렌더, null이면 섹션/행 생략.
+export interface BidNoticeDetail {
+  // --- 리스트(BidNotice)와 정합되는 핵심 ---
+  announcementNo: string | null;
+  noticeType: string | null;         // 단건조회는 항상 "main"
+  name: string | null;
+  customer: string | null;           // 수요기관명
+  publishDate: string | null;        // 입찰공고일시(원문 문자열)
+  endDate: string | null;            // 입찰마감일시
+  budget: number | null;             // 배정예산/추정가격(원)
+  url: string | null;                // 입찰공고상세URL
+
+  // --- 공고 식별/상태 ---
+  noticeOrder: string | null;
+  reNoticeYn: string | null;
+  registerTypeName: string | null;
+  noticeKindName: string | null;
+  intlBidYn: string | null;
+  refNo: string | null;
+  registerDate: string | null;
+  changeDate: string | null;
+  changeNoticeReason: string | null;
+  preSpecRegisterNo: string | null;
+  unifiedNoticeNo: string | null;
+  orderPlanUnifiedNo: string | null;
+
+  // --- 기관 ---
+  noticeAgencyCode: string | null;
+  noticeAgencyName: string | null;
+  demandAgencyCode: string | null;
+  demandAgencyName: string | null;
+
+  // --- 방식/방법 ---
+  bidMethodName: string | null;
+  contractMethodName: string | null;
+  bidwinnerMethodCode: string | null;
+  bidwinnerMethodName: string | null;
+  bidwinnerMethodAppStd: string | null;
+  serviceDivName: string | null;
+
+  // --- 일정(원문 문자열) ---
+  bidQlfctRegisterDeadline: string | null;
+  bidBeginDate: string | null;
+  openingDate: string | null;
+  openingPlace: string | null;
+  briefingDate: string | null;
+  briefingPlace: string | null;
+
+  // --- 금액 ---
+  assignBudgetAmount: number | null;
+  estimatedPrice: number | null;
+  vat: number | null;
+  bidwinnerLowerRate: number | null;
+
+  // --- 제한 ---
+  industryLimitYn: string | null;
+  regionLimitJudgeName: string | null;
+  bidParticipationLimitYn: string | null;
+  jointContractDutyRegions: string[] | null;
+
+  // --- 담당자 ---
+  noticeAgencyOfficialName: string | null;
+  noticeAgencyOfficialTel: string | null;
+  noticeAgencyOfficialEmail: string | null;
+  demandAgencyOfficialEmail: string | null;
+  executiveName: string | null;
+
+  // --- 분류 ---
+  pubProcurementLargeClassName: string | null;
+  pubProcurementMidClassName: string | null;
+  pubProcurementClassNo: string | null;
+  pubProcurementClassName: string | null;
+
+  // --- 첨부/원문 URL ---
+  specDocs: SpecDoc[] | null;
+  stdNoticeDocUrl: string | null;
+  noticeDetailUrl: string | null;
+  noticeUrl: string | null;
+}
 
 export interface AppState {
   projects: Project[];

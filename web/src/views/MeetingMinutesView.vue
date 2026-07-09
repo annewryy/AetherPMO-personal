@@ -8,12 +8,15 @@ import type { MeetingMinute } from '../types';
 import StateNotice from '../components/StateNotice.vue';
 import GlobalListToolbar from '../components/GlobalListToolbar.vue';
 import MeetingMinuteFormModal from '../components/MeetingMinuteFormModal.vue';
+import PageSizeSelect from '../components/PageSizeSelect.vue';
+import Pager from '../components/Pager.vue';
 
 const router = useRouter();
 
 const {
   items, projects, loading, loadError, projectFilter, statusFilter, query,
   projectName, projectOptions, statusOptions, filtered, reloadItems,
+  pageSize, page, total, totalPages, paged, goPage, setPageSize, rowNo,
 } = useGlobalList<MeetingMinute>({
   load: () => dataClient.meetingMinutes.list(),
   searchText: (m) => m.title,
@@ -59,12 +62,18 @@ function attendeesText(list: unknown[]): string {
       필터 조건에 맞는 회의록이 없습니다.
     </div>
 
+    <div v-if="!loading && filtered.length > 0" class="list-head">
+      <span class="count">총 <strong>{{ total.toLocaleString('ko-KR') }}</strong>건</span>
+      <PageSizeSelect :model-value="pageSize" @update:model-value="setPageSize" />
+    </div>
+
     <table v-if="!loading && filtered.length > 0" class="grid">
       <thead>
-        <tr><th>프로젝트</th><th>제목</th><th>회의일</th><th>참석자</th><th>비고</th><th>동작</th></tr>
+        <tr><th class="no">No.</th><th>프로젝트</th><th>제목</th><th>회의일</th><th>참석자</th><th>비고</th><th>동작</th></tr>
       </thead>
       <tbody>
-        <tr v-for="m in filtered" :key="m.id" class="row" @click="openProject(m)">
+        <tr v-for="(m, idx) in paged" :key="m.id" class="row" @click="openProject(m)">
+          <td class="no">{{ rowNo(idx) }}</td>
           <td class="proj">{{ projectName(m.projectId) }}</td>
           <td class="name">{{ m.title }}</td>
           <td>{{ fmtDate(m.meetDate) }}</td>
@@ -76,6 +85,12 @@ function attendeesText(list: unknown[]): string {
         </tr>
       </tbody>
     </table>
+
+    <Pager
+      v-if="!loading && filtered.length > 0"
+      :page="page" :total-pages="totalPages" :total="total"
+      @update:page="goPage"
+    />
 
     <MeetingMinuteFormModal
       v-if="showForm" :projects="projects"
@@ -91,9 +106,13 @@ function attendeesText(list: unknown[]): string {
   padding: 16px; border-radius: 8px;
   background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 13px;
 }
+.list-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
+.count { font-size: 13px; color: var(--muted); }
+.count strong { color: var(--text); }
 .grid { border-collapse: collapse; width: 100%; font-size: 13px; }
 .grid th, .grid td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
 .grid th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.grid .no { width: 48px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .row { cursor: pointer; }
 .row:hover { background: var(--panel); }
 .proj { color: var(--muted); }

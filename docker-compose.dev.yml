@@ -1,0 +1,63 @@
+# AetherPMS 개발서버 — S티어 올인원 (0013 §C-2): web + app + db 단일 호스트.
+# 로컬 검증 후 동일 이미지를 우리 K8s로 승격(0013 C-3).
+#   기동:  docker compose -f docker-compose.dev.yml up -d --build
+#   접속:  http://localhost:8088/app/   (API는 same-origin /api → app 프록시)
+#   종료:  docker compose -f docker-compose.dev.yml down       (데이터 유지: 볼륨)
+name: aetherpms-dev
+
+services:
+  # ---- db: MariaDB (stateful) ----
+  db:
+    image: mariadb:11
+    container_name: aetherpms-dev-db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: aetherpms
+      MARIADB_USER: aetherpms
+      MARIADB_PASSWORD: aetherpms
+      MARIADB_ROOT_PASSWORD: rootpw
+    ports:
+      - "3307:3306"          # 로컬 DB 접속 편의(선택). 3306은 기존 컨테이너 점유 → 3307
+    volumes:
+      - aetherpms_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # ---- app: Spring Boot (stateless). Flyway가 스키마 소유 ----
+  app:
+    build:
+      context: ./server-spring
+      dockerfile: Dockerfile
+    container_name: aetherpms-dev-app
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: jdbc:mariadb://db:3306/aetherpms
+      DATABASE_USER: aetherpms
+      DATABASE_PASSWORD: aetherpms
+      SERVER_PORT: "8080"
+      # 나라장터 serviceKey — 값은 커밋 금지. 루트의 gitignored .env 에 G2B_SERVICE_KEY=... 로 두면
+      # compose가 자동으로 읽어 주입한다(없으면 빈값 → g2b 조회만 비활성). (batch6: g2b.service-key)
+      G2B_SERVICE_KEY: ${G2B_SERVICE_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8081:8080"          # 백엔드 직접 디버깅(선택). 8080은 로컬 파일럿 점유 → 8081
+
+  # ---- web: nginx — /app 정적 + /api 프록시 (stateless) ----
+  web:
+    build:
+      context: .
+      dockerfile: deploy/web.Dockerfile
+    container_name: aetherpms-dev-web
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "8088:80"
+
+volumes:
+  aetherpms_db:

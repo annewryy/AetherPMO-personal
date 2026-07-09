@@ -1,0 +1,226 @@
+<script setup lang="ts">
+// 인력관리 목록 (/app/persons — 0014 A). pms_person 전사 마스터 조회.
+//  - 인력구분(employmentType) 체크박스 복수선택 + AND/OR 토글(기본 OR).
+//  - 검색: 이름·소속회사·투입 프로젝트·수행장소·고객사 → 전부 서버 파라미터로 전달
+//    (클라이언트 필터링 금지 — 0014 원칙). 조회는 dataClient.persons.list(filters).
+//  - 행 클릭 → 우측 상세 패널(기본 정보 + 참여 이력).
+import { ref, computed, onMounted } from 'vue';
+import { dataClient } from '../lib/dataClient';
+import { EMPLOYMENT_TYPES, employmentTypeLabel, sourceLabel } from '../lib/personLabels';
+import type { Person, PersonFilters } from '../types';
+import PersonDetailPanel from '../components/PersonDetailPanel.vue';
+import PageSizeSelect from '../components/PageSizeSelect.vue';
+import Pager from '../components/Pager.vue';
+import { DEFAULT_PAGE_SIZE, usePagination } from '../lib/pagination';
+
+const persons = ref<Person[]>([]);
+const loading = ref(true);
+const loadError = ref<string | null>(null);
+const searched = ref(false); // 한 번이라도 조회했는지(초기 vs 결과 없음 구분)
+
+const apiMode = computed(() => !!window.API_BASE);
+
+// --- 필터 상태 (전부 서버 파라미터) ---
+const selectedTypes = ref<string[]>([]);        // 인력구분 복수선택
+const matchMode = ref<'or' | 'and'>('or');       // AND/OR (기본 OR)
+const name = ref('');
+const company = ref('');
+const project = ref('');   // 투입 프로젝트명(백엔드 projectId는 숫자라 별도 처리)
+const location = ref('');
+const customer = ref('');
+
+// 선택 상세
+const selected = ref<Person | null>(null);
+
+// 배치8 — 공통 클라이언트 페이징(서버 검색 결과 배열을 슬라이싱). 재조회 시 1페이지로 리셋(search()에서).
+const pageSize = ref<number>(DEFAULT_PAGE_SIZE);
+const { page, total, totalPages, paged, goPage, resetPage, setPageSize, rowNo } =
+  usePagination(persons, pageSize);
+
+function toggleType(code: string) {
+  const i = selectedTypes.value.indexOf(code);
+  if (i >= 0) selectedTypes.value.splice(i, 1);
+  else selectedTypes.value.push(code);
+}
+
+// 백엔드 계약: projectId는 숫자. 사용자가 숫자만 입력하면 projectId로 보낸다.
+// (0014 미결 — 이름→id 해석은 백엔드 몫. 현 계약은 projectId 숫자 파라미터만 제공.)
+function buildFilters(): PersonFilters {
+  const f: PersonFilters = {
+    match: matchMode.value,
+  };
+  if (selectedTypes.value.length) f.employmentTypes = [...selectedTypes.value];
+  if (name.value.trim()) f.name = name.value.trim();
+  if (company.value.trim()) f.company = company.value.trim();
+  if (location.value.trim()) f.location = location.value.trim();
+  if (customer.value.trim()) f.customer = customer.value.trim();
+  const pv = project.value.trim();
+  if (pv && /^\d+$/.test(pv)) f.projectId = Number(pv);
+  return f;
+}
+
+async function search() {
+  if (!apiMode.value) return;
+  loading.value = true;
+  loadError.value = null;
+  try {
+    persons.value = await dataClient.persons.list(buildFilters());
+    resetPage(); // 새 검색 → 1페이지부터
+    searched.value = true;
+  } catch (e) {
+    loadError.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    loading.value = false;
+  }
+}
+
+function reset() {
+  selectedTypes.value = [];
+  matchMode.value = 'or';
+  name.value = company.value = project.value = location.value = customer.value = '';
+  void search();
+}
+
+onMounted(() => {
+  if (apiMode.value) void search();
+  else loading.value = false;
+});
+</script>
+
+<template>
+  <div>
+    <h1 class="title">인력관리</h1>
+    <p class="sub">전사 인력 마스터 조회 — 인력구분·검색으로 필터하고, 행을 클릭하면 상세·참여 이력을 봅니다.</p>
+
+    <!-- 인력구분 필터 (복수선택 + AND/OR) -->
+    <div class="filters">
+      <div class="frow">
+        <span class="flabel">인력구분</span>
+        <div class="checks">
+          <label v-for="t in EMPLOYMENT_TYPES" :key="t.code" class="chk">
+            <input
+              type="checkbox"
+              :checked="selectedTypes.includes(t.code)"
+              @change="toggleType(t.code)"
+            />
+            {{ t.label }}
+          </label>
+        </div>
+        <div class="match" role="group" aria-label="매칭 방식">
+          <button class="mtab" :class="{ on: matchMode === 'or' }" @click="matchMode = 'or'">OR</button>
+          <button class="mtab" :class="{ on: matchMode === 'and' }" @click="matchMode = 'and'">AND</button>
+        </div>
+      </div>
+
+      <!-- 검색 조건 (전부 서버 파라미터) -->
+      <div class="frow search-row">
+        <input v-model="name" class="in" type="search" placeholder="이름" @keyup.enter="search" />
+        <input v-model="company" class="in" type="search" placeholder="소속회사" @keyup.enter="search" />
+        <input v-model="project" class="in" type="search" placeholder="투입 프로젝트 ID" @keyup.enter="search" />
+        <input v-model="location" class="in" type="search" placeholder="수행장소" @keyup.enter="search" />
+        <input v-model="customer" class="in" type="search" placeholder="고객사" @keyup.enter="search" />
+        <button class="btn btn-primary" :disabled="!apiMode" @click="search">조회</button>
+        <button class="btn" :disabled="!apiMode" @click="reset">초기화</button>
+      </div>
+    </div>
+
+    <div v-if="!apiMode" class="notice">
+      인력관리는 백엔드(API_BASE) 연결 후 조회할 수 있습니다 — 레거시(Supabase)에는 인력 마스터가 없습니다.
+    </div>
+    <template v-else>
+      <div v-if="loading" class="notice">불러오는 중…</div>
+      <div v-else-if="loadError" class="notice">
+        데이터를 불러오지 못했습니다. 백엔드(API_BASE) 설정을 확인하세요.
+        <span class="detail">({{ loadError }})</span>
+      </div>
+      <div v-else-if="persons.length === 0" class="notice">
+        {{ searched ? '조건에 맞는 인력이 없습니다.' : '조회 조건을 입력하고 조회하세요.' }}
+      </div>
+      <template v-else>
+      <div class="list-head">
+        <span class="count">총 <strong>{{ total.toLocaleString('ko-KR') }}</strong>명</span>
+        <PageSizeSelect :model-value="pageSize" @update:model-value="setPageSize" />
+      </div>
+      <table class="grid">
+        <thead>
+          <tr>
+            <th class="no">No.</th><th>성명</th><th>인력구분</th><th>소속회사</th><th>부서</th>
+            <th>직책</th><th>재직상태</th><th class="num">활성 프로젝트</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(p, idx) in paged" :key="p.personId" class="row" @click="selected = p">
+            <td class="no">{{ rowNo(idx) }}</td>
+            <td class="name">
+              {{ p.name }}
+              <span class="src-tag" :title="`원천: ${sourceLabel(p.source)}`">{{ sourceLabel(p.source) }}</span>
+            </td>
+            <td>{{ employmentTypeLabel(p.employmentType) }}</td>
+            <td>{{ p.companyName || '—' }}</td>
+            <td>{{ p.department || '—' }}</td>
+            <td>{{ p.position || '—' }}</td>
+            <td>{{ p.status || '—' }}</td>
+            <td class="num">{{ p.activeProjectCount ?? 0 }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <Pager :page="page" :total-pages="totalPages" :total="total" @update:page="goPage" />
+      </template>
+    </template>
+
+    <PersonDetailPanel
+      v-if="selected"
+      :person="selected"
+      @close="selected = null"
+    />
+  </div>
+</template>
+
+<style scoped>
+.title { font-size: 20px; margin: 0 0 4px; }
+.sub { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
+
+.filters {
+  border: 1px solid var(--border); border-radius: 10px; background: var(--panel);
+  padding: 14px 16px; margin-bottom: 18px; display: flex; flex-direction: column; gap: 12px;
+}
+.frow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.flabel { font-size: 12px; font-weight: 600; color: var(--muted); }
+.checks { display: flex; gap: 14px; flex-wrap: wrap; }
+.chk { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
+.match { display: flex; gap: 3px; margin-left: auto; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
+.mtab {
+  border: 0; background: transparent; color: var(--muted);
+  font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 6px; cursor: pointer;
+}
+.mtab.on { background: var(--accent); color: #fff; }
+
+.search-row { border-top: 1px solid var(--border); padding-top: 12px; }
+.in {
+  background: var(--panel-2, var(--panel)); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-size: 13px; padding: 7px 11px; min-width: 130px; outline: none;
+}
+.in:focus { border-color: var(--accent); }
+
+.notice {
+  padding: 16px; border-radius: 8px;
+  background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 13px;
+}
+.notice .detail { opacity: 0.7; }
+
+.list-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
+.count { font-size: 13px; color: var(--muted); }
+.count strong { color: var(--text); }
+.grid { border-collapse: collapse; width: 100%; font-size: 13px; }
+.grid th, .grid td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.grid th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.grid .num { text-align: right; }
+.grid .no { width: 48px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.row { cursor: pointer; }
+.row:hover { background: var(--panel); }
+.name { font-weight: 600; }
+.src-tag {
+  font-size: 10px; font-weight: 500; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; margin-left: 6px;
+}
+</style>

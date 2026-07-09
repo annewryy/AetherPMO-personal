@@ -1,0 +1,59 @@
+# Spring 백엔드 (stateless). Service 이름 'app'로 고정 →
+# web(nginx.conf)의 proxy_pass http://app:8080 을 무변경 재사용.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+  namespace: aetherpms-dev
+spec:
+  selector:
+    app: aetherpms-app
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aetherpms-app
+  namespace: aetherpms-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aetherpms-app
+  template:
+    metadata:
+      labels:
+        app: aetherpms-app
+    spec:
+      containers:
+        - name: app
+          # Jenkins가 배포 시 커밋 SHA 태그로 교체(kubectl set image). 초기값=플레이스홀더.
+          image: REGISTRY_PLACEHOLDER/aetherpms-app:dev
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DATABASE_URL
+              value: jdbc:mariadb://db:3306/aetherpms
+            - name: DATABASE_USER
+              valueFrom: { secretKeyRef: { name: aetherpms-db-secret, key: username } }
+            - name: DATABASE_PASSWORD
+              valueFrom: { secretKeyRef: { name: aetherpms-db-secret, key: password } }
+            - name: SERVER_PORT
+              value: "8080"
+          readinessProbe:
+            httpGet:
+              path: /api/projects
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits:   { memory: "768Mi" }

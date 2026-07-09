@@ -1,0 +1,49 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.3.5'
+    id 'io.spring.dependency-management' version '1.1.6'
+}
+
+group = 'com.aetherpms'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-mysql'
+    runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.testcontainers:junit-jupiter:1.20.4'
+    testImplementation 'org.testcontainers:mariadb:1.20.4'
+    testImplementation 'org.mariadb.jdbc:mariadb-java-client'
+    // PATCH 통합 테스트용 — 기본 JDK 클라이언트는 PATCH 미지원(TestRestTemplate 팩토리 교체).
+    testImplementation 'org.apache.httpcomponents.client5:httpclient5'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    // Testcontainers 도커 접속을 호출 환경에서 주입할 수 있게 전달(머신별 소켓 경로를
+    // build.gradle에 하드코딩하지 않는다 — 동료 main 라이브 환경 보호). 미설정이면 무시.
+    //   예) Colima: DOCKER_HOST=unix://~/.colima/default/docker.sock DOCKER_API_VERSION=1.41
+    ['DOCKER_HOST', 'DOCKER_API_VERSION', 'TESTCONTAINERS_RYUK_DISABLED',
+     'TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE'].each { k ->
+        if (System.getenv(k)) environment k, System.getenv(k)
+    }
+    // docker-java API 버전 협상 하한(구 클라이언트가 1.32로 협상→최신 데몬 거부) 회피.
+    if (System.getenv('DOCKER_API_VERSION')) {
+        systemProperty 'api.version', System.getenv('DOCKER_API_VERSION')
+    }
+}

@@ -1,0 +1,6 @@
+plugins {
+    // JDK 21 툴체인 자동 프로비저닝(로컬에 21 미설치 시). 네트워크 필요.
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
+}
+
+rootProject.name = 'aetherpms-server'

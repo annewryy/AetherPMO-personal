@@ -23,6 +23,8 @@ import type {
   AvailableTransition, TransitionEntity, ProjectProgress,
   IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput,
   ProjectMemberRef, AppNotification,
+  Person, PersonProjectHistory, PersonFilters, ProjectFilters, ProjectCreateInput,
+  BidAgency, BidNoticeFilters, BidNoticeResult, BidNoticeDetail,
 } from '../types';
 
 // DB는 한글 status로 저장, UI 내부 로직은 영문 status를 기대 → 로드 시 매핑(스태시에서 harvest).
@@ -51,7 +53,15 @@ function userHeader(): Record<string, string> {
 // 0003 계약: 응답은 도메인 모델(camelCase, types.ts와 동일 형태) — 무매핑.
 async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${apiBase()}${path}`, { headers: userHeader() });
-  if (!res.ok) throw new Error(`[dataClient] API ${path} 실패: ${res.status}`);
+  if (!res.ok) {
+    // 백엔드가 {message}를 주면(예: 나라장터 502 — serviceKey 미설정·기간 가드) 그대로 노출.
+    let msg = `[dataClient] API ${path} 실패: ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body?.message || body?.error) msg = body.message || body.error;
+    } catch { /* 본문 없음 — 기본 메시지 유지 */ }
+    throw new Error(msg);
+  }
   return res.json() as Promise<T>;
 }
 
@@ -106,9 +116,11 @@ function mapProject(p: Row): Project {
     resources: num(p.resources),
     bidNumber: p.bid_number ?? null,
     customerName: p.customer_name,
+    location: p.location ?? null,
     projectBudget: num(p.contract_amount),
     businessType: p.business_type,
     stage: p.project_stage,
+    announcementNo: p.announcement_no ?? null, // 0017 공고→입찰 라운드트립(폴백 DB 미적용 시 null)
     sourceProjectId: p.source_project_id ?? null, // A단계 lineage
     consortiumMembers: [],
     vrbInfo: null,
@@ -290,6 +302,8 @@ function mapCatalogNode(n: Row): CatalogNode {
     seqNo: n.seq_no ?? null,
     deliverableCategory: n.deliverable_category ?? null,
     stage: n.stage ?? null,
+    templateFileRef: n.template_file_ref ?? null,
+    templateTags: n.template_tags ?? null,
     workflowId: n.workflow_id ?? null,
     isActive: n.is_active !== false, // 0009 소프트 비활성(컬럼 미적용 DB는 전부 활성)
     children: [],
@@ -450,18 +464,37 @@ const COMMENT_ENTITY_PATHS: Record<CommentEntityType, string> = {
 
 export const dataClient = {
   projects: {
-    async list(): Promise<Project[]> {
-      if (apiBase()) return apiGet<Project[]>('/api/projects');
+    // 0015 §B: 선택적 서버측 필터(location/status). 인자 없으면 전체 반환(하위호환).
+    //   API_BASE 경로는 쿼리스트링으로 서버에 위임(클라 필터 금지).
+    //   Supabase 폴백(개발용)은 location 매칭만 로컬 처리한다.
+    async list(filters: ProjectFilters = {}): Promise<Project[]> {
+      if (apiBase()) {
+        const qs = new URLSearchParams();
+        if (filters.location && filters.location.trim()) qs.set('location', filters.location.trim());
+        if (filters.status && filters.status.trim()) qs.set('status', filters.status.trim());
+        const q = qs.toString();
+        return apiGet<Project[]>(`/api/projects${q ? `?${q}` : ''}`);
+      }
       const [projects, companies] = await Promise.all([
         selectAll('pms_project'),
         selectAll('pms_project_company'),
       ]);
-      const mapped = projects.map(mapProject);
+      let mapped = projects.map(mapProject);
       // 컨소시엄(고객사 제외) 프로젝트별 결합
       for (const p of mapped) {
         p.consortiumMembers = companies
           .filter((c) => c.project_id === p.id && c.role !== '고객사')
           .map(mapConsortium);
+      }
+      // Supabase 폴백에서만 location 필터를 로컬 적용(서버 미경유 개발 편의).
+      const loc = filters.location?.trim();
+      if (loc) {
+        const named = ['서울', '대전', '대구', '광주'];
+        mapped = mapped.filter((p) => {
+          const v = p.location ?? '';
+          if (loc === '기타') return !named.some((n) => v.includes(n));
+          return v.includes(loc);
+        });
       }
       return mapped;
     },
@@ -485,6 +518,17 @@ export const dataClient = {
         .filter((c) => c.role !== '고객사')
         .map(mapConsortium);
       return p;
+    },
+
+    // 0017 P1: 신규 입찰 프로젝트 생성(POST /api/projects). 백엔드 전용 쓰기 게이트.
+    //   입력은 camelCase 화이트리스트(ProjectCreateInput). 미지정 필드는 백엔드 기본값
+    //   (stage=BIDDING, status=입찰, bidStatus=제안준비중) + 발번(-B) 자동.
+    //   201 응답은 프로젝트 상세 shape(camelCase, announcementNo·projectCode 포함).
+    //   0017 §C(P3a): input.tailoring(선택 카탈로그 노드 배열)이 있으면 body에 그대로 실려
+    //   전송되고 백엔드가 pms_task/deliverable로 전개한다. 없으면 기본 생성(하위호환).
+    //   400/기타 실패 시 apiSend가 백엔드 {message}를 그대로 던진다(화면에서 표시).
+    create(input: ProjectCreateInput): Promise<Project> {
+      return apiSend<Project>('POST', '/api/projects', input);
     },
   },
 
@@ -802,6 +846,70 @@ export const dataClient = {
     async signals(): Promise<DashboardSignals | null> {
       if (!apiBase()) return null;
       return apiGet<DashboardSignals>('/api/dashboard/signals');
+    },
+  },
+
+  // 인력관리 (0014 — pms_person 전사 마스터 조회). 읽기 전용, 모든 필터는 서버측 쿼리.
+  //  - API_BASE 전용: 레거시(Supabase)엔 persons 테이블 없음 → 빈 배열/null + 화면 안내.
+  //  - 필터는 쿼리스트링으로 조립(클라이언트 필터링 금지 — 0014 원칙).
+  persons: {
+    async list(filters: PersonFilters = {}): Promise<Person[]> {
+      if (!apiBase()) return []; // 폴백: persons 테이블 없음 → 빈 목록 + 화면 안내
+      const qs = new URLSearchParams();
+      if (filters.employmentTypes && filters.employmentTypes.length) {
+        qs.set('employmentTypes', filters.employmentTypes.join(','));
+      }
+      if (filters.match) qs.set('match', filters.match);
+      if (filters.name && filters.name.trim()) qs.set('name', filters.name.trim());
+      if (filters.company && filters.company.trim()) qs.set('company', filters.company.trim());
+      if (filters.projectId != null) qs.set('projectId', String(filters.projectId));
+      if (filters.location && filters.location.trim()) qs.set('location', filters.location.trim());
+      if (filters.customer && filters.customer.trim()) qs.set('customer', filters.customer.trim());
+      const q = qs.toString();
+      return apiGet<Person[]>(`/api/persons${q ? `?${q}` : ''}`);
+    },
+    async get(id: number): Promise<Person | null> {
+      if (!apiBase()) return null;
+      return apiGet<Person | null>(`/api/persons/${id}`);
+    },
+    async projects(id: number): Promise<PersonProjectHistory[]> {
+      if (!apiBase()) return [];
+      return apiGet<PersonProjectHistory[]>(`/api/persons/${id}/projects`);
+    },
+  },
+
+  // 나라장터 공고조회 (0016 §A·§B — GET /api/bid-agencies · /api/bid-notices).
+  //  - API_BASE 전용: 레거시(Supabase)엔 나라장터 연동 없음 → 빈 배열/빈 결과 + 화면 안내.
+  //  - 모든 필터는 쿼리스트링으로 조립(클라이언트 필터링 금지 — 백엔드가 캐시·키워드필터 처리).
+  bidNotices: {
+    // 기관 드롭다운 옵션. sortOrder 순은 백엔드가 보장(정렬 재적용 안 함).
+    async agencies(): Promise<BidAgency[]> {
+      if (!apiBase()) return [];
+      return apiGet<BidAgency[]>('/api/bid-agencies');
+    },
+    // 공고 조회. 기간 미지정 시 백엔드가 최근 30일. page/numOfRows로 페이징.
+    async search(filters: BidNoticeFilters = {}): Promise<BidNoticeResult> {
+      if (!apiBase()) return { notices: [], totalCount: 0 };
+      const qs = new URLSearchParams();
+      if (filters.agency && filters.agency.trim()) qs.set('agency', filters.agency.trim());
+      if (filters.noticeType) qs.set('noticeType', filters.noticeType);
+      if (filters.keyword && filters.keyword.trim()) qs.set('keyword', filters.keyword.trim());
+      if (filters.bgngDt && filters.bgngDt.trim()) qs.set('bgngDt', filters.bgngDt.trim());
+      if (filters.endDt && filters.endDt.trim()) qs.set('endDt', filters.endDt.trim());
+      if (filters.page != null) qs.set('page', String(filters.page));
+      if (filters.numOfRows != null) qs.set('numOfRows', String(filters.numOfRows));
+      const q = qs.toString();
+      return apiGet<BidNoticeResult>(`/api/bid-notices${q ? `?${q}` : ''}`);
+    },
+    // 0017 §A(배치14): 공고 단건 리치 상세(GET /api/bid-notices/{bidNtceNo}).
+    //   inqryDiv=2 풀필드 — 상세 페이지·생성 마법사 프리필용. 값 없는 필드는 백엔드가 null.
+    //   없으면 404 {message}, 외부 연동 오류면 502 {message} — apiGet이 그대로 던진다.
+    //   API_BASE 전용(레거시엔 나라장터 연동 없음).
+    async detail(bidNtceNo: string): Promise<BidNoticeDetail> {
+      if (!apiBase()) {
+        throw new Error('[dataClient] 공고 상세는 백엔드(API_BASE) 연결 후에만 조회할 수 있습니다.');
+      }
+      return apiGet<BidNoticeDetail>(`/api/bid-notices/${encodeURIComponent(bidNtceNo)}`);
     },
   },
 

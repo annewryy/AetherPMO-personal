@@ -7,12 +7,15 @@ import { stub } from '../lib/stub';
 import type { OfficialDoc } from '../types';
 import StateNotice from '../components/StateNotice.vue';
 import GlobalListToolbar from '../components/GlobalListToolbar.vue';
+import PageSizeSelect from '../components/PageSizeSelect.vue';
+import Pager from '../components/Pager.vue';
 
 const router = useRouter();
 
 const {
   items, loading, loadError, projectFilter, statusFilter, query,
   projectName, projectOptions, statusOptions, filtered,
+  pageSize, page, total, totalPages, paged, goPage, setPageSize, rowNo,
 } = useGlobalList<OfficialDoc>({
   load: () => dataClient.officialDocs.list(),
   searchText: (d) => `${d.title} ${d.docNumber ?? ''}`,
@@ -49,12 +52,18 @@ const fmtDate = (v: string | null) => (v ? String(v).split('T')[0] : '—');
       필터 조건에 맞는 공문이 없습니다.
     </div>
 
+    <div v-if="!loading && filtered.length > 0" class="list-head">
+      <span class="count">총 <strong>{{ total.toLocaleString('ko-KR') }}</strong>건</span>
+      <PageSizeSelect :model-value="pageSize" @update:model-value="setPageSize" />
+    </div>
+
     <table v-if="!loading && filtered.length > 0" class="grid">
       <thead>
-        <tr><th>프로젝트</th><th>문서번호</th><th>제목</th><th>구분</th><th>기안부서</th><th>기안자</th><th>기안일</th><th>현재 상태</th><th>동작</th></tr>
+        <tr><th class="no">No.</th><th>프로젝트</th><th>문서번호</th><th>제목</th><th>구분</th><th>기안부서</th><th>기안자</th><th>기안일</th><th>현재 상태</th><th>동작</th></tr>
       </thead>
       <tbody>
-        <tr v-for="d in filtered" :key="d.id" class="row" @click="openProject(d)">
+        <tr v-for="(d, idx) in paged" :key="d.id" class="row" @click="openProject(d)">
+          <td class="no">{{ rowNo(idx) }}</td>
           <td class="proj">{{ projectName(d.projectId) }}</td>
           <td class="code">{{ d.docNumber || '—' }}</td>
           <td class="name">{{ d.title }}</td>
@@ -70,6 +79,12 @@ const fmtDate = (v: string | null) => (v ? String(v).split('T')[0] : '—');
         </tr>
       </tbody>
     </table>
+
+    <Pager
+      v-if="!loading && filtered.length > 0"
+      :page="page" :total-pages="totalPages" :total="total"
+      @update:page="goPage"
+    />
   </div>
 </template>
 
@@ -80,9 +95,13 @@ const fmtDate = (v: string | null) => (v ? String(v).split('T')[0] : '—');
   padding: 16px; border-radius: 8px;
   background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 13px;
 }
+.list-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
+.count { font-size: 13px; color: var(--muted); }
+.count strong { color: var(--text); }
 .grid { border-collapse: collapse; width: 100%; font-size: 13px; }
 .grid th, .grid td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
 .grid th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.grid .no { width: 48px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .row { cursor: pointer; }
 .row:hover { background: var(--panel); }
 .proj { color: var(--muted); }

@@ -6,6 +6,9 @@ import { ref, computed, onMounted } from 'vue';
 import { dataClient } from '../../lib/dataClient';
 import type { Company, CompanyInput } from '../../types';
 import StateNotice from '../../components/StateNotice.vue';
+import PageSizeSelect from '../../components/PageSizeSelect.vue';
+import Pager from '../../components/Pager.vue';
+import { DEFAULT_PAGE_SIZE, usePagination } from '../../lib/pagination';
 
 const apiMode = computed(() => !!window.API_BASE);
 
@@ -23,6 +26,11 @@ const formOpen = ref(false);
 const editingId = ref<number | null>(null);
 const saving = ref(false);
 const form = ref({ name: '', type: 'CLIENT' as string, isActive: true });
+
+// 배치8 — 공통 클라이언트 페이징.
+const pageSize = ref<number>(DEFAULT_PAGE_SIZE);
+const { page, total, totalPages, paged, goPage, setPageSize, rowNo } =
+  usePagination(companies, pageSize);
 
 function openCreate() {
   editingId.value = null;
@@ -133,10 +141,16 @@ onMounted(async () => {
       empty-text="등록된 회사가 없습니다 — 데이터 소스 연결 후 표시됩니다."
     />
 
+    <div v-if="!loading && companies.length > 0" class="list-head">
+      <span class="count">총 <strong>{{ total.toLocaleString('ko-KR') }}</strong>건</span>
+      <PageSizeSelect :model-value="pageSize" @update:model-value="setPageSize" />
+    </div>
+
     <table v-if="!loading && companies.length > 0" class="grid">
-      <thead><tr><th>회사명</th><th>유형</th><th>활성</th><th>동작</th></tr></thead>
+      <thead><tr><th class="no">No.</th><th>회사명</th><th>유형</th><th>활성</th><th>동작</th></tr></thead>
       <tbody>
-        <tr v-for="c in companies" :key="c.id" :class="{ off: !c.isActive }">
+        <tr v-for="(c, idx) in paged" :key="c.id" :class="{ off: !c.isActive }">
+          <td class="no">{{ rowNo(idx) }}</td>
           <td class="name">{{ c.name }}</td>
           <td>{{ c.type ? (TYPE_LABELS[c.type] ?? c.type) : '—' }}</td>
           <td>{{ c.isActive ? '활성' : '비활성' }}</td>
@@ -147,6 +161,12 @@ onMounted(async () => {
         </tr>
       </tbody>
     </table>
+
+    <Pager
+      v-if="!loading && companies.length > 0"
+      :page="page" :total-pages="totalPages" :total="total"
+      @update:page="goPage"
+    />
   </div>
 </template>
 
@@ -181,9 +201,13 @@ onMounted(async () => {
 .check { width: 16px; height: 16px; accent-color: var(--accent); }
 .form-actions { display: flex; gap: 8px; margin-top: 14px; }
 
+.list-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
+.count { font-size: 13px; color: var(--muted); }
+.count strong { color: var(--text); }
 .grid { border-collapse: collapse; width: 100%; font-size: 13px; }
 .grid th, .grid td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
 .grid th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.grid .no { width: 48px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .grid tr.off td { opacity: 0.55; }
 .name { font-weight: 600; }
 .cell-actions { display: flex; gap: 6px; }

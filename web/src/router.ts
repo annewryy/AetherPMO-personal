@@ -8,6 +8,9 @@ import IssuesView from './views/IssuesView.vue';
 import ActionItemsView from './views/ActionItemsView.vue';
 import OfficialDocsView from './views/OfficialDocsView.vue';
 import MeetingMinutesView from './views/MeetingMinutesView.vue';
+import ResourceManagementView from './views/ResourceManagementView.vue';
+import BidNoticeSearchView from './views/BidNoticeSearchView.vue';
+import BidNoticeDetailView from './views/BidNoticeDetailView.vue';
 import AdminView from './views/admin/AdminView.vue';
 import AdminSignalRulesView from './views/admin/AdminSignalRulesView.vue';
 import AdminCatalogView from './views/admin/AdminCatalogView.vue';
@@ -29,6 +32,10 @@ export const router = createRouter({
     { path: '/action-items', name: 'action-items', component: ActionItemsView },
     { path: '/official-docs', name: 'official-docs', component: OfficialDocsView },
     { path: '/meeting-minutes', name: 'meeting-minutes', component: MeetingMinutesView },
+    { path: '/persons', name: 'persons', component: ResourceManagementView },
+    { path: '/bid-notices', name: 'bid-notices', component: BidNoticeSearchView },
+    // 0017 §A: 공고 상세 전체 페이지(리스트 행 클릭 → 라우트 이동, 드로어 폐기).
+    { path: '/bid-notices/:bidNtceNo', name: 'bid-notice-detail', component: BidNoticeDetailView, props: true },
     {
       // 0009 관리자 페이지 셸 — 서브메뉴 4모듈, 기본=신호 규칙
       path: '/admin',

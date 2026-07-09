@@ -21,6 +21,9 @@ const isProjects = computed(() => route.path === '/projects' || route.path.start
         <RouterLink to="/dashboard" active-class="active">대시보드</RouterLink>
         <RouterLink to="/projects" :class="{ active: isProjects }">프로젝트</RouterLink>
 
+        <div class="group">입찰</div>
+        <RouterLink to="/bid-notices" active-class="active">나라장터 공고조회</RouterLink>
+
         <div class="group">템플릿</div>
         <RouterLink to="/catalog" exact-active-class="active" class="sub">카탈로그</RouterLink>
         <RouterLink to="/catalog/deliverables" active-class="active" class="sub">산출물 검색</RouterLink>
@@ -30,6 +33,7 @@ const isProjects = computed(() => route.path === '/projects' || route.path.start
         <RouterLink to="/action-items" active-class="active">액션아이템</RouterLink>
         <RouterLink to="/official-docs" active-class="active">공문</RouterLink>
         <RouterLink to="/meeting-minutes" active-class="active">회의록</RouterLink>
+        <RouterLink to="/persons" active-class="active">인력관리</RouterLink>
 
         <div class="group">관리자</div>
         <RouterLink to="/admin" :class="{ active: route.path.startsWith('/admin') }">관리자 콘솔</RouterLink>

@@ -1,0 +1,50 @@
+# AetherPMS Spring — MariaDB 접속(env 주입), Flyway 활성, JPA validate.
+# Node 계약을 그대로 내기 위해 응답은 camelCase(도메인 DTO)로 직렬화한다.
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: aetherpms-server
+  datasource:
+    # 로컬/도커 MariaDB. 예: jdbc:mariadb://localhost:3306/aetherpms
+    url: ${DATABASE_URL:jdbc:mariadb://localhost:3306/aetherpms}
+    username: ${DATABASE_USER:aetherpms}
+    password: ${DATABASE_PASSWORD:aetherpms}
+    driver-class-name: org.mariadb.jdbc.Driver
+  jpa:
+    hibernate:
+      # 스키마는 Flyway가 소유. uuid 컬럼은 엔티티에 @Column(columnDefinition="char(36)")로
+      # 정렬해 validate 통과(배치1에서 복귀). 엔티티·V1~V4 스키마가 정확히 일치해야 한다.
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MariaDBDialect
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+# 나라장터(조달청) OpenAPI 연동 (설계 0016 §B/§serviceKey).
+#   service-key: 코드 하드코딩 금지 — env 주입. 미설정이면 조회는 명확한 에러/빈결과.
+#   pre-spec-enabled: 사전규격 어댑터 실연동 플래그. 오퍼레이션/필드 검증 전까지 기본 off.
+#   기본 엔드포인트는 레거시 api/g2b.js(본공고 오라클)와 동일 호스트/서비스.
+g2b:
+  service-key: ${G2B_SERVICE_KEY:}
+  base-url: ${G2B_BASE_URL:https://apis.data.go.kr/1230000}
+  # 본공고: 레거시와 동일 (BidPublicInfoService/getBidPblancListInfoServc).
+  notice-path: ${G2B_NOTICE_PATH:/ad/BidPublicInfoService/getBidPblancListInfoServc}
+  # 사전규격: 나라장터 사전규격정보서비스(HrcspSsstndrdInfoService) 용역 오퍼레이션.
+  #   조사 근거는 아래 코드 주석 참조. 필드/오퍼레이션 최종검증 전이라 pre-spec-enabled 기본 false.
+  pre-spec-path: ${G2B_PRE_SPEC_PATH:/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoServcPPSSrch}
+  pre-spec-enabled: ${G2B_PRE_SPEC_ENABLED:false}
+  timeout-ms: ${G2B_TIMEOUT_MS:15000}
+  # 캐시 TTL(초). 조회 결과를 단기 인메모리에 캐시 → 필터/검색은 캐시 기반(외부 재호출 없음).
+  cache-ttl-seconds: ${G2B_CACHE_TTL_SECONDS:300}
+
+logging:
+  level:
+    org.hibernate.SQL: info
