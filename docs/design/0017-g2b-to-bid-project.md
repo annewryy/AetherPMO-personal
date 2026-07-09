@@ -99,6 +99,9 @@ depends: [0016, 0001, 0002, 0003]
 ## 미결 / 결정 (P1~P3 반영 후 남은 것)
 - ~~테일러링 생성과 한 트랜잭션 vs 별도~~ → **한 트랜잭션 확정**(Node §1 이식, batch11).
 - 상세: 현재 리스트 8필드. inqryDiv=2 단건조회(풀필드·업무구분 프리필)는 후속 옵션.
-- 기관(customer) → `client_company_id` 회사 마스터 자동매칭(현재 customerName 스냅샷만, 자동생성/매칭 미구현).
+- **기관→회사 자동매칭 (2026-07-10 확정, batch16 구현중)**: 매칭 키 = **기관코드 우선 + 이름 폴백**
+  (`pms_company.agency_code` 신설 V10, 나라장터 `demandAgencyCode`로 매칭). 미매칭 시 **CLIENT 회사 자동생성·연결**
+  (코드+이름). 우선순위: `clientCompanyId` > `clientAgencyCode`(코드) > `customerName`(이름 정확일치). `customer_name`
+  스냅샷은 항상 저장. 마법사가 `demandAgencyCode`를 `clientAgencyCode`로 전송.
 - `excludeReason`/`isSelected:false`(제외-사유) 입력 UI 미구현(백엔드는 지원). 생성 후 신규 프로젝트 상세 직행 미구현(현재 목록 이동).
 - 발번(-B) 규칙 구현(0001) — 프로젝트 생성 API 공통.
