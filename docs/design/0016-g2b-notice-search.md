@@ -43,7 +43,8 @@ depends: [0013, 0001]
   15129437), 용역 후보 오퍼레이션 `getPublicPrcureThngInfoServcPPSSrch`. 추정 필드 `bfSpecRgstNo`(등록번호)·
   `prdctClsfcNoNm`(품명)·`orderInsttNm`(기관)·`asignBdgtAmt`(예산)·`opninRgstClseDt`(의견마감).
   **파라미터명·필드 스키마 미확정** → `PreSpecNoticeSource` 어댑터 + `g2b.pre-spec-enabled=false` 게이트(batch6).
-  확정 경로: 사전규격정보서비스 상세문서 확보 or serviceKey로 실 응답 검증.
+  **실 탐침 결과(2026-07-09, 유효 serviceKey)**: 플래그 임시 on 후 호출 시 **500 실패** → 추정 오퍼레이션/
+  파라미터가 실제와 불일치 확인. ⇒ **사전규격정보서비스 상세문서(파라미터·필드)가 있어야 완성** 가능.
 - "전체" = 두 소스 병합(사전규격 비활성 시 본공고만).
 - 결과 Grid에 **공고유형 컬럼(Badge)** 추가: `사전규격` / `본공고`.
 - **결과 Grid**: 공고번호 · 공고유형(Badge) · 공고명 · 기관 · 공고일 · 마감일.
@@ -63,8 +64,8 @@ depends: [0013, 0001]
 
 ## 미결 / 후속
 
-- **사전규격 API 확정**: `HrcspSsstndrdInfoService` 파라미터명·필드 스키마 확정 후 `g2b.pre-spec-enabled=on`.
-  (사전규격정보서비스 상세문서 or serviceKey 실검증 필요)
-- **본공고 실검증**: serviceKey 주입 후 실 나라장터 응답으로 필드 매핑 최종 확인.
+- **사전규격 API 확정(블로커)**: 실 탐침 500 실패 → 추정 스펙 틀림. **사전규격정보서비스 상세문서 필요**
+  (파라미터·필드 확정 → 어댑터 수정 → `g2b.pre-spec-enabled=on`).
+- ~~**본공고 실검증**~~ → **완료(2026-07-09)**: 유효 serviceKey로 실 나라장터 조회 성공(용역 292건), 필드 매핑 정상.
 - **인증키 관리**: dev=gitignored `.env`(G2B_SERVICE_KEY, compose 패스스루 완료), 온프렘=시크릿 주입.
 - 캐시 저장소(Caffeine/Redis·멀티노드)·TTL, 기관 마스터 관리 UI(CRUD).
