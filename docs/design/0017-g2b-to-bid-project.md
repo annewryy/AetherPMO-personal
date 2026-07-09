@@ -58,7 +58,19 @@ depends: [0016, 0001, 0002, 0003]
 - BIDDING 카탈로그 트리에서 필요한 노드 **선택** → `pms_project_tailoring` 기록 → task/deliverable **전개**.
 - 0002(전이) / 0003(스폰·전개) 로직을 Spring으로 이식(현재 미구현). `POST /api/projects/{id}/tailoring`
   (또는 생성 API가 tailoring 입력을 함께 받아 한 트랜잭션).
-- 프론트: 카탈로그 선택 UI(체크박스 트리).
+- 프론트: 카탈로그 선택 UI(체크박스 트리) — **P3 구현됨(batch12)**. 단순 트리라 카탈로그가 커지면 부적합.
+
+### C-1. 선택 UX 고도화 (P4 — 2026-07-09 요구)
+현재 체크박스 트리는 카탈로그가 커지면(프로젝트 유형·고객사별 템플릿) 부적합. 실제로는 **검색해서 찾고, 내용을
+확인한 뒤 선택**해야 한다.
+- **검색/필터**: 이름·`deliverable_category`·`template_tags`·`stage`로 필터(프로젝트 유형·고객사별 태그 활용).
+- **내용 미리보기**: 노드 선택 시 상세 패널에 `description`(활동·태스크·산출물 설명)·`deliverable_category`·`stage`·
+  `seq_no`·`is_optional` 표시. 산출물이면 **템플릿(`template_file_ref`) 열람**.
+- **스키마는 대부분 지원**: `pms_catalog_node`에 `description·deliverable_category·stage·template_file_ref·
+  template_tags` 이미 존재. **프론트 `CatalogNode`에 `templateFileRef·templateTags` 노출 추가 필요**(현재 미노출).
+- **⚠️ 의존성**: 산출물 템플릿 **파일 실제 열람/다운로드**는 **FilePort/NAS(0013 §C-4, 미구현)** 필요.
+  ⇒ P4 1차는 **메타데이터 미리보기(설명·구분·태그·템플릿 파일명)** + 검색, 실제 파일 열람은 FilePort 도입 후.
+- (후속) 프로젝트 유형/고객사별 **템플릿 세트**(명명된 카탈로그 번들) 모델링 검토 — template_tags로 임시 대응.
 
 ## 단계 구현 — **P1~P3 완료(2026-07-09), dev 검증됨**
 - ✅ **P1. 백엔드 프로젝트 생성** `POST /api/projects`(프리필 + 발번 `-B`) — batch9. 검증: `PRJ-2026-004-B` 생성.
