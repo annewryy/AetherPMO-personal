@@ -35,8 +35,16 @@ depends: [0013, 0001]
 ## B. 공고유형 분리 조회
 
 - 옵션: **전체 / 사전규격 / 본공고**.
-- **본공고**: `getBidPblancListInfoServc`(현행). **사전규격**: 나라장터 사전규격 서비스 API(별도 엔드포인트
-  — 구현 시 정확한 오퍼레이션/필드 매핑 확정). "전체" = 두 소스 병합.
+- **본공고 (확정)**: 서비스 `BidPublicInfoService`, 용역 오퍼레이션 `getBidPblancListInfoServc`
+  (조달청 OpenAPI 참고문서 1.2 정본). 파라미터 `ServiceKey·type=json·inqryDiv`(1:등록일시/2:공고번호/
+  3:변경일시)·`inqryBgnDt/inqryEndDt`(YYYYMMDDHHMM)·`bidNtceNo`. ⇒ 구현: batch6(`getBidPblancListInfoServc`
+  RestClient 이식). 참고: 이 문서엔 사전규격 조회 오퍼레이션 없음(BD·사전규격등록번호는 필드로만 등장).
+- **사전규격 (후보 — 확정 필요)**: **별도 서비스 `HrcspSsstndrdInfoService`**(사전규격정보서비스, data.go.kr
+  15129437), 용역 후보 오퍼레이션 `getPublicPrcureThngInfoServcPPSSrch`. 추정 필드 `bfSpecRgstNo`(등록번호)·
+  `prdctClsfcNoNm`(품명)·`orderInsttNm`(기관)·`asignBdgtAmt`(예산)·`opninRgstClseDt`(의견마감).
+  **파라미터명·필드 스키마 미확정** → `PreSpecNoticeSource` 어댑터 + `g2b.pre-spec-enabled=false` 게이트(batch6).
+  확정 경로: 사전규격정보서비스 상세문서 확보 or serviceKey로 실 응답 검증.
+- "전체" = 두 소스 병합(사전규격 비활성 시 본공고만).
 - 결과 Grid에 **공고유형 컬럼(Badge)** 추가: `사전규격` / `본공고`.
 - **결과 Grid**: 공고번호 · 공고유형(Badge) · 공고명 · 기관 · 공고일 · 마감일.
 
@@ -46,9 +54,17 @@ depends: [0013, 0001]
 - 캐시 저장소(요청 스코프 메모리 vs 단기 테이블/Redis)는 구현 시 결정. 나라장터 응답 지연·기간 제한
   (레거시: 최대 6개월/최근 30일 수집)도 이 계층에서 흡수.
 
+## 구현 현황 (batch6, `impl/0013-spring-backend`)
+
+- V8 `bid_target_agencies`(시드 3), `GET /api/bid-agencies`, `GET /api/bid-notices`
+  (`agency·noticeType(all|main|pre_spec)·keyword·기간·페이징`, 항목에 `noticeType` Badge 필드).
+- 본공고 실동작(항상 활성), 사전규격은 게이트 off(빈 목록). serviceKey 미설정 시 502 안내.
+- 캐시: 인메모리 TTL(`ConcurrentHashMap`, 기관·기간 키, 기본 300s).
+
 ## 미결 / 후속
 
-- 나라장터 **사전규격 API** 오퍼레이션·파라미터·응답 필드 매핑 확정.
-- **인증키(serviceKey) 관리**: 온프렘 환경 주입(시크릿). 레거시의 Vercel env 방식 대체.
-- 캐시 저장소·TTL 확정.
-- 기관 마스터 관리 UI(관리자에서 CRUD)를 둘지.
+- **사전규격 API 확정**: `HrcspSsstndrdInfoService` 파라미터명·필드 스키마 확정 후 `g2b.pre-spec-enabled=on`.
+  (사전규격정보서비스 상세문서 or serviceKey 실검증 필요)
+- **본공고 실검증**: serviceKey 주입 후 실 나라장터 응답으로 필드 매핑 최종 확인.
+- **인증키 관리**: dev=gitignored `.env`(G2B_SERVICE_KEY, compose 패스스루 완료), 온프렘=시크릿 주입.
+- 캐시 저장소(Caffeine/Redis·멀티노드)·TTL, 기관 마스터 관리 UI(CRUD).
