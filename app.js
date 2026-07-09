@@ -5965,11 +5965,12 @@ class AetherPMO {
             alert('검색어는 최소 2글자 이상 입력해 주세요.');
             this.g2bLoading = false;
             
-            const tbody = isBiddingPanel 
+            const _isBidPanel = options.isBiddingPanel || false;
+            const tbody = _isBidPanel
                 ? document.getElementById('g2b-announcements-tbody')
                 : document.getElementById('g2b-view-announcements-tbody');
             if (tbody) {
-                const colspan = isBiddingPanel ? 7 : 8;
+                const colspan = _isBidPanel ? 7 : 9;
                 tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-muted py-8">검색어는 최소 2글자 이상 입력해 주세요.</td></tr>`;
             }
             return;
