@@ -5737,18 +5737,30 @@ class AetherPMO {
 
             const tr = document.createElement('tr');
             tr.style.height = '68px'; // 행 고정 높이 적용
+            const typeLabel = ann.announcementType === 'pre' ? '사전규격' : '본공고';
+            const typeStyle = ann.announcementType === 'pre'
+                ? 'background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.35);'
+                : 'background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.35);';
             tr.innerHTML = `
+                <td class="text-center">
+                    <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;${typeStyle}">${typeLabel}</span>
+                </td>
+                <td class="text-xs text-muted font-bold">${ann.announcementNo}</td>
                 <td>
                     <span class="font-bold text-xs" style="max-width: 240px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;" title="${ann.name}">${ann.name}</span>
                 </td>
                 <td class="text-xs font-bold">${ann.customer}</td>
-                <td class="text-xs text-muted font-bold">${ann.announcementNo}</td>
-                <td class="text-xs font-bold text-success">${ann.budget ? ann.budget.toLocaleString() + ' 원' : '-'}</td>
-                <td class="text-xs text-muted" style="min-width: 150px; white-space: nowrap;">
-                    <div>공고: ${ann.publishDate}</div>
-                    <div style="margin-top:2px;">마감: ${ann.endDate || '-'}</div>
+                <td class="text-xs text-muted" style="white-space: nowrap;">${ann.publishDate}</td>
+                <td class="text-xs text-muted" style="white-space: nowrap;">
+                    <div>${ann.endDate || '-'}</div>
+                    <div style="margin-top:2px;"><span class="d-day-badge ${dDayClass}" style="font-size:10px; padding:2px 6px;">${dDayText}</span></div>
                 </td>
-                <td><span class="d-day-badge ${dDayClass}" style="font-size:10px; padding:2px 6px;">${dDayText}</span></td>
+                <td class="text-xs font-bold text-success" style="text-align:right;">${ann.budget ? ann.budget.toLocaleString() + ' 원' : '-'}</td>
+                <td class="text-center">
+                    <a href="${ann.url}" target="_blank" rel="noopener noreferrer" class="btn btn-xs btn-outline" style="font-size:11px;">
+                        <i data-lucide="external-link" style="width:11px;height:11px;margin-right:3px;"></i>원문
+                    </a>
+                </td>
                 <td class="text-center">
                     ${isRegistered 
                         ? `<button class="btn btn-xs btn-outline" disabled style="opacity:0.6; cursor:not-allowed;"><i data-lucide="check" style="width:11px; height:11px; margin-right:4px;"></i> 등록 완료</button>`
@@ -5988,6 +6000,11 @@ class AetherPMO {
             ? options.endDt 
             : (document.getElementById('g2b-filter-end-date')?.value || '');
 
+        // 공고유형: 'pre'(사전규격), 'bid'(본공고), 'all'(전체)
+        const announcementType = options.announcementType !== undefined
+            ? options.announcementType
+            : (document.getElementById('g2b-filter-type')?.value || 'all');
+
         const isBiddingPanel = options.isBiddingPanel || false;
 
         // 날짜 필터가 없는 입찰단계 우측 검색 호출 등을 고려해 날짜가 비어있을 시 기본 30일 설정
@@ -6009,7 +6026,7 @@ class AetherPMO {
             : document.getElementById('g2b-view-announcements-tbody');
 
         if (tbody) {
-            const colspan = isBiddingPanel ? 7 : 8;
+            const colspan = isBiddingPanel ? 7 : 9;
             tbody.innerHTML = `
                 <tr>
                     <td colspan="${colspan}" class="text-center py-8">
@@ -6045,7 +6062,7 @@ class AetherPMO {
                 if (tbody) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="8" class="text-center text-error py-12" style="color: var(--danger); padding: 40px 16px;">
+                            <td colspan="9" class="text-center text-error py-12" style="color: var(--danger); padding: 40px 16px;">
                                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
                                     <i data-lucide="alert-circle" style="width: 32px; height: 32px; color: var(--danger);"></i>
                                     <span style="font-weight: 600; font-size: 15px; color: var(--text-main);">조회기간 범위 초과</span>
@@ -6073,7 +6090,8 @@ class AetherPMO {
                 bgngDt,
                 endDt,
                 pageNo: String(page),
-                numOfRows: '100'
+                numOfRows: '100',
+                announcementType
             });
             const response = await fetch(`/api/g2b?${params.toString()}`);
             const data = await response.json();
@@ -6115,7 +6133,7 @@ class AetherPMO {
             const errDetail = e.message || '공공데이터포털(data.go.kr) 서비스 장애 또는 일시적 네트워크 에러';
             
             if (tbody) {
-                const colspan = isBiddingPanel ? 7 : 8;
+                const colspan = isBiddingPanel ? 7 : 9;
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="${colspan}" class="text-center text-error py-12" style="color: var(--danger); padding: 40px 16px;">
@@ -6150,7 +6168,7 @@ class AetherPMO {
 
         tbody.innerHTML = '';
         if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-8">조회 조건 내 검색결과가 없습니다.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-8">조회 조건 내 검색결과가 없습니다.</td></tr>';
             this.renderG2BPagination(0, 1);
             return;
         }
