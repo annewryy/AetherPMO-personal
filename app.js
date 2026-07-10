@@ -5544,6 +5544,184 @@ class AetherPMO {
         }
     }
 
+    async registerBiddingProjectFromG2B(announcementNo) {
+        const ann = this.g2bAnnouncementsMap[announcementNo] || 
+                    (this.state.g2bOriginalItems || []).find(a => a.announcementNo === announcementNo) || 
+                    (this.state.g2bAnnouncements || []).find(a => a.announcementNo === announcementNo);
+        if (!ann) {
+            alert('공고 정보를 찾을 수 없습니다.');
+            return;
+        }
+
+        // Check if already exists in projects (using name, code or sourceReferenceNo)
+        const exists = this.state.projects.some(p => 
+            p.projectCode === announcementNo || 
+            p.bidNumber === announcementNo || 
+            p.sourceReferenceNo === announcementNo
+        );
+        if (exists) {
+            const existingProj = this.state.projects.find(p => 
+                p.projectCode === announcementNo || 
+                p.bidNumber === announcementNo || 
+                p.sourceReferenceNo === announcementNo
+            );
+            alert(`이미 등록된 프로젝트입니다. (프로젝트명: ${existingProj.name})`);
+            return;
+        }
+
+        const defaultWbsStages = [
+            { id: 'initiation', name: '착수', progress: 0, weight: 20 },
+            { id: 'analysis', name: '현황분석', progress: 0, weight: 25 },
+            { id: 'design', name: '요구사항 도출', progress: 0, weight: 15 },
+            { id: 'bpr', name: 'BPR 수립', progress: 0, weight: 15 },
+            { id: 'isp', name: 'ISP 수립', progress: 0, weight: 15 },
+            { id: 'closing', name: '최종보고', progress: 0, weight: 10 }
+        ];
+
+        const defaultResourcesList = [
+            { name: '안유경', role: 'PM / 총괄', type: 'PM' }
+        ];
+
+        // project_code(내부 프로젝트 코드)와 bid_number(나라장터 공고번호)의 역할 분리
+        // 내부 코드가 없다면 자동 생성하여 UNIQUE 제약조건 충족시킴
+        const tempProjectCode = this.generateNextProjectCode();
+        
+        const isPre = ann.announcementType === 'pre';
+        const projectDesc = isPre 
+            ? `${ann.announcementNo} 나라장터 연계 사전규격 검토 프로젝트`
+            : `${ann.announcementNo} 나라장터 연계 입찰 참여 프로젝트`;
+        const projectStatus = isPre ? 'PRE_REVIEW' : 'Bidding';
+        const projectBidStatus = isPre ? null : '제안 준비중';
+        const projectSourceType = isPre ? 'PRE_SPEC' : 'BID_NOTICE';
+
+        const projData = {
+            project_code: tempProjectCode,
+            project_name: ann.name,
+            desc: projectDesc,
+            dept: '기획팀',
+            pm_name: '미지정',
+            start_date: ann.publishDate || null,
+            end_date: ann.endDate || null,
+            customer: ann.customer,
+            customer_name: ann.customer,
+            budget: ann.budget,
+            project_budget: ann.budget,
+            bid_number: ann.announcementNo, // 공고번호는 bid_number에 명시적 보관
+            source_reference_no: ann.announcementNo,
+            source_type: projectSourceType,
+            business_type: '용역',
+            status: projectStatus,
+            bid_status: projectBidStatus,
+            progress: 0,
+            resources: 0,
+            wbs: { stages: defaultWbsStages },
+            resources_list: defaultResourcesList,
+            member_ids: []
+        };
+
+        if (this.useSupabase) {
+            try {
+                // Insert without id and select returning row
+                const { data: insertedProj, error: projErr } = await this.supabase
+                    .from('projects')
+                    .insert(projData)
+                    .select()
+                    .single();
+
+                if (projErr) {
+                    if (projErr.code === '23505') {
+                        alert(`이미 등록된 프로젝트입니다. (DB UNIQUE 충돌: ${announcementNo})`);
+                        return;
+                    }
+                    throw projErr;
+                }
+
+                if (!insertedProj) {
+                    throw new Error('No data returned from database insert.');
+                }
+
+                // Map database columns back to camelCase properties for state.projects
+                const newProject = {
+                    id: insertedProj.id,
+                    name: insertedProj.project_name,
+                    desc: insertedProj.desc,
+                    dept: insertedProj.dept,
+                    manager: insertedProj.pm_name || '미지정',
+                    managerId: insertedProj.manager_id,
+                    startDate: insertedProj.start_date,
+                    endDate: insertedProj.end_date,
+                    customer: insertedProj.customer,
+                    budget: Number(insertedProj.budget || 0),
+                    milestones: insertedProj.milestones,
+                    inspectionDate: insertedProj.inspection_date,
+                    remarks: insertedProj.remarks,
+                    status: insertedProj.status,
+                    bidStatus: insertedProj.bid_status,
+                    progress: Number(insertedProj.progress || 0),
+                    resources: Number(insertedProj.resources || 0),
+                    projectCode: insertedProj.project_code,
+                    businessType: insertedProj.business_type,
+                    bidNumber: insertedProj.bid_number || insertedProj.project_code,
+                    sourceType: insertedProj.source_type || 'MANUAL',
+                    sourceReferenceNo: insertedProj.source_reference_no || null,
+                    customerName: insertedProj.customer_name,
+                    projectBudget: Number(insertedProj.project_budget || 0),
+                    wbs: insertedProj.wbs || { stages: [] },
+                    resourcesList: insertedProj.resources_list || [],
+                    memberIds: insertedProj.member_ids || []
+                };
+
+                this.state.projects.push(newProject);
+                this.saveState();
+
+                alert(`"${newProject.name}" 공고가 ${isPre ? '사전규격 검토' : '입찰 참여'} 프로젝트로 정상 등록되었습니다.`);
+
+                // Update both views
+                this.renderG2BViewAnnouncements();
+                this.renderProjects();
+
+            } catch (e) {
+                console.error('[Supabase Insert Error]:', e);
+                alert(`프로젝트 등록 중 오류가 발생했습니다: ${e.message || e}`);
+            }
+        } else {
+            // Local fallback
+            const newId = this.generateUuid();
+            const newProject = {
+                id: newId,
+                name: projData.project_name,
+                desc: projData.desc,
+                dept: projData.dept,
+                manager: projData.pm_name,
+                startDate: projData.start_date,
+                endDate: projData.end_date,
+                customer: projData.customer,
+                budget: projData.budget,
+                status: projData.status,
+                bidStatus: projData.bid_status,
+                progress: projData.progress,
+                resources: projData.resources,
+                projectCode: projData.project_code,
+                businessType: projData.business_type,
+                bidNumber: projData.bid_number,
+                sourceType: projData.source_type,
+                sourceReferenceNo: projData.source_reference_no,
+                customerName: projData.customer_name,
+                projectBudget: projData.project_budget,
+                wbs: projData.wbs,
+                resourcesList: projData.resources_list,
+                memberIds: projData.member_ids
+            };
+            this.state.projects.push(newProject);
+            this.saveState();
+            alert(`"${newProject.name}" 공고가 ${isPre ? '사전규격 검토' : '입찰 참여'} 프로젝트로 정상 등록되었습니다. (로컬 저장됨)`);
+
+            // Update both views
+            this.renderG2BViewAnnouncements();
+            this.renderProjects();
+        }
+    }
+
     setBiddingStatusFilter(status) {
         this.activeBiddingStatusFilter = status;
         document.querySelectorAll('.bidding-status-tab').forEach(tab => {
@@ -5732,8 +5910,12 @@ class AetherPMO {
                 dDayClass = 'dday-normal';
             }
 
-            // Check if already registered
-            const isRegistered = this.state.projects.some(p => p.name === ann.name || p.projectCode === ann.announcementNo);
+            // Check if already registered (using name, projectCode, or sourceReferenceNo)
+            const isRegistered = this.state.projects.some(p => 
+                p.name === ann.name || 
+                p.projectCode === ann.announcementNo || 
+                p.sourceReferenceNo === ann.announcementNo
+            );
 
             const tr = document.createElement('tr');
             tr.style.height = '68px'; // 행 고정 높이 적용
@@ -5741,31 +5923,36 @@ class AetherPMO {
             const typeStyle = ann.announcementType === 'pre'
                 ? 'background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.35);'
                 : 'background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.35);';
+
+            const actionBtn = isRegistered 
+                ? `<button class="btn btn-xs btn-outline" disabled style="opacity:0.6; cursor:not-allowed; width: 85px; justify-content: center; font-size:11px; padding: 2px 4px;"><i data-lucide="check" style="width:11px; height:11px; margin-right:4px;"></i>완료</button>`
+                : (ann.announcementType === 'pre'
+                    ? `<button class="btn btn-xs btn-primary" onclick="app.registerBiddingProjectFromG2B('${ann.announcementNo}')" style="background-color:#8b5cf6; border-color:#8b5cf6; width: 85px; justify-content: center; font-size:11px; padding: 2px 4px;"><i data-lucide="plus" style="width:11px; height:11px; margin-right:4px;"></i>검토</button>`
+                    : `<button class="btn btn-xs btn-primary" onclick="app.registerBiddingProjectFromG2B('${ann.announcementNo}')" style="width: 85px; justify-content: center; font-size:11px; padding: 2px 4px;"><i data-lucide="plus" style="width:11px; height:11px; margin-right:4px;"></i>등록</button>`
+                );
+
             tr.innerHTML = `
-                <td class="text-center">
-                    <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;${typeStyle}">${typeLabel}</span>
-                </td>
-                <td class="text-xs text-muted font-bold">${ann.announcementNo}</td>
                 <td>
-                    <span class="font-bold text-xs" style="max-width: 240px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;" title="${ann.name}">${ann.name}</span>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;width:fit-content;${typeStyle}">${typeLabel}</span>
+                        <span class="font-bold text-xs" style="max-width: 240px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;" title="${ann.name}">${ann.name}</span>
+                    </div>
                 </td>
                 <td class="text-xs font-bold">${ann.customer}</td>
+                <td class="text-xs text-muted font-bold" style="font-family: monospace;">${ann.announcementNo}</td>
                 <td class="text-xs text-muted" style="white-space: nowrap;">${ann.publishDate}</td>
+                <td class="text-xs font-bold text-success" style="text-align:right;">${ann.budget ? ann.budget.toLocaleString() + ' 원' : '-'}</td>
                 <td class="text-xs text-muted" style="white-space: nowrap;">
                     <div>${ann.endDate || '-'}</div>
                     <div style="margin-top:2px;"><span class="d-day-badge ${dDayClass}" style="font-size:10px; padding:2px 6px;">${dDayText}</span></div>
                 </td>
-                <td class="text-xs font-bold text-success" style="text-align:right;">${ann.budget ? ann.budget.toLocaleString() + ' 원' : '-'}</td>
                 <td class="text-center">
-                    <a href="${ann.url}" target="_blank" rel="noopener noreferrer" class="btn btn-xs btn-outline" style="font-size:11px;">
-                        <i data-lucide="external-link" style="width:11px;height:11px;margin-right:3px;"></i>원문
-                    </a>
-                </td>
-                <td class="text-center">
-                    ${isRegistered 
-                        ? `<button class="btn btn-xs btn-outline" disabled style="opacity:0.6; cursor:not-allowed;"><i data-lucide="check" style="width:11px; height:11px; margin-right:4px;"></i> 등록 완료</button>`
-                        : `<button class="btn btn-xs btn-primary" onclick="app.registerBiddingProjectFromG2B('${ann.announcementNo}')"><i data-lucide="plus" style="width:11px; height:11px; margin-right:4px;"></i> 입찰 등록</button>`
-                    }
+                    <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
+                        <a href="${ann.url}" target="_blank" rel="noopener noreferrer" class="btn btn-xs btn-outline" style="font-size:11px; width: 85px; justify-content: center; padding: 2px 4px;">
+                            <i data-lucide="external-link" style="width:11px;height:11px;margin-right:3px;"></i>원문
+                        </a>
+                        ${actionBtn}
+                    </div>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -5777,163 +5964,6 @@ class AetherPMO {
             lucide.createIcons();
         }
     }
-
-    async registerBiddingProjectFromG2B(announcementNo) {
-        const ann = this.g2bAnnouncementsMap[announcementNo] || 
-                    (this.state.g2bOriginalItems || []).find(a => a.announcementNo === announcementNo) || 
-                    (this.state.g2bAnnouncements || []).find(a => a.announcementNo === announcementNo);
-        if (!ann) {
-            alert('공고 정보를 찾을 수 없습니다.');
-            return;
-        }
-
-        // Check if already exists in projects (using name or code)
-        const exists = this.state.projects.some(p => p.projectCode === announcementNo);
-        if (exists) {
-            const existingProj = this.state.projects.find(p => p.projectCode === announcementNo);
-            alert(`이미 등록된 프로젝트입니다. (프로젝트명: ${existingProj.name})`);
-            return;
-        }
-
-        const defaultWbsStages = [
-            { id: 'initiation', name: '착수', progress: 0, weight: 20 },
-            { id: 'analysis', name: '현황분석', progress: 0, weight: 25 },
-            { id: 'design', name: '요구사항 도출', progress: 0, weight: 15 },
-            { id: 'bpr', name: 'BPR 수립', progress: 0, weight: 15 },
-            { id: 'isp', name: 'ISP 수립', progress: 0, weight: 15 },
-            { id: 'closing', name: '최종보고', progress: 0, weight: 10 }
-        ];
-
-        const defaultResourcesList = [
-            { name: '안유경', role: 'PM / 총괄', type: 'PM' }
-        ];
-
-        // project_code(내부 프로젝트 코드)와 bid_number(나라장터 공고번호)의 역할 분리
-        // 내부 코드가 없다면 자동 생성하여 UNIQUE 제약조건 충족시킴
-        const tempProjectCode = this.generateNextProjectCode();
-
-        const projData = {
-            project_code: tempProjectCode,
-            project_name: ann.name,
-            desc: `${ann.announcementNo} 나라장터 연계 입찰 참여 프로젝트`,
-            dept: '기획팀',
-            pm_name: '미지정',
-            start_date: ann.publishDate || null,
-            end_date: ann.endDate || null,
-            customer: ann.customer,
-            customer_name: ann.customer,
-            budget: ann.budget,
-            project_budget: ann.budget,
-            bid_number: ann.announcementNo, // 공고번호는 bid_number에 명시적 보관
-            business_type: '용역',
-            status: 'Bidding',
-            bid_status: '제안 준비중',
-            progress: 0,
-            resources: 0,
-            wbs: { stages: defaultWbsStages },
-            resources_list: defaultResourcesList,
-            member_ids: []
-        };
-
-        if (this.useSupabase) {
-            try {
-                // Insert without id and select returning row
-                const { data: insertedProj, error: projErr } = await this.supabase
-                    .from('projects')
-                    .insert(projData)
-                    .select()
-                    .single();
-
-                if (projErr) {
-                    if (projErr.code === '23505') {
-                        alert(`이미 등록된 프로젝트입니다. (DB UNIQUE 충돌: ${announcementNo})`);
-                        return;
-                    }
-                    throw projErr;
-                }
-
-                if (!insertedProj) {
-                    throw new Error('No data returned from database insert.');
-                }
-
-                // Map database columns back to camelCase properties for state.projects
-                const newProject = {
-                    id: insertedProj.id,
-                    name: insertedProj.project_name,
-                    desc: insertedProj.desc,
-                    dept: insertedProj.dept,
-                    manager: insertedProj.pm_name || '미지정',
-                    managerId: insertedProj.manager_id,
-                    startDate: insertedProj.start_date,
-                    endDate: insertedProj.end_date,
-                    customer: insertedProj.customer,
-                    budget: Number(insertedProj.budget || 0),
-                    milestones: insertedProj.milestones,
-                    inspectionDate: insertedProj.inspection_date,
-                    remarks: insertedProj.remarks,
-                    status: insertedProj.status,
-                    bidStatus: insertedProj.bid_status,
-                    progress: Number(insertedProj.progress || 0),
-                    resources: Number(insertedProj.resources || 0),
-                    projectCode: insertedProj.project_code,
-                    businessType: insertedProj.business_type,
-                    bidNumber: insertedProj.bid_number || insertedProj.project_code,
-                    customerName: insertedProj.customer_name,
-                    projectBudget: Number(insertedProj.project_budget || 0),
-                    wbs: insertedProj.wbs || { stages: [] },
-                    resourcesList: insertedProj.resources_list || [],
-                    memberIds: insertedProj.member_ids || []
-                };
-
-                this.state.projects.push(newProject);
-                this.saveState();
-
-                alert(`"${newProject.name}" 공고가 입찰 참여 프로젝트로 정상 등록되었습니다.`);
-
-                // Update both views
-                this.renderG2BViewAnnouncements();
-                this.renderProjects();
-
-            } catch (e) {
-                console.error('[Supabase Insert Error]:', e);
-                alert(`프로젝트 등록 중 오류가 발생했습니다: ${e.message || e}`);
-            }
-        } else {
-            // Local fallback
-            const newId = this.generateUuid();
-            const newProject = {
-                id: newId,
-                name: projData.project_name,
-                desc: projData.desc,
-                dept: projData.dept,
-                manager: projData.pm_name,
-                startDate: projData.start_date,
-                endDate: projData.end_date,
-                customer: projData.customer,
-                budget: projData.budget,
-                status: projData.status,
-                bidStatus: projData.bid_status,
-                progress: projData.progress,
-                resources: projData.resources,
-                projectCode: projData.project_code,
-                businessType: projData.business_type,
-                bidNumber: projData.bid_number,
-                customerName: projData.customer_name,
-                projectBudget: projData.project_budget,
-                wbs: projData.wbs,
-                resourcesList: projData.resources_list,
-                memberIds: projData.member_ids
-            };
-            this.state.projects.push(newProject);
-            this.saveState();
-            alert(`"${newProject.name}" 공고가 입찰 참여 프로젝트로 정상 등록되었습니다. (로컬 저장됨)`);
-
-            // Update both views and panels
-            this.renderG2BViewAnnouncements(); // 대메뉴 뷰
-            this.renderG2BAnnouncements(); // 입찰단계 우측 패널 뷰
-            this.renderBiddingSplitPane(); // 입찰단계 좌측 패널 뷰
-            this.renderProjects(); // 일반 프로젝트 목록 뷰
-        }
     }
 
     handleG2BCustomerSelectChange() {
@@ -6085,27 +6115,72 @@ class AetherPMO {
         }
 
         try {
-            const params = new URLSearchParams({
+            const getParams = (typeVal) => new URLSearchParams({
                 bidNtceNm,
                 dminsttNm,
                 bgngDt,
                 endDt,
                 pageNo: String(page),
                 numOfRows: '100',
-                announcementType
+                serviceType: typeVal
             });
-            const response = await fetch(`/api/g2b?${params.toString()}`);
-            const data = await response.json();
-            
-            if (!response.ok || data.error) {
-                const errMsg = data.details || data.message || '나라장터 API 호출에 실패했습니다.';
-                throw new Error(errMsg);
+
+            let mergedAnnouncements = [];
+            let totalCount = 0;
+            let partialError = false;
+
+            if (announcementType === 'bid' || announcementType === 'all') {
+                try {
+                    const bidParams = getParams('bid');
+                    const response = await fetch(`/api/g2b/bid?${bidParams.toString()}`);
+                    const data = await response.json();
+                    if (!response.ok || data.error) {
+                        console.error('Bid API error:', data?.message);
+                        partialError = true;
+                    } else {
+                        mergedAnnouncements = mergedAnnouncements.concat(data.announcements || []);
+                        totalCount += data.totalCount || (data.announcements || []).length;
+                    }
+                } catch (err) {
+                    console.error('Bid API fetch failed:', err);
+                    partialError = true;
+                }
             }
-            
-            // 상태 분리: originalItems에 원본 저장
-            this.state.g2bOriginalItems = data.announcements || [];
+
+            if (announcementType === 'pre' || announcementType === 'all') {
+                try {
+                    const preParams = getParams('pre');
+                    const response = await fetch(`/api/g2b/pre?${preParams.toString()}`);
+                    const data = await response.json();
+                    if (!response.ok || data.error) {
+                        console.error('Pre API error:', data?.message);
+                        partialError = true;
+                    } else {
+                        mergedAnnouncements = mergedAnnouncements.concat(data.announcements || []);
+                        totalCount += data.totalCount || (data.announcements || []).length;
+                    }
+                } catch (err) {
+                    console.error('Pre API fetch failed:', err);
+                    partialError = true;
+                }
+            }
+
+            // 양쪽 모두 오류가 발생하여 가져온 데이터가 전혀 없는 경우에만 최종 실패 처리
+            if (mergedAnnouncements.length === 0 && partialError) {
+                throw new Error('나라장터 공고 조회에 실패했습니다. (API 장애 또는 네트워크 오류)');
+            }
+
+            // 게시일 최신순으로 정렬
+            mergedAnnouncements.sort((a, b) => {
+                if (a.publishDate < b.publishDate) return 1;
+                if (a.publishDate > b.publishDate) return -1;
+                return 0;
+            });
+
+            // 상태 분리: originalItems에 원본 저장 (최대 100개 슬라이싱)
+            this.state.g2bOriginalItems = mergedAnnouncements.slice(0, 100);
             this.state.g2bAnnouncements = this.state.g2bOriginalItems;
-            this.state.g2bTotalCount = data.totalCount || this.state.g2bOriginalItems.length;
+            this.state.g2bTotalCount = totalCount;
 
             // 공고 객체 캐싱 맵 적재 (등록 시 find 에러 영구 해결)
             this.state.g2bOriginalItems.forEach(ann => {
@@ -6209,12 +6284,28 @@ class AetherPMO {
                 dDayClass = 'dday-normal';
             }
 
-            // Check if already registered
-            const isRegistered = this.state.projects.some(p => p.projectCode === ann.announcementNo);
+            // Check if already registered (using announcementNo)
+            const isRegistered = this.state.projects.some(p => 
+                p.projectCode === ann.announcementNo || 
+                p.bidNumber === ann.announcementNo || 
+                p.sourceReferenceNo === ann.announcementNo
+            );
+
+            const typeBadge = ann.announcementType === 'pre'
+                ? `<span class="chip badge-cat" style="background-color: var(--primary-light); color: #8b5cf6; border-color: rgba(139, 92, 246, 0.2);">사전규격</span>`
+                : `<span class="chip badge-cat" style="background-color: var(--info-glow); color: var(--info); border-color: rgba(6, 182, 212, 0.2);">본공고</span>`;
+
+            const actionBtn = isRegistered
+                ? `<button class="btn btn-xs btn-outline" disabled style="opacity:0.6; cursor:not-allowed;"><i data-lucide="check" style="width:11px; height:11px; margin-right:4px;"></i> 등록 완료</button>`
+                : (ann.announcementType === 'pre'
+                    ? `<button class="btn btn-xs btn-primary" onclick="app.registerBiddingProjectFromG2B('${ann.announcementNo}')" style="background-color:#8b5cf6; border-color:#8b5cf6;"><i data-lucide="plus" style="width:11px; height:11px; margin-right:4px;"></i> 검토 등록</button>`
+                    : `<button class="btn btn-xs btn-primary" onclick="app.registerBiddingProjectFromG2B('${ann.announcementNo}')"><i data-lucide="plus" style="width:11px; height:11px; margin-right:4px;"></i> 입찰 등록</button>`
+                );
 
             const tr = document.createElement('tr');
             tr.style.height = '68px'; // 행 고정 높이 적용
             tr.innerHTML = `
+                <td class="text-center">${typeBadge}</td>
                 <td class="font-bold text-xs" style="font-family: monospace;">${ann.announcementNo}</td>
                 <td>
                     <span class="font-bold text-xs" style="max-width: 280px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;" title="${ann.name}">${ann.name}</span>
@@ -6234,10 +6325,7 @@ class AetherPMO {
                     </a>
                 </td>
                 <td class="text-center">
-                    ${isRegistered 
-                        ? `<button class="btn btn-xs btn-outline" disabled style="opacity:0.6; cursor:not-allowed;"><i data-lucide="check" style="width:11px; height:11px; margin-right:4px;"></i> 등록 완료</button>`
-                        : `<button class="btn btn-xs btn-primary" onclick="app.registerBiddingProjectFromG2B('${ann.announcementNo}')"><i data-lucide="plus" style="width:11px; height:11px; margin-right:4px;"></i> 입찰 등록</button>`
-                    }
+                    ${actionBtn}
                 </td>
             `;
             tbody.appendChild(tr);
@@ -10394,6 +10482,7 @@ class AetherPMO {
     translateStatus(status) {
         const dict = {
             'Bidding': '입찰 제안',
+            'PRE_REVIEW': '사전 검토',
             'Planning': '기획/대기',
             'In Progress': '수행 중',
             'On Hold': '수행 보류',
@@ -13019,6 +13108,7 @@ class AetherPMO {
 
     isBiddingProject(project) {
         if (!project) return false;
+        if (project.status === 'PRE_REVIEW') return true;
         const executionStages = ['In Progress', 'Delay', 'On Hold', 'Completed'];
         if (executionStages.includes(project.status)) {
             return false;
