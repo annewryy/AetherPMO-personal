@@ -997,6 +997,69 @@ class AetherPMO {
                     if (error) console.error('[Supabase Sync] artifact_delete error:', error);
                     break;
                 }
+                case 'contracts_upsert': {
+                    const c = data;
+                    if (!this.isUuid(c.id)) {
+                        console.warn(`[Supabase Sync] Skipping contracts_upsert for legacy non-UUID id: ${c.id}`);
+                        break;
+                    }
+                    const dbContract = {
+                        id: c.id,
+                        contract_no: c.contractNo,
+                        contract_name: c.contractName,
+                        project_id: this.isUuid(c.projectId) ? c.projectId : null,
+                        contractor: c.contractor,
+                        amount: c.amount || 0,
+                        contract_date: c.contractDate || null,
+                        start_date: c.startDate || null,
+                        end_date: c.endDate || null,
+                        status: c.status || 'active'
+                    };
+                    const { error } = await this.supabase.from('contracts').upsert(dbContract);
+                    if (error) console.error('[Supabase Sync] contracts_upsert error:', error);
+                    break;
+                }
+                case 'contracts_delete': {
+                    if (!this.isUuid(data?.id)) {
+                        console.warn(`[Supabase Sync] Skipping contracts_delete for legacy non-UUID id: ${data?.id}`);
+                        break;
+                    }
+                    const { error } = await this.supabase.from('contracts').delete().eq('id', data.id);
+                    if (error) console.error('[Supabase Sync] contracts_delete error:', error);
+                    break;
+                }
+                case 'salaries_upsert': {
+                    const s = data;
+                    if (!this.isUuid(s.id)) {
+                        console.warn(`[Supabase Sync] Skipping salaries_upsert for legacy non-UUID id: ${s.id}`);
+                        break;
+                    }
+                    const dbSalary = {
+                        id: s.id,
+                        year_month: s.yearMonth,
+                        employee_name: s.employeeName,
+                        employment_type: s.employmentType || 'regular',
+                        department: s.department,
+                        base_salary: s.baseSalary || 0,
+                        meal_allowance: s.mealAllowance || 0,
+                        car_allowance: s.carAllowance || 0,
+                        net_pay: s.netPay || 0,
+                        pay_date: s.payDate || null,
+                        status: s.status || 'unpaid'
+                    };
+                    const { error } = await this.supabase.from('salaries').upsert(dbSalary);
+                    if (error) console.error('[Supabase Sync] salaries_upsert error:', error);
+                    break;
+                }
+                case 'salaries_delete': {
+                    if (!this.isUuid(data?.id)) {
+                        console.warn(`[Supabase Sync] Skipping salaries_delete for legacy non-UUID id: ${data?.id}`);
+                        break;
+                    }
+                    const { error } = await this.supabase.from('salaries').delete().eq('id', data.id);
+                    if (error) console.error('[Supabase Sync] salaries_delete error:', error);
+                    break;
+                }
                 case 'checklist_upsert': {
                     const c = data;
                     if (!this.isUuid(c.id) || !this.isUuid(c.projectId)) {
@@ -1260,6 +1323,23 @@ class AetherPMO {
                 this.supabase.from('resources').select('*')
             ]);
 
+            let contracts = [];
+            let salaries = [];
+            if (this.useSupabase) {
+                try {
+                    const { data: dbCons, error: errCon } = await this.supabase.from('contracts').select('*');
+                    if (!errCon && dbCons) contracts = dbCons;
+                } catch (e) {
+                    console.warn('[Supabase] contracts table fetch failed. Using local storage/defaults.', e);
+                }
+                try {
+                    const { data: dbSals, error: errSal } = await this.supabase.from('salaries').select('*');
+                    if (!errSal && dbSals) salaries = dbSals;
+                } catch (e) {
+                    console.warn('[Supabase] salaries table fetch failed. Using local storage/defaults.', e);
+                }
+            }
+
             console.log('[projects from supabase]', projects);
             if (errProj) {
                 console.error('[projects error]', errProj);
@@ -1483,6 +1563,41 @@ class AetherPMO {
                 remarks: m.remarks,
                 authorId: m.author_id
             }));
+
+            if (contracts && contracts.length > 0) {
+                this.state.contracts = contracts.map(c => ({
+                    id: c.id,
+                    contractNo: c.contract_no,
+                    contractName: c.contract_name,
+                    projectId: c.project_id,
+                    contractor: c.contractor,
+                    amount: Number(c.amount || 0),
+                    contractDate: c.contract_date,
+                    startDate: c.start_date,
+                    endDate: c.end_date,
+                    status: c.status
+                }));
+            } else {
+                this.state.contracts = this.getDefaultContracts();
+            }
+
+            if (salaries && salaries.length > 0) {
+                this.state.salaries = salaries.map(s => ({
+                    id: s.id,
+                    yearMonth: s.year_month,
+                    employeeName: s.employee_name,
+                    employmentType: s.employment_type,
+                    department: s.department,
+                    baseSalary: Number(s.base_salary || 0),
+                    mealAllowance: Number(s.meal_allowance || 0),
+                    carAllowance: Number(s.car_allowance || 0),
+                    netPay: Number(s.net_pay || 0),
+                    payDate: s.pay_date,
+                    status: s.status
+                }));
+            } else {
+                this.state.salaries = this.getDefaultSalaries();
+            }
 
             this.state.theme = 'dark';
             // DB에서 로드된 globalTemplates가 비어있을 때만 목 데이터를 설정
