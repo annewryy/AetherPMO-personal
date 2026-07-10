@@ -1210,12 +1210,14 @@ class AetherPMO {
                     if (!this.state.actionItems) this.state.actionItems = [];
                     if (!this.state.officialDocs) this.state.officialDocs = [];
                     if (!this.state.meetingMinutes) this.state.meetingMinutes = [];
+                    if (!this.state.resources) this.state.resources = this.getDefaultResources();
+                    if (!this.state.contracts) this.state.contracts = this.getDefaultContracts();
+                    if (!this.state.salaries) this.state.salaries = this.getDefaultSalaries();
                     if (!this.state.theme) this.state.theme = 'dark';
                     if (!this.state.userRole) this.state.userRole = 'PM';
                     if (!this.state.recentlyDownloaded) this.state.recentlyDownloaded = [];
                     if (!this.state.globalTemplates) this.state.globalTemplates = this.getDefaultGlobalTemplates();
                     if (!this.state.projectMembers) this.state.projectMembers = this.getDefaultProjectMembers();
-                    if (!this.state.resources) this.state.resources = this.getDefaultResources();
 
                     this.migrateDataStructure();
                 } catch (e) {
@@ -3691,6 +3693,9 @@ class AetherPMO {
             if ((viewName === 'project-detail' || viewName === 'projects-g2b') && item.getAttribute('data-view') === 'projects') {
                 item.classList.add('active');
             }
+            if ((viewName === 'contracts' || viewName === 'salaries') && item.getAttribute('data-view') === 'resources') {
+                item.classList.add('active');
+            }
         });
 
         // Update submenu items active state
@@ -3700,6 +3705,8 @@ class AetherPMO {
 
         const biddingSubmenu = document.getElementById('bidding-sub-items');
         const artifactsSubmenu = document.getElementById('artifacts-submenu');
+        const resourcesSubmenu = document.getElementById('resources-submenu');
+
         if (viewName === 'projects') {
             const currentSub = this.activeProjectStageFilter.toLowerCase();
             const activeSubItem = document.querySelector(`.nav-submenu .submenu-item[data-subview="${currentSub}"]`);
@@ -3712,6 +3719,9 @@ class AetherPMO {
             if (artifactsSubmenu) {
                 artifactsSubmenu.style.display = 'none';
             }
+            if (resourcesSubmenu) {
+                resourcesSubmenu.style.display = 'none';
+            }
         } else if (viewName === 'projects-g2b') {
             const activeSubItem = document.querySelector(`.nav-submenu .submenu-item[data-subview="g2b"]`);
             if (activeSubItem) {
@@ -3722,6 +3732,9 @@ class AetherPMO {
             }
             if (artifactsSubmenu) {
                 artifactsSubmenu.style.display = 'none';
+            }
+            if (resourcesSubmenu) {
+                resourcesSubmenu.style.display = 'none';
             }
         } else if (viewName === 'artifacts') {
             const activeSubItem = document.querySelector(`.nav-submenu .submenu-item[data-subview="${this.activeGlobalTemplateStage}"]`);
@@ -3734,12 +3747,33 @@ class AetherPMO {
             if (artifactsSubmenu) {
                 artifactsSubmenu.style.display = 'flex';
             }
+            if (resourcesSubmenu) {
+                resourcesSubmenu.style.display = 'none';
+            }
+        } else if (viewName === 'resources' || viewName === 'contracts' || viewName === 'salaries') {
+            const currentSub = viewName;
+            const activeSubItem = document.querySelector(`.nav-submenu .submenu-item[data-subview="${currentSub}"]`);
+            if (activeSubItem) {
+                activeSubItem.classList.add('active');
+            }
+            if (biddingSubmenu) {
+                biddingSubmenu.style.display = 'none';
+            }
+            if (artifactsSubmenu) {
+                artifactsSubmenu.style.display = 'none';
+            }
+            if (resourcesSubmenu) {
+                resourcesSubmenu.style.display = 'flex';
+            }
         } else {
             if (biddingSubmenu) {
                 biddingSubmenu.style.display = 'none';
             }
             if (artifactsSubmenu) {
                 artifactsSubmenu.style.display = 'none';
+            }
+            if (resourcesSubmenu) {
+                resourcesSubmenu.style.display = 'none';
             }
         }
 
@@ -3773,6 +3807,10 @@ class AetherPMO {
             this.renderMeetingMinutes();
         } else if (viewName === 'resources') {
             this.renderResourcesView();
+        } else if (viewName === 'contracts') {
+            this.renderContractsView();
+        } else if (viewName === 'salaries') {
+            this.renderSalariesView();
         } else if (viewName === 'backup') {
             this.renderUserManagementTable();
         } else if (viewName === 'my-account') {
@@ -10169,7 +10207,9 @@ class AetherPMO {
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-size:13px;">
                             ${participations.map(pm => {
                                 const p = this.state.projects.find(proj => proj.id === pm.projectId);
-                                return p ? `<div>${p.name}</div>` : '';
+                                if (!p) return '';
+                                const codePrefix = p.projectCode ? `[${p.projectCode}] ` : '';
+                                return `<div>${codePrefix}${p.name}</div>`;
                             }).join('') || '미할당'}
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
@@ -10233,7 +10273,9 @@ class AetherPMO {
                         <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:13px;">
                             ${participations.map(pm => {
                                 const p = this.state.projects.find(proj => proj.id === pm.projectId);
-                                return p ? `<div style="margin-bottom:4px; font-weight:700; color:var(--text-main); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; word-break: break-all;" title="${p.name}">${p.name}</div>` : '';
+                                if (!p) return '';
+                                const codePrefix = p.projectCode ? `[${p.projectCode}] ` : '';
+                                return `<div style="margin-bottom:4px; font-weight:700; color:var(--text-main); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; word-break: break-all;" title="${codePrefix}${p.name}">${codePrefix}${p.name}</div>`;
                             }).join('') || '<span class="text-muted">-</span>'}
                         </td>
                         <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:14px; text-align: center;">${nameDisplay}</td>
@@ -10274,7 +10316,9 @@ class AetherPMO {
     }
 
     initTableResizers() {
-        const table = document.querySelector('.excel-grid-table');
+        const activeView = document.querySelector('.content-view.active');
+        if (!activeView) return;
+        const table = activeView.querySelector('.excel-grid-table');
         if (!table) return;
 
         const cols = table.querySelectorAll('th');
@@ -14910,6 +14954,494 @@ class AetherPMO {
         
         const detailModal = document.getElementById('meeting-minutes-detail-modal');
         if (detailModal) detailModal.classList.remove('open');
+    }
+
+    getDefaultContracts() {
+        return [
+            {
+                id: 'con-1',
+                contractNo: 'CON-2026-001',
+                contractName: 'IoT 플랫폼 백엔드 외부 개발 자문 계약',
+                projectId: 'proj-1',
+                contractor: '(주)네트워크어소시에이츠',
+                amount: 35000000,
+                contractDate: '2026-03-05',
+                startDate: '2026-03-10',
+                endDate: '2026-08-31',
+                status: 'active'
+            },
+            {
+                id: 'con-2',
+                contractNo: 'CON-2026-002',
+                contractName: 'AI 고객 상담 데이터 전처리 가공 외주계약',
+                projectId: 'proj-2',
+                contractor: '데이터크라우드 주식회사',
+                amount: 18000000,
+                contractDate: '2026-04-15',
+                startDate: '2026-04-20',
+                endDate: '2026-06-30',
+                status: 'completed'
+            },
+            {
+                id: 'con-3',
+                contractNo: 'CON-2026-003',
+                contractName: 'ERP 클라우드 인프라 아키텍처 컨설팅 기술 용역',
+                projectId: 'proj-3',
+                contractor: '클라우드컨설팅그룹',
+                amount: 150000000,
+                contractDate: '2026-06-18',
+                startDate: '2026-07-01',
+                endDate: '2026-12-31',
+                status: 'active'
+            }
+        ];
+    }
+
+    getDefaultSalaries() {
+        return [
+            {
+                id: 'sal-1',
+                yearMonth: '2026-07',
+                employeeName: '안유경',
+                employmentType: 'regular',
+                department: '플랫폼개발본부',
+                baseSalary: 5500000,
+                mealAllowance: 200000,
+                carAllowance: 300000,
+                netPay: 6000000,
+                payDate: '2026-07-25',
+                status: 'paid'
+            },
+            {
+                id: 'sal-2',
+                yearMonth: '2026-07',
+                employeeName: '이영희',
+                employmentType: 'regular',
+                department: 'AI혁신본부',
+                baseSalary: 4800000,
+                mealAllowance: 200000,
+                carAllowance: 0,
+                netPay: 5000000,
+                payDate: '2026-07-25',
+                status: 'pending'
+            },
+            {
+                id: 'sal-3',
+                yearMonth: '2026-07',
+                employeeName: '김철수',
+                employmentType: 'regular',
+                department: '클라우드개발본부',
+                baseSalary: 6200000,
+                mealAllowance: 200000,
+                carAllowance: 300000,
+                netPay: 6700000,
+                payDate: '2026-07-25',
+                status: 'paid'
+            },
+            {
+                id: 'sal-4',
+                yearMonth: '2026-07',
+                employeeName: '박지민',
+                employmentType: 'outsourcing',
+                department: '빅데이터기획부',
+                baseSalary: 4200000,
+                mealAllowance: 100000,
+                carAllowance: 0,
+                netPay: 4300000,
+                payDate: '2026-07-25',
+                status: 'unpaid'
+            }
+        ];
+    }
+
+    renderContractsView() {
+        const filterSelect = document.getElementById('contracts-filter-project');
+        if (filterSelect && filterSelect.options.length <= 1) {
+            const projects = this.state.projects || [];
+            projects.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.projectCode ? `[${p.projectCode}] ${p.name}` : p.name;
+                filterSelect.appendChild(opt);
+            });
+        }
+
+        const projFilter = document.getElementById('contracts-filter-project')?.value || 'all';
+        const keyword = this.safeText(document.getElementById('contracts-search-input')?.value).toLowerCase().trim();
+
+        let list = [...(this.state.contracts || [])];
+
+        if (projFilter !== 'all') {
+            list = list.filter(c => c.projectId === projFilter);
+        }
+
+        if (keyword) {
+            list = list.filter(c => 
+                (c.contractName || '').toLowerCase().includes(keyword) ||
+                (c.contractor || '').toLowerCase().includes(keyword) ||
+                (c.contractNo || '').toLowerCase().includes(keyword)
+            );
+        }
+
+        const tbody = document.getElementById('contracts-table-body');
+        if (!tbody) return;
+
+        let html = '';
+        list.forEach((c, idx) => {
+            const isEditing = this.editingContractId === c.id;
+            const project = (this.state.projects || []).find(p => p.id === c.projectId);
+            const projectDisplay = project ? (project.projectCode ? `[${project.projectCode}] ${project.name}` : project.name) : '-';
+
+            if (isEditing) {
+                const projOptions = (this.state.projects || []).map(p => 
+                    `<option value="${p.id}" ${p.id === c.projectId ? 'selected' : ''}>${p.projectCode ? `[${p.projectCode}] ` : ''}${p.name}</option>`
+                ).join('');
+
+                const statusOptions = [
+                    { value: 'active', label: '진행중' },
+                    { value: 'completed', label: '완료' },
+                    { value: 'pending', label: '대기' }
+                ].map(opt => `<option value="${opt.value}" ${opt.value === c.status ? 'selected' : ''}>${opt.label}</option>`).join('');
+
+                html += `
+                    <tr style="background: var(--bg-hover-item); border-bottom: 1px solid var(--bg-card-border);">
+                        <td style="padding: 8px 12px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <input type="text" id="edit-con-no" value="${c.contractNo || ''}" placeholder="계약번호" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; padding:0 8px; text-align: center;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
+                            <input type="text" id="edit-con-name" value="${c.contractName || ''}" placeholder="계약명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; padding:0 8px;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
+                            <select id="edit-con-project-id" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px;">
+                                ${projOptions}
+                            </select>
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <input type="text" id="edit-con-contractor" value="${c.contractor || ''}" placeholder="계약처" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; padding:0 8px; text-align: center;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">
+                            <input type="number" id="edit-con-amount" value="${c.amount || 0}" placeholder="계약금액" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; padding:0 8px; text-align: right;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <input type="date" id="edit-con-date" value="${c.contractDate || ''}" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; text-align: center;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <input type="date" id="edit-con-start" value="${c.startDate || ''}" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; text-align: center;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <input type="date" id="edit-con-end" value="${c.endDate || ''}" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; text-align: center;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <select id="edit-con-status" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align-last: center;">
+                                ${statusOptions}
+                            </select>
+                        </td>
+                        <td style="padding: 8px 12px; text-align: center; display: flex; justify-content: center; gap: 4px; align-items: center; min-height: 48px;">
+                            <button class="btn btn-xs btn-primary" onclick="app.saveContractRow('${c.id}')" style="padding:4px 8px; font-size:12px;"><i data-lucide="check" style="width:12px; height:12px;"></i> 저장</button>
+                            <button class="btn btn-xs btn-outline" onclick="app.cancelContractRowEdit()" style="padding:4px 8px; font-size:12px;"><i data-lucide="x" style="width:12px; height:12px;"></i> 취소</button>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                const statusBadge = c.status === 'active' 
+                    ? '<span class="status-badge status-inprogress" style="padding:2px 6px; font-size:11px;">진행중</span>' 
+                    : (c.status === 'completed' ? '<span class="status-badge status-completed" style="padding:2px 6px; font-size:11px;">완료</span>' : '<span class="status-badge" style="background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; font-size:11px;">대기</span>');
+
+                html += `
+                    <tr style="border-bottom: 1px solid var(--bg-card-border);">
+                        <td style="padding: 12px 16px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight:600; font-size:14px;">${idx + 1}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center; font-size:13px;">${c.contractNo || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-weight:700; color:var(--text-main);">${c.contractName || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:13px; color:var(--text-muted);">${projectDisplay}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center; font-size:13px;">${c.contractor || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: right; font-weight:600; font-size:13px;">${(c.amount || 0).toLocaleString()}원</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center; font-family: monospace; font-size:13px;">${c.contractDate || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center; font-family: monospace; font-size:13px;">${c.startDate || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center; font-family: monospace; font-size:13px;">${c.endDate || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center;">${statusBadge}</td>
+                        <td style="padding: 12px 16px; text-align: center; display: flex; justify-content: center; gap: 4px; align-items: center; min-height: 48px;">
+                            <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.editContractRow('${c.id}')" style="padding: 4px 6px;"><i data-lucide="edit-2" style="width:12px; height:12px;"></i></button>
+                            <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.deleteContractRow('${c.id}')" style="padding: 4px 6px; border-color: var(--status-critical-border); color: var(--status-critical);"><i data-lucide="trash-2" style="width:12px; height:12px;"></i></button>
+                        </td>
+                    </tr>
+                `;
+            }
+        });
+
+        if (list.length === 0) {
+            html = `<tr><td colspan="11" style="padding: 32px; text-align: center; color: var(--text-muted); font-size: 14px;">등록된 계약 정보가 없습니다.</td></tr>`;
+        }
+
+        tbody.innerHTML = html;
+        if (window.lucide) window.lucide.createIcons();
+        this.initTableResizers();
+    }
+
+    addNewContractRow() {
+        const newCon = {
+            id: 'con-' + this.generateUuid().substring(0, 8),
+            contractNo: 'CON-' + new Date().getFullYear() + '-' + String(Math.floor(100 + Math.random() * 900)),
+            contractName: '',
+            projectId: (this.state.projects && this.state.projects[0]) ? this.state.projects[0].id : '',
+            contractor: '',
+            amount: 0,
+            contractDate: new Date().toISOString().substring(0, 10),
+            startDate: new Date().toISOString().substring(0, 10),
+            endDate: new Date().toISOString().substring(0, 10),
+            status: 'active'
+        };
+
+        if (!this.state.contracts) this.state.contracts = [];
+        this.state.contracts.unshift(newCon);
+        this.editingContractId = newCon.id;
+        this.renderContractsView();
+    }
+
+    editContractRow(id) {
+        this.editingContractId = id;
+        this.renderContractsView();
+    }
+
+    async saveContractRow(id) {
+        const conIdx = this.state.contracts.findIndex(c => c.id === id);
+        if (conIdx === -1) return;
+
+        const updated = {
+            ...this.state.contracts[conIdx],
+            contractNo: document.getElementById('edit-con-no')?.value || '',
+            contractName: document.getElementById('edit-con-name')?.value || '',
+            projectId: document.getElementById('edit-con-project-id')?.value || '',
+            contractor: document.getElementById('edit-con-contractor')?.value || '',
+            amount: parseInt(document.getElementById('edit-con-amount')?.value || '0', 10),
+            contractDate: document.getElementById('edit-con-date')?.value || '',
+            startDate: document.getElementById('edit-con-start')?.value || '',
+            endDate: document.getElementById('edit-con-end')?.value || '',
+            status: document.getElementById('edit-con-status')?.value || 'active'
+        };
+
+        this.state.contracts[conIdx] = updated;
+        this.editingContractId = null;
+        await this.saveState('contracts_upsert', updated);
+        this.showToast('계약 정보가 저장되었습니다.', 'success');
+        this.renderContractsView();
+    }
+
+    cancelContractRowEdit() {
+        const current = this.state.contracts.find(c => c.id === this.editingContractId);
+        if (current && !current.contractName) {
+            this.state.contracts = this.state.contracts.filter(c => c.id !== this.editingContractId);
+        }
+        this.editingContractId = null;
+        this.renderContractsView();
+    }
+
+    async deleteContractRow(id) {
+        if (!confirm('정말로 이 계약 정보를 삭제하시겠습니까?')) return;
+        this.state.contracts = this.state.contracts.filter(c => c.id !== id);
+        await this.saveState('contracts_delete', { id });
+        this.showToast('계약 정보가 삭제되었습니다.', 'info');
+        this.renderContractsView();
+    }
+
+    renderSalariesView() {
+        const monthFilter = document.getElementById('salaries-filter-month')?.value || 'all';
+        const keyword = this.safeText(document.getElementById('salaries-search-input')?.value).toLowerCase().trim();
+
+        let list = [...(this.state.salaries || [])];
+
+        if (monthFilter !== 'all') {
+            list = list.filter(s => s.yearMonth === monthFilter);
+        }
+
+        if (keyword) {
+            list = list.filter(s => 
+                (s.employeeName || '').toLowerCase().includes(keyword) ||
+                (s.department || '').toLowerCase().includes(keyword)
+            );
+        }
+
+        const tbody = document.getElementById('salaries-table-body');
+        if (!tbody) return;
+
+        let html = '';
+        list.forEach((s, idx) => {
+            const isEditing = this.editingSalaryId === s.id;
+
+            if (isEditing) {
+                const typeOptions = [
+                    { value: 'regular', label: '정규직' },
+                    { value: 'outsourcing', label: '자사화' },
+                    { value: 'project_contract', label: '프로젝트 계약직' },
+                    { value: 'turnkey', label: '외부(턴키)' }
+                ].map(opt => `<option value="${opt.value}" ${opt.value === s.employmentType ? 'selected' : ''}>${opt.label}</option>`).join('');
+
+                const statusOptions = [
+                    { value: 'paid', label: '지급완료' },
+                    { value: 'pending', label: '결재대기' },
+                    { value: 'unpaid', label: '미지급' }
+                ].map(opt => `<option value="${opt.value}" ${opt.value === s.status ? 'selected' : ''}>${opt.label}</option>`).join('');
+
+                html += `
+                    <tr style="background: var(--bg-hover-item); border-bottom: 1px solid var(--bg-card-border);">
+                        <td style="padding: 8px 12px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <input type="text" id="edit-sal-month" value="${s.yearMonth || ''}" placeholder="YYYY-MM" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: center;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <input type="text" id="edit-sal-name" value="${s.employeeName || ''}" placeholder="성명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: center; font-weight: 600;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <select id="edit-sal-type" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align-last: center;">
+                                ${typeOptions}
+                            </select>
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <input type="text" id="edit-sal-dept" value="${s.department || ''}" placeholder="소속부서" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: center;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">
+                            <input type="number" id="edit-sal-base" value="${s.baseSalary || 0}" placeholder="기본급" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: right;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">
+                            <input type="number" id="edit-sal-meal" value="${s.mealAllowance || 0}" placeholder="식대" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: right;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">
+                            <input type="number" id="edit-sal-car" value="${s.carAllowance || 0}" placeholder="차량유지비" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: right;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: right; color: var(--text-muted); font-size:13px; font-weight:700; background:rgba(0,0,0,0.05); padding-right:16px;">
+                            Auto (기본+식대+차량)
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <input type="date" id="edit-sal-date" value="${s.payDate || ''}" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; text-align: center;">
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <select id="edit-sal-status" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align-last: center;">
+                                ${statusOptions}
+                            </select>
+                        </td>
+                        <td style="padding: 8px 12px; text-align: center; display: flex; justify-content: center; gap: 4px; align-items: center; min-height: 48px;">
+                            <button class="btn btn-xs btn-primary" onclick="app.saveSalaryRow('${s.id}')" style="padding:4px 8px; font-size:12px;"><i data-lucide="check" style="width:12px; height:12px;"></i> 저장</button>
+                            <button class="btn btn-xs btn-outline" onclick="app.cancelSalaryRowEdit()" style="padding:4px 8px; font-size:12px;"><i data-lucide="x" style="width:12px; height:12px;"></i> 취소</button>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                const typeLabel = this.translateEmploymentType(s.employmentType);
+                const typeColorMap = {
+                    regular: { bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.3)', text: '#10b981' },
+                    outsourcing: { bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.3)', text: '#3b82f6' },
+                    project_contract: { bg: 'rgba(139, 92, 246, 0.1)', border: 'rgba(139, 92, 246, 0.3)', text: '#8b5cf6' },
+                    turnkey: { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', text: '#f59e0b' }
+                };
+                const badgeStyle = typeColorMap[s.employmentType || 'regular'] || typeColorMap.regular;
+                const typeBadge = `<span class="badge" style="background:${badgeStyle.bg}; color:${badgeStyle.text}; border:1px solid ${badgeStyle.border}; font-size:12px; padding:2px 8px; border-radius:4px; font-weight:700;">${typeLabel}</span>`;
+
+                const statusBadge = s.status === 'paid' 
+                    ? '<span class="status-badge status-completed" style="padding:2px 6px; font-size:11px;">지급완료</span>' 
+                    : (s.status === 'pending' ? '<span class="status-badge status-inprogress" style="padding:2px 6px; font-size:11px;">결재대기</span>' : '<span class="status-badge" style="background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; font-size:11px;">미지급</span>');
+
+                html += `
+                    <tr style="border-bottom: 1px solid var(--bg-card-border);">
+                        <td style="padding: 12px 16px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight:600; font-size:14px;">${idx + 1}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center; font-family: monospace; font-size:13px;">${s.yearMonth || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center; font-weight:700; color:var(--text-main); font-size:14px;">${s.employeeName || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center;">${typeBadge}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center; font-size:14px;">${s.department || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: right; font-size:13px;">${(s.baseSalary || 0).toLocaleString()}원</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: right; font-size:13px;">${(s.mealAllowance || 0).toLocaleString()}원</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: right; font-size:13px;">${(s.carAllowance || 0).toLocaleString()}원</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: right; font-weight:700; color:var(--primary); font-size:13px;">${(s.netPay || 0).toLocaleString()}원</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center; font-family: monospace; font-size:13px;">${s.payDate || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center;">${statusBadge}</td>
+                        <td style="padding: 12px 16px; text-align: center; display: flex; justify-content: center; gap: 4px; align-items: center; min-height: 48px;">
+                            <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.editSalaryRow('${s.id}')" style="padding: 4px 6px;"><i data-lucide="edit-2" style="width:12px; height:12px;"></i></button>
+                            <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.deleteSalaryRow('${s.id}')" style="padding: 4px 6px; border-color: var(--status-critical-border); color: var(--status-critical);"><i data-lucide="trash-2" style="width:12px; height:12px;"></i></button>
+                        </td>
+                    </tr>
+                `;
+            }
+        });
+
+        if (list.length === 0) {
+            html = `<tr><td colspan="12" style="padding: 32px; text-align: center; color: var(--text-muted); font-size: 14px;">지급 정보가 없습니다.</td></tr>`;
+        }
+
+        tbody.innerHTML = html;
+        if (window.lucide) window.lucide.createIcons();
+        this.initTableResizers();
+    }
+
+    addNewSalaryRow() {
+        const newSal = {
+            id: 'sal-' + this.generateUuid().substring(0, 8),
+            yearMonth: new Date().toISOString().substring(0, 7),
+            employeeName: '',
+            employmentType: 'regular',
+            department: '',
+            baseSalary: 0,
+            mealAllowance: 0,
+            carAllowance: 0,
+            netPay: 0,
+            payDate: new Date().toISOString().substring(0, 10),
+            status: 'unpaid'
+        };
+
+        if (!this.state.salaries) this.state.salaries = [];
+        this.state.salaries.unshift(newSal);
+        this.editingSalaryId = newSal.id;
+        this.renderSalariesView();
+    }
+
+    editSalaryRow(id) {
+        this.editingSalaryId = id;
+        this.renderSalariesView();
+    }
+
+    async saveSalaryRow(id) {
+        const salIdx = this.state.salaries.findIndex(s => s.id === id);
+        if (salIdx === -1) return;
+
+        const base = parseInt(document.getElementById('edit-sal-base')?.value || '0', 10);
+        const meal = parseInt(document.getElementById('edit-sal-meal')?.value || '0', 10);
+        const car = parseInt(document.getElementById('edit-sal-car')?.value || '0', 10);
+        const net = base + meal + car;
+
+        const updated = {
+            ...this.state.salaries[salIdx],
+            yearMonth: document.getElementById('edit-sal-month')?.value || '',
+            employeeName: document.getElementById('edit-sal-name')?.value || '',
+            employmentType: document.getElementById('edit-sal-type')?.value || 'regular',
+            department: document.getElementById('edit-sal-dept')?.value || '',
+            baseSalary: base,
+            mealAllowance: meal,
+            carAllowance: car,
+            netPay: net,
+            payDate: document.getElementById('edit-sal-date')?.value || '',
+            status: document.getElementById('edit-sal-status')?.value || 'unpaid'
+        };
+
+        this.state.salaries[salIdx] = updated;
+        this.editingSalaryId = null;
+        await this.saveState('salaries_upsert', updated);
+        this.showToast('급여 지급 정보가 저장되었습니다.', 'success');
+        this.renderSalariesView();
+    }
+
+    cancelSalaryRowEdit() {
+        const current = this.state.salaries.find(s => s.id === this.editingSalaryId);
+        if (current && !current.employeeName) {
+            this.state.salaries = this.state.salaries.filter(s => s.id !== this.editingSalaryId);
+        }
+        this.editingSalaryId = null;
+        this.renderSalariesView();
+    }
+
+    async deleteSalaryRow(id) {
+        if (!confirm('정말로 이 급여 정보를 삭제하시겠습니까?')) return;
+        this.state.salaries = this.state.salaries.filter(s => s.id !== id);
+        await this.saveState('salaries_delete', { id });
+        this.showToast('급여 지급 정보가 삭제되었습니다.', 'info');
+        this.renderSalariesView();
     }
 }
 
