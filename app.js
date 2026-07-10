@@ -4186,6 +4186,12 @@ class AetherPMO {
         this.renderDashboard();
     }
 
+    navigateToClassicDashboard() {
+        this.dashboardMode = 'classic';
+        window.location.hash = 'dashboard';
+        this.renderDashboard();
+    }
+
     renderClassicDashboard() {
         const today = new Date();
         const yyyy = today.getFullYear();

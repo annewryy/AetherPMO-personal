@@ -91,12 +91,12 @@
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="logo-area">
+                <div class="logo-area" onclick="app.navigateToClassicDashboard()" style="cursor: pointer;" title="통합PMO 대시보드로 이동">
                     <div class="logo-icon">
                         <i data-lucide="layers" class="lucide-icon text-primary"></i>
                     </div>
                     <div class="logo-text">
-                        <span class="brand-name">Aether<span>PMO</span></span>
+                        <span class="brand-name">Aether<span>PMO</span><span style="font-size: 9px; font-weight: 800; color: var(--primary); vertical-align: middle; margin-left: 6px; background: rgba(99, 102, 241, 0.15); padding: 1px 5px; border-radius: 4px; border: 1px solid rgba(99, 102, 241, 0.3); text-transform: uppercase; letter-spacing: 0.5px;">Home</span></span>
                         <span class="brand-sub">사업관리 플랫폼</span>
                     </div>
                     <button id="sidebar-mode-btn" class="sidebar-pin-btn" aria-label="사이드바 모드 선택">
