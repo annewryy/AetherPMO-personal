@@ -6,10 +6,12 @@
 -- 1. contracts (계약관리) 테이블 생성
 CREATE TABLE IF NOT EXISTS public.contracts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    contract_type TEXT NOT NULL DEFAULT 'labor' CHECK (contract_type IN ('labor', 'change', 'terminate')), -- 계약구분 (근로 계약, 근로 계약사항 변경, 근로계약 종료)
     contract_no TEXT NOT NULL, -- 계약번호
     contract_name TEXT NOT NULL, -- 계약명
+    employment_type TEXT NOT NULL DEFAULT 'outsourcing' CHECK (employment_type IN ('outsourcing', 'project_contract')), -- 인력구분 (자사화, 프로젝트 계약직)
     project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL, -- 관련 프로젝트 ID
-    contractor TEXT, -- 계약처
+    contractor TEXT, -- 원소속사명 (기존 계약처)
     amount BIGINT NOT NULL DEFAULT 0, -- 계약금액
     contract_date DATE, -- 계약일
     start_date DATE, -- 시작일
@@ -18,6 +20,10 @@ CREATE TABLE IF NOT EXISTS public.contracts (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
+
+-- 기존 테이블이 이미 존재하는 경우 컬럼을 추가하기 위한 ALTER 구문
+ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS contract_type TEXT NOT NULL DEFAULT 'labor' CHECK (contract_type IN ('labor', 'change', 'terminate'));
+ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS employment_type TEXT NOT NULL DEFAULT 'outsourcing' CHECK (employment_type IN ('outsourcing', 'project_contract'));
 
 -- 2. salaries (월급여관리) 테이블 생성
 CREATE TABLE IF NOT EXISTS public.salaries (

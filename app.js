@@ -31,6 +31,7 @@ class AetherPMO {
         // Active context variables
         this.activeProjectId = null;
         this.activeProjectStageFilter = 'Active'; // Bidding | Active | Closed
+        this.activeContractTypeFilter = 'all'; // all | labor | change | terminate
         this.activeBiddingStatusFilter = 'all';  // all | 제안 준비중 | 제안 제출 | 결과 대기 | 수주 | 실패
         this.activeDetailTab = 'overview'; // overview | templates | artifacts
         this.activeTemplateFolder = 'initiation'; // initiation | execution | closing
@@ -15075,9 +15076,11 @@ class AetherPMO {
         return [
             {
                 id: 'con-1',
+                contractType: 'labor',
                 contractNo: 'CON-2026-001',
-                contractName: 'IoT 플랫폼 백엔드 외부 개발 자문 계약',
+                contractName: '홍길동 근로 계약서',
                 projectId: 'proj-1',
+                employmentType: 'outsourcing',
                 contractor: '(주)네트워크어소시에이츠',
                 amount: 35000000,
                 contractDate: '2026-03-05',
@@ -15087,9 +15090,11 @@ class AetherPMO {
             },
             {
                 id: 'con-2',
+                contractType: 'change',
                 contractNo: 'CON-2026-002',
-                contractName: 'AI 고객 상담 데이터 전처리 가공 외주계약',
+                contractName: '이영희 근로 계약 조건 변경 합의서',
                 projectId: 'proj-2',
+                employmentType: 'project_contract',
                 contractor: '데이터크라우드 주식회사',
                 amount: 18000000,
                 contractDate: '2026-04-15',
@@ -15099,9 +15104,11 @@ class AetherPMO {
             },
             {
                 id: 'con-3',
+                contractType: 'terminate',
                 contractNo: 'CON-2026-003',
-                contractName: 'ERP 클라우드 인프라 아키텍처 컨설팅 기술 용역',
+                contractName: '김철수 근로계약 종료 합의서',
                 projectId: 'proj-3',
+                employmentType: 'outsourcing',
                 contractor: '클라우드컨설팅그룹',
                 amount: 150000000,
                 contractDate: '2026-06-18',
@@ -15186,16 +15193,24 @@ class AetherPMO {
 
         let list = [...(this.state.contracts || [])];
 
+        if (this.activeContractTypeFilter && this.activeContractTypeFilter !== 'all') {
+            list = list.filter(c => c.contractType === this.activeContractTypeFilter);
+        }
+
         if (projFilter !== 'all') {
             list = list.filter(c => c.projectId === projFilter);
         }
 
         if (keyword) {
-            list = list.filter(c => 
-                (c.contractName || '').toLowerCase().includes(keyword) ||
-                (c.contractor || '').toLowerCase().includes(keyword) ||
-                (c.contractNo || '').toLowerCase().includes(keyword)
-            );
+            list = list.filter(c => {
+                const conTypeName = c.contractType === 'labor' ? '근로 계약' : (c.contractType === 'change' ? '근로 계약사항 변경' : (c.contractType === 'terminate' ? '근로계약 종료' : ''));
+                const empTypeName = c.employmentType === 'outsourcing' ? '자사화' : (c.employmentType === 'project_contract' ? '프로젝트 계약직' : '');
+                return (c.contractName || '').toLowerCase().includes(keyword) ||
+                       (c.contractor || '').toLowerCase().includes(keyword) ||
+                       (c.contractNo || '').toLowerCase().includes(keyword) ||
+                       conTypeName.toLowerCase().includes(keyword) ||
+                       empTypeName.toLowerCase().includes(keyword);
+            });
         }
 
         const tbody = document.getElementById('contracts-table-body');
@@ -15212,6 +15227,17 @@ class AetherPMO {
                     `<option value="${p.id}" ${p.id === c.projectId ? 'selected' : ''}>${p.projectCode ? `[${p.projectCode}] ` : ''}${p.name}</option>`
                 ).join('');
 
+                const typeOptions = [
+                    { value: 'labor', label: '근로 계약' },
+                    { value: 'change', label: '근로 계약사항 변경' },
+                    { value: 'terminate', label: '근로계약 종료' }
+                ].map(opt => `<option value="${opt.value}" ${opt.value === c.contractType ? 'selected' : ''}>${opt.label}</option>`).join('');
+
+                const empTypeOptions = [
+                    { value: 'outsourcing', label: '자사화' },
+                    { value: 'project_contract', label: '프로젝트 계약직' }
+                ].map(opt => `<option value="${opt.value}" ${opt.value === c.employmentType ? 'selected' : ''}>${opt.label}</option>`).join('');
+
                 const statusOptions = [
                     { value: 'active', label: '진행중' },
                     { value: 'completed', label: '완료' },
@@ -15222,18 +15248,28 @@ class AetherPMO {
                     <tr style="background: var(--bg-hover-item); border-bottom: 1px solid var(--bg-card-border);">
                         <td style="padding: 8px 12px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <select id="edit-con-type" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align-last: center;">
+                                ${typeOptions}
+                            </select>
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
                             <input type="text" id="edit-con-no" value="${c.contractNo || ''}" placeholder="계약번호" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; padding:0 8px; text-align: center;">
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
                             <input type="text" id="edit-con-name" value="${c.contractName || ''}" placeholder="계약명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; padding:0 8px;">
                         </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <select id="edit-con-emp-type" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align-last: center;">
+                                ${empTypeOptions}
+                            </select>
+                        </td>
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <input type="text" id="edit-con-contractor" value="${c.contractor || ''}" placeholder="원소속사명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; padding:0 8px; text-align: center;">
+                        </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
                             <select id="edit-con-project-id" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px;">
                                 ${projOptions}
                             </select>
-                        </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
-                            <input type="text" id="edit-con-contractor" value="${c.contractor || ''}" placeholder="계약처" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; padding:0 8px; text-align: center;">
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">
                             <input type="number" id="edit-con-amount" value="${c.amount || 0}" placeholder="계약금액" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; padding:0 8px; text-align: right;">
@@ -15263,13 +15299,35 @@ class AetherPMO {
                     ? '<span class="status-badge status-inprogress" style="padding:2px 6px; font-size:11px;">진행중</span>' 
                     : (c.status === 'completed' ? '<span class="status-badge status-completed" style="padding:2px 6px; font-size:11px;">완료</span>' : '<span class="status-badge" style="background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; font-size:11px;">대기</span>');
 
+                let typeBadge = '';
+                if (c.contractType === 'labor') {
+                    typeBadge = `<span class="badge" style="background:rgba(16, 185, 129, 0.1); color:#10b981; border:1px solid rgba(16, 185, 129, 0.3); font-size:12px; padding:2px 8px; border-radius:4px; font-weight:700;">근로 계약</span>`;
+                } else if (c.contractType === 'change') {
+                    typeBadge = `<span class="badge" style="background:rgba(59, 130, 246, 0.1); color:#3b82f6; border:1px solid rgba(59, 130, 246, 0.3); font-size:12px; padding:2px 8px; border-radius:4px; font-weight:700;">근로 계약사항 변경</span>`;
+                } else if (c.contractType === 'terminate') {
+                    typeBadge = `<span class="badge" style="background:rgba(239, 68, 68, 0.1); color:#ef4444; border:1px solid rgba(239, 68, 68, 0.3); font-size:12px; padding:2px 8px; border-radius:4px; font-weight:700;">근로계약 종료</span>`;
+                } else {
+                    typeBadge = `<span class="badge" style="background:var(--bg-hover-item); color:var(--text-muted); font-size:12px; padding:2px 8px; border-radius:4px; font-weight:700;">미지정</span>`;
+                }
+
+                let empTypeBadge = '';
+                if (c.employmentType === 'outsourcing') {
+                    empTypeBadge = `<span class="badge" style="background:rgba(59, 130, 246, 0.1); color:#3b82f6; border:1px solid rgba(59, 130, 246, 0.3); font-size:12px; padding:2px 8px; border-radius:4px; font-weight:700;">자사화</span>`;
+                } else if (c.employmentType === 'project_contract') {
+                    empTypeBadge = `<span class="badge" style="background:rgba(139, 92, 246, 0.1); color:#8b5cf6; border:1px solid rgba(139, 92, 246, 0.3); font-size:12px; padding:2px 8px; border-radius:4px; font-weight:700;">프로젝트 계약직</span>`;
+                } else {
+                    empTypeBadge = `<span class="badge" style="background:var(--bg-hover-item); color:var(--text-muted); font-size:12px; padding:2px 8px; border-radius:4px; font-weight:700;">미지정</span>`;
+                }
+
                 html += `
                     <tr style="border-bottom: 1px solid var(--bg-card-border);">
                         <td style="padding: 12px 16px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight:600; font-size:14px;">${idx + 1}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center;">${typeBadge}</td>
                         <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center; font-size:13px;">${c.contractNo || '-'}</td>
                         <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-weight:700; color:var(--text-main);">${c.contractName || '-'}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:13px; color:var(--text-muted);">${projectDisplay}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center;">${empTypeBadge}</td>
                         <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center; font-size:13px;">${c.contractor || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:13px; color:var(--text-muted);">${projectDisplay}</td>
                         <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: right; font-weight:600; font-size:13px;">${(c.amount || 0).toLocaleString()}원</td>
                         <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center; font-family: monospace; font-size:13px;">${c.contractDate || '-'}</td>
                         <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align: center; font-family: monospace; font-size:13px;">${c.startDate || '-'}</td>
@@ -15285,7 +15343,7 @@ class AetherPMO {
         });
 
         if (list.length === 0) {
-            html = `<tr><td colspan="11" style="padding: 32px; text-align: center; color: var(--text-muted); font-size: 14px;">등록된 계약 정보가 없습니다.</td></tr>`;
+            html = `<tr><td colspan="13" style="padding: 32px; text-align: center; color: var(--text-muted); font-size: 14px;">등록된 계약 정보가 없습니다.</td></tr>`;
         }
 
         tbody.innerHTML = html;
@@ -15296,9 +15354,11 @@ class AetherPMO {
     addNewContractRow() {
         const newCon = {
             id: 'con-' + this.generateUuid().substring(0, 8),
+            contractType: this.activeContractTypeFilter && this.activeContractTypeFilter !== 'all' ? this.activeContractTypeFilter : 'labor',
             contractNo: 'CON-' + new Date().getFullYear() + '-' + String(Math.floor(100 + Math.random() * 900)),
             contractName: '',
             projectId: (this.state.projects && this.state.projects[0]) ? this.state.projects[0].id : '',
+            employmentType: 'outsourcing',
             contractor: '',
             amount: 0,
             contractDate: new Date().toISOString().substring(0, 10),
@@ -15324,9 +15384,11 @@ class AetherPMO {
 
         const updated = {
             ...this.state.contracts[conIdx],
+            contractType: document.getElementById('edit-con-type')?.value || 'labor',
             contractNo: document.getElementById('edit-con-no')?.value || '',
             contractName: document.getElementById('edit-con-name')?.value || '',
             projectId: document.getElementById('edit-con-project-id')?.value || '',
+            employmentType: document.getElementById('edit-con-emp-type')?.value || 'outsourcing',
             contractor: document.getElementById('edit-con-contractor')?.value || '',
             amount: parseInt(document.getElementById('edit-con-amount')?.value || '0', 10),
             contractDate: document.getElementById('edit-con-date')?.value || '',
@@ -15356,6 +15418,17 @@ class AetherPMO {
         this.state.contracts = this.state.contracts.filter(c => c.id !== id);
         await this.saveState('contracts_delete', { id });
         this.showToast('계약 정보가 삭제되었습니다.', 'info');
+        this.renderContractsView();
+    }
+
+    setContractTypeFilter(type) {
+        this.activeContractTypeFilter = type;
+        document.querySelectorAll('#view-contracts .project-stage-tab').forEach(tab => {
+            tab.classList.remove('active');
+            if (tab.getAttribute('data-contract-type') === type) {
+                tab.classList.add('active');
+            }
+        });
         this.renderContractsView();
     }
 
