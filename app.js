@@ -10159,55 +10159,55 @@ class AetherPMO {
                 html += `
                     <tr style="background: var(--bg-hover-item); border-bottom: 1px solid var(--bg-card-border);">
                         <td style="padding: 8px 12px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-size:11px;">
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-size:13px;">
                             ${participations.map(pm => {
                                 const p = this.state.projects.find(proj => proj.id === pm.projectId);
                                 return p ? `<div>${p.name}</div>` : '';
                             }).join('') || '미할당'}
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <input type="text" id="edit-res-name" value="${r.name || ''}" placeholder="성명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
-                            <select id="edit-res-user-id" style="width:100%; height:28px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:11px; margin-top:4px;">
+                            <input type="text" id="edit-res-name" value="${r.name || ''}" placeholder="성명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 8px; font-weight:600;">
+                            <select id="edit-res-user-id" style="width:100%; height:28px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; margin-top:4px;">
                                 <option value="">-- 계정 연동 안함 --</option>
                                 ${userOptions}
                             </select>
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <select id="edit-res-employment-type" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; font-weight:600;">
+                            <select id="edit-res-employment-type" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; font-weight:600;">
                                 ${typeOptions}
                             </select>
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <input type="text" id="edit-res-dept" value="${r.department || ''}" placeholder="부서명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                            <input type="text" id="edit-res-dept" value="${r.department || ''}" placeholder="부서명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 8px; font-weight:600;">
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <input type="text" id="edit-res-position" value="${r.position || ''}" placeholder="직급" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                            <input type="text" id="edit-res-position" value="${r.position || ''}" placeholder="직급" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 8px; font-weight:600;">
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <input type="text" id="edit-res-role-name" value="${r.roleName || ''}" placeholder="참여역할" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; padding:0 8px; font-weight:600;">
+                            <input type="text" id="edit-res-role-name" value="${r.roleName || ''}" placeholder="참여역할" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 8px; font-weight:600;">
                         </td>
-                        <td style="padding: 8px 12px; text-align: center; border-right: 1px solid var(--bg-card-border); font-size:11px;">
+                        <td style="padding: 8px 12px; text-align: center; border-right: 1px solid var(--bg-card-border); font-size:13px;">
                             ${participations.map(pm => `<div>${pm.participationRole === 'PM' || pm.isProjectManager ? 'PM' : '멤버'}</div>`).join('') || '-'}
                         </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:11px;">
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:13px;">
                             ${participations.map(pm => `<div>${pm.startDate || '-'}</div>`).join('') || '-'}
                         </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:11px;">
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:13px;">
                             ${participations.map(pm => `<div>${pm.endDate || '-'}</div>`).join('') || '-'}
                         </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:11px;">
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:13px;">
                             ${participations.map(pm => `<div>${pm.memo || '-'}</div>`).join('') || '-'}
                         </td>
                         <td style="padding: 8px 12px; text-align: center; display: flex; justify-content: center; gap: 4px; height: 75px; align-items: center;">
-                            <button class="btn btn-xs btn-primary" onclick="app.saveResourceRow('${r.id}')" style="padding:4px 8px; display:flex; align-items:center; gap:2px;"><i data-lucide="check" style="width:12px; height:12px;"></i> 저장</button>
-                            <button class="btn btn-xs btn-outline" onclick="app.cancelResourceRowEdit()" style="padding:4px 8px; display:flex; align-items:center; gap:2px;"><i data-lucide="x" style="width:12px; height:12px;"></i> 취소</button>
+                            <button class="btn btn-xs btn-primary" onclick="app.saveResourceRow('${r.id}')" style="padding:4px 8px; display:flex; align-items:center; gap:2px; font-size:12px;"><i data-lucide="check" style="width:12px; height:12px;"></i> 저장</button>
+                            <button class="btn btn-xs btn-outline" onclick="app.cancelResourceRowEdit()" style="padding:4px 8px; display:flex; align-items:center; gap:2px; font-size:12px;"><i data-lucide="x" style="width:12px; height:12px;"></i> 취소</button>
                         </td>
                     </tr>
                 `;
             } else {
                 const linkedUser = (this.state.users || []).find(u => u.id === r.userId || u.email === r.userId);
                 const nameDisplay = linkedUser 
-                    ? `<div><strong>${r.name || '-'}</strong></div><div class="text-xs text-muted" style="margin-top:2px; font-size:10px;"><i data-lucide="link" style="width:10px; height:10px; display:inline-block; vertical-align:middle; margin-right:2px;"></i>${linkedUser.email}</div>`
+                    ? `<div><strong>${r.name || '-'}</strong></div><div class="text-xs text-muted" style="margin-top:2px; font-size:12px;"><i data-lucide="link" style="width:10px; height:10px; display:inline-block; vertical-align:middle; margin-right:2px;"></i>${linkedUser.email}</div>`
                     : `<strong>${r.name || '-'}</strong>`;
 
                 const typeLabel = this.translateEmploymentType(r.employmentType);
@@ -10218,34 +10218,34 @@ class AetherPMO {
                     turnkey: { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', text: '#f59e0b' }
                 };
                 const badgeStyle = typeColorMap[r.employmentType || 'regular'] || typeColorMap.regular;
-                const typeBadge = `<span class="badge" style="background:${badgeStyle.bg}; color:${badgeStyle.text}; border:1px solid ${badgeStyle.border}; font-size:10px; padding:2px 8px; border-radius:4px; font-weight:700;">${typeLabel}</span>`;
+                const typeBadge = `<span class="badge" style="background:${badgeStyle.bg}; color:${badgeStyle.text}; border:1px solid ${badgeStyle.border}; font-size:12px; padding:2px 8px; border-radius:4px; font-weight:700;">${typeLabel}</span>`;
 
                 html += `
                     <tr style="border-bottom: 1px solid var(--bg-card-border);">
-                        <td style="padding: 12px 16px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight:600;">${idx + 1}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:11px;">
+                        <td style="padding: 12px 16px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight:600; font-size:14px;">${idx + 1}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:13px;">
                             ${participations.map(pm => {
                                 const p = this.state.projects.find(proj => proj.id === pm.projectId);
-                                return p ? `<div style="margin-bottom:4px; font-weight:700; color:var(--text-main);">${p.name}</div>` : '';
+                                return p ? `<div style="margin-bottom:4px; font-weight:700; color:var(--text-main); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; word-break: break-all;" title="${p.name}">${p.name}</div>` : '';
                             }).join('') || '<span class="text-muted">-</span>'}
                         </td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border);">${nameDisplay}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:14px;">${nameDisplay}</td>
                         <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align:center;">${typeBadge}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border);">${r.department || '-'}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-weight: 600;">${r.position || '-'}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border);">${r.roleName || '-'}</td>
-                        <td style="padding: 12px 16px; text-align: center; border-right: 1px solid var(--bg-card-border); font-size:11px;">
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:14px;">${r.department || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-weight: 600; font-size:14px;">${r.position || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:14px;">${r.roleName || '-'}</td>
+                        <td style="padding: 12px 16px; text-align: center; border-right: 1px solid var(--bg-card-border); font-size:13px;">
                             ${participations.map(pm => {
-                                return `<div style="margin-bottom:4px;">${pm.participationRole === 'PM' || pm.isProjectManager ? '<span class="status-badge status-completed" style="padding:1px 4px; font-size:9px;">PM</span>' : '<span class="status-badge" style="background:var(--bg-hover-item); color:var(--text-muted); padding:1px 4px; font-size:9px;">멤버</span>'}</div>`;
+                                return `<div style="margin-bottom:4px;">${pm.participationRole === 'PM' || pm.isProjectManager ? '<span class="status-badge status-completed" style="padding:2px 6px; font-size:11px;">PM</span>' : '<span class="status-badge" style="background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; font-size:11px;">멤버</span>'}</div>`;
                             }).join('') || '-'}
                         </td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-family: monospace; font-size:11px;">
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-family: monospace; font-size:13px;">
                             ${participations.map(pm => `<div style="margin-bottom:4px;">${pm.startDate || '-'}</div>`).join('') || '-'}
                         </td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-family: monospace; font-size:11px;">
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-family: monospace; font-size:13px;">
                             ${participations.map(pm => `<div style="margin-bottom:4px;">${pm.endDate || '-'}</div>`).join('') || '-'}
                         </td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-size:11px;">
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-size:13px;">
                             ${participations.map(pm => `<div style="margin-bottom:4px;">${pm.memo || '-'}</div>`).join('') || '-'}
                         </td>
                         <td style="padding: 12px 16px; text-align: center; display: flex; justify-content: center; gap: 4px; align-items: center; min-height: 48px;">
