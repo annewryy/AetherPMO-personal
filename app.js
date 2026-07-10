@@ -10164,34 +10164,34 @@ class AetherPMO {
                                 return p ? `<div>${p.name}</div>` : '';
                             }).join('') || '미할당'}
                         </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <input type="text" id="edit-res-name" value="${r.name || ''}" placeholder="성명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 8px; font-weight:600;">
-                            <select id="edit-res-user-id" style="width:100%; height:28px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; margin-top:4px;">
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <input type="text" id="edit-res-name" value="${r.name || ''}" placeholder="성명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 8px; font-weight:600; text-align: center;">
+                            <select id="edit-res-user-id" style="width:100%; height:28px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; margin-top:4px; text-align-last: center;">
                                 <option value="">-- 계정 연동 안함 --</option>
                                 ${userOptions}
                             </select>
                         </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <select id="edit-res-employment-type" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; font-weight:600;">
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <select id="edit-res-employment-type" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; font-weight:600; text-align-last: center;">
                                 ${typeOptions}
                             </select>
                         </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <input type="text" id="edit-res-dept" value="${r.department || ''}" placeholder="부서명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 8px; font-weight:600;">
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <input type="text" id="edit-res-dept" value="${r.department || ''}" placeholder="부서명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 8px; font-weight:600; text-align: center;">
                         </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <input type="text" id="edit-res-position" value="${r.position || ''}" placeholder="직급" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 8px; font-weight:600;">
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <input type="text" id="edit-res-position" value="${r.position || ''}" placeholder="직급" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 8px; font-weight:600; text-align: center;">
                         </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border);">
-                            <input type="text" id="edit-res-role-name" value="${r.roleName || ''}" placeholder="참여역할" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 8px; font-weight:600;">
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                            <input type="text" id="edit-res-role-name" value="${r.roleName || ''}" placeholder="참여역할" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 8px; font-weight:600; text-align: center;">
                         </td>
                         <td style="padding: 8px 12px; text-align: center; border-right: 1px solid var(--bg-card-border); font-size:13px;">
                             ${participations.map(pm => `<div>${pm.participationRole === 'PM' || pm.isProjectManager ? 'PM' : '멤버'}</div>`).join('') || '-'}
                         </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:13px;">
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:13px; text-align: center;">
                             ${participations.map(pm => `<div>${pm.startDate || '-'}</div>`).join('') || '-'}
                         </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:13px;">
+                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:13px; text-align: center;">
                             ${participations.map(pm => `<div>${pm.endDate || '-'}</div>`).join('') || '-'}
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:13px;">
@@ -10228,20 +10228,20 @@ class AetherPMO {
                                 return p ? `<div style="margin-bottom:4px; font-weight:700; color:var(--text-main); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; word-break: break-all;" title="${p.name}">${p.name}</div>` : '';
                             }).join('') || '<span class="text-muted">-</span>'}
                         </td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:14px;">${nameDisplay}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:14px; text-align: center;">${nameDisplay}</td>
                         <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align:center;">${typeBadge}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:14px;">${r.department || '-'}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-weight: 600; font-size:14px;">${r.position || '-'}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:14px;">${r.roleName || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:14px; text-align: center;">${r.department || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-weight: 600; font-size:14px; text-align: center;">${r.position || '-'}</td>
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:14px; text-align: center;">${r.roleName || '-'}</td>
                         <td style="padding: 12px 16px; text-align: center; border-right: 1px solid var(--bg-card-border); font-size:13px;">
                             ${participations.map(pm => {
                                 return `<div style="margin-bottom:4px;">${pm.participationRole === 'PM' || pm.isProjectManager ? '<span class="status-badge status-completed" style="padding:2px 6px; font-size:11px;">PM</span>' : '<span class="status-badge" style="background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; font-size:11px;">멤버</span>'}</div>`;
                             }).join('') || '-'}
                         </td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-family: monospace; font-size:13px;">
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-family: monospace; font-size:13px; text-align: center;">
                             ${participations.map(pm => `<div style="margin-bottom:4px;">${pm.startDate || '-'}</div>`).join('') || '-'}
                         </td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-family: monospace; font-size:13px;">
+                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-family: monospace; font-size:13px; text-align: center;">
                             ${participations.map(pm => `<div style="margin-bottom:4px;">${pm.endDate || '-'}</div>`).join('') || '-'}
                         </td>
                         <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-size:13px;">
