@@ -10262,6 +10262,49 @@ class AetherPMO {
 
         tbody.innerHTML = html;
         if (window.lucide) window.lucide.createIcons();
+        this.initTableResizers();
+    }
+
+    initTableResizers() {
+        const table = document.querySelector('.excel-grid-table');
+        if (!table) return;
+
+        const cols = table.querySelectorAll('th');
+        cols.forEach((col) => {
+            if (col.querySelector('.resizer')) return;
+            if (col.textContent.trim() === '관리') return;
+
+            const resizer = document.createElement('div');
+            resizer.classList.add('resizer');
+            col.appendChild(resizer);
+
+            let x = 0;
+            let w = 0;
+
+            const mouseDownHandler = (e) => {
+                x = e.clientX;
+                const styles = window.getComputedStyle(col);
+                w = parseInt(styles.width, 10);
+                resizer.classList.add('resizing');
+                document.addEventListener('mousemove', mouseMoveHandler);
+                document.addEventListener('mouseup', mouseUpHandler);
+            };
+
+            const mouseMoveHandler = (e) => {
+                const dx = e.clientX - x;
+                const newWidth = Math.max(50, w + dx);
+                col.style.width = `${newWidth}px`;
+                col.style.minWidth = `${newWidth}px`;
+            };
+
+            const mouseUpHandler = () => {
+                resizer.classList.remove('resizing');
+                document.removeEventListener('mousemove', mouseMoveHandler);
+                document.removeEventListener('mouseup', mouseUpHandler);
+            };
+
+            resizer.addEventListener('mousedown', mouseDownHandler);
+        });
     }
 
     addNewResourceRow() {
