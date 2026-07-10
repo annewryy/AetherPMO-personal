@@ -45,6 +45,16 @@ g2b:
   # 캐시 TTL(초). 조회 결과를 단기 인메모리에 캐시 → 필터/검색은 캐시 기반(외부 재호출 없음).
   cache-ttl-seconds: ${G2B_CACHE_TTL_SECONDS:300}
 
+# 아마란스 조직/회원 동기화 소스 (설계 0020).
+#   현재는 아마란스 CXM 플랫폼이 제공한 read-only view DB(JDBC)를 소스로 사용.
+#   API가 준비되면 어댑터만 교체. url 미설정이면 동기화는 명확한 에러(수동 no-op).
+#   비밀번호는 env 주입(코드/이미지에 하드코딩 금지).
+amaranth:
+  view:
+    url: ${AMARANTH_VIEW_URL:}
+    username: ${AMARANTH_VIEW_USER:}
+    password: ${AMARANTH_VIEW_PASSWORD:}
+
 logging:
   level:
     org.hibernate.SQL: info

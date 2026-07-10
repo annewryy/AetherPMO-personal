@@ -47,7 +47,7 @@ public class WbsRepository {
                tk.planned_end_date    AS task_planned_end,
                tk.actual_start_date   AS task_actual_start,
                tk.actual_end_date     AS task_actual_end,
-               COALESCE(pm.name, u.full_name) AS assignee_name
+               COALESCE(tk.assignee_name, pm.name, u.full_name) AS assignee_name
           FROM pms_project_tailoring t
           JOIN pms_catalog_node n ON n.node_id = t.catalog_node_id
           LEFT JOIN pms_task tk

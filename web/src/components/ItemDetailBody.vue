@@ -12,12 +12,13 @@ import { dataClient } from '../lib/dataClient';
 import { stub } from '../lib/stub';
 import { fullDisplayCode } from '../lib/displayCode';
 import type {
-  Issue, ActionItem, Artifact, Task, CommentEntityType, TransitionEntity,
+  Issue, ActionItem, Artifact, Task, CommentEntityType, TransitionEntity, OrgPick,
 } from '../types';
 import StatusBadge from './StatusBadge.vue';
 import CommentThread from './CommentThread.vue';
 import TransitionButtons from './TransitionButtons.vue';
 import CommentModal from './CommentModal.vue';
+import OrgPickerModal from './OrgPickerModal.vue';
 
 // 도메인별 대상(하나만 채워짐). kind로 분기.
 export type DetailKind = 'issue' | 'action' | 'artifact' | 'task';
@@ -121,6 +122,43 @@ async function patch(patchBody: Record<string, unknown>, fieldKey: string) {
   } finally {
     savingField.value = null;
   }
+}
+
+// ---- 담당자 인라인 편집(조직도 선택) ------------------------------------------
+//   이슈=owner_name · 액션=assignee_name · 태스크=assignee_name · 산출물=author_name.
+//   아마란스 인력은 계정(uuid) 없음 → 이름으로 저장.
+const showAssigneePicker = ref(false);
+const currentAssignee = computed(() => {
+  switch (props.kind) {
+    case 'issue': return props.issue?.owner ?? '';
+    case 'action': return props.action?.assignee ?? '';
+    case 'task': return props.task?.assignee ?? '';
+    case 'artifact': return props.artifact?.author ?? '';
+  }
+  return '';
+});
+async function saveAssignee(name: string | null) {
+  const id = entityId.value;
+  if (id == null) return;
+  savingField.value = 'assignee';
+  fieldError.value = null;
+  try {
+    const v = name && name.trim() ? name.trim() : null;
+    if (props.kind === 'issue') await dataClient.issues.update(id, { owner_name: v });
+    else if (props.kind === 'action') await dataClient.actionItems.update(id, { assignee_name: v });
+    else if (props.kind === 'task') await dataClient.tasks.update(id, { assignee_name: v });
+    else if (props.kind === 'artifact') await dataClient.artifacts.update(id, { authorName: v });
+    emit('changed');
+  } catch (e) {
+    fieldError.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    savingField.value = null;
+  }
+}
+function onAssigneePick(p: OrgPick) {
+  showAssigneePicker.value = false;
+  if (p.source === 'NEW_EXTERNAL') return;
+  void saveAssignee(p.name);
 }
 
 // due_date (이슈=목표해결일 / 액션=마감일)
@@ -235,7 +273,12 @@ const TASK_STATUS_LABELS: Record<string, string> = {
     <dl class="fields">
       <template v-if="kind === 'issue'">
         <div><dt>유형</dt><dd>{{ issue?.type || '—' }}</dd></div>
-        <div><dt>담당자</dt><dd>{{ issue?.owner || '—' }}</dd></div>
+        <div><dt>담당자</dt>
+          <dd class="assignee-dd">
+            <span>{{ currentAssignee || '—' }}</span>
+            <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">조직도</button>
+          </dd>
+        </div>
         <div><dt>발생일</dt><dd>{{ fmtDate(issue?.reportedDate) }}</dd></div>
         <div>
           <dt>{{ dueLabel }}</dt>
@@ -259,7 +302,12 @@ const TASK_STATUS_LABELS: Record<string, string> = {
       </template>
 
       <template v-else-if="kind === 'action'">
-        <div><dt>담당자</dt><dd>{{ action?.assignee || '—' }}</dd></div>
+        <div><dt>담당자</dt>
+          <dd class="assignee-dd">
+            <span>{{ currentAssignee || '—' }}</span>
+            <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">조직도</button>
+          </dd>
+        </div>
         <div>
           <dt>{{ dueLabel }}</dt>
           <dd>
@@ -273,7 +321,12 @@ const TASK_STATUS_LABELS: Record<string, string> = {
       <template v-else-if="kind === 'artifact'">
         <div><dt>분류</dt><dd>{{ artifact?.category || '—' }}</dd></div>
         <div><dt>버전</dt><dd>{{ artifact?.version || '—' }}</dd></div>
-        <div><dt>작성자</dt><dd>{{ artifact?.author || '—' }}</dd></div>
+        <div><dt>담당자</dt>
+          <dd class="assignee-dd">
+            <span>{{ currentAssignee || '—' }}</span>
+            <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">조직도</button>
+          </dd>
+        </div>
         <div><dt>마감일</dt><dd>{{ fmtDate(artifact?.dueDate) }}</dd></div>
         <div><dt>제출일</dt><dd>{{ artifact?.submitDate || '—' }}</dd></div>
       </template>
@@ -281,6 +334,12 @@ const TASK_STATUS_LABELS: Record<string, string> = {
       <template v-else-if="kind === 'task'">
         <div><dt>상태</dt><dd>{{ TASK_STATUS_LABELS[status] ?? status }}</dd></div>
         <div><dt>진척률</dt><dd>{{ task?.progress ?? 0 }}%</dd></div>
+        <div><dt>담당자</dt>
+          <dd class="assignee-dd">
+            <span>{{ currentAssignee || '—' }}</span>
+            <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">조직도</button>
+          </dd>
+        </div>
         <div class="wide"><dt>기간</dt>
           <dd>{{ fmtDate(task?.plannedStartDate) }} ~ {{ fmtDate(task?.plannedEndDate) }}</dd>
         </div>
@@ -358,11 +417,25 @@ const TASK_STATUS_LABELS: Record<string, string> = {
       :submitting="converting" :error="convertError"
       @submit="submitConvert" @close="convertOpen = false"
     />
+
+    <!-- 담당자 조직도 선택 -->
+    <OrgPickerModal
+      v-if="showAssigneePicker"
+      title="담당자 선택"
+      @select="onAssigneePick" @close="showAssigneePicker = false"
+    />
   </div>
 </template>
 
 <style scoped>
 .item-body { display: flex; flex-direction: column; gap: 12px; }
+.assignee-dd { display: flex; align-items: center; gap: 8px; }
+.mini-btn {
+  border: 1px solid var(--accent); background: transparent; color: var(--accent);
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; cursor: pointer;
+}
+.mini-btn:hover:not(:disabled) { background: rgba(99, 102, 241, 0.12); }
+.mini-btn:disabled { opacity: 0.5; cursor: default; }
 .ib-head { display: flex; align-items: center; gap: 8px; }
 .kind-chip {
   font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 999px;

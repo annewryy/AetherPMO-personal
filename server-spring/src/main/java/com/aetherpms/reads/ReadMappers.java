@@ -166,6 +166,8 @@ public final class ReadMappers {
         out.put("sortOrder", num(t.getSortOrder()));
         out.put("displayCode", t.getDisplayCode());
         out.put("catalogNodeId", t.getCatalogNodeId());
+        out.put("assignee", t.getAssigneeName());   // 담당자명(직접 저장). 조직도 선택으로 채움
+        out.put("assigneeId", t.getAssigneeId());
         return out;
     }
 
@@ -251,10 +253,16 @@ public final class ReadMappers {
         out.put("memberType", m.getMemberType());
         out.put("userUid", m.getUserUid());
         out.put("name", m.getName());
-        out.put("role", m.getParticipationRole());
+        out.put("personId", m.getPersonId());
+        out.put("company", m.getCompany());
+        out.put("companyId", m.getCompanyId());
+        out.put("position", m.getPosition());
+        out.put("role", m.getParticipationRole());               // @멘션 ref 호환(기존)
+        out.put("participationRole", m.getParticipationRole());  // 상세/편집(0014)
         out.put("roleName", m.getRoleName());
         out.put("department", m.getDepartment());
         out.put("employmentType", m.getEmploymentType());
+        out.put("isProjectManager", m.getIsProjectManager() != null && m.getIsProjectManager());
         out.put("isActive", m.getIsActive() == null || m.getIsActive());
         return out;
     }

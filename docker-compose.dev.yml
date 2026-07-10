@@ -41,6 +41,11 @@ services:
       # 나라장터 serviceKey — 값은 커밋 금지. 루트의 gitignored .env 에 G2B_SERVICE_KEY=... 로 두면
       # compose가 자동으로 읽어 주입한다(없으면 빈값 → g2b 조회만 비활성). (batch6: g2b.service-key)
       G2B_SERVICE_KEY: ${G2B_SERVICE_KEY:-}
+      # 아마란스 조직/회원 동기화 소스(0020). url·user는 비밀 아님(기본 제공), pw는 .env로 주입.
+      #   미설정이면 /api/admin/org-sync가 "미설정" 에러 — 조회는 미러 테이블 기반이라 무관.
+      AMARANTH_VIEW_URL: ${AMARANTH_VIEW_URL:-jdbc:mariadb://192.168.3.111:30306/pms}
+      AMARANTH_VIEW_USER: ${AMARANTH_VIEW_USER:-guest-pms}
+      AMARANTH_VIEW_PASSWORD: ${AMARANTH_VIEW_PASSWORD:-}
     depends_on:
       db:
         condition: service_healthy

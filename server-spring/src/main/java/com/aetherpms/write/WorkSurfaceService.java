@@ -45,11 +45,12 @@ public class WorkSurfaceService {
 
     private enum Entity {
         TASK("pms_task", "task_id", "TASK",
-                Set.of("progress_rate", "status", "actual_start_date", "actual_end_date", "assignee_id")),
+                Set.of("progress_rate", "status", "actual_start_date", "actual_end_date",
+                       "assignee_id", "assignee_name")),
         ISSUE("pms_issue", "issue_id", "ISSUE",
-                Set.of("status", "priority", "due_date", "resolved_date", "owner_uid", "title")),
+                Set.of("status", "priority", "due_date", "resolved_date", "owner_uid", "owner_name", "title")),
         ACTION_ITEM("pms_action_item", "action_id", "ACTION_ITEM",
-                Set.of("status", "assignee_uid", "due_date", "title"));
+                Set.of("status", "assignee_uid", "assignee_name", "due_date", "title"));
 
         final String table, idCol, type;
         final Set<String> allowed;

@@ -10,6 +10,7 @@ import { ref } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import type { Project, ProjectCreateInput, ProjectUpdateInput } from '../types';
 import ModalShell from './ModalShell.vue';
+import OrgPersonField from './OrgPersonField.vue';
 
 const props = defineProps<{
   mode: 'create' | 'edit';
@@ -160,7 +161,7 @@ async function submit() {
     </div>
 
     <label class="label">PM</label>
-    <input v-model="pmName" class="input" type="text" placeholder="PM 이름" :disabled="submitting" />
+    <OrgPersonField v-model="pmName" placeholder="PM 이름" :disabled="submitting" title="PM 선택" />
 
     <div class="row2">
       <div>

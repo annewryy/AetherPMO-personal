@@ -12,6 +12,7 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import type { BidNoticeDetail, Project, ProjectCreateInput, CatalogNode, TailoringEntry } from '../types';
 import CatalogSelector from './CatalogSelector.vue';
+import OrgPersonField from './OrgPersonField.vue';
 
 const props = defineProps<{ notice: BidNoticeDetail }>();
 const emit = defineEmits<{
@@ -223,7 +224,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
               </label>
               <label class="field">
                 <span class="flabel">PM</span>
-                <input v-model="form.pmName" class="in" type="text" placeholder="PM 이름" :disabled="saving" />
+                <OrgPersonField v-model="form.pmName" placeholder="PM 이름" :disabled="saving" title="PM 선택" />
               </label>
             </div>
             <p class="hint">단계·상태(입찰)·발번(-B)은 등록 시 자동으로 지정됩니다.</p>

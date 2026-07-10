@@ -6,6 +6,7 @@ import { ref } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import type { IssueCreateInput, Project } from '../types';
 import ModalShell from './ModalShell.vue';
+import OrgPersonField from './OrgPersonField.vue';
 
 // projectId 고정(상세 탭) 또는 projects 목록 제공(전역 목록 — 프로젝트 선택 드롭다운) 중 하나.
 const props = defineProps<{ projectId?: number; projects?: Project[] }>();
@@ -76,7 +77,7 @@ async function submit() {
     </div>
 
     <label class="label">담당</label>
-    <input v-model="owner" class="input" type="text" placeholder="담당자명 (선택)" :disabled="submitting" />
+    <OrgPersonField v-model="owner" placeholder="담당자명 (선택)" :disabled="submitting" title="담당자 선택" />
 
     <div v-if="error" class="err">{{ error }}</div>
 

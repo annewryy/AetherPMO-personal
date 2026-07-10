@@ -29,6 +29,18 @@ public class ProjectMemberEntity {
     @Column(name = "name")
     private String name;
 
+    @Column(name = "person_id")
+    private Long personId;
+
+    @Column(name = "company")
+    private String company;
+
+    @Column(name = "company_id")
+    private Long companyId;
+
+    @Column(name = "position")
+    private String position;
+
     @Column(name = "participation_role")
     private String participationRole;
 
@@ -52,6 +64,10 @@ public class ProjectMemberEntity {
     public String getMemberType() { return memberType; }
     public String getUserUid() { return userUid; }
     public String getName() { return name; }
+    public Long getPersonId() { return personId; }
+    public String getCompany() { return company; }
+    public Long getCompanyId() { return companyId; }
+    public String getPosition() { return position; }
     public String getParticipationRole() { return participationRole; }
     public String getRoleName() { return roleName; }
     public String getDepartment() { return department; }

@@ -28,3 +28,23 @@ export function sourceLabel(source: string | null | undefined): string {
   if (source === 'EXTERNAL') return '외부';
   return source ?? '—';
 }
+
+// 자사 인력(전환 불필요) vs 전환 대상(비자사).
+const INSOURCED_TYPES = new Set(['regular', 'insourced']);
+/** 자사화 전환 대상 인력구분인가(계약직/외주/프리랜서). */
+export function isInsourcingEligible(code: string | null | undefined): boolean {
+  return !!code && !INSOURCED_TYPES.has(code);
+}
+
+// 자사화 전환 상태(0019) → 한글 라벨.
+const INSOURCING_STATUS_LABELS: Record<string, string> = {
+  REQUESTED: '전환 요청됨',
+  DOC_SENT: '공문 발신됨',
+  APPROVED: '승인·자사화 반영됨',
+  REJECTED: '반려됨',
+  CANCELED: '취소됨',
+};
+export function insourcingStatusLabel(status: string | null | undefined): string {
+  if (!status) return '—';
+  return INSOURCING_STATUS_LABELS[status] ?? status;
+}

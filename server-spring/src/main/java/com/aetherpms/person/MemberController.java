@@ -4,6 +4,8 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,5 +33,19 @@ public class MemberController {
             @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
         Map<String, Object> result = service.createMember(projectId, body, CurrentActor.resolve(req));
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    @PatchMapping("/api/projects/{id}/members/{memberId}")
+    public Map<String, Object> updateMember(@PathVariable("id") long projectId,
+            @PathVariable("memberId") long memberId,
+            @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
+        return service.updateMember(projectId, memberId, body, CurrentActor.resolve(req));
+    }
+
+    @DeleteMapping("/api/projects/{id}/members/{memberId}")
+    public ResponseEntity<Void> deleteMember(@PathVariable("id") long projectId,
+            @PathVariable("memberId") long memberId, HttpServletRequest req) {
+        service.deleteMember(projectId, memberId, CurrentActor.resolve(req));
+        return ResponseEntity.noContent().build();
     }
 }

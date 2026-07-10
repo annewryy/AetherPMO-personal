@@ -5,6 +5,7 @@ import { ref } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import type { ActionItemCreateInput, Project } from '../types';
 import ModalShell from './ModalShell.vue';
+import OrgPersonField from './OrgPersonField.vue';
 
 const props = defineProps<{ projectId?: number; projects?: Project[] }>();
 const emit = defineEmits<{ (e: 'created'): void; (e: 'close'): void }>();
@@ -53,7 +54,7 @@ async function submit() {
     <div class="row2">
       <div>
         <label class="label">담당</label>
-        <input v-model="assignee" class="input" type="text" placeholder="담당자명 (선택)" :disabled="submitting" />
+        <OrgPersonField v-model="assignee" placeholder="담당자명 (선택)" :disabled="submitting" title="담당자 선택" />
       </div>
       <div>
         <label class="label">마감일</label>

@@ -23,7 +23,7 @@ import type {
   AvailableTransition, TransitionEntity, ProjectProgress, ProjectWbs,
   IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput,
   ProjectMemberRef, ProjectMemberDetail, ProjectMemberInput, AppNotification,
-  Person, PersonProjectHistory, PersonFilters, ProjectFilters, ProjectCreateInput, ProjectUpdateInput,
+  Person, PersonProjectHistory, PersonFilters, InsourcingTransition, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput,
   BidAgency, BidNoticeFilters, BidNoticeResult, BidNoticeDetail,
 } from '../types';
 
@@ -558,6 +558,10 @@ export const dataClient = {
     async get(id: number): Promise<Artifact> {
       return apiGet<Artifact>(`/api/deliverables/${id}`);
     },
+    // 담당자(author_name)·마감일 PATCH. 상태는 워크플로 전이로만.
+    update(id: number, patch: { authorName?: string | null; dueDate?: string | null }): Promise<Artifact> {
+      return apiSend<Artifact>('PATCH', `/api/deliverables/${id}`, patch);
+    },
   },
 
   // 프로젝트 태스크 (P1-2 제안 태스크 탭 — 테일러링 전개분)
@@ -845,6 +849,14 @@ export const dataClient = {
     add(projectId: number, input: ProjectMemberInput): Promise<ProjectMemberDetail> {
       return apiSend<ProjectMemberDetail>('POST', `/api/projects/${projectId}/members`, input);
     },
+    // 참여인력 수정(PATCH) — 제공한 필드만 갱신. amaranthEmpNo 주면 person 재연결.
+    update(projectId: number, memberId: number, patch: Partial<ProjectMemberInput>): Promise<ProjectMemberDetail> {
+      return apiSend<ProjectMemberDetail>('PATCH', `/api/projects/${projectId}/members/${memberId}`, patch);
+    },
+    // 참여인력 삭제(DELETE) — 행 제거(가용성 CASCADE). person 마스터는 보존.
+    remove(projectId: number, memberId: number): Promise<void> {
+      return apiSend<void>('DELETE', `/api/projects/${projectId}/members/${memberId}`);
+    },
   },
 
   // 0012 C-3 알림 — X-User-Id(현재 사용자) 기준. API_BASE 전용(폴백은 비활성 + 안내).
@@ -916,6 +928,64 @@ export const dataClient = {
     async projects(id: number): Promise<PersonProjectHistory[]> {
       if (!apiBase()) return [];
       return apiGet<PersonProjectHistory[]>(`/api/persons/${id}/projects`);
+    },
+  },
+
+  // 자사화 전환(0019 — 비자사 → insourced). 백엔드 전용(레거시엔 인력 마스터 없음).
+  insourcingTransitions: {
+    async list(params: { status?: string; personId?: number } = {}): Promise<InsourcingTransition[]> {
+      if (!apiBase()) return [];
+      const qs = new URLSearchParams();
+      if (params.status) qs.set('status', params.status);
+      if (params.personId != null) qs.set('personId', String(params.personId));
+      const q = qs.toString();
+      return apiGet<InsourcingTransition[]>(`/api/insourcing-transitions${q ? `?${q}` : ''}`);
+    },
+    // 인력의 진행중 전환(없으면 204 → null). apiGet는 204에서 json() 실패 → 직접 처리.
+    async openForPerson(personId: number): Promise<InsourcingTransition | null> {
+      if (!apiBase()) return null;
+      const res = await fetch(`${apiBase()}/api/persons/${personId}/insourcing-transition`, {
+        headers: userHeader(),
+      });
+      if (res.status === 204) return null;
+      if (!res.ok) throw new Error(`전환 조회 실패: ${res.status}`);
+      return res.json() as Promise<InsourcingTransition>;
+    },
+    async request(personId: number, reason?: string): Promise<InsourcingTransition> {
+      return apiSend<InsourcingTransition>('POST', '/api/insourcing-transitions',
+        { personId, ...(reason ? { reason } : {}) });
+    },
+    async act(id: number, action: 'doc_sent' | 'approve' | 'reject' | 'cancel', note?: string):
+        Promise<InsourcingTransition> {
+      return apiSend<InsourcingTransition>('PATCH', `/api/insourcing-transitions/${id}`,
+        { action, ...(note ? { note } : {}) });
+    },
+  },
+
+  // 아마란스 조직/회원(0020) — 참여인력 조직도 선택. 미러 테이블 기반(백엔드 전용).
+  org: {
+    async departments(): Promise<OrgDept[]> {
+      if (!apiBase()) return [];
+      return apiGet<OrgDept[]>('/api/org/departments');
+    },
+    async members(params: { q?: string; deptCode?: string; includeResigned?: boolean } = {}): Promise<OrgMember[]> {
+      if (!apiBase()) return [];
+      const qs = new URLSearchParams();
+      if (params.q && params.q.trim()) qs.set('q', params.q.trim());
+      if (params.deptCode) qs.set('deptCode', params.deptCode);
+      if (params.includeResigned) qs.set('includeResigned', 'true');
+      const s = qs.toString();
+      return apiGet<OrgMember[]>(`/api/org/members${s ? `?${s}` : ''}`);
+    },
+    // 외부 인력(pms_person source=EXTERNAL) — 조직도 트리 '외부인력' 가지.
+    async externalMembers(q?: string): Promise<OrgExternalMember[]> {
+      if (!apiBase()) return [];
+      const s = q && q.trim() ? `?q=${encodeURIComponent(q.trim())}` : '';
+      return apiGet<OrgExternalMember[]>(`/api/org/external-members${s}`);
+    },
+    // 관리자 수동 동기화(아마란스 view → 미러 스냅샷).
+    async sync(): Promise<{ departments: number; members: number; memberDepts: number; syncedAt: string }> {
+      return apiSend('POST', '/api/admin/org-sync');
     },
   },
 

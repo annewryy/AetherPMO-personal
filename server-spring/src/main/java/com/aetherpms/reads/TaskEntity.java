@@ -52,7 +52,15 @@ public class TaskEntity {
     @Column(name = "catalog_node_id")
     private Long catalogNodeId;
 
+    @Column(name = "assignee_id", columnDefinition = "char(36)")
+    private String assigneeId;
+
+    @Column(name = "assignee_name")
+    private String assigneeName;
+
     public Long getTaskId() { return taskId; }
+    public String getAssigneeId() { return assigneeId; }
+    public String getAssigneeName() { return assigneeName; }
     public Long getParentTaskId() { return parentTaskId; }
     public Long getProjectId() { return projectId; }
     public String getTaskName() { return taskName; }

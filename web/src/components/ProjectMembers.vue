@@ -3,7 +3,7 @@
 //  - 목록: GET /api/projects/:id/members (성명·구분·인력구분·소속·직급·참여역할·PM).
 //    공통 페이징([[list-pagination-convention]]) 적용(PageSizeSelect·Pager·Row No.).
 //  - 등록: + 참여인력 등록 → 모달 폼(필수 name + 선택 필드) → POST → 목록 갱신.
-//  - 수정/삭제는 백엔드 미지원 → 이번 UI는 목록+등록만(버튼 없음).
+//  - 수정: 행 '수정' → 프리필 모달(PATCH). 삭제: 행 '삭제' → 인라인 확인 → DELETE.
 import { ref, computed, watch } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import { employmentTypeLabel } from '../lib/personLabels';
@@ -25,12 +25,34 @@ const pageSize = ref<number>(DEFAULT_PAGE_SIZE);
 const { page, total, totalPages, paged, goPage, resetPage, setPageSize, rowNo } =
   usePagination(members, pageSize);
 
-const showForm = ref(false);
+const showForm = ref(false);              // 등록 모달
+const editing = ref<ProjectMemberDetail | null>(null); // 수정 대상(있으면 수정 모달)
+const confirmDeleteId = ref<number | null>(null);
+const deleting = ref(false);
+const opError = ref<string | null>(null);
 
 function memberTypeLabel(t: string | null | undefined): string {
   if (t === 'INTERNAL') return '내부';
   if (t === 'EXTERNAL') return '외부';
   return t ?? '—';
+}
+
+function openCreate() { editing.value = null; showForm.value = true; }
+function openEdit(m: ProjectMemberDetail) { confirmDeleteId.value = null; editing.value = m; }
+function closeModal() { showForm.value = false; editing.value = null; }
+
+async function doDelete(m: ProjectMemberDetail) {
+  deleting.value = true;
+  opError.value = null;
+  try {
+    await dataClient.projectMembers.remove(props.projectId, m.memberId);
+    confirmDeleteId.value = null;
+    await load();
+  } catch (e) {
+    opError.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    deleting.value = false;
+  }
 }
 
 async function load() {
@@ -47,8 +69,8 @@ async function load() {
   }
 }
 
-async function onCreated() {
-  showForm.value = false;
+async function onSaved() {
+  closeModal();
   await load();
 }
 
@@ -62,10 +84,11 @@ watch(() => props.projectId, load, { immediate: true });
         class="btn btn-primary btn-sm"
         :disabled="!apiMode"
         :title="apiMode ? '' : '등록은 백엔드(API_BASE) 연결 후 활성화'"
-        @click="showForm = true"
+        @click="openCreate"
       >+ 참여인력 등록</button>
       <span v-if="!apiMode" class="gate-hint">등록은 백엔드(API_BASE) 연결 후 활성화</span>
     </div>
+    <div v-if="opError" class="op-error">{{ opError }}</div>
 
     <div v-if="!apiMode" class="card-empty">
       참여인력은 백엔드(API_BASE) 연결 후 표시됩니다.
@@ -85,7 +108,7 @@ watch(() => props.projectId, load, { immediate: true });
           <thead>
             <tr>
               <th class="no">No.</th><th>성명</th><th>구분</th><th>인력구분</th>
-              <th>소속</th><th>직급</th><th>참여역할</th><th>PM</th>
+              <th>소속</th><th>직급/직책</th><th>참여역할</th><th>PM</th><th class="ops-h">작업</th>
             </tr>
           </thead>
           <tbody>
@@ -101,6 +124,17 @@ watch(() => props.projectId, load, { immediate: true });
                 <span v-if="m.isProjectManager" class="pm-tag" title="프로젝트 관리자(PM)">PM</span>
                 <span v-else class="muted">—</span>
               </td>
+              <td class="ops">
+                <template v-if="confirmDeleteId === m.memberId">
+                  <span class="confirm-txt">삭제?</span>
+                  <button class="op-btn danger" :disabled="deleting" @click="doDelete(m)">확인</button>
+                  <button class="op-btn" :disabled="deleting" @click="confirmDeleteId = null">취소</button>
+                </template>
+                <template v-else>
+                  <button class="op-btn" @click="openEdit(m)">수정</button>
+                  <button class="op-btn danger" @click="confirmDeleteId = m.memberId">삭제</button>
+                </template>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -108,13 +142,12 @@ watch(() => props.projectId, load, { immediate: true });
       </template>
     </template>
 
-    <p class="hint">참여인력 수정·삭제는 백엔드 추가 예정입니다.</p>
-
     <ProjectMemberFormModal
-      v-if="showForm"
+      v-if="showForm || editing"
       :project-id="projectId"
-      @created="onCreated"
-      @close="showForm = false"
+      :member="editing"
+      @saved="onSaved"
+      @close="closeModal"
     />
   </div>
 </template>
@@ -138,5 +171,21 @@ watch(() => props.projectId, load, { immediate: true });
   font-size: 10px; font-weight: 700; color: var(--accent);
   border: 1px solid var(--accent); border-radius: 999px; padding: 0 7px;
 }
-.hint { font-size: 12px; color: var(--muted); margin: 12px 0 0; }
+
+/* 작업(수정/삭제) */
+.ops-h { width: 132px; }
+.ops { white-space: nowrap; }
+.op-btn {
+  border: 1px solid var(--border); background: var(--panel-2, var(--panel)); color: var(--text);
+  font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 7px; cursor: pointer; margin-right: 4px;
+}
+.op-btn:hover:not(:disabled) { border-color: var(--accent); }
+.op-btn:disabled { opacity: 0.5; cursor: default; }
+.op-btn.danger { color: var(--red); }
+.op-btn.danger:hover:not(:disabled) { border-color: var(--red); }
+.confirm-txt { font-size: 12px; color: var(--red); font-weight: 600; margin-right: 6px; }
+.op-error {
+  color: var(--red); font-size: 12.5px; margin-bottom: 10px;
+  border: 1px solid var(--red); border-radius: 8px; padding: 8px 10px; background: rgba(239, 68, 68, 0.08);
+}
 </style>

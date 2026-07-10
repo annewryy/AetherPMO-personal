@@ -679,6 +679,76 @@ export interface Person {
   activeProjectCount?: number;
 }
 
+// 아마란스 조직/회원 미러(0020). 참여인력 등록의 조직도 선택에 사용.
+export interface OrgDept {
+  deptCode: string;
+  upperDeptCode: string | null;      // 루트는 null
+  deptNm: string;
+  memberCount: number;               // 직속 인원수(빈 부서 판별)
+}
+export interface OrgMember {
+  mberId: string;                    // 아마란스 회원 ID(예: yj.lee)
+  mberNm: string;
+  email: string | null;
+  status: string | null;             // P 재직 / D 퇴직
+  deptCode: string | null;
+  deptNm: string | null;
+  dutyCode: string | null;
+  dutyNm: string | null;             // 직책명(팀장/파트장 등, 없으면 null)
+}
+// 외부 인력(pms_person source=EXTERNAL) — 조직도 트리의 '외부인력' 가지.
+export interface OrgExternalMember {
+  personId: number;
+  name: string;
+  employmentType: string | null;
+  companyId: number | null;
+  companyName: string | null;
+  department: string | null;
+  position: string | null;
+}
+// 조직도 선택 결과(통일) — 내부/외부/신규 공통. 재사용 컴포넌트 OrgPickerModal이 emit.
+//   소비자는 source로 분기하고 필요한 필드만 사용.
+export interface OrgPick {
+  source: 'INTERNAL' | 'EXTERNAL' | 'NEW_EXTERNAL';
+  name: string | null;               // NEW_EXTERNAL이면 null(직접 입력 유도)
+  amaranthEmpNo: string | null;      // 내부 MBER_ID
+  personId: number | null;           // 기존 외부 person
+  companyId: number | null;
+  companyName: string | null;
+  department: string | null;
+  position: string | null;           // 직책/직급
+  dutyCode: string | null;
+  employmentType: string | null;     // 외부 기존 person의 인력구분(있으면)
+}
+
+// 자사화 전환(0019). 비자사(project_contract/turnkey/freelancer) → insourced.
+// 요청→(공문 발신)→승인→반영. 공문 발신·승인은 아마란스 결재 위임 영역.
+export type InsourcingStatus =
+  | 'REQUESTED'   // 전환 요청됨
+  | 'DOC_SENT'    // 공문 발신 표시(아마란스)
+  | 'APPROVED'    // 승인 → 자사화 반영 완료
+  | 'REJECTED'    // 반려
+  | 'CANCELED';   // 취소
+
+export interface InsourcingTransition {
+  transitionId: number;
+  personId: number;
+  personName: string | null;
+  companyName: string | null;
+  fromType: string;                  // 전환 시점 employment_type(비자사)
+  toType: string;                    // 'insourced'
+  status: InsourcingStatus | string;
+  reason: string | null;
+  officialDocRef: string | null;     // 아마란스 공문 번호
+  decisionNote: string | null;
+  requestedBy: string | null;
+  requestedAt: string | null;
+  docSentAt: string | null;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  updatedAt: string | null;
+}
+
 // GET /api/persons/{id}/projects 한 항목 — 참여 이력(시간순). pms_project_member→pms_project.
 export interface PersonProjectHistory {
   projectId: number;
