@@ -27,9 +27,9 @@ const apiMode = computed(() => !!window.API_BASE);
 const showForm = ref(false);
 async function onCreated() { showForm.value = false; await reloadItems(); }
 
-// 0012: 행/제목 클릭 → 소속 프로젝트 상세의 액션아이템 상세 패널을 딥링크로 연다.
-function openProject(a: ActionItem) {
-  router.push({ path: `/projects/${a.projectId}`, query: { tab: 'action-items', panel: `action:${a.id}` } });
+// 배치23 B안: 행/제목 클릭 → 액션아이템 상세 페이지로 이동(드로어 대신 전체 페이지).
+function openDetail(a: ActionItem) {
+  router.push(`/action-items/${a.id}`);
 }
 const fmtDate = (v: string | null) => (v ? String(v).split('T')[0] : '—');
 </script>
@@ -37,7 +37,7 @@ const fmtDate = (v: string | null) => (v ? String(v).split('T')[0] : '—');
 <template>
   <div>
     <h1 class="title">액션아이템</h1>
-    <p class="sub">전 프로젝트의 액션아이템 — 행을 클릭하면 소속 프로젝트의 액션아이템 탭으로 이동합니다.</p>
+    <p class="sub">전 프로젝트의 액션아이템 — 행을 클릭하면 상세 페이지로 이동합니다.</p>
 
     <GlobalListToolbar
       v-model:project-filter="projectFilter" v-model:status-filter="statusFilter" v-model:query="query"
@@ -70,7 +70,7 @@ const fmtDate = (v: string | null) => (v ? String(v).split('T')[0] : '—');
         <tr><th class="no">No.</th><th>프로젝트</th><th>제목</th><th>담당</th><th>마감일</th><th>상태</th><th>확인 코멘트</th><th>동작</th></tr>
       </thead>
       <tbody>
-        <tr v-for="(a, idx) in paged" :key="a.id" class="row" @click="openProject(a)">
+        <tr v-for="(a, idx) in paged" :key="a.id" class="row" @click="openDetail(a)">
           <td class="no">{{ rowNo(idx) }}</td>
           <td class="proj">{{ projectName(a.projectId) }}</td>
           <td class="name">{{ a.title }}</td>
@@ -79,8 +79,8 @@ const fmtDate = (v: string | null) => (v ? String(v).split('T')[0] : '—');
           <td>{{ a.status || '—' }}</td>
           <td class="muted">{{ a.confirmComment || '—' }}</td>
           <td class="cell-actions" @click.stop>
-            <button class="btn btn-sm" @click="openProject(a)"
-              title="상세 패널에서 상태 변경 및 코멘트">상세</button>
+            <button class="btn btn-sm" @click="openDetail(a)"
+              title="상세 페이지에서 상태 변경 및 코멘트">상세</button>
           </td>
         </tr>
       </tbody>

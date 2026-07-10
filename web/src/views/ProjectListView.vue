@@ -7,8 +7,8 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
-import { stub } from '../lib/stub';
 import type { Project, ProjectLocationFilter } from '../types';
+import ProjectFormModal from '../components/ProjectFormModal.vue';
 import StageBadge from '../components/StageBadge.vue';
 import ProgressBar from '../components/ProgressBar.vue';
 import PageSizeSelect from '../components/PageSizeSelect.vue';
@@ -99,6 +99,14 @@ async function load() {
 // 수행장소 변경 시 서버 재조회(클라 필터링 아님).
 watch(locationFilter, () => { void load(); });
 
+// 배치18 — 신규 프로젝트 생성 모달. 성공 시 목록 갱신 + 상세로 이동.
+const showCreateForm = ref(false);
+async function onProjectCreated(created: Project) {
+  showCreateForm.value = false;
+  await load();
+  router.push(`/projects/${created.id}`);
+}
+
 onMounted(() => { void load(); });
 </script>
 
@@ -144,8 +152,15 @@ onMounted(() => { void load(); });
         type="search"
         placeholder="이름·코드 검색"
       />
-      <button class="btn btn-primary" @click="stub('phase2', '프로젝트 생성')">+ 신규 프로젝트</button>
+      <button class="btn btn-primary" @click="showCreateForm = true">+ 신규 프로젝트</button>
     </div>
+
+    <ProjectFormModal
+      v-if="showCreateForm"
+      mode="create"
+      @saved="onProjectCreated"
+      @close="showCreateForm = false"
+    />
 
     <div v-if="loading" class="notice">불러오는 중…</div>
     <div v-else-if="loadError" class="notice">

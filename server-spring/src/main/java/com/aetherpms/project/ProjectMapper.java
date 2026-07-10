@@ -51,6 +51,8 @@ public final class ProjectMapper {
         out.put("budget", num(p.getBudget()));
         out.put("milestones", p.getMilestones());
         out.put("inspectionDate", dateStr(p.getInspectionDate()));
+        out.put("team", p.getTeam());
+        out.put("proposalDeadline", dateStr(p.getProposalDeadline()));
         out.put("remarks", p.getRemarks());
         String status = p.getStatus();
         out.put("status", STATUS_KO2EN.getOrDefault(status, status));

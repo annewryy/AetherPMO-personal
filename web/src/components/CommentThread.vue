@@ -78,13 +78,32 @@ async function load() {
   }
 }
 
+// 배치18 §B — @멘션 후보를 전체 인력(persons)으로 확장.
+//  - 프로젝트 멤버(projectMembers)는 실제 user_uid를 갖고 있어 멘션 시 알림이 발송된다.
+//  - 전체 인력(persons)은 계정(user_uid) 없이도 후보에 포함 → 이름 멘션은 되지만 알림은 없다.
+//    (persons API가 user_uid를 노출하지 않으므로, 식별자를 `person:<id>`로 인코딩.
+//     이는 UUID가 아니어서 mentions 배열에서 제외되고 백엔드 알림 대상에서 빠진다.)
+//  - 같은 사람이 멤버·인력 양쪽에 있으면 이름 기준으로 멤버(알림 가능)를 우선한다.
 async function loadMembers() {
-  if (props.projectId == null) { members.value = []; return; }
-  try {
-    members.value = await dataClient.projectMembers.list(props.projectId);
-  } catch {
-    members.value = []; // 멤버 조회 실패 → 자동완성만 비활성(입력은 유지)
+  const [memberList, personList] = await Promise.all([
+    props.projectId != null
+      ? dataClient.projectMembers.list(props.projectId).catch(() => [] as ProjectMemberRef[])
+      : Promise.resolve([] as ProjectMemberRef[]),
+    dataClient.persons.list().catch(() => []),
+  ]);
+
+  const byName = new Map<string, ProjectMemberRef>();
+  // 멤버 먼저(실제 uuid — 알림 대상). 이름 중복 시 멤버가 우선.
+  for (const m of memberList) byName.set(m.name, m);
+  for (const p of personList) {
+    if (byName.has(p.name)) continue; // 이미 알림 가능한 멤버로 존재
+    byName.set(p.name, {
+      userUid: `person:${p.personId}`, // 비-UUID 식별자 → 알림 미발송(이름 멘션만)
+      name: p.name,
+      role: p.companyName ?? p.employmentType ?? null,
+    });
   }
+  members.value = [...byName.values()];
 }
 
 function scrollToHighlight() {

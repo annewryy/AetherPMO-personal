@@ -43,6 +43,7 @@ const form = reactive({
     (null as number | null),
   announcementNo: props.notice.announcementNo || '',
   proposalDeadline: toDeadline(props.notice.endDate),
+  pmName: '',
 });
 
 // --- Step 2 카탈로그 선택(테일러링) 상태 (0017 §C) ---
@@ -143,6 +144,7 @@ async function submit() {
     }
     if (form.announcementNo.trim()) input.announcementNo = form.announcementNo.trim();
     if (form.proposalDeadline.trim()) input.proposalDeadline = form.proposalDeadline.trim();
+    if (form.pmName.trim()) input.pmName = form.pmName.trim();
 
     // 0017 §C 테일러링: 선택 노드 → 조상 포함(cascade up) tailoring 엔트리(isSelected:true).
     //   선택이 없으면 tailoring 생략 → 백엔드 기본 생성(회귀 없음).
@@ -218,6 +220,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
               <label class="field">
                 <span class="flabel">제안마감일</span>
                 <input v-model="form.proposalDeadline" class="in" type="date" :disabled="saving" />
+              </label>
+              <label class="field">
+                <span class="flabel">PM</span>
+                <input v-model="form.pmName" class="in" type="text" placeholder="PM 이름" :disabled="saving" />
               </label>
             </div>
             <p class="hint">단계·상태(입찰)·발번(-B)은 등록 시 자동으로 지정됩니다.</p>

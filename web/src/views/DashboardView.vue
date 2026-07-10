@@ -136,16 +136,20 @@ function projectName(id: number): string {
   return projects.value.find((p) => p.id === id)?.name ?? `#${id}`;
 }
 
-// Today 항목 클릭 → 해당 상세(엔티티 유형별 탭 딥링크)
+// 배치23 B안: Today 항목 클릭 → 해당 아이템 상세 페이지로 이동(엔티티 유형별 상세 route).
+//   entityId가 있으면 상세 페이지, 없거나 PROJECT면 프로젝트 상세로 폴백.
 function openTodayItem(item: TodaySignalItem) {
-  const tabByType: Record<string, string | undefined> = {
-    PROJECT: undefined,
+  const detailPath: Record<string, string | undefined> = {
     ISSUE: 'issues',
     ACTION_ITEM: 'action-items',
-    DELIVERABLE: 'artifacts',
+    DELIVERABLE: 'deliverables',
   };
-  const tab = tabByType[item.entityType];
-  router.push({ path: `/projects/${item.projectId}`, query: tab ? { tab } : {} });
+  const base = detailPath[item.entityType];
+  if (base && item.entityId != null) {
+    router.push(`/${base}/${item.entityId}`);
+    return;
+  }
+  router.push(`/projects/${item.projectId}`);
 }
 
 // ---- 진행률 바 차트·도넛(기존 유지) --------------------------------------------

@@ -11,6 +11,7 @@ import MeetingMinutesView from './views/MeetingMinutesView.vue';
 import ResourceManagementView from './views/ResourceManagementView.vue';
 import BidNoticeSearchView from './views/BidNoticeSearchView.vue';
 import BidNoticeDetailView from './views/BidNoticeDetailView.vue';
+import ItemDetailView from './views/ItemDetailView.vue';
 import AdminView from './views/admin/AdminView.vue';
 import AdminSignalRulesView from './views/admin/AdminSignalRulesView.vue';
 import AdminCatalogView from './views/admin/AdminCatalogView.vue';
@@ -30,6 +31,11 @@ export const router = createRouter({
     { path: '/catalog/deliverables', name: 'catalog-deliverables', component: DeliverableSearchView },
     { path: '/issues', name: 'issues', component: IssuesView },
     { path: '/action-items', name: 'action-items', component: ActionItemsView },
+    // 배치23 B안: 아이템 상세 페이지(드로어 알맹이 ItemDetailBody 재사용). 정수 id.
+    { path: '/issues/:id(\\d+)', name: 'issue-detail', component: ItemDetailView, props: { kind: 'issue' } },
+    { path: '/action-items/:id(\\d+)', name: 'action-item-detail', component: ItemDetailView, props: { kind: 'action' } },
+    { path: '/deliverables/:id(\\d+)', name: 'deliverable-detail', component: ItemDetailView, props: { kind: 'artifact' } },
+    { path: '/tasks/:id(\\d+)', name: 'task-detail', component: ItemDetailView, props: { kind: 'task' } },
     { path: '/official-docs', name: 'official-docs', component: OfficialDocsView },
     { path: '/meeting-minutes', name: 'meeting-minutes', component: MeetingMinutesView },
     { path: '/persons', name: 'persons', component: ResourceManagementView },

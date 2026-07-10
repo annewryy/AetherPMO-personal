@@ -8,6 +8,8 @@ import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -36,13 +38,16 @@ public class ProjectController {
     private final ProjectRepository projectRepository;
     private final ProjectCompanyRepository companyRepository;
     private final ProjectCreateService createService;
+    private final ProjectUpdateService updateService;
 
     public ProjectController(ProjectRepository projectRepository,
                              ProjectCompanyRepository companyRepository,
-                             ProjectCreateService createService) {
+                             ProjectCreateService createService,
+                             ProjectUpdateService updateService) {
         this.projectRepository = projectRepository;
         this.companyRepository = companyRepository;
         this.createService = createService;
+        this.updateService = updateService;
     }
 
     // ---- POST /api/projects — 프로젝트 생성 (0017 §B P1) ------------------
@@ -51,6 +56,14 @@ public class ProjectController {
             @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
         Map<String, Object> result = createService.create(body, CurrentActor.resolve(req));
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    // ---- PATCH /api/projects/{id} — 프로젝트 부분수정 (0017 §Phase2 P2, 배치17) --------
+    @PatchMapping("/api/projects/{id}")
+    public Map<String, Object> update(
+            @PathVariable("id") long id,
+            @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
+        return updateService.update(id, body, CurrentActor.resolve(req));
     }
 
     @GetMapping("/api/projects")

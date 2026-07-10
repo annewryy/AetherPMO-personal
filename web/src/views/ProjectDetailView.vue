@@ -12,10 +12,9 @@
 import { ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
-import { stub } from '../lib/stub';
 import type {
   Project, Issue, ActionItem, Artifact, MeetingMinute, VrbInfo, OfficialDoc, Activity, Task,
-  ProjectProgress,
+  ProjectProgress, ProjectWbs,
 } from '../types';
 import StageBadge from '../components/StageBadge.vue';
 import ProgressBar from '../components/ProgressBar.vue';
@@ -26,6 +25,9 @@ import DetailPanel, { type DetailKind } from '../components/DetailPanel.vue';
 import IssueFormModal from '../components/IssueFormModal.vue';
 import ActionItemFormModal from '../components/ActionItemFormModal.vue';
 import MeetingMinuteFormModal from '../components/MeetingMinuteFormModal.vue';
+import WbsSchedule from '../components/WbsSchedule.vue';
+import ProjectFormModal from '../components/ProjectFormModal.vue';
+import ProjectMembers from '../components/ProjectMembers.vue';
 
 const props = defineProps<{ id: string }>();
 const route = useRoute();
@@ -41,22 +43,28 @@ const sourceProject = ref<Project | null>(null);
 // ---- 단계별 탭 구성 -----------------------------------------------------------
 type TabKey =
   | 'overview' | 'activity'                                    // 공통
+  | 'members'                                                   // 배치21 참여인력(공통)
   | 'tasks' | 'consortium' | 'vrb'                             // BIDDING
+  | 'wbs'                                                       // 배치20 WBS/일정
   | 'artifacts' | 'meeting-minutes' | 'issues' | 'action-items' | 'official-docs'; // EXECUTION
 
 const TAB_LABELS: Record<TabKey, string> = {
   overview: '개요', activity: '활동로그',
+  members: '참여인력',
   tasks: '제안 태스크', consortium: '컨소시엄', vrb: 'VRB',
+  wbs: 'WBS/일정',
   artifacts: '산출물', 'meeting-minutes': '회의록', issues: '이슈/리스크',
   'action-items': '액션아이템', 'official-docs': '공문',
 };
 
 const tabs = computed<TabKey[]>(() => {
   if (!project.value) return [];
+  // WBS/일정: 실행 단계 핵심. BIDDING(제안 일정)에서도 노출.
+  // 참여인력: 입찰·실행 공통(유경님 요구 §1).
   const stageTabs: TabKey[] =
     project.value.stage === 'BIDDING'
-      ? ['tasks', 'consortium', 'vrb']
-      : ['artifacts', 'meeting-minutes', 'issues', 'action-items', 'official-docs'];
+      ? ['tasks', 'wbs', 'consortium', 'vrb', 'members']
+      : ['wbs', 'artifacts', 'meeting-minutes', 'issues', 'action-items', 'official-docs', 'members'];
   return ['overview', ...stageTabs, 'activity'];
 });
 
@@ -78,6 +86,7 @@ const vrb = ref<VrbInfo | null>(null);
 const officialDocs = ref<OfficialDoc[]>([]);
 const activities = ref<Activity[]>([]);
 const tasks = ref<Task[]>([]);
+const wbs = ref<ProjectWbs | null>(null);
 const tabLoading = ref(false);
 const loadedTabs = new Set<TabKey>();
 
@@ -86,7 +95,8 @@ async function loadTab(key: TabKey) {
   loadedTabs.add(key);
   const pid = projectId.value;
   if (key === 'overview' || key === 'tasks') loadProgress();
-  const needsLoad = !['overview', 'consortium'].includes(key);
+  // members는 컴포넌트가 자체 로드(GET /members) — 여기서는 지연로드 대상 아님.
+  const needsLoad = !['overview', 'consortium', 'members'].includes(key);
   if (!needsLoad) return;
   tabLoading.value = true;
   try {
@@ -98,6 +108,7 @@ async function loadTab(key: TabKey) {
       case 'vrb': vrb.value = await dataClient.vrb.getByProject(pid); break;
       case 'official-docs': officialDocs.value = await dataClient.officialDocs.listByProject(pid); break;
       case 'activity': activities.value = await dataClient.activities.listByProject(pid); break;
+      case 'wbs': wbs.value = await dataClient.projects.wbs(pid); break;
       case 'tasks': {
         [tasks.value, artifacts.value] = await Promise.all([
           dataClient.tasks.listByProject(pid),
@@ -243,6 +254,14 @@ async function onIssueCreated() { showIssueForm.value = false; await reloadIssue
 async function onActionCreated() { showActionForm.value = false; await reloadActions(); }
 async function onMeetingCreated() { showMeetingForm.value = false; await reloadMeetings(); }
 
+// ---- 프로젝트 수정 모달(배치18) ----------------------------------------------
+const showEditForm = ref(false);
+async function onProjectSaved(updated: Project) {
+  showEditForm.value = false;
+  project.value = updated;
+  // 단계 변경 시 탭 구성이 바뀔 수 있어 개요로 되돌리는 편이 안전(현재 탭이 새 구성에 없으면).
+}
+
 const activitiesSorted = computed(() =>
   [...activities.value].sort((a, b) => String(b.date).localeCompare(String(a.date))),
 );
@@ -265,6 +284,7 @@ async function loadProject() {
   loadedTabs.clear();
   issues.value = []; actionItems.value = []; artifacts.value = []; tasks.value = [];
   meetings.value = []; vrb.value = null; officialDocs.value = []; activities.value = [];
+  wbs.value = null;
   progress.value = null; progressLoaded.value = false;
   panelTarget.value = null;
   try {
@@ -307,7 +327,7 @@ watch(() => route.query.panel, applyPanelQuery);
           </p>
         </div>
         <div class="head-actions">
-          <button class="btn" @click="stub('phase2', '프로젝트 수정')">수정</button>
+          <button class="btn" @click="showEditForm = true">수정</button>
           <RouterLink to="/projects" class="back">← 목록</RouterLink>
         </div>
       </div>
@@ -431,6 +451,11 @@ watch(() => route.query.panel, applyPanelQuery);
           </table>
         </template>
 
+        <!-- 배치21: 참여인력 — 목록(페이징) + 등록 (자체 로드) -->
+        <template v-else-if="activeTab === 'members'">
+          <ProjectMembers :project-id="projectId" />
+        </template>
+
         <!-- 이슈/리스크 — 제목 클릭 → 상세 패널(인라인 편집 제거) -->
         <template v-else-if="activeTab === 'issues'">
           <div class="tab-toolbar">
@@ -480,6 +505,15 @@ watch(() => route.query.panel, applyPanelQuery);
               </tr>
             </tbody>
           </table>
+        </template>
+
+        <!-- 배치20: WBS/일정 — 왼쪽 표(진척 숫자) + 오른쪽 날짜축 간트 -->
+        <template v-else-if="activeTab === 'wbs'">
+          <div v-if="!apiMode" class="card-empty">
+            WBS/일정은 백엔드(API_BASE) 연결 후 표시됩니다.
+          </div>
+          <WbsSchedule v-else-if="wbs" :wbs="wbs" />
+          <div v-else class="card-empty">WBS 데이터를 불러올 수 없습니다.</div>
         </template>
 
         <template v-else-if="activeTab === 'artifacts'">
@@ -604,6 +638,12 @@ watch(() => route.query.panel, applyPanelQuery);
       <MeetingMinuteFormModal
         v-if="showMeetingForm" :project-id="projectId"
         @created="onMeetingCreated" @close="showMeetingForm = false"
+      />
+
+      <!-- 배치18 — 프로젝트 수정 -->
+      <ProjectFormModal
+        v-if="showEditForm" mode="edit" :project="project"
+        @saved="onProjectSaved" @close="showEditForm = false"
       />
     </template>
   </div>

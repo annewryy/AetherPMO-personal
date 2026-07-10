@@ -201,6 +201,40 @@ public class ReadController {
                 .map(ReadMappers::mapProjectMember).toList();
     }
 
+    // ---- 아이템 단건 조회 (배치22) — 상세 페이지 URL 진입 시 id로 단건 로드 ----
+    //   응답 shape = 목록 아이템과 동일(camelCase). 기존 목록 매퍼 재사용. 없으면 404.
+    @GetMapping("/api/issues/{id}")
+    public Map<String, Object> issueDetail(@PathVariable("id") long rawId) {
+        long id = parseId(rawId);
+        return issueRepository.findById(id)
+                .map(com.aetherpms.issue.IssueMapper::mapIssue)
+                .orElseThrow(() -> ApiException.notFound("이슈를 찾을 수 없습니다."));
+    }
+
+    @GetMapping("/api/action-items/{id}")
+    public Map<String, Object> actionItemDetail(@PathVariable("id") long rawId) {
+        long id = parseId(rawId);
+        return actionItemRepository.findById(id)
+                .map(ReadMappers::mapActionItem)
+                .orElseThrow(() -> ApiException.notFound("액션아이템을 찾을 수 없습니다."));
+    }
+
+    @GetMapping("/api/deliverables/{id}")
+    public Map<String, Object> deliverableDetail(@PathVariable("id") long rawId) {
+        long id = parseId(rawId);
+        return deliverableRepository.findById(id)
+                .map(ReadMappers::mapArtifact)
+                .orElseThrow(() -> ApiException.notFound("산출물을 찾을 수 없습니다."));
+    }
+
+    @GetMapping("/api/tasks/{id}")
+    public Map<String, Object> taskDetail(@PathVariable("id") long rawId) {
+        long id = parseId(rawId);
+        return taskRepository.findById(id)
+                .map(ReadMappers::mapTask)
+                .orElseThrow(() -> ApiException.notFound("태스크를 찾을 수 없습니다."));
+    }
+
     // ---- GET /api/catalog/tree — 중첩 JSON 트리 ---------------------------
     @GetMapping("/api/catalog/tree")
     public List<Map<String, Object>> catalogTree(

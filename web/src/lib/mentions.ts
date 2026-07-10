@@ -11,6 +11,11 @@ export interface MentionToken {
 // `@[이름](uuid)` — 이름은 대괄호 밖 `]`·`)` 미포함, uuid는 소괄호 밖 `)` 미포함.
 const MENTION_RE = /@\[([^\]]+)\]\(([^)]+)\)/g;
 
+// 백엔드 알림 대상은 user_uid(UUID)만 — 알림 트리거는 이 형식을 만족하는 멘션에 한한다.
+// 계정(user_uid) 없는 인력의 이름 멘션은 UUID가 아닌 식별자로 인코딩되어 렌더는 되지만
+// mentions 배열(→알림)에는 포함되지 않는다(배치18 §B 결정: 멘션 허용 + 알림 없음).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** body를 텍스트/멘션 세그먼트로 분해(렌더용). */
 export function parseMentions(body: string): MentionToken[] {
   const tokens: MentionToken[] = [];
@@ -25,10 +30,13 @@ export function parseMentions(body: string): MentionToken[] {
   return tokens;
 }
 
-/** body에서 실제 등장한 멘션 uuid 배열(중복 제거) — 전송 시 mentions 필드. */
+/** body에서 실제 등장한 멘션 uuid 배열(중복 제거) — 전송 시 mentions 필드.
+ *  UUID 형식만 채택한다(계정 없는 인력의 이름 멘션은 알림 대상이 아니며 백엔드가 400을 냄). */
 export function extractMentionUuids(body: string): string[] {
   const out = new Set<string>();
-  for (const m of body.matchAll(MENTION_RE)) out.add(m[2]);
+  for (const m of body.matchAll(MENTION_RE)) {
+    if (UUID_RE.test(m[2])) out.add(m[2]);
+  }
   return [...out];
 }
 

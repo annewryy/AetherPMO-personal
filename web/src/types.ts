@@ -82,6 +82,33 @@ export interface ProjectCreateInput {
   tailoring?: TailoringEntry[];
 }
 
+// 프로젝트 수정 입력 (배치18 — PATCH /api/projects/{id}, camelCase 화이트리스트 부분수정).
+//   생성 입력과 동일한 편집가능 필드의 부분집합. 불변 필드(projectCode·sourceProjectId·
+//   clientCompanyId·clientAgencyCode·tailoring)는 넘기면 백엔드 400 — 여기 포함하지 않는다.
+//   보낸 키만 갱신(미지정 키는 유지). 미지원키 400·없으면 404.
+export interface ProjectUpdateInput {
+  name?: string;
+  customerName?: string;
+  budget?: number;
+  contractAmount?: number;
+  announcementNo?: string;
+  proposalDeadline?: string;          // yyyy-MM-dd
+  businessType?: string;
+  description?: string;
+  team?: string;
+  dept?: string;
+  location?: string;
+  pmName?: string;
+  pmId?: number | null;
+  bidStatus?: string;
+  status?: string;
+  stage?: ProjectStage;
+  plannedStartDate?: string;
+  plannedEndDate?: string;
+  remarks?: string;
+  milestones?: string;
+}
+
 // 0017 §C 테일러링 엔트리 — 생성 시 함께 보내는 카탈로그 선택 1건.
 //   catalogNodeId: 선택한 카탈로그 노드(PHASE/ACTIVITY/TASK/DELIVERABLE) id.
 //   isSelected: 기본 true(포함). false면 제외 의사(현재 UI는 선택분만 true로 수집).
@@ -108,6 +135,44 @@ export interface ProjectMemberRef {
   userUid: string;     // user_uid (멘션 uuid)
   name: string;
   role: string | null; // 역할(role)
+}
+
+// 배치21 — 참여인력 목록 항목. GET /api/projects/{id}/members 상세 응답
+// (0005 §D 사람 마스터 조인 결과). 값이 없으면 null.
+export type ProjectMemberType = 'INTERNAL' | 'EXTERNAL';
+
+export interface ProjectMemberDetail {
+  memberId: number;
+  memberType: ProjectMemberType | string | null;  // INTERNAL(내부)/EXTERNAL(외부)
+  name: string;
+  company: string | null;
+  companyId: number | null;
+  roleName: string | null;
+  position: string | null;
+  department: string | null;
+  participationRole: string | null;               // PM·PL·PMO·… (0014)
+  employmentType: EmploymentType | string | null;
+  isProjectManager: boolean | null;
+  isActive: boolean | null;
+  userUid: string | null;
+  personId: number | null;
+}
+
+// 배치21 — 참여인력 등록 입력(POST /api/projects/{id}/members 화이트리스트).
+// 필수 name. 백엔드가 pms_person에 find-or-insert 후 연결(0005 §D).
+export interface ProjectMemberInput {
+  name: string;
+  memberType?: ProjectMemberType | null;
+  employmentType?: EmploymentType | null;
+  company?: string | null;
+  companyId?: number | null;
+  roleName?: string | null;
+  position?: string | null;
+  department?: string | null;
+  participationRole?: string | null;
+  isProjectManager?: boolean | null;
+  userUid?: string | null;
+  amaranthEmpNo?: string | null;
 }
 
 // 0012 A-2/C-3 알림 — GET /api/notifications (X-User-Id 기준)
@@ -435,6 +500,46 @@ export interface ProjectProgress {
   overall: number;
   fallback: boolean;                       // true면 overall=수동 progress_rate(전개 산출물 0개)
   phases: ProgressNode[];                  // 프로세스(PHASE)별 진척률
+}
+
+// ---- WBS/일정 (배치19 — GET /api/projects/{id}/wbs) -----------------------------
+// 트리 phase→activities[]→tasks[]. 노드 공통 필드는 WbsNode. camelCase.
+//   actualRate  : 실제 진척%(0006 롤업 rate).
+//   targetRate  : 목표 진척%(0007 §1 선형 기대치) — 계획 시작·종료가 둘 다 있을 때만 숫자, 아니면 null.
+//   delta       : actualRate − targetRate. targetRate null이면 null.
+//   status/assignee/deliverableCounts: TASK만 값, 상위(PHASE/ACTIVITY)는 null/0.
+//   계획/실제 일정: ISO yyyy-MM-dd 또는 null(더미 금지 — null은 "미정" 표시).
+export type WbsNodeType = 'PHASE' | 'ACTIVITY' | 'TASK';
+
+export interface WbsDeliverableCounts {
+  total: number;
+  approved: number;
+}
+
+export interface WbsNode {
+  nodeId: number;
+  code: string | null;
+  name: string;
+  nodeType: WbsNodeType;
+  actualRate: number;                      // 실제 진척%
+  targetRate: number | null;               // 목표 진척%(계획일정 완비 시만)
+  delta: number | null;                    // actual − target
+  status: string | null;                   // TASK만: TODO/IN_PROGRESS/REVIEW/REJECTED/DONE
+  assigneeId: string | null;               // TASK만
+  assigneeName: string | null;             // TASK만
+  plannedStartDate: string | null;
+  plannedEndDate: string | null;
+  actualStartDate: string | null;
+  actualEndDate: string | null;
+  deliverableCounts?: WbsDeliverableCounts; // TASK만
+  // 트리 자식(노드 타입별로 하나만 존재)
+  activities?: WbsNode[];                   // PHASE
+  tasks?: WbsNode[];                        // ACTIVITY
+}
+
+export interface ProjectWbs {
+  projectId: number;
+  phases: WbsNode[];
 }
 
 // ---- 신규 등록 입력 (0011 B-7 / A-3 — POST, snake_case 본문) --------------------

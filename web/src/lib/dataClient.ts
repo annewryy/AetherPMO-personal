@@ -20,10 +20,10 @@ import type {
   CatalogNode, Workflow, WorkflowStatus, WorkflowTransition, WorkflowTransitionCondition,
   WorkflowInput, WorkflowStatusInput, WorkflowTransitionInput, TransitionConditionInput,
   CommentEntityType, EntityComment, CommentCreateInput,
-  AvailableTransition, TransitionEntity, ProjectProgress,
+  AvailableTransition, TransitionEntity, ProjectProgress, ProjectWbs,
   IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput,
-  ProjectMemberRef, AppNotification,
-  Person, PersonProjectHistory, PersonFilters, ProjectFilters, ProjectCreateInput,
+  ProjectMemberRef, ProjectMemberDetail, ProjectMemberInput, AppNotification,
+  Person, PersonProjectHistory, PersonFilters, ProjectFilters, ProjectCreateInput, ProjectUpdateInput,
   BidAgency, BidNoticeFilters, BidNoticeResult, BidNoticeDetail,
 } from '../types';
 
@@ -530,6 +530,20 @@ export const dataClient = {
     create(input: ProjectCreateInput): Promise<Project> {
       return apiSend<Project>('POST', '/api/projects', input);
     },
+
+    // 배치19 WBS/일정 트리(날짜축 간트 + 진척 숫자). API_BASE 전용(롤업·기대치는 백엔드).
+    //   폴백 모드에선 null → 화면은 "백엔드 연결 후 표시" 안내.
+    async wbs(projectId: number): Promise<ProjectWbs | null> {
+      if (!apiBase()) return null;
+      return apiGet<ProjectWbs>(`/api/projects/${projectId}/wbs`);
+    },
+    // 배치18: 프로젝트 부분수정(PATCH /api/projects/{id}). camelCase 화이트리스트 부분수정.
+    //   불변 필드(projectCode·sourceProjectId·clientCompanyId·clientAgencyCode·tailoring)를
+    //   넘기면 백엔드 400. 미지원키 400·없으면 404 — apiSend가 {message} 그대로 던진다.
+    //   응답은 프로젝트 상세(camelCase, team·proposalDeadline 포함).
+    update(id: number, patch: ProjectUpdateInput): Promise<Project> {
+      return apiSend<Project>('PATCH', `/api/projects/${id}`, patch);
+    },
   },
 
   members: { list: async (): Promise<ProjectMember[]> => (await selectAll('pms_project_member')).map(mapMember) },
@@ -539,6 +553,10 @@ export const dataClient = {
     async listByProject(projectId: number): Promise<Artifact[]> {
       if (apiBase()) return apiGet<Artifact[]>(`/api/projects/${projectId}/deliverables`);
       return (await selectByProject('pms_deliverable', projectId)).map(mapArtifact);
+    },
+    // 배치22 단건 조회(상세 페이지 URL 진입용). 목록 아이템과 동일 shape, 없으면 404 {message}.
+    async get(id: number): Promise<Artifact> {
+      return apiGet<Artifact>(`/api/deliverables/${id}`);
     },
   },
 
@@ -552,6 +570,10 @@ export const dataClient = {
     // patch: snake_case 본문(progress_rate/status/actual_*_date/assignee_id) + 선택 comment
     update(id: number, patch: Row): Promise<Task> {
       return apiSend<Task>('PATCH', `/api/tasks/${id}`, patch);
+    },
+    // 배치22 단건 조회(상세 페이지 URL 진입용). 목록 아이템과 동일 shape, 없으면 404 {message}.
+    async get(id: number): Promise<Task> {
+      return apiGet<Task>(`/api/tasks/${id}`);
     },
   },
 
@@ -573,6 +595,10 @@ export const dataClient = {
     convertToIssue(id: number, comment?: string): Promise<Issue> {
       return apiSend<Issue>('POST', `/api/issues/${id}/convert-to-issue`, comment ? { comment } : {});
     },
+    // 배치22 단건 조회(상세 페이지 URL 진입용). 목록 아이템과 동일 shape, 없으면 404 {message}.
+    async get(id: number): Promise<Issue> {
+      return apiGet<Issue>(`/api/issues/${id}`);
+    },
   },
 
   actionItems: {
@@ -587,6 +613,10 @@ export const dataClient = {
     },
     create(input: ActionItemCreateInput): Promise<ActionItem> {
       return apiSend<ActionItem>('POST', '/api/action-items', input);
+    },
+    // 배치22 단건 조회(상세 페이지 URL 진입용). 목록 아이템과 동일 shape, 없으면 404 {message}.
+    async get(id: number): Promise<ActionItem> {
+      return apiGet<ActionItem>(`/api/action-items/${id}`);
     },
   },
 
@@ -803,6 +833,17 @@ export const dataClient = {
     async list(projectId: number): Promise<ProjectMemberRef[]> {
       if (!apiBase()) return [];
       return apiGet<ProjectMemberRef[]>(`/api/projects/${projectId}/members`);
+    },
+    // 배치21 — 참여인력 상세 목록(성명·구분·소속·직급·참여역할·PM 등). API_BASE 전용.
+    //   같은 GET /api/projects/:id/members 응답을 상세 타입으로 받는다(백엔드가 조인 제공).
+    async listDetail(projectId: number): Promise<ProjectMemberDetail[]> {
+      if (!apiBase()) return [];
+      return apiGet<ProjectMemberDetail[]>(`/api/projects/${projectId}/members`);
+    },
+    // 배치21 — 참여인력 등록(POST). 백엔드가 pms_person에 find-or-insert 후 연결(0005 §D).
+    //   화이트리스트 외 키는 백엔드가 무시/400. 오류 {message}는 apiSend가 그대로 던진다.
+    add(projectId: number, input: ProjectMemberInput): Promise<ProjectMemberDetail> {
+      return apiSend<ProjectMemberDetail>('POST', `/api/projects/${projectId}/members`, input);
     },
   },
 

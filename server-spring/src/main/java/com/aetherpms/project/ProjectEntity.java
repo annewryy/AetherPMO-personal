@@ -89,6 +89,12 @@ public class ProjectEntity {
     @Column(name = "business_type")
     private String businessType;
 
+    @Column(name = "team")
+    private String team;
+
+    @Column(name = "proposal_deadline")
+    private LocalDate proposalDeadline;
+
     @Column(name = "project_stage")
     private String projectStage;
 
@@ -118,6 +124,8 @@ public class ProjectEntity {
     public String getAnnouncementNo() { return announcementNo; }
     public BigDecimal getContractAmount() { return contractAmount; }
     public String getBusinessType() { return businessType; }
+    public String getTeam() { return team; }
+    public LocalDate getProposalDeadline() { return proposalDeadline; }
     public String getProjectStage() { return projectStage; }
     public Long getSourceProjectId() { return sourceProjectId; }
 }
