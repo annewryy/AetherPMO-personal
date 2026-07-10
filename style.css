@@ -6693,3 +6693,47 @@ body.dark-theme .portal-copilot-task-item {
 .nav-item-wrapper.collapsed .submenu-toggle-icon {
     display: none !important;
 }
+
+/* Board specific status badges & reply styles */
+.status-badge.status-pending {
+    background-color: rgba(245, 158, 11, 0.1) !important;
+    color: #f59e0b !important;
+    border-color: rgba(245, 158, 11, 0.3) !important;
+}
+.status-badge.status-answered {
+    background-color: rgba(16, 185, 129, 0.1) !important;
+    color: #10b981 !important;
+    border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+.reply-item {
+    background: var(--bg-card);
+    border: 1px solid var(--bg-card-border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.reply-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed var(--bg-card-border);
+    padding-bottom: 6px;
+}
+.reply-author {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+.reply-date {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+.reply-content {
+    font-size: 13px;
+    color: var(--text-main);
+    line-height: 1.5;
+    white-space: pre-wrap;
+}

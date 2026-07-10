@@ -172,6 +172,11 @@
                     <span>회의록 관리</span>
                 </a>
 
+                <a href="#board" class="nav-item" data-view="board" data-tooltip="게시판">
+                    <i data-lucide="messages-square"></i>
+                    <span>게시판</span>
+                </a>
+
                 <div class="nav-item-wrapper" id="nav-wrapper-resources">
                     <a href="#resources" class="nav-item" data-view="resources" data-tooltip="인력관리">
                         <i data-lucide="users"></i>
@@ -1680,6 +1685,69 @@
                     <!-- Grid / Cards -->
                     <div class="meeting-minutes-grid" id="meeting-minutes-list">
                         <!-- Dynamic meeting minutes cards -->
+                    </div>
+                </section>
+
+                <!-- 7.4. INQUIRY BOARD VIEW -->
+                <section id="view-board" class="content-view">
+                    <div class="view-header">
+                        <div>
+                            <h1>문의 게시판</h1>
+                            <p class="subtitle">시스템 사용 문의, 기능 제안, 버그 및 건의 사항을 접수하고 관리자 답변을 실시간으로 확인합니다.</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="app.openNewBoardPostModal()">
+                            <i data-lucide="plus"></i> 새 문의 등록
+                        </button>
+                    </div>
+
+                    <!-- Category Tabs (Filter) -->
+                    <div class="project-stage-tabs-container" style="margin-bottom: 20px;">
+                        <div class="project-stage-tabs" style="border-bottom: 1px solid var(--bg-card-border); display: flex; gap: 8px;">
+                            <button class="project-stage-tab active" data-board-category="all" onclick="app.setBoardCategoryFilter('all')">전체 목록</button>
+                            <button class="project-stage-tab" data-board-category="question" onclick="app.setBoardCategoryFilter('question')">기능 문의</button>
+                            <button class="project-stage-tab" data-board-category="bug" onclick="app.setBoardCategoryFilter('bug')">오류 제보</button>
+                            <button class="project-stage-tab" data-board-category="suggestion" onclick="app.setBoardCategoryFilter('suggestion')">기능 제안</button>
+                            <button class="project-stage-tab" data-board-category="etc" onclick="app.setBoardCategoryFilter('etc')">기타 건의</button>
+                        </div>
+                    </div>
+
+                    <!-- Search and Status Filters -->
+                    <div class="filter-bar">
+                        <div class="filter-group">
+                            <label for="board-filter-status">답변 상태</label>
+                            <select id="board-filter-status" onchange="app.renderBoardView()">
+                                <option value="all">전체 상태</option>
+                                <option value="pending">답변대기</option>
+                                <option value="answered">답변완료</option>
+                            </select>
+                        </div>
+                        <div class="filter-group flex-2">
+                            <label for="board-search-input">&nbsp;</label>
+                            <div class="search-input-wrapper">
+                                <i data-lucide="search"></i>
+                                <input type="text" id="board-search-input" placeholder="제목, 내용, 작성자 검색..." oninput="app.renderBoardView()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Grid Table View (Excel Sheet style but for listing) -->
+                    <div class="table-container" style="background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 12px; overflow: hidden; margin-top: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+                        <table class="excel-grid-table" style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: var(--bg-hover-item); border-bottom: 2px solid var(--bg-card-border);">
+                                    <th style="width: 60px; padding: 12px; font-weight: 700; text-align: center; border-right: 1px solid var(--bg-card-border);">번호</th>
+                                    <th style="width: 120px; padding: 12px; font-weight: 700; text-align: center; border-right: 1px solid var(--bg-card-border);">구분</th>
+                                    <th style="padding: 12px; font-weight: 700; text-align: left; border-right: 1px solid var(--bg-card-border);">제목</th>
+                                    <th style="width: 140px; padding: 12px; font-weight: 700; text-align: center; border-right: 1px solid var(--bg-card-border);">작성자</th>
+                                    <th style="width: 160px; padding: 12px; font-weight: 700; text-align: center; border-right: 1px solid var(--bg-card-border);">작성일시</th>
+                                    <th style="width: 120px; padding: 12px; font-weight: 700; text-align: center; border-right: 1px solid var(--bg-card-border);">답변상태</th>
+                                    <th style="width: 100px; padding: 12px; font-weight: 700; text-align: center;">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody id="board-table-body">
+                                <!-- Dynamic board post items -->
+                            </tbody>
+                        </table>
                     </div>
                 </section>
 
@@ -3945,6 +4013,105 @@
                     <i data-lucide="sparkles" style="width:14px; height:14px; margin-right:4px;"></i> AI 요약 보고서 생성
                 </button>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('meeting-minutes-detail-modal').classList.remove('open')">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 14.2. BOARD POST CREATION & EDITION DIALOG -->
+    <div class="modal-overlay" id="board-form-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 id="board-modal-title">새 문의 등록</h2>
+                <button class="modal-close-btn" onclick="app.closeBoardFormModal()">&times;</button>
+            </div>
+            <form id="board-post-form" onsubmit="event.preventDefault(); app.saveBoardPostForm();">
+                <input type="hidden" id="board-post-id-field">
+                <div class="form-grid">
+                    <div class="form-group span-2">
+                        <label for="board-post-category">구분 <span class="required">*</span></label>
+                        <select id="board-post-category" required style="width:100%; height:38px; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 12px;">
+                            <option value="question">기능 문의</option>
+                            <option value="bug">오류 제보</option>
+                            <option value="suggestion">기능 제안</option>
+                            <option value="etc">기타 건의</option>
+                        </select>
+                    </div>
+                    <div class="form-group span-2">
+                        <label for="board-post-title">제목 <span class="required">*</span></label>
+                        <input type="text" id="board-post-title" required placeholder="문의 제목을 입력하세요." style="width:100%; height:38px; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 12px;">
+                    </div>
+                    <div class="form-group span-2">
+                        <label for="board-post-content">문의 내용 <span class="required">*</span></label>
+                        <textarea id="board-post-content" rows="6" required placeholder="상세 문의 내용을 입력하세요." style="width:100%; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:12px; font-family:inherit; resize:vertical;"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="app.closeBoardFormModal()">취소</button>
+                    <button type="submit" class="btn btn-primary">저장하기</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 14.3. BOARD DETAIL VIEW DIALOG -->
+    <div class="modal-overlay" id="board-detail-modal">
+        <div class="modal-card wide-modal">
+            <div class="modal-header">
+                <h2>문의 내용 상세보기</h2>
+                <button class="modal-close-btn" onclick="document.getElementById('board-detail-modal').classList.remove('open')">&times;</button>
+            </div>
+            <div class="detail-modal-body" style="max-height: calc(85vh - 120px); overflow-y: auto;">
+                <table class="detail-info-table" style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+                    <tr>
+                        <th style="width: 120px; font-weight:700;">구분</th>
+                        <td id="det-board-category">-</td>
+                    </tr>
+                    <tr>
+                        <th style="font-weight:700;">제목</th>
+                        <td id="det-board-title" class="font-bold" style="font-size:15px; color:var(--text-main);">-</td>
+                    </tr>
+                    <tr>
+                        <th style="font-weight:700;">작성자</th>
+                        <td id="det-board-author">-</td>
+                    </tr>
+                    <tr>
+                        <th style="font-weight:700;">작성일시</th>
+                        <td id="det-board-date">-</td>
+                    </tr>
+                    <tr>
+                        <th style="font-weight:700;">상태</th>
+                        <td id="det-board-status">-</td>
+                    </tr>
+                    <tr>
+                        <th style="font-weight:700; vertical-align: top; padding-top: 12px;">문의 내용</th>
+                        <td id="det-board-content" class="pre-wrap" style="padding: 12px 16px; background: var(--bg-hover-item); border-radius: 6px; line-height: 1.6; color: var(--text-main);">-</td>
+                    </tr>
+                </table>
+
+                <!-- Answers / Replies Section -->
+                <div style="border-top: 1px solid var(--bg-card-border); padding-top: 20px; margin-top: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                        <i data-lucide="message-square" style="width:16px; height:16px; color: var(--primary);"></i> 답변 및 댓글 <span id="det-board-reply-count" style="font-size: 13px; color: var(--text-muted); font-weight: 500;">(0)</span>
+                    </h3>
+                    
+                    <div id="board-reply-list" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+                        <!-- Dynamic replies list -->
+                    </div>
+
+                    <!-- Add Reply Form (Only visible for admin/PM) -->
+                    <div id="board-reply-form-container" style="background: var(--bg-hover-item); padding: 16px; border-radius: 8px; border: 1px solid var(--bg-card-border); display: flex; flex-direction: column; gap: 10px;">
+                        <span style="font-size: 13px; font-weight: 700; color: var(--text-main);">답변 등록 (운영진)</span>
+                        <textarea id="board-reply-input" rows="3" placeholder="답변을 입력하십시오. 답변 등록 시 글 상태가 자동으로 '답변완료'로 변경됩니다." style="width: 100%; border-radius: 6px; border: 1px solid var(--bg-card-border); background: var(--bg-input); color: var(--text-main); padding: 10px; font-size: 13px; resize: vertical;"></textarea>
+                        <div style="display: flex; justify-content: flex-end;">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="app.saveBoardReply()">
+                                <i data-lucide="send" style="width: 12px; height: 12px; margin-right: 4px;"></i> 답변 등록
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; justify-content:flex-end;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('board-detail-modal').classList.remove('open')">닫기</button>
             </div>
         </div>
     </div>

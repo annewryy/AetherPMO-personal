@@ -19,6 +19,8 @@ class AetherPMO {
             actionItems: [],   // Action Items
             officialDocs: [],  // Official Documents
             meetingMinutes: [], // Meeting Minutes
+            boardPosts: [],     // Inquiry board posts
+            boardReplies: [],   // Inquiry board replies
             globalTemplates: [],
             projectMembers: [],
             resources: [],
@@ -32,6 +34,9 @@ class AetherPMO {
         this.activeProjectId = null;
         this.activeProjectStageFilter = 'Active'; // Bidding | Active | Closed
         this.activeContractTypeFilter = 'all'; // all | labor | change | terminate
+        this.activeBoardCategoryFilter = 'all'; // all | question | bug | suggestion | etc
+        this.editingBoardPostId = null;
+        this.activeBoardPostId = null;
         this.activeBiddingStatusFilter = 'all';  // all | 제안 준비중 | 제안 제출 | 결과 대기 | 수주 | 실패
         this.activeDetailTab = 'overview'; // overview | templates | artifacts
         this.activeTemplateFolder = 'initiation'; // initiation | execution | closing
@@ -1209,6 +1214,60 @@ class AetherPMO {
                     if (error) console.error('[Supabase Sync] meeting_delete error:', error);
                     break;
                 }
+                case 'board_post_upsert': {
+                    const p = data;
+                    if (!this.isUuid(p.id)) {
+                        console.warn(`[Supabase Sync] Skipping board_post_upsert for legacy non-UUID id: ${p.id}`);
+                        break;
+                    }
+                    const postData = {
+                        id: p.id,
+                        category: p.category,
+                        title: p.title,
+                        content: p.content,
+                        status: p.status,
+                        author_name: p.authorName,
+                        author_id: this.isUuid(p.authorId) ? p.authorId : null
+                    };
+                    const { error } = await this.supabase.from('board_posts').upsert(postData);
+                    if (error) console.error('[Supabase Sync] board_post_upsert error:', error);
+                    break;
+                }
+                case 'board_post_delete': {
+                    if (!this.isUuid(data)) {
+                        console.warn(`[Supabase Sync] Skipping board_post_delete for legacy non-UUID id: ${data}`);
+                        break;
+                    }
+                    const { error } = await this.supabase.from('board_posts').delete().eq('id', data);
+                    if (error) console.error('[Supabase Sync] board_post_delete error:', error);
+                    break;
+                }
+                case 'board_reply_upsert': {
+                    const r = data;
+                    if (!this.isUuid(r.id) || !this.isUuid(r.postId)) {
+                        console.warn(`[Supabase Sync] Skipping board_reply_upsert for legacy non-UUID id: ${r.id} or postId: ${r.postId}`);
+                        break;
+                    }
+                    const replyData = {
+                        id: r.id,
+                        post_id: r.postId,
+                        content: r.content,
+                        author_name: r.authorName,
+                        author_id: this.isUuid(r.authorId) ? r.authorId : null
+                    };
+                    const { error } = await this.supabase.from('board_replies').upsert(replyData);
+                    if (error) console.error('[Supabase Sync] board_reply_upsert error:', error);
+                    break;
+                }
+                case 'board_reply_delete': {
+                    if (!this.isUuid(data)) {
+                        console.warn(`[Supabase Sync] Skipping board_reply_delete for legacy non-UUID id: ${data}`);
+                        break;
+                    }
+                    const { error } = await this.supabase.from('board_replies').delete().eq('id', data);
+                    if (error) console.error('[Supabase Sync] board_reply_delete error:', error);
+                    break;
+                }
                 case 'activity_upsert': {
                     const a = data;
                     if (!this.isUuid(a.id) || !this.isUuid(a.projectId)) {
@@ -1332,6 +1391,8 @@ class AetherPMO {
 
             let contracts = [];
             let salaries = [];
+            let boardPosts = [];
+            let boardReplies = [];
             if (this.useSupabase) {
                 try {
                     const { data: dbCons, error: errCon } = await this.supabase.from('contracts').select('*');
@@ -1344,6 +1405,18 @@ class AetherPMO {
                     if (!errSal && dbSals) salaries = dbSals;
                 } catch (e) {
                     console.warn('[Supabase] salaries table fetch failed. Using local storage/defaults.', e);
+                }
+                try {
+                    const { data: dbPosts, error: errPost } = await this.supabase.from('board_posts').select('*');
+                    if (!errPost && dbPosts) boardPosts = dbPosts;
+                } catch (e) {
+                    console.warn('[Supabase] board_posts table fetch failed. Using defaults.', e);
+                }
+                try {
+                    const { data: dbReplies, error: errRep } = await this.supabase.from('board_replies').select('*');
+                    if (!errRep && dbReplies) boardReplies = dbReplies;
+                } catch (e) {
+                    console.warn('[Supabase] board_replies table fetch failed. Using defaults.', e);
                 }
             }
 
@@ -1572,6 +1645,37 @@ class AetherPMO {
                 remarks: m.remarks,
                 authorId: m.author_id
             }));
+
+            // Map board posts to state
+            if (boardPosts && boardPosts.length > 0) {
+                this.state.boardPosts = boardPosts.map(p => ({
+                    id: p.id,
+                    category: p.category,
+                    title: p.title,
+                    content: p.content,
+                    status: p.status,
+                    authorName: p.author_name,
+                    authorId: p.author_id,
+                    createdAt: p.created_at,
+                    updatedAt: p.updated_at
+                }));
+            } else {
+                this.state.boardPosts = this.getDefaultBoardPosts();
+            }
+
+            // Map board replies to state
+            if (boardReplies && boardReplies.length > 0) {
+                this.state.boardReplies = boardReplies.map(r => ({
+                    id: r.id,
+                    postId: r.post_id,
+                    content: r.content,
+                    authorName: r.author_name,
+                    authorId: r.author_id,
+                    createdAt: r.created_at
+                }));
+            } else {
+                this.state.boardReplies = this.getDefaultBoardReplies();
+            }
 
             if (contracts && contracts.length > 0) {
                 this.state.contracts = contracts.map(c => ({
@@ -3982,6 +4086,8 @@ class AetherPMO {
             this.renderUserManagementTable();
         } else if (viewName === 'my-account') {
             this.renderMyAccountCenter();
+        } else if (viewName === 'board') {
+            this.renderBoardView();
         }
 
         this.updateNotifications();
@@ -10262,6 +10368,369 @@ class AetherPMO {
     }
 
     /* ==========================================================================
+       INQUIRY BOARD CONTROLLER (문의 게시판)
+       ========================================================================== */
+    setBoardCategoryFilter(category) {
+        this.activeBoardCategoryFilter = category;
+        
+        // Update tab buttons active state
+        document.querySelectorAll('#view-board .project-stage-tab').forEach(tab => {
+            if (tab.getAttribute('data-board-category') === category) {
+                tab.classList.add('active');
+            } else {
+                tab.classList.remove('active');
+            }
+        });
+        
+        this.renderBoardView();
+    }
+
+    renderBoardView() {
+        const tableBody = document.getElementById('board-table-body');
+        if (!tableBody) return;
+
+        const categoryFilter = this.activeBoardCategoryFilter || 'all';
+        const statusFilter = document.getElementById('board-filter-status')?.value || 'all';
+        const keyword = this.safeText(document.getElementById('board-search-input')?.value).toLowerCase().trim();
+
+        // Filter posts
+        const filteredPosts = (this.state.boardPosts || []).filter(post => {
+            // Category check
+            if (categoryFilter !== 'all' && post.category !== categoryFilter) return false;
+            // Status check
+            if (statusFilter !== 'all' && post.status !== statusFilter) return false;
+            // Keyword check
+            if (keyword) {
+                const titleMatch = (post.title || '').toLowerCase().includes(keyword);
+                const contentMatch = (post.content || '').toLowerCase().includes(keyword);
+                const authorMatch = (post.authorName || '').toLowerCase().includes(keyword);
+                if (!titleMatch && !contentMatch && !authorMatch) return false;
+            }
+            return true;
+        });
+
+        // Helper to translate categories
+        const translateCategory = (cat) => {
+            switch (cat) {
+                case 'question': return '기능 문의';
+                case 'bug': return '오류 제보';
+                case 'suggestion': return '기능 제안';
+                case 'etc': return '기타 건의';
+                default: return cat;
+            }
+        };
+
+        // Render table rows
+        tableBody.innerHTML = '';
+        if (filteredPosts.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" style="padding: 30px; text-align: center; color: var(--text-muted); font-size: 14px;">
+                        등록된 문의글이 존재하지 않습니다.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        filteredPosts.forEach((post, index) => {
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid var(--bg-card-border)';
+            tr.style.cursor = 'pointer';
+            tr.className = 'excel-row';
+
+            // Category tag class mapping
+            let catClass = 'badge-blue';
+            if (post.category === 'bug') catClass = 'badge-danger';
+            if (post.category === 'suggestion') catClass = 'badge-warning';
+            if (post.category === 'etc') catClass = 'badge-secondary';
+
+            // Status label mapping
+            const statusLabel = post.status === 'answered' ? '답변완료' : '답변대기';
+            const statusBadgeClass = post.status === 'answered' ? 'status-badge status-answered' : 'status-badge status-pending';
+
+            // Author and Date format
+            const author = post.authorName || '익명';
+            const dateStr = post.createdAt ? new Date(post.createdAt).toLocaleString('ko-KR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            }) : '-';
+
+            // Edit / Delete capability check: author themselves or Admin/PM
+            const canManage = this.currentUser && (this.currentUser.role === 'SYS_ADMIN' || this.currentUser.role === 'PM' || post.authorId === this.currentUser.id);
+
+            tr.innerHTML = `
+                <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-size: 13px;">${filteredPosts.length - index}</td>
+                <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border);">
+                    <span class="badge ${catClass}" style="font-size: 11px; padding: 3px 8px;">${translateCategory(post.category)}</span>
+                </td>
+                <td style="padding: 12px; border-right: 1px solid var(--bg-card-border); font-weight: 600; color: var(--text-main); font-size: 14px; text-align: left;" onclick="app.openBoardPostDetailModal('${post.id}')">
+                    ${post.title}
+                </td>
+                <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); font-size: 13px; color: var(--text-main);">${author}</td>
+                <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); font-size: 12px; color: var(--text-muted);">${dateStr}</td>
+                <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border);">
+                    <span class="${statusBadgeClass}">${statusLabel}</span>
+                </td>
+                <td style="text-align: center; padding: 12px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    ${canManage ? `
+                        <button class="btn btn-xs btn-outline" style="padding: 2px 6px; font-size:11px;" onclick="event.stopPropagation(); app.openEditBoardPostModal('${post.id}')">수정</button>
+                        <button class="btn btn-xs btn-outline" style="padding: 2px 6px; font-size:11px; border-color: rgba(239, 68, 68, 0.4); color: var(--danger);" onclick="event.stopPropagation(); app.deleteBoardPost('${post.id}')">삭제</button>
+                    ` : `<span style="font-size: 12px; color: var(--text-muted);">-</span>`}
+                </td>
+            `;
+
+            tableBody.appendChild(tr);
+        });
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    openNewBoardPostModal() {
+        document.getElementById('board-modal-title').textContent = '새 문의 등록';
+        document.getElementById('board-post-form').reset();
+        document.getElementById('board-post-id-field').value = '';
+        this.editingBoardPostId = null;
+
+        document.getElementById('board-form-modal').classList.add('open');
+    }
+
+    openEditBoardPostModal(id) {
+        const post = this.state.boardPosts.find(p => p.id === id);
+        if (!post) return;
+
+        document.getElementById('board-modal-title').textContent = '문의 내용 수정';
+        document.getElementById('board-post-id-field').value = post.id;
+        document.getElementById('board-post-category').value = post.category;
+        document.getElementById('board-post-title').value = post.title;
+        document.getElementById('board-post-content').value = post.content;
+        
+        this.editingBoardPostId = id;
+        document.getElementById('board-form-modal').classList.add('open');
+    }
+
+    closeBoardFormModal() {
+        document.getElementById('board-form-modal').classList.remove('open');
+    }
+
+    saveBoardPostForm() {
+        const id = document.getElementById('board-post-id-field').value;
+        const category = document.getElementById('board-post-category').value;
+        const title = document.getElementById('board-post-title').value.trim();
+        const content = document.getElementById('board-post-content').value.trim();
+
+        if (!category || !title || !content) {
+            alert('필수 항목을 입력하세요.');
+            return;
+        }
+
+        const authorName = this.currentUser ? (this.currentUser.name || this.currentUser.email.split('@')[0]) : '익명';
+        const authorId = this.currentUser ? this.currentUser.id : null;
+
+        if (id) {
+            const idx = this.state.boardPosts.findIndex(p => p.id === id);
+            if (idx !== -1) {
+                const prev = this.state.boardPosts[idx];
+                this.state.boardPosts[idx] = {
+                    ...prev,
+                    category,
+                    title,
+                    content,
+                    updatedAt: new Date().toISOString()
+                };
+                this.saveState('board_post_upsert', this.state.boardPosts[idx]);
+            }
+        } else {
+            const newId = this.generateUuid();
+            const newPost = {
+                id: newId,
+                category,
+                title,
+                content,
+                status: 'pending',
+                authorName,
+                authorId,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            this.state.boardPosts.unshift(newPost);
+            this.saveState('board_post_upsert', newPost);
+        }
+
+        this.closeBoardFormModal();
+        this.renderBoardView();
+    }
+
+    deleteBoardPost(id) {
+        if (confirm('이 문의글을 정말 삭제하시겠습니까? 관련 답변 및 댓글도 함께 삭제됩니다.')) {
+            this.state.boardPosts = this.state.boardPosts.filter(p => p.id !== id);
+            this.state.boardReplies = this.state.boardReplies.filter(r => r.postId !== id);
+            
+            this.saveState('board_post_delete', id);
+            this.renderBoardView();
+        }
+    }
+
+    openBoardPostDetailModal(id) {
+        const post = this.state.boardPosts.find(p => p.id === id);
+        if (!post) return;
+
+        this.activeBoardPostId = id;
+
+        // Categories translation helper
+        const translateCategory = (cat) => {
+            switch (cat) {
+                case 'question': return '기능 문의';
+                case 'bug': return '오류 제보';
+                case 'suggestion': return '기능 제안';
+                case 'etc': return '기타 건의';
+                default: return cat;
+            }
+        };
+
+        const statusLabel = post.status === 'answered' ? '답변완료' : '답변대기';
+        const statusBadgeClass = post.status === 'answered' ? 'status-badge status-answered' : 'status-badge status-pending';
+
+        document.getElementById('det-board-category').innerHTML = `<span class="badge badge-blue">${translateCategory(post.category)}</span>`;
+        document.getElementById('det-board-title').textContent = post.title;
+        document.getElementById('det-board-author').textContent = post.authorName || '익명';
+        document.getElementById('det-board-date').textContent = post.createdAt ? new Date(post.createdAt).toLocaleString('ko-KR') : '-';
+        document.getElementById('det-board-status').innerHTML = `<span class="${statusBadgeClass}">${statusLabel}</span>`;
+        document.getElementById('det-board-content').textContent = post.content;
+
+        // Render replies list
+        this.renderBoardRepliesList(id);
+
+        // Show/hide reply writing form (Admin/PM only)
+        const isMgmt = this.currentUser && (this.currentUser.role === 'SYS_ADMIN' || this.currentUser.role === 'PM');
+        const replyFormContainer = document.getElementById('board-reply-form-container');
+        if (replyFormContainer) {
+            replyFormContainer.style.display = isMgmt ? 'flex' : 'none';
+        }
+
+        // Reset reply input
+        const replyInput = document.getElementById('board-reply-input');
+        if (replyInput) replyInput.value = '';
+
+        document.getElementById('board-detail-modal').classList.add('open');
+    }
+
+    renderBoardRepliesList(postId) {
+        const replyList = document.getElementById('board-reply-list');
+        const replyCountEl = document.getElementById('det-board-reply-count');
+        if (!replyList) return;
+
+        const replies = (this.state.boardReplies || []).filter(r => r.postId === postId);
+        if (replyCountEl) replyCountEl.textContent = `(${replies.length})`;
+
+        replyList.innerHTML = '';
+        if (replies.length === 0) {
+            replyList.innerHTML = `
+                <div style="text-align: center; padding: 16px; color: var(--text-muted); font-size: 13px; border: 1px dashed var(--bg-card-border); border-radius: 8px;">
+                    등록된 답변이 없습니다.
+                </div>
+            `;
+            return;
+        }
+
+        replies.forEach(r => {
+            const div = document.createElement('div');
+            div.className = 'reply-item';
+
+            const dateStr = r.createdAt ? new Date(r.createdAt).toLocaleString('ko-KR') : '-';
+            const canDelete = this.currentUser && (this.currentUser.role === 'SYS_ADMIN' || this.currentUser.role === 'PM' || r.authorId === this.currentUser.id);
+
+            div.innerHTML = `
+                <div class="reply-header">
+                    <span class="reply-author">${r.authorName || '작성자'}</span>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="reply-date">${dateStr}</span>
+                        ${canDelete ? `
+                            <button class="btn-text" style="color:var(--danger); font-size:11px; background:none; border:none; cursor:pointer;" onclick="app.deleteBoardReply('${r.id}')">삭제</button>
+                        ` : ''}
+                    </div>
+                </div>
+                <div class="reply-content">${r.content}</div>
+            `;
+            replyList.appendChild(div);
+        });
+    }
+
+    saveBoardReply() {
+        const postId = this.activeBoardPostId;
+        if (!postId) return;
+
+        const replyInput = document.getElementById('board-reply-input');
+        const content = replyInput ? replyInput.value.trim() : '';
+
+        if (!content) {
+            alert('답변 내용을 입력해 주세요.');
+            return;
+        }
+
+        const authorName = this.currentUser ? (this.currentUser.name || '운영진') : '운영진';
+        const authorId = this.currentUser ? this.currentUser.id : null;
+        const newReplyId = this.generateUuid();
+
+        const newReply = {
+            id: newReplyId,
+            postId,
+            content,
+            authorName,
+            authorId,
+            createdAt: new Date().toISOString()
+        };
+
+        // Push reply to state
+        if (!this.state.boardReplies) this.state.boardReplies = [];
+        this.state.boardReplies.push(newReply);
+        this.saveState('board_reply_upsert', newReply);
+
+        // Update post status to 'answered'
+        const postIdx = this.state.boardPosts.findIndex(p => p.id === postId);
+        if (postIdx !== -1) {
+            this.state.boardPosts[postIdx].status = 'answered';
+            this.saveState('board_post_upsert', this.state.boardPosts[postIdx]);
+        }
+
+        // Refresh detail view
+        this.openBoardPostDetailModal(postId);
+        this.renderBoardView();
+    }
+
+    deleteBoardReply(replyId) {
+        if (confirm('이 답변을 삭제하시겠습니까?')) {
+            const reply = this.state.boardReplies.find(r => r.id === replyId);
+            if (!reply) return;
+
+            const postId = reply.postId;
+
+            // Remove from state
+            this.state.boardReplies = this.state.boardReplies.filter(r => r.id !== replyId);
+            this.saveState('board_reply_delete', replyId);
+
+            // If no more replies left for this post, we might want to change status back to pending
+            const remainingReplies = this.state.boardReplies.filter(r => r.postId === postId);
+            if (remainingReplies.length === 0) {
+                const postIdx = this.state.boardPosts.findIndex(p => p.id === postId);
+                if (postIdx !== -1) {
+                    this.state.boardPosts[postIdx].status = 'pending';
+                    this.saveState('board_post_upsert', this.state.boardPosts[postIdx]);
+                }
+            }
+
+            // Refresh views
+            this.openBoardPostDetailModal(postId);
+            this.renderBoardView();
+        }
+    }
+
+    /* ==========================================================================
        RESOURCE MANAGEMENT CONTROLLER (참여인력 관리)
        ========================================================================== */
     handleResourceAllTypesChange(allCb) {
@@ -15223,6 +15692,45 @@ class AetherPMO {
                 netPay: 4300000,
                 payDate: '2026-07-25',
                 status: 'unpaid'
+            }
+        ];
+    }
+    getDefaultBoardPosts() {
+        return [
+            {
+                id: 'board-post-1',
+                category: 'question',
+                title: '시스템 투입 공수(M/D) 소수점 입력 가능한가요?',
+                content: '인력 투입 관리 탭에서 M/D 입력 시 소수점 둘째 자리까지 입력하려고 하는데 에러가 납니다. 혹시 소수점 처리가 가능하도록 변경해 주실 수 있나요?',
+                status: 'answered',
+                authorName: '박지민 대리',
+                authorId: 'user-worker-uuid',
+                createdAt: '2026-07-09T10:00:00Z',
+                updatedAt: '2026-07-09T15:30:00Z'
+            },
+            {
+                id: 'board-post-2',
+                category: 'bug',
+                title: '회의록 작성 시 특수문자 입력 오류 제보',
+                content: '회의록 안건 입력 란에 홑따옴표(\')나 백슬래시(\\)를 포함하여 작성한 후 저장하면 데이터베이스 동기화 오류 레이아웃이 팝업됩니다. 백엔드 특수문자 이스케이프 처리가 필요해 보입니다.',
+                status: 'pending',
+                authorName: '이영희 PM',
+                authorId: 'user-pm-uuid',
+                createdAt: '2026-07-10T09:12:00Z',
+                updatedAt: '2026-07-10T09:12:00Z'
+            }
+        ];
+    }
+
+    getDefaultBoardReplies() {
+        return [
+            {
+                id: 'board-reply-1',
+                postId: 'board-post-1',
+                content: '안녕하세요. 시스템 관리자입니다. 현재 M/D 필드는 데이터 타입이 소수점(NUMERIC)을 지원하고 있으며, 프론트엔드 input 요소의 step 속성을 조정하여 소수점 둘째 자리까지 입력할 수 있도록 조치하였습니다. 테스트 부탁드립니다.',
+                authorName: '시스템 관리자',
+                authorId: 'user-admin-uuid',
+                createdAt: '2026-07-09T15:30:00Z'
             }
         ];
     }
