@@ -5964,7 +5964,6 @@ class AetherPMO {
             lucide.createIcons();
         }
     }
-    }
 
     handleG2BCustomerSelectChange() {
         const selectEl = document.getElementById('g2b-filter-customer-select');
