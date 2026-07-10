@@ -43,18 +43,25 @@ API 준비 시 소스만 교체. 우리는 이를 **미러 테이블에 배치 �
 ## C. 조회 API
 | Method | Path | 설명 |
 |---|---|---|
-| GET | `/api/org/departments` | 부서 트리(평탄, upperDeptCode로 프론트 구성) |
+| GET | `/api/org/departments` | 부서 트리(평탄, upperDeptCode로 프론트 구성). `memberCount`로 빈 부서 판별 |
 | GET | `/api/org/members?deptCode=&q=&includeResigned=` | 회원 검색(기본 재직만, 이름·ID LIKE, 겸직=행) |
+| GET | `/api/org/external-members?q=` | 외부 인력(pms_person source=EXTERNAL), 회사별 그룹핑용 companyName 포함 |
 
-## D. 참여인력 등록 UI
-- **구분** 먼저: `내부(조직도)` / `외부(직접 입력)`.
-- 내부 → `OrgMemberPicker`(이름·ID 검색, 결과에 부서·직책·ID). 선택 시 성명·`amaranthEmpNo(=MBER_ID)`·
-  부서·직책(직급/직책) 자동 채움. 외부 → 성명 직접 입력.
-- 저장은 기존 `POST /api/projects/:id/members`(변경 없음) — `amaranthEmpNo`로 person find-or-insert 연결(0005 §D).
+## D. 조직도 선택 UI — 재사용 모달 `OrgPickerModal`
+어디서든(참여인력 등록/수정·PM 선택·담당자 지정 등) `<OrgPickerModal @select @close/>`로 띄우는 **재사용 모달**.
+- **최상위 가지 2개**: `내부인력`(아마란스 부서 트리 — 부서 펼침/접기, `memberCount` 표시, 펼치면 인원 지연로드)
+  · `외부인력`(회사별 그룹 + `＋ 새 외부 인력 직접 입력`).
+- **상단 검색**: 내부/외부 통합 플랫 검색(이름·ID). 겸직은 부서별 행으로 표기.
+- **선택 결과 = 통일 타입 `OrgPick`**(`source`=INTERNAL/EXTERNAL/NEW_EXTERNAL + name·amaranthEmpNo·personId·
+  company·department·position·dutyCode·employmentType). 소비자는 source로 분기해 필요한 필드만 사용.
+- props: `roots`('both'|'internal'|'external'), `allowNewExternal`, `title`. self-fetch(dataClient.org.*).
+- 참여인력 모달: 버튼 '조직도에서 선택' → OrgPickerModal → OrgPick으로 폼 자동 채움(내부=amaranthEmpNo,
+  외부 기존=company/employmentType, 신규 외부=직접 입력 유도). 저장은 `POST/PATCH …/members`(0005 §D find-or-insert).
 
 ## 검증(2026-07-10, 로컬 dev)
 동기화 478/897/1301 로드, `/api/org/members?q=김` 실인원 표시, 조직도 선택 등록 →
 `pms_person.amaranth_emp_no=ky.kim2`·source=INTERNAL 연결 확인.
+트리 모달: 부서 펼침(인원수)·인원 지연로드·외부 가지(회사별 그룹+신규)·통합 검색·선택 시 폼 자동 채움 확인.
 
 ## 미해결/주의
 - 아마란스 비밀번호 미제공 → **자체 로그인은 별도 설계**([[0005]]) 필요(동기화로는 인증 불가).
