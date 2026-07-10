@@ -1179,14 +1179,20 @@ class AetherPMO {
                         console.warn(`[Supabase Sync] Skipping meeting_upsert for legacy non-UUID id: ${m.id} or projectId: ${m.projectId}`);
                         break;
                     }
+                    const attendeesVal = typeof m.attendees === 'string'
+                        ? m.attendees.split(',').map(s => s.trim()).filter(Boolean)
+                        : (m.attendees || []);
+
                     const meetData = {
                         id: m.id,
                         project_id: m.projectId,
                         title: m.title,
                         meet_date: m.meetDate,
                         location: m.location,
-                        attendees: m.attendees || [],
-                        content: m.content,
+                        attendees: attendeesVal,
+                        content: m.agenda || '',
+                        agenda: m.agenda || '',
+                        decisions: m.decisions || '',
                         remarks: m.remarks,
                         author_id: this.isUuid(m.authorId) ? m.authorId : null
                     };
@@ -1559,8 +1565,10 @@ class AetherPMO {
                 title: m.title,
                 meetDate: m.meet_date,
                 location: m.location,
-                attendees: m.attendees || [],
-                content: m.content,
+                attendees: Array.isArray(m.attendees) ? m.attendees.join(', ') : (m.attendees || ''),
+                content: m.content || m.agenda || '',
+                agenda: m.agenda || m.content || '',
+                decisions: m.decisions || '',
                 remarks: m.remarks,
                 authorId: m.author_id
             }));
@@ -10121,17 +10129,11 @@ class AetherPMO {
 
 
     openNewMeetingMinutesModal(fixedProjectId = null) {
-
         document.getElementById('meeting-minutes-modal-title').textContent = '새 회의록 등록';
-
         document.getElementById('meeting-minutes-form').reset();
-
         document.getElementById('meeting-minutes-id-field').value = '';
 
-        
-
         const projSelect = document.getElementById('meeting-minutes-project-select');
-
         projSelect.innerHTML = '';
         this.state.projects.forEach(p => {
             const opt = document.createElement('option');
@@ -10149,7 +10151,7 @@ class AetherPMO {
 
         const now = new Date();
         const pad = (n) => String(n).padStart(2, '0');
-        document.getElementById('meet-date').value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        document.getElementById('meeting-minutes-date').value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
         document.getElementById('meeting-minutes-modal').classList.add('open');
     }
 
@@ -10171,13 +10173,13 @@ class AetherPMO {
         projSelect.value = meet.projectId;
         projSelect.disabled = true;
 
-        document.getElementById('meet-title').value = meet.title;
-        document.getElementById('meet-date').value = meet.meetDate;
-        document.getElementById('meet-location').value = meet.location;
-        document.getElementById('meet-attendees').value = meet.attendees;
-        document.getElementById('meet-agenda').value = meet.agenda;
-        document.getElementById('meet-decisions').value = meet.decisions || '';
-        document.getElementById('meet-remarks').value = meet.remarks || '';
+        document.getElementById('meeting-minutes-title').value = meet.title;
+        document.getElementById('meeting-minutes-date').value = meet.meetDate;
+        document.getElementById('meeting-minutes-location').value = meet.location;
+        document.getElementById('meeting-minutes-attendees').value = meet.attendees;
+        document.getElementById('meeting-minutes-agenda').value = meet.agenda;
+        document.getElementById('meeting-minutes-decisions').value = meet.decisions || '';
+        document.getElementById('meeting-minutes-remarks').value = meet.remarks || '';
 
         document.getElementById('meeting-minutes-modal').classList.add('open');
     }
@@ -10189,13 +10191,13 @@ class AetherPMO {
     saveMeetingMinutesForm() {
         const id = document.getElementById('meeting-minutes-id-field').value;
         const projectId = document.getElementById('meeting-minutes-project-select').value;
-        const title = document.getElementById('meet-title').value.trim();
-        const meetDate = document.getElementById('meet-date').value;
-        const location = document.getElementById('meet-location').value.trim();
-        const attendees = document.getElementById('meet-attendees').value.trim();
-        const agenda = document.getElementById('meet-agenda').value.trim();
-        const decisions = document.getElementById('meet-decisions').value.trim();
-        const remarks = document.getElementById('meet-remarks').value.trim();
+        const title = document.getElementById('meeting-minutes-title').value.trim();
+        const meetDate = document.getElementById('meeting-minutes-date').value;
+        const location = document.getElementById('meeting-minutes-location').value.trim();
+        const attendees = document.getElementById('meeting-minutes-attendees').value.trim();
+        const agenda = document.getElementById('meeting-minutes-agenda').value.trim();
+        const decisions = document.getElementById('meeting-minutes-decisions').value.trim();
+        const remarks = document.getElementById('meeting-minutes-remarks').value.trim();
 
         if (!projectId || !title || !meetDate || !location || !attendees || !agenda) {
             alert('필수 항목을 모두 입력하십시오.');
