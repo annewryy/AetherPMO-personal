@@ -10077,6 +10077,14 @@ class AetherPMO {
     }
 
     renderResourcesView() {
+        // Calculate and update summary banner
+        const totalProjects = (this.state.projects || []).length;
+        const targetCount = (this.state.resources || []).filter(r => r.isActive !== false && (r.employmentType === 'outsourcing' || r.employmentType === 'project_contract')).length;
+        const summaryTextEl = document.getElementById('resources-summary-text');
+        if (summaryTextEl) {
+            summaryTextEl.textContent = `전체 프로젝트 ${totalProjects}건이며, 총 자사화/프로젝트 계약직 ${targetCount}명 근무중입니다.`;
+        }
+
         const projectFilterSelect = document.getElementById('resources-filter-project');
         
         if (projectFilterSelect && projectFilterSelect.options.length <= 1) {
