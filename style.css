@@ -6685,3 +6685,11 @@ body.light-theme .stat-card {
 body.dark-theme .portal-copilot-task-item {
     background: rgba(15, 23, 42, 0.6);
 }
+
+/* Sidebar submenu toggle & collapse overrides */
+.nav-item-wrapper.collapsed .nav-submenu {
+    display: none !important;
+}
+.nav-item-wrapper.collapsed .submenu-toggle-icon {
+    display: none !important;
+}

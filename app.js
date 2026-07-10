@@ -3488,6 +3488,12 @@ class AetherPMO {
             item.addEventListener('click', (e) => {
                 e.preventDefault();
                 const view = item.getAttribute('data-view');
+                const wrapper = item.closest('.nav-item-wrapper');
+
+                if (wrapper) {
+                    wrapper.classList.toggle('collapsed');
+                }
+
                 if (view === 'projects') {
                     window.location.hash = `projects/${this.activeProjectStageFilter.toLowerCase()}`;
                 } else {
@@ -3891,6 +3897,43 @@ class AetherPMO {
             if (resourcesSubmenu) {
                 resourcesSubmenu.style.display = 'none';
             }
+        }
+
+        // Collapse/Expand wrappers based on active viewName routing
+        const wrapProj = document.getElementById('nav-wrapper-projects');
+        const wrapRes = document.getElementById('nav-wrapper-resources');
+        const wrapArt = document.getElementById('nav-wrapper-artifacts');
+
+        const isProjectRoute = (viewName === 'projects' || viewName === 'projects-g2b' || viewName === 'project-detail');
+        const isResourceRoute = (viewName === 'resources' || viewName === 'contracts' || viewName === 'salaries');
+        const isArtifactRoute = (viewName === 'artifacts');
+
+        if (isProjectRoute) {
+            if (wrapProj && this._lastActiveRouteGroup !== 'projects') {
+                wrapProj.classList.remove('collapsed');
+            }
+            if (wrapRes) wrapRes.classList.add('collapsed');
+            if (wrapArt) wrapArt.classList.add('collapsed');
+            this._lastActiveRouteGroup = 'projects';
+        } else if (isResourceRoute) {
+            if (wrapRes && this._lastActiveRouteGroup !== 'resources') {
+                wrapRes.classList.remove('collapsed');
+            }
+            if (wrapProj) wrapProj.classList.add('collapsed');
+            if (wrapArt) wrapArt.classList.add('collapsed');
+            this._lastActiveRouteGroup = 'resources';
+        } else if (isArtifactRoute) {
+            if (wrapArt && this._lastActiveRouteGroup !== 'artifacts') {
+                wrapArt.classList.remove('collapsed');
+            }
+            if (wrapProj) wrapProj.classList.add('collapsed');
+            if (wrapRes) wrapRes.classList.add('collapsed');
+            this._lastActiveRouteGroup = 'artifacts';
+        } else {
+            if (wrapProj) wrapProj.classList.add('collapsed');
+            if (wrapRes) wrapRes.classList.add('collapsed');
+            if (wrapArt) wrapArt.classList.add('collapsed');
+            this._lastActiveRouteGroup = 'other';
         }
 
         const targetView = document.getElementById(`view-${viewName}`);
