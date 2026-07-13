@@ -6737,3 +6737,15 @@ body.dark-theme .portal-copilot-task-item {
     line-height: 1.5;
     white-space: pre-wrap;
 }
+
+/* Action Item Table Font Size Boost for Readability */
+#view-action-items table.data-table th {
+    font-size: 13.5px !important;
+}
+#view-action-items table.data-table td {
+    font-size: 14px !important;
+}
+#view-action-items table.data-table td span,
+#view-action-items table.data-table td a {
+    font-size: 14px !important;
+}
