@@ -2,7 +2,7 @@
 
 > **새 채팅/새 작업자는 이 문서부터 읽으세요.** 전체 구조·API·데이터모델·문서 체계·함정을 한 번에 파악할 수 있게 정리했습니다.
 > 기준일: 2026-07-13 · 코드 기준: `impl/0013-spring-backend`
-> 상세 API는 [API.md](API.md), 요구사항→설계 워크플로는 [design/README.md](design/README.md), 기능별 설계는 [design/000N](design/) 참조.
+> 상세: [API.md](API.md)(엔드포인트) · [FRONTEND.md](FRONTEND.md)(프론트 구조·라우팅·보안) · [design/README.md](design/README.md)(요구사항→설계 워크플로) · [design/000N](design/)(기능별 설계).
 
 ---
 
