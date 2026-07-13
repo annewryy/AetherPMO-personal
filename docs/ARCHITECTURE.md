@@ -57,21 +57,24 @@ docker compose -f docker-compose.dev.yml up -d --build
 ## 4. 코드 구조
 
 ### 백엔드 `server-spring/src/main/java/com/aetherpms/`
+**전 패키지 도메인 기반**(2026-07-13 리팩터로 구 `reads`/`write` CQRS 패키지를 도메인으로 해체). 각 도메인이 자기 Controller·Service·Entity·Repository·Mapper를 소유(읽기/쓰기 컨트롤러가 같은 도메인에 공존).
+
 | 패키지 | 역할 |
 |---|---|
-| `common` | Actor/CurrentActor(X-User-Id), ApiException, 공용 |
-| `project` | 프로젝트 CRUD(ProjectController/Service/Entity/Mapper) |
-| `reads` | 읽기 조회(ReadController) — 목록·단건, 엔티티·매퍼 모음 |
-| `issue` | 이슈/리스크(IssueController/Service) |
-| `officialdoc` | 공문(OfficialDoc) — 아마란스 결재 경계 |
-| `progress` | 진척 롤업(0006 recursive CTE) |
-| `wbs` | WBS/일정 트리(WbsController/Service/Repository) |
-| `engine` | 워크플로 엔진(상태·전이·조건 평가) |
+| `common` | 공용 인프라: Actor/CurrentActor(X-User-Id)·ApiException·AuditWriter·Json·**WriteSupport·RowMappers·ReadMappers·ReadSupport·WorkSurfaceService**(제네릭 작업화면 patch 엔진) |
+| `project` | 프로젝트 CRUD + 상세 읽기(ProjectReadController)·VRB |
+| `task` | 태스크 읽기/쓰기(Task*ReadController·TaskWriteController·Entity·Repo) |
+| `deliverable` | 산출물 읽기/쓰기 |
+| `actionitem` | 액션아이템 읽기/쓰기 |
+| `issue` | 이슈/리스크(Controller 생성·IssueWrite patch/전환·IssueRead·Mapper·DisplayCodeService) |
+| `meeting` | 회의록 · `officialdoc` 공문(아마란스 결재 경계) · `activity` 활동로그 |
+| `catalog` | 카탈로그 노드(CatalogRead·CatalogAdmin) · `company` 회사 기준정보 |
+| `engine` | 워크플로 엔진(전이·조건 평가·Transition·WorkflowAdmin·WorkflowRead) |
+| `progress` | 진척 롤업(0006) · `signal` 대시보드 신호·규칙 |
+| `wbs` | WBS/일정 트리 |
 | `g2b` | 나라장터 연동(BidAgency/BidNotice/BidNoticeDetail) |
-| `person` | 인력 마스터(PersonController) + 참여인력(MemberController) |
-| `org` | 아마란스 조직 미러 + 동기화(OrgController/Service/SyncService) |
-| `insourcing` | 자사화 전환(InsourcingController/Service) |
-| `write` | 쓰기 계열: WorkSurface(태스크/이슈/액션 PATCH), Transition(전이), Comment, Notification, Signal, SignalRule, WorkflowAdmin, DeliverableWrite, Admin |
+| `person` | 인력 마스터 + 참여인력(Member) · `org` 아마란스 조직 미러/동기화 · `insourcing` 자사화 전환 |
+| `comment` · `notification` | 코멘트(@멘션) · 알림 |
 
 ### 프론트 `web/src/`
 - **`lib/dataClient.ts`** — 데이터 경계(백엔드/Supabase 분기). 새 API는 여기에 추가.
