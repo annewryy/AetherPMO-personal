@@ -44,6 +44,9 @@ ALTER TABLE pms_person          ADD COLUMN role_name VARCHAR(100);
 
 ## B. 누락 화면(엔티티) — 유경님 O / 우리 X — **성격 확정 후 반영**
 
+> 급여·게시판·체크리스트는 **[requirements/0002 확인요청](../requirements/0002-parity-features-clarification.md)** 으로 유경님 확인 대기.
+> 계약은 유경님 구현 완료 후 정합. 확인·회신되는 대로 아래 표/스키마를 확정한다.
+
 | 화면 | 레거시 테이블 | 핵심 필드 | 결정 필요 |
 |---|---|---|---|
 | 계약관리 | `contracts` | contract_no·contract_name·contractor·amount·contract_date·start/end_date·status | 유경님이 근로계약/변경/종료로 **활발히 확장 중** → 우리가 중복 구현? 범위 조율 필요 |
