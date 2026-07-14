@@ -31,9 +31,9 @@ src/
 ### `lib/` (핵심)
 | 파일 | 역할 |
 |---|---|
-| **`dataClient.ts`** | **단일 데이터 경계.** 모든 읽기/쓰기. 백엔드/Supabase 이중 모드 분기 |
+| **`dataClient.ts`** | **단일 데이터 경계.** 모든 읽기/쓰기 → Spring `/api`(2026-07-14 Supabase 제거) |
 | `currentUser.ts` | 현재 사용자 uuid(데모 신원) — X-User-Id 소스, localStorage 유지 |
-| `supabase.ts` | Supabase 클라 지연 생성(폴백 모드) |
+| ~~`supabase.ts`~~ | (제거됨 2026-07-14 — Supabase 폴백 폐지) |
 | `pagination.ts` / `useGlobalList.ts` | 공통 페이징·전역 목록 훅 |
 | `mentions.ts` | @멘션 파싱/후보 |
 | `displayCode.ts` · `personLabels.ts` | 표시 코드·인력구분 라벨 |
@@ -61,19 +61,20 @@ Dashboard · ProjectList · **ProjectDetail**(탭: 개요/WBS/산출물/회의�
 
 ---
 
-## 4. 데이터 계층 — `dataClient` 이중 모드
+## 4. 데이터 계층 — `dataClient` (Spring 전용)
 
-**모든 데이터 접근은 `dataClient`를 통한다**(0004 불변 계약). 컴포넌트가 fetch/Supabase를 직접 호출하지 않는다.
+**모든 데이터 접근은 `dataClient`를 통한다**(0004 불변 계약). 컴포넌트가 fetch를 직접 호출하지 않는다.
+**2026-07-14: Supabase 폴백 완전 제거 → Spring 단일 소스.**
 
 ```
-window.API_BASE 있음 → 백엔드 모드: apiGet/apiSend → `${API_BASE}/api/...`  (camelCase 도메인 모델)
-window.API_BASE 없음 → 폴백 모드: Supabase 직결(읽기 위주). 쓰기·백엔드 전용 기능은 비활성 + 안내
+모든 조회/쓰기 → apiGet/apiSend → `${API_BASE}/api/...`  (camelCase 도메인 모델)
+window.API_BASE 없음(백엔드 미연결) → 읽기 []/null 반환, 쓰기 즉시 throw(게이트) + 화면 안내
 ```
 
-- `API_BASE` 주입: **dev = nginx `sub_filter`**(`window.API_BASE=location.origin`), **Vercel = 미주입**(→ 폴백).
+- `API_BASE` 주입: **dev = nginx `sub_filter`**(`window.API_BASE=location.origin`). Vercel엔 Spring 백엔드가 없어 `/app`은 빈 상태(백엔드 필수).
 - `apiGet<T>(path)` — GET + `X-User-Id` 헤더. 실패 시 서버 `{message}`를 그대로 throw.
 - `apiSend<T>(method, path, body)` — POST/PATCH/DELETE. `API_BASE` 없으면 **즉시 throw**(쓰기 게이트). 204 처리.
-- 폴백에서 백엔드 전용(WBS·persons·org·transitions 등)은 `[]`/`null` 반환 + 화면 안내. 미구현은 `stub()`.
+- 전사(전역) 목록도 Spring 전역 엔드포인트(`/api/issues·/api/action-items·/api/deliverables·/api/meeting-minutes·/api/official-docs·/api/members`) 사용. 미구현 기능은 `stub()`.
 
 ---
 
@@ -93,7 +94,7 @@ window.API_BASE 없음 → 폴백 모드: Supabase 직결(읽기 위주). 쓰기
 
 ### 시크릿 / 키
 - **프론트 번들에 서버 시크릿 없음** — 나라장터 `G2B_SERVICE_KEY`·DB 자격증명은 **백엔드 전용**(env). 프론트는 `/api`만 호출.
-- **Supabase anon key**는 공개 전제 키(빌드 시 `build-config.js`가 env→`supabase-config.js` 생성). 보안은 Supabase **RLS**에 의존. **백엔드 모드에선 Supabase 미사용**.
+- **Supabase 미사용**(2026-07-14 폴백 제거) — `/app`은 Spring `/api`만 호출. `@supabase/supabase-js` 의존성·`supabase.ts`도 제거. (동료의 루트 `/` 앱은 여전히 Supabase 직결이나 별개.)
 
 ### 전송 / 헤더
 - **쓰기 게이트**: 쓰기는 `API_BASE`(백엔드) 연결 시에만. 폴백에선 컨트롤 비활성.

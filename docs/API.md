@@ -31,6 +31,8 @@
 | GET | `/api/projects/{id}/wbs` | WBS/일정 트리(간트·목표/실제) |
 | GET | `/api/projects/{id}/vrb` | VRB 정보 |
 | GET | `/api/tasks/{id}` · `/api/issues/{id}` · `/api/action-items/{id}` · `/api/deliverables/{id}` | 아이템 단건(상세 페이지 진입) |
+| GET | `/api/issues` · `/api/action-items` · `/api/deliverables` · `/api/meeting-minutes` · `/api/official-docs` | **전사(전 프로젝트) 목록**(최신순). 사이드바 '전사 현황' 뷰용 |
+| GET | `/api/members` | 전역 멤버(현재 사용자 선택기용) |
 
 ## 작업 화면 쓰기 (`write`, `issue`)
 | Method | Path | 설명 |

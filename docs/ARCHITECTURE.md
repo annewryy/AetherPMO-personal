@@ -31,7 +31,7 @@
 ```
 
 - **프론트**: Vue3 + Vite + TypeScript, vue-router(base `/app/`). **`lib/dataClient.ts` = 단일 데이터 경계**(모든 읽기/쓰기가 여기를 통함).
-  - `window.API_BASE` 있으면 **백엔드 모드**(`/api` 호출, camelCase 도메인 모델). 없으면 **Supabase 폴백**.
+  - **Spring 전용**(2026-07-14 Supabase 폴백 완전 제거). 모든 데이터는 `/api`(Spring). `window.API_BASE` 미설정 시(백엔드 없음) 읽기는 빈 배열/null, 쓰기는 비활성 + 안내. `/app`은 **백엔드 필수**.
   - dev: nginx가 `sub_filter`로 `window.API_BASE=location.origin` 주입([deploy/nginx.conf](../deploy/nginx.conf)). Vercel: 미주입 → 폴백.
 - **백엔드**: Spring Boot 3 + Spring Data JPA(엔티티 읽기) + **JdbcTemplate**(쓰기·복잡 조회) + Flyway(마이그레이션). MariaDB 11.
   - 응답은 **camelCase 도메인 DTO**(프론트 계약과 일치). JPA `ddl-auto=validate`(스키마는 Flyway 소유).
@@ -145,7 +145,7 @@ docs/requirements/  (동료 소유 · "무엇")   →   docs/design/  (우리 �
 |---|---|---|---|
 | 0001 | 입찰→수행 계보(lineage) | CONFIRMED | 기반·구현됨 |
 | 0002 | 워크플로 전이 조건 | .done | 구현됨 |
-| 0003 | 백엔드 서비스(Node 초기) | .done | 구현됨(이후 Spring 이관) |
+| 0003 | 백엔드 서비스(Node 초기구현) | .done | **Spring 완전 이관 완료**(Node 서버 제거, server-spring 단일) |
 | 0004 | 웹 프론트 Phase1 | .done | 구현됨 |
 | 0005 | 인증/신원 — 자체 로그인·사람 마스터 | DRAFT | **미구현**(로그인 부분) |
 | 0006 | 진척 계산(롤업) | .done | 구현됨 |
@@ -173,7 +173,7 @@ docs/requirements/  (동료 소유 · "무엇")   →   docs/design/  (우리 �
 
 ## 9. 주의/함정 (새 작업자 필독)
 
-1. **Vercel `/app`은 백엔드가 없다.** `window.API_BASE`가 dev(nginx)에서만 주입됨 → Vercel에선 Supabase 폴백이라 WBS·참여인력·담당자·상태전이·조직도 등 백엔드 전용 기능이 비어 보임. **제품 평가는 dev 도커/온프렘에서.**
+1. **`/app`은 백엔드(Spring) 필수.** `window.API_BASE`는 dev(nginx sub_filter)에서만 주입됨. Supabase 폴백은 **제거**돼(2026-07-14) 백엔드 없으면 모든 화면이 빈 상태/비활성. **Vercel엔 Spring 백엔드가 없으므로 `/app` 평가는 dev 도커/온프렘에서.**
 2. **아마란스 비밀번호 미제공** → 아마란스로 자체 로그인 불가. 조직/부서/겸직만 배치 동기화해 사용. 로그인/인증은 별도 설계(0005).
 3. **담당자는 이름으로 저장.** 아마란스 인력은 계정(uuid)이 없어 owner_name/assignee_name/pm_name에 이름 저장(추후 계정연동 시 uuid 승격).
 4. **태스크 워크플로 미정의** — seed 워크플로는 '산출물 승인' 하나뿐. 태스크는 고정 상태셋 사다리 PATCH로 처리(0023). 엔진에 태스크 워크플로 정의하면 통합 가능.
