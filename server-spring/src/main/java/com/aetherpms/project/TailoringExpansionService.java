@@ -9,7 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import com.aetherpms.common.ApiException;
-import com.aetherpms.write.WriteSupport;
+import com.aetherpms.common.WriteSupport;
 
 /**
  * 카탈로그 테일러링 전개 (배치11 / P3a) — Node server/src/routes/projects.ts §1 expandTailoring 이식.

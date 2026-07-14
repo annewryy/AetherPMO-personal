@@ -3,22 +3,24 @@
 // DetailPanel(우측 드로어)에서 알맹이를 추출한 것 — 중복 구현 금지, 두 곳이 이 본문을 재사용한다.
 //  - 헤더: kind 칩 + displayCode + 제목 + 현재 상태 뱃지
 //  - 필드: 도메인별 세트, 인라인 PATCH(쓰기 게이트)
-//  - 상태 전이: 이슈/액션=상태 사다리(사유 코멘트 모달) / 산출물·태스크=워크플로 엔진(TransitionButtons)
+//  - 상태 변경: 통일 드롭다운(StatusMenu). 이슈/액션/태스크=사다리 PATCH / 산출물=워크플로 엔진. + 워크플로 보기
 //  - 첨부: 아마란스 위임 stub / 하단: 코멘트 스레드
 // 쓰기는 전부 백엔드(API_BASE) 전용. 폴백에선 편집 컨트롤 비활성 + 안내. 오류는 서버 {message} 그대로.
 // 드로어의 닫기(✕) 버튼·aside 래퍼는 이 본문에 없다(호출측 chrome). 필드/상태 변경 후 'changed' emit.
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import { stub } from '../lib/stub';
 import { fullDisplayCode } from '../lib/displayCode';
 import type {
   Issue, ActionItem, Artifact, Task, CommentEntityType, TransitionEntity, OrgPick,
+  AvailableTransition,
 } from '../types';
 import StatusBadge from './StatusBadge.vue';
 import CommentThread from './CommentThread.vue';
-import TransitionButtons from './TransitionButtons.vue';
 import CommentModal from './CommentModal.vue';
 import OrgPickerModal from './OrgPickerModal.vue';
+import StatusMenu, { type MenuTarget } from './StatusMenu.vue';
+import WorkflowViewModal, { type WfState, type WfEdge } from './WorkflowViewModal.vue';
 
 // 도메인별 대상(하나만 채워짐). kind로 분기.
 export type DetailKind = 'issue' | 'action' | 'artifact' | 'task';
@@ -80,12 +82,13 @@ const displayCode = computed(() => {
   return fullDisplayCode(props.projectCode, dc);
 });
 
-// 태스크/산출물은 워크플로 엔진 전이 사용(TransitionButtons)
+// 산출물만 워크플로 엔진 전이 사용(seed 워크플로 '산출물 승인'). 태스크는 엔진 워크플로가 없어
+//   고정 상태셋(TODO~DONE, PATCH 허용)을 사다리로 처리 → 이슈/액션과 동일 경로.
 const transitionEntity = computed<TransitionEntity | null>(() =>
-  props.kind === 'task' ? 'tasks' : props.kind === 'artifact' ? 'deliverables' : null,
+  props.kind === 'artifact' ? 'deliverables' : null,
 );
 
-// 이슈/액션 상태 사다리(가능한 전이만) — 백엔드 계약(발생→조치중→완료, 완료→조치중 재오픈).
+// 상태 사다리(엔진 미사용 도메인) — 현재 상태에서 이동 가능한 상태.
 const ISSUE_LADDER: Record<string, string[]> = {
   '발생': ['조치중'],
   '조치중': ['완료'],
@@ -96,11 +99,21 @@ const ACTION_LADDER: Record<string, string[]> = {
   '진행': ['완료'],
   '완료': ['진행'],     // 재오픈
 };
-const ladderTargets = computed<string[]>(() => {
-  if (props.kind === 'issue') return ISSUE_LADDER[status.value] ?? [];
-  if (props.kind === 'action') return ACTION_LADDER[status.value] ?? [];
-  return [];
-});
+// 태스크 상태 흐름(코드). 백엔드 PATCH가 5종 허용 → 합리적 흐름으로 노출.
+const TASK_LADDER: Record<string, string[]> = {
+  'TODO': ['IN_PROGRESS'],
+  'IN_PROGRESS': ['REVIEW', 'DONE'],
+  'REVIEW': ['DONE', 'REJECTED', 'IN_PROGRESS'],
+  'REJECTED': ['IN_PROGRESS'],
+  'DONE': ['IN_PROGRESS'],  // 재오픈
+};
+// kind별 사다리(산출물은 null → 엔진).
+function ladderFor(): Record<string, string[]> | null {
+  if (props.kind === 'issue') return ISSUE_LADDER;
+  if (props.kind === 'action') return ACTION_LADDER;
+  if (props.kind === 'task') return TASK_LADDER;
+  return null;
+}
 
 // ---- 필드 인라인 PATCH -------------------------------------------------------
 const savingField = ref<string | null>(null);
@@ -213,12 +226,120 @@ async function submitStatus(comment: string) {
   try {
     if (props.kind === 'issue') await dataClient.issues.update(id, body);
     else if (props.kind === 'action') await dataClient.actionItems.update(id, body);
+    else if (props.kind === 'task') await dataClient.tasks.update(id, body);
     statusModal.value = null;
     emit('changed');
   } catch (e) {
     statusModalError.value = e instanceof Error ? e.message : String(e);
   } finally {
     statusSaving.value = false;
+  }
+}
+
+// ---- 통일 상태 전이(드롭다운) -------------------------------------------------
+// 산출물만 워크플로 엔진 가용 전이를 로드. 이슈/액션/태스크는 사다리(ladderFor).
+const engineTransitions = ref<AvailableTransition[]>([]);
+async function loadEngine() {
+  if (!apiMode.value || !transitionEntity.value || entityId.value == null) { engineTransitions.value = []; return; }
+  try {
+    engineTransitions.value = await dataClient.transitions.list(transitionEntity.value, entityId.value);
+  } catch { engineTransitions.value = []; }
+}
+watch([transitionEntity, entityId], loadEngine, { immediate: true });
+
+const statusTargets = computed<MenuTarget[]>(() => {
+  const ladder = ladderFor();
+  if (ladder) {
+    return (ladder[status.value] ?? []).map((to) => ({
+      toStatus: to,
+      name: props.kind === 'task' ? (TASK_STATUS_LABELS[to] ?? to) : undefined,
+      allowed: true,
+    }));
+  }
+  // 산출물 — 워크플로 엔진 가용 전이(비활성 포함, 사유 표기).
+  return engineTransitions.value.map((t) => ({
+    toStatus: t.toStatus,
+    name: t.name,
+    allowed: t.allowed,
+    commentRequired: t.commentRequired,
+    reason: t.failedConditions.map((f) => f.errorMessage).filter(Boolean).join(' · '),
+    transitionId: t.transitionId,
+  }));
+});
+
+// 엔진 전이 실행(태스크/산출물) — 코멘트 모달 경유.
+const engineActive = ref<MenuTarget | null>(null);
+const engineSaving = ref(false);
+const engineError = ref<string | null>(null);
+async function submitEngine(comment: string) {
+  const id = entityId.value;
+  if (!engineActive.value || id == null || !transitionEntity.value || engineActive.value.transitionId == null) return;
+  engineSaving.value = true;
+  engineError.value = null;
+  try {
+    await dataClient.transitions.execute(transitionEntity.value, id, engineActive.value.transitionId, comment);
+    engineActive.value = null;
+    await loadEngine();
+    emit('changed');
+  } catch (e) {
+    engineError.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    engineSaving.value = false;
+  }
+}
+
+// 드롭다운에서 상태 선택 → 사다리(이슈/액션/태스크)는 PATCH, 산출물은 엔진 전이.
+function onStatusSelect(t: MenuTarget) {
+  if (props.kind === 'artifact') { engineActive.value = t; engineError.value = null; }
+  else askStatus(t.toStatus);
+}
+
+// ---- 워크플로 보기 ------------------------------------------------------------
+const showWorkflow = ref(false);
+const wfData = ref<{ title: string; description: string | null; states: WfState[]; edges: WfEdge[] } | null>(null);
+async function openWorkflow() {
+  showWorkflow.value = true;
+  const cur = status.value;
+  const ladder = ladderFor();
+  if (ladder) {
+    const isTask = props.kind === 'task';
+    const label = (n: string) => (isTask ? (TASK_STATUS_LABELS[n] ?? n) : n);
+    const all = new Set<string>(Object.keys(ladder));
+    Object.values(ladder).forEach((arr) => arr.forEach((s) => all.add(s)));
+    const list = [...all];
+    wfData.value = {
+      title: KIND_LABEL[props.kind] + ' 상태 흐름',
+      description: isTask
+        ? '태스크 상태 흐름입니다(TODO → 진행중 → 검토중 → 완료, 재오픈 가능).'
+        : '고정 상태 흐름입니다(발생/대기 → 진행 → 완료, 완료에서 재오픈).',
+      states: list.map((n) => ({ name: label(n), isCurrent: n === cur })),
+      edges: list.flatMap((from) => (ladder[from] ?? []).map((to) => ({
+        from: label(from), to: label(to), fromCurrent: from === cur,
+      }))),
+    };
+    return;
+  }
+  // 태스크/산출물 — 기본 워크플로 정의.
+  try {
+    const wfs = await dataClient.workflows.list();
+    const wf = wfs.find((w) => w.isDefault) ?? wfs[0];
+    if (!wf) { wfData.value = { title: '워크플로', description: '정의 없음', states: [], edges: [] }; return; }
+    const byId = new Map(wf.statuses.map((s) => [s.id, s]));
+    const matches = (s: { code: string | null; name: string }) => s.code === cur || s.name === cur;
+    wfData.value = {
+      title: wf.name,
+      description: wf.description,
+      states: wf.statuses.map((s) => ({
+        name: s.name, category: s.category, isCurrent: matches(s), isInitial: s.isInitial, isFinal: s.isFinal,
+      })),
+      edges: wf.transitions.map((t) => {
+        const from = byId.get(t.fromStatusId);
+        const to = byId.get(t.toStatusId);
+        return { from: from?.name ?? '?', to: to?.name ?? '?', name: t.name, fromCurrent: !!from && matches(from) };
+      }),
+    };
+  } catch {
+    wfData.value = { title: '워크플로', description: '불러오지 못했습니다.', states: [], edges: [] };
   }
 }
 
@@ -354,30 +475,22 @@ const TASK_STATUS_LABELS: Record<string, string> = {
 
     <p v-if="fieldError" class="err">{{ fieldError }}</p>
 
-    <!-- 상태 전이 -->
+    <!-- 상태 변경 — 통일 드롭다운(현재 상태 → 전환 가능 상태 + 워크플로 보기) -->
     <section class="section">
-      <h3 class="section-title">상태 전이</h3>
-      <!-- 산출물/태스크: 워크플로 엔진 -->
-      <TransitionButtons
-        v-if="transitionEntity && entityId != null"
-        :entity="transitionEntity" :entity-id="entityId" :current-status="status"
-        @changed="emit('changed')"
+      <h3 class="section-title">상태 변경</h3>
+      <StatusMenu
+        :current-status="status"
+        :targets="statusTargets"
+        :disabled="!apiMode"
+        gate-message="상태 변경은 백엔드(API_BASE) 연결 후 활성화"
+        @select="onStatusSelect"
+        @view-workflow="openWorkflow"
       />
-      <!-- 이슈/액션: 상태 사다리 -->
-      <template v-else>
-        <div v-if="!apiMode" class="gate">전이는 백엔드(API_BASE) 연결 후 활성화</div>
-        <div v-else-if="ladderTargets.length === 0" class="dim">가용 전이 없음</div>
-        <div v-else class="ladder">
-          <button
-            v-for="to in ladderTargets" :key="to"
-            class="btn btn-sm" @click="askStatus(to)"
-          >{{ status }} → {{ to }}</button>
-        </div>
-        <div v-if="apiMode && isRisk" class="convert-row">
-          <button class="btn btn-sm" title="리스크를 이슈로 전환 (0008 수동 전환)"
-            @click="convertOpen = true">이슈로 전환</button>
-        </div>
-      </template>
+      <div v-if="apiMode && isRisk" class="convert-row">
+        <button class="btn btn-sm" title="리스크를 이슈로 전환 (0008 수동 전환)"
+          @click="convertOpen = true">이슈로 전환</button>
+      </div>
+      <p v-if="engineError" class="err">{{ engineError }}</p>
     </section>
 
     <!-- 첨부파일: 아마란스 위임 stub -->
@@ -423,6 +536,25 @@ const TASK_STATUS_LABELS: Record<string, string> = {
       v-if="showAssigneePicker"
       title="담당자 선택"
       @select="onAssigneePick" @close="showAssigneePicker = false"
+    />
+
+    <!-- 태스크/산출물 워크플로 전이 실행(사유 코멘트) -->
+    <CommentModal
+      v-if="engineActive"
+      :title="`전이: ${engineActive.name || engineActive.toStatus}`"
+      :message="`${status} → ${engineActive.toStatus} 전이를 실행합니다.`"
+      :required="!!engineActive.commentRequired"
+      submit-label="전이 실행"
+      :submitting="engineSaving" :error="engineError"
+      @submit="submitEngine" @close="engineActive = null"
+    />
+
+    <!-- 워크플로 보기 -->
+    <WorkflowViewModal
+      v-if="showWorkflow && wfData"
+      :title="wfData.title" :description="wfData.description"
+      :states="wfData.states" :edges="wfData.edges"
+      @close="showWorkflow = false"
     />
   </div>
 </template>

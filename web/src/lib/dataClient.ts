@@ -11,7 +11,6 @@
 //  - UI(컴포넌트)는 supabase.from(...)을 직접 호출하지 않는다. 오직 dataClient 함수만 쓴다.
 //  - 새 조회가 필요하면 여기에 메서드를 추가한다.
 
-import { getSupabase } from './supabase';
 import { getCurrentUserId } from './currentUser';
 import type {
   Project, ProjectMember, ConsortiumMember, Artifact, Issue, ActionItem,
@@ -94,279 +93,8 @@ async function apiSend<T>(method: 'POST' | 'PATCH' | 'DELETE', path: string, bod
 
 // ---- row → 도메인 매퍼 (pms_* 스키마 기준, Supabase 폴백 전용) ----------------
 
-function mapProject(p: Row): Project {
-  return {
-    id: p.project_id,
-    projectCode: p.project_code,
-    name: p.project_name,
-    desc: p.description,
-    dept: p.dept,
-    manager: p.pm_name,
-    managerId: p.pm_id ?? null,
-    startDate: p.planned_start_date,
-    endDate: p.planned_end_date,
-    customer: p.customer_name,
-    budget: num(p.budget),
-    milestones: p.milestones,
-    inspectionDate: p.inspection_date,
-    remarks: p.remarks,
-    status: STATUS_KO2EN[p.status] || p.status,
-    bidStatus: p.bid_status ?? null,
-    progress: num(p.progress_rate),
-    resources: num(p.resources),
-    bidNumber: p.bid_number ?? null,
-    customerName: p.customer_name,
-    location: p.location ?? null,
-    projectBudget: num(p.contract_amount),
-    businessType: p.business_type,
-    stage: p.project_stage,
-    announcementNo: p.announcement_no ?? null, // 0017 공고→입찰 라운드트립(폴백 DB 미적용 시 null)
-    sourceProjectId: p.source_project_id ?? null, // A단계 lineage
-    consortiumMembers: [],
-    vrbInfo: null,
-  };
-}
-
-function mapMember(m: Row): ProjectMember {
-  return {
-    id: m.member_id,
-    projectId: m.project_id,
-    userId: m.user_uid ?? null,
-    name: m.name,
-    roleName: m.role_name,
-    position: m.position,
-    memo: m.memo,
-  };
-}
-
 // pms_project_company 중 컨소시엄(고객사 제외)만
-function mapConsortium(c: Row): ConsortiumMember {
-  return {
-    companyName: c.company_name,
-    role: c.role,
-    shareRate: num(c.share_rate),
-    description: c.description,
-  };
-}
-
-function mapArtifact(a: Row): Artifact {
-  return {
-    id: a.deliverable_id,
-    projectId: a.project_id,
-    taskId: a.task_id ?? null,
-    name: a.deliverable_name,
-    category: a.deliverable_type,
-    version: a.version_no,
-    author: a.author_name,
-    authorId: a.submitted_by ?? null,
-    dueDate: a.due_date,
-    submitDate: a.submitted_at ? String(a.submitted_at).split('T')[0] : '',
-    status: a.status,
-    fileName: a.file_name ?? null,
-    displayCode: a.display_code ?? null, // 0010 A-4 (컬럼 미적용 DB는 null)
-  };
-}
-
-function mapSignalRule(r: Row): SignalRule {
-  return {
-    ruleId: r.rule_id,
-    projectId: r.project_id ?? null,
-    name: r.name,
-    metric: r.metric,
-    operator: r.operator,
-    threshold: r.threshold != null ? Number(r.threshold) : null,
-    params: r.params ?? {},
-    action: r.action,
-    enabled: !!r.enabled,
-  };
-}
-
-function mapTask(t: Row): Task {
-  return {
-    id: t.task_id,
-    parentId: t.parent_task_id ?? null,
-    projectId: t.project_id,
-    name: t.task_name,
-    status: t.status,
-    progress: num(t.progress_rate),
-    plannedStartDate: t.planned_start_date ?? null,
-    plannedEndDate: t.planned_end_date ?? null,
-    depth: num(t.depth),
-    sortOrder: num(t.sort_order),
-    catalogNodeId: t.catalog_node_id ?? null,
-    displayCode: t.display_code ?? null, // 0010 A-4
-  };
-}
-
-function mapIssue(i: Row): Issue {
-  return {
-    id: i.issue_id,
-    projectId: i.project_id,
-    title: i.title,
-    type: i.type,
-    priority: i.priority,
-    owner: i.owner_name,
-    ownerId: i.owner_uid ?? null,
-    reportedDate: i.reported_date,
-    dueDate: i.due_date ?? null,
-    resolvedDate: i.resolved_date,
-    status: i.status,
-    reviewComment: i.review_comment,
-    sourceRuleId: i.source_rule_id ?? null, // 0007 자동 등록 마커
-    relatedTaskId: i.related_task_id ?? null, // 0008 — 이 리스크/이슈를 낳은 태스크
-    displayCode: i.display_code ?? null, // 0010 A-4
-  };
-}
-
-function mapActionItem(a: Row): ActionItem {
-  return {
-    id: a.action_id,
-    projectId: a.project_id,
-    title: a.title,
-    assignee: a.assignee_name,
-    assigneeId: a.assignee_uid ?? null,
-    dueDate: a.due_date,
-    status: a.status,
-    confirmComment: a.confirm_comment,
-    relatedIssueId: a.related_issue_id ?? null, // 0008 — 대응하는 리스크/이슈
-    displayCode: a.display_code ?? null, // 0010 A-4
-  };
-}
-
-function mapOfficialDoc(d: Row): OfficialDoc {
-  return {
-    id: d.doc_id,
-    projectId: d.project_id,
-    docNumber: d.doc_number,
-    title: d.title,
-    category: d.category,
-    draftDept: d.draft_dept,
-    drafter: d.drafter_name,
-    drafterId: d.drafter_uid ?? null,
-    draftDate: d.draft_date,
-    approvalLine: d.approval_line ?? [],
-    currentApprover: d.current_approver,
-    currentStatus: d.current_status,
-  };
-}
-
-function mapMeeting(m: Row): MeetingMinute {
-  return {
-    id: m.meeting_id,
-    projectId: m.project_id,
-    title: m.title,
-    meetDate: m.meet_date,
-    attendees: m.attendees ?? [],
-    content: m.content,
-    remarks: m.remarks,
-    authorId: m.author_uid ?? null,
-  };
-}
-
-function mapActivity(a: Row): Activity {
-  return {
-    id: a.audit_id,
-    projectId: a.project_id ?? null,
-    userId: a.changed_by_uid ?? null,
-    type: a.action,
-    text: a.reason || '',
-    date: a.changed_at,
-    entityType: a.entity_type ?? null,
-    entityId: a.entity_id ?? null,
-    userName: a.changed_by_name ?? null,
-  };
-}
-
-function mapVrb(v: Row): VrbInfo {
-  return {
-    projectId: v.project_id,
-    status: v.status,
-    plannedDate: v.planned_date ?? null,
-    submittedDate: v.submitted_date ?? null,
-    approvedDate: v.approved_date ?? null,
-    vrbNumber: v.vrb_number ?? null,
-    memo: v.memo ?? '',
-  };
-}
-
-function mapCatalogNode(n: Row): CatalogNode {
-  return {
-    id: n.node_id,
-    parentId: n.parent_node_id ?? null,
-    nodeType: n.node_type,
-    code: n.code ?? null,
-    name: n.name,
-    description: n.description ?? null,
-    isOptional: !!n.is_optional,
-    sortOrder: num(n.sort_order),
-    seqNo: n.seq_no ?? null,
-    deliverableCategory: n.deliverable_category ?? null,
-    stage: n.stage ?? null,
-    templateFileRef: n.template_file_ref ?? null,
-    templateTags: n.template_tags ?? null,
-    workflowId: n.workflow_id ?? null,
-    isActive: n.is_active !== false, // 0009 소프트 비활성(컬럼 미적용 DB는 전부 활성)
-    children: [],
-  };
-}
-
-function mapCompany(c: Row): Company {
-  return {
-    id: c.company_id,
-    name: c.company_name,
-    type: c.company_type ?? null,
-    isActive: c.is_active !== false,
-  };
-}
-
-function mapWorkflowStatus(s: Row): WorkflowStatus {
-  return {
-    id: s.status_id,
-    workflowId: s.workflow_id,
-    code: s.code ?? null,
-    name: s.name,
-    color: s.color ?? null,
-    category: s.category ?? null,
-    isInitial: !!s.is_initial,
-    isFinal: !!s.is_final,
-    sortOrder: num(s.sort_order),
-  };
-}
-
-function mapWorkflowCondition(c: Row): WorkflowTransitionCondition {
-  return {
-    id: c.condition_id,
-    transitionId: c.transition_id,
-    subjectScope: c.subject_scope,
-    leftField: c.left_field ?? null,
-    operator: c.operator,
-    errorMessage: c.error_message ?? null,
-    isBlocking: c.is_blocking !== false,
-    params: c.params ?? {},                // 0009 조건 빌더 — 값
-    sortOrder: c.sort_order ?? null,
-    logicOp: c.logic_op ?? null,           // 0002 L2 씨앗
-    groupId: c.group_id ?? null,
-  };
-}
-
 // pms_comment → EntityComment (0010 A-3 — Supabase 폴백 읽기 전용)
-function mapComment(c: Row): EntityComment {
-  return {
-    id: c.comment_id,
-    entityType: c.entity_type,
-    entityId: c.entity_id,
-    projectId: c.project_id,
-    body: c.body,
-    commentType: c.comment_type ?? 'COMMENT',
-    statusFrom: c.status_from ?? null,
-    statusTo: c.status_to ?? null,
-    authorUid: c.author_uid ?? null,
-    authorName: c.author_name ?? null,
-    createdAt: c.created_at,
-    parentCommentId: c.parent_comment_id ?? null, // 0012 A-1
-  };
-}
-
 // GET /api/:entity/:id/transitions 행(snake_case) → AvailableTransition (0011 B-2)
 function mapAvailableTransition(t: Row): AvailableTransition {
   const failed = (t.failed_conditions ?? []) as Row[];
@@ -389,66 +117,12 @@ function mapAvailableTransition(t: Row): AvailableTransition {
   };
 }
 
-function mapWorkflowTransition(t: Row, conditions: WorkflowTransitionCondition[]): WorkflowTransition {
-  return {
-    id: t.transition_id,
-    workflowId: t.workflow_id,
-    fromStatusId: t.from_status_id,
-    toStatusId: t.to_status_id,
-    name: t.name ?? null,
-    conditions: conditions.filter((c) => c.transitionId === t.transition_id),
-  };
-}
-
 // 평면 노드 목록 → parent_node_id 기준 트리 구성(루트 = PHASE)
-function buildCatalogTree(nodes: CatalogNode[]): CatalogNode[] {
-  const byId = new Map<number, CatalogNode>();
-  for (const n of nodes) byId.set(n.id, n);
-  const roots: CatalogNode[] = [];
-  for (const n of nodes) {
-    const parent = n.parentId != null ? byId.get(n.parentId) : undefined;
-    if (parent) parent.children.push(n);
-    else roots.push(n);
-  }
-  const bySort = (a: CatalogNode, b: CatalogNode) =>
-    a.sortOrder - b.sortOrder || (a.seqNo ?? 0) - (b.seqNo ?? 0) || a.id - b.id;
-  const sortRec = (list: CatalogNode[]) => {
-    list.sort(bySort);
-    for (const n of list) sortRec(n.children);
-  };
-  sortRec(roots);
-  return roots;
-}
-
 // 0009 소프트 비활성: 비활성 노드(와 그 하위 전체)를 조회 트리에서 제거
 function pruneInactive(nodes: CatalogNode[]): CatalogNode[] {
   return nodes
     .filter((n) => n.isActive)
     .map((n) => ({ ...n, children: pruneInactive(n.children) }));
-}
-
-// ---- Supabase 폴백 조회 헬퍼 (읽기 전용) --------------------------------------
-
-async function selectAll(table: string): Promise<Row[]> {
-  const sb = getSupabase();
-  if (!sb) return []; // 설정 없음 → 빈 데이터(화면은 빈 상태 안내)
-  const { data, error } = await sb.from(table).select('*');
-  if (error) {
-    console.error(`[dataClient] ${table} 로드 실패:`, error.message);
-    return [];
-  }
-  return data ?? [];
-}
-
-async function selectByProject(table: string, projectId: number): Promise<Row[]> {
-  const sb = getSupabase();
-  if (!sb) return [];
-  const { data, error } = await sb.from(table).select('*').eq('project_id', projectId);
-  if (error) {
-    console.error(`[dataClient] ${table}(project_id=${projectId}) 로드 실패:`, error.message);
-    return [];
-  }
-  return data ?? [];
 }
 
 // 0010 A-3 코멘트 API의 :entity 경로 세그먼트 (0003 transitions.ts ENTITY_CONFIGS 관례와 동일)
@@ -468,56 +142,17 @@ export const dataClient = {
     //   API_BASE 경로는 쿼리스트링으로 서버에 위임(클라 필터 금지).
     //   Supabase 폴백(개발용)은 location 매칭만 로컬 처리한다.
     async list(filters: ProjectFilters = {}): Promise<Project[]> {
-      if (apiBase()) {
-        const qs = new URLSearchParams();
-        if (filters.location && filters.location.trim()) qs.set('location', filters.location.trim());
-        if (filters.status && filters.status.trim()) qs.set('status', filters.status.trim());
-        const q = qs.toString();
-        return apiGet<Project[]>(`/api/projects${q ? `?${q}` : ''}`);
-      }
-      const [projects, companies] = await Promise.all([
-        selectAll('pms_project'),
-        selectAll('pms_project_company'),
-      ]);
-      let mapped = projects.map(mapProject);
-      // 컨소시엄(고객사 제외) 프로젝트별 결합
-      for (const p of mapped) {
-        p.consortiumMembers = companies
-          .filter((c) => c.project_id === p.id && c.role !== '고객사')
-          .map(mapConsortium);
-      }
-      // Supabase 폴백에서만 location 필터를 로컬 적용(서버 미경유 개발 편의).
-      const loc = filters.location?.trim();
-      if (loc) {
-        const named = ['서울', '대전', '대구', '광주'];
-        mapped = mapped.filter((p) => {
-          const v = p.location ?? '';
-          if (loc === '기타') return !named.some((n) => v.includes(n));
-          return v.includes(loc);
-        });
-      }
-      return mapped;
+      if (!apiBase()) return [];
+      const qs = new URLSearchParams();
+      if (filters.location && filters.location.trim()) qs.set('location', filters.location.trim());
+      if (filters.status && filters.status.trim()) qs.set('status', filters.status.trim());
+      const q = qs.toString();
+      return apiGet<Project[]>(`/api/projects${q ? `?${q}` : ''}`);
     },
 
     async get(id: number): Promise<Project | null> {
-      if (apiBase()) return apiGet<Project | null>(`/api/projects/${id}`);
-      const sb = getSupabase();
-      if (!sb) return null;
-      const [{ data: rows, error }, { data: companies }] = await Promise.all([
-        sb.from('pms_project').select('*').eq('project_id', id).limit(1),
-        sb.from('pms_project_company').select('*').eq('project_id', id),
-      ]);
-      if (error) {
-        console.error(`[dataClient] pms_project(${id}) 로드 실패:`, error.message);
-        return null;
-      }
-      const row = rows?.[0];
-      if (!row) return null;
-      const p = mapProject(row);
-      p.consortiumMembers = (companies ?? [])
-        .filter((c) => c.role !== '고객사')
-        .map(mapConsortium);
-      return p;
+      if (!apiBase()) return null;
+      return apiGet<Project | null>(`/api/projects/${id}`);
     },
 
     // 0017 P1: 신규 입찰 프로젝트 생성(POST /api/projects). 백엔드 전용 쓰기 게이트.
@@ -546,13 +181,21 @@ export const dataClient = {
     },
   },
 
-  members: { list: async (): Promise<ProjectMember[]> => (await selectAll('pms_project_member')).map(mapMember) },
+  members: {
+    async list(): Promise<ProjectMember[]> {
+      if (!apiBase()) return [];
+      return apiGet<ProjectMember[]>('/api/members');
+    },
+  },
 
   artifacts: {
-    list: async (): Promise<Artifact[]> => (await selectAll('pms_deliverable')).map(mapArtifact),
+    async list(): Promise<Artifact[]> {
+      if (!apiBase()) return [];
+      return apiGet<Artifact[]>('/api/deliverables');
+    },
     async listByProject(projectId: number): Promise<Artifact[]> {
-      if (apiBase()) return apiGet<Artifact[]>(`/api/projects/${projectId}/deliverables`);
-      return (await selectByProject('pms_deliverable', projectId)).map(mapArtifact);
+      if (!apiBase()) return [];
+      return apiGet<Artifact[]>(`/api/projects/${projectId}/deliverables`);
     },
     // 배치22 단건 조회(상세 페이지 URL 진입용). 목록 아이템과 동일 shape, 없으면 404 {message}.
     async get(id: number): Promise<Artifact> {
@@ -568,8 +211,8 @@ export const dataClient = {
   // 0011 B-3: 진척률·상태·실적일 PATCH(허용 필드 화이트리스트는 백엔드 A-1). 쓰기는 백엔드 전용.
   tasks: {
     async listByProject(projectId: number): Promise<Task[]> {
-      if (apiBase()) return apiGet<Task[]>(`/api/projects/${projectId}/tasks`);
-      return (await selectByProject('pms_task', projectId)).map(mapTask);
+      if (!apiBase()) return [];
+      return apiGet<Task[]>(`/api/projects/${projectId}/tasks`);
     },
     // patch: snake_case 본문(progress_rate/status/actual_*_date/assignee_id) + 선택 comment
     update(id: number, patch: Row): Promise<Task> {
@@ -583,10 +226,13 @@ export const dataClient = {
 
   // 0011 B-4/B-7: 상태·우선순위·목표해결일 PATCH, 신규 등록 POST, 리스크→이슈 전환.
   issues: {
-    list: async (): Promise<Issue[]> => (await selectAll('pms_issue')).map(mapIssue),
+    async list(): Promise<Issue[]> {
+      if (!apiBase()) return [];
+      return apiGet<Issue[]>('/api/issues');
+    },
     async listByProject(projectId: number): Promise<Issue[]> {
-      if (apiBase()) return apiGet<Issue[]>(`/api/projects/${projectId}/issues`);
-      return (await selectByProject('pms_issue', projectId)).map(mapIssue);
+      if (!apiBase()) return [];
+      return apiGet<Issue[]>(`/api/projects/${projectId}/issues`);
     },
     // patch: snake_case(status/priority/due_date/resolved_date/owner_uid/title) + 선택 comment
     update(id: number, patch: Row): Promise<Issue> {
@@ -606,10 +252,13 @@ export const dataClient = {
   },
 
   actionItems: {
-    list: async (): Promise<ActionItem[]> => (await selectAll('pms_action_item')).map(mapActionItem),
+    async list(): Promise<ActionItem[]> {
+      if (!apiBase()) return [];
+      return apiGet<ActionItem[]>('/api/action-items');
+    },
     async listByProject(projectId: number): Promise<ActionItem[]> {
-      if (apiBase()) return apiGet<ActionItem[]>(`/api/projects/${projectId}/action-items`);
-      return (await selectByProject('pms_action_item', projectId)).map(mapActionItem);
+      if (!apiBase()) return [];
+      return apiGet<ActionItem[]>(`/api/projects/${projectId}/action-items`);
     },
     // patch: snake_case(status/assignee_uid/due_date/title) + 선택 comment
     update(id: number, patch: Row): Promise<ActionItem> {
@@ -625,18 +274,24 @@ export const dataClient = {
   },
 
   officialDocs: {
-    list: async (): Promise<OfficialDoc[]> => (await selectAll('pms_official_doc')).map(mapOfficialDoc),
+    async list(): Promise<OfficialDoc[]> {
+      if (!apiBase()) return [];
+      return apiGet<OfficialDoc[]>('/api/official-docs');
+    },
     async listByProject(projectId: number): Promise<OfficialDoc[]> {
-      if (apiBase()) return apiGet<OfficialDoc[]>(`/api/projects/${projectId}/official-docs`);
-      return (await selectByProject('pms_official_doc', projectId)).map(mapOfficialDoc);
+      if (!apiBase()) return [];
+      return apiGet<OfficialDoc[]>(`/api/projects/${projectId}/official-docs`);
     },
   },
 
   meetingMinutes: {
-    list: async (): Promise<MeetingMinute[]> => (await selectAll('pms_meeting_minutes')).map(mapMeeting),
+    async list(): Promise<MeetingMinute[]> {
+      if (!apiBase()) return [];
+      return apiGet<MeetingMinute[]>('/api/meeting-minutes');
+    },
     async listByProject(projectId: number): Promise<MeetingMinute[]> {
-      if (apiBase()) return apiGet<MeetingMinute[]>(`/api/projects/${projectId}/meeting-minutes`);
-      return (await selectByProject('pms_meeting_minutes', projectId)).map(mapMeeting);
+      if (!apiBase()) return [];
+      return apiGet<MeetingMinute[]>(`/api/projects/${projectId}/meeting-minutes`);
     },
     // 0011 B-7: 회의록 신규 등록(A-3). snake_case 본문.
     create(input: MeetingMinuteCreateInput): Promise<MeetingMinute> {
@@ -645,19 +300,17 @@ export const dataClient = {
   },
 
   activities: {
-    list: async (): Promise<Activity[]> => (await selectAll('pms_audit_log')).map(mapActivity),
     async listByProject(projectId: number): Promise<Activity[]> {
-      if (apiBase()) return apiGet<Activity[]>(`/api/projects/${projectId}/activities`);
-      return (await selectByProject('pms_audit_log', projectId)).map(mapActivity);
+      if (!apiBase()) return [];
+      return apiGet<Activity[]>(`/api/projects/${projectId}/activities`);
     },
   },
 
   // VRB(사업성 검토) — 프로젝트당 1행(pms_vrb_info PK=project_id)
   vrb: {
     async getByProject(projectId: number): Promise<VrbInfo | null> {
-      if (apiBase()) return apiGet<VrbInfo | null>(`/api/projects/${projectId}/vrb`);
-      const rows = await selectByProject('pms_vrb_info', projectId);
-      return rows.length ? mapVrb(rows[0]) : null;
+      if (!apiBase()) return null;
+      return apiGet<VrbInfo | null>(`/api/projects/${projectId}/vrb`);
     },
   },
 
@@ -666,15 +319,10 @@ export const dataClient = {
   catalog: {
     async tree(opts?: { includeInactive?: boolean }): Promise<CatalogNode[]> {
       const includeInactive = opts?.includeInactive ?? false;
-      let roots: CatalogNode[];
-      if (apiBase()) {
-        roots = await apiGet<CatalogNode[]>(
-          `/api/catalog/tree${includeInactive ? '?includeInactive=true' : ''}`,
-        );
-      } else {
-        const rows = await selectAll('pms_catalog_node');
-        roots = buildCatalogTree(rows.map(mapCatalogNode));
-      }
+      if (!apiBase()) return [];
+      const roots = await apiGet<CatalogNode[]>(
+        `/api/catalog/tree${includeInactive ? '?includeInactive=true' : ''}`,
+      );
       return includeInactive ? roots : pruneInactive(roots);
     },
   },
@@ -696,8 +344,8 @@ export const dataClient = {
   // 기준정보: 회사 (0009 모듈 4) — 목록은 폴백 허용, 쓰기는 백엔드 전용(참조 가드 동일)
   companies: {
     async list(): Promise<Company[]> {
-      if (apiBase()) return apiGet<Company[]>('/api/companies');
-      return (await selectAll('pms_company')).map(mapCompany);
+      if (!apiBase()) return [];
+      return apiGet<Company[]>('/api/companies');
     },
     create(input: CompanyInput): Promise<Company> {
       return apiSend<Company>('POST', '/api/companies', input);
@@ -713,26 +361,8 @@ export const dataClient = {
   // 워크플로(상태전이) 정의: workflow + status + transition + condition 결합
   workflows: {
     async list(): Promise<Workflow[]> {
-      if (apiBase()) return apiGet<Workflow[]>('/api/workflows');
-      const [wfs, statuses, transitions, conditions] = await Promise.all([
-        selectAll('pms_workflow'),
-        selectAll('pms_workflow_status'),
-        selectAll('pms_workflow_transition'),
-        selectAll('pms_workflow_transition_condition'),
-      ]);
-      const mappedStatuses = statuses.map(mapWorkflowStatus);
-      const mappedConditions = conditions.map(mapWorkflowCondition);
-      const mappedTransitions = transitions.map((t) => mapWorkflowTransition(t, mappedConditions));
-      return wfs.map((w) => ({
-        id: w.workflow_id,
-        name: w.name,
-        description: w.description ?? null,
-        isDefault: !!w.is_default,
-        statuses: mappedStatuses
-          .filter((s) => s.workflowId === w.workflow_id)
-          .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id),
-        transitions: mappedTransitions.filter((t) => t.workflowId === w.workflow_id),
-      }));
+      if (!apiBase()) return [];
+      return apiGet<Workflow[]>('/api/workflows');
     },
   },
 
@@ -806,19 +436,8 @@ export const dataClient = {
   comments: {
     async list(entityType: CommentEntityType, entityId: number): Promise<EntityComment[]> {
       const path = COMMENT_ENTITY_PATHS[entityType];
-      if (apiBase()) return apiGet<EntityComment[]>(`/api/${path}/${entityId}/comments`);
-      const sb = getSupabase();
-      if (!sb) return [];
-      const { data, error } = await sb
-        .from('pms_comment').select('*')
-        .eq('entity_type', entityType).eq('entity_id', entityId);
-      if (error) {
-        // 테이블 미생성(마이그레이션 전) 등 — 빈 목록으로 화면은 유지
-        console.error(`[dataClient] pms_comment(${entityType}#${entityId}) 로드 실패:`, error.message);
-        return [];
-      }
-      return (data ?? []).map(mapComment)
-        .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+      if (!apiBase()) return [];
+      return apiGet<EntityComment[]>(`/api/${path}/${entityId}/comments`);
     },
     // 0012 C-2: body(@[이름](uuid) 인코딩) + parentCommentId(1단계 답글) + mentions(uuid[]).
     // 백엔드가 mentions·parent 작성자에게 notification insert(셀프 제외) — 한 트랜잭션(B-1).
@@ -879,8 +498,8 @@ export const dataClient = {
   // Supabase 폴백에선 목록 읽기만(화면이 쓰기 컨트롤을 비활성 + 안내).
   signalRules: {
     async list(): Promise<SignalRule[]> {
-      if (apiBase()) return apiGet<SignalRule[]>('/api/signal-rules');
-      return (await selectAll('pms_signal_rule')).map(mapSignalRule);
+      if (!apiBase()) return [];
+      return apiGet<SignalRule[]>('/api/signal-rules');
     },
     create(input: SignalRuleInput): Promise<SignalRule> {
       return apiSend<SignalRule>('POST', '/api/signal-rules', input);

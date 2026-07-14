@@ -98,5 +98,5 @@ const isProjects = computed(() => route.path === '/projects' || route.path.start
   display: flex; align-items: center; justify-content: flex-end; gap: 16px;
   padding: 10px 28px; border-bottom: 1px solid var(--border); background: var(--panel);
 }
-.content { flex: 1; min-width: 0; padding: 24px 28px; max-width: 1280px; width: 100%; box-sizing: border-box; }
+.content { flex: 1; min-width: 0; padding: 24px 32px; max-width: 1440px; width: 100%; margin: 0 auto; box-sizing: border-box; }
 </style>

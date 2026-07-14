@@ -15,7 +15,7 @@ import com.aetherpms.common.Actor;
 import com.aetherpms.common.ApiException;
 import com.aetherpms.common.AuditWriter;
 import com.aetherpms.common.Json;
-import com.aetherpms.write.WriteSupport;
+import com.aetherpms.common.WriteSupport;
 
 /**
  * 공문(pms_official_doc) CRUD — 배치17 / 0017 §Phase2.

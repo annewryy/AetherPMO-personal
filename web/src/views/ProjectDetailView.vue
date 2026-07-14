@@ -357,32 +357,36 @@ watch(() => route.query.panel, applyPanelQuery);
 
         <!-- 공통: 개요 -->
         <template v-else-if="activeTab === 'overview'">
-          <div class="cards">
-            <section class="card">
-              <h2 class="card-title">개요</h2>
-              <dl class="meta">
-                <div><dt>상태</dt><dd>{{ project.status || '—' }}</dd></div>
-                <div><dt>기간</dt><dd>{{ fmtDate(project.startDate) }} ~ {{ fmtDate(project.endDate) }}</dd></div>
-                <div><dt>고객사</dt><dd>{{ project.customerName || '—' }}</dd></div>
-                <div><dt>계약금액</dt><dd>{{ fmtAmount(project.projectBudget) }}</dd></div>
-                <div><dt>PM</dt><dd>{{ project.manager || '—' }}</dd></div>
-                <div><dt>사업유형</dt><dd>{{ project.businessType || '—' }}</dd></div>
-                <div class="wide">
-                  <dt>진행률
-                    <span v-if="progress && !progress.fallback" class="calc-tag" title="산출물 승인 기준 계산값 (0006 롤업)">계산</span>
-                    <span v-else class="calc-tag manual" title="전개 산출물이 없어 수동 입력값을 사용합니다">수동</span>
-                  </dt>
-                  <dd><ProgressBar :value="progress ? progress.overall : project.progress" /></dd>
-                </div>
-              </dl>
-            </section>
+          <section class="card">
+            <h2 class="card-title">개요</h2>
+            <dl class="meta">
+              <div><dt>상태</dt><dd>{{ project.status || '—' }}</dd></div>
+              <div><dt>단계</dt><dd>{{ project.stage || '—' }}</dd></div>
+              <div><dt>사업유형</dt><dd>{{ project.businessType || '—' }}</dd></div>
+              <div><dt>고객사</dt><dd>{{ project.customerName || '—' }}</dd></div>
+              <div><dt>수행장소</dt><dd>{{ project.location || '—' }}</dd></div>
+              <div><dt>담당부서</dt><dd>{{ project.dept || '—' }}</dd></div>
+              <div><dt>PM</dt><dd>{{ project.manager || '—' }}</dd></div>
+              <div><dt>기간</dt><dd>{{ fmtDate(project.startDate) }} ~ {{ fmtDate(project.endDate) }}</dd></div>
+              <div><dt>계약금액</dt><dd>{{ fmtAmount(project.projectBudget) }}</dd></div>
+              <div class="wide">
+                <dt>진행률
+                  <span v-if="progress && !progress.fallback" class="calc-tag" title="산출물 승인 기준 계산값 (0006 롤업)">계산</span>
+                  <span v-else class="calc-tag manual" title="전개 산출물이 없어 수동 입력값을 사용합니다">수동</span>
+                </dt>
+                <dd><ProgressBar :value="progress ? progress.overall : project.progress" /></dd>
+              </div>
+            </dl>
+          </section>
 
-            <section v-if="progress && progress.phases.length > 0" class="card wide-card">
+          <div class="cards-2">
+            <section class="card">
               <h2 class="card-title">
                 프로세스별 진척률
-                <span class="calc-tag" title="0006 recursive CTE 롤업">계산</span>
+                <span v-if="progress && progress.phases.length > 0" class="calc-tag" title="0006 recursive CTE 롤업">계산</span>
               </h2>
-              <ul class="phase-progress">
+              <div v-if="!progress || progress.phases.length === 0" class="card-empty">전개된 프로세스가 없습니다.</div>
+              <ul v-else class="phase-progress">
                 <li v-for="ph in progress.phases" :key="ph.nodeId">
                   <span class="pp-name">{{ ph.name }}</span>
                   <ProgressBar :value="ph.rate" />
@@ -674,15 +678,18 @@ watch(() => route.query.panel, applyPanelQuery);
 .src-go { margin-left: auto; color: var(--muted); font-size: 12px; }
 
 .cards { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; }
-.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
-.card-title { font-size: 14px; margin: 0 0 12px; }
+/* 개요 하단: 프로세스별 진척률 + 컨소시엄 요약 = 동일 폭 2열 */
+.cards-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+.card-title { font-size: 14px; margin: 0 0 14px; }
 .card-empty { font-size: 13px; color: var(--muted); padding: 8px 0; }
 
-.meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; margin: 0; }
-.meta > div { display: flex; flex-direction: column; gap: 2px; }
+/* 밀도 있는 필드 그리드 — 넓은 화면일수록 열이 늘어 여백을 채움 */
+.meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px 28px; margin: 0; }
+.meta > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .meta .wide { grid-column: 1 / -1; }
 .meta dt { font-size: 11px; color: var(--muted); }
-.meta dd { margin: 0; font-size: 13px; }
+.meta dd { margin: 0; font-size: 13.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
 .vrb-meta { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
 
 .consortium-brief { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -762,5 +769,5 @@ watch(() => route.query.panel, applyPanelQuery);
   font-size: 13px; color: var(--muted);
 }
 
-@media (max-width: 1000px) { .cards { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .cards { grid-template-columns: 1fr; } .cards-2 { grid-template-columns: 1fr; } }
 </style>

@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.aetherpms.common.Actor;
 import com.aetherpms.common.ApiException;
 import com.aetherpms.common.AuditWriter;
-import com.aetherpms.write.WriteSupport;
+import com.aetherpms.common.WriteSupport;
 
 /**
  * POST /api/projects — 프로젝트 생성 (배치9 / 0017 §B P1).

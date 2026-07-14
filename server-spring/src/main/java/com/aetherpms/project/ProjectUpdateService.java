@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.aetherpms.common.Actor;
 import com.aetherpms.common.ApiException;
 import com.aetherpms.common.AuditWriter;
-import com.aetherpms.write.WriteSupport;
+import com.aetherpms.common.WriteSupport;
 
 /**
  * PATCH /api/projects/{id} — 프로젝트 부분수정 (배치17 / 0017 §Phase2 P2).
