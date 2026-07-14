@@ -166,6 +166,7 @@ docs/requirements/  (동료 소유 · "무엇")   →   docs/design/  (우리 �
 | 0021 | 참여인력 수정/삭제 | IMPLEMENTED | 구현됨 |
 | 0022 | 담당자/PM 조직도 선택 전면 | IMPLEMENTED | 구현됨 |
 | 0023 | 상태 변경 통일 드롭다운 + 워크플로 보기 | IMPLEMENTED | 구현됨 |
+| 0024 | 레거시 UI 파리티 — 누락 항목 스키마·화면 보강 | DRAFT | 분석 완료·구현 대기 |
 
 > 기타: [design/collaboration-colleague-ai-prompt.md](design/collaboration-colleague-ai-prompt.md)(동료 AI 프롬프트), [design/CHECKLIST.md](design/CHECKLIST.md), [integration/amaranth-integration-usecases.md](integration/amaranth-integration-usecases.md).
 
