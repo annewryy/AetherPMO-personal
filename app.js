@@ -1155,6 +1155,31 @@ class AetherPMO {
                     if (error) console.error('[Supabase Sync] action_delete error:', error);
                     break;
                 }
+                case 'notification_upsert': {
+                    const n = data;
+                    if (!this.isUuid(n.id) || !this.isUuid(n.recipient_user_id)) {
+                        console.warn(`[Supabase Sync] Skipping notification_upsert for legacy non-UUID recipient: ${n.recipient_user_id}`);
+                        break;
+                    }
+                    const notifData = {
+                        id: n.id,
+                        recipient_user_id: n.recipient_user_id,
+                        sender_user_id: this.isUuid(n.sender_user_id) ? n.sender_user_id : null,
+                        type: n.type || 'action_item',
+                        title: n.title,
+                        message: n.message,
+                        action_item_id: this.isUuid(n.action_item_id) ? n.action_item_id : null,
+                        is_read: !!n.is_read,
+                        created_at: n.created_at || new Date().toISOString()
+                    };
+                    try {
+                        const { error } = await this.supabase.from('notifications').upsert(notifData);
+                        if (error) console.warn('[Supabase Sync] notification_upsert notice:', error);
+                    } catch (e) {
+                        console.warn('[Supabase Sync] notification_upsert exception:', e);
+                    }
+                    break;
+                }
                 case 'doc_upsert': {
                     const d = data;
                     if (!this.isUuid(d.id) || !this.isUuid(d.projectId)) {
@@ -4180,42 +4205,65 @@ class AetherPMO {
         }
     }
 
-    updateNotifications() {
+    async updateNotifications() {
         const notifList = document.getElementById('notif-list');
         const notifCount = document.getElementById('notif-count');
         if (!notifList || !notifCount) return;
 
-        // 1. Warning Artifacts (due in <= 3 days)
-        const warningArtifacts = (this.state.artifacts || []).filter(art => {
-            if (art.status === 'Approved') return false;
-            
-            const due = new Date(art.dueDate);
-            const today = new Date();
-            due.setHours(0,0,0,0);
-            today.setHours(0,0,0,0);
-            
-            const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-            return diffDays <= 3;
-        });
-
-        // 2. Pending Action Items assigned to current user
         const currentUserName = this.currentUser ? (this.currentUser.name || this.currentUser.email) : '';
         const currentUserId = this.currentUser ? this.currentUser.id : '';
         const currentUserEmail = this.currentUser ? this.currentUser.email : '';
 
+        // 1. Fetch DB notifications for logged-in recipient
+        let dbNotifs = [];
+        if (this.useSupabase && this.supabase && currentUserId && this.isUuid(currentUserId)) {
+            try {
+                const { data, error } = await this.supabase
+                    .from('notifications')
+                    .select('*')
+                    .eq('recipient_user_id', currentUserId)
+                    .eq('is_read', false)
+                    .order('created_at', { ascending: false });
+                if (!error && data) {
+                    dbNotifs = data;
+                }
+            } catch (e) {
+                console.warn('[updateNotifications] Error fetching notifications from Supabase:', e);
+            }
+        }
+        
+        // Local fallback for dbNotifications if offline or guest mode
+        if (dbNotifs.length === 0 && this.state.dbNotifications && currentUserId) {
+            dbNotifs = (this.state.dbNotifications || []).filter(n => 
+                n.recipient_user_id === currentUserId && !n.is_read
+            );
+        }
+
+        // 2. Pending Action Items assigned to current user
         const assignedActionItems = (this.state.actionItems || []).filter(act => {
             if (act.status === '완료' || act.status === 'Completed') return false;
-            if (!this.currentUser) return true; // Show pending actions if guest/demo
+            if (!this.currentUser) return true;
             const isAssigned = (
-                (act.owner && currentUserName && act.owner === currentUserName) ||
-                (act.assignee && currentUserName && act.assignee === currentUserName) ||
                 (act.ownerId && (act.ownerId === currentUserId || act.ownerId === currentUserEmail)) ||
-                (act.assigneeId && (act.assigneeId === currentUserId || act.assigneeId === currentUserEmail))
+                (act.assigneeId && (act.assigneeId === currentUserId || act.assigneeId === currentUserEmail)) ||
+                (act.owner && currentUserName && act.owner === currentUserName) ||
+                (act.assignee && currentUserName && act.assignee === currentUserName)
             );
             return isAssigned;
         });
 
-        const totalNotifs = warningArtifacts.length + assignedActionItems.length;
+        // 3. Warning Artifacts (due in <= 3 days)
+        const warningArtifacts = (this.state.artifacts || []).filter(art => {
+            if (art.status === 'Approved') return false;
+            const due = new Date(art.dueDate);
+            const today = new Date();
+            due.setHours(0,0,0,0);
+            today.setHours(0,0,0,0);
+            const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            return diffDays <= 3;
+        });
+
+        const totalNotifs = dbNotifs.length + assignedActionItems.length + warningArtifacts.length;
 
         if (totalNotifs === 0) {
             notifList.innerHTML = '<div class="empty-state">새로운 알림이 없습니다.</div>';
@@ -4226,17 +4274,53 @@ class AetherPMO {
 
         notifCount.style.display = 'flex';
         notifCount.textContent = totalNotifs;
-
         notifList.innerHTML = '';
 
-        // Render Action Item Assignment Notifications first
+        // Render DB Notifications first
+        dbNotifs.forEach(notif => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'notif-item unread';
+            itemDiv.style.borderLeft = '3px solid var(--primary)';
+            itemDiv.innerHTML = `
+                <div class="notif-item-icon bg-info-glow">
+                    <i data-lucide="bell" class="text-primary" style="width:14px; height:14px;"></i>
+                </div>
+                <div class="notif-item-content">
+                    <span class="notif-title">${notif.title}</span>
+                    <span class="notif-desc">${notif.message}</span>
+                    <span class="notif-time">${notif.created_at ? new Date(notif.created_at).toLocaleString() : ''}</span>
+                </div>
+            `;
+            itemDiv.addEventListener('click', async () => {
+                const notifPanel = document.getElementById('notif-panel');
+                if (notifPanel) notifPanel.classList.remove('open');
+                
+                notif.is_read = true;
+                if (this.useSupabase && this.supabase) {
+                    try {
+                        await this.supabase.from('notifications').update({ is_read: true }).eq('id', notif.id);
+                    } catch (e) {
+                        console.warn('[Notification Read Mark Warning]', e);
+                    }
+                }
+                if (notif.action_item_id) {
+                    this.openActionItemDetailModal(notif.action_item_id);
+                }
+                await this.updateNotifications();
+            });
+            notifList.appendChild(itemDiv);
+        });
+
+        // Render Assigned Action Items
         assignedActionItems.forEach(act => {
+            // Avoid duplicate rendering if already in dbNotifs
+            if (dbNotifs.some(n => n.action_item_id === act.id)) return;
+
             const project = (this.state.projects || []).find(p => p.id === act.projectId);
             const projName = project ? project.name : '프로젝트';
 
             const itemDiv = document.createElement('div');
             itemDiv.className = 'notif-item';
-            
             itemDiv.innerHTML = `
                 <div class="notif-item-icon bg-info-glow">
                     <i data-lucide="check-square" class="text-primary" style="width:14px; height:14px;"></i>
@@ -9669,58 +9753,101 @@ class AetherPMO {
         const registeredAccounts = [];
         const addedKeys = new Set();
 
-        // 1. Process this.state.users with strict profile UUID resolution
         const usersList = (this.state && Array.isArray(this.state.users)) ? this.state.users : [];
-        usersList.forEach(u => {
-            const nameCandidate = u.name || u.full_name || u.user_name || u.resource_name || u.email || '';
-            const email = u.email || '';
-            const profileUuid = this.resolveProfileUuid(u.id || u.email);
+        const resourcesList = (this.state && Array.isArray(this.state.resources)) ? this.state.resources : [];
 
-            const dedupeKey = (email || nameCandidate).toLowerCase().trim();
+        // Helper: Find matching resource for a user profile
+        const findMatchingResource = (u) => {
+            return resourcesList.find(r => 
+                r.isActive !== false && (
+                    (r.userId && (r.userId === u.id || r.userId === u.email)) ||
+                    (r.email && u.email && r.email.toLowerCase() === u.email.toLowerCase()) ||
+                    (r.name && u.name && r.name.trim() === u.name.trim())
+                )
+            );
+        };
+
+        // Helper: Find matching user profile for a resource
+        const findMatchingUser = (r) => {
+            return usersList.find(u => 
+                (r.userId && (u.id === r.userId || u.email === r.userId)) ||
+                (r.email && u.email && r.email.toLowerCase() === u.email.toLowerCase()) ||
+                (r.name && u.name && r.name.trim() === u.name.trim())
+            );
+        };
+
+        // 1. Process users List (Profiles) with deduplication priority: 1. profile UUID -> 2. profile email -> 3. name
+        usersList.forEach(u => {
+            const profileUuid = this.resolveProfileUuid(u.id || u.email);
+            const nameCandidate = u.name || u.full_name || u.user_name || u.email || '';
+            const email = u.email || '';
+
+            const dedupeKey = profileUuid || (email ? email.toLowerCase() : nameCandidate.toLowerCase().trim());
             if (dedupeKey && !addedKeys.has(dedupeKey)) {
                 addedKeys.add(dedupeKey);
+
+                const matchedRes = findMatchingResource(u);
+                
+                // Formulate merged label: e.g. "안유경 PM (PM · SI사업본부)" or "김철수 (WORKER · 인프라솔루션팀)"
+                let labelParts = [];
+                const roleOrDivision = u.role || u.division;
+                if (roleOrDivision) labelParts.push(roleOrDivision);
+                if (matchedRes && (matchedRes.department || matchedRes.position)) {
+                    const resInfo = matchedRes.department || matchedRes.position;
+                    if (!labelParts.includes(resInfo)) labelParts.push(resInfo);
+                }
+
+                const labelSuffix = labelParts.length > 0 ? ` (${labelParts.join(' · ')})` : '';
+                const finalLabel = `${nameCandidate}${labelSuffix}`;
+
                 registeredAccounts.push({
-                    id: profileUuid || '', // Strictly UUID or empty
+                    id: profileUuid || '',
                     name: nameCandidate,
                     email: email,
-                    label: nameCandidate ? `${nameCandidate} (${u.division || u.department || u.role || '계정'})` : email,
-                    isLinked: !!profileUuid,
+                    label: finalLabel,
+                    isLinked: true,
+                    resourceId: matchedRes ? matchedRes.id : null,
                     userObj: u
                 });
             }
         });
 
-        // 2. Process this.state.resources with email-to-UUID conversion & unlinked notice
-        const resourcesList = (this.state && Array.isArray(this.state.resources)) ? this.state.resources : [];
+        // 2. Process resources List (Resources not already deduplicated with Profiles)
         resourcesList.forEach(r => {
             if (r.isActive === false) return;
 
             const nameCandidate = r.name || r.resource_name || r.full_name || r.user_name || r.email || '';
             const email = r.email || '';
-            
-            // Email based user_id conversion to Profile UUID if needed (Item 5)
             const rawUserId = r.userId || r.user_id || '';
             const profileUuid = this.resolveProfileUuid(rawUserId || email);
+            const matchedUser = findMatchingUser(r);
 
-            const dedupeKey = (email || nameCandidate).toLowerCase().trim();
+            // Deduplication keys: 1. profile UUID -> 2. linked email -> 3. resource ID -> 4. name
+            const dedupeKey = profileUuid || (matchedUser ? matchedUser.id : null) || (email ? email.toLowerCase() : null) || r.id || nameCandidate.toLowerCase().trim();
+
             if (dedupeKey && !addedKeys.has(dedupeKey)) {
                 addedKeys.add(dedupeKey);
 
-                let labelText = '';
-                if (profileUuid) {
-                    labelText = `${nameCandidate} (${r.department || r.roleName || '인력'})`;
+                let finalLabel = '';
+                const resolvedUser = matchedUser || (profileUuid ? usersList.find(u => u.id === profileUuid) : null);
+                if (resolvedUser) {
+                    let labelParts = [];
+                    if (resolvedUser.role || resolvedUser.division) labelParts.push(resolvedUser.role || resolvedUser.division);
+                    if (r.department || r.position) labelParts.push(r.department || r.position);
+                    finalLabel = `${nameCandidate} (${labelParts.join(' · ')})`;
                 } else {
-                    labelText = `${nameCandidate} (${r.department || r.roleName || '인력'} · 계정 미연결)`;
+                    const deptOrRole = r.department || r.roleName || '인력';
+                    finalLabel = `${nameCandidate} (${deptOrRole} · 계정 미연결)`;
                 }
 
                 registeredAccounts.push({
-                    id: profileUuid || '', // Strictly UUID or empty (Item 3 & 4)
+                    id: profileUuid || (resolvedUser ? resolvedUser.id : ''),
                     name: nameCandidate,
                     email: email,
-                    label: labelText,
-                    isLinked: !!profileUuid,
+                    label: finalLabel,
+                    isLinked: !!(profileUuid || resolvedUser),
                     resourceId: r.id,
-                    userObj: null
+                    userObj: resolvedUser || null
                 });
             }
         });
@@ -9801,7 +9928,7 @@ class AetherPMO {
             }
         }
 
-        // Required Console Debug Inspection (Checkpoint 2 & 7):
+        // Console Debug Inspection
         console.log('select:', select);
         console.log('option count:', select?.options?.length);
         if (typeof console.table === 'function') {
@@ -9920,7 +10047,7 @@ class AetherPMO {
             const rawDataId = selectedOpt ? selectedOpt.getAttribute('data-id') : null;
             resourceId = selectedOpt ? selectedOpt.getAttribute('data-resource-id') : null;
 
-            // Resolve strictly to Profile UUID or null (Items 3, 4, 5)
+            // Resolve strictly to Profile UUID or null
             ownerId = this.resolveProfileUuid(rawDataId);
         }
 
@@ -9980,13 +10107,36 @@ class AetherPMO {
 
         // Notification condition check (Item 6): Trigger ONLY if assigneeId is a valid UUID
         if (isAccountLinked) {
-            const assignedUser = (this.state.users || []).find(u => u.id === ownerId || u.email === ownerId);
+            const projObj = (this.state.projects || []).find(p => p.id === projectId);
+            const projName = projObj ? projObj.name : '';
+            
+            const notifObj = {
+                id: this.generateUuid(),
+                recipient_user_id: ownerId,
+                sender_user_id: this.currentUser ? this.currentUser.id : null,
+                type: 'action_item',
+                title: `[Action Item 할당] ${title}`,
+                message: `${title} (프로젝트: ${projName}, 기한: ${dueDate})`,
+                action_item_id: actObj.id,
+                is_read: false,
+                created_at: new Date().toISOString()
+            };
+
+            this.state.dbNotifications = this.state.dbNotifications || [];
+            this.state.dbNotifications.unshift(notifObj);
+
+            try {
+                await this.saveState('notification_upsert', notifObj);
+            } catch (err) {
+                console.warn('[Notification Save Notice]', err);
+            }
+
             this.showToast(`'${owner}'님에게 Action Item이 할당되었습니다.`, 'info');
         } else {
             this.showToast(`Action Item이 저장되었습니다.`, 'success');
         }
         
-        this.updateNotifications();
+        await this.updateNotifications();
         this.closeActionItemModal();
         this.handleRouting();
     }

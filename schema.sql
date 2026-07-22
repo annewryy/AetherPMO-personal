@@ -413,8 +413,39 @@ CREATE POLICY "Allow all for SYS_ADMIN and PM on resources" ON public.resources
     );
 
 -- ==========================================
+-- 13. Notifications Table (System Notifications)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    recipient_user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    sender_user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    type TEXT NOT NULL DEFAULT 'action_item',
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    action_item_id UUID,
+    is_read BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow select for notification recipient" ON public.notifications
+    FOR SELECT TO authenticated USING (
+        recipient_user_id = auth.uid()
+    );
+
+CREATE POLICY "Allow insert for all authenticated users on notifications" ON public.notifications
+    FOR INSERT TO authenticated WITH CHECK (true);
+
+CREATE POLICY "Allow update for notification recipient" ON public.notifications
+    FOR UPDATE TO authenticated USING (
+        recipient_user_id = auth.uid()
+    );
+
+-- ==========================================
 -- Grant Privileges to Supabase Roles
 -- ==========================================
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated, anon;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated, anon;
+
