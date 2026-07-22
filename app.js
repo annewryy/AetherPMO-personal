@@ -4375,7 +4375,7 @@ class AetherPMO {
                 </div>
                 <div class="notif-item-content">
                     <span class="notif-title">[Action Item 할당] ${act.title}</span>
-                    <span class="notif-desc">${projName} | 상태: ${act.status || '대기'} (담당: ${act.owner || act.assignee || '미정'})</span>
+                    <span class="notif-desc">${projName} | 상태: ${act.status || '대기'} (담당: ${this.escapeHtml(this.getActionItemAssigneeName(act))})</span>
                     <span class="notif-time">기한: ${act.dueDate || '미정'}</span>
                 </div>
             `;
@@ -5559,7 +5559,7 @@ class AetherPMO {
                 </div>
                 <div class="item-desc">${item.projectName}</div>
                 <div class="item-meta">
-                    <span>담당자: ${item.assignee || '미지정'}</span>
+                    <span>담당자: ${this.escapeHtml(this.getActionItemAssigneeName(item))}</span>
                     <span>기한: ${item.dueDate}</span>
                 </div>
             </div>
@@ -7887,7 +7887,7 @@ class AetherPMO {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td class="font-bold text-xs"><a href="#" onclick="event.preventDefault(); app.openActionItemDetailModal('${act.id}')" class="project-name-link">${act.title}</a></td>
-                <td class="text-xs font-bold">${act.owner}</td>
+                <td class="text-xs font-bold">${this.escapeHtml(this.getActionItemAssigneeName(act))}</td>
                 <td class="text-xs font-bold text-danger">${act.dueDate}</td>
                 <td class="text-xs text-muted font-bold">${act.completedDate || '-'}</td>
                 <td><span class="status-badge ${act.status === '완료' ? 'status-resolved' : act.status === '진행중' ? 'status-inprogress' : 'status-pending'}">${act.status}</span></td>
@@ -9940,18 +9940,36 @@ class AetherPMO {
         }
     }
 
+    cleanActionItemValue(value) {
+        if (
+            value === null ||
+            value === undefined ||
+            String(value).trim() === '' ||
+            String(value).trim().toLowerCase() === 'undefined' ||
+            String(value).trim().toLowerCase() === 'null'
+        ) {
+            return '';
+        }
+
+        return String(value).trim();
+    }
+
     normalizeActionItemFromDb(row) {
         if (!row) return null;
         const projId = row.project_id || row.projectId || null;
         const assigneeId = this.isUuid(row.assignee_id || row.assigneeId) ? (row.assignee_id || row.assigneeId) : null;
         
         const user = assigneeId
-            ? (this.state.users || []).find(u => String(u.id || u.profile_id) === String(assigneeId))
+            ? (this.state.users || []).find(u =>
+                String(u.id || '') === String(assigneeId) ||
+                String(u.profile_id || '') === String(assigneeId)
+              )
             : null;
 
-        const assigneeName = user?.name || user?.full_name || (row.assignee_name && row.assignee_name !== 'undefined' ? row.assignee_name : '') || (row.assignee && row.assignee !== 'undefined' ? row.assignee : '') || (row.owner && row.owner !== 'undefined' ? row.owner : '');
-        const assigneeEmail = user?.email || row.assignee_email || '';
-        const ownerVal = !assigneeId ? (row.owner || row.assignee_name || row.assignee || '') : null;
+        const rawAssigneeName = this.cleanActionItemValue(row.assignee_name) || this.cleanActionItemValue(row.assignee) || this.cleanActionItemValue(row.owner);
+        const assigneeName = user?.name || user?.full_name || rawAssigneeName;
+        const assigneeEmail = user?.email || this.cleanActionItemValue(row.assignee_email);
+        const ownerVal = !assigneeId ? (this.cleanActionItemValue(row.owner) || rawAssigneeName) : '';
 
         const normStatus = this.normalizeActionItemStatus(row.status);
 
@@ -9996,18 +10014,19 @@ class AetherPMO {
 
         const user = assigneeId
             ? (this.state.users || []).find(user =>
-                String(user.id || user.profile_id) === String(assigneeId)
+                String(user.id || '') === String(assigneeId) ||
+                String(user.profile_id || '') === String(assigneeId)
               )
             : null;
 
         const resolvedName =
             user?.name ||
             user?.full_name ||
-            (item.assignee_name && item.assignee_name !== 'undefined' ? item.assignee_name : null) ||
+            this.cleanActionItemValue(item.assignee_name) ||
             user?.email ||
-            (item.assignee_email && item.assignee_email !== 'undefined' ? item.assignee_email : null) ||
-            (item.owner && item.owner !== 'undefined' ? item.owner : null) ||
-            (item.assignee && item.assignee !== 'undefined' ? item.assignee : null) ||
+            this.cleanActionItemValue(item.assignee_email) ||
+            this.cleanActionItemValue(item.owner) ||
+            this.cleanActionItemValue(item.assignee) ||
             '-';
 
         if (resolvedName === '-' && assigneeId) {
@@ -10019,7 +10038,7 @@ class AetherPMO {
             });
         }
 
-        return (resolvedName && resolvedName !== 'undefined') ? resolvedName : '-';
+        return resolvedName || '-';
     }
 
     getActionItemProjectName(item) {
@@ -10618,7 +10637,7 @@ class AetherPMO {
         const project = this.state.projects.find(p => p.id === act.projectId);
         document.getElementById('det-action-project').textContent = project ? project.name : '-';
         document.getElementById('det-action-title').textContent = act.title;
-        document.getElementById('det-action-owner').textContent = act.owner;
+        document.getElementById('det-action-owner').textContent = this.getActionItemAssigneeName(act);
         document.getElementById('det-action-status').textContent = act.status;
         document.getElementById('det-action-due-date').textContent = act.dueDate;
         document.getElementById('det-action-completed-date').textContent = act.completedDate || '-';
@@ -16482,7 +16501,7 @@ class AetherPMO {
                            `금주 기한인 상위 3건은 다음과 같습니다:\n\n`;
                 pendingActions.slice(0, 3).forEach((act, index) => {
                     response += `${index + 1}. **${act.title}**\n` +
-                                `   - 담당자: ${act.assignee} | 기한: ${act.dueDate}\n` +
+                                `   - 담당자: ${this.getActionItemAssigneeName(act)} | 기한: ${act.dueDate}\n` +
                                 `   - 중요도: ${act.priority}\n`;
                 });
                 response += `\n지정된 기한 내 완료율이 85% 이상 유지되도록 해당 담당자에게 자동 알림 메일을 전파할 수 있습니다.`;
