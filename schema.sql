@@ -358,89 +358,115 @@ CREATE POLICY "Allow full access for SYS_ADMIN, PM and WORKER on issues" ON publ
         )
     );
 
--- 8. Action Items Policies
-CREATE POLICY "Allow select for all action_items" ON public.action_items
-    FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow full access for SYS_ADMIN, PM and WORKER on action_items" ON public.action_items
-    FOR ALL TO authenticated USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles
-            WHERE public.profiles.id = auth.uid()
-            AND public.profiles.role IN ('SYS_ADMIN', 'PM', 'WORKER')
-        )
-    );
+-- ==========================================
+-- 8. Action Items Policies (Project Members & Assignee Access)
+-- ==========================================
+DROP POLICY IF EXISTS "Allow select for all action_items" ON public.action_items;
+DROP POLICY IF EXISTS "Allow full access for SYS_ADMIN, PM and WORKER on action_items" ON public.action_items;
+DROP POLICY IF EXISTS "Users can view assigned or project action items" ON public.action_items;
 
--- 9. Official Docs Policies
-CREATE POLICY "Allow select for all official_docs except WORKER" ON public.official_docs
+CREATE POLICY "Users can view assigned or project action items" ON public.action_items
     FOR SELECT TO authenticated USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles
-            WHERE public.profiles.id = auth.uid()
-            AND public.profiles.role != 'WORKER'
-        )
-    );
-CREATE POLICY "Allow full access for SYS_ADMIN and PM on official_docs" ON public.official_docs
-    FOR ALL TO authenticated USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles
-            WHERE public.profiles.id = auth.uid()
-            AND public.profiles.role IN ('SYS_ADMIN', 'PM')
-        )
-    );
-
--- 10. Checklists Policies
-CREATE POLICY "Allow select for all checklists" ON public.checklists
-    FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow full access for all authenticated users on checklists" ON public.checklists
-    FOR ALL TO authenticated USING (true);
-
--- 11. Activity Logs Policies
-CREATE POLICY "Allow select for all activity_logs" ON public.activity_logs
-    FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow insert for all authenticated users on activity_logs" ON public.activity_logs
-    FOR INSERT TO authenticated WITH CHECK (true);
-
--- 12. Resources Policies
-CREATE POLICY "Allow select for all resources" ON public.resources
-    FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow all for SYS_ADMIN and PM on resources" ON public.resources
-    FOR ALL TO authenticated USING (
-        EXISTS (
+        assignee_id = auth.uid()
+        OR owner_user_id = auth.uid()
+        OR created_by = auth.uid()
+        OR EXISTS (
             SELECT 1 FROM public.profiles pr
             WHERE pr.id = auth.uid()
-            AND pr.role IN ('SYS_ADMIN', 'PM')
+              AND pr.role IN ('SYS_ADMIN', 'EXEC_ADMIN', 'PM')
+        )
+        OR EXISTS (
+            SELECT 1 FROM public.projects p
+            WHERE p.id = action_items.project_id
+              AND (p.manager_id = auth.uid() OR p.member_ids @> jsonb_build_array(auth.uid()::text))
+        )
+    );
+
+CREATE POLICY "Allow all for SYS_ADMIN, PM and WORKER on action_items" ON public.action_items
+    FOR ALL TO authenticated USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE public.profiles.id = auth.uid()
+              AND public.profiles.role IN ('SYS_ADMIN', 'PM', 'WORKER')
         )
     );
 
 -- ==========================================
--- 13. Notifications Table (System Notifications)
+-- 13. Notifications Table (System Notifications with dedup_key)
 -- ==========================================
 CREATE TABLE IF NOT EXISTS public.notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     recipient_user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
     sender_user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-    type TEXT NOT NULL DEFAULT 'action_item',
+    type TEXT NOT NULL DEFAULT 'ACTION_ITEM_ASSIGNED',
     title TEXT NOT NULL,
     message TEXT NOT NULL,
-    action_item_id UUID,
+    action_item_id UUID REFERENCES public.action_items(id) ON DELETE CASCADE,
+    project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL,
     is_read BOOLEAN NOT NULL DEFAULT false,
+    dedup_key TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS notifications_dedup_key_unique 
+ON public.notifications(dedup_key) 
+WHERE dedup_key IS NOT NULL;
+
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow select for notification recipient" ON public.notifications
+DROP POLICY IF EXISTS "Allow select for notification recipient" ON public.notifications;
+DROP POLICY IF EXISTS "Allow insert for all authenticated users on notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Allow update for notification recipient" ON public.notifications;
+DROP POLICY IF EXISTS "Users can view own notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Users can insert notifications for owned items" ON public.notifications;
+
+-- 1. SELECT Policy
+CREATE POLICY "Users can view own notifications" ON public.notifications
     FOR SELECT TO authenticated USING (
         recipient_user_id = auth.uid()
     );
 
-CREATE POLICY "Allow insert for all authenticated users on notifications" ON public.notifications
-    FOR INSERT TO authenticated WITH CHECK (true);
-
-CREATE POLICY "Allow update for notification recipient" ON public.notifications
-    FOR UPDATE TO authenticated USING (
-        recipient_user_id = auth.uid()
+-- 2. Strict INSERT Policy (Sender authorization & Assignee matching)
+CREATE POLICY "Users can insert notifications for owned items" ON public.notifications
+    FOR INSERT TO authenticated
+    WITH CHECK (
+        sender_user_id = auth.uid()
+        AND action_item_id IS NOT NULL
+        AND EXISTS (
+            SELECT 1 FROM public.action_items ai
+            WHERE ai.id = notifications.action_item_id
+              AND (
+                  ai.created_by = auth.uid()
+                  OR ai.owner_user_id = auth.uid()
+                  OR EXISTS (
+                      SELECT 1 FROM public.profiles pr
+                      WHERE pr.id = auth.uid() AND pr.role IN ('SYS_ADMIN', 'EXEC_ADMIN', 'PM')
+                  )
+              )
+              AND (
+                  (notifications.type = 'ACTION_ITEM_ASSIGNED' AND notifications.recipient_user_id = ai.assignee_id)
+                  OR notifications.type = 'ACTION_ITEM_UNASSIGNED'
+              )
+        )
     );
+
+-- 3. RPC Function for Safe Notification Read Mark
+CREATE OR REPLACE FUNCTION public.mark_notification_read(p_notification_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    UPDATE public.notifications
+       SET is_read = true
+     WHERE id = p_notification_id
+       AND recipient_user_id = auth.uid();
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.mark_notification_read(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.mark_notification_read(UUID) TO authenticated;
 
 -- ==========================================
 -- Grant Privileges to Supabase Roles
@@ -448,4 +474,5 @@ CREATE POLICY "Allow update for notification recipient" ON public.notifications
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated, anon;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated, anon;
+
 

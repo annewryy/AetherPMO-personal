@@ -9642,22 +9642,227 @@ class AetherPMO {
         return uuidRegex.test(val.trim());
     }
 
-    resolveProfileUuid(idOrEmail) {
-        if (!idOrEmail) return null;
-        if (this.isUuid(idOrEmail)) return idOrEmail;
-        
-        const usersList = (this.state && Array.isArray(this.state.users)) ? this.state.users : [];
-        const matched = usersList.find(u => 
-            u.email === idOrEmail || 
-            u.id === idOrEmail ||
-            u.name === idOrEmail ||
-            u.full_name === idOrEmail ||
-            u.user_name === idOrEmail
-        );
-        if (matched && this.isUuid(matched.id)) {
-            return matched.id;
+    resolveProfileUuid(value) {
+        if (!value) return null;
+        const normalized = String(value).trim().toLowerCase();
+        const users = (this.state && Array.isArray(this.state.users)) ? this.state.users : [];
+
+        // 1. If normalized string is a UUID format, verify existence in state.users
+        if (this.isUuid(normalized)) {
+            const uuidMatch = users.find(u => String(u.id || '').toLowerCase() === normalized);
+            return uuidMatch ? uuidMatch.id : null;
         }
-        return null;
+
+        // 2. Exact Email match
+        const emailMatch = users.find(u => String(u.email || '').trim().toLowerCase() === normalized);
+        if (emailMatch && this.isUuid(emailMatch.id)) {
+            return emailMatch.id;
+        }
+
+        // 3. Name match (Single match ONLY to prevent ambiguity)
+        const nameMatches = users.filter(u => 
+            String(u.name || u.full_name || u.user_name || '').trim().toLowerCase() === normalized
+        );
+
+        return (nameMatches.length === 1 && this.isUuid(nameMatches[0].id)) ? nameMatches[0].id : null;
+    }
+
+    getActionItemAssigneeId(item) {
+        if (!item) return null;
+        return this.resolveProfileUuid(
+            item.assignee_id ||
+            item.assigneeId ||
+            item.assignee_email ||
+            item.assignee ||
+            null
+        );
+    }
+
+    getCurrentUserProfileId() {
+        return (
+            this.state?.currentProfile?.id ||
+            this.state?.currentUser?.profile?.id ||
+            this.state?.currentUser?.id ||
+            this.currentUser?.id ||
+            null
+        );
+    }
+
+    getMyActionItems(options = {}) {
+        const profileId = this.getCurrentUserProfileId();
+        if (!profileId) return [];
+
+        const { includeCompleted = false, projectId = null } = options;
+
+        return (this.state.actionItems || []).filter(item => {
+            const assigneeId = this.getActionItemAssigneeId(item);
+            if (String(assigneeId || '') !== String(profileId)) {
+                return false;
+            }
+
+            if (projectId && String(item.projectId || item.project_id) !== String(projectId)) {
+                return false;
+            }
+
+            if (!includeCompleted) {
+                const status = String(item.status || '').toUpperCase();
+                if (['DONE', 'COMPLETED', 'CLOSED', '완료'].includes(status)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }
+
+    async markNotificationAsRead(notificationId) {
+        if (!notificationId || !this.useSupabase || !this.supabase) {
+            return false;
+        }
+
+        const { error } = await this.supabase.rpc('mark_notification_read', {
+            p_notification_id: notificationId
+        });
+
+        if (error) {
+            console.warn('[markNotificationAsRead] RPC failed:', error);
+            return false;
+        }
+
+        const notification = (this.state.notifications || []).find(n => n.id === notificationId);
+        if (notification) {
+            notification.is_read = true;
+        }
+
+        this.renderNotificationBadge();
+        this.renderNotificationDropdown();
+        return true;
+    }
+
+    async handleNotificationClick(notification) {
+        if (!notification) return;
+        await this.markNotificationAsRead(notification.id);
+        await this.loadActionItems();
+
+        const actionItemId = notification.action_item_id || notification.actionItemId;
+        const actionItem = (this.state.actionItems || []).find(item => item.id === actionItemId);
+
+        if (!actionItem) {
+            this.showToast('해당 Action Item이 삭제되었거나 조회 권한이 없습니다.', 'warning');
+            return;
+        }
+
+        this.navigateToProject(actionItem.projectId || actionItem.project_id, 'action-items');
+        requestAnimationFrame(() => {
+            this.openActionItemDetailModal(actionItem.id);
+        });
+    }
+
+    safeRender(methodName) {
+        const method = this[methodName];
+        if (typeof method !== 'function') return;
+        try {
+            method.call(this);
+        } catch (error) {
+            console.warn(`[${methodName}] render failed:`, error);
+        }
+    }
+
+    scheduleActionItemRefresh() {
+        clearTimeout(this.actionItemRefreshTimer);
+        this.actionItemRefreshTimer = setTimeout(() => {
+            this.refreshActionItemDependencies();
+        }, 300);
+    }
+
+    async refreshActionItemDependencies() {
+        if (this.actionItemRefreshInProgress) {
+            this.actionItemRefreshPending = true;
+            return;
+        }
+
+        this.actionItemRefreshInProgress = true;
+
+        try {
+            await Promise.all([
+                this.loadActionItems(),
+                this.loadNotifications()
+            ]);
+
+            [
+                'renderActionItems',
+                'renderNotificationBadge',
+                'renderNotificationDropdown',
+                'renderClassicDashboard',
+                'renderAIPortal',
+                'renderTodayTasks'
+            ].forEach(methodName => this.safeRender(methodName));
+        } finally {
+            this.actionItemRefreshInProgress = false;
+            if (this.actionItemRefreshPending) {
+                this.actionItemRefreshPending = false;
+                this.scheduleActionItemRefresh();
+            }
+        }
+    }
+
+    buildAIFirstBriefing() {
+        const myItems = this.getMyActionItems();
+        const today = new Date();
+        today.setHours(0,0,0,0);
+
+        const overdue = myItems.filter(item => item.dueDate && new Date(item.dueDate) < today);
+        const dueToday = myItems.filter(item => item.dueDate && this.isSameDate(item.dueDate, today));
+        const dueSoon = myItems.filter(item => item.dueDate && this.isDueWithinDays(item.dueDate, 3));
+        const highPriority = myItems.filter(item => ['HIGH', 'CRITICAL'].includes(String(item.priority || '').toUpperCase()));
+
+        let briefingText = '';
+        if (overdue.length > 0) {
+            briefingText += `⚠️ 기한을 초과한 Action Item이 <strong>${overdue.length}건</strong> 있습니다. 우선 확인해 주세요. `;
+        }
+        if (dueToday.length > 0) {
+            briefingText += `📅 오늘 마감 예정인 Action Item이 <strong>${dueToday.length}건</strong> 있습니다. `;
+        }
+        if (dueSoon.length > 0) {
+            briefingText += `⏰ 3일 이내 마감 예정인 업무가 <strong>${dueSoon.length}건</strong>입니다. `;
+        }
+        if (!briefingText) {
+            briefingText = `✅ 오늘 마감이 임박하거나 지연된 내 Action Item이 없습니다. 프로젝트 현황이 양호합니다.`;
+        }
+
+        return {
+            overdueItems: overdue,
+            dueTodayItems: dueToday,
+            dueSoonItems: dueSoon,
+            highPriorityItems: highPriority,
+            briefingText: briefingText
+        };
+    }
+
+    subscribeActionItemRealtime() {
+        if (!this.useSupabase || !this.supabase) return;
+        this.unsubscribeActionItemRealtime();
+
+        this.actionItemChannel = this.supabase
+            .channel('action-item-realtime-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'action_items' }, async () => {
+                this.scheduleActionItemRefresh();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, async (payload) => {
+                const currentProfileId = this.getCurrentUserProfileId();
+                const recipientId = payload.new?.recipient_user_id || payload.old?.recipient_user_id || payload.new?.recipient_id;
+                if (String(recipientId || '') === String(currentProfileId || '')) {
+                    this.scheduleActionItemRefresh();
+                }
+            })
+            .subscribe();
+    }
+
+    unsubscribeActionItemRealtime() {
+        if (this.actionItemChannel) {
+            this.supabase.removeChannel(this.actionItemChannel);
+            this.actionItemChannel = null;
+        }
     }
 
     async loadUsers() {
@@ -10105,30 +10310,40 @@ class AetherPMO {
             console.error('[ActionItem Save Error]', err);
         }
 
-        // Notification condition check (Item 6): Trigger ONLY if assigneeId is a valid UUID
+        // Notification condition check: Trigger ONLY if assigneeId is a valid UUID
         if (isAccountLinked) {
             const projObj = (this.state.projects || []).find(p => p.id === projectId);
             const projName = projObj ? projObj.name : '';
             
+            // Stable deterministic dedup_key without Date.now()
+            const dedupKey = `ACTION_ITEM_ASSIGNED:${actObj.id}:${ownerId}`;
+            
             const notifObj = {
                 id: this.generateUuid(),
                 recipient_user_id: ownerId,
-                sender_user_id: this.currentUser ? this.currentUser.id : null,
-                type: 'action_item',
+                sender_user_id: this.getCurrentUserProfileId(),
+                type: 'ACTION_ITEM_ASSIGNED',
                 title: `[Action Item 할당] ${title}`,
                 message: `${title} (프로젝트: ${projName}, 기한: ${dueDate})`,
                 action_item_id: actObj.id,
+                project_id: projectId,
                 is_read: false,
+                dedup_key: dedupKey,
                 created_at: new Date().toISOString()
             };
 
-            this.state.dbNotifications = this.state.dbNotifications || [];
-            this.state.dbNotifications.unshift(notifObj);
+            this.state.notifications = this.state.notifications || [];
+            this.state.notifications.unshift(notifObj);
 
-            try {
-                await this.saveState('notification_upsert', notifObj);
-            } catch (err) {
-                console.warn('[Notification Save Notice]', err);
+            if (this.useSupabase && this.supabase) {
+                try {
+                    const { error } = await this.supabase.from('notifications').insert(notifObj);
+                    if (error && error.code !== '23505') {
+                        console.warn('[Notification Insert Notice]', error);
+                    }
+                } catch (err) {
+                    console.warn('[Notification Insert Exception]', err);
+                }
             }
 
             this.showToast(`'${owner}'님에게 Action Item이 할당되었습니다.`, 'info');
@@ -10136,7 +10351,7 @@ class AetherPMO {
             this.showToast(`Action Item이 저장되었습니다.`, 'success');
         }
         
-        await this.updateNotifications();
+        await this.refreshActionItemDependencies();
         this.closeActionItemModal();
         this.handleRouting();
     }
