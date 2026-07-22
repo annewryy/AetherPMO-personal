@@ -3352,8 +3352,11 @@
                         <input type="text" id="action-item-title" required placeholder="예: 고객용 API 명세서 v1.1 송부">
                     </div>
                     <div class="form-group">
-                        <label for="action-item-owner">담당자 <span class="required">*</span></label>
-                        <input type="text" id="action-item-owner" required value="안유경">
+                        <label for="action-item-owner-select">담당자 <span class="required">*</span></label>
+                        <select id="action-item-owner-select" onchange="app.handleActionItemOwnerChange(this.value)">
+                            <!-- Dynamic options populated from registered accounts + custom input -->
+                        </select>
+                        <input type="text" id="action-item-owner-custom" style="display:none; margin-top:6px;" placeholder="담당자 이름 직접 입력">
                     </div>
                     <div class="form-group">
                         <label for="action-item-status">진행 상태</label>

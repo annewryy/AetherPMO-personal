@@ -748,15 +748,23 @@ class AetherPMO {
         }
     }
 
-    saveIssueReviewComment() {
+    async saveIssueReviewComment() {
         const input = document.getElementById('issue-review-comment');
         if (!input) return;
         const commentVal = input.value.trim();
         const issue = this.state.issues.find(i => i.id === this.activeIssueId);
         if (issue) {
             issue.reviewComment = commentVal;
-            this.saveState('issue_upsert', issue);
-            alert('리스크 검토의견이 저장되었습니다.');
+            try {
+                await this.saveState('issue_upsert', issue);
+                if (this.useSupabase) {
+                    await this.loadStateFromSupabase();
+                }
+                alert('리스크 검토의견이 저장되었습니다.');
+            } catch (error) {
+                console.error(error);
+                alert('검토의견 저장에 실패하였습니다. 콘솔 로그를 확인하십시오.');
+            }
             this.renderIssues();
         }
     }
@@ -1103,7 +1111,10 @@ class AetherPMO {
                         review_comment: i.reviewComment
                     };
                     const { error } = await this.supabase.from('issues').upsert(issData);
-                    if (error) console.error('[Supabase Sync] issue_upsert error:', error);
+                    if (error) {
+                        console.error('[Supabase Sync] issue_upsert error:', error);
+                        throw error;
+                    }
                     break;
                 }
                 case 'issue_delete': {
@@ -1375,7 +1386,8 @@ class AetherPMO {
                 { data: officialDocs, error: errDoc },
                 { data: meetingMinutes, error: errMeet },
                 { data: projectMembers, error: errMem },
-                { data: resources, error: errRes }
+                { data: resources, error: errRes },
+                { data: profiles, error: errProf }
             ] = await Promise.all([
                 this.supabase.from('projects').select('*'),
                 this.supabase.from('artifacts').select('*'),
@@ -1386,7 +1398,8 @@ class AetherPMO {
                 this.supabase.from('official_docs').select('*'),
                 this.supabase.from('meeting_minutes').select('*'),
                 this.supabase.from('project_members').select('*'),
-                this.supabase.from('resources').select('*')
+                this.supabase.from('resources').select('*'),
+                this.supabase.from('profiles').select('*')
             ]);
 
             let contracts = [];
@@ -1459,6 +1472,24 @@ class AetherPMO {
                 userId: r.user_id,
                 isActive: r.is_active !== false
             }));
+
+            if (profiles && profiles.length > 0) {
+                this.state.users = profiles.map(p => ({
+                    id: p.id,
+                    email: p.email,
+                    name: p.name || p.full_name || p.user_name || (p.email ? p.email.split('@')[0] : ''),
+                    full_name: p.full_name || p.name,
+                    user_name: p.user_name || p.name,
+                    role: p.role,
+                    company: p.company,
+                    division: p.division || p.department,
+                    position: p.position,
+                    phone: p.phone,
+                    notifications: p.notifications
+                }));
+            } else if (!this.state.users || this.state.users.length === 0) {
+                this.state.users = this.getDefaultUsers();
+            }
 
             this.state.projects = (projects || []).map(p => ({
                 id: p.id,
@@ -4154,7 +4185,8 @@ class AetherPMO {
         const notifCount = document.getElementById('notif-count');
         if (!notifList || !notifCount) return;
 
-        const warningArtifacts = this.state.artifacts.filter(art => {
+        // 1. Warning Artifacts (due in <= 3 days)
+        const warningArtifacts = (this.state.artifacts || []).filter(art => {
             if (art.status === 'Approved') return false;
             
             const due = new Date(art.dueDate);
@@ -4166,7 +4198,26 @@ class AetherPMO {
             return diffDays <= 3;
         });
 
-        if (warningArtifacts.length === 0) {
+        // 2. Pending Action Items assigned to current user
+        const currentUserName = this.currentUser ? (this.currentUser.name || this.currentUser.email) : '';
+        const currentUserId = this.currentUser ? this.currentUser.id : '';
+        const currentUserEmail = this.currentUser ? this.currentUser.email : '';
+
+        const assignedActionItems = (this.state.actionItems || []).filter(act => {
+            if (act.status === '완료' || act.status === 'Completed') return false;
+            if (!this.currentUser) return true; // Show pending actions if guest/demo
+            const isAssigned = (
+                (act.owner && currentUserName && act.owner === currentUserName) ||
+                (act.assignee && currentUserName && act.assignee === currentUserName) ||
+                (act.ownerId && (act.ownerId === currentUserId || act.ownerId === currentUserEmail)) ||
+                (act.assigneeId && (act.assigneeId === currentUserId || act.assigneeId === currentUserEmail))
+            );
+            return isAssigned;
+        });
+
+        const totalNotifs = warningArtifacts.length + assignedActionItems.length;
+
+        if (totalNotifs === 0) {
             notifList.innerHTML = '<div class="empty-state">새로운 알림이 없습니다.</div>';
             notifCount.style.display = 'none';
             notifCount.textContent = '0';
@@ -4174,9 +4225,39 @@ class AetherPMO {
         }
 
         notifCount.style.display = 'flex';
-        notifCount.textContent = warningArtifacts.length;
+        notifCount.textContent = totalNotifs;
 
         notifList.innerHTML = '';
+
+        // Render Action Item Assignment Notifications first
+        assignedActionItems.forEach(act => {
+            const project = (this.state.projects || []).find(p => p.id === act.projectId);
+            const projName = project ? project.name : '프로젝트';
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'notif-item';
+            
+            itemDiv.innerHTML = `
+                <div class="notif-item-icon bg-info-glow">
+                    <i data-lucide="check-square" class="text-primary" style="width:14px; height:14px;"></i>
+                </div>
+                <div class="notif-item-content">
+                    <span class="notif-title">[Action Item 할당] ${act.title}</span>
+                    <span class="notif-desc">${projName} | 상태: ${act.status || '대기'} (담당: ${act.owner || act.assignee || '미정'})</span>
+                    <span class="notif-time">기한: ${act.dueDate || '미정'}</span>
+                </div>
+            `;
+
+            itemDiv.addEventListener('click', () => {
+                const notifPanel = document.getElementById('notif-panel');
+                if (notifPanel) notifPanel.classList.remove('open');
+                this.openActionItemDetailModal(act.id);
+            });
+
+            notifList.appendChild(itemDiv);
+        });
+
+        // Render Warning Artifact Notifications
         warningArtifacts.forEach(art => {
             const due = new Date(art.dueDate);
             const today = new Date();
@@ -4218,7 +4299,8 @@ class AetherPMO {
             `;
 
             itemDiv.addEventListener('click', () => {
-                document.getElementById('notif-panel').classList.remove('open');
+                const notifPanel = document.getElementById('notif-panel');
+                if (notifPanel) notifPanel.classList.remove('open');
                 this.openArtifactDetailModal(art.id);
             });
 
@@ -9304,7 +9386,7 @@ class AetherPMO {
         document.getElementById('issue-modal').classList.remove('open');
     }
 
-    saveIssueForm() {
+    async saveIssueForm() {
         const id = document.getElementById('issue-id-field').value;
         const projectId = document.getElementById('issue-project-select').value;
         const title = document.getElementById('issue-title').value.trim();
@@ -9334,7 +9416,7 @@ class AetherPMO {
                 this.addActivityLog(projectId, title, 'review', `리스크 수정: "${title}" (${status})`);
             }
         } else {
-            const newId = this.generateUuid();
+            const newId = crypto.randomUUID();
             this.state.issues.push({
                 id: newId,
                 projectId, title, type, priority, owner, status, reportedDate,
@@ -9345,7 +9427,15 @@ class AetherPMO {
         }
 
         const issueObj = id ? this.state.issues.find(i => i.id === id) : this.state.issues[this.state.issues.length - 1];
-        this.saveState('issue_upsert', issueObj);
+        try {
+            await this.saveState('issue_upsert', issueObj);
+            if (this.useSupabase) {
+                await this.loadStateFromSupabase();
+            }
+        } catch (error) {
+            console.error(error);
+            alert('저장에 실패하였습니다. 콘솔 로그를 확인하십시오.');
+        }
         this.closeIssueModal();
         this.handleRouting();
     }
@@ -9462,30 +9552,301 @@ class AetherPMO {
         }
     }
 
-    openNewActionItemModalFromDetail() {
-        this.openNewActionItemModal(this.activeProjectId);
+    isUuid(val) {
+        if (!val || typeof val !== 'string') return false;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        return uuidRegex.test(val.trim());
     }
 
-    openNewActionItemModal(fixedProjectId = null) {
+    resolveProfileUuid(idOrEmail) {
+        if (!idOrEmail) return null;
+        if (this.isUuid(idOrEmail)) return idOrEmail;
+        
+        const usersList = (this.state && Array.isArray(this.state.users)) ? this.state.users : [];
+        const matched = usersList.find(u => 
+            u.email === idOrEmail || 
+            u.id === idOrEmail ||
+            u.name === idOrEmail ||
+            u.full_name === idOrEmail ||
+            u.user_name === idOrEmail
+        );
+        if (matched && this.isUuid(matched.id)) {
+            return matched.id;
+        }
+        return null;
+    }
+
+    async loadUsers() {
+        this.state = this.state || {};
+        if (this.useSupabase && this.supabase) {
+            try {
+                const { data, error } = await this.supabase.from('profiles').select('*');
+                if (!error && data && data.length > 0) {
+                    this.state.users = data.map(p => ({
+                        id: p.id,
+                        email: p.email,
+                        name: p.name || p.full_name || p.user_name || (p.email ? p.email.split('@')[0] : ''),
+                        full_name: p.full_name || p.name,
+                        user_name: p.user_name || p.name,
+                        role: p.role,
+                        company: p.company,
+                        division: p.division || p.department,
+                        position: p.position,
+                        phone: p.phone,
+                        notifications: p.notifications
+                    }));
+                    return this.state.users;
+                }
+            } catch (e) {
+                console.warn('[loadUsers] Warning fetching profiles from Supabase:', e);
+            }
+        }
+        if (!this.state.users || this.state.users.length === 0) {
+            this.state.users = this.getDefaultUsers();
+        }
+        return this.state.users;
+    }
+
+    async loadResources() {
+        this.state = this.state || {};
+        if (this.useSupabase && this.supabase) {
+            try {
+                const { data, error } = await this.supabase.from('resources').select('*');
+                if (!error && data && data.length > 0) {
+                    this.state.resources = data.map(r => ({
+                        id: r.id,
+                        name: r.name || r.resource_name || r.full_name || r.user_name,
+                        resource_name: r.resource_name || r.name,
+                        full_name: r.full_name || r.name,
+                        user_name: r.user_name || r.name,
+                        employmentType: r.employment_type || 'regular',
+                        department: r.department,
+                        position: r.position,
+                        roleName: r.role_name,
+                        userId: r.user_id,
+                        isActive: r.is_active !== false
+                    }));
+                    return this.state.resources;
+                }
+            } catch (e) {
+                console.warn('[loadResources] Warning fetching resources from Supabase:', e);
+            }
+        }
+        if (!this.state.resources || this.state.resources.length === 0) {
+            this.state.resources = this.getDefaultResources();
+        }
+        return this.state.resources;
+    }
+
+    async openNewActionItemModalFromDetail() {
+        await this.openNewActionItemModal(this.activeProjectId);
+    }
+
+    handleActionItemOwnerChange(value) {
+        const customInput = document.getElementById('action-item-owner-custom');
+        if (customInput) {
+            if (value === 'custom') {
+                customInput.style.display = 'block';
+                customInput.value = '';
+                customInput.focus();
+            } else {
+                customInput.style.display = 'none';
+                customInput.value = '';
+            }
+        }
+    }
+
+    populateActionItemOwnerSelect(selectedOwnerNameOrId = '') {
+        const select = document.getElementById('action-item-owner-select');
+        const customInput = document.getElementById('action-item-owner-custom');
+        if (!select) {
+            console.warn('[populateActionItemOwnerSelect] action-item-owner-select null');
+            return;
+        }
+
+        select.innerHTML = '';
+
+        const registeredAccounts = [];
+        const addedKeys = new Set();
+
+        // 1. Process this.state.users with strict profile UUID resolution
+        const usersList = (this.state && Array.isArray(this.state.users)) ? this.state.users : [];
+        usersList.forEach(u => {
+            const nameCandidate = u.name || u.full_name || u.user_name || u.resource_name || u.email || '';
+            const email = u.email || '';
+            const profileUuid = this.resolveProfileUuid(u.id || u.email);
+
+            const dedupeKey = (email || nameCandidate).toLowerCase().trim();
+            if (dedupeKey && !addedKeys.has(dedupeKey)) {
+                addedKeys.add(dedupeKey);
+                registeredAccounts.push({
+                    id: profileUuid || '', // Strictly UUID or empty
+                    name: nameCandidate,
+                    email: email,
+                    label: nameCandidate ? `${nameCandidate} (${u.division || u.department || u.role || '계정'})` : email,
+                    isLinked: !!profileUuid,
+                    userObj: u
+                });
+            }
+        });
+
+        // 2. Process this.state.resources with email-to-UUID conversion & unlinked notice
+        const resourcesList = (this.state && Array.isArray(this.state.resources)) ? this.state.resources : [];
+        resourcesList.forEach(r => {
+            if (r.isActive === false) return;
+
+            const nameCandidate = r.name || r.resource_name || r.full_name || r.user_name || r.email || '';
+            const email = r.email || '';
+            
+            // Email based user_id conversion to Profile UUID if needed (Item 5)
+            const rawUserId = r.userId || r.user_id || '';
+            const profileUuid = this.resolveProfileUuid(rawUserId || email);
+
+            const dedupeKey = (email || nameCandidate).toLowerCase().trim();
+            if (dedupeKey && !addedKeys.has(dedupeKey)) {
+                addedKeys.add(dedupeKey);
+
+                let labelText = '';
+                if (profileUuid) {
+                    labelText = `${nameCandidate} (${r.department || r.roleName || '인력'})`;
+                } else {
+                    labelText = `${nameCandidate} (${r.department || r.roleName || '인력'} · 계정 미연결)`;
+                }
+
+                registeredAccounts.push({
+                    id: profileUuid || '', // Strictly UUID or empty (Item 3 & 4)
+                    name: nameCandidate,
+                    email: email,
+                    label: labelText,
+                    isLinked: !!profileUuid,
+                    resourceId: r.id,
+                    userObj: null
+                });
+            }
+        });
+
+        // 3. Populate select element
+        if (registeredAccounts.length === 0) {
+            const emptyOpt = document.createElement('option');
+            emptyOpt.value = '';
+            emptyOpt.disabled = true;
+            emptyOpt.selected = true;
+            emptyOpt.textContent = '등록된 담당자 계정이 없습니다.';
+            select.appendChild(emptyOpt);
+        } else {
+            registeredAccounts.forEach(acc => {
+                const opt = document.createElement('option');
+                opt.value = acc.name || acc.email;
+                opt.textContent = acc.label;
+                opt.setAttribute('data-id', acc.id || '');
+                if (acc.resourceId) {
+                    opt.setAttribute('data-resource-id', acc.resourceId);
+                }
+                select.appendChild(opt);
+            });
+        }
+
+        const customOpt = document.createElement('option');
+        customOpt.value = 'custom';
+        customOpt.textContent = '직접 입력...';
+        select.appendChild(customOpt);
+
+        // 4. Resolve selected value
+        let actualName = selectedOwnerNameOrId || '';
+        if (selectedOwnerNameOrId && this.state.users) {
+            const matchedUser = this.state.users.find(u => 
+                u.id === selectedOwnerNameOrId || 
+                u.email === selectedOwnerNameOrId ||
+                u.name === selectedOwnerNameOrId ||
+                u.full_name === selectedOwnerNameOrId ||
+                u.user_name === selectedOwnerNameOrId
+            );
+            if (matchedUser) {
+                actualName = matchedUser.name || matchedUser.full_name || matchedUser.user_name || matchedUser.email;
+            }
+        }
+
+        if (actualName) {
+            const exists = registeredAccounts.some(a => a.name === actualName || a.email === actualName);
+            if (exists) {
+                select.value = actualName;
+                if (customInput) {
+                    customInput.style.display = 'none';
+                    customInput.value = '';
+                }
+            } else {
+                select.value = 'custom';
+                if (customInput) {
+                    customInput.style.display = 'block';
+                    customInput.value = actualName;
+                }
+            }
+        } else if (registeredAccounts.length > 0) {
+            const defaultUser = (this.currentUser && this.currentUser.name) ? this.currentUser.name : registeredAccounts[0].name;
+            const exists = registeredAccounts.some(a => a.name === defaultUser);
+            if (exists) {
+                select.value = defaultUser;
+            } else {
+                select.value = registeredAccounts[0].name;
+            }
+            if (customInput) {
+                customInput.style.display = 'none';
+                customInput.value = '';
+            }
+        } else {
+            select.value = 'custom';
+            if (customInput) {
+                customInput.style.display = 'block';
+                customInput.value = '';
+            }
+        }
+
+        // Required Console Debug Inspection (Checkpoint 2 & 7):
+        console.log('select:', select);
+        console.log('option count:', select?.options?.length);
+        if (typeof console.table === 'function') {
+            console.table(
+                [...(select?.options || [])].map(option => ({
+                    text: option.textContent,
+                    value: option.value,
+                    id: option.dataset.id
+                }))
+            );
+        }
+    }
+
+    async openNewActionItemModal(fixedProjectId = null) {
+        await this.loadUsers();
+        await this.loadResources();
+
         document.getElementById('action-item-modal-title').textContent = '새 Action Item 등록';
         document.getElementById('action-item-form').reset();
         document.getElementById('action-item-id-field').value = '';
         
         const projSelect = document.getElementById('action-item-project-select');
-        projSelect.innerHTML = '';
-        this.state.projects.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.id;
-            opt.textContent = p.name;
-            projSelect.appendChild(opt);
-        });
+        if (projSelect) {
+            projSelect.innerHTML = '';
+            (this.state.projects || []).forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name;
+                projSelect.appendChild(opt);
+            });
 
-        if (fixedProjectId) {
-            projSelect.value = fixedProjectId;
-            projSelect.disabled = true;
-        } else {
-            projSelect.disabled = false;
+            if (fixedProjectId) {
+                projSelect.value = fixedProjectId;
+                projSelect.disabled = true;
+            } else {
+                projSelect.disabled = false;
+            }
         }
+
+        this.populateActionItemOwnerSelect('');
+
+        // Required Debugging logs (Checkpoint 7):
+        console.log('users:', this.state.users);
+        console.log('resources:', this.state.resources);
+        console.log('owner select:', document.getElementById('action-item-owner-select'));
 
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 3);
@@ -9493,28 +9854,40 @@ class AetherPMO {
         document.getElementById('action-item-modal').classList.add('open');
     }
 
-    openEditActionItemModal(id) {
-        const act = this.state.actionItems.find(a => a.id === id);
+    async openEditActionItemModal(id) {
+        await this.loadUsers();
+        await this.loadResources();
+
+        const act = (this.state.actionItems || []).find(a => a.id === id);
         if (!act) return;
 
         document.getElementById('action-item-modal-title').textContent = 'Action Item 정보 수정';
         document.getElementById('action-item-id-field').value = act.id;
         
         const projSelect = document.getElementById('action-item-project-select');
-        projSelect.innerHTML = '';
-        this.state.projects.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.id;
-            opt.textContent = p.name;
-            projSelect.appendChild(opt);
-        });
-        projSelect.value = act.projectId;
-        projSelect.disabled = true;
+        if (projSelect) {
+            projSelect.innerHTML = '';
+            (this.state.projects || []).forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name;
+                projSelect.appendChild(opt);
+            });
+            projSelect.value = act.projectId;
+            projSelect.disabled = true;
+        }
 
-        document.getElementById('action-item-title').value = act.title;
-        document.getElementById('action-item-owner').value = act.owner;
-        document.getElementById('action-item-status').value = act.status;
-        document.getElementById('action-item-due-date').value = act.dueDate;
+        document.getElementById('action-item-title').value = act.title || '';
+        
+        this.populateActionItemOwnerSelect(act.owner_user_id || act.ownerId || act.owner || act.assignee || '');
+
+        // Required Debugging logs (Checkpoint 7):
+        console.log('users:', this.state.users);
+        console.log('resources:', this.state.resources);
+        console.log('owner select:', document.getElementById('action-item-owner-select'));
+
+        document.getElementById('action-item-status').value = act.status || '대기';
+        document.getElementById('action-item-due-date').value = act.dueDate || '';
         document.getElementById('action-item-completed-date').value = act.completedDate || '';
         document.getElementById('action-item-plan').value = act.actionPlan || '';
         document.getElementById('action-item-remarks').value = act.remarks || '';
@@ -9526,11 +9899,31 @@ class AetherPMO {
         document.getElementById('action-item-modal').classList.remove('open');
     }
 
-    saveActionItemForm() {
+    async saveActionItemForm() {
         const id = document.getElementById('action-item-id-field').value;
         const projectId = document.getElementById('action-item-project-select').value;
         const title = document.getElementById('action-item-title').value.trim();
-        const owner = document.getElementById('action-item-owner').value.trim();
+        
+        const ownerSelect = document.getElementById('action-item-owner-select');
+        const ownerSelectVal = ownerSelect ? ownerSelect.value : '';
+        const customInput = document.getElementById('action-item-owner-custom');
+        let owner = '';
+        let ownerId = null;
+        let resourceId = null;
+
+        if (ownerSelectVal === 'custom') {
+            owner = customInput ? customInput.value.trim() : '';
+            ownerId = null;
+        } else {
+            owner = ownerSelectVal;
+            const selectedOpt = ownerSelect ? ownerSelect.options[ownerSelect.selectedIndex] : null;
+            const rawDataId = selectedOpt ? selectedOpt.getAttribute('data-id') : null;
+            resourceId = selectedOpt ? selectedOpt.getAttribute('data-resource-id') : null;
+
+            // Resolve strictly to Profile UUID or null (Items 3, 4, 5)
+            ownerId = this.resolveProfileUuid(rawDataId);
+        }
+
         const status = document.getElementById('action-item-status').value;
         const dueDate = document.getElementById('action-item-due-date').value;
         const completedDate = document.getElementById('action-item-completed-date').value;
@@ -9542,30 +9935,58 @@ class AetherPMO {
             return;
         }
 
+        const isAccountLinked = this.isUuid(ownerId);
+
         if (id) {
             const idx = this.state.actionItems.findIndex(a => a.id === id);
             if (idx !== -1) {
                 this.state.actionItems[idx] = { 
                     ...this.state.actionItems[idx], 
-                    projectId, title, owner, status, dueDate, 
+                    projectId, title, owner, assignee: owner, 
+                    ownerId: isAccountLinked ? ownerId : null, 
+                    assigneeId: isAccountLinked ? ownerId : null, 
+                    owner_user_id: isAccountLinked ? ownerId : null,
+                    resourceId: resourceId || null,
+                    notification_enabled: isAccountLinked,
+                    status, dueDate, 
                     completedDate: status === '완료' ? (completedDate || this.getFormattedDateTime().split(' ')[0]) : '', 
                     actionPlan, remarks 
                 };
-                this.addActivityLog(projectId, title, 'review', `Action Item 수정: "${title}" (${status})`);
+                this.addActivityLog(projectId, title, 'review', `Action Item 수정: "${title}" (${status}, 담당: ${owner})`);
             }
         } else {
             const newId = this.generateUuid();
             this.state.actionItems.push({
                 id: newId,
-                projectId, title, owner, status, dueDate,
+                projectId, title, owner, assignee: owner, 
+                ownerId: isAccountLinked ? ownerId : null, 
+                assigneeId: isAccountLinked ? ownerId : null, 
+                owner_user_id: isAccountLinked ? ownerId : null,
+                resourceId: resourceId || null,
+                notification_enabled: isAccountLinked,
+                status, dueDate,
                 completedDate: status === '완료' ? this.getFormattedDateTime().split(' ')[0] : '',
                 actionPlan, remarks
             });
-            this.addActivityLog(projectId, title, 'review', `신규 Action Item 등록: "${title}" (${status})`);
+            this.addActivityLog(projectId, title, 'review', `신규 Action Item 등록: "${title}" (${status}, 담당: ${owner})`);
         }
 
         const actObj = id ? this.state.actionItems.find(a => a.id === id) : this.state.actionItems[this.state.actionItems.length - 1];
-        this.saveState('action_upsert', actObj);
+        try {
+            await this.saveState('action_upsert', actObj);
+        } catch (err) {
+            console.error('[ActionItem Save Error]', err);
+        }
+
+        // Notification condition check (Item 6): Trigger ONLY if assigneeId is a valid UUID
+        if (isAccountLinked) {
+            const assignedUser = (this.state.users || []).find(u => u.id === ownerId || u.email === ownerId);
+            this.showToast(`'${owner}'님에게 Action Item이 할당되었습니다.`, 'info');
+        } else {
+            this.showToast(`Action Item이 저장되었습니다.`, 'success');
+        }
+        
+        this.updateNotifications();
         this.closeActionItemModal();
         this.handleRouting();
     }
