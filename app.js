@@ -9570,7 +9570,7 @@ class AetherPMO {
         if (!tbody) return;
 
         // Sync projects dropdown options
-        if (projFilter.options.length !== this.state.projects.length + 1) {
+        if (projFilter && projFilter.options.length !== this.state.projects.length + 1) {
             const currentSelected = projFilter.value || 'all';
             projFilter.innerHTML = '<option value="all">전체 프로젝트</option>';
             this.state.projects.forEach(p => {
@@ -9582,47 +9582,74 @@ class AetherPMO {
             projFilter.value = currentSelected;
         }
 
-        const filterProj = projFilter.value;
-        const filterStat = statFilter.value;
-        const query = searchInput ? this.safeText(searchInput.value).trim() : '';
+        const filterProj = projFilter ? projFilter.value : 'all';
+        const filterStat = statFilter ? statFilter.value : 'all';
+        const query = searchInput ? this.safeText(searchInput.value).trim().toLowerCase() : '';
 
         const filtered = (this.state.actionItems || []).filter(act => {
-            const project = this.state.projects.find(p => p.id === act.projectId);
+            const actProjectId = act.project_id || act.projectId;
+            const project = (this.state.projects || []).find(p => p.id === actProjectId);
             const isProjectActive = project && (project.status === 'In Progress' || project.status === 'On Hold' || project.status === 'Delay');
 
-            const matchProj = filterProj === 'all' ? isProjectActive : act.projectId === filterProj;
-            const matchStat = filterStat === 'all' || act.status === filterStat;
+            const matchProj = filterProj === 'all' ? isProjectActive : actProjectId === filterProj;
+            const normStatus = this.normalizeActionItemStatus(act.status);
+            const matchStat = filterStat === 'all' || normStatus === filterStat || act.status === filterStat;
+            
+            const assigneeName = this.getActionItemAssigneeName(act);
+            const projName = this.getActionItemProjectName(act);
+
             const matchQuery = !query || 
-                this.safeText(act.title).includes(query) || 
-                this.safeText(act.owner).includes(query);
+                this.safeText(act.title).toLowerCase().includes(query) || 
+                this.safeText(assigneeName).toLowerCase().includes(query) ||
+                this.safeText(projName).toLowerCase().includes(query);
 
             return matchProj && matchStat && matchQuery;
         });
 
         if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">등록된 Action Item이 없습니다.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">등록된 Action Item이 없습니다.</td></tr>';
             return;
         }
 
         tbody.innerHTML = '';
         filtered.forEach(act => {
-            const project = this.state.projects.find(p => p.id === act.projectId);
+            const projName = this.getActionItemProjectName(act);
+            const assigneeName = this.getActionItemAssigneeName(act);
+            const dueDateStatus = this.getDueDateStatus(act);
+            const normStatus = this.normalizeActionItemStatus(act.status);
+            const statusLabel = ACTION_ITEM_STATUS_LABELS[normStatus] || act.status || '대기';
+
+            const priorityNorm = String(act.priority || 'MEDIUM').toUpperCase();
+            let priorityBadgeClass = 'badge-info';
+            let priorityLabel = '보통';
+            if (priorityNorm === 'CRITICAL') { priorityBadgeClass = 'badge-danger'; priorityLabel = '긴급'; }
+            else if (priorityNorm === 'HIGH') { priorityBadgeClass = 'badge-warning'; priorityLabel = '높음'; }
+            else if (priorityNorm === 'LOW') { priorityBadgeClass = 'badge-neutral'; priorityLabel = '낮음'; }
+
             const tr = document.createElement('tr');
+            tr.style.cursor = 'pointer';
+            tr.addEventListener('click', (e) => {
+                if (e.target.closest('[data-action-item-control]')) return;
+                this.openActionItemDetailModal(act.id);
+            });
+
             tr.innerHTML = `
-                <td><span class="font-bold text-xs">${project ? project.name : '-'}</span></td>
+                <td><span class="badge ${priorityBadgeClass}">${priorityLabel}</span></td>
+                <td><span class="font-bold text-xs">${this.escapeHtml(projName)}</span></td>
                 <td>
-                    <a href="#" class="project-name-link text-xs font-bold" onclick="event.preventDefault(); app.openActionItemDetailModal('${act.id}')">
-                        ${act.title}
-                    </a>
+                    <span class="project-name-link text-xs font-bold">
+                        ${this.escapeHtml(act.title)}
+                    </span>
                 </td>
-                <td class="text-xs font-bold">${act.owner}</td>
-                <td class="text-xs font-bold text-danger">${act.dueDate}</td>
-                <td class="text-xs text-muted font-bold">${act.completedDate || '-'}</td>
-                <td><span class="status-badge ${act.status === '완료' ? 'status-resolved' : act.status === '진행중' ? 'status-inprogress' : 'status-pending'}">${act.status}</span></td>
-                <td>
+                <td class="text-xs font-bold">${this.escapeHtml(assigneeName)}</td>
+                <td class="text-xs font-bold">${act.due_date || act.dueDate || '-'} <span class="badge ${dueDateStatus.class} ml-1">${dueDateStatus.label}</span></td>
+                <td class="text-xs text-muted font-bold">${act.completed_at ? act.completed_at.split('T')[0] : (act.completedDate || '-')}</td>
+                <td><span class="status-badge ${normStatus === 'COMPLETED' ? 'status-resolved' : normStatus === 'IN_PROGRESS' || normStatus === 'REVIEW_REQUESTED' ? 'status-inprogress' : 'status-pending'}">${statusLabel}</span></td>
+                <td data-action-item-control="true">
                     <div class="actions-flex">
-                        <button class="btn btn-xs btn-outline" onclick="app.openEditActionItemModal('${act.id}')">수정</button>
-                        <button class="btn btn-xs btn-danger" onclick="app.deleteActionItem('${act.id}')">삭제</button>
+                        <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.openActionItemDetailModal('${act.id}')">상세</button>
+                        <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.openEditActionItemModal('${act.id}')">수정</button>
+                        <button class="btn btn-xs btn-danger" onclick="event.stopPropagation(); app.deleteActionItem('${act.id}')">삭제</button>
                     </div>
                 </td>
             `;
@@ -9863,6 +9890,64 @@ class AetherPMO {
             this.supabase.removeChannel(this.actionItemChannel);
             this.actionItemChannel = null;
         }
+    }
+
+    getActionItemAssigneeName(item) {
+        if (!item) return '-';
+        const assigneeId = item.assignee_id || item.assigneeId || null;
+        const user = (this.state.users || []).find(u => String(u.id) === String(assigneeId));
+
+        if (!user && assigneeId) {
+            console.warn('[ActionItem] Assignee user profile not found:', { actionItemId: item.id, assigneeId });
+        }
+
+        // Prefer current profile name first, with snapshot and custom owner fallbacks
+        return user?.name || user?.full_name || item.assignee_name || user?.email || item.assignee || item.owner || '-';
+    }
+
+    getActionItemProjectName(item) {
+        if (!item) return '-';
+        // TODO: Remove fallback after legacy projectId data migration complete
+        const projectId = item.project_id || item.projectId;
+        const project = (this.state.projects || []).find(p => String(p.id) === String(projectId));
+
+        if (!project && projectId) {
+            console.warn('[ActionItem] Project not found:', { actionItemId: item.id, projectId });
+        }
+
+        return project?.name || item.project_name || '-';
+    }
+
+    parseLocalDate(value) {
+        if (!value) return null;
+        const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        const parsed = match
+            ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+            : new Date(value);
+
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    getDueDateStatus(item) {
+        const normStatus = this.normalizeActionItemStatus(item?.status);
+        if (normStatus === 'COMPLETED') return { label: '완료', class: 'badge-success' };
+        if (normStatus === 'CANCELLED') return { label: '취소', class: 'badge-neutral' };
+
+        const dueDateValue = item?.due_date || item?.dueDate;
+        if (!dueDateValue) return { label: '-', class: 'badge-neutral' };
+
+        const dueDate = this.parseLocalDate(dueDateValue);
+        if (!dueDate) return { label: '-', class: 'badge-neutral' };
+        dueDate.setHours(0, 0, 0, 0);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const diffDays = Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (diffDays < 0) return { label: `D+${Math.abs(diffDays)} (지연)`, class: 'badge-danger' };
+        if (diffDays === 0) return { label: '오늘 마감', class: 'badge-warning' };
+        return { label: `D-${diffDays}`, class: 'badge-info' };
     }
 
     async loadUsers() {
@@ -10239,68 +10324,93 @@ class AetherPMO {
         const ownerSelect = document.getElementById('action-item-owner-select');
         const ownerSelectVal = ownerSelect ? ownerSelect.value : '';
         const customInput = document.getElementById('action-item-owner-custom');
-        let owner = '';
+        let customOwnerName = '';
         let ownerId = null;
         let resourceId = null;
 
         if (ownerSelectVal === 'custom') {
-            owner = customInput ? customInput.value.trim() : '';
+            customOwnerName = customInput ? customInput.value.trim() : '';
             ownerId = null;
         } else {
-            owner = ownerSelectVal;
             const selectedOpt = ownerSelect ? ownerSelect.options[ownerSelect.selectedIndex] : null;
             const rawDataId = selectedOpt ? selectedOpt.getAttribute('data-id') : null;
             resourceId = selectedOpt ? selectedOpt.getAttribute('data-resource-id') : null;
-
-            // Resolve strictly to Profile UUID or null
             ownerId = this.resolveProfileUuid(rawDataId);
         }
 
-        const status = document.getElementById('action-item-status').value;
+        const statusInputVal = document.getElementById('action-item-status').value;
+        const nextStatus = this.normalizeActionItemStatus(statusInputVal);
         const dueDate = document.getElementById('action-item-due-date').value;
-        const completedDate = document.getElementById('action-item-completed-date').value;
-        const actionPlan = document.getElementById('action-item-plan').value.trim();
-        const remarks = document.getElementById('action-item-remarks').value.trim();
+        const actionPlan = document.getElementById('action-item-plan') ? document.getElementById('action-item-plan').value.trim() : '';
+        const remarks = document.getElementById('action-item-remarks') ? document.getElementById('action-item-remarks').value.trim() : '';
 
-        if (!projectId || !title || !owner || !dueDate) {
+        const displayOwner = ownerId ? ownerSelectVal : customOwnerName;
+
+        if (!projectId || !title || !displayOwner || !dueDate) {
             alert('필수 항목을 모두 입력하십시오.');
             return;
         }
 
         const isAccountLinked = this.isUuid(ownerId);
+        const selectedUser = isAccountLinked
+            ? (this.state.users || []).find(u => String(u.id) === String(ownerId))
+            : null;
 
-        if (id) {
+        const currentUserId = this.getCurrentUserProfileId();
+        const existingItem = id ? (this.state.actionItems || []).find(a => a.id === id) : null;
+        const previousStatus = existingItem ? this.normalizeActionItemStatus(existingItem.status) : null;
+
+        // Transition logic for completed_at timestamp
+        let completedAtVal = existingItem ? (existingItem.completed_at || existingItem.completedDate) : null;
+        if (nextStatus === 'COMPLETED' && previousStatus !== 'COMPLETED') {
+            completedAtVal = new Date().toISOString();
+        } else if (previousStatus === 'COMPLETED' && nextStatus !== 'COMPLETED') {
+            completedAtVal = null;
+        }
+
+        const payload = {
+            project_id: projectId, // DB standard project_id ONLY
+            title: title,
+            assignee_id: selectedUser?.id || (isAccountLinked ? ownerId : null),
+            assignee_name: selectedUser?.name || selectedUser?.full_name || (!isAccountLinked ? customOwnerName : displayOwner),
+            assignee_email: selectedUser?.email || null,
+            owner: !isAccountLinked ? customOwnerName : null,
+            status: nextStatus,
+            due_date: dueDate,
+            completed_at: completedAtVal,
+            completedDate: completedAtVal ? completedAtVal.split('T')[0] : '',
+            action_plan: actionPlan,
+            actionPlan: actionPlan,
+            remarks: remarks,
+            resourceId: resourceId || null,
+            updated_by: currentUserId
+        };
+
+        if (id && existingItem) {
             const idx = this.state.actionItems.findIndex(a => a.id === id);
             if (idx !== -1) {
-                this.state.actionItems[idx] = { 
-                    ...this.state.actionItems[idx], 
-                    projectId, title, owner, assignee: owner, 
-                    ownerId: isAccountLinked ? ownerId : null, 
-                    assigneeId: isAccountLinked ? ownerId : null, 
-                    owner_user_id: isAccountLinked ? ownerId : null,
-                    resourceId: resourceId || null,
-                    notification_enabled: isAccountLinked,
-                    status, dueDate, 
-                    completedDate: status === '완료' ? (completedDate || this.getFormattedDateTime().split(' ')[0]) : '', 
-                    actionPlan, remarks 
+                this.state.actionItems[idx] = {
+                    ...this.state.actionItems[idx],
+                    ...payload,
+                    owner: displayOwner,
+                    assignee: displayOwner,
+                    ownerId: isAccountLinked ? ownerId : null,
+                    assigneeId: isAccountLinked ? ownerId : null
                 };
-                this.addActivityLog(projectId, title, 'review', `Action Item 수정: "${title}" (${status}, 담당: ${owner})`);
+                this.addActivityLog(projectId, title, 'review', `Action Item 수정: "${title}" (${ACTION_ITEM_STATUS_LABELS[nextStatus]}, 담당: ${displayOwner})`);
             }
         } else {
             const newId = this.generateUuid();
+            payload.id = newId;
+            payload.created_by = currentUserId; // Preserved created_by for new items only
             this.state.actionItems.push({
-                id: newId,
-                projectId, title, owner, assignee: owner, 
-                ownerId: isAccountLinked ? ownerId : null, 
-                assigneeId: isAccountLinked ? ownerId : null, 
-                owner_user_id: isAccountLinked ? ownerId : null,
-                resourceId: resourceId || null,
-                notification_enabled: isAccountLinked,
-                status, dueDate,
-                completedDate: status === '완료' ? this.getFormattedDateTime().split(' ')[0] : '',
-                actionPlan, remarks
+                ...payload,
+                owner: displayOwner,
+                assignee: displayOwner,
+                ownerId: isAccountLinked ? ownerId : null,
+                assigneeId: isAccountLinked ? ownerId : null
             });
-            this.addActivityLog(projectId, title, 'review', `신규 Action Item 등록: "${title}" (${status}, 담당: ${owner})`);
+            this.addActivityLog(projectId, title, 'review', `신규 Action Item 등록: "${title}" (${ACTION_ITEM_STATUS_LABELS[nextStatus]}, 담당: ${displayOwner})`);
         }
 
         const actObj = id ? this.state.actionItems.find(a => a.id === id) : this.state.actionItems[this.state.actionItems.length - 1];
@@ -10321,7 +10431,7 @@ class AetherPMO {
             const notifObj = {
                 id: this.generateUuid(),
                 recipient_user_id: ownerId,
-                sender_user_id: this.getCurrentUserProfileId(),
+                sender_user_id: currentUserId,
                 type: 'ACTION_ITEM_ASSIGNED',
                 title: `[Action Item 할당] ${title}`,
                 message: `${title} (프로젝트: ${projName}, 기한: ${dueDate})`,
@@ -10346,7 +10456,7 @@ class AetherPMO {
                 }
             }
 
-            this.showToast(`'${owner}'님에게 Action Item이 할당되었습니다.`, 'info');
+            this.showToast(`'${displayOwner}'님에게 Action Item이 할당되었습니다.`, 'info');
         } else {
             this.showToast(`Action Item이 저장되었습니다.`, 'success');
         }

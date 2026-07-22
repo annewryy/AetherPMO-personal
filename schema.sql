@@ -359,8 +359,73 @@ CREATE POLICY "Allow full access for SYS_ADMIN, PM and WORKER on issues" ON publ
     );
 
 -- ==========================================
--- 8. Action Items Policies (Project Members & Assignee Access)
+-- 8. Action Items Migration & Triggers
 -- ==========================================
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE;
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS assignee_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS assignee_name TEXT;
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS assignee_email TEXT;
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS owner TEXT;
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS reviewer_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'MEDIUM';
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS due_date DATE;
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS action_plan TEXT;
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS action_result TEXT;
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS remarks TEXT;
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS requires_review BOOLEAN DEFAULT false;
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+-- Data Normalization BEFORE adding CHECK constraints
+UPDATE public.action_items
+SET status = CASE
+    WHEN status IN ('대기') THEN 'WAITING'
+    WHEN status IN ('진행 중', '진행중') THEN 'IN_PROGRESS'
+    WHEN status IN ('검토 요청', '검토요청') THEN 'REVIEW_REQUESTED'
+    WHEN status = '보류' THEN 'ON_HOLD'
+    WHEN status IN ('완료', 'DONE', 'CLOSED') THEN 'COMPLETED'
+    WHEN status = '취소' THEN 'CANCELLED'
+    WHEN status = '반려' THEN 'REJECTED'
+    WHEN status IS NULL OR TRIM(status) = '' THEN 'WAITING'
+    ELSE status
+END;
+
+UPDATE public.action_items
+SET priority = CASE
+    WHEN UPPER(TRIM(priority)) IN ('CRITICAL', '긴급') THEN 'CRITICAL'
+    WHEN UPPER(TRIM(priority)) IN ('HIGH', '높음') THEN 'HIGH'
+    WHEN UPPER(TRIM(priority)) IN ('LOW', '낮음') THEN 'LOW'
+    ELSE 'MEDIUM'
+END;
+
+-- Named Check Constraints
+ALTER TABLE public.action_items DROP CONSTRAINT IF EXISTS action_items_priority_check;
+ALTER TABLE public.action_items ADD CONSTRAINT action_items_priority_check CHECK (priority IN ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW'));
+
+ALTER TABLE public.action_items DROP CONSTRAINT IF EXISTS action_items_status_check;
+ALTER TABLE public.action_items ADD CONSTRAINT action_items_status_check CHECK (status IN ('WAITING', 'IN_PROGRESS', 'REVIEW_REQUESTED', 'ON_HOLD', 'COMPLETED', 'CANCELLED', 'REJECTED'));
+
+-- Automatic updated_at Trigger
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS action_items_set_updated_at ON public.action_items;
+CREATE TRIGGER action_items_set_updated_at
+BEFORE UPDATE ON public.action_items
+FOR EACH ROW
+EXECUTE FUNCTION public.set_updated_at();
+
+-- Action Items Policies
 DROP POLICY IF EXISTS "Allow select for all action_items" ON public.action_items;
 DROP POLICY IF EXISTS "Allow full access for SYS_ADMIN, PM and WORKER on action_items" ON public.action_items;
 DROP POLICY IF EXISTS "Users can view assigned or project action items" ON public.action_items;
@@ -392,7 +457,90 @@ CREATE POLICY "Allow all for SYS_ADMIN, PM and WORKER on action_items" ON public
     );
 
 -- ==========================================
--- 13. Notifications Table (System Notifications with dedup_key)
+-- 13. Phase 2 Tables with RLS & History Trigger
+-- ==========================================
+CREATE TABLE IF NOT EXISTS public.action_item_comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    action_item_id UUID REFERENCES public.action_items(id) ON DELETE CASCADE NOT NULL,
+    author_user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+ALTER TABLE public.action_item_comments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view comments on accessible items" ON public.action_item_comments
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Users can insert own comments" ON public.action_item_comments
+    FOR INSERT TO authenticated WITH CHECK (author_user_id = auth.uid());
+
+CREATE TABLE IF NOT EXISTS public.action_item_attachments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    action_item_id UUID REFERENCES public.action_items(id) ON DELETE CASCADE NOT NULL,
+    uploader_user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    file_name TEXT NOT NULL,
+    storage_path TEXT NOT NULL,
+    mime_type TEXT,
+    file_size BIGINT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+ALTER TABLE public.action_item_attachments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view attachments on accessible items" ON public.action_item_attachments
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Users can insert own attachments" ON public.action_item_attachments
+    FOR INSERT TO authenticated WITH CHECK (uploader_user_id = auth.uid());
+
+CREATE TABLE IF NOT EXISTS public.action_item_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    action_item_id UUID REFERENCES public.action_items(id) ON DELETE CASCADE NOT NULL,
+    actor_user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    event_type TEXT NOT NULL,
+    previous_value JSONB,
+    new_value JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+ALTER TABLE public.action_item_history ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view history on accessible items" ON public.action_item_history
+    FOR SELECT TO authenticated USING (true);
+
+-- DB Level Audit History Trigger
+CREATE OR REPLACE FUNCTION public.log_action_item_changes()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    IF OLD.status IS DISTINCT FROM NEW.status THEN
+        INSERT INTO public.action_item_history (
+            action_item_id,
+            actor_user_id,
+            event_type,
+            previous_value,
+            new_value
+        )
+        VALUES (
+            NEW.id,
+            auth.uid(),
+            'STATUS_CHANGED',
+            jsonb_build_object('status', OLD.status),
+            jsonb_build_object('status', NEW.status)
+        );
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS action_items_log_changes ON public.action_items;
+CREATE TRIGGER action_items_log_changes
+AFTER UPDATE ON public.action_items
+FOR EACH ROW
+EXECUTE FUNCTION public.log_action_item_changes();
+
+-- ==========================================
+-- 14. Notifications Table (System Notifications with dedup_key)
 -- ==========================================
 CREATE TABLE IF NOT EXISTS public.notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -474,5 +622,6 @@ GRANT EXECUTE ON FUNCTION public.mark_notification_read(UUID) TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated, anon;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated, anon;
+
 
 
