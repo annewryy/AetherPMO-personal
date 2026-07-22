@@ -1189,12 +1189,13 @@ class AetherPMO {
                     }
 
                     if (dbSavedData) {
-                        a.assignee_id = dbSavedData.assignee_id;
-                        a.assigneeId = dbSavedData.assignee_id;
-                        a.assignee_name = dbSavedData.assignee_name;
-                        a.assignee_email = dbSavedData.assignee_email;
-                        a.owner = dbSavedData.owner;
-                        a.assignee = dbSavedData.assignee_name || dbSavedData.owner;
+                        const normalizedSavedItem = this.normalizeActionItemFromDb(dbSavedData);
+                        const idx = (this.state.actionItems || []).findIndex(item => item.id === normalizedSavedItem.id);
+                        if (idx !== -1) {
+                            this.state.actionItems[idx] = normalizedSavedItem;
+                        } else {
+                            this.state.actionItems.push(normalizedSavedItem);
+                        }
                     }
                     break;
                 }
@@ -1714,34 +1715,7 @@ class AetherPMO {
                 reviewComment: i.review_comment
             }));
 
-            this.state.actionItems = (actionItems || []).map(a => ({
-                id: a.id,
-                project_id: a.project_id,
-                projectId: a.project_id,
-                title: a.title,
-                assignee_id: a.assignee_id,
-                assigneeId: a.assignee_id,
-                assignee_name: a.assignee_name || a.assignee || a.owner || '',
-                assignee_email: a.assignee_email || '',
-                owner: a.owner || a.assignee_name || a.assignee || '',
-                assignee: a.assignee_name || a.assignee || a.owner || '',
-                ownerId: a.assignee_id,
-                created_by: a.created_by,
-                updated_by: a.updated_by,
-                reviewer_id: a.reviewer_id,
-                priority: a.priority || 'MEDIUM',
-                due_date: a.due_date,
-                dueDate: a.due_date,
-                completed_at: a.completed_at,
-                completedDate: a.completed_at ? a.completed_at.split('T')[0] : '',
-                action_plan: a.action_plan,
-                actionPlan: a.action_plan,
-                action_result: a.action_result,
-                actionResult: a.action_result,
-                remarks: a.remarks,
-                status: this.normalizeActionItemStatus(a.status),
-                confirmComment: a.confirm_comment
-            }));
+            this.state.actionItems = (actionItems || []).map(row => this.normalizeActionItemFromDb(row)).filter(Boolean);
 
             this.state.officialDocs = (officialDocs || []).map(d => ({
                 id: d.id,
@@ -9964,6 +9938,52 @@ class AetherPMO {
             this.supabase.removeChannel(this.actionItemChannel);
             this.actionItemChannel = null;
         }
+    }
+
+    normalizeActionItemFromDb(row) {
+        if (!row) return null;
+        const projId = row.project_id || row.projectId || null;
+        const assigneeId = this.isUuid(row.assignee_id || row.assigneeId) ? (row.assignee_id || row.assigneeId) : null;
+        
+        const user = assigneeId
+            ? (this.state.users || []).find(u => String(u.id || u.profile_id) === String(assigneeId))
+            : null;
+
+        const assigneeName = user?.name || user?.full_name || (row.assignee_name && row.assignee_name !== 'undefined' ? row.assignee_name : '') || (row.assignee && row.assignee !== 'undefined' ? row.assignee : '') || (row.owner && row.owner !== 'undefined' ? row.owner : '');
+        const assigneeEmail = user?.email || row.assignee_email || '';
+        const ownerVal = !assigneeId ? (row.owner || row.assignee_name || row.assignee || '') : null;
+
+        const normStatus = this.normalizeActionItemStatus(row.status);
+
+        return {
+            id: row.id,
+            project_id: projId,
+            projectId: projId,
+            title: row.title || '',
+            assignee_id: assigneeId,
+            assigneeId: assigneeId,
+            assignee_name: assigneeName,
+            assignee_email: assigneeEmail,
+            owner: ownerVal,
+            assignee: assigneeName || ownerVal || '-',
+            ownerId: assigneeId,
+            created_by: this.isUuid(row.created_by) ? row.created_by : null,
+            updated_by: this.isUuid(row.updated_by) ? row.updated_by : null,
+            reviewer_id: this.isUuid(row.reviewer_id) ? row.reviewer_id : null,
+            priority: String(row.priority || 'MEDIUM').toUpperCase(),
+            due_date: row.due_date || row.dueDate || null,
+            dueDate: row.due_date || row.dueDate || null,
+            completed_at: row.completed_at || row.completedDate || null,
+            completedDate: row.completed_at ? String(row.completed_at).split('T')[0] : (row.completedDate || ''),
+            action_plan: row.action_plan || row.actionPlan || '',
+            actionPlan: row.action_plan || row.actionPlan || '',
+            action_result: row.action_result || row.actionResult || '',
+            actionResult: row.action_result || row.actionResult || '',
+            remarks: row.remarks || '',
+            status: normStatus,
+            confirm_comment: row.confirm_comment || row.confirmComment || '',
+            confirmComment: row.confirm_comment || row.confirmComment || ''
+        };
     }
 
     getActionItemAssigneeName(item) {
