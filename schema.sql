@@ -379,18 +379,33 @@ ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS requires_review BOOLEAN
 ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 ALTER TABLE public.action_items ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 
--- Data Normalization BEFORE adding CHECK constraints
+-- Backfill NULL created_at and updated_at
+UPDATE public.action_items
+SET created_at = COALESCE(created_at, NOW()),
+    updated_at = COALESCE(updated_at, created_at, NOW())
+WHERE created_at IS NULL
+   OR updated_at IS NULL;
+
+-- Data Normalization BEFORE adding CHECK constraints (Strict ELSE 'WAITING')
 UPDATE public.action_items
 SET status = CASE
-    WHEN status IN ('대기') THEN 'WAITING'
-    WHEN status IN ('진행 중', '진행중') THEN 'IN_PROGRESS'
-    WHEN status IN ('검토 요청', '검토요청') THEN 'REVIEW_REQUESTED'
-    WHEN status = '보류' THEN 'ON_HOLD'
-    WHEN status IN ('완료', 'DONE', 'CLOSED') THEN 'COMPLETED'
-    WHEN status = '취소' THEN 'CANCELLED'
-    WHEN status = '반려' THEN 'REJECTED'
-    WHEN status IS NULL OR TRIM(status) = '' THEN 'WAITING'
-    ELSE status
+    WHEN TRIM(status) = '대기' THEN 'WAITING'
+    WHEN TRIM(status) IN ('진행 중', '진행중') THEN 'IN_PROGRESS'
+    WHEN TRIM(status) IN ('검토 요청', '검토요청') THEN 'REVIEW_REQUESTED'
+    WHEN TRIM(status) = '보류' THEN 'ON_HOLD'
+    WHEN UPPER(TRIM(status)) IN ('완료', 'DONE', 'CLOSED', 'COMPLETED') THEN 'COMPLETED'
+    WHEN TRIM(status) = '취소' THEN 'CANCELLED'
+    WHEN TRIM(status) = '반려' THEN 'REJECTED'
+    WHEN UPPER(TRIM(status)) IN (
+        'WAITING',
+        'IN_PROGRESS',
+        'REVIEW_REQUESTED',
+        'ON_HOLD',
+        'COMPLETED',
+        'CANCELLED',
+        'REJECTED'
+    ) THEN UPPER(TRIM(status))
+    ELSE 'WAITING'
 END;
 
 UPDATE public.action_items
@@ -505,30 +520,56 @@ ALTER TABLE public.action_item_history ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view history on accessible items" ON public.action_item_history
     FOR SELECT TO authenticated USING (true);
 
--- DB Level Audit History Trigger
+-- DB Level Audit History Trigger (Expanded with auth.uid null safety)
 CREATE OR REPLACE FUNCTION public.log_action_item_changes()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+    v_actor UUID := auth.uid();
 BEGIN
     IF OLD.status IS DISTINCT FROM NEW.status THEN
         INSERT INTO public.action_item_history (
-            action_item_id,
-            actor_user_id,
-            event_type,
-            previous_value,
-            new_value
-        )
-        VALUES (
-            NEW.id,
-            auth.uid(),
-            'STATUS_CHANGED',
-            jsonb_build_object('status', OLD.status),
-            jsonb_build_object('status', NEW.status)
+            action_item_id, actor_user_id, event_type, previous_value, new_value
+        ) VALUES (
+            NEW.id, v_actor,
+            CASE WHEN v_actor IS NULL THEN 'STATUS_CHANGED_BY_SYSTEM' ELSE 'STATUS_CHANGED' END,
+            jsonb_build_object('status', OLD.status), jsonb_build_object('status', NEW.status)
         );
     END IF;
+
+    IF OLD.assignee_id IS DISTINCT FROM NEW.assignee_id THEN
+        INSERT INTO public.action_item_history (
+            action_item_id, actor_user_id, event_type, previous_value, new_value
+        ) VALUES (
+            NEW.id, v_actor,
+            CASE WHEN v_actor IS NULL THEN 'ASSIGNEE_CHANGED_BY_SYSTEM' ELSE 'ASSIGNEE_CHANGED' END,
+            jsonb_build_object('assignee_id', OLD.assignee_id), jsonb_build_object('assignee_id', NEW.assignee_id)
+        );
+    END IF;
+
+    IF OLD.due_date IS DISTINCT FROM NEW.due_date THEN
+        INSERT INTO public.action_item_history (
+            action_item_id, actor_user_id, event_type, previous_value, new_value
+        ) VALUES (
+            NEW.id, v_actor,
+            CASE WHEN v_actor IS NULL THEN 'DUE_DATE_CHANGED_BY_SYSTEM' ELSE 'DUE_DATE_CHANGED' END,
+            jsonb_build_object('due_date', OLD.due_date), jsonb_build_object('due_date', NEW.due_date)
+        );
+    END IF;
+
+    IF OLD.priority IS DISTINCT FROM NEW.priority THEN
+        INSERT INTO public.action_item_history (
+            action_item_id, actor_user_id, event_type, previous_value, new_value
+        ) VALUES (
+            NEW.id, v_actor,
+            CASE WHEN v_actor IS NULL THEN 'PRIORITY_CHANGED_BY_SYSTEM' ELSE 'PRIORITY_CHANGED' END,
+            jsonb_build_object('priority', OLD.priority), jsonb_build_object('priority', NEW.priority)
+        );
+    END IF;
+
     RETURN NEW;
 END;
 $$;
