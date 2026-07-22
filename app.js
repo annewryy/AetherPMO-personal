@@ -1128,22 +1128,47 @@ class AetherPMO {
                 }
                 case 'action_upsert': {
                     const a = data;
-                    if (!this.isUuid(a.id) || !this.isUuid(a.projectId)) {
-                        console.warn(`[Supabase Sync] Skipping action_upsert for legacy non-UUID id: ${a.id} or projectId: ${a.projectId}`);
+                    const projId = a.project_id || a.projectId;
+                    if (!this.isUuid(a.id) || !this.isUuid(projId)) {
+                        console.warn(`[Supabase Sync] Skipping action_upsert: invalid id: ${a.id} or project_id: ${projId}`);
                         break;
                     }
+
+                    const normStatus = this.normalizeActionItemStatus(a.status);
+
                     const actData = {
                         id: a.id,
-                        project_id: a.projectId,
+                        project_id: projId,
                         title: a.title,
-                        assignee: a.assignee,
-                        assignee_id: this.isUuid(a.assigneeId) ? a.assigneeId : null,
-                        due_date: a.dueDate || null,
-                        status: a.status,
-                        confirm_comment: a.confirmComment
+                        assignee_id: this.isUuid(a.assignee_id || a.assigneeId) ? (a.assignee_id || a.assigneeId) : null,
+                        assignee_name: a.assignee_name || a.assignee || null,
+                        assignee_email: a.assignee_email || null,
+                        owner: a.owner || null,
+                        created_by: this.isUuid(a.created_by) ? a.created_by : null,
+                        updated_by: this.isUuid(a.updated_by) ? a.updated_by : null,
+                        reviewer_id: this.isUuid(a.reviewer_id) ? a.reviewer_id : null,
+                        priority: String(a.priority || 'MEDIUM').toUpperCase(),
+                        due_date: a.due_date || a.dueDate || null,
+                        completed_at: a.completed_at || null,
+                        action_plan: a.action_plan || a.actionPlan || null,
+                        action_result: a.action_result || a.actionResult || null,
+                        remarks: a.remarks || null,
+                        status: normStatus
                     };
+
+                    console.log('[ActionItem Payload for Supabase]', actData);
+
                     const { error } = await this.supabase.from('action_items').upsert(actData);
-                    if (error) console.error('[Supabase Sync] action_upsert error:', error);
+                    if (error) {
+                        console.error('[ActionItem Save Failed]', {
+                            payload: actData,
+                            code: error.code,
+                            message: error.message,
+                            details: error.details,
+                            hint: error.hint
+                        });
+                        throw error;
+                    }
                     break;
                 }
                 case 'action_delete': {
@@ -9894,6 +9919,11 @@ class AetherPMO {
 
     getActionItemAssigneeName(item) {
         if (!item) return '-';
+
+        if (item.assignee_name && item.assignee_name !== 'undefined') {
+            return item.assignee_name;
+        }
+
         const assigneeId = item.assignee_id || item.assigneeId || null;
         const user = (this.state.users || []).find(u => String(u.id) === String(assigneeId));
 
@@ -9901,13 +9931,19 @@ class AetherPMO {
             console.warn('[ActionItem] Assignee user profile not found:', { actionItemId: item.id, assigneeId });
         }
 
-        // Prefer current profile name first, with snapshot and custom owner fallbacks
-        return user?.name || user?.full_name || item.assignee_name || user?.email || item.assignee || item.owner || '-';
+        const resolved = user?.name || 
+                         user?.full_name || 
+                         (item.assignee_name && item.assignee_name !== 'undefined' ? item.assignee_name : null) || 
+                         user?.email || 
+                         (item.assignee && item.assignee !== 'undefined' ? item.assignee : null) || 
+                         (item.owner && item.owner !== 'undefined' ? item.owner : null) || 
+                         '-';
+
+        return (resolved && resolved !== 'undefined') ? resolved : '-';
     }
 
     getActionItemProjectName(item) {
         if (!item) return '-';
-        // TODO: Remove fallback after legacy projectId data migration complete
         const projectId = item.project_id || item.projectId;
         const project = (this.state.projects || []).find(p => String(p.id) === String(projectId));
 
@@ -9915,7 +9951,9 @@ class AetherPMO {
             console.warn('[ActionItem] Project not found:', { actionItemId: item.id, projectId });
         }
 
-        return project?.name || item.project_name || '-';
+        const resolved = project?.name || (item.project_name && item.project_name !== 'undefined' ? item.project_name : null) || '-';
+
+        return (resolved && resolved !== 'undefined') ? resolved : '-';
     }
 
     parseLocalDate(value) {
@@ -10413,11 +10451,21 @@ class AetherPMO {
             this.addActivityLog(projectId, title, 'review', `신규 Action Item 등록: "${title}" (${ACTION_ITEM_STATUS_LABELS[nextStatus]}, 담당: ${displayOwner})`);
         }
 
+        console.log('[ActionItem Payload]', payload);
+
         const actObj = id ? this.state.actionItems.find(a => a.id === id) : this.state.actionItems[this.state.actionItems.length - 1];
         try {
             await this.saveState('action_upsert', actObj);
         } catch (err) {
-            console.error('[ActionItem Save Error]', err);
+            console.error('[ActionItem Save Failed]', {
+                payload: actObj,
+                code: err ? err.code : undefined,
+                message: err ? err.message : String(err),
+                details: err ? err.details : undefined,
+                hint: err ? err.hint : undefined
+            });
+            this.showToast(`저장 실패: ${err ? (err.message || String(err)) : 'Unknown error'}`, 'error');
+            return; // STOP execution so modal is NOT closed and success toast is NOT shown
         }
 
         // Notification condition check: Trigger ONLY if assigneeId is a valid UUID
