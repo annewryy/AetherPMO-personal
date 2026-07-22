@@ -1156,18 +1156,45 @@ class AetherPMO {
                         status: normStatus
                     };
 
-                    console.log('[ActionItem Payload for Supabase]', actData);
+                    console.log('[ActionItem Save Payload]', {
+                        id: a.id,
+                        project_id: actData.project_id,
+                        assignee_id: actData.assignee_id,
+                        assignee_name: actData.assignee_name,
+                        assignee_email: actData.assignee_email,
+                        owner: actData.owner,
+                        fullPayload: actData
+                    });
 
-                    const { error } = await this.supabase.from('action_items').upsert(actData);
+                    const { data: dbSavedData, error } = await this.supabase
+                        .from('action_items')
+                        .upsert(actData)
+                        .select('*')
+                        .single();
+
+                    console.log('[ActionItem DB Save Result]', {
+                        data: dbSavedData,
+                        error: error
+                    });
+
                     if (error) {
                         console.error('[ActionItem Save Failed]', {
-                            payload: actData,
                             code: error.code,
                             message: error.message,
                             details: error.details,
-                            hint: error.hint
+                            hint: error.hint,
+                            payload: actData
                         });
                         throw error;
+                    }
+
+                    if (dbSavedData) {
+                        a.assignee_id = dbSavedData.assignee_id;
+                        a.assigneeId = dbSavedData.assignee_id;
+                        a.assignee_name = dbSavedData.assignee_name;
+                        a.assignee_email = dbSavedData.assignee_email;
+                        a.owner = dbSavedData.owner;
+                        a.assignee = dbSavedData.assignee_name || dbSavedData.owner;
                     }
                     break;
                 }
@@ -1484,6 +1511,7 @@ class AetherPMO {
             }
 
             console.log('[projects from supabase]', projects);
+            console.log('[ActionItem Raw DB Rows]', actionItems);
             if (errProj) {
                 console.error('[projects error]', errProj);
             }
@@ -9941,26 +9969,37 @@ class AetherPMO {
     getActionItemAssigneeName(item) {
         if (!item) return '-';
 
-        if (item.assignee_name && item.assignee_name !== 'undefined') {
-            return item.assignee_name;
+        const assigneeId =
+            item.assignee_id ||
+            item.assigneeId ||
+            null;
+
+        const user = assigneeId
+            ? (this.state.users || []).find(user =>
+                String(user.id || user.profile_id) === String(assigneeId)
+              )
+            : null;
+
+        const resolvedName =
+            user?.name ||
+            user?.full_name ||
+            (item.assignee_name && item.assignee_name !== 'undefined' ? item.assignee_name : null) ||
+            user?.email ||
+            (item.assignee_email && item.assignee_email !== 'undefined' ? item.assignee_email : null) ||
+            (item.owner && item.owner !== 'undefined' ? item.owner : null) ||
+            (item.assignee && item.assignee !== 'undefined' ? item.assignee : null) ||
+            '-';
+
+        if (resolvedName === '-' && assigneeId) {
+            console.warn('[ActionItem] Assignee resolution failed', {
+                actionItemId: item.id,
+                assigneeId,
+                assignee_name: item.assignee_name,
+                owner: item.owner
+            });
         }
 
-        const assigneeId = item.assignee_id || item.assigneeId || null;
-        const user = (this.state.users || []).find(u => String(u.id) === String(assigneeId));
-
-        if (!user && assigneeId) {
-            console.warn('[ActionItem] Assignee user profile not found:', { actionItemId: item.id, assigneeId });
-        }
-
-        const resolved = user?.name || 
-                         user?.full_name || 
-                         (item.assignee_name && item.assignee_name !== 'undefined' ? item.assignee_name : null) || 
-                         user?.email || 
-                         (item.assignee && item.assignee !== 'undefined' ? item.assignee : null) || 
-                         (item.owner && item.owner !== 'undefined' ? item.owner : null) || 
-                         '-';
-
-        return (resolved && resolved !== 'undefined') ? resolved : '-';
+        return (resolvedName && resolvedName !== 'undefined') ? resolvedName : '-';
     }
 
     getActionItemProjectName(item) {
@@ -10472,7 +10511,15 @@ class AetherPMO {
             this.addActivityLog(projectId, title, 'review', `신규 Action Item 등록: "${title}" (${ACTION_ITEM_STATUS_LABELS[nextStatus]}, 담당: ${displayOwner})`);
         }
 
-        console.log('[ActionItem Payload]', payload);
+        console.log('[ActionItem Save Payload]', {
+            id: existingItem?.id,
+            project_id: payload.project_id,
+            assignee_id: payload.assignee_id,
+            assignee_name: payload.assignee_name,
+            assignee_email: payload.assignee_email,
+            owner: payload.owner,
+            fullPayload: payload
+        });
 
         const actObj = id ? this.state.actionItems.find(a => a.id === id) : this.state.actionItems[this.state.actionItems.length - 1];
         try {
