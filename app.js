@@ -1688,12 +1688,30 @@ class AetherPMO {
 
             this.state.actionItems = (actionItems || []).map(a => ({
                 id: a.id,
+                project_id: a.project_id,
                 projectId: a.project_id,
                 title: a.title,
-                assignee: a.assignee,
+                assignee_id: a.assignee_id,
                 assigneeId: a.assignee_id,
+                assignee_name: a.assignee_name || a.assignee || a.owner || '',
+                assignee_email: a.assignee_email || '',
+                owner: a.owner || a.assignee_name || a.assignee || '',
+                assignee: a.assignee_name || a.assignee || a.owner || '',
+                ownerId: a.assignee_id,
+                created_by: a.created_by,
+                updated_by: a.updated_by,
+                reviewer_id: a.reviewer_id,
+                priority: a.priority || 'MEDIUM',
+                due_date: a.due_date,
                 dueDate: a.due_date,
-                status: a.status,
+                completed_at: a.completed_at,
+                completedDate: a.completed_at ? a.completed_at.split('T')[0] : '',
+                action_plan: a.action_plan,
+                actionPlan: a.action_plan,
+                action_result: a.action_result,
+                actionResult: a.action_result,
+                remarks: a.remarks,
+                status: this.normalizeActionItemStatus(a.status),
                 confirmComment: a.confirm_comment
             }));
 
@@ -2455,14 +2473,17 @@ class AetherPMO {
                 await this.supabase.from('issues').insert(issData);
             }
 
-            const actionItems = (this.state.actionItems || []).filter(a => a.projectId === p.id);
+            const actionItems = (this.state.actionItems || []).filter(a => (a.project_id || a.projectId) === p.id);
             if (actionItems.length > 0) {
                 const actsData = actionItems.map(a => ({
                     project_id: dbProjId,
                     title: a.title,
-                    assignee: a.assignee,
-                    due_date: a.dueDate || null,
-                    status: a.status,
+                    assignee_id: this.isUuid(a.assignee_id || a.assigneeId) ? (a.assignee_id || a.assigneeId) : null,
+                    assignee_name: a.assignee_name || a.assignee || a.owner || null,
+                    assignee_email: a.assignee_email || null,
+                    owner: a.owner || null,
+                    due_date: a.due_date || a.dueDate || null,
+                    status: this.normalizeActionItemStatus(a.status),
                     confirm_comment: a.confirmComment
                 }));
                 await this.supabase.from('action_items').insert(actsData);
