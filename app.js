@@ -7906,11 +7906,11 @@ class AetherPMO {
 
                     html += `
                         <tr class="opms-artifact-row ${isSelected ? 'selected' : ''}" onclick="app.selectMethodologyItem('${projectId}', '${act.activityId}', '${art.id}')">
-                            <td style="font-weight: 700; font-size: 14px;">
+                            <td class="col-name" style="font-weight: 700; font-size: 14px;">
                                 <i data-lucide="file-text" style="width: 15px; height: 15px; display: inline-block; vertical-align: middle; margin-right: 8px; color: var(--primary);"></i>
                                 ${this.escapeHtml(art.name || '미지정 산출물')}
                             </td>
-                            <td>
+                            <td class="col-status">
                                 <select onchange="event.stopPropagation(); app.updateMethodologyArtifactStatus('${projectId}', '${art.id}', this.value)" class="badge-status-${art.status}" style="font-weight: 700; cursor: pointer; border: 1px solid var(--bg-card-border); outline: none;">
                                     <option value="NOT_STARTED" ${art.status === 'NOT_STARTED' ? 'selected' : ''}>미작성</option>
                                     <option value="IN_PROGRESS" ${art.status === 'IN_PROGRESS' ? 'selected' : ''}>작성중</option>
@@ -7918,18 +7918,18 @@ class AetherPMO {
                                     <option value="APPROVED" ${art.status === 'APPROVED' ? 'selected' : ''}>승인완료</option>
                                 </select>
                             </td>
-                            <td>
+                            <td class="col-progress">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <div style="flex: 1; height: 6px; background: var(--bg-hover-item); border-radius: 3px; overflow: hidden;">
                                         <div style="width: ${artProg}%; height: 100%; background: ${artProg === 100 ? 'var(--success)' : artProg >= 70 ? 'var(--warning)' : 'var(--primary)'};"></div>
                                     </div>
-                                    <span style="font-size: 12px; font-weight: 700; color: var(--text-main);">${artProg}%</span>
+                                    <span style="font-size: 12px; font-weight: 700; color: var(--text-main); white-space: nowrap;">${artProg}%</span>
                                 </div>
                             </td>
-                            <td style="font-size: 14px;">${this.escapeHtml(art.assigneeName || '미지정')}</td>
-                            <td style="font-size: 13px; color: var(--text-muted);">${this.escapeHtml(art.updatedAt || '2026-06-01')}</td>
-                            <td class="text-center">
-                                <button class="btn btn-xs ${isSelected ? 'btn-primary' : 'btn-outline'}" onclick="event.stopPropagation(); app.selectMethodologyItem('${projectId}', '${act.activityId}', '${art.id}')">
+                            <td class="col-assignee" style="font-size: 14px;">${this.escapeHtml(art.assigneeName || '미지정')}</td>
+                            <td class="col-date" style="font-size: 13px; color: var(--text-muted);">${this.escapeHtml(art.updatedAt || '2026-06-01')}</td>
+                            <td class="col-detail" class="text-center">
+                                <button class="btn btn-xs ${isSelected ? 'btn-primary' : 'btn-outline'}" style="display: inline-flex; justify-content: center; align-items: center;" onclick="event.stopPropagation(); app.selectMethodologyItem('${projectId}', '${act.activityId}', '${art.id}')">
                                     <i data-lucide="arrow-right" style="width: 14px; height: 14px;"></i>
                                 </button>
                             </td>
@@ -7989,31 +7989,31 @@ class AetherPMO {
                 <div class="opms-info-grid-2x2">
                     <div class="opms-info-box-item">
                         <div style="font-size: 12px; color: var(--text-muted);">진척률</div>
-                        <div style="font-size: 16px; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 6px;">
+                        <div class="val-text" style="font-size: 16px; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 6px;">
                             <i data-lucide="pie-chart" style="width: 16px; height: 16px;"></i> ${artProg}%
                         </div>
                     </div>
                     <div class="opms-info-box-item">
                         <div style="font-size: 12px; color: var(--text-muted);">담당자</div>
-                        <div style="font-size: 14px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                        <div class="val-text" style="font-size: 14px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
                             <i data-lucide="user" style="width: 14px; height: 14px; color: var(--primary);"></i> ${this.escapeHtml(selectedArtifact.assigneeName || '안유경 PM')}
                         </div>
                     </div>
                     <div class="opms-info-box-item">
                         <div style="font-size: 12px; color: var(--text-muted);">수정일</div>
-                        <div style="font-size: 13px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                        <div class="val-text" style="font-size: 13px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
                             <i data-lucide="calendar" style="width: 14px; height: 14px; color: var(--primary);"></i> ${this.escapeHtml(selectedArtifact.updatedAt || '2026-06-01')}
                         </div>
                     </div>
                     <div class="opms-info-box-item">
                         <div style="font-size: 12px; color: var(--text-muted);">버전</div>
-                        <div style="font-size: 14px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                        <div class="val-text" style="font-size: 14px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
                             <i data-lucide="file-check" style="width: 14px; height: 14px; color: var(--primary);"></i> v1.0
                         </div>
                     </div>
                 </div>
 
-                <!-- Preparatory Functions Section (2x2 Grid) -->
+                <!-- Preparatory Functions Section (Redesigned Clean Cards) -->
                 <div style="margin-bottom: 24px;">
                     <div style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
                         <span>준비중 기능</span>
@@ -8022,24 +8022,24 @@ class AetherPMO {
 
                     <div class="opms-todo-grid-2x2">
                         <div class="opms-todo-card-button">
-                            <i data-lucide="file-plus" style="width: 20px; height: 20px; color: var(--primary);"></i>
-                            <span style="font-size: 13px; font-weight: 700; color: var(--text-main);">산출물<br>자동 생성</span>
-                            <span style="font-size: 11px; color: var(--text-muted);">준비중</span>
+                            <i data-lucide="file-plus" style="width: 22px; height: 22px; color: var(--primary);"></i>
+                            <span style="font-size: 13px; font-weight: 700; color: var(--text-main); white-space: nowrap;">산출물 자동생성</span>
+                            <span class="badge badge-neutral" style="font-size: 11px; white-space: nowrap;">준비중</span>
                         </div>
                         <div class="opms-todo-card-button">
-                            <i data-lucide="hash" style="width: 20px; height: 20px; color: var(--primary);"></i>
-                            <span style="font-size: 13px; font-weight: 700; color: var(--text-main);">문서번호<br>발급</span>
-                            <span style="font-size: 11px; color: var(--text-muted);">준비중</span>
+                            <i data-lucide="hash" style="width: 22px; height: 22px; color: var(--primary);"></i>
+                            <span style="font-size: 13px; font-weight: 700; color: var(--text-main); white-space: nowrap;">문서번호 발급</span>
+                            <span class="badge badge-neutral" style="font-size: 11px; white-space: nowrap;">준비중</span>
                         </div>
                         <div class="opms-todo-card-button">
-                            <i data-lucide="send" style="width: 20px; height: 20px; color: var(--primary);"></i>
-                            <span style="font-size: 13px; font-weight: 700; color: var(--text-main);">결재 승인 요청</span>
-                            <span style="font-size: 11px; color: var(--text-muted);">준비중</span>
+                            <i data-lucide="send" style="width: 22px; height: 22px; color: var(--primary);"></i>
+                            <span style="font-size: 13px; font-weight: 700; color: var(--text-main); white-space: nowrap;">결재 승인 요청</span>
+                            <span class="badge badge-neutral" style="font-size: 11px; white-space: nowrap;">준비중</span>
                         </div>
                         <div class="opms-todo-card-button">
-                            <i data-lucide="history" style="width: 20px; height: 20px; color: var(--primary);"></i>
-                            <span style="font-size: 13px; font-weight: 700; color: var(--text-main);">버전 관리</span>
-                            <span style="font-size: 11px; color: var(--text-muted);">준비중</span>
+                            <i data-lucide="history" style="width: 22px; height: 22px; color: var(--primary);"></i>
+                            <span style="font-size: 13px; font-weight: 700; color: var(--text-main); white-space: nowrap;">버전 이력 관리</span>
+                            <span class="badge badge-neutral" style="font-size: 11px; white-space: nowrap;">준비중</span>
                         </div>
                     </div>
                 </div>
