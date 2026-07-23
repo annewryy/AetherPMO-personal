@@ -7708,26 +7708,24 @@ class AetherPMO {
         // Find selected item
         let selectedActivity = null;
         let selectedArtifact = null;
-        methodologyObj.stages.forEach(stg => {
-            (stg.activities || []).forEach(act => {
-                if (act.activityId === methodologyObj.selectedActivityId) {
-                    selectedActivity = act;
-                }
-                (act.artifacts || []).forEach(art => {
-                    if (art.id === methodologyObj.selectedArtifactId) {
-                        selectedArtifact = art;
-                        if (!selectedActivity) selectedActivity = act;
+
+        if (methodologyObj.isArtifactSummaryOpen !== false && methodologyObj.selectedArtifactId) {
+            methodologyObj.stages.forEach(stg => {
+                (stg.activities || []).forEach(act => {
+                    if (act.activityId === methodologyObj.selectedActivityId) {
+                        selectedActivity = act;
                     }
+                    (act.artifacts || []).forEach(art => {
+                        if (art.id === methodologyObj.selectedArtifactId) {
+                            selectedArtifact = art;
+                            if (!selectedActivity) selectedActivity = act;
+                        }
+                    });
                 });
             });
-        });
-
-        if (!selectedArtifact && methodologyObj.stages[0]?.activities[0]?.artifacts[0]) {
-            selectedActivity = methodologyObj.stages[0].activities[0];
-            selectedArtifact = methodologyObj.stages[0].activities[0].artifacts[0];
-            methodologyObj.selectedActivityId = selectedActivity.activityId;
-            methodologyObj.selectedArtifactId = selectedArtifact.id;
         }
+
+        const isSummaryOpen = Boolean(selectedArtifact && methodologyObj.isArtifactSummaryOpen !== false);
 
         // Build HTML
         let html = `
@@ -7790,10 +7788,10 @@ class AetherPMO {
             </div>
 
             <!-- Main Split Layout (Left: 63%, Right: 37%) -->
-            <div class="methodology-container">
+            <div class="methodology-container methodology-content-layout ${isSummaryOpen ? 'summary-open' : 'summary-closed'}">
                 
                 <!-- Left Main Body (6-Stage Accordions) -->
-                <div class="methodology-main-body">
+                <div class="methodology-main-body methodology-detail-panel">
         `;
 
         methodologyObj.stages.forEach(stg => {
@@ -7875,7 +7873,7 @@ class AetherPMO {
                     const artProg = OPMS_STATUS_PROGRESS[art.status] !== undefined ? OPMS_STATUS_PROGRESS[art.status] : 0;
 
                     html += `
-                        <tr class="opms-artifact-row ${isSelected ? 'selected' : ''}" onclick="app.selectMethodologyItem('${projectId}', '${act.activityId}', '${art.id}')">
+                        <tr class="opms-artifact-row ${isSelected ? 'selected' : ''}" onclick="app.openArtifactSummary('${projectId}', '${act.activityId}', '${art.id}')">
                             <td class="col-name" style="font-weight: 700; font-size: 14px;">
                                 <i data-lucide="file-text" style="width: 16px; height: 16px; display: inline-block; vertical-align: middle; margin-right: 8px; color: var(--primary);"></i>
                                 ${this.escapeHtml(art.name || '미지정 산출물')}
@@ -7899,7 +7897,7 @@ class AetherPMO {
                             <td class="col-assignee" style="font-size: 14px;">${this.escapeHtml(art.assigneeName || '미지정')}</td>
                             <td class="col-date" style="font-size: 13px; color: var(--text-muted);">${this.escapeHtml(art.updatedAt || '2026-06-01')}</td>
                             <td class="col-detail" class="text-center">
-                                <button class="btn btn-xs ${isSelected ? 'btn-primary' : 'btn-outline'}" style="display: inline-flex; justify-content: center; align-items: center;" onclick="event.stopPropagation(); app.selectMethodologyItem('${projectId}', '${act.activityId}', '${art.id}')">
+                                <button class="btn btn-xs ${isSelected ? 'btn-primary' : 'btn-outline'}" style="display: inline-flex; justify-content: center; align-items: center;" onclick="event.stopPropagation(); app.openArtifactSummary('${projectId}', '${act.activityId}', '${art.id}')">
                                     <i data-lucide="arrow-right" style="width: 14px; height: 14px;"></i>
                                 </button>
                             </td>
@@ -7925,7 +7923,7 @@ class AetherPMO {
                 </div>
 
                 <!-- Right Side Panel (37% width) -->
-                <div class="methodology-side-panel">
+                <div class="methodology-side-panel artifact-summary-panel">
                     <div class="opms-side-card" style="position: sticky; top: 80px;">
         `;
 
@@ -7943,7 +7941,7 @@ class AetherPMO {
                 <!-- Panel Header -->
                 <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--bg-card-border); margin-bottom: 18px;">
                     <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--text-main);">산출물 상세 Summary</h3>
-                    <button class="btn btn-xs btn-outline" style="border: none; padding: 4px;" onclick="app.selectMethodologyItem('${projectId}', null, null)">
+                    <button class="btn btn-xs btn-outline" style="border: none; padding: 4px; cursor: pointer;" onclick="app.closeArtifactSummary('${projectId}')">
                         <i data-lucide="x" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
                     </button>
                 </div>
@@ -8134,11 +8132,27 @@ class AetherPMO {
         this.renderProjectDetailMethodology(projectId);
     }
 
-    selectMethodologyItem(projectId, activityId, artifactId) {
+    closeArtifactSummary(projectId) {
+        const methodologyObj = this.getProjectMethodology(projectId);
+        methodologyObj.selectedArtifactId = null;
+        methodologyObj.isArtifactSummaryOpen = false;
+        this.renderProjectDetailMethodology(projectId);
+    }
+
+    openArtifactSummary(projectId, activityId, artifactId) {
         const methodologyObj = this.getProjectMethodology(projectId);
         methodologyObj.selectedActivityId = activityId;
         methodologyObj.selectedArtifactId = artifactId;
+        methodologyObj.isArtifactSummaryOpen = true;
         this.renderProjectDetailMethodology(projectId);
+    }
+
+    selectMethodologyItem(projectId, activityId, artifactId) {
+        if (!artifactId) {
+            this.closeArtifactSummary(projectId);
+        } else {
+            this.openArtifactSummary(projectId, activityId, artifactId);
+        }
     }
 
     updateMethodologyArtifactStatus(projectId, artifactId, newStatus) {

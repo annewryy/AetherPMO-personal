@@ -6753,36 +6753,70 @@ body.dark-theme .portal-copilot-task-item {
 /* ==========================================================================
    OPMS METHODOLOGY TAB STYLES (TIMELINE & DESIGNER POLISH)
    ========================================================================== */
-.methodology-container {
+.methodology-container,
+.methodology-content-layout {
     display: grid;
     grid-template-columns: minmax(0, 1.65fr) minmax(360px, 0.9fr);
     gap: 20px;
     align-items: start;
     margin-top: 16px;
+    transition: grid-template-columns 0.25s ease-in-out;
 }
-.methodology-main-body {
+.methodology-container.summary-open,
+.methodology-content-layout.summary-open {
+    grid-template-columns: minmax(0, 1.65fr) minmax(360px, 0.9fr);
+}
+.methodology-container.summary-closed,
+.methodology-content-layout.summary-closed {
+    grid-template-columns: minmax(0, 1fr) !important;
+}
+.methodology-main-body,
+.methodology-detail-panel {
     min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 18px;
+    width: 100%;
 }
-.methodology-side-panel {
+.methodology-container.summary-closed .methodology-main-body,
+.methodology-container.summary-closed .methodology-detail-panel,
+.methodology-content-layout.summary-closed .methodology-main-body,
+.methodology-content-layout.summary-closed .methodology-detail-panel {
+    width: 100% !important;
+    max-width: none !important;
+}
+.methodology-side-panel,
+.artifact-summary-panel {
     min-width: 360px;
 }
+.methodology-container.summary-closed .methodology-side-panel,
+.methodology-container.summary-closed .artifact-summary-panel,
+.methodology-content-layout.summary-closed .methodology-side-panel,
+.methodology-content-layout.summary-closed .artifact-summary-panel {
+    display: none !important;
+}
 @media (max-width: 1200px) {
-    .methodology-container {
+    .methodology-container,
+    .methodology-content-layout {
         grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
     }
-    .methodology-side-panel {
+    .methodology-container.summary-open,
+    .methodology-content-layout.summary-open {
+        grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
+    }
+    .methodology-side-panel,
+    .artifact-summary-panel {
         min-width: 320px;
     }
 }
 @media (max-width: 1024px) {
-    .methodology-container {
+    .methodology-container,
+    .methodology-content-layout {
         display: flex;
         flex-direction: column;
     }
-    .methodology-side-panel {
+    .methodology-side-panel,
+    .artifact-summary-panel {
         width: 100%;
         min-width: 0;
     }
