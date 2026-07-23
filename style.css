@@ -6751,30 +6751,40 @@ body.dark-theme .portal-copilot-task-item {
 }
 
 /* ==========================================================================
-   OPMS METHODOLOGY TAB STYLES
+   OPMS METHODOLOGY TAB STYLES (REDESIGNED)
    ========================================================================== */
 .methodology-container {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1.65fr) minmax(360px, 0.9fr);
     gap: 20px;
+    align-items: start;
     margin-top: 16px;
 }
 .methodology-main-body {
-    flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 16px;
 }
 .methodology-side-panel {
-    width: 340px;
-    flex-shrink: 0;
+    min-width: 360px;
+}
+@media (max-width: 1200px) {
+    .methodology-container {
+        grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
+    }
+    .methodology-side-panel {
+        min-width: 320px;
+    }
 }
 @media (max-width: 1024px) {
     .methodology-container {
+        display: flex;
         flex-direction: column;
     }
     .methodology-side-panel {
         width: 100%;
+        min-width: 0;
     }
 }
 
@@ -6782,7 +6792,7 @@ body.dark-theme .portal-copilot-task-item {
     background: var(--bg-card);
     border: 1px solid var(--bg-card-border);
     border-radius: 12px;
-    padding: 20px;
+    padding: 20px 24px;
     margin-bottom: 20px;
     box-shadow: var(--shadow-sm);
 }
@@ -6808,7 +6818,7 @@ body.dark-theme .portal-copilot-task-item {
     background: var(--bg-hover-item);
     border: 1px solid var(--bg-card-border);
     border-radius: 10px;
-    padding: 12px;
+    padding: 14px 16px;
     cursor: pointer;
     transition: all var(--transition-fast);
 }
@@ -6819,7 +6829,7 @@ body.dark-theme .portal-copilot-task-item {
 }
 .opms-stage-card.active {
     border-color: var(--primary);
-    box-shadow: 0 0 10px var(--primary-glow);
+    box-shadow: 0 0 12px var(--primary-glow);
     background: var(--bg-card);
 }
 
@@ -6828,7 +6838,7 @@ body.dark-theme .portal-copilot-task-item {
     border: 1px solid var(--bg-card-border);
     border-radius: 12px;
     overflow: hidden;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
     transition: border-color var(--transition-fast);
 }
 .opms-stage-accordion.open {
@@ -6838,17 +6848,19 @@ body.dark-theme .portal-copilot-task-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 20px;
+    padding: 18px 24px;
     background: var(--bg-card);
     cursor: pointer;
     user-select: none;
+    font-size: 15px;
+    font-weight: 700;
 }
 .opms-stage-header:hover {
     background: var(--bg-hover-item);
 }
 .opms-stage-body {
     display: none;
-    padding: 0 20px 20px 20px;
+    padding: 16px 24px 24px 24px;
     border-top: 1px solid var(--bg-card-border);
 }
 .opms-stage-accordion.open .opms-stage-body {
@@ -6859,16 +6871,16 @@ body.dark-theme .portal-copilot-task-item {
     margin-top: 14px;
     background: var(--bg-hover-item);
     border: 1px solid var(--bg-card-border);
-    border-radius: 8px;
+    border-radius: 10px;
     overflow: hidden;
 }
 .opms-activity-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
+    padding: 14px 18px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--text-main);
 }
@@ -6877,36 +6889,36 @@ body.dark-theme .portal-copilot-task-item {
 }
 .opms-activity-body {
     display: none;
-    padding: 12px;
+    padding: 16px;
     border-top: 1px solid var(--bg-card-border);
     background: var(--bg-card);
+    overflow-x: auto;
 }
 .opms-activity-accordion.open .opms-activity-body {
     display: block;
 }
 
-/* Method Badges */
-.badge-status-NOT_STARTED {
-    background: rgba(148, 163, 184, 0.15);
-    color: #94a3b8;
-    border: 1px solid rgba(148, 163, 184, 0.3);
+/* Artifact Table column widths & row heights */
+.opms-artifact-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
 }
-.badge-status-IN_PROGRESS {
-    background: rgba(59, 130, 246, 0.15);
-    color: #60a5fa;
-    border: 1px solid rgba(59, 130, 246, 0.3);
+.opms-artifact-table th {
+    padding: 12px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--bg-card-border);
+    text-align: left;
 }
-.badge-status-IN_REVIEW {
-    background: rgba(245, 158, 11, 0.15);
-    color: #fbbf24;
-    border: 1px solid rgba(245, 158, 11, 0.3);
+.opms-artifact-table td {
+    padding: 14px;
+    font-size: 14px;
+    color: var(--text-main);
+    border-bottom: 1px solid var(--bg-card-border);
+    vertical-align: middle;
 }
-.badge-status-APPROVED {
-    background: rgba(34, 197, 94, 0.15);
-    color: #4ade80;
-    border: 1px solid rgba(34, 197, 94, 0.3);
-}
-
 .opms-artifact-row {
     cursor: pointer;
     transition: background var(--transition-fast);
@@ -6917,4 +6929,109 @@ body.dark-theme .portal-copilot-task-item {
 .opms-artifact-row.selected {
     background: rgba(99, 102, 241, 0.12) !important;
 }
+
+/* Status Badges - Min 12px font */
+.badge-status-NOT_STARTED {
+    background: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    font-size: 12px !important;
+    padding: 4px 10px !important;
+    border-radius: 6px;
+}
+.badge-status-IN_PROGRESS {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    font-size: 12px !important;
+    padding: 4px 10px !important;
+    border-radius: 6px;
+}
+.badge-status-IN_REVIEW {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    font-size: 12px !important;
+    padding: 4px 10px !important;
+    border-radius: 6px;
+}
+.badge-status-APPROVED {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    font-size: 12px !important;
+    padding: 4px 10px !important;
+    border-radius: 6px;
+}
+
+/* Side Panel Cards */
+.opms-side-card {
+    background: var(--bg-card);
+    border: 1px solid var(--bg-card-border);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+}
+
+.opms-info-grid-2x2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 16px;
+    margin-bottom: 20px;
+}
+.opms-info-box-item {
+    background: var(--bg-hover-item);
+    border: 1px solid var(--bg-card-border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.opms-todo-grid-2x2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+}
+.opms-todo-card-button {
+    background: var(--bg-hover-item);
+    border: 1px solid var(--bg-card-border);
+    border-radius: 10px;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: not-allowed;
+    opacity: 0.8;
+    text-align: center;
+    transition: all var(--transition-fast);
+}
+.opms-todo-card-button:hover {
+    border-color: var(--primary);
+    background: var(--bg-card);
+}
+
+.opms-reference-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+.opms-reference-item-card {
+    background: var(--bg-hover-item);
+    border: 1px solid var(--bg-card-border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
 
