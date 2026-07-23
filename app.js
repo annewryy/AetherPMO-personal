@@ -7767,7 +7767,7 @@ class AetherPMO {
             html += `
                 <div class="opms-stage-card ${isCurrentActive ? 'active' : ''}" onclick="app.toggleMethodologyStage('${projectId}', '${stgInfo.code}')">
                     <div style="font-size: 11px; font-weight: 800; color: var(--primary); margin-bottom: 2px;">${stgInfo.code}</div>
-                    <div style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${stgInfo.fullName}">${stgInfo.name}</div>
+                    <div style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(stgInfo.fullName || stgInfo.name || '')}">${this.escapeHtml(stgInfo.name || '')}</div>
                     <div style="display: flex; align-items: center; gap: 6px;">
                         <div style="flex: 1; height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
                             <div style="width: ${prog}%; height: 100%; background: var(--primary);"></div>
@@ -7798,7 +7798,7 @@ class AetherPMO {
                     <div class="opms-stage-header" onclick="app.toggleMethodologyStage('${projectId}', '${stg.stageCode}')">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <i data-lucide="${isStageOpen ? 'chevron-down' : 'chevron-right'}" style="width: 18px; height: 18px; color: var(--primary);"></i>
-                            <span style="font-size: 15px; font-weight: 700; color: var(--text-main);">${stg.fullName}</span>
+                            <span style="font-size: 15px; font-weight: 700; color: var(--text-main);">${this.escapeHtml(stg.fullName || stg.stageName || '')}</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <div style="display: flex; align-items: center; gap: 8px; width: 140px;">
@@ -7820,7 +7820,7 @@ class AetherPMO {
                         <div class="opms-activity-header" onclick="app.toggleMethodologyActivity('${projectId}', '${act.activityId}')">
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <i data-lucide="${isActOpen ? 'folder-open' : 'folder'}" style="width: 15px; height: 15px; color: var(--info);"></i>
-                                <span>▶ ${act.activityName}</span>
+                                <span>▶ ${this.escapeHtml(act.activityName || '')}</span>
                             </div>
                             <div style="font-size: 11px; font-weight: 600; color: var(--text-muted);">
                                 진행률: <strong style="color: var(--primary);">${act.progress || 0}%</strong> (${(act.artifacts || []).length}개 산출물)
@@ -7851,7 +7851,7 @@ class AetherPMO {
                         <tr class="opms-artifact-row ${isSelected ? 'selected' : ''}" onclick="app.selectMethodologyItem('${projectId}', '${act.activityId}', '${art.id}')">
                             <td class="font-bold">
                                 <i data-lucide="file-text" style="width: 13px; height: 13px; display: inline-block; vertical-align: middle; margin-right: 6px; color: var(--primary);"></i>
-                                ${this.escapeHtml(art.name)}
+                                ${this.escapeHtml(art.name || '미지정 산출물')}
                             </td>
                             <td>
                                 <select onchange="event.stopPropagation(); app.updateMethodologyArtifactStatus('${projectId}', '${art.id}', this.value)" style="padding: 2px 6px; font-size: 11px; border-radius: 4px; border: 1px solid var(--bg-card-border); background: var(--bg-card); color: var(--text-main); font-weight: 700; cursor: pointer;">
@@ -7869,8 +7869,8 @@ class AetherPMO {
                                     <span style="font-size: 11px; font-weight: 700;">${artProg}%</span>
                                 </div>
                             </td>
-                            <td>${this.escapeHtml(art.assigneeName || '-')}</td>
-                            <td class="text-muted">${art.updatedAt || '-'}</td>
+                            <td>${this.escapeHtml(art.assigneeName || '미지정')}</td>
+                            <td class="text-muted">${this.escapeHtml(art.updatedAt || '-')}</td>
                             <td class="text-center">
                                 <button class="btn btn-xs ${isSelected ? 'btn-primary' : 'btn-outline'}" onclick="event.stopPropagation(); app.selectMethodologyItem('${projectId}', '${act.activityId}', '${art.id}')">
                                     선택
@@ -7916,13 +7916,13 @@ class AetherPMO {
             html += `
                 <div style="padding-bottom: 12px; border-bottom: 1px solid var(--bg-card-border); margin-bottom: 14px;">
                     <div style="font-size: 10px; font-weight: 700; color: var(--primary); text-transform: uppercase; margin-bottom: 4px;">선택된 수행활동 / 산출물 정보</div>
-                    <h4 style="margin: 0 0 6px 0; font-size: 15px; font-weight: 800; color: var(--text-main);">${this.escapeHtml(selectedArtifact.name)}</h4>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px;">상위 활동: <strong>${this.escapeHtml(selectedActivity.activityName)}</strong></div>
+                    <h4 style="margin: 0 0 6px 0; font-size: 15px; font-weight: 800; color: var(--text-main);">${this.escapeHtml(selectedArtifact.name || '미지정 산출물')}</h4>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px;">상위 활동: <strong>${this.escapeHtml(selectedActivity.activityName || '')}</strong></div>
                     
                     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                         <span class="badge badge-status-${selectedArtifact.status}" style="font-size: 11px; font-weight: 700;">${stLabel}</span>
                         <span style="font-size: 12px; font-weight: 800; color: var(--text-main);">진행률: ${artProg}%</span>
-                        <span style="font-size: 11px; color: var(--text-muted); margin-left: auto;">담당자: ${this.escapeHtml(selectedArtifact.assigneeName || '-')}</span>
+                        <span style="font-size: 11px; color: var(--text-muted); margin-left: auto;">담당자: ${this.escapeHtml(selectedArtifact.assigneeName || '미지정')}</span>
                     </div>
                 </div>
 
@@ -7960,8 +7960,8 @@ class AetherPMO {
                         ${projActions.length === 0 ? '<div style="font-size: 11px; color: var(--text-muted); padding: 4px 0;">등록된 Action Item이 없습니다.</div>' : ''}
                         ${projActions.slice(0, 3).map(a => `
                             <div style="font-size: 11px; padding: 4px 6px; background: var(--bg-hover-item); border-radius: 4px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
-                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px;" title="${this.escapeHtml(a.title)}">${this.escapeHtml(a.title)}</span>
-                                <span class="badge badge-xs badge-info">${a.status}</span>
+                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px;" title="${this.escapeHtml(a.title || '')}">${this.escapeHtml(a.title || '')}</span>
+                                <span class="badge badge-xs badge-info">${this.escapeHtml(a.status || '대기')}</span>
                             </div>
                         `).join('')}
                     </div>
@@ -7972,8 +7972,8 @@ class AetherPMO {
                         ${projMinutes.length === 0 ? '<div style="font-size: 11px; color: var(--text-muted); padding: 4px 0;">등록된 회의록이 없습니다.</div>' : ''}
                         ${projMinutes.slice(0, 2).map(m => `
                             <div style="font-size: 11px; padding: 4px 6px; background: var(--bg-hover-item); border-radius: 4px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
-                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px;" title="${this.escapeHtml(m.title)}">${this.escapeHtml(m.title)}</span>
-                                <span style="color: var(--text-muted); font-size: 10px;">${m.meetDate || '-'}</span>
+                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px;" title="${this.escapeHtml(m.title || '')}">${this.escapeHtml(m.title || '')}</span>
+                                <span style="color: var(--text-muted); font-size: 10px;">${this.escapeHtml(m.meetDate || '-')}</span>
                             </div>
                         `).join('')}
                     </div>
@@ -7984,8 +7984,8 @@ class AetherPMO {
                         ${projIssues.length === 0 ? '<div style="font-size: 11px; color: var(--text-muted); padding: 4px 0;">등록된 리스크가 없습니다.</div>' : ''}
                         ${projIssues.slice(0, 2).map(i => `
                             <div style="font-size: 11px; padding: 4px 6px; background: var(--bg-hover-item); border-radius: 4px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
-                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px;" title="${this.escapeHtml(i.title)}">${this.escapeHtml(i.title)}</span>
-                                <span class="badge badge-xs badge-warning">${i.priority || 'MEDIUM'}</span>
+                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px;" title="${this.escapeHtml(i.title || '')}">${this.escapeHtml(i.title || '')}</span>
+                                <span class="badge badge-xs badge-warning">${this.escapeHtml(i.priority || 'MEDIUM')}</span>
                             </div>
                         `).join('')}
                     </div>
@@ -7996,8 +7996,8 @@ class AetherPMO {
                         ${projArtifacts.length === 0 ? '<div style="font-size: 11px; color: var(--text-muted); padding: 4px 0;">등록된 산출물이 없습니다.</div>' : ''}
                         ${projArtifacts.slice(0, 2).map(art => `
                             <div style="font-size: 11px; padding: 4px 6px; background: var(--bg-hover-item); border-radius: 4px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
-                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px;" title="${this.escapeHtml(art.name)}">${this.escapeHtml(art.name)}</span>
-                                <span style="color: var(--text-muted); font-size: 10px;">${art.version || 'v1.0'}</span>
+                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px;" title="${this.escapeHtml(art.name || '')}">${this.escapeHtml(art.name || '')}</span>
+                                <span style="color: var(--text-muted); font-size: 10px;">${this.escapeHtml(art.version || 'v1.0')}</span>
                             </div>
                         `).join('')}
                     </div>
@@ -10676,6 +10676,15 @@ class AetherPMO {
             this.supabase.removeChannel(this.actionItemChannel);
             this.actionItemChannel = null;
         }
+    }
+
+    escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
     normalizeActionItemStatus(status) {
