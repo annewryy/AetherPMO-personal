@@ -7733,60 +7733,24 @@ class AetherPMO {
         let html = `
             <!-- Top Header Summary Card -->
             <div class="methodology-header-card">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
                     <div>
-                        <h2 style="margin: 0 0 6px 0; font-size: 18px; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 10px;">
+                        <div style="font-size: 12px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">OPMS Methodology Pipeline</div>
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 10px;">
                             방법론(OPMS) - ${this.escapeHtml(project?.name || '프로젝트')}
                         </h2>
                     </div>
-                    <span class="badge badge-info" style="font-size: 11px; font-weight: 700; padding: 4px 10px;">
-                        <i data-lucide="info" style="width: 12px; height: 12px; margin-right: 4px; display: inline-block; vertical-align: middle;"></i>
-                        데모 데이터 (새로고침 시 초기화)
+                    <span class="badge badge-info" style="font-size: 11px; font-weight: 700; padding: 5px 12px;">
+                        <i data-lucide="sparkles" style="width: 13px; height: 13px; margin-right: 6px; display: inline-block; vertical-align: middle;"></i>
+                        OPMS 1.0 표준 프로세스
                     </span>
                 </div>
 
-                <!-- Stats Summary Row -->
-                <div style="display: grid; grid-template-columns: 1.2fr repeat(4, 1fr); gap: 16px; align-items: center; background: var(--bg-hover-item); padding: 16px 20px; border-radius: 10px; border: 1px solid var(--bg-card-border);">
-                    <div>
-                        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 2px;">전체 진척률</div>
-                        <div style="font-size: 24px; font-weight: 800; color: var(--primary);">${overallProgress}%</div>
-                        <div style="font-size: 12px; color: var(--text-muted);">${completedArtifacts} / ${totalArtifacts} 산출물 완료</div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px; border-left: 1px solid var(--bg-card-border); padding-left: 14px;">
-                        <i data-lucide="check-circle-2" style="width: 22px; height: 22px; color: var(--success); flex-shrink: 0;"></i>
-                        <div>
-                            <div style="font-size: 12px; color: var(--text-muted);">승인완료</div>
-                            <div style="font-size: 15px; font-weight: 800; color: var(--text-main);">${approvedCount}건 <span style="font-size: 12px; color: var(--text-muted); font-weight: normal;">(${approvedPct}%)</span></div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px; border-left: 1px solid var(--bg-card-border); padding-left: 14px;">
-                        <i data-lucide="clock" style="width: 22px; height: 22px; color: var(--warning); flex-shrink: 0;"></i>
-                        <div>
-                            <div style="font-size: 12px; color: var(--text-muted);">검토중</div>
-                            <div style="font-size: 15px; font-weight: 800; color: var(--text-main);">${inReviewCount}건 <span style="font-size: 12px; color: var(--text-muted); font-weight: normal;">(${inReviewPct}%)</span></div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px; border-left: 1px solid var(--bg-card-border); padding-left: 14px;">
-                        <i data-lucide="edit-3" style="width: 22px; height: 22px; color: var(--info); flex-shrink: 0;"></i>
-                        <div>
-                            <div style="font-size: 12px; color: var(--text-muted);">작성중</div>
-                            <div style="font-size: 15px; font-weight: 800; color: var(--text-main);">${inProgressCount}건 <span style="font-size: 12px; color: var(--text-muted); font-weight: normal;">(${inProgressPct}%)</span></div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px; border-left: 1px solid var(--bg-card-border); padding-left: 14px;">
-                        <i data-lucide="circle" style="width: 22px; height: 22px; color: #94a3b8; flex-shrink: 0;"></i>
-                        <div>
-                            <div style="font-size: 12px; color: var(--text-muted);">미작성</div>
-                            <div style="font-size: 15px; font-weight: 800; color: var(--text-main);">${notStartedCount}건 <span style="font-size: 12px; color: var(--text-muted); font-weight: normal;">(${notStartedPct}%)</span></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 6-Stage Mini Summary Cards Grid -->
-                <div class="opms-stages-grid">
+                <!-- 6-Stage Timeline Flow Pipeline -->
+                <div class="opms-timeline-pipeline">
         `;
 
-        OPMS_STAGES.forEach(stgInfo => {
+        OPMS_STAGES.forEach((stgInfo, idx) => {
             const stgObj = methodologyObj.stages.find(s => s.stageCode === stgInfo.code);
             const prog = stageProgresses[stgInfo.code] || 0;
             const isCurrentActive = stgObj?.isOpen;
@@ -7802,16 +7766,20 @@ class AetherPMO {
                 });
             }
 
+            const isCompleted = prog === 100;
+
             html += `
-                <div class="opms-stage-card ${isCurrentActive ? 'active' : ''}" onclick="app.toggleMethodologyStage('${projectId}', '${stgInfo.code}')">
-                    <div style="font-size: 12px; font-weight: 800; color: var(--primary); margin-bottom: 2px;">${stgInfo.code}</div>
+                <div class="opms-timeline-step ${isCurrentActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}" onclick="app.toggleMethodologyStage('${projectId}', '${stgInfo.code}')">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 12px; font-weight: 800; color: ${isCompleted ? 'var(--success)' : 'var(--primary)'};">0${idx + 1}. ${stgInfo.code}</span>
+                        <span style="font-size: 11px; font-weight: 700; color: var(--text-muted);">${prog}%</span>
+                    </div>
                     <div style="font-size: 14px; font-weight: 700; color: var(--text-main); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(stgInfo.fullName || stgInfo.name || '')}">${this.escapeHtml(stgInfo.name || '')}</div>
-                    <div style="font-size: 15px; font-weight: 800; color: var(--text-main); margin-bottom: 6px;">${prog}%</div>
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <div style="flex: 1; height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
-                            <div style="width: ${prog}%; height: 100%; background: ${prog === 100 ? 'var(--success)' : 'var(--primary)'};"></div>
+                        <div style="flex: 1; height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden;">
+                            <div style="width: ${prog}%; height: 100%; background: ${isCompleted ? 'var(--success)' : 'var(--primary)'};"></div>
                         </div>
-                        <span style="font-size: 11px; font-weight: 700; color: var(--text-muted);">${stgApproved}/${stgTotal}</span>
+                        <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">${stgApproved}/${stgTotal}</span>
                     </div>
                 </div>
             `;
@@ -7819,13 +7787,9 @@ class AetherPMO {
 
         html += `
                 </div>
-                <div style="font-size: 12px; color: var(--text-muted); margin-top: 12px; display: flex; align-items: center; gap: 6px;">
-                    <i data-lucide="lightbulb" style="width: 14px; height: 14px; color: var(--warning);"></i>
-                    <span>단계 카드를 클릭하면 해당 단계 아코디언으로 이동합니다.</span>
-                </div>
             </div>
 
-            <!-- Main Split Layout (Left: Accordions 62~65%, Right: Side Panel 35~38%) -->
+            <!-- Main Split Layout (Left: 63%, Right: 37%) -->
             <div class="methodology-container">
                 
                 <!-- Left Main Body (6-Stage Accordions) -->
@@ -7838,6 +7802,7 @@ class AetherPMO {
 
             let stgTotal = 0;
             let stgApproved = 0;
+            let stgActCount = (stg.activities || []).length;
             (stg.activities || []).forEach(act => {
                 (act.artifacts || []).forEach(art => {
                     stgTotal++;
@@ -7848,13 +7813,16 @@ class AetherPMO {
             html += `
                 <div class="opms-stage-accordion ${isStageOpen ? 'open' : ''}" id="opms-stage-box-${stg.stageCode}">
                     <div class="opms-stage-header" onclick="app.toggleMethodologyStage('${projectId}', '${stg.stageCode}')">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <i data-lucide="${isStageOpen ? 'chevron-down' : 'chevron-right'}" style="width: 18px; height: 18px; color: var(--primary);"></i>
-                            <span style="font-size: 16px; font-weight: 700; color: var(--text-main);">${this.escapeHtml(stg.fullName || stg.stageName || '')}</span>
-                        </div>
                         <div style="display: flex; align-items: center; gap: 12px;">
+                            <i data-lucide="${isStageOpen ? 'chevron-down' : 'chevron-right'}" style="width: 20px; height: 20px; color: var(--primary);"></i>
+                            <span style="font-size: 16px; font-weight: 800; color: var(--text-main);">${this.escapeHtml(stg.fullName || stg.stageName || '')}</span>
+                        </div>
+                        <!-- Collapsed Summary Badges -->
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span class="badge badge-neutral" style="font-size: 12px; font-weight: 700;">${stgActCount} Activities</span>
+                            <span class="badge badge-neutral" style="font-size: 12px; font-weight: 700;">${stgTotal} Artifacts</span>
                             <span class="badge ${stgProg === 100 ? 'badge-success' : 'badge-info'}" style="font-size: 12px; font-weight: 700; padding: 4px 10px;">
-                                ${stgProg}% (${stgApproved}/${stgTotal})
+                                ${stgProg}% (${stgApproved}/${stgTotal} 완료)
                             </span>
                         </div>
                     </div>
@@ -7873,26 +7841,28 @@ class AetherPMO {
                 });
 
                 html += `
-                    <div class="opms-activity-accordion ${isActOpen ? 'open' : ''}">
+                    <div class="opms-activity-group ${isActOpen ? 'open' : ''}">
                         <div class="opms-activity-header" onclick="app.toggleMethodologyActivity('${projectId}', '${act.activityId}')">
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <i data-lucide="${isActOpen ? 'folder-open' : 'folder'}" style="width: 16px; height: 16px; color: var(--info);"></i>
-                                <span style="font-size: 14px; font-weight: 700;">▷ ${this.escapeHtml(act.activityName || '')}</span>
+                                <i data-lucide="folder-git-2" style="width: 16px; height: 16px; color: var(--primary);"></i>
+                                <span style="font-size: 14px; font-weight: 700; color: var(--text-main);">수행활동: ${this.escapeHtml(act.activityName || '')}</span>
                             </div>
-                            <div style="font-size: 13px; font-weight: 600; color: var(--text-muted);">
-                                <span style="color: var(--primary); font-weight: 800;">${act.progress || 0}%</span> (${actApproved}/${actTotal})
+                            <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
+                                <span style="color: var(--primary); font-weight: 800;">${act.progress || 0}%</span> (${actApproved}/${actTotal} 산출물)
+                                <i data-lucide="${isActOpen ? 'chevron-up' : 'chevron-down'}" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
                             </div>
                         </div>
 
                         <div class="opms-activity-body">
+                            <!-- Hero Artifact Table -->
                             <table class="opms-artifact-table">
                                 <thead>
                                     <tr>
-                                        <th style="min-width: 260px;">산출물명</th>
+                                        <th style="min-width: 240px;">산출물명</th>
                                         <th style="width: 100px;">상태</th>
                                         <th style="width: 120px;">진행률</th>
                                         <th style="width: 110px;">담당자</th>
-                                        <th style="width: 100px;">수정일</th>
+                                        <th style="width: 105px;">수정일</th>
                                         <th style="width: 60px; text-align: center;">상세</th>
                                     </tr>
                                 </thead>
@@ -7907,7 +7877,7 @@ class AetherPMO {
                     html += `
                         <tr class="opms-artifact-row ${isSelected ? 'selected' : ''}" onclick="app.selectMethodologyItem('${projectId}', '${act.activityId}', '${art.id}')">
                             <td class="col-name" style="font-weight: 700; font-size: 14px;">
-                                <i data-lucide="file-text" style="width: 15px; height: 15px; display: inline-block; vertical-align: middle; margin-right: 8px; color: var(--primary);"></i>
+                                <i data-lucide="file-text" style="width: 16px; height: 16px; display: inline-block; vertical-align: middle; margin-right: 8px; color: var(--primary);"></i>
                                 ${this.escapeHtml(art.name || '미지정 산출물')}
                             </td>
                             <td class="col-status">
@@ -7954,7 +7924,7 @@ class AetherPMO {
         html += `
                 </div>
 
-                <!-- Right Side Panel (35~38% width, min 360px) -->
+                <!-- Right Side Panel (37% width) -->
                 <div class="methodology-side-panel">
                     <div class="opms-side-card" style="position: sticky; top: 80px;">
         `;
@@ -7971,123 +7941,143 @@ class AetherPMO {
 
             html += `
                 <!-- Panel Header -->
-                <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--bg-card-border); margin-bottom: 16px;">
-                    <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--text-main);">산출물 상세 정보</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--bg-card-border); margin-bottom: 18px;">
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--text-main);">산출물 상세 Summary</h3>
                     <button class="btn btn-xs btn-outline" style="border: none; padding: 4px;" onclick="app.selectMethodologyItem('${projectId}', null, null)">
                         <i data-lucide="x" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
                     </button>
                 </div>
 
-                <!-- Selected Artifact Info Header -->
-                <div style="margin-bottom: 16px;">
-                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">선택된 산출물</div>
-                    <h2 style="margin: 0 0 8px 0; font-size: 17px; font-weight: 800; color: var(--text-main); line-height: 1.4;">${this.escapeHtml(selectedArtifact.name || '미지정 산출물')}</h2>
+                <!-- Selected Artifact Info Headline -->
+                <div style="margin-bottom: 18px;">
+                    <div style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Selected Artifact</div>
+                    <h2 style="margin: 0 0 10px 0; font-size: 18px; font-weight: 800; color: var(--text-main); line-height: 1.4;">${this.escapeHtml(selectedArtifact.name || '미지정 산출물')}</h2>
                     <span class="badge badge-status-${selectedArtifact.status}">${stLabel}</span>
                 </div>
 
-                <!-- 2x2 Info Grid -->
+                <!-- Vertical Stacked Label ↓ Value 2x2 Info Grid -->
                 <div class="opms-info-grid-2x2">
                     <div class="opms-info-box-item">
-                        <div style="font-size: 12px; color: var(--text-muted);">진척률</div>
-                        <div class="val-text" style="font-size: 16px; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 6px;">
-                            <i data-lucide="pie-chart" style="width: 16px; height: 16px;"></i> ${artProg}%
+                        <div class="lbl-text">진척률</div>
+                        <div class="val-text">
+                            <i data-lucide="pie-chart" style="width: 16px; height: 16px; color: var(--primary);"></i>
+                            ${artProg}%
                         </div>
                     </div>
                     <div class="opms-info-box-item">
-                        <div style="font-size: 12px; color: var(--text-muted);">담당자</div>
-                        <div class="val-text" style="font-size: 14px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
-                            <i data-lucide="user" style="width: 14px; height: 14px; color: var(--primary);"></i> ${this.escapeHtml(selectedArtifact.assigneeName || '안유경 PM')}
+                        <div class="lbl-text">담당자</div>
+                        <div class="val-text">
+                            <i data-lucide="user" style="width: 15px; height: 15px; color: var(--primary);"></i>
+                            ${this.escapeHtml(selectedArtifact.assigneeName || '안유경 PM')}
                         </div>
                     </div>
                     <div class="opms-info-box-item">
-                        <div style="font-size: 12px; color: var(--text-muted);">수정일</div>
-                        <div class="val-text" style="font-size: 13px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
-                            <i data-lucide="calendar" style="width: 14px; height: 14px; color: var(--primary);"></i> ${this.escapeHtml(selectedArtifact.updatedAt || '2026-06-01')}
+                        <div class="lbl-text">수정일</div>
+                        <div class="val-text">
+                            <i data-lucide="calendar" style="width: 15px; height: 15px; color: var(--primary);"></i>
+                            ${this.escapeHtml(selectedArtifact.updatedAt || '2026-06-01')}
                         </div>
                     </div>
                     <div class="opms-info-box-item">
-                        <div style="font-size: 12px; color: var(--text-muted);">버전</div>
-                        <div class="val-text" style="font-size: 14px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
-                            <i data-lucide="file-check" style="width: 14px; height: 14px; color: var(--primary);"></i> v1.0
+                        <div class="lbl-text">버전</div>
+                        <div class="val-text">
+                            <i data-lucide="file-check" style="width: 15px; height: 15px; color: var(--primary);"></i>
+                            v1.0
                         </div>
                     </div>
                 </div>
 
-                <!-- Preparatory Functions Section (Redesigned Clean Cards) -->
+                <!-- AI & Advanced Feature Preview Cards List -->
                 <div style="margin-bottom: 24px;">
-                    <div style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
-                        <span>준비중 기능</span>
-                        <span style="font-size: 11px; color: var(--text-muted); font-weight: normal;">(DB 확장 후 지원 예정)</span>
+                    <div style="font-size: 13.5px; font-weight: 800; color: var(--text-main); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+                        <span style="display: flex; align-items: center; gap: 6px;">
+                            <i data-lucide="sparkles" style="width: 16px; height: 16px; color: var(--primary);"></i>
+                            AI & 고도화 기능 (준비중)
+                        </span>
                     </div>
 
-                    <div class="opms-todo-grid-2x2">
-                        <div class="opms-todo-card-button">
-                            <i data-lucide="file-plus" style="width: 22px; height: 22px; color: var(--primary);"></i>
-                            <span style="font-size: 13px; font-weight: 700; color: var(--text-main); white-space: nowrap;">산출물 자동생성</span>
-                            <span class="badge badge-neutral" style="font-size: 11px; white-space: nowrap;">준비중</span>
+                    <div class="opms-ai-feature-list">
+                        <div class="opms-ai-feature-card">
+                            <i data-lucide="file-plus" style="width: 20px; height: 20px; color: var(--primary); flex-shrink: 0; margin-top: 2px;"></i>
+                            <div style="flex: 1;">
+                                <div style="font-size: 13.5px; font-weight: 700; color: var(--text-main); white-space: nowrap; margin-bottom: 2px;">산출물 자동 생성</div>
+                                <div style="font-size: 11.5px; color: var(--text-muted); line-height: 1.3;">RFP 및 요구사항 기반 Draft 자동 작성</div>
+                            </div>
+                            <span class="badge badge-neutral" style="font-size: 10px; white-space: nowrap;">준비중</span>
                         </div>
-                        <div class="opms-todo-card-button">
-                            <i data-lucide="hash" style="width: 22px; height: 22px; color: var(--primary);"></i>
-                            <span style="font-size: 13px; font-weight: 700; color: var(--text-main); white-space: nowrap;">문서번호 발급</span>
-                            <span class="badge badge-neutral" style="font-size: 11px; white-space: nowrap;">준비중</span>
+                        <div class="opms-ai-feature-card">
+                            <i data-lucide="hash" style="width: 20px; height: 20px; color: var(--primary); flex-shrink: 0; margin-top: 2px;"></i>
+                            <div style="flex: 1;">
+                                <div style="font-size: 13.5px; font-weight: 700; color: var(--text-main); white-space: nowrap; margin-bottom: 2px;">문서번호 자동 채번</div>
+                                <div style="font-size: 11.5px; color: var(--text-muted); line-height: 1.3;">사업별 공문 및 산출물 채번 규칙 적용</div>
+                            </div>
+                            <span class="badge badge-neutral" style="font-size: 10px; white-space: nowrap;">준비중</span>
                         </div>
-                        <div class="opms-todo-card-button">
-                            <i data-lucide="send" style="width: 22px; height: 22px; color: var(--primary);"></i>
-                            <span style="font-size: 13px; font-weight: 700; color: var(--text-main); white-space: nowrap;">결재 승인 요청</span>
-                            <span class="badge badge-neutral" style="font-size: 11px; white-space: nowrap;">준비중</span>
+                        <div class="opms-ai-feature-card">
+                            <i data-lucide="send" style="width: 20px; height: 20px; color: var(--primary); flex-shrink: 0; margin-top: 2px;"></i>
+                            <div style="flex: 1;">
+                                <div style="font-size: 13.5px; font-weight: 700; color: var(--text-main); white-space: nowrap; margin-bottom: 2px;">전자결재 연동</div>
+                                <div style="font-size: 11.5px; color: var(--text-muted); line-height: 1.3;">결재선 지정 및 승인 워크플로우 전송</div>
+                            </div>
+                            <span class="badge badge-neutral" style="font-size: 10px; white-space: nowrap;">준비중</span>
                         </div>
-                        <div class="opms-todo-card-button">
-                            <i data-lucide="history" style="width: 22px; height: 22px; color: var(--primary);"></i>
-                            <span style="font-size: 13px; font-weight: 700; color: var(--text-main); white-space: nowrap;">버전 이력 관리</span>
-                            <span class="badge badge-neutral" style="font-size: 11px; white-space: nowrap;">준비중</span>
+                        <div class="opms-ai-feature-card">
+                            <i data-lucide="history" style="width: 20px; height: 20px; color: var(--primary); flex-shrink: 0; margin-top: 2px;"></i>
+                            <div style="flex: 1;">
+                                <div style="font-size: 13.5px; font-weight: 700; color: var(--text-main); white-space: nowrap; margin-bottom: 2px;">버전 이력 관리</div>
+                                <div style="font-size: 11.5px; color: var(--text-muted); line-height: 1.3;">변경 이력 트래킹 및 이전 버전 비교</div>
+                            </div>
+                            <span class="badge badge-neutral" style="font-size: 10px; white-space: nowrap;">준비중</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Linked Reference Items Section (Card/Count List) -->
+                <!-- Linked Reference Metric Cards Grid -->
                 <div>
-                    <div style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
-                        <span><i data-lucide="link" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 6px; color: var(--primary);"></i>연관 참고 목록</span>
-                        <span style="font-size: 11px; color: var(--text-muted); font-weight: normal;">(프로젝트 전체 참고용)</span>
+                    <div style="font-size: 13.5px; font-weight: 800; color: var(--text-main); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+                        <span style="display: flex; align-items: center; gap: 6px;">
+                            <i data-lucide="link-2" style="width: 16px; height: 16px; color: var(--primary);"></i>
+                            연관 참고 정보 (프로젝트)
+                        </span>
                     </div>
 
-                    <div class="opms-reference-list">
-                        <div class="opms-reference-item-card">
+                    <div class="opms-reference-grid">
+                        <div class="opms-reference-card-item">
                             <div style="display: flex; align-items: center; gap: 8px; color: var(--text-main);">
                                 <i data-lucide="check-square" style="width: 16px; height: 16px; color: var(--primary);"></i>
                                 Action Item
                             </div>
                             <span class="badge badge-neutral" style="font-size: 12px; font-weight: 700;">${projActions.length}건</span>
                         </div>
-                        <div class="opms-reference-item-card">
+                        <div class="opms-reference-card-item">
                             <div style="display: flex; align-items: center; gap: 8px; color: var(--text-main);">
                                 <i data-lucide="file-text" style="width: 16px; height: 16px; color: var(--primary);"></i>
                                 회의록
                             </div>
                             <span class="badge badge-neutral" style="font-size: 12px; font-weight: 700;">${projMinutes.length}건</span>
                         </div>
-                        <div class="opms-reference-item-card">
+                        <div class="opms-reference-card-item">
                             <div style="display: flex; align-items: center; gap: 8px; color: var(--text-main);">
                                 <i data-lucide="alert-circle" style="width: 16px; height: 16px; color: var(--warning);"></i>
                                 이슈
                             </div>
                             <span class="badge badge-neutral" style="font-size: 12px; font-weight: 700;">${projIssues.length}건</span>
                         </div>
-                        <div class="opms-reference-item-card">
+                        <div class="opms-reference-card-item">
                             <div style="display: flex; align-items: center; gap: 8px; color: var(--text-main);">
                                 <i data-lucide="shield-alert" style="width: 16px; height: 16px; color: var(--danger);"></i>
                                 리스크
                             </div>
                             <span class="badge badge-neutral" style="font-size: 12px; font-weight: 700;">0건</span>
                         </div>
-                        <div class="opms-reference-item-card">
+                        <div class="opms-reference-card-item">
                             <div style="display: flex; align-items: center; gap: 8px; color: var(--text-main);">
                                 <i data-lucide="mail" style="width: 16px; height: 16px; color: var(--info);"></i>
                                 공문
                             </div>
                             <span class="badge badge-neutral" style="font-size: 12px; font-weight: 700;">${projDocs.length}건</span>
                         </div>
-                        <div class="opms-reference-item-card">
+                        <div class="opms-reference-card-item">
                             <div style="display: flex; align-items: center; gap: 8px; color: var(--text-main);">
                                 <i data-lucide="folder" style="width: 16px; height: 16px; color: var(--success);"></i>
                                 산출물
@@ -8096,7 +8086,7 @@ class AetherPMO {
                         </div>
                     </div>
 
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 14px; text-align: center;">
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 16px; text-align: center;">
                         ※ 실제 활동 연동은 DB 스키마 확장 후 지원됩니다.
                     </div>
                 </div>

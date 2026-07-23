@@ -6751,7 +6751,7 @@ body.dark-theme .portal-copilot-task-item {
 }
 
 /* ==========================================================================
-   OPMS METHODOLOGY TAB STYLES (REDESIGNED)
+   OPMS METHODOLOGY TAB STYLES (TIMELINE & DESIGNER POLISH)
    ========================================================================== */
 .methodology-container {
     display: grid;
@@ -6764,7 +6764,7 @@ body.dark-theme .portal-copilot-task-item {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 18px;
 }
 .methodology-side-panel {
     min-width: 360px;
@@ -6788,71 +6788,96 @@ body.dark-theme .portal-copilot-task-item {
     }
 }
 
+/* Header & Timeline Pipeline */
 .methodology-header-card {
     background: var(--bg-card);
     border: 1px solid var(--bg-card-border);
-    border-radius: 12px;
-    padding: 20px 24px;
-    margin-bottom: 20px;
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 22px;
     box-shadow: var(--shadow-sm);
 }
 
-.opms-stages-grid {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 12px;
-    margin-top: 16px;
+.opms-timeline-pipeline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    margin-top: 20px;
+    gap: 8px;
 }
-@media (max-width: 1200px) {
-    .opms-stages-grid {
+.opms-timeline-pipeline::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 40px;
+    right: 40px;
+    height: 3px;
+    background: var(--bg-card-border);
+    z-index: 1;
+    transform: translateY(-50%);
+}
+@media (max-width: 1024px) {
+    .opms-timeline-pipeline {
+        display: grid;
         grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+    }
+    .opms-timeline-pipeline::before {
+        display: none;
     }
 }
 @media (max-width: 640px) {
-    .opms-stages-grid {
+    .opms-timeline-pipeline {
         grid-template-columns: repeat(2, 1fr);
     }
 }
 
-.opms-stage-card {
-    background: var(--bg-hover-item);
+.opms-timeline-step {
+    position: relative;
+    z-index: 2;
+    background: var(--bg-card);
     border: 1px solid var(--bg-card-border);
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 14px 16px;
+    flex: 1;
     cursor: pointer;
     transition: all var(--transition-fast);
 }
-.opms-stage-card:hover {
+.opms-timeline-step:hover {
     border-color: var(--primary);
     transform: translateY(-2px);
-    background: var(--bg-card);
+    background: var(--bg-hover-item);
 }
-.opms-stage-card.active {
+.opms-timeline-step.active {
     border-color: var(--primary);
     box-shadow: 0 0 12px var(--primary-glow);
     background: var(--bg-card);
 }
+.opms-timeline-step.completed {
+    border-color: var(--success);
+}
 
+/* Stage Accordion Header & Summaries */
 .opms-stage-accordion {
     background: var(--bg-card);
     border: 1px solid var(--bg-card-border);
-    border-radius: 12px;
+    border-radius: 14px;
     overflow: hidden;
-    margin-bottom: 16px;
     transition: border-color var(--transition-fast);
 }
 .opms-stage-accordion.open {
-    border-color: rgba(99, 102, 241, 0.4);
+    border-color: rgba(99, 102, 241, 0.45);
 }
 .opms-stage-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 18px 24px;
+    padding: 20px 24px;
     background: var(--bg-card);
     cursor: pointer;
     user-select: none;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
 }
 .opms-stage-header:hover {
@@ -6860,41 +6885,43 @@ body.dark-theme .portal-copilot-task-item {
 }
 .opms-stage-body {
     display: none;
-    padding: 16px 24px 24px 24px;
+    padding: 20px 24px 24px 24px;
     border-top: 1px solid var(--bg-card-border);
 }
 .opms-stage-accordion.open .opms-stage-body {
     display: block;
 }
 
-.opms-activity-accordion {
-    margin-top: 14px;
+/* Activity Banner & Artifact Emphasis */
+.opms-activity-group {
+    margin-top: 16px;
     background: var(--bg-hover-item);
     border: 1px solid var(--bg-card-border);
-    border-radius: 10px;
+    border-radius: 12px;
     overflow: hidden;
 }
 .opms-activity-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 14px 18px;
+    padding: 14px 20px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 700;
     color: var(--text-main);
+    background: rgba(255, 255, 255, 0.02);
 }
 .opms-activity-header:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.04);
 }
 .opms-activity-body {
     display: none;
-    padding: 16px;
+    padding: 16px 20px 20px 20px;
     border-top: 1px solid var(--bg-card-border);
     background: var(--bg-card);
     overflow-x: auto;
 }
-.opms-activity-accordion.open .opms-activity-body {
+.opms-activity-group.open .opms-activity-body {
     display: block;
 }
 
@@ -6997,12 +7024,12 @@ body.dark-theme .portal-copilot-task-item {
     border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
-/* Side Panel Cards */
+/* Side Panel Cards & Vertical Label-Value Format */
 .opms-side-card {
     background: var(--bg-card);
     border: 1px solid var(--bg-card-border);
-    border-radius: 12px;
-    padding: 20px;
+    border-radius: 14px;
+    padding: 22px;
     box-shadow: var(--shadow-sm);
 }
 
@@ -7011,70 +7038,77 @@ body.dark-theme .portal-copilot-task-item {
     grid-template-columns: 1fr 1fr;
     gap: 12px;
     margin-top: 16px;
-    margin-bottom: 20px;
+    margin-bottom: 22px;
 }
 .opms-info-box-item {
     background: var(--bg-hover-item);
     border: 1px solid var(--bg-card-border);
     border-radius: 10px;
-    padding: 12px 14px;
+    padding: 14px;
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
+.opms-info-box-item .lbl-text {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
 .opms-info-box-item .val-text {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-main);
     white-space: nowrap !important;
     word-break: keep-all !important;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
-.opms-todo-grid-2x2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-top: 12px;
-}
-.opms-todo-card-button {
-    background: var(--bg-hover-item);
-    border: 1px solid var(--bg-card-border);
-    border-radius: 12px;
-    padding: 18px 12px;
+/* AI Feature Preview Cards List */
+.opms-ai-feature-list {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    cursor: not-allowed;
-    opacity: 0.85;
-    text-align: center;
+    gap: 10px;
+    margin-top: 12px;
+}
+.opms-ai-feature-card {
+    background: var(--bg-hover-item);
+    border: 1px solid var(--bg-card-border);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
     transition: all var(--transition-fast);
 }
-.opms-todo-card-button:hover {
+.opms-ai-feature-card:hover {
     border-color: var(--primary);
     background: var(--bg-card);
 }
-.opms-todo-card-button span {
-    white-space: nowrap !important;
-    word-break: keep-all !important;
-}
 
-.opms-reference-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+/* Linked Reference Count Cards */
+.opms-reference-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
     margin-top: 12px;
 }
-.opms-reference-item-card {
+.opms-reference-card-item {
     background: var(--bg-hover-item);
     border: 1px solid var(--bg-card-border);
-    border-radius: 8px;
-    padding: 12px 16px;
+    border-radius: 10px;
+    padding: 12px 14px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 13.5px;
-    font-weight: 600;
+    font-weight: 700;
     white-space: nowrap;
 }
+
 
 
 
