@@ -1,7 +1,7 @@
 -- ============================================================================
--- AETHER PMS - OPMS PHASE 2 DDL MIGRATION SCRIPT
+-- AETHER PMS - OPMS PHASE 2 CORRECTED DDL MIGRATION SCRIPT
 -- File: supabase_migrations/001_opms_phase2_ddl.sql
--- Description: Creates 12 approved tables, indexes, triggers, and foreign keys.
+-- Description: Creates 12 approved tables, indexes, triggers, UNIQUE constraints.
 -- ============================================================================
 
 -- Enable UUID extension if not already enabled
@@ -57,10 +57,11 @@ CREATE INDEX IF NOT EXISTS idx_methodology_stages_template_id ON methodology_sta
 CREATE TABLE IF NOT EXISTS methodology_activities (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     stage_id UUID NOT NULL REFERENCES methodology_stages(id) ON DELETE CASCADE,
-    activity_code VARCHAR(50),
+    activity_code VARCHAR(50) NOT NULL,
     activity_name VARCHAR(150) NOT NULL,
     description TEXT,
-    seq_order INT NOT NULL DEFAULT 1
+    seq_order INT NOT NULL DEFAULT 1,
+    CONSTRAINT uq_methodology_activities_stage_code UNIQUE (stage_id, activity_code)
 );
 
 CREATE INDEX IF NOT EXISTS idx_methodology_activities_stage_id ON methodology_activities(stage_id);
@@ -73,12 +74,13 @@ CREATE TABLE IF NOT EXISTS methodology_artifact_templates (
     artifact_name VARCHAR(150) NOT NULL,
     description TEXT,
     is_mandatory BOOLEAN NOT NULL DEFAULT TRUE,
-    seq_order INT NOT NULL DEFAULT 1
+    seq_order INT NOT NULL DEFAULT 1,
+    CONSTRAINT uq_methodology_artifact_name UNIQUE (activity_id, artifact_name)
 );
 
 CREATE INDEX IF NOT EXISTS idx_methodology_artifact_templates_activity_id ON methodology_artifact_templates(activity_id);
 
--- Table 5: methodology_project_types (Recommendation Mapping Table)
+-- Table 5: methodology_project_types
 CREATE TABLE IF NOT EXISTS methodology_project_types (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_type VARCHAR(50) NOT NULL,
