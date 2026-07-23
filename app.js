@@ -3,6 +3,24 @@
  * Core Application Logic (Vanilla JS)
  */
 
+const ACTION_ITEM_STATUS_LABELS = {
+    'WAITING': '대기',
+    'IN_PROGRESS': '진행중',
+    'REVIEW_REQUESTED': '검토 요청',
+    'ON_HOLD': '보류',
+    'COMPLETED': '완료',
+    'CANCELLED': '취소',
+    'REJECTED': '반려',
+    '미착수': '미착수',
+    '대기': '대기',
+    '진행중': '진행중',
+    '완료': '완료',
+    '보류': '보류',
+    '검토 요청': '검토 요청',
+    '취소': '취소',
+    '반려': '반려'
+};
+
 class AetherPMO {
     constructor() {
         this.state = {
@@ -1715,7 +1733,24 @@ class AetherPMO {
                 reviewComment: i.review_comment
             }));
 
-            this.state.actionItems = (actionItems || []).map(row => this.normalizeActionItemFromDb(row)).filter(Boolean);
+            try {
+                this.state.actionItems = (actionItems || []).map(row => {
+                    try {
+                        return this.normalizeActionItemFromDb(row);
+                    } catch (error) {
+                        console.error('[ActionItem Normalize Failed]', row, error);
+                        return row;
+                    }
+                }).filter(Boolean);
+            } catch (errAIBlock) {
+                console.error('[ActionItem Processing Failed]', errAIBlock);
+                this.state.actionItems = actionItems || [];
+            }
+
+            console.log('[Supabase Projects Count]', projects?.length);
+            console.log('[Supabase Action Items Count]', actionItems?.length);
+            console.log('[Normalized Action Items Count]', this.state.actionItems?.length);
+            console.log('[Final State Projects Count]', this.state.projects?.length);
 
             this.state.officialDocs = (officialDocs || []).map(d => ({
                 id: d.id,
@@ -9938,6 +9973,34 @@ class AetherPMO {
             this.supabase.removeChannel(this.actionItemChannel);
             this.actionItemChannel = null;
         }
+    }
+
+    normalizeActionItemStatus(status) {
+        const value = String(status || '').trim().toLowerCase().replace(/_/g, ' ');
+
+        const statusMap = {
+            '미착수': '미착수',
+            '대기': '미착수',
+            'todo': '미착수',
+            'not started': '미착수',
+            'waiting': '미착수',
+
+            '진행중': '진행중',
+            '진행 중': '진행중',
+            'in progress': '진행중',
+            'doing': '진행중',
+
+            '완료': '완료',
+            'completed': '완료',
+            'complete': '완료',
+            'done': '완료',
+
+            '보류': '보류',
+            'hold': '보류',
+            'on hold': '보류'
+        };
+
+        return statusMap[value] || status || '미착수';
     }
 
     cleanActionItemValue(value) {
