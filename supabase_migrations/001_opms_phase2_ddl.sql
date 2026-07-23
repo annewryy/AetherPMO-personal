@@ -5,6 +5,8 @@
 --              search_path security, and Workflow RPC with REVOKE/GRANT.
 -- ============================================================================
 
+BEGIN;
+
 -- Enable pgcrypto extension for gen_random_uuid()
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
@@ -345,3 +347,5 @@ $$;
 -- Security Hardening: Revoke EXECUTE from PUBLIC, grant to authenticated only
 REVOKE EXECUTE ON FUNCTION public.approve_workflow_step(UUID, VARCHAR, TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.approve_workflow_step(UUID, VARCHAR, TEXT) TO authenticated;
+
+COMMIT;

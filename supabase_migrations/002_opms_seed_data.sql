@@ -5,6 +5,8 @@
 --              (6 stages, 18 activities, 40 artifact templates) with seq_order.
 -- ============================================================================
 
+BEGIN;
+
 DO $$
 DECLARE
     v_template_id UUID;
@@ -244,3 +246,5 @@ BEGIN
     ON CONFLICT (activity_id, artifact_name) DO UPDATE SET is_mandatory = EXCLUDED.is_mandatory, seq_order = EXCLUDED.seq_order;
 
 END $$;
+
+COMMIT;

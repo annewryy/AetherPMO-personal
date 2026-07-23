@@ -1,9 +1,11 @@
 -- ============================================================================
--- AETHER PMS - OPMS PHASE 2 STRICT & RERUNNABLE RLS POLICIES SCRIPT
+-- AETHER PMS - OPMS PHASE 2 AUTHORITATIVE & TRANSACTIONAL RLS POLICIES SCRIPT
 -- File: supabase_migrations/003_opms_rls_policies.sql
 -- Description: Enables RLS and creates strict role-based policies for 12 tables.
---              Separates project membership EXISTS and global admin EXISTS via OR.
+--              Joins project_members and resources on r.id = pm.resource_id.
 -- ============================================================================
+
+BEGIN;
 
 -- ============================================================================
 -- 1. ENABLE RLS ON ALL 12 TABLES
@@ -253,7 +255,7 @@ USING (
 );
 
 -- ============================================================================
--- 3. POLICIES FOR PROJECT EXECUTION INSTANCES (SEPARATE EXISTS JOINED BY OR)
+-- 3. POLICIES FOR PROJECT EXECUTION INSTANCES (JOIN project_members & resources)
 -- ============================================================================
 
 -- project_methodologies
@@ -263,8 +265,9 @@ ON project_methodologies FOR SELECT TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.project_members pm
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pm.project_id = project_methodologies.project_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND r.user_id = auth.uid()
     )
     OR
     EXISTS (
@@ -280,14 +283,10 @@ ON project_methodologies FOR INSERT TO authenticated
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.project_members pm
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pm.project_id = project_methodologies.project_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
-        AND (
-            pm.role IN ('PM', 'PL', 'OWNER') OR
-            pm.role_name IN ('PM', 'PL', 'OWNER') OR
-            pm.participation_role IN ('PM', 'PL', 'OWNER') OR
-            pm.is_project_manager = TRUE
-        )
+        AND r.user_id = auth.uid()
+        AND pm.role_name IN ('PM', 'PL', 'OWNER')
     )
     OR
     EXISTS (
@@ -303,14 +302,10 @@ ON project_methodologies FOR UPDATE TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.project_members pm
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pm.project_id = project_methodologies.project_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
-        AND (
-            pm.role IN ('PM', 'PL', 'OWNER') OR
-            pm.role_name IN ('PM', 'PL', 'OWNER') OR
-            pm.participation_role IN ('PM', 'PL', 'OWNER') OR
-            pm.is_project_manager = TRUE
-        )
+        AND r.user_id = auth.uid()
+        AND pm.role_name IN ('PM', 'PL', 'OWNER')
     )
     OR
     EXISTS (
@@ -322,14 +317,10 @@ USING (
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.project_members pm
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pm.project_id = project_methodologies.project_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
-        AND (
-            pm.role IN ('PM', 'PL', 'OWNER') OR
-            pm.role_name IN ('PM', 'PL', 'OWNER') OR
-            pm.participation_role IN ('PM', 'PL', 'OWNER') OR
-            pm.is_project_manager = TRUE
-        )
+        AND r.user_id = auth.uid()
+        AND pm.role_name IN ('PM', 'PL', 'OWNER')
     )
     OR
     EXISTS (
@@ -345,14 +336,10 @@ ON project_methodologies FOR DELETE TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.project_members pm
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pm.project_id = project_methodologies.project_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
-        AND (
-            pm.role IN ('PM', 'PL', 'OWNER') OR
-            pm.role_name IN ('PM', 'PL', 'OWNER') OR
-            pm.participation_role IN ('PM', 'PL', 'OWNER') OR
-            pm.is_project_manager = TRUE
-        )
+        AND r.user_id = auth.uid()
+        AND pm.role_name IN ('PM', 'PL', 'OWNER')
     )
     OR
     EXISTS (
@@ -370,8 +357,9 @@ USING (
     EXISTS (
         SELECT 1 FROM public.project_methodologies pmeth
         JOIN public.project_members pm ON pm.project_id = pmeth.project_id
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pmeth.id = project_methodology_activities.project_methodology_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND r.user_id = auth.uid()
     )
     OR
     EXISTS (
@@ -388,14 +376,10 @@ WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.project_methodologies pmeth
         JOIN public.project_members pm ON pm.project_id = pmeth.project_id
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pmeth.id = project_methodology_activities.project_methodology_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
-        AND (
-            pm.role IN ('PM', 'PL', 'OWNER') OR
-            pm.role_name IN ('PM', 'PL', 'OWNER') OR
-            pm.participation_role IN ('PM', 'PL', 'OWNER') OR
-            pm.is_project_manager = TRUE
-        )
+        AND r.user_id = auth.uid()
+        AND pm.role_name IN ('PM', 'PL', 'OWNER')
     )
     OR
     EXISTS (
@@ -412,8 +396,9 @@ USING (
     EXISTS (
         SELECT 1 FROM public.project_methodologies pmeth
         JOIN public.project_members pm ON pm.project_id = pmeth.project_id
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pmeth.id = project_methodology_activities.project_methodology_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND r.user_id = auth.uid()
     )
     OR
     EXISTS (
@@ -426,8 +411,9 @@ WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.project_methodologies pmeth
         JOIN public.project_members pm ON pm.project_id = pmeth.project_id
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pmeth.id = project_methodology_activities.project_methodology_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND r.user_id = auth.uid()
     )
     OR
     EXISTS (
@@ -444,8 +430,9 @@ ON project_artifacts FOR SELECT TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.project_members pm
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pm.project_id = project_artifacts.project_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND r.user_id = auth.uid()
     )
     OR
     EXISTS (
@@ -461,14 +448,10 @@ ON project_artifacts FOR INSERT TO authenticated
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.project_members pm
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pm.project_id = project_artifacts.project_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
-        AND (
-            pm.role IN ('PM', 'PL', 'OWNER') OR
-            pm.role_name IN ('PM', 'PL', 'OWNER') OR
-            pm.participation_role IN ('PM', 'PL', 'OWNER') OR
-            pm.is_project_manager = TRUE
-        )
+        AND r.user_id = auth.uid()
+        AND pm.role_name IN ('PM', 'PL', 'OWNER')
     )
     OR
     EXISTS (
@@ -484,8 +467,9 @@ ON project_artifacts FOR UPDATE TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.project_members pm
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pm.project_id = project_artifacts.project_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND r.user_id = auth.uid()
     )
     OR
     EXISTS (
@@ -497,8 +481,9 @@ USING (
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.project_members pm
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pm.project_id = project_artifacts.project_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND r.user_id = auth.uid()
     )
     OR
     EXISTS (
@@ -514,14 +499,10 @@ ON project_artifacts FOR DELETE TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.project_members pm
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pm.project_id = project_artifacts.project_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
-        AND (
-            pm.role IN ('PM', 'PL', 'OWNER') OR
-            pm.role_name IN ('PM', 'PL', 'OWNER') OR
-            pm.participation_role IN ('PM', 'PL', 'OWNER') OR
-            pm.is_project_manager = TRUE
-        )
+        AND r.user_id = auth.uid()
+        AND pm.role_name IN ('PM', 'PL', 'OWNER')
     )
     OR
     EXISTS (
@@ -543,8 +524,9 @@ USING (
     EXISTS (
         SELECT 1 FROM public.project_artifacts pa
         JOIN public.project_members pm ON pm.project_id = pa.project_id
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pa.id = artifact_documents.project_artifact_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND r.user_id = auth.uid()
     )
     OR
     EXISTS (
@@ -561,8 +543,9 @@ WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.project_artifacts pa
         JOIN public.project_members pm ON pm.project_id = pa.project_id
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pa.id = artifact_documents.project_artifact_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND r.user_id = auth.uid()
     )
     OR
     EXISTS (
@@ -579,8 +562,9 @@ USING (
     EXISTS (
         SELECT 1 FROM public.project_artifacts pa
         JOIN public.project_members pm ON pm.project_id = pa.project_id
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pa.id = artifact_documents.project_artifact_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND r.user_id = auth.uid()
     )
     OR
     EXISTS (
@@ -593,8 +577,9 @@ WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.project_artifacts pa
         JOIN public.project_members pm ON pm.project_id = pa.project_id
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pa.id = artifact_documents.project_artifact_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND r.user_id = auth.uid()
     )
     OR
     EXISTS (
@@ -612,8 +597,9 @@ USING (
     EXISTS (
         SELECT 1 FROM public.project_artifacts pa
         JOIN public.project_members pm ON pm.project_id = pa.project_id
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pa.id = artifact_versions.project_artifact_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND r.user_id = auth.uid()
     )
     OR
     EXISTS (
@@ -630,8 +616,9 @@ WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.project_artifacts pa
         JOIN public.project_members pm ON pm.project_id = pa.project_id
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pa.id = artifact_versions.project_artifact_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND r.user_id = auth.uid()
     )
     OR
     EXISTS (
@@ -649,8 +636,9 @@ USING (
     EXISTS (
         SELECT 1 FROM public.project_artifacts pa
         JOIN public.project_members pm ON pm.project_id = pa.project_id
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pa.id = artifact_workflows.project_artifact_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND r.user_id = auth.uid()
     )
     OR
     EXISTS (
@@ -667,8 +655,9 @@ WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.project_artifacts pa
         JOIN public.project_members pm ON pm.project_id = pa.project_id
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE pa.id = artifact_workflows.project_artifact_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND r.user_id = auth.uid()
     )
     OR
     EXISTS (
@@ -712,8 +701,9 @@ USING (
         SELECT 1 FROM public.artifact_workflows aw
         JOIN public.project_artifacts pa ON pa.id = aw.project_artifact_id
         JOIN public.project_members pm ON pm.project_id = pa.project_id
+        JOIN public.resources r ON r.id = pm.resource_id
         WHERE aw.id = artifact_workflow_steps.workflow_id
-        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND r.user_id = auth.uid()
     )
     OR
     EXISTS (
@@ -769,3 +759,5 @@ USING (
         ))
     )
 );
+
+COMMIT;
