@@ -1,249 +1,393 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Aether PMS - Step 4: Strict Production JWT Supabase OPMS RLS Policy Verifier
+Aether PMS - Step 4: Strict Production JWT Supabase OPMS RLS Baseline Verifier
 File: supabase_migrations/004_verify_migration.py
-Description: Non-destructive RLS verifier with mandatory env vars, verbose auth logging,
-             exact ID cleanup, sys_admin seed verification, and project PM persona tests.
+
+Purpose:
+- Verifies authentication for dedicated test personas.
+- Verifies anonymous users cannot read protected OPMS tables.
+- Verifies seeded master data is readable by an authenticated administrator.
+- Verifies only SYS_ADMIN can write methodology master data.
+- Verifies a participating PM can read one known project artifact.
+- Verifies a non-member cannot read the same project artifact.
+- Creates only VERIFY_ prefixed methodology test records and removes exact records.
+- Does not modify production project/artifact/workflow records.
+- RPC verification is intentionally excluded.
+
+Required environment variables:
+  SUPABASE_URL
+  ANON_KEY
+  TEST_SYS_ADMIN_EMAIL
+  TEST_SYS_ADMIN_PASSWORD
+  TEST_PM_EMAIL
+  TEST_PM_PASSWORD
+  TEST_NONMEMBER_EMAIL
+  TEST_NONMEMBER_PASSWORD
+  TEST_PROJECT_ID
+  TEST_PROJECT_ARTIFACT_ID
 """
 
+import json
 import os
 import sys
-import json
 import uuid
-import urllib.request
 import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Any, Dict, Optional, Tuple
 
-# Mandatory Environment Variables (Point 5)
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://xzlvxqzyxgtbfkkpqzxd.supabase.co")
-ANON_KEY = os.getenv("ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bHZ4cXp5eGd0YmZra3BxenhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExMDkwOTgsImV4cCI6MjA5NjY4NTA5OH0.xspbrHtYU1YBWqDDpEvnqGVzbtiDmF52SKa0Hv4fZ2s")
+HTTP_TIMEOUT_SECONDS = 20
 
-USER_CREDS = {
-    "sys_admin": {
-        "email": os.getenv("TEST_SYS_ADMIN_EMAIL", "admin@aetherpmo.com"),
-        "password": os.getenv("TEST_SYS_ADMIN_PASSWORD")
-    },
-    "project_pm": {
-        "email": os.getenv("TEST_PM_EMAIL", "pm@aetherpmo.com"),
-        "password": os.getenv("TEST_PM_PASSWORD")
-    },
-    "non_member": {
-        "email": os.getenv("TEST_NONMEMBER_EMAIL", "nonmember@aetherpmo.com"),
-        "password": os.getenv("TEST_NONMEMBER_PASSWORD")
-    }
-}
-
-APPROVED_TABLES = [
+MASTER_TABLES = [
     "methodology_templates",
     "methodology_stages",
     "methodology_activities",
     "methodology_artifact_templates",
     "methodology_project_types",
+]
+
+APPROVED_TABLES = MASTER_TABLES + [
     "project_methodologies",
     "project_methodology_activities",
     "project_artifacts",
     "artifact_documents",
     "artifact_versions",
     "artifact_workflows",
-    "artifact_workflow_steps"
+    "artifact_workflow_steps",
 ]
 
-def login_user(email, password):
-    """ Authenticates user with Supabase Auth endpoint and returns (token, status_code, err_msg) """
-    if not password:
-        return None, 400, "Password environment variable missing"
+REQUIRED_ENV_VARS = [
+    "SUPABASE_URL",
+    "ANON_KEY",
+    "TEST_SYS_ADMIN_EMAIL",
+    "TEST_SYS_ADMIN_PASSWORD",
+    "TEST_PM_EMAIL",
+    "TEST_PM_PASSWORD",
+    "TEST_NONMEMBER_EMAIL",
+    "TEST_NONMEMBER_PASSWORD",
+    "TEST_PROJECT_ID",
+    "TEST_PROJECT_ARTIFACT_ID",
+]
 
-    auth_url = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
+
+def fail_config(message: str) -> None:
+    print("!" * 79)
+    print(f"CRITICAL CONFIGURATION ERROR: {message}")
+    print("!" * 79)
+    sys.exit(1)
+
+
+def load_required_env() -> Dict[str, str]:
+    missing = [name for name in REQUIRED_ENV_VARS if not os.getenv(name)]
+    if missing:
+        fail_config("Missing required environment variables:\n  - " + "\n  - ".join(missing))
+
+    config = {name: os.environ[name].strip() for name in REQUIRED_ENV_VARS}
+    config["SUPABASE_URL"] = config["SUPABASE_URL"].rstrip("/")
+
+    for key in ("TEST_PROJECT_ID", "TEST_PROJECT_ARTIFACT_ID"):
+        try:
+            uuid.UUID(config[key])
+        except ValueError:
+            fail_config(f"{key} must be a valid UUID. Received: {config[key]!r}")
+
+    return config
+
+
+def decode_response_body(raw: bytes) -> Any:
+    text = raw.decode("utf-8", errors="replace")
+    if not text:
+        return []
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return text
+
+
+def login_user(
+    supabase_url: str,
+    anon_key: str,
+    email: str,
+    password: str,
+) -> Tuple[Optional[str], int, Any]:
+    auth_url = f"{supabase_url}/auth/v1/token?grant_type=password"
     payload = json.dumps({"email": email, "password": password}).encode("utf-8")
-    req = urllib.request.Request(
+    request = urllib.request.Request(
         auth_url,
         data=payload,
-        headers={
-            "apikey": ANON_KEY,
-            "Content-Type": "application/json"
-        },
-        method="POST"
+        headers={"apikey": anon_key, "Content-Type": "application/json"},
+        method="POST",
     )
-    try:
-        res = urllib.request.urlopen(req)
-        data = json.loads(res.read().decode("utf-8"))
-        return data.get("access_token"), res.code, None
-    except urllib.error.HTTPError as e:
-        # POINT 6: Capture and return HTTP status and response body
-        err_body = e.read().decode("utf-8")
-        return None, e.code, err_body
 
-def test_api(method, endpoint, token=None, body=None, params=""):
-    """ Executes REST API call against Supabase and returns HTTP status & response """
-    url = f"{SUPABASE_URL}/rest/v1/{endpoint}{params}"
+    try:
+        with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
+            body = decode_response_body(response.read())
+            token = body.get("access_token") if isinstance(body, dict) else None
+            return token, response.status, body
+    except urllib.error.HTTPError as error:
+        return None, error.code, decode_response_body(error.read())
+    except urllib.error.URLError as error:
+        return None, 0, f"Network error: {error.reason}"
+    except TimeoutError:
+        return None, 0, "Request timed out"
+
+
+def api_request(
+    supabase_url: str,
+    anon_key: str,
+    method: str,
+    endpoint: str,
+    token: Optional[str] = None,
+    body: Optional[Dict[str, Any]] = None,
+    query: Optional[Dict[str, str]] = None,
+) -> Tuple[int, Any]:
+    url = f"{supabase_url}/rest/v1/{endpoint}"
+    if query:
+        url = f"{url}?{urllib.parse.urlencode(query, safe='(),.*')}"
+
     headers = {
-        "apikey": ANON_KEY,
+        "apikey": anon_key,
+        "Authorization": f"Bearer {token or anon_key}",
         "Content-Type": "application/json",
-        "Prefer": "return=representation"
+        "Accept": "application/json",
+        "Prefer": "return=representation",
     }
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    else:
-        headers["Authorization"] = f"Bearer {ANON_KEY}"
 
-    data_bytes = json.dumps(body).encode("utf-8") if body else None
-    req = urllib.request.Request(url, data=data_bytes, headers=headers, method=method)
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    request = urllib.request.Request(url, data=data, headers=headers, method=method.upper())
 
     try:
-        res = urllib.request.urlopen(req)
-        res_body = res.read().decode("utf-8")
-        parsed = json.loads(res_body) if res_body else []
-        return res.code, parsed
-    except urllib.error.HTTPError as e:
-        err_body = e.read().decode("utf-8")
-        return e.code, err_body
+        with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
+            return response.status, decode_response_body(response.read())
+    except urllib.error.HTTPError as error:
+        return error.code, decode_response_body(error.read())
+    except urllib.error.URLError as error:
+        return 0, f"Network error: {error.reason}"
+    except TimeoutError:
+        return 0, "Request timed out"
 
-def main():
-    print("=" * 75)
-    print("AETHER PMS - STEP 4: STRICT PRODUCTION JWT OPMS RLS VERIFIER")
-    print("=" * 75)
-    print(f"Supabase Target URL: {SUPABASE_URL}\n")
 
-    # POINT 5: Environment variable validation check
-    missing_passwords = [r for r, c in USER_CREDS.items() if not c["password"]]
-    if missing_passwords:
-        print("!" * 75)
-        print("CRITICAL CONFIGURATION ERROR: Mandatory test passwords missing from environment!")
-        print("The following personas are missing TEST_*_PASSWORD variables:")
-        for r in missing_passwords:
-            print(f"  - Missing password for: {r} ({USER_CREDS[r]['email']})")
-        print("Please set TEST_SYS_ADMIN_PASSWORD, TEST_PM_PASSWORD, TEST_NONMEMBER_PASSWORD")
-        print("environment variables before executing verification.")
-        print("!" * 75)
-        sys.exit(1)
+def is_success(code: int) -> bool:
+    return 200 <= code < 300
 
-    tokens = {"anon": None}
+
+def error_summary(response: Any) -> str:
+    if isinstance(response, dict):
+        for key in ("message", "msg", "error_description", "error", "details"):
+            if response.get(key):
+                return str(response[key])
+        return json.dumps(response, ensure_ascii=False)
+    return str(response)
+
+
+def main() -> None:
+    config = load_required_env()
+
+    supabase_url = config["SUPABASE_URL"]
+    anon_key = config["ANON_KEY"]
+    test_project_id = config["TEST_PROJECT_ID"]
+    test_artifact_id = config["TEST_PROJECT_ARTIFACT_ID"]
+
+    personas = {
+        "sys_admin": (config["TEST_SYS_ADMIN_EMAIL"], config["TEST_SYS_ADMIN_PASSWORD"]),
+        "project_pm": (config["TEST_PM_EMAIL"], config["TEST_PM_PASSWORD"]),
+        "non_member": (config["TEST_NONMEMBER_EMAIL"], config["TEST_NONMEMBER_PASSWORD"]),
+    }
+
+    print("=" * 79)
+    print("AETHER PMS - STEP 4: STRICT PRODUCTION JWT OPMS RLS BASELINE VERIFIER")
+    print("=" * 79)
+    print(f"Supabase Target URL: {supabase_url}")
+    print(f"Test Project ID:      {test_project_id}")
+    print(f"Test Artifact ID:     {test_artifact_id}\n")
+
+    tokens: Dict[str, Optional[str]] = {"anon": None}
     failed_logins = []
 
-    print("[AUTH SYSTEM INIT] Authenticating Test Personas:")
-    for role_name, cred in USER_CREDS.items():
-        tok, code, err_msg = login_user(cred["email"], cred["password"])
-        tokens[role_name] = tok
-        if tok:
-            print(f"  - Persona [{role_name:<14}] ({cred['email']}): AUTHENTICATED SUCCESS (HTTP {code})")
+    print("[AUTH] Authenticating dedicated test personas:")
+    for persona, (email, password) in personas.items():
+        token, code, response = login_user(supabase_url, anon_key, email, password)
+        tokens[persona] = token
+        if token and is_success(code):
+            print(f"  [OK]   {persona:<12} {email} (HTTP {code})")
         else:
-            # POINT 6: Print HTTP status and response message on login failure
-            failed_logins.append((role_name, cred['email'], code, err_msg))
-            print(f"  - Persona [{role_name:<14}] ({cred['email']}): FAILED (HTTP {code} -> {err_msg})")
+            failed_logins.append((persona, email, code, response))
+            print(f"  [FAIL] {persona:<12} {email} (HTTP {code}: {error_summary(response)})")
 
     if failed_logins:
-        print("\n" + "!" * 75)
-        print("CRITICAL VERIFICATION FAILURE: Persona authentication failed!")
-        for r_name, em, cd, msg in failed_logins:
-            print(f"  - Persona: {r_name} ({em}) -> HTTP {cd}: {msg}")
-        print("!" * 75)
+        print("\nAuthentication failed. No RLS verification was performed.")
         sys.exit(1)
 
     all_passed = True
-    test_run_id = f"VERIFY_{uuid.uuid4().hex[:6].upper()}"
-    test_run_id_nm = f"{test_run_id}_NM"
+    sys_token = tokens["sys_admin"]
+    pm_token = tokens["project_pm"]
+    nonmember_token = tokens["non_member"]
 
-    print("\n" + "=" * 75)
-    print("1. MASTER & PROJECT TABLES ACCESSIBILITY (Anon & Admin Level)")
-    print("=" * 75)
+    print("\n" + "=" * 79)
+    print("1. ANONYMOUS ACCESS DENIAL")
+    print("=" * 79)
 
-    # POINT 1: Anon GET on TO authenticated tables returns HTTP 200 with [] (0 rows) due to RLS.
-    # Seed verification is performed separately using sys_admin token.
-    for tbl in APPROVED_TABLES:
-        code_anon, resp_anon = test_api("GET", tbl, token=tokens["anon"], params="?select=*&limit=1")
-        if code_anon == 200:
-            print(f"  [OK 200] Table '{tbl:<33}': Accessible to Anon")
-        elif code_anon in (401, 403):
-            print(f"  [RLS 401/403] Table '{tbl:<29}': RLS Protected (Expected)")
-        elif code_anon == 404:
-            print(f"  [FAIL 404] Table '{tbl:<31}': Does NOT exist on remote DB")
+    for table in APPROVED_TABLES:
+        code, response = api_request(
+            supabase_url, anon_key, "GET", table, token=None,
+            query={"select": "id", "limit": "1"},
+        )
+
+        if code in (401, 403):
+            print(f"  [OK]   {table:<36} blocked (HTTP {code})")
+        elif code == 200 and isinstance(response, list) and len(response) == 0:
+            print(f"  [OK]   {table:<36} hidden by RLS (HTTP 200, 0 rows)")
+        elif code == 200 and isinstance(response, list) and len(response) > 0:
+            print(f"  [FAIL] {table:<36} leaked {len(response)} row(s) to anon")
             all_passed = False
-
-    print("\n[SEED VERIFICATION] Checking Master Data via sys_admin Authenticated Token:")
-    for master_tbl in ["methodology_templates", "methodology_stages", "methodology_activities", "methodology_artifact_templates"]:
-        code_adm, resp_adm = test_api("GET", master_tbl, token=tokens["sys_admin"], params="?select=*&limit=100")
-        if code_adm == 200 and isinstance(resp_adm, list):
-            # POINT 1: Verify non-zero rows returned for sys_admin
-            if len(resp_adm) > 0:
-                print(f"  [OK] Master Table '{master_tbl:<31}': {len(resp_adm)} Seeded Rows Found")
-            else:
-                print(f"  [FAIL] Master Table '{master_tbl:<31}': 0 Seed Rows Found (Seed Script Required)")
-                all_passed = False
+        elif code == 404:
+            print(f"  [FAIL] {table:<36} does not exist (HTTP 404)")
+            all_passed = False
         else:
-            print(f"  [FAIL] Master Table '{master_tbl:<31}': HTTP {code_adm}")
+            print(f"  [FAIL] {table:<36} unexpected HTTP {code}: {error_summary(response)}")
             all_passed = False
 
-    print("\n" + "=" * 75)
-    print("2. PERSONA MATRIX & PROJECT PM PERMISSION VERIFICATION")
-    print("=" * 75)
+    print("\n" + "=" * 79)
+    print("2. AUTHENTICATED MASTER DATA SEED VERIFICATION")
+    print("=" * 79)
 
-    # Safe test execution using try-finally for guaranteed cleanup of EXACT IDs
+    for table in MASTER_TABLES:
+        code, response = api_request(
+            supabase_url, anon_key, "GET", table, token=sys_token,
+            query={"select": "id", "limit": "100"},
+        )
+
+        if code == 200 and isinstance(response, list) and len(response) > 0:
+            print(f"  [OK]   {table:<36} {len(response)} seeded row(s)")
+        elif code == 200 and isinstance(response, list):
+            print(f"  [FAIL] {table:<36} 0 seeded rows")
+            all_passed = False
+        else:
+            print(f"  [FAIL] {table:<36} HTTP {code}: {error_summary(response)}")
+            all_passed = False
+
+    print("\n" + "=" * 79)
+    print("3. MASTER TABLE WRITE PERMISSION")
+    print("=" * 79)
+
+    run_suffix = uuid.uuid4().hex[:10].upper()
+    admin_test_code = f"VERIFY_{run_suffix}_ADMIN"
+    pm_test_code = f"VERIFY_{run_suffix}_PM"
+    nonmember_test_code = f"VERIFY_{run_suffix}_NM"
+
     try:
-        sys_tok = tokens["sys_admin"]
-        pm_tok = tokens["project_pm"]
-        nm_tok = tokens["non_member"]
-
-        # Master Write Test (sys_admin ONLY)
-        code_mw, _ = test_api("POST", "methodology_templates", token=sys_tok, body={"code": test_run_id, "name": "Verifier Test", "version": "1.0"})
-        if code_mw in (200, 201):
-            print(f"  [OK 201] Sys Admin Master Write Success ({test_run_id})")
+        admin_code, admin_response = api_request(
+            supabase_url, anon_key, "POST", "methodology_templates", token=sys_token,
+            body={"code": admin_test_code, "name": "RLS Verifier Temporary Record", "version": "1.0"},
+        )
+        if admin_code in (200, 201):
+            print(f"  [OK]   SYS_ADMIN write allowed ({admin_test_code})")
         else:
-            print(f"  [FAIL] Sys Admin Master Write failed with HTTP {code_mw}")
+            print(f"  [FAIL] SYS_ADMIN write denied (HTTP {admin_code}: {error_summary(admin_response)})")
             all_passed = False
 
-        # Non-member Master Write Test (MUST FAIL)
-        code_nmw, _ = test_api("POST", "methodology_templates", token=nm_tok, body={"code": test_run_id_nm, "name": "Illegal Write", "version": "1.0"})
-        if code_nmw in (200, 201):
-            print(f"  [FAIL] Non-member illegally wrote to Master Template! (HTTP {code_nmw})")
+        pm_code, pm_response = api_request(
+            supabase_url, anon_key, "POST", "methodology_templates", token=pm_token,
+            body={"code": pm_test_code, "name": "Illegal PM Master Write", "version": "1.0"},
+        )
+        if pm_code in (200, 201):
+            print(f"  [FAIL] project_pm illegally wrote master data ({pm_test_code})")
             all_passed = False
         else:
-            print(f"  [OK DENY] Non-member Master Write correctly blocked (HTTP {code_nmw})")
+            print(f"  [OK]   project_pm master write blocked (HTTP {pm_code})")
 
-        # POINT 2: Project PM Persona Tests (Participating vs Non-participating)
-        code_pm_read, resp_pm_read = test_api("GET", "project_artifacts", token=pm_tok, params="?select=*&limit=10")
-        if code_pm_read == 200:
-            print(f"  [OK 200] PM Participating Project Artifacts Read Success ({len(resp_pm_read)} rows)")
+        nonmember_code, nonmember_response = api_request(
+            supabase_url, anon_key, "POST", "methodology_templates", token=nonmember_token,
+            body={"code": nonmember_test_code, "name": "Illegal Non-member Master Write", "version": "1.0"},
+        )
+        if nonmember_code in (200, 201):
+            print(f"  [FAIL] non_member illegally wrote master data ({nonmember_test_code})")
+            all_passed = False
         else:
-            print(f"  [FAIL] PM Participating Project Artifacts Read Failed (HTTP {code_pm_read})")
+            print(f"  [OK]   non_member master write blocked (HTTP {nonmember_code})")
+
+        print("\n" + "=" * 79)
+        print("4. PROJECT ARTIFACT MEMBERSHIP READ PERMISSION")
+        print("=" * 79)
+
+        artifact_query = {
+            "select": "id,project_id",
+            "id": f"eq.{test_artifact_id}",
+            "project_id": f"eq.{test_project_id}",
+            "limit": "1",
+        }
+
+        admin_read_code, admin_read_response = api_request(
+            supabase_url, anon_key, "GET", "project_artifacts", token=sys_token,
+            query=artifact_query,
+        )
+        if admin_read_code == 200 and isinstance(admin_read_response, list) and len(admin_read_response) == 1:
+            print("  [OK]   SYS_ADMIN can read the fixture artifact")
+        else:
+            print(f"  [FAIL] SYS_ADMIN cannot read the fixture artifact (HTTP {admin_read_code}, response={admin_read_response})")
             all_passed = False
 
-        code_nm_read, resp_nm_read = test_api("GET", "project_artifacts", token=nm_tok, params="?select=*&limit=10")
-        if code_nm_read == 200 and isinstance(resp_nm_read, list) and len(resp_nm_read) == 0:
-            print("  [OK RLS] Non-member Project Artifacts Read correctly returned 0 rows")
-        elif code_nm_read in (401, 403):
-            print(f"  [OK RLS] Non-member Project Artifacts Read correctly blocked (HTTP {code_nm_read})")
+        pm_read_code, pm_read_response = api_request(
+            supabase_url, anon_key, "GET", "project_artifacts", token=pm_token,
+            query=artifact_query,
+        )
+        if pm_read_code == 200 and isinstance(pm_read_response, list) and len(pm_read_response) == 1:
+            print("  [OK]   project_pm can read the participating project artifact")
         else:
-            print(f"  [FAIL] Non-member Project Artifacts Read leaked data! ({resp_nm_read})")
+            print(f"  [FAIL] project_pm cannot read the participating project artifact (HTTP {pm_read_code}, response={pm_read_response})")
+            all_passed = False
+
+        nonmember_read_code, nonmember_read_response = api_request(
+            supabase_url, anon_key, "GET", "project_artifacts", token=nonmember_token,
+            query=artifact_query,
+        )
+        if nonmember_read_code in (401, 403):
+            print(f"  [OK]   non_member is blocked from the fixture artifact (HTTP {nonmember_read_code})")
+        elif nonmember_read_code == 200 and isinstance(nonmember_read_response, list) and len(nonmember_read_response) == 0:
+            print("  [OK]   non_member sees 0 rows for the fixture artifact")
+        else:
+            print(f"  [FAIL] non_member can access the fixture artifact (HTTP {nonmember_read_code}, response={nonmember_read_response})")
             all_passed = False
 
     finally:
-        # POINT 3 & 4: Exact ID Cleanup with HTTP status code verification
-        print("\n" + "=" * 75)
-        print("[EXACT ID CLEANUP & AUDIT]")
-        print("=" * 75)
-        
-        # Delete exact test_run_id
-        c_del1, _ = test_api("DELETE", "methodology_templates", token=tokens["sys_admin"], params=f"?code=eq.{test_run_id}")
-        if c_del1 in (200, 204):
-            print(f"  [OK 200] Deleted test record '{test_run_id}'")
-        else:
-            print(f"  [FAIL] Cleanup failed for '{test_run_id}' (HTTP {c_del1})")
-            all_passed = False
+        print("\n" + "=" * 79)
+        print("5. EXACT TEMPORARY RECORD CLEANUP")
+        print("=" * 79)
 
-        # Delete exact test_run_id_nm if created
-        c_del2, _ = test_api("DELETE", "methodology_templates", token=tokens["sys_admin"], params=f"?code=eq.{test_run_id_nm}")
-        if c_del2 in (200, 204):
-            print(f"  [OK 200] Cleanup check completed for '{test_run_id_nm}'")
+        for code_value in (admin_test_code, pm_test_code, nonmember_test_code):
+            delete_code, delete_response = api_request(
+                supabase_url, anon_key, "DELETE", "methodology_templates", token=sys_token,
+                query={"code": f"eq.{code_value}"},
+            )
 
-    print("\n" + "=" * 75)
-    # POINT 7: Clean messaging when RPC testing is excluded
+            if not is_success(delete_code):
+                print(f"  [FAIL] Cleanup request failed for {code_value} (HTTP {delete_code}: {error_summary(delete_response)})")
+                all_passed = False
+                continue
+
+            verify_code, verify_response = api_request(
+                supabase_url, anon_key, "GET", "methodology_templates", token=sys_token,
+                query={"select": "id", "code": f"eq.{code_value}", "limit": "1"},
+            )
+            if verify_code == 200 and isinstance(verify_response, list) and len(verify_response) == 0:
+                print(f"  [OK]   Removed exact temporary record {code_value}")
+            else:
+                print(f"  [FAIL] Temporary record still exists or could not be verified: {code_value} (HTTP {verify_code}, response={verify_response})")
+                all_passed = False
+
+    print("\n" + "=" * 79)
     if all_passed:
-        print("MIGRATION & RLS BASELINE VERIFIED CLEAN (RPC Testing Excluded)")
-        print("=" * 75)
-    else:
-        print("VERIFICATION FAILED: One or more assertions failed!")
-        print("=" * 75)
-        sys.exit(1)
+        print("MIGRATION & RLS BASELINE VERIFIED CLEAN")
+        print("RPC TESTING: EXCLUDED")
+        print("=" * 79)
+        sys.exit(0)
+
+    print("VERIFICATION FAILED: One or more assertions failed.")
+    print("Review the output above before continuing to the next deployment priority.")
+    print("=" * 79)
+    sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
