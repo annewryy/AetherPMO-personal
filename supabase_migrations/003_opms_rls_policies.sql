@@ -2,7 +2,7 @@
 -- AETHER PMS - OPMS PHASE 2 STRICT & RERUNNABLE RLS POLICIES SCRIPT
 -- File: supabase_migrations/003_opms_rls_policies.sql
 -- Description: Enables RLS and creates strict role-based policies for 12 tables.
---              Restricts direct step UPDATE to SYS_ADMIN (approvers use RPC).
+--              Separates project membership EXISTS and global admin EXISTS via OR.
 -- ============================================================================
 
 -- ============================================================================
@@ -38,7 +38,8 @@ ON methodology_templates FOR INSERT TO authenticated
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -48,13 +49,15 @@ ON methodology_templates FOR UPDATE TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 )
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -64,7 +67,8 @@ ON methodology_templates FOR DELETE TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -79,7 +83,8 @@ ON methodology_stages FOR INSERT TO authenticated
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -89,13 +94,15 @@ ON methodology_stages FOR UPDATE TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 )
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -105,7 +112,8 @@ ON methodology_stages FOR DELETE TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -120,7 +128,8 @@ ON methodology_activities FOR INSERT TO authenticated
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -130,13 +139,15 @@ ON methodology_activities FOR UPDATE TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 )
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -146,7 +157,8 @@ ON methodology_activities FOR DELETE TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -161,7 +173,8 @@ ON methodology_artifact_templates FOR INSERT TO authenticated
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -171,13 +184,15 @@ ON methodology_artifact_templates FOR UPDATE TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 )
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -187,7 +202,8 @@ ON methodology_artifact_templates FOR DELETE TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -202,7 +218,8 @@ ON methodology_project_types FOR INSERT TO authenticated
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -212,13 +229,15 @@ ON methodology_project_types FOR UPDATE TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 )
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -228,12 +247,13 @@ ON methodology_project_types FOR DELETE TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
 -- ============================================================================
--- 3. POLICIES FOR PROJECT EXECUTION INSTANCES (ROLE-SCOPED)
+-- 3. POLICIES FOR PROJECT EXECUTION INSTANCES (SEPARATE EXISTS JOINED BY OR)
 -- ============================================================================
 
 -- project_methodologies
@@ -244,10 +264,13 @@ USING (
     EXISTS (
         SELECT 1 FROM public.project_members pm
         WHERE pm.project_id = project_methodologies.project_id
-        AND pm.user_id = auth.uid()
-    ) OR EXISTS (
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+    )
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -258,10 +281,19 @@ WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.project_members pm
         WHERE pm.project_id = project_methodologies.project_id
-        AND pm.user_id = auth.uid()
-        AND (pm.role IN ('PM', 'PL', 'OWNER') OR EXISTS (
-            SELECT 1 FROM public.profiles prof WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
-        ))
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND (
+            pm.role IN ('PM', 'PL', 'OWNER') OR
+            pm.role_name IN ('PM', 'PL', 'OWNER') OR
+            pm.participation_role IN ('PM', 'PL', 'OWNER') OR
+            pm.is_project_manager = TRUE
+        )
+    )
+    OR
+    EXISTS (
+        SELECT 1 FROM public.profiles prof
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -272,20 +304,38 @@ USING (
     EXISTS (
         SELECT 1 FROM public.project_members pm
         WHERE pm.project_id = project_methodologies.project_id
-        AND pm.user_id = auth.uid()
-        AND (pm.role IN ('PM', 'PL', 'OWNER') OR EXISTS (
-            SELECT 1 FROM public.profiles prof WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
-        ))
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND (
+            pm.role IN ('PM', 'PL', 'OWNER') OR
+            pm.role_name IN ('PM', 'PL', 'OWNER') OR
+            pm.participation_role IN ('PM', 'PL', 'OWNER') OR
+            pm.is_project_manager = TRUE
+        )
+    )
+    OR
+    EXISTS (
+        SELECT 1 FROM public.profiles prof
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 )
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.project_members pm
         WHERE pm.project_id = project_methodologies.project_id
-        AND pm.user_id = auth.uid()
-        AND (pm.role IN ('PM', 'PL', 'OWNER') OR EXISTS (
-            SELECT 1 FROM public.profiles prof WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
-        ))
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND (
+            pm.role IN ('PM', 'PL', 'OWNER') OR
+            pm.role_name IN ('PM', 'PL', 'OWNER') OR
+            pm.participation_role IN ('PM', 'PL', 'OWNER') OR
+            pm.is_project_manager = TRUE
+        )
+    )
+    OR
+    EXISTS (
+        SELECT 1 FROM public.profiles prof
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -296,10 +346,19 @@ USING (
     EXISTS (
         SELECT 1 FROM public.project_members pm
         WHERE pm.project_id = project_methodologies.project_id
-        AND pm.user_id = auth.uid()
-        AND (pm.role IN ('PM', 'PL', 'OWNER') OR EXISTS (
-            SELECT 1 FROM public.profiles prof WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
-        ))
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND (
+            pm.role IN ('PM', 'PL', 'OWNER') OR
+            pm.role_name IN ('PM', 'PL', 'OWNER') OR
+            pm.participation_role IN ('PM', 'PL', 'OWNER') OR
+            pm.is_project_manager = TRUE
+        )
+    )
+    OR
+    EXISTS (
+        SELECT 1 FROM public.profiles prof
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -312,10 +371,13 @@ USING (
         SELECT 1 FROM public.project_methodologies pmeth
         JOIN public.project_members pm ON pm.project_id = pmeth.project_id
         WHERE pmeth.id = project_methodology_activities.project_methodology_id
-        AND pm.user_id = auth.uid()
-    ) OR EXISTS (
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+    )
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -327,10 +389,19 @@ WITH CHECK (
         SELECT 1 FROM public.project_methodologies pmeth
         JOIN public.project_members pm ON pm.project_id = pmeth.project_id
         WHERE pmeth.id = project_methodology_activities.project_methodology_id
-        AND pm.user_id = auth.uid()
-        AND (pm.role IN ('PM', 'PL', 'OWNER') OR EXISTS (
-            SELECT 1 FROM public.profiles prof WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
-        ))
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND (
+            pm.role IN ('PM', 'PL', 'OWNER') OR
+            pm.role_name IN ('PM', 'PL', 'OWNER') OR
+            pm.participation_role IN ('PM', 'PL', 'OWNER') OR
+            pm.is_project_manager = TRUE
+        )
+    )
+    OR
+    EXISTS (
+        SELECT 1 FROM public.profiles prof
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -342,10 +413,13 @@ USING (
         SELECT 1 FROM public.project_methodologies pmeth
         JOIN public.project_members pm ON pm.project_id = pmeth.project_id
         WHERE pmeth.id = project_methodology_activities.project_methodology_id
-        AND pm.user_id = auth.uid()
-    ) OR EXISTS (
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+    )
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 )
 WITH CHECK (
@@ -353,14 +427,17 @@ WITH CHECK (
         SELECT 1 FROM public.project_methodologies pmeth
         JOIN public.project_members pm ON pm.project_id = pmeth.project_id
         WHERE pmeth.id = project_methodology_activities.project_methodology_id
-        AND pm.user_id = auth.uid()
-    ) OR EXISTS (
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+    )
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
--- project_artifacts
+-- project_artifacts (Direct project_id checking - FAST RLS!)
 DROP POLICY IF EXISTS "Project members and admins can read project_artifacts" ON project_artifacts;
 CREATE POLICY "Project members and admins can read project_artifacts"
 ON project_artifacts FOR SELECT TO authenticated
@@ -368,10 +445,13 @@ USING (
     EXISTS (
         SELECT 1 FROM public.project_members pm
         WHERE pm.project_id = project_artifacts.project_id
-        AND pm.user_id = auth.uid()
-    ) OR EXISTS (
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+    )
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -382,10 +462,19 @@ WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.project_members pm
         WHERE pm.project_id = project_artifacts.project_id
-        AND pm.user_id = auth.uid()
-        AND (pm.role IN ('PM', 'PL', 'OWNER') OR EXISTS (
-            SELECT 1 FROM public.profiles prof WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
-        ))
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND (
+            pm.role IN ('PM', 'PL', 'OWNER') OR
+            pm.role_name IN ('PM', 'PL', 'OWNER') OR
+            pm.participation_role IN ('PM', 'PL', 'OWNER') OR
+            pm.is_project_manager = TRUE
+        )
+    )
+    OR
+    EXISTS (
+        SELECT 1 FROM public.profiles prof
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -396,20 +485,26 @@ USING (
     EXISTS (
         SELECT 1 FROM public.project_members pm
         WHERE pm.project_id = project_artifacts.project_id
-        AND pm.user_id = auth.uid()
-    ) OR EXISTS (
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+    )
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 )
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.project_members pm
         WHERE pm.project_id = project_artifacts.project_id
-        AND pm.user_id = auth.uid()
-    ) OR EXISTS (
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+    )
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -420,10 +515,19 @@ USING (
     EXISTS (
         SELECT 1 FROM public.project_members pm
         WHERE pm.project_id = project_artifacts.project_id
-        AND pm.user_id = auth.uid()
-        AND (pm.role IN ('PM', 'PL', 'OWNER') OR EXISTS (
-            SELECT 1 FROM public.profiles prof WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
-        ))
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+        AND (
+            pm.role IN ('PM', 'PL', 'OWNER') OR
+            pm.role_name IN ('PM', 'PL', 'OWNER') OR
+            pm.participation_role IN ('PM', 'PL', 'OWNER') OR
+            pm.is_project_manager = TRUE
+        )
+    )
+    OR
+    EXISTS (
+        SELECT 1 FROM public.profiles prof
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -440,10 +544,13 @@ USING (
         SELECT 1 FROM public.project_artifacts pa
         JOIN public.project_members pm ON pm.project_id = pa.project_id
         WHERE pa.id = artifact_documents.project_artifact_id
-        AND pm.user_id = auth.uid()
-    ) OR EXISTS (
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+    )
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -455,10 +562,13 @@ WITH CHECK (
         SELECT 1 FROM public.project_artifacts pa
         JOIN public.project_members pm ON pm.project_id = pa.project_id
         WHERE pa.id = artifact_documents.project_artifact_id
-        AND pm.user_id = auth.uid()
-    ) OR EXISTS (
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+    )
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -470,10 +580,13 @@ USING (
         SELECT 1 FROM public.project_artifacts pa
         JOIN public.project_members pm ON pm.project_id = pa.project_id
         WHERE pa.id = artifact_documents.project_artifact_id
-        AND pm.user_id = auth.uid()
-    ) OR EXISTS (
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+    )
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 )
 WITH CHECK (
@@ -481,10 +594,13 @@ WITH CHECK (
         SELECT 1 FROM public.project_artifacts pa
         JOIN public.project_members pm ON pm.project_id = pa.project_id
         WHERE pa.id = artifact_documents.project_artifact_id
-        AND pm.user_id = auth.uid()
-    ) OR EXISTS (
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+    )
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -497,10 +613,13 @@ USING (
         SELECT 1 FROM public.project_artifacts pa
         JOIN public.project_members pm ON pm.project_id = pa.project_id
         WHERE pa.id = artifact_versions.project_artifact_id
-        AND pm.user_id = auth.uid()
-    ) OR EXISTS (
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+    )
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -512,10 +631,13 @@ WITH CHECK (
         SELECT 1 FROM public.project_artifacts pa
         JOIN public.project_members pm ON pm.project_id = pa.project_id
         WHERE pa.id = artifact_versions.project_artifact_id
-        AND pm.user_id = auth.uid()
-    ) OR EXISTS (
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+    )
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -528,10 +650,13 @@ USING (
         SELECT 1 FROM public.project_artifacts pa
         JOIN public.project_members pm ON pm.project_id = pa.project_id
         WHERE pa.id = artifact_workflows.project_artifact_id
-        AND pm.user_id = auth.uid()
-    ) OR EXISTS (
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+    )
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -543,10 +668,13 @@ WITH CHECK (
         SELECT 1 FROM public.project_artifacts pa
         JOIN public.project_members pm ON pm.project_id = pa.project_id
         WHERE pa.id = artifact_workflows.project_artifact_id
-        AND pm.user_id = auth.uid()
-    ) OR EXISTS (
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+    )
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -554,15 +682,21 @@ DROP POLICY IF EXISTS "Workflow requester and admins can update artifact_workflo
 CREATE POLICY "Workflow requester and admins can update artifact_workflows"
 ON artifact_workflows FOR UPDATE TO authenticated
 USING (
-    requester_id = auth.uid() OR EXISTS (
+    requester_id = auth.uid()
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 )
 WITH CHECK (
-    requester_id = auth.uid() OR EXISTS (
+    requester_id = auth.uid()
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -572,15 +706,20 @@ DROP POLICY IF EXISTS "Project members and approvers can read workflow steps" ON
 CREATE POLICY "Project members and approvers can read workflow steps"
 ON artifact_workflow_steps FOR SELECT TO authenticated
 USING (
-    approver_id = auth.uid() OR EXISTS (
+    approver_id = auth.uid()
+    OR
+    EXISTS (
         SELECT 1 FROM public.artifact_workflows aw
         JOIN public.project_artifacts pa ON pa.id = aw.project_artifact_id
         JOIN public.project_members pm ON pm.project_id = pa.project_id
         WHERE aw.id = artifact_workflow_steps.workflow_id
-        AND pm.user_id = auth.uid()
-    ) OR EXISTS (
+        AND (pm.user_id = auth.uid() OR pm.resource_id = auth.uid())
+    )
+    OR
+    EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
@@ -605,13 +744,15 @@ ON artifact_workflow_steps FOR UPDATE TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 )
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.profiles prof
-        WHERE prof.id = auth.uid() AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        WHERE prof.id = auth.uid()
+        AND prof.role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     )
 );
 
