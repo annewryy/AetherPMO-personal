@@ -85,6 +85,24 @@
 - [ ] `pms_project.resources`(투입 인력 수)를 수동 입력이 아닌 활성 참여인력(is_active) 수
       자동계산 파생값으로 다룰지 검토 — 0006 진척률/프로젝트 스키마 설계 시 참고
       (reports/2026-07-08.md §2)
+- [ ] ⚠️ [최우선] 동료가 레거시에 **OPMS 방법론(Methodology) 12테이블** 신규(templates→stages→
+      activities→artifact_templates + project_methodologies/activities/artifacts + artifact
+      documents/versions/workflows/workflow_steps + approve_workflow_step RPC) — 우리 카탈로그
+      (0010)·테일러링·산출물(pms_deliverable)·워크플로(0009)·파일(0018) 도메인 전체와 정면 중복.
+      흡수 vs 대체 결정 + 6단계/18액티비티/40산출물·상태5종·단계결재 지식 반영 (신규 설계 0025 권장)
+      (reports/2026-07-23.md §1)
+- [ ] 동료가 `notifications` 테이블(recipient/sender·type·action_item_id·is_read·RLS) 신규 구현
+      — 우리 알림 설계로 명문화하고 게시판 답변(0002 §3.4)·액션아이템 알림 통합 검토
+      (reports/2026-07-23.md §2)
+- [ ] ⚠️ 급여 `salaries.employment_type`가 4종(regular/outsourcing/project_contract/turnkey)인데
+      0005는 employment_type 5종 확정 — 0024 §B pms_salary 확정 시 enum 정렬 (reports/2026-07-23.md §3)
+- [ ] ⚠️ 게시판 레거시 구현이 category=question/bug/suggestion/etc·status=pending/answered이고
+      공지/상단고정 컬럼 없음 — 0002 §3·0024 §B의 "공지/문의/일반+상단고정" 요구방향과 불일치.
+      유경님 0002 회신 확정 후 pms_board_* 스키마 정합 (reports/2026-07-23.md §4)
+- [ ] G2B `source_type`(PRE_SPEC/BID_NOTICE/MANUAL)·status `PRE_REVIEW`·source_reference_no
+      dedup 인덱스가 0016/0017 프로젝트 출처·상태 설계와 정합하는지 대조 (reports/2026-07-23.md §5)
+- [ ] 검토 대기 요구사항 0002(급여·게시판·체크리스트 확인요청) — 유경님 회신(코멘트 링크 착수)
+      확정 시 0024 §B 및 체크리스트 스키마 반영 (reports/2026-07-23.md §검토 대기)
 
 ## E. 기능 매트릭스 (메뉴별 구현 현황)
 

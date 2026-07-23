@@ -2,7 +2,7 @@
   "description": "워처 routine 상태. (1)동료 코드 커밋 분석 (2)요구사항 검토 큐. routine이 갱신.",
   "watch_branch": "origin/main",
   "my_authors": ["박너울", "neoul88@gmail.com"],
-  "last_analyzed_sha": "c06cbae1f9eca50171db41dbf29aca8e3f885d56",
+  "last_analyzed_sha": "61be7c4d345df859da02c868b3039f92c9e4cc6d",
   "requirements": {
     "dir": "docs/requirements/",
     "note": "반영 마커(> 반영: docs/design/NNNN ...)가 있는 문서는 검토 완료로 스킵. 아래는 검토 완료 목록.",
