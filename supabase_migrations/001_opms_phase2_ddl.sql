@@ -1,36 +1,42 @@
 -- ============================================================================
--- AETHER PMS - OPMS PHASE 2 ADVANCED DDL MIGRATION SCRIPT
+-- AETHER PMS - OPMS PHASE 2 HARDENED DDL MIGRATION SCRIPT
 -- File: supabase_migrations/001_opms_phase2_ddl.sql
--- Description: Creates 12 approved tables, indexes, triggers, hierarchy check,
---              DROP TRIGGER IF EXISTS idempotency, and Workflow Approval RPC.
+-- Description: Creates 12 approved tables, pgcrypto UUID, triggers, hierarchy check,
+--              search_path security, and Workflow RPC with REVOKE/GRANT.
 -- ============================================================================
 
--- Enable UUID extension if not already enabled
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Enable pgcrypto extension for gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ============================================================================
 -- 1. TRIGGER FUNCTIONS & PROCEDURES
 -- ============================================================================
 
 -- Updated At Trigger Function
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
 BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
--- Hierarchy Verification Trigger Function (Verifies project_id hierarchy integrity)
-CREATE OR REPLACE FUNCTION verify_project_artifact_hierarchy()
-RETURNS TRIGGER AS $$
+-- Hierarchy Verification Trigger Function
+CREATE OR REPLACE FUNCTION public.verify_project_artifact_hierarchy()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
 DECLARE
     v_pm_proj_id UUID;
     v_pact_pm_id UUID;
 BEGIN
     -- 1. Verify project_methodology_id belongs to NEW.project_id
     SELECT project_id INTO v_pm_proj_id
-    FROM project_methodologies
+    FROM public.project_methodologies
     WHERE id = NEW.project_methodology_id;
 
     IF v_pm_proj_id IS NULL OR v_pm_proj_id != NEW.project_id THEN
@@ -39,7 +45,7 @@ BEGIN
 
     -- 2. Verify project_activity_id belongs to NEW.project_methodology_id
     SELECT project_methodology_id INTO v_pact_pm_id
-    FROM project_methodology_activities
+    FROM public.project_methodology_activities
     WHERE id = NEW.project_activity_id;
 
     IF v_pact_pm_id IS NULL OR v_pact_pm_id != NEW.project_methodology_id THEN
@@ -48,7 +54,7 @@ BEGIN
 
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- ============================================================================
 -- 2. MASTER & RECOMMENDATION TABLES
@@ -71,7 +77,7 @@ CREATE TABLE IF NOT EXISTS methodology_templates (
 DROP TRIGGER IF EXISTS trg_methodology_templates_updated_at ON methodology_templates;
 CREATE TRIGGER trg_methodology_templates_updated_at
 BEFORE UPDATE ON methodology_templates
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Table 2: methodology_stages
 CREATE TABLE IF NOT EXISTS methodology_stages (
@@ -148,7 +154,7 @@ CREATE INDEX IF NOT EXISTS idx_project_methodologies_project_id ON project_metho
 DROP TRIGGER IF EXISTS trg_project_methodologies_updated_at ON project_methodologies;
 CREATE TRIGGER trg_project_methodologies_updated_at
 BEFORE UPDATE ON project_methodologies
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Table 7: project_methodology_activities
 CREATE TABLE IF NOT EXISTS project_methodology_activities (
@@ -168,7 +174,7 @@ CREATE INDEX IF NOT EXISTS idx_proj_meth_activities_pm_id ON project_methodology
 DROP TRIGGER IF EXISTS trg_project_methodology_activities_updated_at ON project_methodology_activities;
 CREATE TRIGGER trg_project_methodology_activities_updated_at
 BEFORE UPDATE ON project_methodology_activities
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Table 8: project_artifacts (With direct project_id and Hierarchy Check Trigger)
 CREATE TABLE IF NOT EXISTS project_artifacts (
@@ -196,12 +202,12 @@ CREATE INDEX IF NOT EXISTS idx_project_artifacts_status ON project_artifacts(sta
 DROP TRIGGER IF EXISTS trg_project_artifacts_updated_at ON project_artifacts;
 CREATE TRIGGER trg_project_artifacts_updated_at
 BEFORE UPDATE ON project_artifacts
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 DROP TRIGGER IF EXISTS trg_verify_project_artifact_hierarchy ON project_artifacts;
 CREATE TRIGGER trg_verify_project_artifact_hierarchy
 BEFORE INSERT OR UPDATE ON project_artifacts
-FOR EACH ROW EXECUTE FUNCTION verify_project_artifact_hierarchy();
+FOR EACH ROW EXECUTE FUNCTION public.verify_project_artifact_hierarchy();
 
 -- ============================================================================
 -- 4. PHASE 3 EXTENSION TABLES (STORAGE, VERSIONS, WORKFLOWS)
@@ -231,7 +237,7 @@ CREATE INDEX IF NOT EXISTS idx_artifact_documents_artifact_id ON artifact_docume
 DROP TRIGGER IF EXISTS trg_artifact_documents_updated_at ON artifact_documents;
 CREATE TRIGGER trg_artifact_documents_updated_at
 BEFORE UPDATE ON artifact_documents
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Table 10: artifact_versions
 CREATE TABLE IF NOT EXISTS artifact_versions (
@@ -279,7 +285,7 @@ CREATE INDEX IF NOT EXISTS idx_artifact_workflow_steps_workflow_id ON artifact_w
 -- ============================================================================
 -- 5. WORKFLOW APPROVAL SECURITY DEFINER RPC FUNCTION
 -- ============================================================================
-CREATE OR REPLACE FUNCTION approve_workflow_step(
+CREATE OR REPLACE FUNCTION public.approve_workflow_step(
     p_step_id UUID,
     p_status VARCHAR,
     p_comments TEXT DEFAULT NULL
@@ -287,6 +293,7 @@ CREATE OR REPLACE FUNCTION approve_workflow_step(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_step RECORD;
@@ -298,18 +305,18 @@ BEGIN
         RAISE EXCEPTION 'Authentication required';
     END IF;
 
-    -- Check if user is admin (ADMIN, SYS_ADMIN, EXEC_ADMIN)
+    -- Check if user is sys_admin (ADMIN, SYS_ADMIN, EXEC_ADMIN)
     SELECT EXISTS (
-        SELECT 1 FROM profiles WHERE id = v_user_id AND role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
+        SELECT 1 FROM public.profiles WHERE id = v_user_id AND role IN ('ADMIN', 'SYS_ADMIN', 'EXEC_ADMIN')
     ) INTO v_is_admin;
 
     -- Fetch target step
-    SELECT * INTO v_step FROM artifact_workflow_steps WHERE id = p_step_id;
+    SELECT * INTO v_step FROM public.artifact_workflow_steps WHERE id = p_step_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Workflow step % not found', p_step_id;
     END IF;
 
-    -- Strict Authorization: Only assigned approver or sys_admin can approve!
+    -- Strict Authorization: Only assigned approver or sys_admin can approve via RPC!
     IF v_step.approver_id != v_user_id AND NOT v_is_admin THEN
         RAISE EXCEPTION 'Unauthorized: Only assigned approver % can approve this step', v_step.approver_id;
     END IF;
@@ -320,7 +327,7 @@ BEGIN
     END IF;
 
     -- Restrict updates to step_status, comments, and action_at ONLY
-    UPDATE artifact_workflow_steps
+    UPDATE public.artifact_workflow_steps
     SET step_status = p_status,
         comments = p_comments,
         action_at = NOW()
@@ -334,3 +341,7 @@ BEGIN
     );
 END;
 $$;
+
+-- Security Hardening: Revoke EXECUTE from PUBLIC, grant to authenticated only
+REVOKE EXECUTE ON FUNCTION public.approve_workflow_step(UUID, VARCHAR, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.approve_workflow_step(UUID, VARCHAR, TEXT) TO authenticated;
