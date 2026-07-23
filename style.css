@@ -6749,3 +6749,172 @@ body.dark-theme .portal-copilot-task-item {
 #view-action-items table.data-table td a {
     font-size: 14px !important;
 }
+
+/* ==========================================================================
+   OPMS METHODOLOGY TAB STYLES
+   ========================================================================== */
+.methodology-container {
+    display: flex;
+    gap: 20px;
+    margin-top: 16px;
+}
+.methodology-main-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.methodology-side-panel {
+    width: 340px;
+    flex-shrink: 0;
+}
+@media (max-width: 1024px) {
+    .methodology-container {
+        flex-direction: column;
+    }
+    .methodology-side-panel {
+        width: 100%;
+    }
+}
+
+.methodology-header-card {
+    background: var(--bg-card);
+    border: 1px solid var(--bg-card-border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-sm);
+}
+
+.opms-stages-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    margin-top: 16px;
+}
+@media (max-width: 1200px) {
+    .opms-stages-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+@media (max-width: 640px) {
+    .opms-stages-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.opms-stage-card {
+    background: var(--bg-hover-item);
+    border: 1px solid var(--bg-card-border);
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+.opms-stage-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    background: var(--bg-card);
+}
+.opms-stage-card.active {
+    border-color: var(--primary);
+    box-shadow: 0 0 10px var(--primary-glow);
+    background: var(--bg-card);
+}
+
+.opms-stage-accordion {
+    background: var(--bg-card);
+    border: 1px solid var(--bg-card-border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 14px;
+    transition: border-color var(--transition-fast);
+}
+.opms-stage-accordion.open {
+    border-color: rgba(99, 102, 241, 0.4);
+}
+.opms-stage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: var(--bg-card);
+    cursor: pointer;
+    user-select: none;
+}
+.opms-stage-header:hover {
+    background: var(--bg-hover-item);
+}
+.opms-stage-body {
+    display: none;
+    padding: 0 20px 20px 20px;
+    border-top: 1px solid var(--bg-card-border);
+}
+.opms-stage-accordion.open .opms-stage-body {
+    display: block;
+}
+
+.opms-activity-accordion {
+    margin-top: 14px;
+    background: var(--bg-hover-item);
+    border: 1px solid var(--bg-card-border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.opms-activity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+.opms-activity-header:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+.opms-activity-body {
+    display: none;
+    padding: 12px;
+    border-top: 1px solid var(--bg-card-border);
+    background: var(--bg-card);
+}
+.opms-activity-accordion.open .opms-activity-body {
+    display: block;
+}
+
+/* Method Badges */
+.badge-status-NOT_STARTED {
+    background: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+}
+.badge-status-IN_PROGRESS {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.badge-status-IN_REVIEW {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.badge-status-APPROVED {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.opms-artifact-row {
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+.opms-artifact-row:hover {
+    background: var(--bg-hover-item) !important;
+}
+.opms-artifact-row.selected {
+    background: rgba(99, 102, 241, 0.12) !important;
+}
+

@@ -1064,6 +1064,7 @@
                         <button class="detail-tab-btn" data-tab="issues" onclick="app.setDetailTab('issues')">리스크</button>
                         <button class="detail-tab-btn" data-tab="action-items" onclick="app.setDetailTab('action-items')">Action Item</button>
                         <button class="detail-tab-btn" data-tab="official-docs" onclick="app.setDetailTab('official-docs')">공문</button>
+                        <button class="detail-tab-btn" data-tab="methodology" onclick="app.setDetailTab('methodology')">방법론</button>
                         <button class="detail-tab-btn" data-tab="consortium" onclick="app.setDetailTab('consortium')" style="display: none;">컨소시엄</button>
                         <button class="detail-tab-btn" data-tab="vrb" onclick="app.setDetailTab('vrb')" style="display: none;">VRB</button>
                     </div>
@@ -1393,6 +1394,11 @@
                                 <div id="vrb-memo-display" class="pre-wrap" style="font-size:13px; line-height:1.5; color:var(--text-main);">등록된 메모가 없습니다.</div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- TAB 9: 방법론 (Methodology - OPMS) -->
+                    <div id="detail-tab-content-methodology" class="detail-tab-content">
+                        <!-- Rendered dynamically by app.renderProjectDetailMethodology(projectId) -->
                     </div>
                 </section>
 

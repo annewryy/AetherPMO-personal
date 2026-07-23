@@ -21,6 +21,29 @@ const ACTION_ITEM_STATUS_LABELS = {
     '반려': '반려'
 };
 
+const OPMS_STAGES = [
+    { code: 'PRR', name: '사업준비', fullName: 'PRR 사업준비 (Project Readiness Review)' },
+    { code: 'PRP', name: '착수계획', fullName: 'PRP 착수계획 (Project Planning)' },
+    { code: 'RAD', name: '분석', fullName: 'RAD 분석 (Requirement Analysis & Design)' },
+    { code: 'AAD', name: '설계', fullName: 'AAD 설계 (Architecture & Application Design)' },
+    { code: 'DTD', name: '구현/인수', fullName: 'DTD 구현/인수 (Development, Testing & Deployment)' },
+    { code: 'PED', name: '종료', fullName: 'PED 종료 (Project Exit & Evaluation)' }
+];
+
+const OPMS_STATUS_LABELS = {
+    'NOT_STARTED': '미작성',
+    'IN_PROGRESS': '작성중',
+    'IN_REVIEW': '검토중',
+    'APPROVED': '승인완료'
+};
+
+const OPMS_STATUS_PROGRESS = {
+    'NOT_STARTED': 0,
+    'IN_PROGRESS': 30,
+    'IN_REVIEW': 70,
+    'APPROVED': 100
+};
+
 class AetherPMO {
     constructor() {
         this.state = {
@@ -40,6 +63,7 @@ class AetherPMO {
             boardPosts: [],     // Inquiry board posts
             boardReplies: [],   // Inquiry board replies
             globalTemplates: [],
+            projectMethodologies: {},
             projectMembers: [],
             resources: [],
             recentlyDownloaded: [],
@@ -7356,6 +7380,8 @@ class AetherPMO {
             this.renderConsortiumTab();
         } else if (tabId === 'vrb') {
             this.renderVrbTab();
+        } else if (tabId === 'methodology') {
+            this.renderProjectDetailMethodology(this.activeProjectId);
         }
 
         this.applyRolePermissions();
@@ -7363,6 +7389,683 @@ class AetherPMO {
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
+    }
+
+    /* ==========================================================================
+       OPMS METHODOLOGY MODULE & CONTROLLER
+       ========================================================================== */
+    getDefaultMethodologyTemplate() {
+        return [
+            {
+                stageCode: 'PRR',
+                stageName: '사업준비',
+                fullName: 'PRR 사업준비 (Project Readiness Review)',
+                isOpen: true,
+                activities: [
+                    {
+                        activityId: 'act-prr-eval',
+                        activityName: '사업 타당성 및 제안 검토',
+                        isOpen: true,
+                        artifacts: [
+                            { id: 'art-prr-01', name: '사업 타당성 검토서', status: 'APPROVED', assigneeName: '안유경 PM', updatedAt: '2026-05-10' },
+                            { id: 'art-prr-02', name: '제안요청서 (RFP)', status: 'APPROVED', assigneeName: '안유경 PM', updatedAt: '2026-05-12' },
+                            { id: 'art-prr-03', name: '사업 예산 계획서', status: 'APPROVED', assigneeName: '이영희 PMO', updatedAt: '2026-05-15' }
+                        ]
+                    },
+                    {
+                        activityId: 'act-prr-bidding',
+                        activityName: '수주 및 입찰 관리',
+                        isOpen: false,
+                        artifacts: [
+                            { id: 'art-prr-04', name: '제안서 본문', status: 'APPROVED', assigneeName: '김철수 PL', updatedAt: '2026-05-20' },
+                            { id: 'art-prr-05', name: '수주 통보서', status: 'APPROVED', assigneeName: '안유경 PM', updatedAt: '2026-05-25' }
+                        ]
+                    }
+                ]
+            },
+            {
+                stageCode: 'PRP',
+                stageName: '착수계획',
+                fullName: 'PRP 착수계획 (Project Planning)',
+                isOpen: true,
+                activities: [
+                    {
+                        activityId: 'act-prp-contract',
+                        activityName: '계약 체결 및 검토',
+                        isOpen: true,
+                        artifacts: [
+                            { id: 'art-prp-01', name: '계약서 사본', status: 'APPROVED', assigneeName: '안유경 PM', updatedAt: '2026-06-01' },
+                            { id: 'art-prp-02', name: '과업지시서', status: 'APPROVED', assigneeName: '안유경 PM', updatedAt: '2026-06-01' }
+                        ]
+                    },
+                    {
+                        activityId: 'act-prp-initiation',
+                        activityName: '착수계 및 수주 보고',
+                        isOpen: true,
+                        artifacts: [
+                            { id: 'art-prp-03', name: '착수계 보고서', status: 'APPROVED', assigneeName: '안유경 PM', updatedAt: '2026-06-05' }
+                        ]
+                    },
+                    {
+                        activityId: 'act-prp-resource',
+                        activityName: '인력투입 및 조직 구성',
+                        isOpen: true,
+                        artifacts: [
+                            { id: 'art-prp-04', name: '투입인력 명단 및 이력서', status: 'APPROVED', assigneeName: '이영희 PMO', updatedAt: '2026-06-08' },
+                            { id: 'art-prp-05', name: '보안서약서 (개인/기업)', status: 'APPROVED', assigneeName: '안유경 PM', updatedAt: '2026-06-08' }
+                        ]
+                    },
+                    {
+                        activityId: 'act-prp-tailoring',
+                        activityName: 'OPMS 테일러링 수행',
+                        isOpen: true,
+                        artifacts: [
+                            { id: 'art-prp-06', name: '방법론 테일러링 시트', status: 'APPROVED', assigneeName: '김철수 PL', updatedAt: '2026-06-09' }
+                        ]
+                    },
+                    {
+                        activityId: 'act-prp-pmplan',
+                        activityName: '사업관리계획 수립',
+                        isOpen: true,
+                        artifacts: [
+                            { id: 'art-prp-07', name: '범위관리계획서', status: 'APPROVED', assigneeName: '안유경 PM', updatedAt: '2026-06-10' },
+                            { id: 'art-prp-08', name: '일정관리계획서', status: 'IN_REVIEW', assigneeName: '김철수 PL', updatedAt: '2026-06-12' },
+                            { id: 'art-prp-09', name: '위험관리계획서', status: 'IN_PROGRESS', assigneeName: '이영희 PMO', updatedAt: '2026-06-15' },
+                            { id: 'art-prp-10', name: '품질관리계획서', status: 'IN_PROGRESS', assigneeName: '박민수 QA', updatedAt: '2026-06-16' },
+                            { id: 'art-prp-11', name: '형상관리계획서', status: 'NOT_STARTED', assigneeName: '최동훈 DEV', updatedAt: '' },
+                            { id: 'art-prp-12', name: '변경관리계획서', status: 'NOT_STARTED', assigneeName: '안유경 PM', updatedAt: '' },
+                            { id: 'art-prp-13', name: '의사소통계획서', status: 'NOT_STARTED', assigneeName: '김철수 PL', updatedAt: '' },
+                            { id: 'art-prp-14', name: '보안관리계획서', status: 'NOT_STARTED', assigneeName: '이영희 PMO', updatedAt: '' }
+                        ]
+                    }
+                ]
+            },
+            {
+                stageCode: 'RAD',
+                stageName: '분석',
+                fullName: 'RAD 분석 (Requirement Analysis & Design)',
+                isOpen: false,
+                activities: [
+                    {
+                        activityId: 'act-rad-req',
+                        activityName: '요구사항 분석 및 정의',
+                        isOpen: true,
+                        artifacts: [
+                            { id: 'art-rad-01', name: '요구사항 정의서', status: 'IN_PROGRESS', assigneeName: '김철수 PL', updatedAt: '2026-06-20' },
+                            { id: 'art-rad-02', name: '요구사항 추적표', status: 'NOT_STARTED', assigneeName: '김철수 PL', updatedAt: '' }
+                        ]
+                    },
+                    {
+                        activityId: 'act-rad-asis',
+                        activityName: '현행 시스템 및 업무 분석',
+                        isOpen: false,
+                        artifacts: [
+                            { id: 'art-rad-03', name: '현행 시스템 분석서', status: 'NOT_STARTED', assigneeName: '최동훈 DEV', updatedAt: '' },
+                            { id: 'art-rad-04', name: '업무 프로세스 정의서 (As-Is)', status: 'NOT_STARTED', assigneeName: '이영희 PMO', updatedAt: '' }
+                        ]
+                    },
+                    {
+                        activityId: 'act-rad-interface',
+                        activityName: '인터페이스 요구사항 분석',
+                        isOpen: false,
+                        artifacts: [
+                            { id: 'art-rad-05', name: '인터페이스 정의서', status: 'NOT_STARTED', assigneeName: '최동훈 DEV', updatedAt: '' }
+                        ]
+                    }
+                ]
+            },
+            {
+                stageCode: 'AAD',
+                stageName: '설계',
+                fullName: 'AAD 설계 (Architecture & Application Design)',
+                isOpen: false,
+                activities: [
+                    {
+                        activityId: 'act-aad-arch',
+                        activityName: '시스템 아키텍처 설계',
+                        isOpen: true,
+                        artifacts: [
+                            { id: 'art-aad-01', name: '시스템 아키텍처 설계서', status: 'NOT_STARTED', assigneeName: '최동훈 DEV', updatedAt: '' },
+                            { id: 'art-aad-02', name: '소프트웨어 아키텍처 설계서', status: 'NOT_STARTED', assigneeName: '최동훈 DEV', updatedAt: '' }
+                        ]
+                    },
+                    {
+                        activityId: 'act-aad-db',
+                        activityName: '데이터베이스 설계',
+                        isOpen: false,
+                        artifacts: [
+                            { id: 'art-aad-03', name: 'ERD (Entity Relationship Diagram)', status: 'NOT_STARTED', assigneeName: '김철수 PL', updatedAt: '' },
+                            { id: 'art-aad-04', name: '테이블 정의서', status: 'NOT_STARTED', assigneeName: '김철수 PL', updatedAt: '' },
+                            { id: 'art-aad-05', name: '데이터 전환 계획서', status: 'NOT_STARTED', assigneeName: '이영희 PMO', updatedAt: '' }
+                        ]
+                    },
+                    {
+                        activityId: 'act-aad-ui',
+                        activityName: 'UI/UX 및 화면 설계',
+                        isOpen: false,
+                        artifacts: [
+                            { id: 'art-aad-06', name: '화면 정의서 및 와이어프레임', status: 'NOT_STARTED', assigneeName: '박민수 QA', updatedAt: '' }
+                        ]
+                    }
+                ]
+            },
+            {
+                stageCode: 'DTD',
+                stageName: '구현/인수',
+                fullName: 'DTD 구현/인수 (Development, Testing & Deployment)',
+                isOpen: false,
+                activities: [
+                    {
+                        activityId: 'act-dtd-dev',
+                        activityName: '소프트웨어 개발 및 코딩',
+                        isOpen: true,
+                        artifacts: [
+                            { id: 'art-dtd-01', name: '소프트웨어 소스코드', status: 'NOT_STARTED', assigneeName: '최동훈 DEV', updatedAt: '' },
+                            { id: 'art-dtd-02', name: '단위 테스트 계획 및 결과서', status: 'NOT_STARTED', assigneeName: '최동훈 DEV', updatedAt: '' }
+                        ]
+                    },
+                    {
+                        activityId: 'act-dtd-test',
+                        activityName: '단위/통합 테스트 수행',
+                        isOpen: false,
+                        artifacts: [
+                            { id: 'art-dtd-03', name: '통합 테스트 시나리오', status: 'NOT_STARTED', assigneeName: '박민수 QA', updatedAt: '' },
+                            { id: 'art-dtd-04', name: '통합 테스트 결과서', status: 'NOT_STARTED', assigneeName: '박민수 QA', updatedAt: '' }
+                        ]
+                    },
+                    {
+                        activityId: 'act-dtd-deploy',
+                        activityName: '사용자 교육 및 시스템 인수',
+                        isOpen: false,
+                        artifacts: [
+                            { id: 'art-dtd-05', name: '사용자/운영자 매뉴얼', status: 'NOT_STARTED', assigneeName: '이영희 PMO', updatedAt: '' },
+                            { id: 'art-dtd-06', name: '시스템 인수 확인서', status: 'NOT_STARTED', assigneeName: '안유경 PM', updatedAt: '' }
+                        ]
+                    }
+                ]
+            },
+            {
+                stageCode: 'PED',
+                stageName: '종료',
+                fullName: 'PED 종료 (Project Exit & Evaluation)',
+                isOpen: false,
+                activities: [
+                    {
+                        activityId: 'act-ped-close',
+                        activityName: '사업 종료 및 평가',
+                        isOpen: true,
+                        artifacts: [
+                            { id: 'art-ped-01', name: '사업 완료 보고서', status: 'NOT_STARTED', assigneeName: '안유경 PM', updatedAt: '' },
+                            { id: 'art-ped-02', name: '산출물 최종 점검표', status: 'NOT_STARTED', assigneeName: '이영희 PMO', updatedAt: '' }
+                        ]
+                    },
+                    {
+                        activityId: 'act-ped-transfer',
+                        activityName: '운영 이관 및 지식 이전',
+                        isOpen: false,
+                        artifacts: [
+                            { id: 'art-ped-03', name: '운영 이관서', status: 'NOT_STARTED', assigneeName: '최동훈 DEV', updatedAt: '' },
+                            { id: 'art-ped-04', name: '지식 이전 완료 확인서', status: 'NOT_STARTED', assigneeName: '안유경 PM', updatedAt: '' }
+                        ]
+                    }
+                ]
+            }
+        ];
+    }
+
+    initializeProjectMethodology(projectId) {
+        if (!this.state.projectMethodologies) {
+            this.state.projectMethodologies = {};
+        }
+        const template = this.getDefaultMethodologyTemplate();
+        const clonedStages = JSON.parse(JSON.stringify(template));
+
+        this.state.projectMethodologies[projectId] = {
+            templateVersion: 'OPMS-1.0',
+            stages: clonedStages,
+            selectedActivityId: 'act-prp-pmplan',
+            selectedArtifactId: 'art-prp-07'
+        };
+        return this.state.projectMethodologies[projectId];
+    }
+
+    getProjectMethodology(projectId) {
+        if (!this.state.projectMethodologies) {
+            this.state.projectMethodologies = {};
+        }
+        if (!this.state.projectMethodologies[projectId]) {
+            return this.initializeProjectMethodology(projectId);
+        }
+        return this.state.projectMethodologies[projectId];
+    }
+
+    calculateMethodologyProgress(methodologyObj) {
+        if (!methodologyObj || !methodologyObj.stages) {
+            return { overallProgress: 0, stageProgresses: {}, statusCounts: {}, totalArtifacts: 0, completedArtifacts: 0 };
+        }
+
+        let totalArtifacts = 0;
+        let completedArtifacts = 0;
+        const statusCounts = { NOT_STARTED: 0, IN_PROGRESS: 0, IN_REVIEW: 0, APPROVED: 0 };
+        const stageProgresses = {};
+        let stageSum = 0;
+
+        methodologyObj.stages.forEach(stage => {
+            let actSum = 0;
+            const activities = stage.activities || [];
+            activities.forEach(act => {
+                let artSum = 0;
+                const artifacts = act.artifacts || [];
+                artifacts.forEach(art => {
+                    totalArtifacts++;
+                    const st = art.status || 'NOT_STARTED';
+                    statusCounts[st] = (statusCounts[st] || 0) + 1;
+                    if (st === 'APPROVED') completedArtifacts++;
+
+                    const progressVal = OPMS_STATUS_PROGRESS[st] !== undefined ? OPMS_STATUS_PROGRESS[st] : 0;
+                    artSum += progressVal;
+                });
+
+                act.progress = artifacts.length > 0 ? Math.round(artSum / artifacts.length) : 0;
+                actSum += act.progress;
+            });
+
+            stage.progress = activities.length > 0 ? Math.round(actSum / activities.length) : 0;
+            stageProgresses[stage.stageCode] = stage.progress;
+            stageSum += stage.progress;
+        });
+
+        const overallProgress = methodologyObj.stages.length > 0 ? Math.round(stageSum / methodologyObj.stages.length) : 0;
+
+        return {
+            overallProgress,
+            stageProgresses,
+            statusCounts,
+            totalArtifacts,
+            completedArtifacts
+        };
+    }
+
+    renderProjectDetailMethodology(projectId) {
+        const container = document.getElementById('detail-tab-content-methodology');
+        if (!container) return;
+
+        const methodologyObj = this.getProjectMethodology(projectId);
+        const { overallProgress, stageProgresses, statusCounts, totalArtifacts, completedArtifacts } = this.calculateMethodologyProgress(methodologyObj);
+
+        // Find selected item
+        let selectedActivity = null;
+        let selectedArtifact = null;
+        methodologyObj.stages.forEach(stg => {
+            (stg.activities || []).forEach(act => {
+                if (act.activityId === methodologyObj.selectedActivityId) {
+                    selectedActivity = act;
+                }
+                (act.artifacts || []).forEach(art => {
+                    if (art.id === methodologyObj.selectedArtifactId) {
+                        selectedArtifact = art;
+                        if (!selectedActivity) selectedActivity = act;
+                    }
+                });
+            });
+        });
+
+        if (!selectedArtifact && methodologyObj.stages[0]?.activities[0]?.artifacts[0]) {
+            selectedActivity = methodologyObj.stages[0].activities[0];
+            selectedArtifact = methodologyObj.stages[0].activities[0].artifacts[0];
+            methodologyObj.selectedActivityId = selectedActivity.activityId;
+            methodologyObj.selectedArtifactId = selectedArtifact.id;
+        }
+
+        // Build HTML
+        let html = `
+            <!-- Top Notice Banner -->
+            <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="info" style="width: 16px; height: 16px; color: var(--primary); flex-shrink: 0;"></i>
+                    <span style="font-size: 12px; color: var(--text-main); font-weight: 600;">
+                        ※ 본 프로젝트 수행 방법론(OPMS)은 프로젝트별 독립 State로 관리되며, 현재 인메모리 데모 모드로 작동합니다. (새로고침 시 초기 데이터로 설정됨)
+                    </span>
+                </div>
+                <span class="badge badge-info" style="font-size: 10px; font-weight: 700;">OPMS-1.0 표준 적용</span>
+            </div>
+
+            <!-- Top Overall Progress Card -->
+            <div class="methodology-header-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="compass" style="width: 18px; height: 18px; color: var(--primary);"></i>
+                            프로젝트 수행 방법론 (OPMS) 진행 현황
+                        </h3>
+                        <span style="font-size: 12px; color: var(--text-muted);">전체 6개 단계, 총 ${totalArtifacts}개 산출물 항목 중 ${completedArtifacts}개 승인완료</span>
+                    </div>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <span class="badge badge-status-APPROVED" style="font-size: 11px;">승인완료 ${statusCounts.APPROVED || 0}</span>
+                        <span class="badge badge-status-IN_REVIEW" style="font-size: 11px;">검토중 ${statusCounts.IN_REVIEW || 0}</span>
+                        <span class="badge badge-status-IN_PROGRESS" style="font-size: 11px;">작성중 ${statusCounts.IN_PROGRESS || 0}</span>
+                        <span class="badge badge-status-NOT_STARTED" style="font-size: 11px;">미작성 ${statusCounts.NOT_STARTED || 0}</span>
+                    </div>
+                </div>
+
+                <!-- Main Progress Bar -->
+                <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+                    <div style="flex: 1; height: 10px; background: var(--bg-hover-item); border-radius: 5px; overflow: hidden;">
+                        <div style="width: ${overallProgress}%; height: 100%; background: linear-gradient(90deg, var(--primary), var(--info)); border-radius: 5px; transition: width 0.3s ease;"></div>
+                    </div>
+                    <span style="font-size: 16px; font-weight: 800; color: var(--primary); min-width: 45px; text-align: right;">${overallProgress}%</span>
+                </div>
+
+                <!-- 6-Stage Mini Summary Cards Grid -->
+                <div class="opms-stages-grid">
+        `;
+
+        OPMS_STAGES.forEach(stgInfo => {
+            const prog = stageProgresses[stgInfo.code] || 0;
+            const isCurrentActive = methodologyObj.stages.find(s => s.stageCode === stgInfo.code)?.isOpen;
+
+            html += `
+                <div class="opms-stage-card ${isCurrentActive ? 'active' : ''}" onclick="app.toggleMethodologyStage('${projectId}', '${stgInfo.code}')">
+                    <div style="font-size: 11px; font-weight: 800; color: var(--primary); margin-bottom: 2px;">${stgInfo.code}</div>
+                    <div style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${stgInfo.fullName}">${stgInfo.name}</div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <div style="flex: 1; height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+                            <div style="width: ${prog}%; height: 100%; background: var(--primary);"></div>
+                        </div>
+                        <span style="font-size: 11px; font-weight: 700; color: var(--text-muted);">${prog}%</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `
+                </div>
+            </div>
+
+            <!-- Main Split Layout (Left: Accordions 70%, Right: Side Panel 30%) -->
+            <div class="methodology-container">
+                
+                <!-- Left/Center Main Body (6-Stage Accordions) -->
+                <div class="methodology-main-body">
+        `;
+
+        methodologyObj.stages.forEach(stg => {
+            const stgProg = stageProgresses[stg.stageCode] || 0;
+            const isStageOpen = stg.isOpen !== false;
+
+            html += `
+                <div class="opms-stage-accordion ${isStageOpen ? 'open' : ''}" id="opms-stage-box-${stg.stageCode}">
+                    <div class="opms-stage-header" onclick="app.toggleMethodologyStage('${projectId}', '${stg.stageCode}')">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i data-lucide="${isStageOpen ? 'chevron-down' : 'chevron-right'}" style="width: 18px; height: 18px; color: var(--primary);"></i>
+                            <span style="font-size: 15px; font-weight: 700; color: var(--text-main);">${stg.fullName}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 8px; width: 140px;">
+                                <div style="flex: 1; height: 6px; background: var(--bg-hover-item); border-radius: 3px; overflow: hidden;">
+                                    <div style="width: ${stgProg}%; height: 100%; background: var(--success);"></div>
+                                </div>
+                                <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">${stgProg}%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="opms-stage-body">
+            `;
+
+            (stg.activities || []).forEach(act => {
+                const isActOpen = act.isOpen !== false;
+                html += `
+                    <div class="opms-activity-accordion ${isActOpen ? 'open' : ''}">
+                        <div class="opms-activity-header" onclick="app.toggleMethodologyActivity('${projectId}', '${act.activityId}')">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="${isActOpen ? 'folder-open' : 'folder'}" style="width: 15px; height: 15px; color: var(--info);"></i>
+                                <span>▶ ${act.activityName}</span>
+                            </div>
+                            <div style="font-size: 11px; font-weight: 600; color: var(--text-muted);">
+                                진행률: <strong style="color: var(--primary);">${act.progress || 0}%</strong> (${(act.artifacts || []).length}개 산출물)
+                            </div>
+                        </div>
+
+                        <div class="opms-activity-body">
+                            <table class="data-table" style="font-size: 12px;">
+                                <thead>
+                                    <tr>
+                                        <th>산출물명</th>
+                                        <th style="width: 100px;">상태</th>
+                                        <th style="width: 110px;">진행률</th>
+                                        <th style="width: 110px;">담당자</th>
+                                        <th style="width: 100px;">수정일</th>
+                                        <th style="width: 80px; text-align: center;">상세</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+
+                (act.artifacts || []).forEach(art => {
+                    const isSelected = selectedArtifact && selectedArtifact.id === art.id;
+                    const stLabel = OPMS_STATUS_LABELS[art.status] || '미작성';
+                    const artProg = OPMS_STATUS_PROGRESS[art.status] !== undefined ? OPMS_STATUS_PROGRESS[art.status] : 0;
+
+                    html += `
+                        <tr class="opms-artifact-row ${isSelected ? 'selected' : ''}" onclick="app.selectMethodologyItem('${projectId}', '${act.activityId}', '${art.id}')">
+                            <td class="font-bold">
+                                <i data-lucide="file-text" style="width: 13px; height: 13px; display: inline-block; vertical-align: middle; margin-right: 6px; color: var(--primary);"></i>
+                                ${this.escapeHtml(art.name)}
+                            </td>
+                            <td>
+                                <select onchange="event.stopPropagation(); app.updateMethodologyArtifactStatus('${projectId}', '${art.id}', this.value)" style="padding: 2px 6px; font-size: 11px; border-radius: 4px; border: 1px solid var(--bg-card-border); background: var(--bg-card); color: var(--text-main); font-weight: 700; cursor: pointer;">
+                                    <option value="NOT_STARTED" ${art.status === 'NOT_STARTED' ? 'selected' : ''}>미작성</option>
+                                    <option value="IN_PROGRESS" ${art.status === 'IN_PROGRESS' ? 'selected' : ''}>작성중</option>
+                                    <option value="IN_REVIEW" ${art.status === 'IN_REVIEW' ? 'selected' : ''}>검토중</option>
+                                    <option value="APPROVED" ${art.status === 'APPROVED' ? 'selected' : ''}>승인완료</option>
+                                </select>
+                            </td>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <div style="flex: 1; height: 5px; background: var(--bg-hover-item); border-radius: 3px; overflow: hidden;">
+                                        <div style="width: ${artProg}%; height: 100%; background: ${artProg === 100 ? 'var(--success)' : artProg >= 70 ? 'var(--warning)' : 'var(--primary)'};"></div>
+                                    </div>
+                                    <span style="font-size: 11px; font-weight: 700;">${artProg}%</span>
+                                </div>
+                            </td>
+                            <td>${this.escapeHtml(art.assigneeName || '-')}</td>
+                            <td class="text-muted">${art.updatedAt || '-'}</td>
+                            <td class="text-center">
+                                <button class="btn btn-xs ${isSelected ? 'btn-primary' : 'btn-outline'}" onclick="event.stopPropagation(); app.selectMethodologyItem('${projectId}', '${act.activityId}', '${art.id}')">
+                                    선택
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `
+                </div>
+
+                <!-- Right Side Panel (30% width, collapsing to bottom on mobile) -->
+                <div class="methodology-side-panel">
+                    <div class="dashboard-card" style="position: sticky; top: 80px;">
+        `;
+
+        if (selectedArtifact && selectedActivity) {
+            const stLabel = OPMS_STATUS_LABELS[selectedArtifact.status] || '미작성';
+            const artProg = OPMS_STATUS_PROGRESS[selectedArtifact.status] !== undefined ? OPMS_STATUS_PROGRESS[selectedArtifact.status] : 0;
+
+            // Fetch Project-wide reference items
+            const projActions = (this.state.actionItems || []).filter(a => a.projectId === projectId);
+            const projMinutes = (this.state.meetingMinutes || []).filter(m => m.projectId === projectId);
+            const projIssues = (this.state.issues || []).filter(i => i.projectId === projectId);
+            const projDocs = (this.state.officialDocs || []).filter(d => d.projectId === projectId);
+            const projArtifacts = (this.state.artifacts || []).filter(art => art.projectId === projectId);
+
+            html += `
+                <div style="padding-bottom: 12px; border-bottom: 1px solid var(--bg-card-border); margin-bottom: 14px;">
+                    <div style="font-size: 10px; font-weight: 700; color: var(--primary); text-transform: uppercase; margin-bottom: 4px;">선택된 수행활동 / 산출물 정보</div>
+                    <h4 style="margin: 0 0 6px 0; font-size: 15px; font-weight: 800; color: var(--text-main);">${this.escapeHtml(selectedArtifact.name)}</h4>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px;">상위 활동: <strong>${this.escapeHtml(selectedActivity.activityName)}</strong></div>
+                    
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <span class="badge badge-status-${selectedArtifact.status}" style="font-size: 11px; font-weight: 700;">${stLabel}</span>
+                        <span style="font-size: 12px; font-weight: 800; color: var(--text-main);">진행률: ${artProg}%</span>
+                        <span style="font-size: 11px; color: var(--text-muted); margin-left: auto;">담당자: ${this.escapeHtml(selectedArtifact.assigneeName || '-')}</span>
+                    </div>
+                </div>
+
+                <!-- Future Function Interfaces (Disabled TODO Buttons) -->
+                <div style="background: var(--bg-hover-item); padding: 12px; border-radius: 8px; border: 1px solid var(--bg-card-border); margin-bottom: 16px;">
+                    <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 4px;">
+                        <i data-lucide="wrench" style="width: 12px; height: 12px;"></i> 고도화 확장 기능 (준비중)
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                        <button class="btn btn-xs btn-outline" disabled title="DB 스키마 및 자동 문서생성 엔진 연동 예정" style="opacity: 0.5; cursor: not-allowed;">
+                            <i data-lucide="file-plus" style="width: 11px; height: 11px; margin-right: 4px;"></i> 산출물 자동생성
+                        </button>
+                        <button class="btn btn-xs btn-outline" disabled title="문서번호 채번 규칙 연동 예정" style="opacity: 0.5; cursor: not-allowed;">
+                            <i data-lucide="hash" style="width: 11px; height: 11px; margin-right: 4px;"></i> 문서번호 채번
+                        </button>
+                        <button class="btn btn-xs btn-outline" disabled title="전자결재 승인 워크플로우 연동 예정" style="opacity: 0.5; cursor: not-allowed;">
+                            <i data-lucide="send" style="width: 11px; height: 11px; margin-right: 4px;"></i> 결재 승인 요청
+                        </button>
+                        <button class="btn btn-xs btn-outline" disabled title="버전 관리 및 이력 트래킹 연동 예정" style="opacity: 0.5; cursor: not-allowed;">
+                            <i data-lucide="history" style="width: 11px; height: 11px; margin-right: 4px;"></i> 버전 이력 관리
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Linked Reference Items Section -->
+                <div>
+                    <div style="font-size: 12px; font-weight: 700; color: var(--text-main); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+                        <span><i data-lucide="link" style="width: 13px; height: 13px; display: inline-block; vertical-align: middle; margin-right: 4px; color: var(--primary);"></i>연관 참고 정보 목록</span>
+                        <span style="font-size: 10px; color: var(--text-muted); font-weight: normal;">* 프로젝트 전체 참고</span>
+                    </div>
+
+                    <!-- Reference Action Items -->
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">관련 Action Item (${projActions.length}건)</div>
+                        ${projActions.length === 0 ? '<div style="font-size: 11px; color: var(--text-muted); padding: 4px 0;">등록된 Action Item이 없습니다.</div>' : ''}
+                        ${projActions.slice(0, 3).map(a => `
+                            <div style="font-size: 11px; padding: 4px 6px; background: var(--bg-hover-item); border-radius: 4px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px;" title="${this.escapeHtml(a.title)}">${this.escapeHtml(a.title)}</span>
+                                <span class="badge badge-xs badge-info">${a.status}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Reference Meeting Minutes -->
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">관련 회의록 (${projMinutes.length}건)</div>
+                        ${projMinutes.length === 0 ? '<div style="font-size: 11px; color: var(--text-muted); padding: 4px 0;">등록된 회의록이 없습니다.</div>' : ''}
+                        ${projMinutes.slice(0, 2).map(m => `
+                            <div style="font-size: 11px; padding: 4px 6px; background: var(--bg-hover-item); border-radius: 4px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px;" title="${this.escapeHtml(m.title)}">${this.escapeHtml(m.title)}</span>
+                                <span style="color: var(--text-muted); font-size: 10px;">${m.meetDate || '-'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Reference Issues & Risks -->
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">관련 이슈/리스크 (${projIssues.length}건)</div>
+                        ${projIssues.length === 0 ? '<div style="font-size: 11px; color: var(--text-muted); padding: 4px 0;">등록된 리스크가 없습니다.</div>' : ''}
+                        ${projIssues.slice(0, 2).map(i => `
+                            <div style="font-size: 11px; padding: 4px 6px; background: var(--bg-hover-item); border-radius: 4px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px;" title="${this.escapeHtml(i.title)}">${this.escapeHtml(i.title)}</span>
+                                <span class="badge badge-xs badge-warning">${i.priority || 'MEDIUM'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Reference Artifacts -->
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">제출된 산출물 (${projArtifacts.length}건)</div>
+                        ${projArtifacts.length === 0 ? '<div style="font-size: 11px; color: var(--text-muted); padding: 4px 0;">등록된 산출물이 없습니다.</div>' : ''}
+                        ${projArtifacts.slice(0, 2).map(art => `
+                            <div style="font-size: 11px; padding: 4px 6px; background: var(--bg-hover-item); border-radius: 4px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px;" title="${this.escapeHtml(art.name)}">${this.escapeHtml(art.name)}</span>
+                                <span style="color: var(--text-muted); font-size: 10px;">${art.version || 'v1.0'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        } else {
+            html += `
+                <div class="empty-state" style="padding: 40px 10px; text-align: center;">
+                    <i data-lucide="mouse-pointer" style="width: 24px; height: 24px; color: var(--text-muted); margin-bottom: 8px;"></i>
+                    <div style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 4px;">활동 항목을 선택하세요</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">좌측 단계 아코디언에서 산출물 항목을 클릭하시면 상세 및 참고 정보를 확인하실 수 있습니다.</div>
+                </div>
+            `;
+        }
+
+        html += `
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    toggleMethodologyStage(projectId, stageCode) {
+        const methodologyObj = this.getProjectMethodology(projectId);
+        const stage = methodologyObj.stages.find(s => s.stageCode === stageCode);
+        if (stage) {
+            stage.isOpen = !stage.isOpen;
+            this.renderProjectDetailMethodology(projectId);
+        }
+    }
+
+    toggleMethodologyActivity(projectId, activityId) {
+        const methodologyObj = this.getProjectMethodology(projectId);
+        methodologyObj.stages.forEach(stg => {
+            const act = (stg.activities || []).find(a => a.activityId === activityId);
+            if (act) {
+                act.isOpen = !act.isOpen;
+            }
+        });
+        this.renderProjectDetailMethodology(projectId);
+    }
+
+    selectMethodologyItem(projectId, activityId, artifactId) {
+        const methodologyObj = this.getProjectMethodology(projectId);
+        methodologyObj.selectedActivityId = activityId;
+        methodologyObj.selectedArtifactId = artifactId;
+        this.renderProjectDetailMethodology(projectId);
+    }
+
+    updateMethodologyArtifactStatus(projectId, artifactId, newStatus) {
+        const methodologyObj = this.getProjectMethodology(projectId);
+        methodologyObj.stages.forEach(stg => {
+            (stg.activities || []).forEach(act => {
+                (act.artifacts || []).forEach(art => {
+                    if (art.id === artifactId) {
+                        art.status = newStatus;
+                        art.updatedAt = new Date().toISOString().split('T')[0];
+                    }
+                });
+            });
+        });
+        this.renderProjectDetailMethodology(projectId);
     }
 
     renderProjectDetail(projectId) {
