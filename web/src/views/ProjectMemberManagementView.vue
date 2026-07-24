@@ -121,7 +121,7 @@ function openProject(id: number) {
 
 // ---- 매핑 수정/삭제 + 인력 추가 -------------------------------------------------
 const editTarget = ref<{ projectId: number; member: ProjectMemberDetail } | null>(null);
-const addProjectId = ref<number | null>(null);
+const showAddForm = ref(false);
 
 function editRow(r: ProjectMemberAssignment) {
   editTarget.value = {
@@ -156,14 +156,9 @@ async function removeRow(r: ProjectMemberAssignment) {
   }
 }
 
-function openAdd() {
-  if (projectFilter.value === '') return;
-  addProjectId.value = projectFilter.value;
-}
-
 async function onSaved() {
   editTarget.value = null;
-  addProjectId.value = null;
+  showAddForm.value = false;
   await load();
 }
 
@@ -204,12 +199,7 @@ onMounted(() => {
         </label>
 
         <input v-model="query" class="search" type="search" placeholder="이름, 참여 역할, 직급으로 검색..." />
-        <button
-          class="btn btn-primary"
-          :disabled="projectFilter === ''"
-          :title="projectFilter === '' ? '프로젝트를 먼저 선택하세요' : ''"
-          @click="openAdd"
-        >+ 인력 추가</button>
+        <button class="btn btn-primary" @click="showAddForm = true">+ 인력 추가</button>
       </div>
 
       <div v-if="loading" class="notice">불러오는 중…</div>
@@ -273,20 +263,22 @@ onMounted(() => {
       </template>
     </template>
 
-    <!-- 매핑 수정 -->
+    <!-- 매핑 수정 — 폼 안에서 투입 프로젝트 변경(이동) 가능 -->
     <ProjectMemberFormModal
       v-if="editTarget"
       :project-id="editTarget.projectId"
       :member="editTarget.member"
+      project-selectable
       @saved="onSaved"
       @close="editTarget = null"
     />
-    <!-- 인력 추가(선택된 프로젝트로 등록) -->
+    <!-- 인력 추가 — 폼 안에서 프로젝트 선택(현재 필터가 있으면 프리필) -->
     <ProjectMemberFormModal
-      v-if="addProjectId != null"
-      :project-id="addProjectId"
+      v-if="showAddForm"
+      :project-id="projectFilter === '' ? null : projectFilter"
+      project-selectable
       @saved="onSaved"
-      @close="addProjectId = null"
+      @close="showAddForm = false"
     />
   </div>
 </template>

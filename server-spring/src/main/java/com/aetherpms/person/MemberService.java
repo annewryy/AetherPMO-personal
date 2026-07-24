@@ -118,7 +118,8 @@ public class MemberService {
         List<String> allowed = List.of("memberType", "userUid", "amaranthEmpNo", "name",
                 "company", "companyId", "roleName", "position", "department",
                 "participationRole", "employmentType", "isProjectManager",
-                "startDate", "endDate", "memo");
+                "startDate", "endDate", "memo",
+                "projectId");   // 0028 §C: 참여인력 관리에서 투입 프로젝트 이동
         List<String> unknown = b.keySet().stream().filter(k -> !allowed.contains(k)).toList();
         if (!unknown.isEmpty()) {
             throw ApiException.badRequest("허용되지 않는 필드: " + String.join(", ", unknown));
@@ -164,6 +165,15 @@ public class MemberService {
             set.put("end_date", v == null || v.isEmpty() ? null : LocalDate.parse(v));
         }
         if (b.containsKey("memo")) set.put("memo", str(b.get("memo")));
+        // 0028 §C: 투입 프로젝트 이동 — 대상 프로젝트 존재 검증 후 project_id 변경(행·이력 보존).
+        if (b.containsKey("projectId")) {
+            Long np = toLongOrNull(b.get("projectId"));
+            if (np == null || np <= 0) throw ApiException.badRequest("유효하지 않은 projectId입니다.");
+            Integer exists = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM pms_project WHERE project_id = ?", Integer.class, np);
+            if (exists == null || exists == 0) throw ApiException.notFound("이동할 프로젝트를 찾을 수 없습니다.");
+            set.put("project_id", np);
+        }
 
         // 조직도 재선택(amaranthEmpNo)이면 person 재연결(0005 §D find-or-insert).
         if (b.get("amaranthEmpNo") != null && !str(b.get("amaranthEmpNo")).isBlank()) {

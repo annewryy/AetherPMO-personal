@@ -6,12 +6,18 @@
 import { ref, computed, onMounted } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import { EMPLOYMENT_TYPES } from '../lib/personLabels';
-import type { ProjectMemberInput, ProjectMemberType, EmploymentType, OrgPick, ProjectMemberDetail, Company } from '../types';
+import type { ProjectMemberInput, ProjectMemberType, EmploymentType, OrgPick, ProjectMemberDetail, Company, Project } from '../types';
 import ModalShell from './ModalShell.vue';
 import OrgPickerModal from './OrgPickerModal.vue';
 
 // member 있으면 수정 모드(PATCH), 없으면 등록 모드(POST).
-const props = defineProps<{ projectId: number; member?: ProjectMemberDetail | null }>();
+// 0028 §C: projectSelectable=true(참여인력 관리)면 폼 안에서 투입 프로젝트를 선택/변경한다.
+//   등록 = 선택한 프로젝트로 POST, 수정 = 프로젝트 변경 시 PATCH projectId(이동).
+const props = defineProps<{
+  projectId?: number | null;
+  member?: ProjectMemberDetail | null;
+  projectSelectable?: boolean;
+}>();
 const emit = defineEmits<{ (e: 'saved'): void; (e: 'close'): void }>();
 
 const isEdit = computed(() => !!props.member);
@@ -34,12 +40,23 @@ const company = ref('');   // 표시명(제출 본문 company) — select/신규
 
 const companyRequired = computed(() => OUTSOURCED_TYPES.has(employmentType.value));
 
+// 0028 §C — 투입 프로젝트 선택(참여인력 관리 전용). 등록: 필수 선택, 수정: 변경 시 이동.
+const projectList = ref<Project[]>([]);
+const selectedProjectId = ref<number | ''>(props.projectId ?? '');
+
 onMounted(async () => {
   try {
     companies.value = (await dataClient.companies.list()).filter((c) => c.isActive !== false);
     syncCompanySelect();
   } catch (e) {
     console.error('[member-form] 회사 목록 로드 실패:', e);
+  }
+  if (props.projectSelectable) {
+    try {
+      projectList.value = await dataClient.projects.list();
+    } catch (e) {
+      console.error('[member-form] 프로젝트 목록 로드 실패:', e);
+    }
   }
 });
 
@@ -121,6 +138,14 @@ const error = ref<string | null>(null);
 
 async function submit() {
   if (!name.value.trim()) { error.value = '성명은 필수입니다.'; return; }
+  // 0028 §C: 프로젝트 선택 모드 — 등록·수정 모두 대상 프로젝트 필수.
+  if (props.projectSelectable && selectedProjectId.value === '') {
+    error.value = '투입 프로젝트를 선택해 주세요.'; return;
+  }
+  const targetProjectId = props.projectSelectable
+    ? (selectedProjectId.value as number)
+    : (props.projectId ?? null);
+  if (targetProjectId == null) { error.value = '프로젝트가 지정되지 않았습니다.'; return; }
   // 외주 계열은 소속회사 필수(결정 4).
   const isNew = companySelect.value === '__new__';
   if (companyRequired.value && !companySelect.value) {
@@ -171,9 +196,14 @@ async function submit() {
   input.participationRole = participationRole.value || null;
   try {
     if (isEdit.value && props.member) {
-      await dataClient.projectMembers.update(props.projectId, props.member.memberId, input);
+      // 수정: URL은 원 소속 프로젝트, 프로젝트가 바뀌었으면 PATCH projectId로 이동(행 보존).
+      const originProjectId = props.projectId ?? targetProjectId;
+      if (props.projectSelectable && targetProjectId !== originProjectId) {
+        input.projectId = targetProjectId;
+      }
+      await dataClient.projectMembers.update(originProjectId, props.member.memberId, input);
     } else {
-      await dataClient.projectMembers.add(props.projectId, input);
+      await dataClient.projectMembers.add(targetProjectId, input);
     }
     emit('saved');
   } catch (e) {
@@ -186,6 +216,17 @@ async function submit() {
 
 <template>
   <ModalShell :title="isEdit ? '참여인력 수정' : '참여인력 등록'" @close="emit('close')">
+    <!-- 0028 §C: 투입 프로젝트 선택(참여인력 관리 전용) — 수정 시 변경하면 프로젝트 이동 -->
+    <template v-if="projectSelectable">
+      <label class="label">투입 프로젝트 <span class="req">*</span></label>
+      <select v-model="selectedProjectId" class="input" :disabled="submitting">
+        <option value="">프로젝트를 선택하세요</option>
+        <option v-for="p in projectList" :key="p.id" :value="p.id">
+          {{ p.projectCode ? `${p.projectCode} - ${p.name}` : p.name }}
+        </option>
+      </select>
+    </template>
+
     <label class="label">성명 <span class="req">*</span></label>
     <!-- 조직도에서 선택 완료(내부/기존 외부) -->
     <div v-if="picked" class="picked">

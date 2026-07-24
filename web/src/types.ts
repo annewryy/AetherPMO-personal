@@ -211,6 +211,8 @@ export interface ProjectMemberAssignment {
 // 필수 name. 백엔드가 pms_person에 find-or-insert 후 연결(0005 §D).
 export interface ProjectMemberInput {
   name: string;
+  /** PATCH 전용(0028) — 투입 프로젝트 이동. POST는 URL의 projectId 사용(본문에 넣으면 400). */
+  projectId?: number;
   memberType?: ProjectMemberType | null;
   employmentType?: EmploymentType | null;
   company?: string | null;
