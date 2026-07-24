@@ -10,6 +10,7 @@ import { dataClient } from '../lib/dataClient';
 import { EMPLOYMENT_TYPES, employmentTypeLabel } from '../lib/personLabels';
 import type { Project, ProjectMemberAssignment, ProjectMemberDetail } from '../types';
 import ProjectMemberFormModal from '../components/ProjectMemberFormModal.vue';
+import ProjectSelectField from '../components/ProjectSelectField.vue';
 import PageSizeSelect from '../components/PageSizeSelect.vue';
 import Pager from '../components/Pager.vue';
 import { DEFAULT_PAGE_SIZE, usePagination } from '../lib/pagination';
@@ -22,7 +23,7 @@ const projects = ref<Project[]>([]);
 const loading = ref(true);
 const loadError = ref<string | null>(null);
 
-const projectFilter = ref<number | ''>('');
+const projectFilter = ref<number | null>(null);
 const selectedTypes = ref<string[]>([]);
 const query = ref('');
 const includeInactive = ref(false);
@@ -68,7 +69,7 @@ const filteredRows = computed(() => {
   const q = query.value.trim().toLowerCase();
   return rows.value.filter((r) => {
     if (!includeInactive.value && !r.isActive) return false;
-    if (projectFilter.value !== '' && r.projectId !== projectFilter.value) return false;
+    if (projectFilter.value != null && r.projectId !== projectFilter.value) return false;
     if (selectedTypes.value.length > 0 && !selectedTypes.value.includes(String(r.employmentType ?? ''))) return false;
     if (!q) return true;
     return [r.name, r.department, r.position, r.roleName, r.participationRole]
@@ -180,12 +181,12 @@ onMounted(() => {
 
       <!-- 필터/컨트롤 바 -->
       <div class="toolbar">
-        <select v-model="projectFilter" class="select" aria-label="프로젝트 필터">
-          <option value="">전체 프로젝트</option>
-          <option v-for="p in projects" :key="p.id" :value="p.id">
-            {{ p.projectCode ? `${p.projectCode} - ${p.name}` : p.name }}
-          </option>
-        </select>
+        <ProjectSelectField
+          v-model="projectFilter"
+          :projects="projects"
+          clearable
+          placeholder="전체 프로젝트 — 검색해서 필터"
+        />
 
         <div class="checks">
           <label v-for="t in EMPLOYMENT_TYPES" :key="t.code" class="chk">
@@ -275,7 +276,7 @@ onMounted(() => {
     <!-- 인력 추가 — 폼 안에서 프로젝트 선택(현재 필터가 있으면 프리필) -->
     <ProjectMemberFormModal
       v-if="showAddForm"
-      :project-id="projectFilter === '' ? null : projectFilter"
+      :project-id="projectFilter"
       project-selectable
       @saved="onSaved"
       @close="showAddForm = false"
