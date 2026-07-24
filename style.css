@@ -3023,7 +3023,7 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
    ========================================================================== */
 .bidding-split-layout {
     display: grid;
-    grid-template-columns: 3.5fr 6.5fr;
+    grid-template-columns: 1fr;
     gap: 20px;
     margin-top: 10px;
 }
@@ -3098,6 +3098,211 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
     padding: 16px;
     cursor: pointer;
     transition: all var(--transition-normal);
+}
+
+/* ==========================================================================
+   BIDDING PMO DASHBOARD & PIPELINE CARDS STYLING
+   ========================================================================== */
+.bidding-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    width: 100%;
+}
+@media (max-width: 1200px) {
+    .bidding-kpi-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+@media (max-width: 640px) {
+    .bidding-kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.bidding-kpi-card {
+    background: var(--bg-card);
+    border: 1px solid var(--bg-card-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+.bidding-kpi-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.bidding-kpi-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.bidding-kpi-value {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text-main);
+    font-family: var(--font-mono, monospace);
+}
+.bidding-kpi-sub {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+/* 5-Stage D-Day Color Badges */
+.dday-purple {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+.dday-red {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.dday-orange {
+    background: rgba(249, 115, 22, 0.15);
+    color: #fb923c;
+    border: 1px solid rgba(249, 115, 22, 0.3);
+}
+.dday-blue {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.dday-gray {
+    background: rgba(100, 116, 139, 0.15);
+    color: #94a3b8;
+    border: 1px solid rgba(100, 116, 139, 0.3);
+}
+
+/* Stepper Progress Bar styling */
+.bidding-stepper-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 12px 0;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--bg-card-border);
+    border-radius: 8px;
+}
+.bidding-stepper-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 700;
+}
+.bidding-stepper-track {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    padding: 4px 0;
+}
+.bidding-stepper-line {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--bg-card-border);
+    z-index: 1;
+    transform: translateY(-50%);
+}
+.bidding-stepper-progress-line {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary), #8b5cf6);
+    z-index: 2;
+    transform: translateY(-50%);
+    transition: width 0.3s ease;
+}
+.bidding-stepper-node {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 2px solid var(--bg-card-border);
+    z-index: 3;
+    transition: all 0.2s ease;
+}
+.bidding-stepper-node.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+}
+.bidding-stepper-node.completed {
+    background: #10b981;
+    border-color: #10b981;
+}
+
+/* Urgent Action Item 1-line */
+.bidding-card-urgent-task {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    margin-top: 8px;
+}
+
+/* AI Copilot Button */
+.btn-ai-copilot {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2));
+    border: 1px solid rgba(139, 92, 246, 0.4);
+    color: #c084fc;
+    font-size: 11px;
+    font-weight: 800;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.btn-ai-copilot:hover {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(139, 92, 246, 0.4));
+    border-color: #c084fc;
+    box-shadow: 0 0 12px rgba(192, 132, 252, 0.4);
+    color: #ffffff;
+}
+
+/* AI Copilot Plugin Grid */
+.ai-copilot-plugin-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+.ai-copilot-plugin-card {
+    background: var(--bg-hover-item);
+    border: 1px solid var(--bg-card-border);
+    border-radius: 10px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+.ai-copilot-plugin-card:hover {
+    border-color: var(--primary);
+    background: var(--bg-card-hover);
+    transform: translateY(-2px);
 }
 .bidding-project-card:hover {
     border-color: var(--primary);

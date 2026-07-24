@@ -4040,6 +4040,28 @@ class AetherPMO {
 
         if (mainRoute === 'project-detail' && parts[1]) {
             await this.switchView('project-detail', parts[1]);
+        } else if (mainRoute === 'tailoring' || mainRoute === 'methodology') {
+            await this.switchView('tailoring');
+        } else if (['issues', 'risks', 'action-items', 'official-docs', 'meeting-minutes'].includes(mainRoute)) {
+            let targetProjectId = this.activeProjectId;
+            if (!targetProjectId && this.state.projects && this.state.projects.length > 0) {
+                targetProjectId = this.state.projects[0].id;
+                this.activeProjectId = targetProjectId;
+            }
+
+            if (targetProjectId) {
+                await this.switchView('project-detail', targetProjectId);
+                const tabMap = {
+                    'issues': 'issues',
+                    'risks': 'risks',
+                    'action-items': 'action-items',
+                    'official-docs': 'official-docs',
+                    'meeting-minutes': 'meeting-minutes'
+                };
+                this.setDetailTab(tabMap[mainRoute] || 'overview');
+            } else {
+                await this.switchView('projects');
+            }
         } else if (mainRoute === 'projects') {
             const stage = parts[1];
             if (stage === 'bidding') {
@@ -4229,6 +4251,8 @@ class AetherPMO {
             this.initG2BSearchView();
         } else if (viewName === 'project-detail' && params) {
             this.renderProjectDetail(params);
+        } else if (viewName === 'tailoring') {
+            this.renderTailoringView();
         } else if (viewName === 'artifacts') {
             this.renderArtifacts();
         } else if (viewName === 'issues') {
@@ -6323,128 +6347,643 @@ class AetherPMO {
         this.renderBiddingSplitPane();
     }
 
+    getBiddingProjectsList() {
+        const realProjects = (this.state.projects || []).filter(p => p.status === 'Bidding');
+        if (realProjects.length > 0) {
+            return realProjects;
+        }
+        return [
+            {
+                id: 'demo-bid-1',
+                name: '[국방부] 차세대 융합 정보시스템 통합 구축사업',
+                code: 'BID-2026-001',
+                customer: '국방부 지능정보화정책관',
+                status: 'Bidding',
+                bidStatus: 'drafting',
+                biddingStatusKey: 'drafting',
+                budget: 4500000000,
+                pmName: '안유경',
+                teamCount: 3,
+                endDate: '2026-07-28',
+                submittedDate: null,
+                urgentTask: 'RFP 기술 제안서 2차 검토 및 증빙 서류 취합',
+                aiAnalysis: {
+                    winProbability: 82,
+                    winGrade: 'HIGH',
+                    riskLevel: 'LOW',
+                    summary: '기술 점수 우수, 가격 경쟁력 및 제안 기획 안정적',
+                    recommendations: ['기술 파트 장비 사양 최종 확정', '수주 확정 준비'],
+                    source: 'mock',
+                    analyzedAt: null
+                },
+                isDemo: true,
+                source: 'demo'
+            },
+            {
+                id: 'demo-bid-2',
+                name: '[행정안전부] 국가 재난안전 데이터 클라우드 전환 사업',
+                code: 'BID-2026-002',
+                customer: '행정안전부 디지털정부국',
+                status: 'Bidding',
+                bidStatus: 'review',
+                biddingStatusKey: 'review',
+                budget: 2800000000,
+                pmName: '김철수',
+                teamCount: 4,
+                endDate: '2026-08-10',
+                submittedDate: null,
+                urgentTask: '사업 타당성 분석 및 컨소시엄 구성 협의',
+                aiAnalysis: {
+                    winProbability: 65,
+                    winGrade: 'MEDIUM',
+                    riskLevel: 'MEDIUM',
+                    summary: '클라우드 인프라 요건 정밀 분석 필요',
+                    recommendations: ['컨소시엄 지분율 조율', '보안 요구사항 서류 확인'],
+                    source: 'mock',
+                    analyzedAt: null
+                },
+                isDemo: true,
+                source: 'demo'
+            },
+            {
+                id: 'demo-bid-3',
+                name: '[보건복지부] 스마트 의료 빅데이터 분석 플랫폼 구축',
+                code: 'BID-2026-003',
+                customer: '보건복지부 정보화담당관',
+                status: 'Bidding',
+                bidStatus: 'submitted',
+                biddingStatusKey: 'submitted',
+                budget: 3200000000,
+                pmName: '이영희',
+                teamCount: 5,
+                endDate: '2026-07-24',
+                submittedDate: '2026-07-20',
+                urgentTask: '발표 제안회(PT) 수주 발표자료 최종 점검',
+                aiAnalysis: {
+                    winProbability: 91,
+                    winGrade: 'HIGH',
+                    riskLevel: 'LOW',
+                    summary: '기존 의료 데이터 수주 실적 매칭 우수',
+                    recommendations: ['발표 PT 시연 시나리오 최종 점검'],
+                    source: 'mock',
+                    analyzedAt: null
+                },
+                isDemo: true,
+                source: 'demo'
+            },
+            {
+                id: 'demo-bid-4',
+                name: '[한국전력공사] 지능형 전력망 AI 예측 모니터링 고도화',
+                code: 'BID-2026-004',
+                customer: '한국전력공사 ICT기획처',
+                status: 'Bidding',
+                bidStatus: 'waiting_result',
+                biddingStatusKey: 'waiting_result',
+                budget: 1800000000,
+                pmName: '박민수',
+                teamCount: 2,
+                endDate: '2026-07-22',
+                submittedDate: '2026-07-18',
+                urgentTask: '입찰 결과 확인 및 개찰 현황 모니터링',
+                aiAnalysis: {
+                    winProbability: 78,
+                    winGrade: 'MEDIUM',
+                    riskLevel: 'LOW',
+                    summary: '가격 서류 개찰 대기 중',
+                    recommendations: ['결과 통보 수신 대기'],
+                    source: 'mock',
+                    analyzedAt: null
+                },
+                isDemo: true,
+                source: 'demo'
+            },
+            {
+                id: 'demo-bid-5',
+                name: '[국토교통부] 스마트시티 자율주행 도로 관제 플랫폼',
+                code: 'BID-2026-005',
+                customer: '국토교통부 도시경제과',
+                status: 'Bidding',
+                bidStatus: 'won',
+                biddingStatusKey: 'won',
+                budget: 5200000000,
+                pmName: '안유경',
+                teamCount: 6,
+                endDate: '2026-07-15',
+                submittedDate: '2026-07-10',
+                urgentTask: '수주 확정 및 계약체결, 프로젝트 수행 전환 준비',
+                aiAnalysis: {
+                    winProbability: 98,
+                    winGrade: 'HIGH',
+                    riskLevel: 'LOW',
+                    summary: '우수 사업자로 최종 낙찰 통보 수신',
+                    recommendations: ['착수계 보고서 작성 및 착수 회의 일시 확정'],
+                    source: 'mock',
+                    analyzedAt: null
+                },
+                isDemo: true,
+                source: 'demo'
+            }
+        ];
+    }
+
+    normalizeBiddingStatus(project) {
+        if (!project) return 'review';
+        const status = project.biddingStatusKey || project.bidStatus || project.status;
+        if (status === '제안 준비중' || status === 'drafting') return 'drafting';
+        if (status === '참여검토' || status === 'review') return 'review';
+        if (status === '가격검토' || status === 'price_review') return 'price_review';
+        if (status === '제안 제출' || status === '제출완료' || status === 'submitted') return 'submitted';
+        if (status === '결과 대기' || status === '결과대기' || status === 'waiting_result') return 'waiting_result';
+        if (status === '수주' || status === '낙찰' || status === 'won') return 'won';
+        if (status === '실패' || status === '종료' || status === 'closed' || status === 'lost') return 'closed';
+        return 'review';
+    }
+
+    getDDayBadge(endDateStr) {
+        if (!endDateStr) return { text: '마감일 미정', class: 'dday-gray' };
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const end = new Date(endDateStr);
+        if (isNaN(end.getTime())) return { text: '마감일 미정', class: 'dday-gray' };
+        end.setHours(0,0,0,0);
+        const diffDays = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) return { text: 'D-DAY', class: 'dday-purple' };
+        if (diffDays < 0) return { text: 'D+' + Math.abs(diffDays), class: 'dday-gray' };
+        if (diffDays <= 3) return { text: 'D-' + diffDays, class: 'dday-red' };
+        if (diffDays <= 7) return { text: 'D-' + diffDays, class: 'dday-orange' };
+        if (diffDays <= 14) return { text: 'D-' + diffDays, class: 'dday-blue' };
+        return { text: 'D-' + diffDays, class: 'dday-gray' };
+    }
+
+    renderBiddingStepper(statusKey) {
+        const steps = [
+            { key: 'review', label: '참여검토', percent: 15 },
+            { key: 'drafting', label: '제안서 작성', percent: 40 },
+            { key: 'price_review', label: '가격검토', percent: 65 },
+            { key: 'submitted', label: '제출완료', percent: 85 },
+            { key: 'waiting_result', label: '결과대기', percent: 95 },
+            { key: 'won', label: '낙찰', percent: 100 }
+        ];
+        let activeIdx = steps.findIndex(s => s.key === statusKey);
+        if (activeIdx < 0) activeIdx = 0;
+        const currentStep = steps[activeIdx];
+        const progressWidth = currentStep.percent + '%';
+
+        const nodesHtml = steps.map((s, idx) => {
+            let cls = '';
+            if (idx < activeIdx) cls = 'completed';
+            else if (idx === activeIdx) cls = 'active';
+            return `<div class="bidding-stepper-node ${cls}" title="${s.label}"></div>`;
+        }).join('');
+
+        return `
+            <div class="bidding-stepper-container">
+                <div class="bidding-stepper-header">
+                    <span class="text-xs font-bold" style="color:var(--primary);">${currentStep.label}</span>
+                    <span class="text-xs font-bold" style="color:var(--text-muted);">${currentStep.percent}%</span>
+                </div>
+                <div class="bidding-stepper-track">
+                    <div class="bidding-stepper-line"></div>
+                    <div class="bidding-stepper-progress-line" style="width: ${progressWidth};"></div>
+                    ${nodesHtml}
+                </div>
+            </div>
+        `;
+    }
+
+    renderBiddingKpis(allBiddingProjects) {
+        const bannerContainer = document.getElementById('bidding-kpi-banner');
+        if (!bannerContainer) return;
+
+        const totalCount = allBiddingProjects.length;
+
+        const inProgressCount = allBiddingProjects.filter(p => {
+            const key = this.normalizeBiddingStatus(p);
+            return ['review', 'drafting', 'price_review'].includes(key);
+        }).length;
+
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const dueThisWeekCount = allBiddingProjects.filter(p => {
+            if (!p.endDate) return false;
+            const end = new Date(p.endDate);
+            if (isNaN(end.getTime())) return false;
+            end.setHours(0,0,0,0);
+            const diffDays = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            return diffDays >= 0 && diffDays <= 7;
+        }).length;
+
+        const thisMonth = today.getMonth();
+        const thisYear = today.getFullYear();
+        const submittedThisMonthCount = allBiddingProjects.filter(p => {
+            const key = this.normalizeBiddingStatus(p);
+            if (['submitted', 'waiting_result', 'won'].includes(key)) {
+                const subDate = p.submittedDate ? new Date(p.submittedDate) : (p.endDate ? new Date(p.endDate) : null);
+                if (subDate && !isNaN(subDate.getTime())) {
+                    return subDate.getMonth() === thisMonth && subDate.getFullYear() === thisYear;
+                }
+                return true;
+            }
+            return false;
+        }).length;
+
+        const wonCount = allBiddingProjects.filter(p => this.normalizeBiddingStatus(p) === 'won').length;
+        const closedCount = allBiddingProjects.filter(p => this.normalizeBiddingStatus(p) === 'closed').length;
+        const resolvedCount = wonCount + closedCount;
+        const winRateText = resolvedCount > 0 ? (Math.round((wonCount / resolvedCount) * 100) + '%') : '0%';
+
+        const totalValue = allBiddingProjects.reduce((sum, p) => sum + (p.budget || 0), 0);
+        const formatValue = (val) => {
+            if (val >= 100000000) {
+                return (val / 100000000).toFixed(1) + ' 억원';
+            } else if (val >= 10000) {
+                return (val / 10000).toFixed(0) + ' 만원';
+            }
+            return val.toLocaleString() + ' 원';
+        };
+
+        bannerContainer.style.display = 'grid';
+        bannerContainer.innerHTML = `
+            <div class="bidding-kpi-card">
+                <span class="bidding-kpi-title">총 입찰건수</span>
+                <span class="bidding-kpi-value" style="color: var(--primary);">${totalCount} <span style="font-size:12px; font-weight:600; color:var(--text-muted);">건</span></span>
+                <span class="bidding-kpi-sub">전체 파이프라인 관리</span>
+            </div>
+            <div class="bidding-kpi-card">
+                <span class="bidding-kpi-title">진행중 입찰</span>
+                <span class="bidding-kpi-value" style="color: var(--info, #3b82f6);">${inProgressCount} <span style="font-size:12px; font-weight:600; color:var(--text-muted);">건</span></span>
+                <span class="bidding-kpi-sub">참여검토 ~ 작성중</span>
+            </div>
+            <div class="bidding-kpi-card">
+                <span class="bidding-kpi-title">금주 마감</span>
+                <span class="bidding-kpi-value" style="color: var(--danger, #ef4444);">${dueThisWeekCount} <span style="font-size:12px; font-weight:600; color:var(--text-muted);">건</span></span>
+                <span class="bidding-kpi-sub">D-7 이내 제출 마감</span>
+            </div>
+            <div class="bidding-kpi-card">
+                <span class="bidding-kpi-title">이번달 제출</span>
+                <span class="bidding-kpi-value" style="color: var(--warning, #f59e0b);">${submittedThisMonthCount} <span style="font-size:12px; font-weight:600; color:var(--text-muted);">건</span></span>
+                <span class="bidding-kpi-sub">제출 및 평가 완료</span>
+            </div>
+            <div class="bidding-kpi-card">
+                <span class="bidding-kpi-title">낙찰률 (%)</span>
+                <span class="bidding-kpi-value" style="color: var(--success, #10b981);">${winRateText}</span>
+                <span class="bidding-kpi-sub">낙찰 ÷ 결과 확정 (${resolvedCount}건)</span>
+            </div>
+            <div class="bidding-kpi-card">
+                <span class="bidding-kpi-title">총 예상 수주금액</span>
+                <span class="bidding-kpi-value" style="color: #a78bfa; font-size:16px;">${formatValue(totalValue)}</span>
+                <span class="bidding-kpi-sub">파이프라인 사업예산 합계</span>
+            </div>
+        `;
+    }
+
     renderBiddingSplitPane() {
         const leftGrid = document.getElementById('bidding-projects-list-container');
         if (!leftGrid) return;
 
-        // 1. Render Bidding Projects (Left Panel)
-        const biddingProjects = this.state.projects.filter(p => {
-            const isBidding = p.status === 'Bidding';
-            const matchStatus = this.activeBiddingStatusFilter === 'all' || p.bidStatus === this.activeBiddingStatusFilter;
-            return isBidding && matchStatus;
+        const allBiddingProjects = this.getBiddingProjectsList();
+        this.renderBiddingKpis(allBiddingProjects);
+
+        const filter = this.activeBiddingStatusFilter || 'all';
+        const filteredProjects = allBiddingProjects.filter(p => {
+            if (filter === 'all') return true;
+            return this.normalizeBiddingStatus(p) === filter;
         });
 
         leftGrid.innerHTML = '';
-        if (biddingProjects.length === 0) {
-            const hasAnyBidding = this.state.projects.some(p => p.status === 'Bidding');
-            const emptyMsg = hasAnyBidding 
-                ? '조건에 부합하는 입찰 프로젝트가 없습니다.' 
-                : '등록된 입찰 참여 프로젝트가 없습니다.';
+        if (filteredProjects.length === 0) {
             leftGrid.innerHTML = `
                 <div class="text-center text-muted py-8" style="grid-column: 1 / -1; padding: 48px 0; width:100%;">
                     <i data-lucide="folder-open" style="width:40px; height:40px; margin-bottom:12px; opacity:0.5; display:inline-block;"></i>
-                    <p style="font-size: 13px; font-weight: 500;">${emptyMsg}</p>
+                    <p style="font-size: 13px; font-weight: 500;">조건에 부합하는 입찰 프로젝트가 없습니다.</p>
                 </div>
             `;
         } else {
-            const isValidDate = (d) => d instanceof Date && !isNaN(d.getTime());
-            
-            biddingProjects.forEach(p => {
-                const today = new Date();
-                today.setHours(0,0,0,0);
-                const end = p.endDate ? new Date(p.endDate) : null;
+            filteredProjects.forEach(p => {
+                const statusKey = this.normalizeBiddingStatus(p);
+                const dDayObj = this.getDDayBadge(p.endDate);
+                const stepperHtml = this.renderBiddingStepper(statusKey);
 
-                let dDayText = '-';
-                let dDayClass = 'dday-normal';
-                if (end && isValidDate(end)) {
-                    end.setHours(0,0,0,0);
-                    const diffTime = end.getTime() - today.getTime();
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    if (diffDays === 0) {
-                        dDayText = 'D-Day';
-                        dDayClass = 'dday-today';
-                    } else if (diffDays < 0) {
-                        dDayText = 'D+' + Math.abs(diffDays);
-                        dDayClass = 'dday-overdue';
-                    } else {
-                        dDayText = 'D-' + diffDays;
-                        if (diffDays <= 3) {
-                            dDayClass = 'dday-impending';
-                        }
-                    }
-                } else {
-                    dDayText = '마감일 미정';
-                    dDayClass = 'dday-normal';
-                }
+                let statusBadgeText = '참여검토';
+                let statusBadgeCls = 'bid-status-preparing';
+                if (statusKey === 'drafting') { statusBadgeText = '작성중'; statusBadgeCls = 'bid-status-preparing'; }
+                else if (statusKey === 'price_review') { statusBadgeText = '가격검토'; statusBadgeCls = 'bid-status-preparing'; }
+                else if (statusKey === 'submitted') { statusBadgeText = '제출완료'; statusBadgeCls = 'bid-status-submitted'; }
+                else if (statusKey === 'waiting_result') { statusBadgeText = '결과대기'; statusBadgeCls = 'bid-status-waiting'; }
+                else if (statusKey === 'won') { statusBadgeText = '낙찰'; statusBadgeCls = 'bid-status-success'; }
+                else if (statusKey === 'closed') { statusBadgeText = '종료/실패'; statusBadgeCls = 'bid-status-failed'; }
 
-                const bidStatus = p.bidStatus || '제안 준비중';
-                let statusClass = 'bid-status-preparing';
-                if (bidStatus === '제안 제출') statusClass = 'bid-status-submitted';
-                else if (bidStatus === '결과 대기') statusClass = 'bid-status-waiting';
-                else if (bidStatus === '수주') statusClass = 'bid-status-success';
-                else if (bidStatus === '실패') statusClass = 'bid-status-failed';
-
-                const members = p.consortiumMembers || [];
-                const ockMember = members.find(m => m.companyName.includes('오케스트로')) || members.find(m => m.role === '주사업자') || null;
-                const isLeadText = ockMember ? ockMember.role : '미지정';
-                const shareRateText = ockMember ? `지분율 ${ockMember.shareRate}%` : '지분율 -';
-                const vrbStatusText = p.vrbInfo ? `VRB : ${p.vrbInfo.status}` : 'VRB : 미상신';
+                const aiInfo = p.aiAnalysis || { winProbability: 80, winGrade: 'HIGH', riskLevel: 'LOW' };
+                const urgentText = p.urgentTask || 'RFP 제안서 기술 파트 2차 검토 및 서류 제출';
+                const pmName = p.pmName || p.pm || '안유경';
+                const teamPlusText = p.teamCount ? ` +${p.teamCount - 1}` : ' +2';
+                const budgetText = p.budget ? (p.budget / 100000000).toFixed(1) + ' 억원' : '예산 미정';
 
                 const card = document.createElement('div');
                 card.className = 'bidding-project-card';
+                card.setAttribute('tabindex', '0');
+                card.setAttribute('role', 'button');
+                card.setAttribute('aria-label', `${p.name} 입찰 상세 정보 보기`);
+
                 card.innerHTML = `
                     <div class="bidding-project-card-header">
-                        <span class="status-badge ${statusClass}">${bidStatus}</span>
-                        <span class="d-day-badge ${dDayClass}">${dDayText}</span>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="status-badge ${statusBadgeCls}">${statusBadgeText}</span>
+                            <span class="d-day-badge ${dDayObj.class}">${dDayObj.text}</span>
+                        </div>
+                        <span style="font-size:14px; font-weight:800; color:var(--text-main); font-family:monospace;">${budgetText}</span>
                     </div>
-                    <h3 class="bidding-project-title">${p.name}</h3>
-                    <div class="bidding-project-details">
-                        <div class="bidding-detail-row">
-                            <span>프로젝트 코드</span>
-                            <span class="font-bold text-primary" style="font-family: monospace;">${p.projectCode || '-'}</span>
-                        </div>
-                        <div class="bidding-detail-row">
-                            <span>컨소시엄 역할</span>
-                            <span class="font-bold">${isLeadText}</span>
-                        </div>
-                        <div class="bidding-detail-row">
-                            <span>컨소시엄 지분율</span>
-                            <span class="font-bold">${shareRateText}</span>
-                        </div>
-                        <div class="bidding-detail-row">
-                            <span>VRB 상태</span>
-                            <span class="font-bold text-warning">${vrbStatusText}</span>
-                        </div>
-                        <div class="bidding-detail-row">
-                            <span>발주기관</span>
-                            <span class="font-bold">${p.customer || '-'}</span>
-                        </div>
-                        <div class="bidding-detail-row">
-                            <span>사업예산</span>
-                            <span class="font-bold text-success">${p.budget ? p.budget.toLocaleString() + ' 원' : '-'}</span>
-                        </div>
+
+                    <h3 class="bidding-project-title" style="margin: 8px 0; font-size:15px; font-weight:700;">${this.escapeHtml(p.name)}</h3>
+
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted); margin-bottom: 8px;">
+                        <span>🏛️ ${this.escapeHtml(p.customer || '발주처 미정')}</span>
+                        <span>👤 PM ${this.escapeHtml(pmName)}${teamPlusText}</span>
+                    </div>
+
+                    ${stepperHtml}
+
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-top:8px; padding-top:6px; border-top:1px solid var(--bg-card-border);">
+                        <span style="color: #c084fc; font-weight:700;">
+                            ✨ 수주 가능성 ${aiInfo.winGrade || 'HIGH'} (${aiInfo.winProbability || 82}%) · 위험도 ${aiInfo.riskLevel || 'LOW'}
+                            <span style="font-size:9px; color:var(--text-muted); margin-left:4px;">(시연용 분석)</span>
+                        </span>
+                        <button type="button" class="btn-ai-copilot" onclick="event.stopPropagation(); app.openAiCopilotMenu('${p.id}', event)">
+                            <i data-lucide="bot" style="width:12px; height:12px;"></i>
+                            <span>🤖 AI Copilot</span>
+                        </button>
+                    </div>
+
+                    <div class="bidding-card-urgent-task">
+                        <i data-lucide="alert-circle" style="width:13px; height:13px; flex-shrink:0;"></i>
+                        <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">오늘 할 일: ${this.escapeHtml(urgentText)}</span>
                     </div>
                 `;
 
                 card.addEventListener('click', () => {
-                    window.location.hash = `project-detail/${p.id}`;
+                    this.openBiddingDetailModal(p.id);
+                });
+
+                card.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        this.openBiddingDetailModal(p.id);
+                    }
                 });
 
                 leftGrid.appendChild(card);
             });
         }
 
-        // 2. Render G2B Announcements (Right Panel)
-        if (!this.state.g2bAnnouncements || this.state.g2bAnnouncements.length === 0) {
-            this.fetchG2BAnnouncements(1, { isBiddingPanel: true });
-        } else {
-            this.renderG2BAnnouncements();
-        }
-
         this.applyRolePermissions();
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
+        }
+    }
+
+    openBiddingDetailModal(projectId) {
+        const allBiddingProjects = this.getBiddingProjectsList();
+        const project = allBiddingProjects.find(p => p.id === projectId) || (this.state.projects || []).find(p => p.id === projectId);
+        if (!project) return;
+
+        this.activeBiddingDetailProject = project;
+
+        const titleElem = document.getElementById('bidding-detail-modal-title');
+        if (titleElem) {
+            titleElem.textContent = `[입찰 준비] ${project.name}`;
+        }
+
+        this.switchBiddingDetailTab('basic');
+
+        const modal = document.getElementById('bidding-detail-modal');
+        if (modal) {
+            modal.classList.add('active');
+        }
+    }
+
+    closeBiddingDetailModal() {
+        const modal = document.getElementById('bidding-detail-modal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
+    }
+
+    switchBiddingDetailTab(tabId) {
+        document.querySelectorAll('[data-bidding-tab]').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.getAttribute('data-bidding-tab') === tabId) {
+                btn.classList.add('active');
+            }
+        });
+
+        const p = this.activeBiddingDetailProject;
+        const container = document.getElementById('bidding-detail-tab-content');
+        const entryContainer = document.getElementById('bidding-detail-entry-point');
+        if (!container || !p) return;
+
+        const statusKey = this.normalizeBiddingStatus(p);
+        const isWonOrActive = statusKey === 'won' || p.status === 'In Progress';
+
+        if (entryContainer) {
+            if (isWonOrActive) {
+                entryContainer.innerHTML = `
+                    <button class="btn btn-primary" onclick="app.closeBiddingDetailModal(); app.switchView('project-detail', '${p.id}');">
+                        <span>프로젝트 상세 화면으로 이동 ➔</span>
+                    </button>
+                `;
+            } else {
+                entryContainer.innerHTML = `
+                    <span class="text-xs text-muted font-bold" style="background:var(--bg-input); padding:6px 12px; border-radius:6px; border:1px solid var(--bg-card-border);">
+                        🔒 수주 확정 후 수행 프로젝트 상세 연결 가능
+                    </span>
+                `;
+            }
+        }
+
+        if (tabId === 'basic') {
+            container.innerHTML = `
+                <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label>사업명</label>
+                        <div class="font-bold text-main" style="padding: 8px 12px; background: var(--bg-input); border-radius:6px;">${this.escapeHtml(p.name)}</div>
+                    </div>
+                    <div class="form-group">
+                        <label>발주기관</label>
+                        <div class="font-bold text-main" style="padding: 8px 12px; background: var(--bg-input); border-radius:6px;">${this.escapeHtml(p.customer || '미정')}</div>
+                    </div>
+                    <div class="form-group">
+                        <label>사업예산 / 예상 수주금액</label>
+                        <div class="font-bold text-success" style="padding: 8px 12px; background: var(--bg-input); border-radius:6px;">${p.budget ? p.budget.toLocaleString() + ' 원' : '미정'}</div>
+                    </div>
+                    <div class="form-group">
+                        <label>VRB 심의 상태</label>
+                        <div class="font-bold text-warning" style="padding: 8px 12px; background: var(--bg-input); border-radius:6px;">${p.vrbInfo ? p.vrbInfo.status : 'VRB 완료 (승인)'}</div>
+                    </div>
+                </div>
+            `;
+        } else if (tabId === 'schedule') {
+            container.innerHTML = `
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                    <div style="display:flex; justify-content:space-between; padding:12px; background:var(--bg-input); border-radius:8px;">
+                        <span>📅 제안 제출 마감일시</span>
+                        <span class="font-bold text-danger">${p.endDate ? p.endDate + ' 17:00' : '마감일 미정'}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; padding:12px; background:var(--bg-input); border-radius:8px;">
+                        <span>🎤 제안 발표(PT) 일정</span>
+                        <span class="font-bold text-primary">2026-07-30 (예정)</span>
+                    </div>
+                </div>
+            `;
+        } else if (tabId === 'team') {
+            container.innerHTML = `
+                <table class="data-table">
+                    <thead>
+                        <tr><th>이름</th><th>역할</th><th>소속</th><th>입찰 담당 구체 내용</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td class="font-bold">${this.escapeHtml(p.pmName || '안유경')}</td><td><span class="badge badge-primary">입찰 PM</span></td><td>AETHER PMO</td><td>입찰 총괄 및 제안 전략 수립</td></tr>
+                        <tr><td class="font-bold">김철수</td><td><span class="badge-cat cat-etc">영업 담당</span></td><td>사업개발본부</td><td>발주처 수주 영업 및 가격 제안</td></tr>
+                        <tr><td class="font-bold">이영희</td><td><span class="badge-cat cat-etc">기술 PL</span></td><td>클라우드기술팀</td><td>RFP 기술요구사항 검토 및 Architecture 설계</td></tr>
+                    </tbody>
+                </table>
+            `;
+        } else if (tabId === 'action') {
+            container.innerHTML = `
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <div style="padding:10px 14px; background:var(--bg-input); border-radius:8px; display:flex; justify-content:space-between;">
+                        <span>⚡ ${this.escapeHtml(p.urgentTask || 'RFP 기술 제안서 2차 검토')}</span>
+                        <span class="status-badge status-ongoing">진행중</span>
+                    </div>
+                    <div style="padding:10px 14px; background:var(--bg-input); border-radius:8px; display:flex; justify-content:space-between;">
+                        <span>📄 제안 투찰 가격 심의 및 최종 검토</span>
+                        <span class="status-badge status-resolved">완료</span>
+                    </div>
+                </div>
+            `;
+        } else if (tabId === 'files') {
+            container.innerHTML = `
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <div style="padding:10px 14px; background:var(--bg-input); border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                        <span>📎 [제안요청서] ${this.escapeHtml(p.name)}_RFP.pdf</span>
+                        <button class="btn btn-xs btn-outline">다운로드</button>
+                    </div>
+                    <div style="padding:10px 14px; background:var(--bg-input); border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                        <span>📎 [제안서 초안] ${this.escapeHtml(p.name)}_기술제안서_v1.0.docx</span>
+                        <button class="btn btn-xs btn-outline">다운로드</button>
+                    </div>
+                </div>
+            `;
+        } else if (tabId === 'ai') {
+            const ai = p.aiAnalysis || { winProbability: 82, winGrade: 'HIGH', riskLevel: 'LOW' };
+            container.innerHTML = `
+                <div class="dashboard-card py-4" style="background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.3);">
+                    <h4 style="margin:0 0 10px 0; color:#c084fc; font-weight:800;">🤖 AI Copilot 입찰 진단 보고서 (시연용 분석)</h4>
+                    <p style="font-size:13px; line-height:1.6; color:var(--text-main); margin-bottom:12px;">
+                        ${this.escapeHtml(ai.summary || '본 입찰 건은 기술점수 평가에서 우수한 경쟁력을 확보하고 있으며, 사업예산 대비 제안 가치가 안정적입니다.')}
+                    </p>
+                    <div style="display:flex; gap:12px;">
+                        <span class="badge" style="background:rgba(16, 185, 129, 0.2); color:#10b981;">수주 가능성 ${ai.winGrade || 'HIGH'} (${ai.winProbability || 82}%)</span>
+                        <span class="badge" style="background:rgba(59, 130, 246, 0.2); color:#60a5fa;">위험도 ${ai.riskLevel || 'LOW'}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    openAiCopilotMenu(projectId, event) {
+        if (event && typeof event.stopPropagation === 'function') {
+            event.stopPropagation();
+        }
+
+        const allBiddingProjects = this.getBiddingProjectsList();
+        const project = allBiddingProjects.find(p => p.id === projectId) || (this.state.projects || []).find(p => p.id === projectId);
+        if (!project) return;
+
+        const body = document.getElementById('ai-copilot-quick-body');
+        const title = document.getElementById('ai-copilot-quick-title');
+        if (!body) return;
+
+        if (title) {
+            title.textContent = `🤖 AI Copilot - ${project.name}`;
+        }
+
+        body.innerHTML = `
+            <p class="subtitle" style="margin-bottom:16px;">AI Copilot이 입찰 준비 업무를 스마트하게 지원합니다. 원하시는 플러그인 기능을 선택하세요.</p>
+            <div class="ai-copilot-plugin-grid">
+                <div class="ai-copilot-plugin-card" onclick="app.runAiCopilotPlugin('${project.id}', 'rfp-summary')">
+                    <i data-lucide="file-text" class="text-primary" style="width:24px; height:24px;"></i>
+                    <div>
+                        <h4 style="margin:0 0 4px 0; font-size:13px; font-weight:700;">📄 RFP 요약 브리핑</h4>
+                        <p style="margin:0; font-size:11px; color:var(--text-muted);">제안요청서 핵심 요구사항 및 과업 범위 AI 자동 요약</p>
+                    </div>
+                </div>
+                <div class="ai-copilot-plugin-card" onclick="app.runAiCopilotPlugin('${project.id}', 'proposal-draft')">
+                    <i data-lucide="edit-3" class="text-info" style="width:24px; height:24px;"></i>
+                    <div>
+                        <h4 style="margin:0 0 4px 0; font-size:13px; font-weight:700;">✍️ AI 제안서 초안 작성</h4>
+                        <p style="margin:0; font-size:11px; color:var(--text-muted);">사업 개요 및 수행 방안 목차/초안 자동 작성</p>
+                    </div>
+                </div>
+                <div class="ai-copilot-plugin-card" onclick="app.runAiCopilotPlugin('${project.id}', 'risk-analysis')">
+                    <i data-lucide="alert-triangle" class="text-warning" style="width:24px; height:24px;"></i>
+                    <div>
+                        <h4 style="margin:0 0 4px 0; font-size:13px; font-weight:700;">⚠️ AI 위험 요소 & 승률 분석</h4>
+                        <p style="margin:0; font-size:11px; color:var(--text-muted);">기술 Risk 및 제안 수주 가능성 심층 진단</p>
+                    </div>
+                </div>
+                <div class="ai-copilot-plugin-card" onclick="app.runAiCopilotPlugin('${project.id}', 'similar-projects')">
+                    <i data-lucide="search" class="text-success" style="width:24px; height:24px;"></i>
+                    <div>
+                        <h4 style="margin:0 0 4px 0; font-size:13px; font-weight:700;">🔍 유사사업 수주 실적 조회</h4>
+                        <p style="margin:0; font-size:11px; color:var(--text-muted);">과거 수주 프로젝트 유사도 매칭 및 실적 탐색</p>
+                    </div>
+                </div>
+            </div>
+            <div id="ai-copilot-plugin-output" style="margin-top:16px; display:none;"></div>
+        `;
+
+        const modal = document.getElementById('ai-copilot-quick-modal');
+        if (modal) {
+            modal.classList.add('active');
+        }
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    runAiCopilotPlugin(projectId, pluginId) {
+        const output = document.getElementById('ai-copilot-plugin-output');
+        if (!output) return;
+
+        output.style.display = 'block';
+        output.innerHTML = `
+            <div style="padding:14px; background:rgba(99,102,241,0.1); border:1px solid var(--primary); border-radius:8px;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                    <i data-lucide="sparkles" class="text-primary"></i>
+                    <span class="font-bold text-primary">AI Copilot 처리 결과 (시연용)</span>
+                </div>
+                <p style="font-size:12px; margin:0; line-height:1.5;">
+                    선택하신 <strong>[${pluginId}]</strong> 분석이 성공적으로 실행되었습니다. 제안서 기획서에 최적화된 결과가 생성되었습니다.
+                </p>
+            </div>
+        `;
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    closeAiCopilotQuickModal() {
+        const modal = document.getElementById('ai-copilot-quick-modal');
+        if (modal) {
+            modal.classList.remove('active');
         }
     }
 
@@ -7368,8 +7907,13 @@ class AetherPMO {
             const projectMinutes = this.state.meetingMinutes.filter(m => m.projectId === this.activeProjectId);
             this.renderProjectDetailMeetingMinutesTable(projectMinutes);
         } else if (tabId === 'issues') {
-            const projectIssues = this.state.issues.filter(i => i.projectId === this.activeProjectId);
-            this.renderProjectDetailIssuesTable(projectIssues);
+            const projectIssues = (this.state.issues || []).filter(i => i.projectId === this.activeProjectId && (i.type === '이슈' || !i.type || i.type === '이슈/리스크'));
+            this.renderProjectDetailIssuesTable(projectIssues, 'project-detail-issues-tbody');
+        } else if (tabId === 'risks') {
+            const projectRisks = (this.state.issues || []).filter(i => i.projectId === this.activeProjectId && i.type === '리스크');
+            this.renderProjectDetailIssuesTable(projectRisks, 'project-detail-risks-tbody');
+        } else if (tabId === 'members') {
+            this.renderProjectDetailMembersTable(this.activeProjectId);
         } else if (tabId === 'action-items') {
             const projectActions = this.state.actionItems.filter(a => a.projectId === this.activeProjectId);
             this.renderProjectDetailActionItemsTable(projectActions);
@@ -7460,7 +8004,7 @@ class AetherPMO {
                         activityName: 'OPMS 테일러링 수행',
                         isOpen: true,
                         artifacts: [
-                            { id: 'art-prp-06', name: '방법론 테일러링 시트', status: 'APPROVED', assigneeName: '김철수 PL', updatedAt: '2026-06-09' }
+                            { id: 'art-prp-06', name: '테일러링 시트', status: 'APPROVED', assigneeName: '김철수 PL', updatedAt: '2026-06-09' }
                         ]
                     },
                     {
@@ -7686,8 +8230,17 @@ class AetherPMO {
         };
     }
 
-    renderProjectDetailMethodology(projectId) {
-        const container = document.getElementById('detail-tab-content-methodology');
+    renderProjectDetailMethodology(projectId, targetElementId = null) {
+        let targetId = targetElementId;
+        if (!targetId) {
+            const viewTailoring = document.getElementById('view-tailoring');
+            if (viewTailoring && viewTailoring.classList.contains('active')) {
+                targetId = 'tailoring-view-content';
+            } else {
+                targetId = 'detail-tab-content-methodology';
+            }
+        }
+        const container = document.getElementById(targetId);
         if (!container) return;
 
         const project = this.state.projects.find(p => p.id === projectId);
@@ -7733,9 +8286,9 @@ class AetherPMO {
             <div class="methodology-header-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
                     <div>
-                        <div style="font-size: 12px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">OPMS Methodology Pipeline</div>
+                        <div style="font-size: 12px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">OPMS Tailoring Pipeline</div>
                         <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 10px;">
-                            방법론(OPMS) - ${this.escapeHtml(project?.name || '프로젝트')}
+                            테일러링(OPMS) - ${this.escapeHtml(project?.name || '프로젝트')}
                         </h2>
                     </div>
                     <span class="badge badge-info" style="font-size: 11px; font-weight: 700; padding: 5px 12px;">
@@ -8681,12 +9234,12 @@ class AetherPMO {
         });
     }
 
-    renderProjectDetailIssuesTable(issues) {
-        const tbody = document.getElementById('project-detail-issues-tbody');
+    renderProjectDetailIssuesTable(issues, tbodyId = 'project-detail-issues-tbody') {
+        const tbody = document.getElementById(tbodyId);
         if (!tbody) return;
 
         if (issues.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">등록된 이슈 및 리스크가 없습니다.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">등록된 내역이 없습니다.</td></tr>';
             return;
         }
 
@@ -8711,6 +9264,95 @@ class AetherPMO {
             `;
             tbody.appendChild(tr);
         });
+    }
+
+    renderProjectDetailMembersTable(projectId) {
+        const tbody = document.getElementById('project-detail-members-tbody');
+        if (!tbody) return;
+
+        const members = (this.state.projectMembers || []).filter(m => m.projectId === projectId);
+        if (members.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">등록된 참여인력이 없습니다.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '';
+        members.forEach(mem => {
+            const tr = document.createElement('tr');
+            const statusBadge = mem.isActive !== false 
+                ? '<span class="status-badge status-resolved">참여중</span>'
+                : '<span class="status-badge status-occurred">제외됨</span>';
+            
+            tr.innerHTML = `
+                <td class="font-bold text-xs">${this.escapeHtml(mem.name || mem.memberName || '-')} ${mem.isPm ? '<span class="badge badge-primary" style="font-size:10px; margin-left:4px;">PM</span>' : ''}</td>
+                <td><span class="badge-cat cat-etc">${this.escapeHtml(mem.role || mem.roleName || '수행원')}</span></td>
+                <td class="text-xs font-bold">${this.escapeHtml(mem.department || '-')}</td>
+                <td class="text-xs font-bold">${this.escapeHtml(mem.position || '연구원')}</td>
+                <td class="text-xs text-muted font-bold">${mem.startDate || '-'}</td>
+                <td class="text-xs text-muted font-bold">${mem.endDate || '-'}</td>
+                <td>${statusBadge}</td>
+                <td>
+                    <div class="actions-flex">
+                        <button class="btn btn-xs btn-outline" onclick="app.openProjectMembersModal()">수정</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    renderTailoringView() {
+        const container = document.getElementById('tailoring-view-container');
+        if (!container) return;
+
+        let projectId = this.activeProjectId;
+        if (!projectId && this.state.projects && this.state.projects.length > 0) {
+            projectId = this.state.projects[0].id;
+            this.activeProjectId = projectId;
+        }
+
+        const projectsOptions = (this.state.projects || []).map(p => `
+            <option value="${p.id}" ${p.id === projectId ? 'selected' : ''}>${this.escapeHtml(p.name)} (${p.code || p.id})</option>
+        `).join('');
+
+        let headerHtml = `
+            <div class="view-header" style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                <div>
+                    <h1>테일러링 관리</h1>
+                    <p class="subtitle">프로젝트별 OPMS 표준 수립 및 테일러링 현황을 관리합니다.</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; background: var(--bg-card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--bg-card-border);">
+                    <label style="font-size: 13px; font-weight: 700; color: var(--text-muted); margin: 0;">대상 프로젝트:</label>
+                    <select id="tailoring-project-select" onchange="app.selectTailoringProject(this.value)" style="height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--bg-card-border); background: var(--bg-input); color: var(--text-main); font-weight: 700;">
+                        ${projectsOptions}
+                    </select>
+                </div>
+            </div>
+            <div id="tailoring-view-content"></div>
+        `;
+
+        container.innerHTML = headerHtml;
+
+        if (projectId) {
+            this.renderProjectDetailMethodology(projectId, 'tailoring-view-content');
+        } else {
+            document.getElementById('tailoring-view-content').innerHTML = `
+                <div class="dashboard-card text-center py-5">
+                    <i data-lucide="folder-x" style="width:48px; height:48px; color:var(--text-muted); margin-bottom:16px;"></i>
+                    <h3>선택된 프로젝트가 없습니다</h3>
+                    <p class="text-muted">상단 드롭다운에서 프로젝트를 선택해 주세요.</p>
+                </div>
+            `;
+        }
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    selectTailoringProject(projectId) {
+        this.activeProjectId = projectId;
+        this.renderTailoringView();
     }
 
     renderProjectDetailActionItemsTable(actions) {
@@ -17619,10 +18261,10 @@ class AetherPMO {
                 carAllowance: 0,
                 netPay: 4300000,
                 payDate: '2026-07-25',
-                status: 'unpaid'
             }
         ];
     }
+
     getDefaultBoardPosts() {
         return [
             {
