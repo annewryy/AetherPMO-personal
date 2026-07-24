@@ -46,6 +46,13 @@ export interface Project {
   artifactTotal: number;
   artifactApproved: number;
   artifactInReview: number;
+  // 0027 — 담당조직 정보(입찰 개요 카드): 영업/제안전략/제안PM/사업관리/계약/법무 담당자
+  salesOwner: string | null;
+  proposalOwner: string | null;
+  proposalPm: string | null;
+  businessManager: string | null;
+  contractOwner: string | null;
+  legalOwner: string | null;
 }
 
 // GET /api/projects 서버측 필터(0015 §B — 클라이언트 필터링 금지, 서버 쿼리로 전달).
@@ -118,6 +125,13 @@ export interface ProjectUpdateInput {
   plannedEndDate?: string;
   remarks?: string;
   milestones?: string;
+  // 0027 — 담당조직 정보(입찰 개요 카드 인라인 수정)
+  salesOwner?: string;
+  proposalOwner?: string;
+  proposalPm?: string;
+  businessManager?: string;
+  contractOwner?: string;
+  legalOwner?: string;
 }
 
 // 0017 §C 테일러링 엔트리 — 생성 시 함께 보내는 카탈로그 선택 1건.

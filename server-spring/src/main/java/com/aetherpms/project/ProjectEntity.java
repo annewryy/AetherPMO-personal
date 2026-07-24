@@ -101,6 +101,25 @@ public class ProjectEntity {
     @Column(name = "source_project_id")
     private Long sourceProjectId;
 
+    // 0027: 담당조직 정보(입찰 개요 카드) — V1부터 존재하는 컬럼
+    @Column(name = "sales_owner")
+    private String salesOwner;
+
+    @Column(name = "proposal_owner")
+    private String proposalOwner;
+
+    @Column(name = "proposal_pm")
+    private String proposalPm;
+
+    @Column(name = "business_manager")
+    private String businessManager;
+
+    @Column(name = "contract_owner")
+    private String contractOwner;
+
+    @Column(name = "legal_owner")
+    private String legalOwner;
+
     @Column(name = "consortium_role")
     private String consortiumRole;
 
@@ -137,6 +156,12 @@ public class ProjectEntity {
     public LocalDate getProposalDeadline() { return proposalDeadline; }
     public String getProjectStage() { return projectStage; }
     public Long getSourceProjectId() { return sourceProjectId; }
+    public String getSalesOwner() { return salesOwner; }
+    public String getProposalOwner() { return proposalOwner; }
+    public String getProposalPm() { return proposalPm; }
+    public String getBusinessManager() { return businessManager; }
+    public String getContractOwner() { return contractOwner; }
+    public String getLegalOwner() { return legalOwner; }
     public String getConsortiumRole() { return consortiumRole; }
     public BigDecimal getConsortiumShare() { return consortiumShare; }
     public String getVrbStatus() { return vrbStatus; }

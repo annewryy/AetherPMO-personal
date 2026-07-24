@@ -71,6 +71,13 @@ public final class ProjectMapper {
         out.put("consortiumRole", p.getConsortiumRole());
         out.put("consortiumShare", p.getConsortiumShare() == null ? null : p.getConsortiumShare().doubleValue());
         out.put("vrbStatus", p.getVrbStatus());
+        // 0027: 담당조직 정보(입찰 개요 카드)
+        out.put("salesOwner", p.getSalesOwner());
+        out.put("proposalOwner", p.getProposalOwner());
+        out.put("proposalPm", p.getProposalPm());
+        out.put("businessManager", p.getBusinessManager());
+        out.put("contractOwner", p.getContractOwner());
+        out.put("legalOwner", p.getLegalOwner());
         out.put("consortiumMembers", new java.util.ArrayList<>());
         out.put("vrbInfo", null);
         return out;
