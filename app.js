@@ -6495,6 +6495,46 @@ class AetherPMO {
         ];
     }
 
+    normalizeProjectLifecycleStatus(project) {
+        if (!project) return 'UNKNOWN';
+        const value = String(
+            project.status ||
+            project.project_status ||
+            project.lifecycleStatus ||
+            ''
+        ).trim().toLowerCase();
+
+        if (
+            [
+                'bidding',
+                'bid',
+                'bid proposal',
+                'proposal',
+                '입찰',
+                '입찰단계',
+                '입찰제안',
+                '입찰 제안'
+            ].includes(value)
+        ) {
+            return 'BIDDING';
+        }
+
+        if (
+            [
+                'in progress',
+                'in_progress',
+                'performing',
+                'execution',
+                '수행중',
+                '수행'
+            ].includes(value)
+        ) {
+            return 'IN_PROGRESS';
+        }
+
+        return value.toUpperCase();
+    }
+
     normalizeBiddingStatus(project) {
         if (!project) return 'review';
         const status = project.biddingStatusKey || project.bidStatus || project.status;
@@ -8859,6 +8899,56 @@ class AetherPMO {
             const riskColor = project.riskLevel === '높음' ? 'var(--danger)' : project.riskLevel === '보통' ? 'var(--warning)' : 'var(--success)';
             const riskGlow = project.riskLevel === '높음' ? 'var(--danger-glow)' : project.riskLevel === '보통' ? 'var(--warning-glow)' : 'var(--success-glow)';
 
+            const lifecycleStatus = this.normalizeProjectLifecycleStatus(project);
+            const canShowConvertButton = (lifecycleStatus === 'BIDDING');
+
+            const biddingStatus = this.normalizeBiddingStatus(project);
+            const isWon = (biddingStatus === 'won');
+
+            const rawRole = this.state?.currentUser?.role;
+            const userRole = String(rawRole || 'SYS_ADMIN').toUpperCase();
+            const allowedRoles = ['SYS_ADMIN', 'EXEC_ADMIN', 'PM', 'ADMIN'];
+            const hasPermission = allowedRoles.includes(userRole);
+
+            const canConvert = canShowConvertButton && isWon && hasPermission;
+
+            console.log('[Execution Convert Button]', {
+                projectId: project?.id || project?.project_id,
+                status: project?.status,
+                lifecycleStatus: lifecycleStatus,
+                biddingStatus: project?.biddingStatus,
+                bidding_status: project?.bidding_status,
+                normalizedBiddingStatus: biddingStatus,
+                role: rawRole,
+                userRole: userRole,
+                hasPermission: hasPermission,
+                canShowConvertButton: canShowConvertButton,
+                canConvert: canConvert
+            });
+
+            let convertBtnHtml = '';
+            if (canShowConvertButton) {
+                if (!hasPermission) {
+                    convertBtnHtml = `
+                        <button id="btn-convert-to-execution" type="button" class="btn btn-sm btn-outline" style="opacity: 0.5; cursor: not-allowed; display: inline-flex; align-items: center; gap: 4px;" disabled aria-label="수행단계로 전환" title="수행단계 전환 권한이 없습니다.">
+                            <i data-lucide="arrow-up-right" style="width:14px; height:14px;"></i> ↗ 수행전환
+                        </button>
+                    `;
+                } else if (isWon) {
+                    convertBtnHtml = `
+                        <button id="btn-convert-to-execution" type="button" class="btn btn-sm btn-info" style="background: linear-gradient(135deg, #0284c7, #2563eb); color: #ffffff; border: none; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" onclick="event.stopPropagation(); app.convertBiddingProjectToExecution('${project.id}')" aria-label="수행단계로 전환" title="수주 프로젝트를 수행단계로 전환">
+                            <i data-lucide="arrow-up-right" style="width:14px; height:14px;"></i> ↗ 수행전환
+                        </button>
+                    `;
+                } else {
+                    convertBtnHtml = `
+                        <button id="btn-convert-to-execution" type="button" class="btn btn-sm btn-outline" style="opacity: 0.5; cursor: not-allowed; display: inline-flex; align-items: center; gap: 4px;" disabled aria-label="수행단계로 전환" title="수주 확정 후 수행단계로 전환할 수 있습니다.">
+                            <i data-lucide="arrow-up-right" style="width:14px; height:14px;"></i> ↗ 수행전환
+                        </button>
+                    `;
+                }
+            }
+
             detailHeader.innerHTML = `
                 <div class="project-detail-summary-header" style="background:var(--bg-card); border:1px solid var(--bg-card-border); padding:20px; border-radius:12px; margin-bottom: 24px; box-shadow: var(--shadow-sm);">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 20px; flex-wrap:wrap; gap:16px;">
@@ -8873,14 +8963,15 @@ class AetherPMO {
                             <h2 style="font-size:24px; font-weight:800; margin-top:12px; margin-bottom:6px; color:var(--text-main); letter-spacing:-0.5px;">${project.name}</h2>
                             <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">${project.desc || '상세 설명이 등록되지 않은 프로젝트입니다.'}</p>
                         </div>
-                        <div style="display:flex; gap:10px; align-items:center;">
-                            <button class="btn btn-sm btn-outline" onclick="window.location.hash = 'projects'">
+                        <div class="project-header-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; overflow:visible;">
+                            <button id="btn-list-project" class="btn btn-sm btn-outline" onclick="window.location.hash = 'projects'">
                                 <i data-lucide="arrow-left" style="width:14px; height:14px;"></i> 목록으로
                             </button>
-                            <button class="btn btn-sm btn-primary" onclick="app.openEditProjectModal('${project.id}')">
+                            <button id="btn-edit-project" class="btn btn-sm btn-primary" onclick="app.openEditProjectModal('${project.id}')">
                                 <i data-lucide="edit-3" style="width:14px; height:14px;"></i> 프로젝트 수정
                             </button>
-                            <button class="btn btn-sm btn-danger" onclick="app.deleteProject('${project.id}')">
+                            ${convertBtnHtml}
+                            <button id="btn-delete-project" class="btn btn-sm btn-danger" onclick="app.deleteProject('${project.id}')">
                                 <i data-lucide="trash-2" style="width:14px; height:14px;"></i> 프로젝트 삭제
                             </button>
                         </div>
