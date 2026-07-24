@@ -624,6 +624,56 @@ export interface DashboardSignals {
   today: TodaySignalItem[];
 }
 
+// ---- 대시보드 위젯 (0026 — 오늘 해야할 일·최근 활동·규칙 기반 3위젯) -------------
+
+export interface TodayTaskItem {
+  taskId: number; projectId: number; projectName: string;
+  name: string; progress: number; dueDate: string; overdue: boolean;
+}
+export interface TodayActionItem {
+  actionId: number; projectId: number; projectName: string;
+  title: string; assigneeName: string | null; dueDate: string; overdue: boolean;
+}
+export interface TodayDeliverableItem {
+  deliverableId: number; projectId: number; projectName: string;
+  name: string; dueDate: string; overdue: boolean;
+}
+export interface RecentOfficialDoc {
+  docId: number; projectId: number; projectName: string;
+  docNumber: string | null; title: string; category: string | null;
+  drafterName: string | null; draftDate: string | null; currentStatus: string | null;
+}
+export interface RecentMeeting {
+  meetingId: number; projectId: number; projectName: string;
+  title: string; location: string | null; meetDate: string | null;
+}
+export interface RecentDeliverable {
+  deliverableId: number; projectId: number; projectName: string;
+  name: string; fileName: string | null; authorName: string | null;
+  submittedAt: string | null; status: string | null;
+}
+export interface AttentionProject {
+  projectId: number; projectName: string;
+  score: number; level: 'OK' | 'WARN' | 'DANGER' | string; factors: string[];
+}
+export interface RiskHighlight {
+  kind: 'OPEN_RISK' | 'DELAY' | string;
+  projectId: number; projectName: string; title: string;
+  issueId?: number; priority?: string | null; ageDays?: number | null; delayPct?: number;
+}
+export interface Recommendation {
+  projectId: number; projectName: string; text: string;
+  entityType?: string | null; entityId?: number | null;
+}
+export interface DashboardWidgets {
+  generatedAt?: string;
+  today: { tasks: TodayTaskItem[]; actions: TodayActionItem[]; deliverables: TodayDeliverableItem[] };
+  recent: { officialDocs: RecentOfficialDoc[]; meetings: RecentMeeting[]; deliverables: RecentDeliverable[] };
+  attention: AttentionProject[];
+  risks: RiskHighlight[];
+  recommendations: Recommendation[];
+}
+
 // ---- 신호 규칙 (0007 §2 — 사용자 등록형, pms_signal_rule) ----------------------
 
 export type SignalRuleMetric = 'PROGRESS_DELAY_PCT' | 'STALLED_DAYS' | 'DUE_IN_DAYS' | string;

@@ -14,7 +14,7 @@
 import { getCurrentUserId } from './currentUser';
 import type {
   Project, ProjectMember, ConsortiumMember, Artifact, Issue, ActionItem,
-  OfficialDoc, MeetingMinute, Activity, AppState, VrbInfo, DashboardSignals, Task,
+  OfficialDoc, MeetingMinute, Activity, AppState, VrbInfo, DashboardSignals, DashboardWidgets, Task,
   SignalRule, SignalRuleInput, CatalogNodeInput, Company, CompanyInput,
   CatalogNode, Workflow, WorkflowStatus, WorkflowTransition, WorkflowTransitionCondition,
   WorkflowInput, WorkflowStatusInput, WorkflowTransitionInput, TransitionConditionInput,
@@ -519,6 +519,11 @@ export const dataClient = {
     async signals(): Promise<DashboardSignals | null> {
       if (!apiBase()) return null;
       return apiGet<DashboardSignals>('/api/dashboard/signals');
+    },
+    // 0026 — 오늘 해야할 일·최근 활동·규칙 기반 3위젯. API_BASE 전용.
+    async widgets(): Promise<DashboardWidgets | null> {
+      if (!apiBase()) return null;
+      return apiGet<DashboardWidgets>('/api/dashboard/widgets');
     },
   },
 
