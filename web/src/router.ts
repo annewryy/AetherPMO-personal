@@ -23,9 +23,12 @@ import AdminCompaniesView from './views/admin/AdminCompaniesView.vue';
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: '/', redirect: '/projects' },
+    { path: '/', redirect: '/projects/active' },
     { path: '/dashboard', name: 'dashboard', component: DashboardView },
-    { path: '/projects', name: 'projects', component: ProjectListView },
+    // 0025 §A: 프로젝트 관리 하위 2목록(입찰/수행). 구 /projects는 수행단계로 리다이렉트(하위호환).
+    { path: '/projects', redirect: '/projects/active' },
+    { path: '/projects/bidding', name: 'projects-bidding', component: ProjectListView, props: { mode: 'bidding' } },
+    { path: '/projects/active', name: 'projects-active', component: ProjectListView, props: { mode: 'execution' } },
     { path: '/projects/:id(\\d+)', name: 'project-detail', component: ProjectDetailView, props: true },
     { path: '/catalog', name: 'catalog', component: CatalogView },
     { path: '/catalog/deliverables', name: 'catalog-deliverables', component: DeliverableSearchView },
@@ -54,6 +57,6 @@ export const router = createRouter({
         { path: 'companies', name: 'admin-companies', component: AdminCompaniesView },
       ],
     },
-    { path: '/:pathMatch(.*)*', redirect: '/projects' },
+    { path: '/:pathMatch(.*)*', redirect: '/projects/active' },
   ],
 });

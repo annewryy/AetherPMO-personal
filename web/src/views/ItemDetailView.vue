@@ -39,7 +39,7 @@ function goBack() {
   if (props.kind === 'issue') router.push('/issues');
   else if (props.kind === 'action') router.push('/action-items');
   else if (pid != null) router.push({ path: `/projects/${pid}`, query: { tab: props.kind === 'artifact' ? 'artifacts' : 'tasks' } });
-  else router.push('/projects');
+  else router.push('/projects/active');
 }
 
 async function load() {

@@ -175,9 +175,9 @@ function goBack() {
 
 function onCreated(project: Project) {
   showWizard.value = false;
-  // 생성 후 목록 대신 프로젝트 목록으로 이동 + 안내(0017 §C-2). 쿼리로 성공 메시지 전달.
+  // 생성 후 입찰단계 목록으로 이동 + 안내(0017 §C-2, 0025 라우트). 쿼리로 성공 메시지 전달.
   void router.push({
-    path: '/projects',
+    path: '/projects/bidding',
     query: { created: `${project.name} (${project.projectCode})` },
   });
 }

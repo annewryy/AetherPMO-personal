@@ -67,6 +67,10 @@ public final class ProjectMapper {
         out.put("businessType", p.getBusinessType());
         out.put("stage", p.getProjectStage());
         out.put("sourceProjectId", p.getSourceProjectId());
+        // 0025: 입찰 목록 카드 필드(프로젝트 자체 컬럼 — pms_project_company 컨소시엄 목록과 별개)
+        out.put("consortiumRole", p.getConsortiumRole());
+        out.put("consortiumShare", p.getConsortiumShare() == null ? null : p.getConsortiumShare().doubleValue());
+        out.put("vrbStatus", p.getVrbStatus());
         out.put("consortiumMembers", new java.util.ArrayList<>());
         out.put("vrbInfo", null);
         return out;
