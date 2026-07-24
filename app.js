@@ -6713,9 +6713,9 @@ class AetherPMO {
         this.switchView('project-detail', project.id || project.project_id);
     }
 
-    async convertBiddingProjectToExecution(projectId) {
+    openBidResultModal(projectId) {
         const targetId = String(projectId);
-        let project = (this.state.projects || []).find(
+        const project = (this.state.projects || []).find(
             p => String(p.id || p.project_id) === targetId
         );
 
@@ -6726,44 +6726,172 @@ class AetherPMO {
             return;
         }
 
-        const biddingStatus = this.normalizeBiddingStatus(project);
-        const role = (this.state.currentUser && this.state.currentUser.role) || 'SYS_ADMIN';
-        const hasPermission = ['SYS_ADMIN', 'EXEC_ADMIN', 'PM', 'admin'].includes(role);
+        this.activeBidResultProjectId = project.id || project.project_id;
 
-        if (!hasPermission) {
-            if (typeof this.showToast === 'function') {
-                this.showToast('수행단계 전환 권한이 없습니다.', 'warning');
-            }
-            return;
+        let modal = document.getElementById('bid-result-modal');
+        if (!modal) {
+            this.renderBidResultModalHtml();
+            modal = document.getElementById('bid-result-modal');
         }
 
-        if (biddingStatus !== 'won') {
-            if (typeof this.showToast === 'function') {
-                this.showToast('수주 확정된 프로젝트만 수행단계로 전환할 수 있습니다.', 'warning');
-            }
-            return;
+        const nameElem = document.getElementById('bid-result-project-name');
+        if (nameElem) {
+            nameElem.textContent = `‘${project.name}’의 입찰 결과를 선택해 주세요.`;
         }
+
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.add('active');
+        }
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    closeBidResultModal() {
+        const modal = document.getElementById('bid-result-modal');
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.remove('active');
+        }
+    }
+
+    async processBidWonResult() {
+        const projectId = this.activeBidResultProjectId;
+        if (!projectId) return;
+
+        const project = (this.state.projects || []).find(
+            p => String(p.id || p.project_id) === String(projectId)
+        );
+
+        if (!project) return;
 
         const confirmed = window.confirm(
-            `[수행단계 전환]\n\n'${project.name}' 프로젝트를 입찰단계에서 수행단계로 전환하시겠습니까?\n\n전환 후 프로젝트 상태가 '수행중'으로 변경되며, 수행단계 메뉴에서 관리할 수 있습니다.`
+            `[입찰 낙찰 처리]\n\n'${project.name}' 사업을 낙찰(수주 확정) 처리하시겠습니까?\n\n수행단계로 전환되며 수행중인 프로젝트 목록에서 관리할 수 있습니다.`
         );
 
         if (!confirmed) return;
 
         project.status = 'In Progress';
+        project.project_status = 'In Progress';
         project.bidStatus = 'won';
+        project.biddingStatus = 'won';
         project.biddingStatusKey = 'won';
-        project.convertedToExecutionAt = new Date().toISOString();
-        project.converted_to_execution_at = project.convertedToExecutionAt;
+        project.bidResult = 'WON';
+        project.bid_result = 'WON';
+        project.bidResultAt = new Date().toISOString();
+        project.bid_result_at = project.bidResultAt;
+        project.convertedToExecutionAt = project.bidResultAt;
+        project.converted_to_execution_at = project.bidResultAt;
 
         await this.saveState('project_upsert', project);
+        this.closeBidResultModal();
 
         if (typeof this.showToast === 'function') {
-            this.showToast('🎉 수행단계로 전환되었습니다. 수행단계 목록에서 확인하실 수 있습니다.', 'success');
+            this.showToast('🎉 낙찰 처리되었습니다. 수행단계로 전환합니다.', 'success');
         }
 
-        // Refresh current project detail view immediately
         this.renderProjectDetail(project.id || project.project_id);
+    }
+
+    async processBidLostResult() {
+        const projectId = this.activeBidResultProjectId;
+        if (!projectId) return;
+
+        const project = (this.state.projects || []).find(
+            p => String(p.id || p.project_id) === String(projectId)
+        );
+
+        if (!project) return;
+
+        const confirmed = window.confirm(
+            `[입찰 실패 처리]\n\n'${project.name}' 사업을 입찰 실패로 처리하시겠습니까?\n\n처리 후 입찰 진행 목록에서는 제외되며, 종료/실패 탭에서 확인할 수 있습니다.`
+        );
+
+        if (!confirmed) return;
+
+        project.status = 'Bidding';
+        project.project_status = 'Bidding';
+        project.bidStatus = 'lost';
+        project.biddingStatus = 'lost';
+        project.biddingStatusKey = 'closed';
+        project.bidResult = 'LOST';
+        project.bid_result = 'LOST';
+        project.bidResultAt = new Date().toISOString();
+        project.bid_result_at = project.bidResultAt;
+
+        await this.saveState('project_upsert', project);
+        this.closeBidResultModal();
+
+        if (typeof this.showToast === 'function') {
+            this.showToast('입찰 실패로 처리되었습니다. 종료/실패 탭에서 확인하실 수 있습니다.', 'warning');
+        }
+
+        this.renderProjectDetail(project.id || project.project_id);
+    }
+
+    renderBidResultModalHtml() {
+        if (document.getElementById('bid-result-modal')) return;
+
+        const modalDiv = document.createElement('div');
+        modalDiv.id = 'bid-result-modal';
+        modalDiv.className = 'modal';
+        modalDiv.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(4px);';
+        
+        modalDiv.innerHTML = `
+            <div class="modal-content" style="width: 100%; max-width: 480px; border-radius: 16px; padding: 24px; background: var(--bg-card); border: 1px solid var(--bg-card-border); box-shadow: var(--shadow-xl); color: var(--text-main);">
+                <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 16px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(99, 102, 241, 0.15); display: flex; align-items: center; justify-content: center; color: var(--primary);">
+                            <i data-lucide="scale" style="width: 20px; height: 20px;"></i>
+                        </div>
+                        <div>
+                            <h3 style="font-size: 18px; font-weight: 800; margin: 0; color: var(--text-main);">입찰결과 처리</h3>
+                            <span style="font-size: 12px; color: var(--text-muted);">사업의 입찰 결과를 선택해 주세요.</span>
+                        </div>
+                    </div>
+                    <button type="button" class="close-btn" onclick="app.closeBidResultModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px;">
+                        <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                    </button>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <p id="bid-result-project-name" style="font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 16px; padding: 12px 14px; background: rgba(99, 102, 241, 0.08); border-radius: 8px; border: 1px solid rgba(99, 102, 241, 0.2); line-height: 1.4;">
+                        사업명
+                    </p>
+
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <!-- Option 1: Won (🏆 낙찰) -->
+                        <div class="bid-result-option-card" onclick="app.processBidWonResult()" style="padding: 16px; border-radius: 12px; border: 2px solid rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.08); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: space-between;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; color: #10b981;">
+                                    <span>🏆 낙찰</span>
+                                </div>
+                                <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px; margin-bottom: 0;">수행단계로 전환하여 관리합니다.</p>
+                            </div>
+                            <i data-lucide="chevron-right" style="width: 20px; height: 20px; color: #10b981;"></i>
+                        </div>
+
+                        <!-- Option 2: Lost (✕ 실패) -->
+                        <div class="bid-result-option-card" onclick="app.processBidLostResult()" style="padding: 16px; border-radius: 12px; border: 2px solid rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.08); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: space-between;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; color: #ef4444;">
+                                    <span>✕ 실패</span>
+                                </div>
+                                <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px; margin-bottom: 0;">입찰 실패 상태로 종료합니다.</p>
+                            </div>
+                            <i data-lucide="chevron-right" style="width: 20px; height: 20px; color: #ef4444;"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--bg-card-border); padding-top: 16px;">
+                    <button type="button" class="btn btn-outline" onclick="app.closeBidResultModal()">취소</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modalDiv);
     }
 
     renderBiddingSplitPane() {
@@ -8926,24 +9054,20 @@ class AetherPMO {
                 canConvert: canConvert
             });
 
+            const showBidResultButton = (lifecycleStatus === 'BIDDING');
+
             let convertBtnHtml = '';
-            if (canShowConvertButton) {
+            if (showBidResultButton) {
                 if (!hasPermission) {
                     convertBtnHtml = `
-                        <button id="btn-convert-to-execution" type="button" class="btn btn-sm btn-outline" style="opacity: 0.5; cursor: not-allowed; display: inline-flex; align-items: center; gap: 4px;" disabled aria-label="수행단계로 전환" title="수행단계 전환 권한이 없습니다.">
-                            <i data-lucide="arrow-up-right" style="width:14px; height:14px;"></i> ↗ 수행전환
-                        </button>
-                    `;
-                } else if (isWon) {
-                    convertBtnHtml = `
-                        <button id="btn-convert-to-execution" type="button" class="btn btn-sm btn-info" style="background: linear-gradient(135deg, #0284c7, #2563eb); color: #ffffff; border: none; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" onclick="event.stopPropagation(); app.convertBiddingProjectToExecution('${project.id}')" aria-label="수행단계로 전환" title="수주 프로젝트를 수행단계로 전환">
-                            <i data-lucide="arrow-up-right" style="width:14px; height:14px;"></i> ↗ 수행전환
+                        <button id="btn-bid-result" type="button" class="btn btn-sm btn-outline" style="opacity: 0.5; cursor: not-allowed; display: inline-flex; align-items: center; gap: 4px;" disabled aria-label="입찰결과 처리" title="입찰결과 처리 권한이 없습니다.">
+                            <i data-lucide="scale" style="width:14px; height:14px;"></i> ⚖ 입찰결과
                         </button>
                     `;
                 } else {
                     convertBtnHtml = `
-                        <button id="btn-convert-to-execution" type="button" class="btn btn-sm btn-outline" style="opacity: 0.5; cursor: not-allowed; display: inline-flex; align-items: center; gap: 4px;" disabled aria-label="수행단계로 전환" title="수주 확정 후 수행단계로 전환할 수 있습니다.">
-                            <i data-lucide="arrow-up-right" style="width:14px; height:14px;"></i> ↗ 수행전환
+                        <button id="btn-bid-result" type="button" class="btn btn-sm btn-info" style="background: linear-gradient(135deg, #0284c7, #2563eb); color: #ffffff; border: none; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" onclick="event.stopPropagation(); app.openBidResultModal('${project.id}')" aria-label="입찰결과 처리" title="낙찰 또는 실패 결과를 처리합니다.">
+                            <i data-lucide="scale" style="width:14px; height:14px;"></i> ⚖ 입찰결과
                         </button>
                     `;
                 }
