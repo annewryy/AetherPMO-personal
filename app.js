@@ -4040,6 +4040,28 @@ class AetherPMO {
 
         if (mainRoute === 'project-detail' && parts[1]) {
             await this.switchView('project-detail', parts[1]);
+        } else if (mainRoute === 'tailoring' || mainRoute === 'methodology') {
+            await this.switchView('tailoring');
+        } else if (['issues', 'risks', 'action-items', 'official-docs', 'meeting-minutes'].includes(mainRoute)) {
+            let targetProjectId = this.activeProjectId;
+            if (!targetProjectId && this.state.projects && this.state.projects.length > 0) {
+                targetProjectId = this.state.projects[0].id;
+                this.activeProjectId = targetProjectId;
+            }
+
+            if (targetProjectId) {
+                await this.switchView('project-detail', targetProjectId);
+                const tabMap = {
+                    'issues': 'issues',
+                    'risks': 'risks',
+                    'action-items': 'action-items',
+                    'official-docs': 'official-docs',
+                    'meeting-minutes': 'meeting-minutes'
+                };
+                this.setDetailTab(tabMap[mainRoute] || 'overview');
+            } else {
+                await this.switchView('projects');
+            }
         } else if (mainRoute === 'projects') {
             const stage = parts[1];
             if (stage === 'bidding') {
@@ -4229,6 +4251,8 @@ class AetherPMO {
             this.initG2BSearchView();
         } else if (viewName === 'project-detail' && params) {
             this.renderProjectDetail(params);
+        } else if (viewName === 'tailoring') {
+            this.renderTailoringView();
         } else if (viewName === 'artifacts') {
             this.renderArtifacts();
         } else if (viewName === 'issues') {
@@ -7368,8 +7392,13 @@ class AetherPMO {
             const projectMinutes = this.state.meetingMinutes.filter(m => m.projectId === this.activeProjectId);
             this.renderProjectDetailMeetingMinutesTable(projectMinutes);
         } else if (tabId === 'issues') {
-            const projectIssues = this.state.issues.filter(i => i.projectId === this.activeProjectId);
-            this.renderProjectDetailIssuesTable(projectIssues);
+            const projectIssues = (this.state.issues || []).filter(i => i.projectId === this.activeProjectId && (i.type === '이슈' || !i.type || i.type === '이슈/리스크'));
+            this.renderProjectDetailIssuesTable(projectIssues, 'project-detail-issues-tbody');
+        } else if (tabId === 'risks') {
+            const projectRisks = (this.state.issues || []).filter(i => i.projectId === this.activeProjectId && i.type === '리스크');
+            this.renderProjectDetailIssuesTable(projectRisks, 'project-detail-risks-tbody');
+        } else if (tabId === 'members') {
+            this.renderProjectDetailMembersTable(this.activeProjectId);
         } else if (tabId === 'action-items') {
             const projectActions = this.state.actionItems.filter(a => a.projectId === this.activeProjectId);
             this.renderProjectDetailActionItemsTable(projectActions);
@@ -7460,7 +7489,7 @@ class AetherPMO {
                         activityName: 'OPMS 테일러링 수행',
                         isOpen: true,
                         artifacts: [
-                            { id: 'art-prp-06', name: '방법론 테일러링 시트', status: 'APPROVED', assigneeName: '김철수 PL', updatedAt: '2026-06-09' }
+                            { id: 'art-prp-06', name: '테일러링 시트', status: 'APPROVED', assigneeName: '김철수 PL', updatedAt: '2026-06-09' }
                         ]
                     },
                     {
@@ -7686,8 +7715,17 @@ class AetherPMO {
         };
     }
 
-    renderProjectDetailMethodology(projectId) {
-        const container = document.getElementById('detail-tab-content-methodology');
+    renderProjectDetailMethodology(projectId, targetElementId = null) {
+        let targetId = targetElementId;
+        if (!targetId) {
+            const viewTailoring = document.getElementById('view-tailoring');
+            if (viewTailoring && viewTailoring.classList.contains('active')) {
+                targetId = 'tailoring-view-content';
+            } else {
+                targetId = 'detail-tab-content-methodology';
+            }
+        }
+        const container = document.getElementById(targetId);
         if (!container) return;
 
         const project = this.state.projects.find(p => p.id === projectId);
@@ -7733,9 +7771,9 @@ class AetherPMO {
             <div class="methodology-header-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
                     <div>
-                        <div style="font-size: 12px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">OPMS Methodology Pipeline</div>
+                        <div style="font-size: 12px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">OPMS Tailoring Pipeline</div>
                         <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 10px;">
-                            방법론(OPMS) - ${this.escapeHtml(project?.name || '프로젝트')}
+                            테일러링(OPMS) - ${this.escapeHtml(project?.name || '프로젝트')}
                         </h2>
                     </div>
                     <span class="badge badge-info" style="font-size: 11px; font-weight: 700; padding: 5px 12px;">
@@ -8681,12 +8719,12 @@ class AetherPMO {
         });
     }
 
-    renderProjectDetailIssuesTable(issues) {
-        const tbody = document.getElementById('project-detail-issues-tbody');
+    renderProjectDetailIssuesTable(issues, tbodyId = 'project-detail-issues-tbody') {
+        const tbody = document.getElementById(tbodyId);
         if (!tbody) return;
 
         if (issues.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">등록된 이슈 및 리스크가 없습니다.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">등록된 내역이 없습니다.</td></tr>';
             return;
         }
 
@@ -8711,6 +8749,95 @@ class AetherPMO {
             `;
             tbody.appendChild(tr);
         });
+    }
+
+    renderProjectDetailMembersTable(projectId) {
+        const tbody = document.getElementById('project-detail-members-tbody');
+        if (!tbody) return;
+
+        const members = (this.state.projectMembers || []).filter(m => m.projectId === projectId);
+        if (members.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">등록된 참여인력이 없습니다.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '';
+        members.forEach(mem => {
+            const tr = document.createElement('tr');
+            const statusBadge = mem.isActive !== false 
+                ? '<span class="status-badge status-resolved">참여중</span>'
+                : '<span class="status-badge status-occurred">제외됨</span>';
+            
+            tr.innerHTML = `
+                <td class="font-bold text-xs">${this.escapeHtml(mem.name || mem.memberName || '-')} ${mem.isPm ? '<span class="badge badge-primary" style="font-size:10px; margin-left:4px;">PM</span>' : ''}</td>
+                <td><span class="badge-cat cat-etc">${this.escapeHtml(mem.role || mem.roleName || '수행원')}</span></td>
+                <td class="text-xs font-bold">${this.escapeHtml(mem.department || '-')}</td>
+                <td class="text-xs font-bold">${this.escapeHtml(mem.position || '연구원')}</td>
+                <td class="text-xs text-muted font-bold">${mem.startDate || '-'}</td>
+                <td class="text-xs text-muted font-bold">${mem.endDate || '-'}</td>
+                <td>${statusBadge}</td>
+                <td>
+                    <div class="actions-flex">
+                        <button class="btn btn-xs btn-outline" onclick="app.openProjectMembersModal()">수정</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    renderTailoringView() {
+        const container = document.getElementById('tailoring-view-container');
+        if (!container) return;
+
+        let projectId = this.activeProjectId;
+        if (!projectId && this.state.projects && this.state.projects.length > 0) {
+            projectId = this.state.projects[0].id;
+            this.activeProjectId = projectId;
+        }
+
+        const projectsOptions = (this.state.projects || []).map(p => `
+            <option value="${p.id}" ${p.id === projectId ? 'selected' : ''}>${this.escapeHtml(p.name)} (${p.code || p.id})</option>
+        `).join('');
+
+        let headerHtml = `
+            <div class="view-header" style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                <div>
+                    <h1>테일러링 관리</h1>
+                    <p class="subtitle">프로젝트별 OPMS 표준 수립 및 테일러링 현황을 관리합니다.</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; background: var(--bg-card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--bg-card-border);">
+                    <label style="font-size: 13px; font-weight: 700; color: var(--text-muted); margin: 0;">대상 프로젝트:</label>
+                    <select id="tailoring-project-select" onchange="app.selectTailoringProject(this.value)" style="height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--bg-card-border); background: var(--bg-input); color: var(--text-main); font-weight: 700;">
+                        ${projectsOptions}
+                    </select>
+                </div>
+            </div>
+            <div id="tailoring-view-content"></div>
+        `;
+
+        container.innerHTML = headerHtml;
+
+        if (projectId) {
+            this.renderProjectDetailMethodology(projectId, 'tailoring-view-content');
+        } else {
+            document.getElementById('tailoring-view-content').innerHTML = `
+                <div class="dashboard-card text-center py-5">
+                    <i data-lucide="folder-x" style="width:48px; height:48px; color:var(--text-muted); margin-bottom:16px;"></i>
+                    <h3>선택된 프로젝트가 없습니다</h3>
+                    <p class="text-muted">상단 드롭다운에서 프로젝트를 선택해 주세요.</p>
+                </div>
+            `;
+        }
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    selectTailoringProject(projectId) {
+        this.activeProjectId = projectId;
+        this.renderTailoringView();
     }
 
     renderProjectDetailActionItemsTable(actions) {

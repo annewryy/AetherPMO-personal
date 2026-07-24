@@ -106,18 +106,22 @@
             </div>
 
             <nav class="sidebar-nav">
-                <a href="#dashboard" class="nav-item active" data-view="dashboard" data-tooltip="Aether AI">
-                    <i data-lucide="sparkles"></i>
-                    <span>Aether AI</span>
+                <a href="#dashboard" class="nav-item active" data-view="dashboard" data-tooltip="홈">
+                    <i data-lucide="home"></i>
+                    <span>홈</span>
                 </a>
                 
                 <div class="nav-item-wrapper" id="nav-wrapper-projects">
-                    <a href="#projects" class="nav-item" data-view="projects" data-tooltip="프로젝트 관리">
+                    <a href="#projects" class="nav-item" data-view="projects" data-tooltip="프로젝트">
                         <i data-lucide="folder-kanban"></i>
-                        <span>프로젝트 관리</span>
+                        <span>프로젝트</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
                     </a>
                     <div class="nav-submenu">
+                        <a href="#projects" class="submenu-item" data-subview="all">
+                            <i data-lucide="list"></i>
+                            <span>프로젝트 목록</span>
+                        </a>
                         <a href="#projects/bidding" class="submenu-item" data-subview="bidding">
                             <i data-lucide="file-signature"></i>
                             <span>입찰단계</span>
@@ -133,10 +137,15 @@
                     </div>
                 </div>
 
+                <a href="#tailoring" class="nav-item" data-view="tailoring" data-tooltip="테일러링">
+                    <i data-lucide="sliders"></i>
+                    <span>테일러링</span>
+                </a>
+
                 <div class="nav-item-wrapper" id="nav-wrapper-artifacts">
-                    <a href="#artifacts" class="nav-item" data-view="artifacts" data-tooltip="산출물 템플릿 관리">
+                    <a href="#artifacts" class="nav-item" data-view="artifacts" data-tooltip="템플릿 관리">
                         <i data-lucide="file-check"></i>
-                        <span>산출물 템플릿 관리</span>
+                        <span>템플릿 관리</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
                     </a>
                     <div class="nav-submenu" id="artifacts-submenu">
@@ -152,31 +161,6 @@
                     </div>
                 </div>
 
-                <a href="#issues" class="nav-item" data-view="issues" data-tooltip="이슈/리스크 관리">
-                    <i data-lucide="alert-triangle"></i>
-                    <span>이슈/리스크 관리</span>
-                </a>
-
-                <a href="#action-items" class="nav-item" data-view="action-items" data-tooltip="Action Item 관리">
-                    <i data-lucide="check-square"></i>
-                    <span>Action Item 관리</span>
-                </a>
-
-                <a href="#official-docs" class="nav-item" data-view="official-docs" data-tooltip="공문 관리">
-                    <i data-lucide="mail"></i>
-                    <span>공문 관리</span>
-                </a>
-
-                <a href="#meeting-minutes" class="nav-item" data-view="meeting-minutes" data-tooltip="회의록 관리">
-                    <i data-lucide="presentation"></i>
-                    <span>회의록 관리</span>
-                </a>
-
-                <a href="#board" class="nav-item" data-view="board" data-tooltip="게시판">
-                    <i data-lucide="messages-square"></i>
-                    <span>게시판</span>
-                </a>
-
                 <div class="nav-item-wrapper" id="nav-wrapper-resources">
                     <a href="#resources" class="nav-item" data-view="resources" data-tooltip="인력관리">
                         <i data-lucide="users"></i>
@@ -186,22 +170,44 @@
                     <div class="nav-submenu" id="resources-submenu">
                         <a href="#resources" class="submenu-item" data-subview="resources">
                             <i data-lucide="user-cog" style="width:14px; height:14px; margin-right:6px; display:inline-block; vertical-align:middle;"></i>
-                            <span>참여인력 관리</span>
+                            <span>참여인력</span>
                         </a>
-                        <a href="#contracts" class="submenu-item" data-subview="contracts">
+                        <a href="#contracts" class="submenu-item" data-subview="contracts" style="display: none;">
                             <i data-lucide="file-text" style="width:14px; height:14px; margin-right:6px; display:inline-block; vertical-align:middle;"></i>
                             <span>계약 관리</span>
                         </a>
-                        <a href="#salaries" class="submenu-item" data-subview="salaries">
+                        <a href="#salaries" class="submenu-item" data-subview="salaries" style="display: none;">
                             <i data-lucide="wallet" style="width:14px; height:14px; margin-right:6px; display:inline-block; vertical-align:middle;"></i>
                             <span>월급여 관리</span>
                         </a>
                     </div>
                 </div>
 
-                <a href="#backup" class="nav-item" data-view="backup" data-tooltip="시스템 설정">
+                <a href="#backup" class="nav-item" data-view="backup" data-tooltip="관리자 설정">
                     <i data-lucide="settings"></i>
-                    <span>시스템 설정</span>
+                    <span>관리자 설정</span>
+                </a>
+
+                <!-- Hidden from sidebar for presentation simplicity -->
+                <a href="#issues" class="nav-item" data-view="issues" data-tooltip="이슈/리스크 관리" style="display: none;">
+                    <i data-lucide="alert-triangle"></i>
+                    <span>이슈/리스크 관리</span>
+                </a>
+                <a href="#action-items" class="nav-item" data-view="action-items" data-tooltip="Action Item 관리" style="display: none;">
+                    <i data-lucide="check-square"></i>
+                    <span>Action Item 관리</span>
+                </a>
+                <a href="#official-docs" class="nav-item" data-view="official-docs" data-tooltip="공문 관리" style="display: none;">
+                    <i data-lucide="mail"></i>
+                    <span>공문 관리</span>
+                </a>
+                <a href="#meeting-minutes" class="nav-item" data-view="meeting-minutes" data-tooltip="회의록 관리" style="display: none;">
+                    <i data-lucide="presentation"></i>
+                    <span>회의록 관리</span>
+                </a>
+                <a href="#board" class="nav-item" data-view="board" data-tooltip="게시판" style="display: none;">
+                    <i data-lucide="messages-square"></i>
+                    <span>게시판</span>
                 </a>
             </nav>
 
@@ -1058,13 +1064,15 @@
 
                     <!-- Detail Section Tabs -->
                     <div class="project-detail-tabs-container">
-                        <button class="detail-tab-btn active" data-tab="overview" onclick="app.setDetailTab('overview')">사업개요</button>
+                        <button class="detail-tab-btn active" data-tab="overview" onclick="app.setDetailTab('overview')">프로젝트 개요</button>
                         <button class="detail-tab-btn" data-tab="artifacts" onclick="app.setDetailTab('artifacts')">산출물</button>
-                        <button class="detail-tab-btn" data-tab="meeting-minutes" onclick="app.setDetailTab('meeting-minutes')">회의록</button>
-                        <button class="detail-tab-btn" data-tab="issues" onclick="app.setDetailTab('issues')">리스크</button>
+                        <button class="detail-tab-btn" data-tab="issues" onclick="app.setDetailTab('issues')">이슈</button>
+                        <button class="detail-tab-btn" data-tab="risks" onclick="app.setDetailTab('risks')">리스크</button>
                         <button class="detail-tab-btn" data-tab="action-items" onclick="app.setDetailTab('action-items')">Action Item</button>
+                        <button class="detail-tab-btn" data-tab="meeting-minutes" onclick="app.setDetailTab('meeting-minutes')">회의록</button>
                         <button class="detail-tab-btn" data-tab="official-docs" onclick="app.setDetailTab('official-docs')">공문</button>
-                        <button class="detail-tab-btn" data-tab="methodology" onclick="app.setDetailTab('methodology')">방법론</button>
+                        <button class="detail-tab-btn" data-tab="members" onclick="app.setDetailTab('members')">참여인력</button>
+                        <button class="detail-tab-btn" data-tab="methodology" onclick="app.setDetailTab('methodology')" style="display: none;">테일러링</button>
                         <button class="detail-tab-btn" data-tab="consortium" onclick="app.setDetailTab('consortium')" style="display: none;">컨소시엄</button>
                         <button class="detail-tab-btn" data-tab="vrb" onclick="app.setDetailTab('vrb')" style="display: none;">VRB</button>
                     </div>
@@ -1396,9 +1404,78 @@
                         </div>
                     </div>
 
-                    <!-- TAB 9: 방법론 (Methodology - OPMS) -->
+                    <!-- TAB 9: 리스크 (Risks) -->
+                    <div id="detail-tab-content-risks" class="detail-tab-content">
+                        <div class="dashboard-card project-issues-card">
+                            <div class="card-header-actions" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                                <h3 style="margin:0;">프로젝트 리스크 목록</h3>
+                                <button class="btn btn-sm btn-primary" onclick="app.openNewIssueModalFromDetail()">
+                                    <i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 리스크 등록
+                                </button>
+                            </div>
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>리스크명</th>
+                                            <th>구분</th>
+                                            <th>중요도</th>
+                                            <th>담당자</th>
+                                            <th>발생일</th>
+                                            <th>조치 예정일</th>
+                                            <th>상태</th>
+                                            <th>관리</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="project-detail-risks-tbody">
+                                        <!-- Dynamic rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 10: 참여인력 (Members) -->
+                    <div id="detail-tab-content-members" class="detail-tab-content">
+                        <div class="dashboard-card project-members-card">
+                            <div class="card-header-actions" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                                <h3 style="margin:0;">프로젝트 참여인력 목록</h3>
+                                <button class="btn btn-sm btn-primary" onclick="app.openProjectMembersModal()">
+                                    <i data-lucide="user-plus" style="width:14px; height:14px; margin-right:4px;"></i> 참여인력 관리
+                                </button>
+                            </div>
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>성명</th>
+                                            <th>역할</th>
+                                            <th>소속본부/부서</th>
+                                            <th>직급</th>
+                                            <th>투입시작일</th>
+                                            <th>투입종료일</th>
+                                            <th>상태</th>
+                                            <th>관리</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="project-detail-members-tbody">
+                                        <!-- Dynamic rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 11: 테일러링 (Methodology - OPMS) -->
                     <div id="detail-tab-content-methodology" class="detail-tab-content">
                         <!-- Rendered dynamically by app.renderProjectDetailMethodology(projectId) -->
+                    </div>
+                </section>
+
+                <!-- TAILORING (테일러링) VIEW -->
+                <section id="view-tailoring" class="content-view">
+                    <div id="tailoring-view-container">
+                        <!-- Rendered dynamically by app.renderTailoringView() -->
                     </div>
                 </section>
 
@@ -1406,7 +1483,7 @@
                 <section id="view-artifacts" class="content-view">
                     <div class="view-header">
                         <div>
-                            <h1>산출물 템플릿 관리</h1>
+                            <h1>템플릿 관리</h1>
                             <p class="subtitle">공공 SI 사업 표준 산출물 템플릿을 다운로드하고 관리합니다.</p>
                         </div>
                     </div>
@@ -1995,8 +2072,8 @@
                 <section id="view-backup" class="content-view">
                     <div class="view-header">
                         <div>
-                            <h1>백업 및 설정</h1>
-                            <p class="subtitle">프로그램의 데이터를 관리하고 데이터베이스를 백업/복구합니다.</p>
+                            <h1>관리자 설정</h1>
+                            <p class="subtitle">시스템 관리자 및 사용자 계정, 프로필, 권한을 관리합니다.</p>
                         </div>
                     </div>
 
