@@ -6368,8 +6368,12 @@ class AetherPMO {
                 project.bidResult ||
                 project.convertedToExecutionAt ||
                 bStatus === 'won' ||
+                bStatus === 'lost' ||
                 bStatus === 'closed' ||
-                lStatus === 'BIDDING'
+                lStatus === 'BIDDING' ||
+                lStatus === 'BID_FAILED' ||
+                project.status === 'Bid Failed' ||
+                project.status === 'Bidding'
             );
         });
 
@@ -6568,6 +6572,9 @@ class AetherPMO {
                 projectOrValue.proposal_status ??
                 projectOrValue.biddingStatusKey ??
                 projectOrValue.bidStatus ??
+                projectOrValue.bid_result ??
+                projectOrValue.bidResult ??
+                (projectOrValue.status === 'Bid Failed' ? 'lost' : '') ??
                 ''
             )
             : projectOrValue;
@@ -6612,7 +6619,10 @@ class AetherPMO {
             'failed': 'lost',
             'failure': 'lost',
             'closed': 'lost',
+            'bidfailed': 'lost',
+            'bid_failed': 'lost',
             '실패': 'lost',
+            '입찰실패': 'lost',
             '종료/실패': 'lost'
         };
 
