@@ -861,20 +861,26 @@
 
                     <!-- Bidding Stage Split Container -->
                     <div id="bidding-split-container" class="bidding-split-layout" style="display: none;">
+                        <!-- Top 6-KPI Dashboard Banner -->
+                        <div id="bidding-kpi-banner" class="bidding-kpi-grid" style="grid-column: 1 / -1; margin-bottom: 20px;">
+                            <!-- Rendered dynamically by app.renderBiddingKpis() -->
+                        </div>
+
                         <!-- Left Column: 입찰 참여 프로젝트 -->
                         <div class="bidding-panel left-panel">
                             <div class="bidding-panel-header">
                                 <div class="panel-title-area">
                                     <i data-lucide="file-signature" class="text-primary"></i>
-                                    <h2>입찰 참여 프로젝트</h2>
+                                    <h2>입찰 Pipeline 관리</h2>
                                 </div>
-                                <div class="bidding-status-tabs">
+                                <div class="bidding-status-tabs" id="bidding-pipeline-tabs">
                                     <button class="bidding-status-tab active" data-bid-status="all" onclick="app.setBiddingStatusFilter('all')">전체</button>
-                                    <button class="bidding-status-tab" data-bid-status="제안 준비중" onclick="app.setBiddingStatusFilter('제안 준비중')">제안 준비중</button>
-                                    <button class="bidding-status-tab" data-bid-status="제안 제출" onclick="app.setBiddingStatusFilter('제안 제출')">제안 제출</button>
-                                    <button class="bidding-status-tab" data-bid-status="결과 대기" onclick="app.setBiddingStatusFilter('결과 대기')">결과 대기</button>
-                                    <button class="bidding-status-tab" data-bid-status="수주" onclick="app.setBiddingStatusFilter('수주')">수주</button>
-                                    <button class="bidding-status-tab" data-bid-status="실패" onclick="app.setBiddingStatusFilter('실패')">실패</button>
+                                    <button class="bidding-status-tab" data-bid-status="review" onclick="app.setBiddingStatusFilter('review')">참여검토</button>
+                                    <button class="bidding-status-tab" data-bid-status="drafting" onclick="app.setBiddingStatusFilter('drafting')">작성중</button>
+                                    <button class="bidding-status-tab" data-bid-status="submitted" onclick="app.setBiddingStatusFilter('submitted')">제출완료</button>
+                                    <button class="bidding-status-tab" data-bid-status="waiting_result" onclick="app.setBiddingStatusFilter('waiting_result')">결과대기</button>
+                                    <button class="bidding-status-tab" data-bid-status="won" onclick="app.setBiddingStatusFilter('won')">낙찰</button>
+                                    <button class="bidding-status-tab" data-bid-status="closed" onclick="app.setBiddingStatusFilter('closed')">종료/실패</button>
                                 </div>
                             </div>
                             <div class="bidding-projects-grid" id="bidding-projects-list-container">
@@ -4734,6 +4740,58 @@
 
     <!-- Watermark for Presentation Mode -->
     <div class="demo-watermark" id="demo-watermark">AetherPMO Demo</div>
+
+    <!-- 21. BIDDING PMO PREPARATION DETAIL MODAL -->
+    <div class="modal-overlay" id="bidding-detail-modal">
+        <div class="modal-card modal-lg" style="max-width: 900px; width: 90vw;">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i data-lucide="file-signature" class="text-primary"></i>
+                    <h2 id="bidding-detail-modal-title">입찰 프로젝트 상세</h2>
+                </div>
+                <button class="modal-close-btn" onclick="app.closeBiddingDetailModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <!-- Modal Sub-Tabs -->
+                <div class="project-detail-tabs-container" style="margin-bottom: 20px;">
+                    <button class="detail-tab-btn active" data-bidding-tab="basic" onclick="app.switchBiddingDetailTab('basic')">기본정보</button>
+                    <button class="detail-tab-btn" data-bidding-tab="schedule" onclick="app.switchBiddingDetailTab('schedule')">입찰 일정</button>
+                    <button class="detail-tab-btn" data-bidding-tab="team" onclick="app.switchBiddingDetailTab('team')">참여인력</button>
+                    <button class="detail-tab-btn" data-bidding-tab="action" onclick="app.switchBiddingDetailTab('action')">Action Item</button>
+                    <button class="detail-tab-btn" data-bidding-tab="files" onclick="app.switchBiddingDetailTab('files')">첨부파일</button>
+                    <button class="detail-tab-btn" data-bidding-tab="ai" onclick="app.switchBiddingDetailTab('ai')">🤖 AI Copilot</button>
+                </div>
+                <div id="bidding-detail-tab-content">
+                    <!-- Rendered dynamically -->
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border-top: 1px solid var(--bg-card-border); padding: 12px 20px;">
+                <div id="bidding-detail-entry-point">
+                    <!-- Project Detail Switch Entry Point -->
+                </div>
+                <button class="btn btn-outline" onclick="app.closeBiddingDetailModal()">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 22. AI COPILOT QUICK SELECT MODAL -->
+    <div class="modal-overlay" id="ai-copilot-quick-modal" style="z-index: 100000;">
+        <div class="modal-card" style="max-width: 580px; width: 90vw;">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="bot" class="text-primary"></i>
+                    <h2 id="ai-copilot-quick-title">AI Copilot 스마트 분석</h2>
+                </div>
+                <button class="modal-close-btn" onclick="app.closeAiCopilotQuickModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;" id="ai-copilot-quick-body">
+                <!-- Rendered dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="app.closeAiCopilotQuickModal()">확인</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Core App logic script -->
     <script src="app.js?v=139b43a"></script>
