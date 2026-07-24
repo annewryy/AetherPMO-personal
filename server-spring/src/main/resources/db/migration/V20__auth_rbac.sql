@@ -3,10 +3,12 @@
 --   pms_session: 로그인 세션 토큰. dev 역할별 계정 시드(초기 비번 pms1234!, PBKDF2).
 
 -- 1) role 5종 확장 + 기존값 매핑(ADMIN→SYS_ADMIN, MEMBER→WORKER, PM 유지)
+--    V19(한글 코멘트)가 명명 CHECK(chk_pms_user_role, 구 3종)를 재부여하므로 값 변경 전 드롭.
+ALTER TABLE pms_user DROP CONSTRAINT IF EXISTS chk_pms_user_role;
 UPDATE pms_user SET role = 'SYS_ADMIN' WHERE role = 'ADMIN';
 UPDATE pms_user SET role = 'WORKER'    WHERE role = 'MEMBER';
 ALTER TABLE pms_user
-    MODIFY COLUMN role VARCHAR(20)
+    ADD CONSTRAINT chk_pms_user_role
         CHECK (role IN ('SYS_ADMIN','EXEC_ADMIN','PM','WORKER','VIEWER'));
 
 -- 2) 사람 마스터 연결 + 해시 알고리즘 태그
