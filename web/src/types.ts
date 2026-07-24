@@ -390,7 +390,36 @@ export interface CatalogNode {
   templateTags: string | string[] | Record<string, unknown> | null;
   workflowId: number | null;
   isActive: boolean;             // 0009 소프트 비활성 — false면 조회·신규 테일러링에서 제외
+  // 0029 — 테일러링 표준 트리(방법론 문서 시드): 방법론 구분·규모별 필수·문서형식·표준 파일명
+  methodology: 'OPMS' | 'ODS' | 'OMS' | 'BIS' | string | null;
+  requiredSmall: boolean | null;   // 10억 미만 필수
+  requiredMedium: boolean | null;  // 10~50억 필수
+  requiredLarge: boolean | null;   // 50억 이상 필수
+  docFormat: string | null;        // .hwpx 등
+  fileNameBase: string | null;     // 실제작성파일명(표준 파일명 제안 베이스)
+  docTemplateId: number | null;    // 0030 — 선택된 기본 양식(pms_doc_template)
   children: CatalogNode[];
+}
+
+// 0030 — 산출물 양식(문서 템플릿) 마스터. 테일러링 노드와 1:N(노드가 기본 양식 선택).
+export interface DocTemplate {
+  id: number;
+  name: string;
+  category: string | null;      // 분류(착수단계/수행단계/종료단계 등) — 네비는 distinct로 구성
+  docFormat: string | null;
+  fileRef: string | null;       // 파일 참조(0018 NAS 연동 전 텍스트)
+  description: string | null;
+  isActive: boolean;
+  nodeCount: number;            // 이 양식을 기본으로 쓰는 테일러링 노드 수
+}
+
+export interface DocTemplateInput {
+  name: string;
+  category?: string | null;
+  docFormat?: string | null;
+  fileRef?: string | null;
+  description?: string | null;
+  isActive?: boolean;
 }
 
 // 카탈로그 노드 생성/수정 입력 (0009 — POST/PATCH /api/catalog/nodes)
@@ -403,6 +432,21 @@ export interface CatalogNodeInput {
   sortOrder: number;
   workflowId: number | null;
   isActive: boolean;
+  // 0029 — 테일러링 표준 필드(관리자 편집)
+  methodology?: string | null;
+  requiredSmall?: boolean | null;
+  requiredMedium?: boolean | null;
+  requiredLarge?: boolean | null;
+  docFormat?: string | null;
+  fileNameBase?: string | null;
+  docTemplateId?: number | null;
+}
+
+// 0029 §C — 앱 설정(파일명 패턴 등, GET/PUT /api/admin/settings/{key})
+export interface AppSetting {
+  key: string;
+  value: string | null;
+  updatedAt: string | null;
 }
 
 export interface WorkflowStatus {

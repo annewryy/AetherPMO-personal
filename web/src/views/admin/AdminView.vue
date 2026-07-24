@@ -3,7 +3,7 @@
 // 권한: 0005 전엔 개방(배너 고지), 0005에서 관리자/PM 잠금 예정.
 const MODULES = [
   { path: '/admin/signal-rules', label: '신호 규칙' },
-  { path: '/admin/catalog', label: '카탈로그' },
+  { path: '/admin/catalog', label: '테일러링' },
   { path: '/admin/workflows', label: '워크플로' },
   { path: '/admin/companies', label: '기준정보' },
 ];

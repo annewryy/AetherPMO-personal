@@ -102,6 +102,23 @@ depends: [0003, 0010, 0013]
 
 ---
 
+## G. 사용자 테이블 3종 정리 방향 (2026-07-24 확정 — 너울님)
+
+배경: `pms_user`/`pms_person`/`pms_org_member`에 같은 정보(이름·이메일·부서)가 중복 저장되는 문제 제기.
+역할 분리는 유지하되(계정 ≠ 사람 ≠ 동기화 미러), **원본 규칙과 연결고리를 확정**한다:
+
+1. **원본 규칙**: 사람 정보의 유일한 원본 = `pms_person`.
+   - `pms_user` = **인증 전용**(username/email/password/role/is_active) + **`person_id` FK(신설)**.
+     표시명 등 사람 속성은 person 조인으로 — `full_name`은 FK 도입 후 폐기 수순.
+   - `pms_org_member`(+`_dept`) = **동기화 스테이징 전용**. 기능이 직접 참조할 수 있는 곳은
+     **조직도 픽커(OrgPickerModal)와 org-sync 로직뿐** — 그 외 화면·API는 person을 본다.
+   - `pms_project_member`의 비정규화 사본(name/department/company)은 "투입 시점 스냅샷" 의미로 유지하되
+     신규 조회는 person 조인 우선(기존 방침 재확인).
+2. **마이그레이션(V-차기, RBAC 배치에서)**: `pms_user.person_id` FK 추가 + 기존 계정-사람 백필(이메일 매칭)
+   + `role` CHECK 3종(ADMIN/PM/MEMBER) → **5종**(SYS_ADMIN/EXEC_ADMIN/PM/WORKER/VIEWER,
+   [요구 0004](../requirements/0004-rbac-and-ui-adjustments.md) §1) 확장 — 마이그레이션 1회로 묶는다.
+3. **타이밍**: 자체 로그인 + RBAC 구현 배치(B7)의 첫 단추로 진행. 상세는 설계 0031(예정)에서.
+
 ## 미결 / 후속
 
 - ~~`pms_person` 마이그레이션 + `person_id` FK~~ → **구현됨(V7, batch3)**. 비정규화 컬럼 최종 정리는 점진.

@@ -5,7 +5,7 @@
 // 백엔드 응답 그대로 표시(dataClient.apiSend가 message 패스스루).
 import { ref, computed, onMounted } from 'vue';
 import { dataClient } from '../../lib/dataClient';
-import type { CatalogNode, CatalogNodeType, CatalogNodeInput, Workflow } from '../../types';
+import type { CatalogNode, CatalogNodeType, CatalogNodeInput, Workflow, DocTemplate } from '../../types';
 import CatalogNodeItem from '../../components/CatalogNodeItem.vue';
 import StateNotice from '../../components/StateNotice.vue';
 
@@ -58,7 +58,19 @@ const form = ref({
   sortOrder: 0,
   workflowId: null as number | null,
   isActive: true,
+  // 0029 — 테일러링 표준 필드
+  methodology: null as string | null,
+  requiredSmall: null as boolean | null,
+  requiredMedium: null as boolean | null,
+  requiredLarge: null as boolean | null,
+  docFormat: '',
+  fileNameBase: '',
+  docTemplateId: null as number | null,
 });
+
+const docTemplates = ref<DocTemplate[]>([]);
+
+const METHODOLOGIES = ['OPMS', 'ODS', 'OMS', 'BIS'] as const;
 
 function selectNode(n: CatalogNode) {
   selectedId.value = n.id;
@@ -73,6 +85,13 @@ function selectNode(n: CatalogNode) {
     sortOrder: n.sortOrder,
     workflowId: n.workflowId,
     isActive: n.isActive,
+    methodology: n.methodology ?? null,
+    requiredSmall: n.requiredSmall,
+    requiredMedium: n.requiredMedium,
+    requiredLarge: n.requiredLarge,
+    docFormat: n.docFormat ?? '',
+    fileNameBase: n.fileNameBase ?? '',
+    docTemplateId: n.docTemplateId,
   };
 }
 
@@ -89,6 +108,13 @@ function openCreate(parent: CatalogNode | null) {
     sortOrder: (parent?.children.length ?? roots.value.length) + 1,
     workflowId: null,
     isActive: true,
+    methodology: parent?.methodology ?? null,
+    requiredSmall: null,
+    requiredMedium: null,
+    requiredLarge: null,
+    docFormat: '',
+    fileNameBase: '',
+    docTemplateId: null,
   };
 }
 
@@ -107,7 +133,41 @@ function toInput(): CatalogNodeInput {
     sortOrder: form.value.sortOrder,
     workflowId: form.value.workflowId,
     isActive: form.value.isActive,
+    methodology: form.value.methodology,
+    requiredSmall: form.value.requiredSmall,
+    requiredMedium: form.value.requiredMedium,
+    requiredLarge: form.value.requiredLarge,
+    docFormat: form.value.docFormat.trim() || null,
+    fileNameBase: form.value.fileNameBase.trim() || null,
+    docTemplateId: form.value.docTemplateId,
   };
+}
+
+// 0029 §C — 파일명 패턴 설정(요구 0004 §4). 관리자에서 조회·수정.
+const filenamePattern = ref('');
+const patternSaved = ref(false);
+const patternSaving = ref(false);
+async function loadPattern() {
+  try {
+    const s2 = await dataClient.adminSettings.get('deliverable.filename.pattern');
+    filenamePattern.value = s2.value ?? '';
+  } catch (e) {
+    console.error('[admin] 파일명 패턴 로드 실패:', e);
+  }
+}
+async function savePattern() {
+  patternSaving.value = true;
+  patternSaved.value = false;
+  try {
+    const s2 = await dataClient.adminSettings.put('deliverable.filename.pattern', filenamePattern.value);
+    filenamePattern.value = s2.value ?? '';
+    patternSaved.value = true;
+    window.setTimeout(() => { patternSaved.value = false; }, 2500);
+  } catch (e) {
+    alert(e instanceof Error ? e.message : String(e));
+  } finally {
+    patternSaving.value = false;
+  }
 }
 
 async function save() {
@@ -172,6 +232,11 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+  if (apiMode.value) {
+    void loadPattern();
+    dataClient.docTemplates.list().then((v) => { docTemplates.value = v; })
+      .catch((e) => console.error('[admin] 양식 목록 로드 실패:', e));
+  }
 });
 </script>
 
@@ -187,6 +252,20 @@ onMounted(async () => {
       노드 추가·수정·비활성·삭제는 백엔드(API_BASE) 연결 후 가능합니다 — 현재는 트리 조회만.
     </div>
     <div v-if="actionError" class="error-notice">{{ actionError }}</div>
+
+    <!-- 0029 §C — 표준 파일명 패턴(코드 체계 커스터마이징, 요구 0004 §4) -->
+    <div v-if="apiMode" class="pattern-box">
+      <label class="pattern-label">표준 파일명 패턴
+        <span class="pattern-hint">토큰: {프로젝트코드} {단계} {활동} {작업} {산출물} {산출물명} {버전} {확장자}</span>
+      </label>
+      <div class="pattern-row">
+        <input v-model="filenamePattern" class="input pattern-input" type="text" :disabled="patternSaving" />
+        <button class="btn btn-sm" :disabled="patternSaving || !filenamePattern.trim()" @click="savePattern">
+          {{ patternSaving ? '저장 중…' : '패턴 저장' }}
+        </button>
+        <span v-if="patternSaved" class="pattern-ok">저장됨</span>
+      </div>
+    </div>
 
     <StateNotice
       :loading="loading" :error="loadError"
@@ -269,6 +348,40 @@ onMounted(async () => {
               <span class="label">활성</span>
               <input v-model="form.isActive" type="checkbox" class="check" />
             </label>
+            <label class="field">
+              <span class="label">방법론</span>
+              <select v-model="form.methodology" class="select">
+                <option :value="null">커스텀(없음)</option>
+                <option v-for="m in METHODOLOGIES" :key="m" :value="m">{{ m }}</option>
+              </select>
+            </label>
+            <template v-if="form.nodeType === 'DELIVERABLE'">
+              <label class="field">
+                <span class="label">규모별 필수</span>
+                <span class="req-checks">
+                  <label class="chk"><input type="checkbox" :checked="form.requiredSmall === true" @change="form.requiredSmall = ($event.target as HTMLInputElement).checked" /> 소</label>
+                  <label class="chk"><input type="checkbox" :checked="form.requiredMedium === true" @change="form.requiredMedium = ($event.target as HTMLInputElement).checked" /> 중</label>
+                  <label class="chk"><input type="checkbox" :checked="form.requiredLarge === true" @change="form.requiredLarge = ($event.target as HTMLInputElement).checked" /> 대</label>
+                </span>
+              </label>
+              <label class="field">
+                <span class="label">기본 양식 <span class="hint">(양식은 1:N — 산출물 관리에서 등록)</span></span>
+                <select v-model="form.docTemplateId" class="select">
+                  <option :value="null">선택 안 함</option>
+                  <option v-for="t in docTemplates" :key="t.id" :value="t.id">
+                    {{ t.category ? `[${t.category}] ` : '' }}{{ t.name }}
+                  </option>
+                </select>
+              </label>
+              <label class="field">
+                <span class="label">문서형식</span>
+                <input v-model="form.docFormat" type="text" class="input" placeholder=".hwpx" />
+              </label>
+              <label class="field">
+                <span class="label">표준 파일명(베이스)</span>
+                <input v-model="form.fileNameBase" type="text" class="input" placeholder="예: 프로세스 테일러링 가이드" />
+              </label>
+            </template>
           </div>
           <div class="form-actions">
             <button class="btn btn-primary" :disabled="!apiMode || saving" @click="save">
@@ -338,4 +451,16 @@ onMounted(async () => {
 .check { width: 16px; height: 16px; accent-color: var(--accent); }
 .form-actions { display: flex; gap: 8px; margin-top: 14px; }
 .node-ops { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.pattern-box {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 16px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px;
+}
+.pattern-label { font-size: 13px; font-weight: 600; }
+.pattern-hint { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 8px; }
+.pattern-row { display: flex; gap: 8px; align-items: center; }
+.pattern-input { flex: 1; font-family: ui-monospace, monospace; }
+.pattern-ok { color: var(--green); font-size: 12.5px; }
+.req-checks { display: flex; gap: 10px; }
+.req-checks .chk { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+.hint { font-weight: 400; color: var(--muted); font-size: 11px; }
 </style>

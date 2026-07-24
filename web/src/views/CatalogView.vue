@@ -6,7 +6,7 @@
 import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
-import type { CatalogNode, Workflow } from '../types';
+import type { CatalogNode, Workflow, DocTemplate } from '../types';
 import CatalogNodeItem from '../components/CatalogNodeItem.vue';
 import CatalogDetailPanel from '../components/CatalogDetailPanel.vue';
 import StateNotice from '../components/StateNotice.vue';
@@ -15,6 +15,12 @@ const route = useRoute();
 
 const phases = ref<CatalogNode[]>([]);
 const workflows = ref<Workflow[]>([]);
+const docTemplates = ref<DocTemplate[]>([]);
+const templateNamesById = computed(() => {
+  const m = new Map<number, string>();
+  for (const t of docTemplates.value) m.set(t.id, t.name);
+  return m;
+});
 const loading = ref(true);
 const loadError = ref<string | null>(null);
 
@@ -22,6 +28,35 @@ const selectedPhaseId = ref<number | null>(null);
 const selectedNodeId = ref<number | null>(null);
 const expanded = ref<Record<number, boolean>>({});
 const highlightId = ref<number | null>(null);
+
+// 0029 — 방법론 탭(표준 트리 필터). 커스텀 = methodology NULL(기존 데모/수동 트리).
+const METHODOLOGY_TABS = [
+  { key: 'OPMS', label: 'OPMS 사업관리' },
+  { key: 'ODS', label: 'ODS 시스템구축' },
+  { key: 'OMS', label: 'OMS 유지관리' },
+  { key: 'BIS', label: 'BIS ISP컨설팅' },
+  { key: '__custom__', label: '커스텀' },
+] as const;
+const methodologyTab = ref<string>('OPMS');
+
+const visibleTabs = computed(() =>
+  METHODOLOGY_TABS.filter((t) =>
+    t.key === '__custom__'
+      ? phases.value.some((p) => !p.methodology)
+      : phases.value.some((p) => p.methodology === t.key)),
+);
+
+const filteredPhases = computed(() =>
+  phases.value.filter((p) =>
+    methodologyTab.value === '__custom__' ? !p.methodology : p.methodology === methodologyTab.value));
+
+function selectMethodology(key: string) {
+  methodologyTab.value = key;
+  const list = filteredPhases.value;
+  selectedPhaseId.value = list.length ? list[0].id : null;
+  selectedNodeId.value = null;
+  highlightId.value = null;
+}
 
 const workflowsById = computed(() => {
   const m = new Map<number, Workflow>();
@@ -85,6 +120,8 @@ async function applyDeepLink() {
   if (!Number.isFinite(nodeId) || phases.value.length === 0) return;
   const path = findPath(phases.value, nodeId);
   if (!path) return;
+  const rootMeth = path[0].methodology;
+  methodologyTab.value = rootMeth ?? '__custom__';
   selectedPhaseId.value = path[0].id;
   for (const n of path) expanded.value[n.id] = true;
   highlightId.value = nodeId;
@@ -98,11 +135,15 @@ async function applyDeepLink() {
 
 onMounted(async () => {
   try {
-    [phases.value, workflows.value] = await Promise.all([
+    [phases.value, workflows.value, docTemplates.value] = await Promise.all([
       dataClient.catalog.tree(),
       dataClient.workflows.list(),
+      dataClient.docTemplates.list().catch(() => []),
     ]);
-    if (phases.value.length) selectedPhaseId.value = phases.value[0].id;
+    // 첫 탭 = 존재하는 방법론 우선(표준 시드 후 OPMS), 없으면 커스텀.
+    const first = visibleTabs.value[0];
+    if (first) methodologyTab.value = first.key;
+    if (filteredPhases.value.length) selectedPhaseId.value = filteredPhases.value[0].id;
     await applyDeepLink();
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e);
@@ -116,20 +157,29 @@ watch(() => route.query.node, applyDeepLink);
 
 <template>
   <div>
-    <h1 class="title">템플릿 카탈로그</h1>
-    <p class="sub">템플릿 = 업무 프로세스(ACTIVITY→TASK) + 상태전이(워크플로) + 산출물의 묶음 — 읽기 전용.</p>
+    <h1 class="title">테일러링</h1>
+    <p class="sub">표준방법론(단계→활동→작업→산출물)과 규모별 필수 산출물 — 프로젝트 전개(테일러링)의 기준 트리.</p>
 
     <StateNotice
       :loading="loading" :error="loadError"
       :empty="!loading && !loadError && phases.length === 0"
-      empty-text="카탈로그 데이터가 없습니다 — 데이터 소스(백엔드 API 또는 Supabase 시드) 연결 후 표시됩니다."
+      empty-text="테일러링 표준 데이터가 없습니다 — 백엔드(API_BASE) 연결 후 표시됩니다."
     />
+
+    <!-- 0029: 방법론 탭 -->
+    <div v-if="!loading && !loadError && phases.length > 0" class="meth-tabs">
+      <button
+        v-for="t in visibleTabs" :key="t.key"
+        class="mtab" :class="{ on: methodologyTab === t.key }"
+        @click="selectMethodology(t.key)"
+      >{{ t.label }}</button>
+    </div>
 
     <div v-if="!loading && !loadError && phases.length > 0" class="layout">
       <!-- 1열: 분류(PHASE) -->
       <aside class="phase-list">
         <button
-          v-for="p in phases" :key="p.id"
+          v-for="p in filteredPhases" :key="p.id"
           class="phase" :class="{ on: p.id === selectedPhaseId }"
           @click="selectPhase(p.id)"
         >
@@ -167,6 +217,7 @@ watch(() => route.query.node, applyDeepLink);
         <CatalogDetailPanel
           v-if="selectedNode && selectedPath"
           :node="selectedNode" :path="selectedPath" :workflows-by-id="workflowsById"
+          :template-names-by-id="templateNamesById"
           @select="selectNodeById"
         />
         <div v-else class="detail-empty">
@@ -180,6 +231,17 @@ watch(() => route.query.node, applyDeepLink);
 <style scoped>
 .title { font-size: 22px; margin: 0 0 4px; }
 .sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
+
+.meth-tabs {
+  display: flex; gap: 4px; margin-bottom: 14px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 3px; width: fit-content;
+}
+.mtab {
+  border: 0; background: transparent; color: var(--muted);
+  font-size: 13.5px; font-weight: 600; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-family: inherit;
+}
+.mtab:hover { color: var(--text); }
+.mtab.on { background: var(--accent); color: #fff; }
 
 .layout { display: flex; gap: 14px; align-items: flex-start; }
 .phase-list { width: 190px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }

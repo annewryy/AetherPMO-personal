@@ -15,13 +15,13 @@ import { getCurrentUserId } from './currentUser';
 import type {
   Project, ProjectMember, ConsortiumMember, Artifact, Issue, ActionItem,
   OfficialDoc, MeetingMinute, Activity, AppState, VrbInfo, DashboardSignals, DashboardWidgets, Task,
-  SignalRule, SignalRuleInput, CatalogNodeInput, Company, CompanyInput,
+  SignalRule, SignalRuleInput, CatalogNodeInput, Company, CompanyInput, DocTemplate, DocTemplateInput,
   CatalogNode, Workflow, WorkflowStatus, WorkflowTransition, WorkflowTransitionCondition,
   WorkflowInput, WorkflowStatusInput, WorkflowTransitionInput, TransitionConditionInput,
   CommentEntityType, EntityComment, CommentCreateInput,
   AvailableTransition, TransitionEntity, ProjectProgress, ProjectWbs,
   IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput,
-  ProjectMemberRef, ProjectMemberDetail, ProjectMemberInput, ProjectMemberAssignment, AppNotification,
+  ProjectMemberRef, ProjectMemberDetail, ProjectMemberInput, ProjectMemberAssignment, AppNotification, AppSetting,
   Person, PersonProjectHistory, PersonFilters, InsourcingTransition, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput,
   BidAgency, BidNoticeFilters, BidNoticeResult, BidNoticeDetail,
 } from '../types';
@@ -66,7 +66,7 @@ async function apiGet<T>(path: string): Promise<T> {
 
 // 쓰기 계열(POST/PATCH/DELETE) — 백엔드 전용. apiBase 없으면 호출 자체가 계약 위반.
 // (Supabase 직접 쓰기 경로는 만들지 않는다 — 0004 불변 계약 4조)
-async function apiSend<T>(method: 'POST' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
+async function apiSend<T>(method: 'POST' | 'PATCH' | 'PUT' | 'DELETE', path: string, body?: unknown): Promise<T> {
   const base = apiBase();
   if (!base) throw new Error('[dataClient] 쓰기는 백엔드(API_BASE) 연결 후에만 가능합니다.');
   const res = await fetch(`${base}${path}`, {
@@ -330,6 +330,34 @@ export const dataClient = {
 
   // 카탈로그 관리 쓰기 (0009 모듈 2) — 백엔드 전용. 409(참조/코드 중복)·400(계층 규칙)
   // 가드 메시지는 apiSend가 본문 message를 그대로 던진다(화면에서 그대로 표시).
+  // 0029 §C — 앱 설정(파일명 패턴 등). 관리자 화면 전용.
+  adminSettings: {
+    async get(key: string): Promise<AppSetting> {
+      return apiGet<AppSetting>(`/api/admin/settings/${encodeURIComponent(key)}`);
+    },
+    put(key: string, value: string): Promise<AppSetting> {
+      return apiSend<AppSetting>('PUT', `/api/admin/settings/${encodeURIComponent(key)}`, { value });
+    },
+  },
+
+  // 0030 — 산출물 양식 마스터
+  docTemplates: {
+    async list(category?: string): Promise<DocTemplate[]> {
+      if (!apiBase()) return [];
+      const q = category ? `?category=${encodeURIComponent(category)}` : '';
+      return apiGet<DocTemplate[]>(`/api/doc-templates${q}`);
+    },
+    create(input: DocTemplateInput): Promise<DocTemplate> {
+      return apiSend<DocTemplate>('POST', '/api/doc-templates', input);
+    },
+    update(id: number, patch: Partial<DocTemplateInput>): Promise<DocTemplate> {
+      return apiSend<DocTemplate>('PATCH', `/api/doc-templates/${id}`, patch);
+    },
+    remove(id: number): Promise<void> {
+      return apiSend<void>('DELETE', `/api/doc-templates/${id}`);
+    },
+  },
+
   catalogAdmin: {
     createNode(input: CatalogNodeInput): Promise<CatalogNode> {
       return apiSend<CatalogNode>('POST', '/api/catalog/nodes', input);
