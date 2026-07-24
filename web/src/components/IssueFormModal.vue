@@ -91,11 +91,11 @@ async function submit() {
 </template>
 
 <style scoped>
-.label { font-size: 12px; color: var(--muted); }
+.label { font-size: 13px; color: var(--muted); }
 .req { color: var(--red); }
 .input {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 8px 10px; outline: none;
+  color: var(--text); font-size: 14px; padding: 8px 10px; outline: none;
   font-family: inherit; width: 100%;
 }
 .input:focus { border-color: var(--accent); }
@@ -104,8 +104,8 @@ async function submit() {
 .seg { display: flex; gap: 6px; }
 .seg-btn {
   flex: 1; border: 1px solid var(--border); background: var(--panel); color: var(--muted);
-  border-radius: 8px; padding: 7px; font-size: 13px; cursor: pointer; font-family: inherit;
+  border-radius: 8px; padding: 7px; font-size: 14px; cursor: pointer; font-family: inherit;
 }
 .seg-btn.on { border-color: var(--accent); color: var(--text); background: rgba(139, 92, 246, 0.12); }
-.err { color: var(--red); font-size: 12px; }
+.err { color: var(--red); font-size: 13px; }
 </style>

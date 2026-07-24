@@ -116,9 +116,9 @@ const deliverableWorkflows = computed(() => {
 <style scoped>
 .panel { display: flex; flex-direction: column; gap: 16px; }
 .head { display: flex; align-items: center; gap: 10px; }
-.name { font-size: 16px; margin: 0; }
+.name { font-size: 17px; margin: 0; }
 .type {
-  flex-shrink: 0; font-size: 10px; font-weight: 600;
+  flex-shrink: 0; font-size: 11px; font-weight: 600;
   padding: 2px 8px; border-radius: 999px;
 }
 .t-TASK { color: var(--green); background: rgba(52, 211, 153, 0.12); }
@@ -127,27 +127,27 @@ const deliverableWorkflows = computed(() => {
 .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; margin: 0; }
 .meta > div { display: flex; flex-direction: column; gap: 2px; }
 .meta .wide { grid-column: 1 / -1; }
-.meta dt { font-size: 11px; color: var(--muted); }
-.meta dd { margin: 0; font-size: 13px; }
+.meta dt { font-size: 12px; color: var(--muted); }
+.meta dd { margin: 0; font-size: 14px; }
 .code { font-family: ui-monospace, monospace; }
-.path { color: var(--muted); font-size: 12px; }
+.path { color: var(--muted); font-size: 13px; }
 
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .section { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 12px; }
 .section-head { display: flex; align-items: center; justify-content: space-between; }
-.section-title { font-size: 13px; margin: 0; color: var(--text); }
-.empty { font-size: 12px; color: var(--muted); }
+.section-title { font-size: 14px; margin: 0; color: var(--text); }
+.empty { font-size: 13px; color: var(--muted); }
 
-.grid { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.grid { border-collapse: collapse; width: 100%; font-size: 13.5px; }
 .grid th, .grid td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); }
-.grid th { color: var(--muted); font-weight: 600; font-size: 11px; }
+.grid th { color: var(--muted); font-weight: 600; font-size: 12px; }
 .grid tbody tr:last-child td { border-bottom: 0; }
 .pending { color: var(--muted); font-style: italic; }
 .cell-action { text-align: right; }
 .link {
   border: 0; background: transparent; padding: 0; cursor: pointer;
-  color: var(--accent); font-size: 12.5px; font-family: inherit;
+  color: var(--accent); font-size: 13.5px; font-family: inherit;
 }
 .link:hover { text-decoration: underline; }
 .wf-item + .wf-item { margin-top: 12px; }

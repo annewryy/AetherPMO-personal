@@ -13,7 +13,8 @@
   --blue: #3b82f6;
   --red: #ef4444;
 
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Apple SD Gothic Neo', sans-serif;
+  /* 0028: 유경님 UI 정합 — Plus Jakarta Sans(라틴) + Noto Sans KR(한글), 시스템 폰트 폴백 */
+  font-family: 'Plus Jakarta Sans', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Apple SD Gothic Neo', sans-serif;
   color: var(--text);
   background: var(--bg);
 }
@@ -27,13 +28,13 @@ a:hover { text-decoration: underline; }
   display: inline-flex; align-items: center; gap: 6px;
   border: 1px solid var(--border); border-radius: 8px;
   background: var(--panel); color: var(--text);
-  font-size: 13px; padding: 7px 14px; cursor: pointer;
+  font-size: 14px; padding: 7px 14px; cursor: pointer;
   font-family: inherit;
 }
 .btn:hover { background: var(--panel-2); }
 .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn-primary:hover { background: #7c4ce6; }
-.btn-sm { font-size: 12px; padding: 3px 10px; border-radius: 6px; }
+.btn-sm { font-size: 13px; padding: 3px 10px; border-radius: 6px; }
 .btn-danger { color: var(--red); }
 /* 0011 작업 화면 — 비활성 컨트롤(폴백 모드·전이 조건 미충족 등) 공통 표시 */
 .btn:disabled,

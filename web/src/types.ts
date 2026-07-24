@@ -183,6 +183,30 @@ export interface ProjectMemberDetail {
   personId: number | null;
 }
 
+// 0028 — 참여인력 관리(전사): GET /api/project-members 응답(매핑 1건 = 1행).
+export interface ProjectMemberAssignment {
+  memberId: number;
+  projectId: number;
+  projectCode: string | null;
+  projectName: string;
+  personId: number | null;
+  memberType: ProjectMemberType | string | null;
+  userUid: string | null;
+  name: string;
+  employmentType: EmploymentType | string | null;
+  company: string | null;
+  companyId: number | null;
+  department: string | null;
+  position: string | null;
+  roleName: string | null;
+  participationRole: string | null;
+  isProjectManager: boolean;
+  isActive: boolean;
+  startDate: string | null;
+  endDate: string | null;
+  memo: string | null;
+}
+
 // 배치21 — 참여인력 등록 입력(POST /api/projects/{id}/members 화이트리스트).
 // 필수 name. 백엔드가 pms_person에 find-or-insert 후 연결(0005 §D).
 export interface ProjectMemberInput {

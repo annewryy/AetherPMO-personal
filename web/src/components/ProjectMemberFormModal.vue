@@ -270,11 +270,11 @@ async function submit() {
 </template>
 
 <style scoped>
-.label { font-size: 12px; color: var(--muted); }
+.label { font-size: 13px; color: var(--muted); }
 .req { color: var(--red); }
 .input {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 8px 10px; outline: none;
+  color: var(--text); font-size: 14px; padding: 8px 10px; outline: none;
   font-family: inherit; width: 100%;
 }
 .input:focus { border-color: var(--accent); }
@@ -284,26 +284,26 @@ async function submit() {
 .name-in { flex: 1; }
 .btn-outline {
   flex-shrink: 0; border: 1px solid var(--accent); background: transparent; color: var(--accent);
-  font-size: 12.5px; font-weight: 600; padding: 8px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+  font-size: 13.5px; font-weight: 600; padding: 8px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap;
 }
 .btn-outline:hover:not(:disabled) { background: rgba(99, 102, 241, 0.12); }
 .btn-outline:disabled { opacity: 0.5; cursor: default; }
-.chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
-.err { color: var(--red); font-size: 12px; }
+.chk { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+.err { color: var(--red); font-size: 13px; }
 
 /* 조직도 선택 완료 칩 */
 .picked {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; background: var(--panel);
 }
-.picked-nm { font-size: 13px; font-weight: 700; }
-.picked-sub { font-size: 12px; color: var(--muted); flex: 1; }
-.picked-id { font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; }
+.picked-nm { font-size: 14px; font-weight: 700; }
+.picked-sub { font-size: 13px; color: var(--muted); flex: 1; }
+.picked-id { font-size: 12px; color: var(--muted); font-family: ui-monospace, monospace; }
 .btn-link {
   border: 0; background: transparent; color: var(--accent);
-  font-size: 12px; font-weight: 600; cursor: pointer; padding: 2px 4px;
+  font-size: 13px; font-weight: 600; cursor: pointer; padding: 2px 4px;
 }
 .btn-link:disabled { opacity: 0.5; cursor: default; }
-.hint-line { font-size: 11.5px; color: var(--muted); margin: 4px 0 0; }
+.hint-line { font-size: 12.5px; color: var(--muted); margin: 4px 0 0; }
 .new-company { margin-top: 6px; }
 </style>

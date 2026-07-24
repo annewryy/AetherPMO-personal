@@ -60,15 +60,15 @@ function onSubmit() {
 </template>
 
 <style scoped>
-.msg { margin: 0; font-size: 13px; color: var(--text); }
-.label { font-size: 12px; color: var(--muted); }
+.msg { margin: 0; font-size: 14px; color: var(--text); }
+.label { font-size: 13px; color: var(--muted); }
 .req { color: var(--red); }
 .opt { color: var(--muted); font-weight: 400; }
 .input {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 8px 10px; outline: none;
+  color: var(--text); font-size: 14px; padding: 8px 10px; outline: none;
   font-family: inherit; resize: vertical;
 }
 .input:focus { border-color: var(--accent); }
-.err { color: var(--red); font-size: 12px; }
+.err { color: var(--red); font-size: 13px; }
 </style>

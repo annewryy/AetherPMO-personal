@@ -255,9 +255,9 @@ function fmtTime(v: string): string {
 </template>
 
 <style scoped>
-.thread { display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
-.dim { color: var(--muted); font-size: 12px; }
-.err { color: var(--red); font-size: 12px; }
+.thread { display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+.dim { color: var(--muted); font-size: 13px; }
+.err { color: var(--red); font-size: 13px; }
 
 .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .item-wrap { display: flex; flex-direction: column; gap: 6px; }
@@ -267,10 +267,10 @@ function fmtTime(v: string): string {
 }
 .item.hl { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.25); }
 .head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
-.author { font-weight: 600; font-size: 12px; }
-.time { margin-left: auto; color: var(--muted); font-size: 11px; }
+.author { font-weight: 600; font-size: 13px; }
+.time { margin-left: auto; color: var(--muted); font-size: 12px; }
 .sc-badge {
-  font-size: 10px; font-weight: 600; color: var(--blue);
+  font-size: 11px; font-weight: 600; color: var(--blue);
   border: 1px solid var(--blue); border-radius: 999px; padding: 0 7px;
   background: rgba(59, 130, 246, 0.08);
 }
@@ -282,7 +282,7 @@ function fmtTime(v: string): string {
 .item-actions { margin-top: 5px; }
 .link-btn {
   border: 0; background: transparent; padding: 0; cursor: pointer;
-  color: var(--muted); font-size: 11px; font-family: inherit;
+  color: var(--muted); font-size: 12px; font-family: inherit;
 }
 .link-btn:hover { color: var(--accent); text-decoration: underline; }
 
@@ -294,7 +294,7 @@ function fmtTime(v: string): string {
 .reply-form { margin: 4px 0 0 30px; }
 
 .gate {
-  padding: 8px 12px; border-radius: 8px; font-size: 12px; color: var(--muted);
+  padding: 8px 12px; border-radius: 8px; font-size: 13px; color: var(--muted);
   background: var(--panel); border: 1px dashed var(--border);
 }
 </style>

@@ -260,18 +260,18 @@ const selectedCount = computed(() => props.selected.size);
 .search-in {
   flex: 1; min-width: 0;
   background: var(--panel-2, var(--panel)); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 12px; padding: 6px 10px; outline: none;
+  color: var(--text); font-size: 13px; padding: 6px 10px; outline: none;
 }
 .search-in:focus { border-color: var(--accent); }
 .chip-reset {
   border: 1px solid var(--border); background: var(--panel-2); color: var(--muted);
-  font-size: 11px; padding: 4px 8px; border-radius: 6px; cursor: pointer; white-space: nowrap;
+  font-size: 12px; padding: 4px 8px; border-radius: 6px; cursor: pointer; white-space: nowrap;
 }
 .chip-reset:hover:not(:disabled) { color: var(--text); }
-.count { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.count { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .clear {
   border: 1px solid var(--border); background: var(--panel-2); color: var(--muted);
-  font-size: 11px; padding: 2px 8px; border-radius: 6px; cursor: pointer;
+  font-size: 12px; padding: 2px 8px; border-radius: 6px; cursor: pointer;
 }
 .clear:hover:not(:disabled) { color: var(--text); }
 .chip-reset:disabled, .clear:disabled, .chip:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -279,16 +279,16 @@ const selectedCount = computed(() => props.selected.size);
 /* 2) 필터 */
 .filters { display: flex; flex-direction: column; gap: 5px; }
 .frow { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
-.fkey { font-size: 11px; color: var(--muted); width: 66px; flex-shrink: 0; }
+.fkey { font-size: 12px; color: var(--muted); width: 66px; flex-shrink: 0; }
 .chip {
   border: 1px solid var(--border); background: var(--panel-2); color: var(--muted);
-  font-size: 11px; padding: 2px 9px; border-radius: 999px; cursor: pointer;
+  font-size: 12px; padding: 2px 9px; border-radius: 999px; cursor: pointer;
 }
 .chip:hover:not(:disabled) { color: var(--text); }
 .chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 /* 3) 트리 */
-.match-note { margin: 2px 0 0; font-size: 11px; color: var(--muted); }
+.match-note { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
 .tree {
   margin: 2px 0 0; padding: 8px; list-style: none;
   border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2, var(--panel));
@@ -300,32 +300,32 @@ const selectedCount = computed(() => props.selected.size);
 .pv-head {
   width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
   background: var(--panel-2); border: 0; border-bottom: 1px solid var(--border);
-  padding: 7px 10px; cursor: pointer; color: var(--text); font-size: 12px; text-align: left;
+  padding: 7px 10px; cursor: pointer; color: var(--text); font-size: 13px; text-align: left;
 }
 .preview.collapsed .pv-head { border-bottom: 0; }
 .pv-title { display: flex; align-items: center; gap: 6px; font-weight: 600; min-width: 0; }
 .pv-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pv-type {
-  font-size: 10px; color: var(--muted); border: 1px solid var(--border);
+  font-size: 11px; color: var(--muted); border: 1px solid var(--border);
   border-radius: 4px; padding: 0 5px; flex-shrink: 0; font-weight: 500;
 }
 .pv-type.PHASE { color: var(--accent); border-color: var(--accent); }
 .pv-toggle { color: var(--muted); flex-shrink: 0; }
 .pv-body { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin: 0; padding: 10px; }
 .pv-body .wide { grid-column: 1 / -1; }
-.pv-body dt { color: var(--muted); font-size: 10px; margin-bottom: 2px; }
-.pv-body dd { margin: 0; font-size: 12px; color: var(--text); }
+.pv-body dt { color: var(--muted); font-size: 11px; margin-bottom: 2px; }
+.pv-body dd { margin: 0; font-size: 13px; color: var(--text); }
 .pv-body dd.empty { color: var(--muted); font-style: italic; }
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .tags .tag {
-  font-size: 10px; color: var(--muted); background: var(--panel-2);
+  font-size: 11px; color: var(--muted); background: var(--panel-2);
   border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px;
 }
 .tmpl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .tmpl-note {
-  font-size: 10px; color: var(--muted); background: var(--panel-2);
+  font-size: 11px; color: var(--muted); background: var(--panel-2);
   border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px;
 }
-.pv-hint { margin: 0; font-size: 11px; color: var(--muted); opacity: 0.8; }
+.pv-hint { margin: 0; font-size: 12px; color: var(--muted); opacity: 0.8; }
 </style>

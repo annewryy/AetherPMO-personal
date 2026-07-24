@@ -178,8 +178,8 @@ watch(() => route.query.node, applyDeepLink);
 </template>
 
 <style scoped>
-.title { font-size: 20px; margin: 0 0 4px; }
-.sub { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
+.title { font-size: 22px; margin: 0 0 4px; }
+.sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
 
 .layout { display: flex; gap: 14px; align-items: flex-start; }
 .phase-list { width: 190px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -190,18 +190,18 @@ watch(() => route.query.node, applyDeepLink);
 }
 .phase:hover { background: var(--panel-2); }
 .phase.on { border-color: var(--accent); background: rgba(139, 92, 246, 0.1); }
-.phase-name { font-size: 13px; font-weight: 600; }
-.phase-counts { font-size: 11px; color: var(--muted); }
+.phase-name { font-size: 14px; font-weight: 600; }
+.phase-counts { font-size: 12px; color: var(--muted); }
 
 .tree-panel {
   flex: 1; min-width: 0;
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px;
 }
 .phase-head { padding: 2px 8px 10px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
-.phase-title { font-size: 15px; margin: 0; }
-.phase-title .code { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); margin-right: 6px; }
-.phase-desc { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
-.empty { font-size: 13px; color: var(--muted); padding: 8px; }
+.phase-title { font-size: 16px; margin: 0; }
+.phase-title .code { font-family: ui-monospace, monospace; font-size: 13px; color: var(--muted); margin-right: 6px; }
+.phase-desc { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
+.empty { font-size: 14px; color: var(--muted); padding: 8px; }
 .tree { margin: 0; padding: 0; }
 
 .detail-panel {
@@ -209,7 +209,7 @@ watch(() => route.query.node, applyDeepLink);
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px;
 }
 .detail-empty {
-  color: var(--muted); font-size: 13px; text-align: center; padding: 48px 12px; line-height: 1.7;
+  color: var(--muted); font-size: 14px; text-align: center; padding: 48px 12px; line-height: 1.7;
 }
 
 @media (max-width: 1100px) {

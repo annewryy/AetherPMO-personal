@@ -171,17 +171,17 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.module-title { font-size: 16px; margin: 0 0 4px; }
-.sub { color: var(--muted); font-size: 12px; margin: 0 0 14px; }
+.module-title { font-size: 17px; margin: 0 0 4px; }
+.sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
 .gate-notice {
   padding: 9px 14px; margin-bottom: 12px; border-radius: 8px;
   background: var(--panel); border: 1px dashed var(--border);
-  color: var(--muted); font-size: 12px;
+  color: var(--muted); font-size: 13px;
 }
 .error-notice {
   padding: 9px 14px; margin-bottom: 12px; border-radius: 8px;
   background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.4);
-  color: var(--red); font-size: 12px; white-space: pre-line;
+  color: var(--red); font-size: 13px; white-space: pre-line;
 }
 .toolbar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 
@@ -189,24 +189,24 @@ onMounted(async () => {
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
   padding: 16px; margin-bottom: 14px;
 }
-.form-title { font-size: 14px; margin: 0 0 12px; }
+.form-title { font-size: 15px; margin: 0 0 12px; }
 .form-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
 .field { display: flex; flex-direction: column; gap: 5px; }
-.label { font-size: 11px; color: var(--muted); }
+.label { font-size: 12px; color: var(--muted); }
 .select, .input {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 7px 10px; outline: none;
+  color: var(--text); font-size: 14px; padding: 7px 10px; outline: none;
 }
 .select:focus, .input:focus { border-color: var(--accent); }
 .check { width: 16px; height: 16px; accent-color: var(--accent); }
 .form-actions { display: flex; gap: 8px; margin-top: 14px; }
 
 .list-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
-.count { font-size: 13px; color: var(--muted); }
+.count { font-size: 14px; color: var(--muted); }
 .count strong { color: var(--text); }
-.grid { border-collapse: collapse; width: 100%; font-size: 13px; }
+.grid { border-collapse: collapse; width: 100%; font-size: 14px; }
 .grid th, .grid td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
-.grid th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.grid th { color: var(--muted); font-weight: 600; font-size: 13px; }
 .grid .no { width: 48px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .grid tr.off td { opacity: 0.55; }
 .name { font-weight: 600; }

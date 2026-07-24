@@ -191,21 +191,21 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.title { font-size: 20px; margin: 0 0 4px; }
-.sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
-.count { margin-left: 8px; font-size: 12px; }
+.title { font-size: 22px; margin: 0 0 4px; }
+.sub { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+.count { margin-left: 8px; font-size: 13px; }
 
 .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .seg { display: flex; gap: 4px; }
 .seg-btn {
   border: 1px solid var(--border); background: var(--panel); color: var(--muted);
-  border-radius: 8px; padding: 7px 14px; font-size: 13px; cursor: pointer; font-family: inherit;
+  border-radius: 8px; padding: 7px 14px; font-size: 14px; cursor: pointer; font-family: inherit;
 }
 .seg-btn.on { border-color: var(--accent); color: var(--text); background: rgba(139, 92, 246, 0.12); }
 
 .search {
   background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 8px 12px; min-width: 280px; outline: none;
+  color: var(--text); font-size: 14px; padding: 8px 12px; min-width: 280px; outline: none;
 }
 .search:focus { border-color: var(--accent); }
 
@@ -218,44 +218,44 @@ onMounted(async () => {
 }
 .phase:hover { background: var(--panel-2); }
 .phase.on { border-color: var(--accent); background: rgba(139, 92, 246, 0.1); }
-.phase-name { font-size: 13px; font-weight: 600; }
-.phase-counts { font-size: 11px; color: var(--muted); }
+.phase-name { font-size: 14px; font-weight: 600; }
+.phase-counts { font-size: 12px; color: var(--muted); }
 .tree-panel {
   flex: 1; min-width: 0;
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px;
 }
 .tree { margin: 0; padding: 0; }
-.empty { font-size: 13px; color: var(--muted); padding: 8px; }
+.empty { font-size: 14px; color: var(--muted); padding: 8px; }
 
 .tree-search-hits { margin-top: 16px; }
-.hits-title { font-size: 13px; margin: 0 0 8px; color: var(--muted); }
+.hits-title { font-size: 14px; margin: 0 0 8px; color: var(--muted); }
 .hits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .hit {
   display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer;
-  background: var(--panel); border: 1px solid var(--border); border-radius: 8px; font-size: 13px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px; font-size: 14px;
 }
 .hit:hover { border-color: var(--accent); }
 
 .notice {
   padding: 16px; border-radius: 8px;
-  background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 13px;
+  background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 14px;
 }
 .list-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
-.lcount { font-size: 13px; color: var(--muted); }
+.lcount { font-size: 14px; color: var(--muted); }
 .lcount strong { color: var(--text); }
-.grid { border-collapse: collapse; width: 100%; font-size: 13px; }
+.grid { border-collapse: collapse; width: 100%; font-size: 14px; }
 .grid th, .grid td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
-.grid th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.grid th { color: var(--muted); font-weight: 600; font-size: 13px; }
 .grid .no { width: 48px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .row { cursor: pointer; }
 .row:hover { background: var(--panel); }
 .code { font-family: ui-monospace, monospace; color: var(--muted); }
 .name { font-weight: 600; }
-.path { color: var(--muted); font-size: 12px; }
+.path { color: var(--muted); font-size: 13px; }
 .sep { margin: 0 5px; opacity: 0.6; }
 .muted { color: var(--muted); }
 .optional {
-  font-size: 10px; color: var(--muted);
+  font-size: 11px; color: var(--muted);
   border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px;
 }
 

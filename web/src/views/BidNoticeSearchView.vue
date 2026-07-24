@@ -271,8 +271,8 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.title { font-size: 20px; margin: 0 0 4px; }
-.sub { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
+.title { font-size: 22px; margin: 0 0 4px; }
+.sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
 
 .filters {
   border: 1px solid var(--border); border-radius: 10px; background: var(--panel);
@@ -281,11 +281,11 @@ onMounted(async () => {
 .frow { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field.grow { flex: 1 1 260px; }
-.flabel { font-size: 12px; font-weight: 600; color: var(--muted); }
+.flabel { font-size: 13px; font-weight: 600; color: var(--muted); }
 
 .in {
   background: var(--panel-2, var(--panel)); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 7px 11px; min-width: 150px; outline: none;
+  color: var(--text); font-size: 14px; padding: 7px 11px; min-width: 150px; outline: none;
 }
 .in:focus { border-color: var(--accent); }
 .field.grow .in { width: 100%; }
@@ -293,42 +293,42 @@ onMounted(async () => {
 .types { display: flex; gap: 3px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
 .ttab {
   border: 0; background: transparent; color: var(--muted);
-  font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 6px; cursor: pointer;
+  font-size: 13px; font-weight: 600; padding: 5px 12px; border-radius: 6px; cursor: pointer;
   display: inline-flex; align-items: center; gap: 5px;
 }
 .ttab.on { background: var(--accent); color: #fff; }
 .ttab:disabled { opacity: 0.5; cursor: not-allowed; }
 .soon {
-  font-size: 9px; font-weight: 700; letter-spacing: 0.02em;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
   border: 1px solid currentColor; border-radius: 999px; padding: 0 5px; opacity: 0.75;
 }
 
 .search-row { border-top: 1px solid var(--border); padding-top: 12px; }
 .btns { margin-left: auto; }
-.hint { margin: 0; font-size: 12px; color: var(--muted); opacity: 0.85; }
+.hint { margin: 0; font-size: 13px; color: var(--muted); opacity: 0.85; }
 
 .notice {
   padding: 16px; border-radius: 8px;
-  background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 13px;
+  background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 14px;
 }
 .notice.warn { border-color: var(--accent); }
 .notice.ok { border-color: var(--accent); color: var(--text); margin-bottom: 12px; }
 .notice .detail { opacity: 0.7; }
 
 .result-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
-.count { font-size: 13px; color: var(--muted); }
+.count { font-size: 14px; color: var(--muted); }
 .count strong { color: var(--text); }
 
-.grid { border-collapse: collapse; width: 100%; font-size: 13px; }
+.grid { border-collapse: collapse; width: 100%; font-size: 14px; }
 .grid th, .grid td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
-.grid th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.grid th { color: var(--muted); font-weight: 600; font-size: 13px; }
 .grid .num { text-align: right; white-space: nowrap; }
 .grid .no { width: 48px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .grid .name { font-weight: 600; }
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: nowrap; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; white-space: nowrap; }
 
 .badge {
-  display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px;
+  display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px;
   border: 1px solid var(--border); color: var(--muted); white-space: nowrap;
 }
 .badge.main { background: var(--accent); color: #fff; border-color: var(--accent); }
@@ -341,7 +341,7 @@ onMounted(async () => {
 .row:hover { background: var(--panel-2); }
 .btn-link {
   border: 0; background: transparent; color: var(--accent);
-  font-size: 13px; font-weight: 600; padding: 0; cursor: pointer;
+  font-size: 14px; font-weight: 600; padding: 0; cursor: pointer;
 }
 .btn-link:hover { text-decoration: underline; }
 </style>

@@ -46,10 +46,10 @@ onMounted(async () => {
 
 <style scoped>
 .cu { display: flex; align-items: center; gap: 6px; }
-.cu-label { font-size: 11px; color: var(--muted); }
+.cu-label { font-size: 12px; color: var(--muted); }
 .cu-select {
   background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
-  color: var(--text); font-size: 12px; padding: 4px 8px; font-family: inherit; cursor: pointer;
+  color: var(--text); font-size: 13px; padding: 4px 8px; font-family: inherit; cursor: pointer;
   max-width: 200px;
 }
 .cu-select:focus { border-color: var(--accent); outline: none; }

@@ -36,13 +36,13 @@ const query = defineModel<string>('query', { required: true });
 .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
 .select {
   background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 7px 10px; outline: none; max-width: 260px;
+  color: var(--text); font-size: 14px; padding: 7px 10px; outline: none; max-width: 260px;
 }
 .select:focus { border-color: var(--accent); }
 .search {
   margin-left: auto;
   background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 7px 12px; min-width: 220px; outline: none;
+  color: var(--text); font-size: 14px; padding: 7px 12px; min-width: 220px; outline: none;
 }
 .search:focus { border-color: var(--accent); }
 </style>

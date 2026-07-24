@@ -23,5 +23,5 @@ const clamped = computed(() => Math.max(0, Math.min(100, props.value || 0)));
   overflow: hidden;
 }
 .fill { height: 100%; border-radius: 999px; background: var(--accent); }
-.num { font-size: 12px; color: var(--muted); min-width: 34px; text-align: right; }
+.num { font-size: 13px; color: var(--muted); min-width: 34px; text-align: right; }
 </style>

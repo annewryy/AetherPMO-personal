@@ -122,13 +122,13 @@ const loaded = computed(() =>
 .detail-page { display: flex; flex-direction: column; gap: 14px; max-width: 860px; }
 .back {
   align-self: flex-start; border: 1px solid var(--border); background: var(--panel);
-  color: var(--text); font-size: 13px; padding: 5px 12px; border-radius: 8px; cursor: pointer;
+  color: var(--text); font-size: 14px; padding: 5px 12px; border-radius: 8px; cursor: pointer;
 }
 .back:hover { background: var(--panel-2); }
 .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
 .notice {
   padding: 16px; border-radius: 8px;
-  background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 13px;
+  background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 14px;
 }
 .notice.err { color: var(--red); }
 .notice .detail { opacity: 0.7; }

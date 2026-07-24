@@ -48,10 +48,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 18px; border-bottom: 1px solid var(--border);
 }
-.title { font-size: 15px; margin: 0; }
+.title { font-size: 16px; margin: 0; }
 .x {
   border: 0; background: transparent; color: var(--muted);
-  font-size: 15px; cursor: pointer; line-height: 1; padding: 4px;
+  font-size: 16px; cursor: pointer; line-height: 1; padding: 4px;
 }
 .x:hover { color: var(--text); }
 .body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }

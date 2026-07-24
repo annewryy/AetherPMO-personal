@@ -81,37 +81,37 @@ onBeforeUnmount(() => { document.removeEventListener('click', onDocClick); windo
 .trigger {
   display: inline-flex; align-items: center; gap: 8px;
   border: 1px solid var(--border); background: var(--panel-2, var(--panel)); color: var(--text);
-  font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+  font-size: 14px; font-weight: 600; padding: 6px 12px; border-radius: 8px; cursor: pointer;
 }
 .trigger:hover:not(:disabled) { border-color: var(--accent); }
 .trigger:disabled { opacity: 0.6; cursor: default; }
-.caret { font-size: 10px; color: var(--muted); }
+.caret { font-size: 11px; color: var(--muted); }
 
 .menu {
   position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; min-width: 240px;
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); padding: 6px; overflow: hidden;
 }
-.menu-head { font-size: 11px; color: var(--muted); padding: 6px 8px 4px; font-weight: 600; }
-.menu-empty { font-size: 12px; color: var(--muted); padding: 6px 8px; }
+.menu-head { font-size: 12px; color: var(--muted); padding: 6px 8px 4px; font-weight: 600; }
+.menu-empty { font-size: 13px; color: var(--muted); padding: 6px 8px; }
 .menu-item {
   display: flex; align-items: center; gap: 8px; width: 100%;
   border: 0; background: transparent; color: var(--text); text-align: left;
-  font-size: 13px; padding: 8px 8px; border-radius: 7px; cursor: pointer;
+  font-size: 14px; padding: 8px 8px; border-radius: 7px; cursor: pointer;
 }
 .menu-item:hover { background: var(--panel-2, var(--bg)); }
 .menu-item.disabled { color: var(--muted); cursor: default; }
 .menu-item.disabled:hover { background: transparent; }
 .arrow { color: var(--muted); flex-shrink: 0; }
 .to { font-weight: 600; }
-.to-code { font-size: 11px; color: var(--muted); }
+.to-code { font-size: 12px; color: var(--muted); }
 .req {
-  margin-left: auto; font-size: 10px; font-weight: 700; color: var(--yellow);
+  margin-left: auto; font-size: 11px; font-weight: 700; color: var(--yellow);
   border: 1px solid var(--yellow); border-radius: 999px; padding: 0 6px;
 }
-.lock { margin-left: auto; font-size: 11px; }
+.lock { margin-left: auto; font-size: 12px; }
 .menu-sep { height: 1px; background: var(--border); margin: 6px 4px; }
 .menu-item.wf { color: var(--accent); font-weight: 600; }
-.wf-ic { font-size: 14px; }
-.gate { font-size: 11px; color: var(--muted); margin: 6px 0 0; }
+.wf-ic { font-size: 15px; }
+.gate { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
 </style>

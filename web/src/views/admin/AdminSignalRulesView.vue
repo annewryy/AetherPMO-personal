@@ -333,25 +333,25 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.module-title { font-size: 16px; margin: 0 0 4px; }
-.sub { color: var(--muted); font-size: 12px; margin: 0 0 14px; }
+.module-title { font-size: 17px; margin: 0 0 4px; }
+.sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
 
 .gate-notice {
   padding: 9px 14px; margin-bottom: 12px; border-radius: 8px;
   background: var(--panel); border: 1px dashed var(--border);
-  color: var(--muted); font-size: 12px;
+  color: var(--muted); font-size: 13px;
 }
 .error-notice {
   padding: 9px 14px; margin-bottom: 12px; border-radius: 8px;
   background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.4);
-  color: var(--red); font-size: 12px;
+  color: var(--red); font-size: 13px;
 }
 
 .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .toolbar .btn { margin-left: auto; }
 .select, .input {
   background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 7px 10px; outline: none;
+  color: var(--text); font-size: 14px; padding: 7px 10px; outline: none;
 }
 .select:focus, .input:focus { border-color: var(--accent); }
 .input.num { width: 90px; }
@@ -361,37 +361,37 @@ onMounted(async () => {
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
   padding: 16px; margin-bottom: 14px;
 }
-.form-title { font-size: 14px; margin: 0 0 12px; }
+.form-title { font-size: 15px; margin: 0 0 12px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field.wide { grid-column: 1 / -1; }
-.label { font-size: 11px; color: var(--muted); }
+.label { font-size: 12px; color: var(--muted); }
 .scope-row { display: flex; gap: 8px; flex-wrap: wrap; }
-.hint { font-size: 11px; color: var(--muted); }
+.hint { font-size: 12px; color: var(--muted); }
 
 .preview {
   margin-top: 14px; padding: 10px 14px; border-radius: 8px;
   background: rgba(139, 92, 246, 0.08); border: 1px solid rgba(139, 92, 246, 0.35);
-  font-size: 13px;
+  font-size: 14px;
 }
 .preview-label {
-  font-size: 10px; font-weight: 700; color: var(--accent);
+  font-size: 11px; font-weight: 700; color: var(--accent);
   margin-right: 8px; letter-spacing: 0.05em;
 }
 .form-actions { display: flex; gap: 8px; margin-top: 14px; }
 
 .list-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
-.count { font-size: 13px; color: var(--muted); }
+.count { font-size: 14px; color: var(--muted); }
 .count strong { color: var(--text); }
-.grid { border-collapse: collapse; width: 100%; font-size: 13px; }
+.grid { border-collapse: collapse; width: 100%; font-size: 14px; }
 .grid th, .grid td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
-.grid th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.grid th { color: var(--muted); font-weight: 600; font-size: 13px; }
 .grid .no { width: 48px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .grid tr.off td { opacity: 0.55; }
 .name { font-weight: 600; }
-.mono { font-family: ui-monospace, monospace; font-size: 12px; }
+.mono { font-family: ui-monospace, monospace; font-size: 13px; }
 .scope-badge {
-  font-size: 11px; padding: 1px 8px; border-radius: 999px;
+  font-size: 12px; padding: 1px 8px; border-radius: 999px;
   background: var(--panel-2); color: var(--text);
 }
 .scope-badge.global { color: var(--accent); background: rgba(139, 92, 246, 0.12); }

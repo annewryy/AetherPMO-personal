@@ -44,6 +44,6 @@ const emit = defineEmits<{
   padding: 18px 20px; height: 100%; overflow-y: auto; box-sizing: border-box;
 }
 .dr-close { display: flex; justify-content: flex-end; }
-.x { border: 0; background: transparent; color: var(--muted); font-size: 15px; cursor: pointer; padding: 4px; }
+.x { border: 0; background: transparent; color: var(--muted); font-size: 16px; cursor: pointer; padding: 4px; }
 .x:hover { color: var(--text); }
 </style>

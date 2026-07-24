@@ -297,17 +297,17 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.module-title { font-size: 16px; margin: 0 0 4px; }
-.sub { color: var(--muted); font-size: 12px; margin: 0 0 14px; }
+.module-title { font-size: 17px; margin: 0 0 4px; }
+.sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
 .gate-notice {
   padding: 9px 14px; margin-bottom: 12px; border-radius: 8px;
   background: var(--panel); border: 1px dashed var(--border);
-  color: var(--muted); font-size: 12px;
+  color: var(--muted); font-size: 13px;
 }
 .error-notice {
   padding: 9px 14px; margin-bottom: 12px; border-radius: 8px;
   background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.4);
-  color: var(--red); font-size: 12px; white-space: pre-line;
+  color: var(--red); font-size: 13px; white-space: pre-line;
 }
 
 .layout { display: flex; gap: 14px; align-items: flex-start; }
@@ -316,22 +316,22 @@ onMounted(async () => {
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px;
 }
 .tree-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px 10px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
-.tree-title { font-size: 12px; color: var(--muted); font-weight: 600; }
+.tree-title { font-size: 13px; color: var(--muted); font-weight: 600; }
 .tree { margin: 0; padding: 0; }
 
 .edit-panel {
   flex: 1; min-width: 0;
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px;
 }
-.empty { color: var(--muted); font-size: 13px; text-align: center; padding: 40px 12px; line-height: 1.7; }
-.form-title { font-size: 14px; margin: 0 0 12px; }
+.empty { color: var(--muted); font-size: 14px; text-align: center; padding: 40px 12px; line-height: 1.7; }
+.form-title { font-size: 15px; margin: 0 0 12px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field.wide { grid-column: 1 / -1; }
-.label { font-size: 11px; color: var(--muted); }
+.label { font-size: 12px; color: var(--muted); }
 .select, .input {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 7px 10px; outline: none;
+  color: var(--text); font-size: 14px; padding: 7px 10px; outline: none;
 }
 .select:focus, .input:focus { border-color: var(--accent); }
 .input.num { width: 90px; }
