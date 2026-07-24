@@ -6679,12 +6679,14 @@ class AetherPMO {
                 const pmName = p.pmName || p.pm || '안유경';
                 const teamPlusText = p.teamCount ? ` +${p.teamCount - 1}` : ' +2';
                 const budgetText = p.budget ? (p.budget / 100000000).toFixed(1) + ' 억원' : '예산 미정';
+                const projectId = p.id || p.project_id || p.code;
 
                 const card = document.createElement('div');
                 card.className = 'bidding-project-card';
                 card.setAttribute('tabindex', '0');
                 card.setAttribute('role', 'button');
                 card.setAttribute('aria-label', `${p.name} 입찰 상세 정보 보기`);
+                card.setAttribute('onclick', `app.openBiddingDetailModal('${projectId}')`);
 
                 card.innerHTML = `
                     <div class="bidding-project-card-header">
@@ -6709,7 +6711,7 @@ class AetherPMO {
                             ✨ 수주 가능성 ${aiInfo.winGrade || 'HIGH'} (${aiInfo.winProbability || 82}%) · 위험도 ${aiInfo.riskLevel || 'LOW'}
                             <span style="font-size:9px; color:var(--text-muted); margin-left:4px;">(시연용 분석)</span>
                         </span>
-                        <button type="button" class="btn-ai-copilot" onclick="event.stopPropagation(); app.openAiCopilotMenu('${p.id}', event)">
+                        <button type="button" class="btn-ai-copilot" onclick="event.stopPropagation(); app.openAiCopilotMenu('${projectId}', event)">
                             <i data-lucide="bot" style="width:12px; height:12px;"></i>
                             <span>🤖 AI Copilot</span>
                         </button>
@@ -6721,14 +6723,14 @@ class AetherPMO {
                     </div>
                 `;
 
-                card.addEventListener('click', () => {
-                    this.openBiddingDetailModal(p.id);
+                card.addEventListener('click', (e) => {
+                    this.openBiddingDetailModal(projectId);
                 });
 
                 card.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        this.openBiddingDetailModal(p.id);
+                        this.openBiddingDetailModal(projectId);
                     }
                 });
 
@@ -6744,8 +6746,10 @@ class AetherPMO {
     }
 
     openBiddingDetailModal(projectId) {
+        console.log('[Bidding Detail Click]', projectId);
         const allBiddingProjects = this.getBiddingProjectsList();
-        const project = allBiddingProjects.find(p => p.id === projectId) || (this.state.projects || []).find(p => p.id === projectId);
+        const project = allBiddingProjects.find(p => p.id === projectId || p.project_id === projectId || p.code === projectId) || (this.state.projects || []).find(p => p.id === projectId || p.project_id === projectId || p.code === projectId);
+        console.log('[Bidding Detail Project]', project);
         if (!project) return;
 
         this.activeBiddingDetailProject = project;

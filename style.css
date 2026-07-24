@@ -3191,6 +3191,7 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid var(--bg-card-border);
     border-radius: 8px;
+    pointer-events: none;
 }
 .bidding-stepper-header {
     display: flex;
@@ -3198,6 +3199,7 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
     align-items: center;
     font-size: 11px;
     font-weight: 700;
+    pointer-events: none;
 }
 .bidding-stepper-track {
     display: flex;
@@ -3205,6 +3207,7 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
     justify-content: space-between;
     position: relative;
     padding: 4px 0;
+    pointer-events: none;
 }
 .bidding-stepper-line {
     position: absolute;
@@ -3215,6 +3218,7 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
     background: var(--bg-card-border);
     z-index: 1;
     transform: translateY(-50%);
+    pointer-events: none;
 }
 .bidding-stepper-progress-line {
     position: absolute;
@@ -3225,6 +3229,7 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
     z-index: 2;
     transform: translateY(-50%);
     transition: width 0.3s ease;
+    pointer-events: none;
 }
 .bidding-stepper-node {
     width: 12px;
@@ -3234,15 +3239,18 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
     border: 2px solid var(--bg-card-border);
     z-index: 3;
     transition: all 0.2s ease;
+    pointer-events: none;
 }
 .bidding-stepper-node.active {
     background: var(--primary);
     border-color: var(--primary);
     box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+    pointer-events: none;
 }
 .bidding-stepper-node.completed {
     background: #10b981;
     border-color: #10b981;
+    pointer-events: none;
 }
 
 /* Urgent Action Item 1-line */
@@ -3258,6 +3266,7 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
     border-radius: 6px;
     border: 1px solid rgba(245, 158, 11, 0.2);
     margin-top: 8px;
+    pointer-events: none;
 }
 
 /* AI Copilot Button */
@@ -3274,6 +3283,7 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s ease;
+    pointer-events: auto;
 }
 .btn-ai-copilot:hover {
     background: linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(139, 92, 246, 0.4));
