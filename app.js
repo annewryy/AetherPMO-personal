@@ -9091,13 +9091,13 @@ class AetherPMO {
                 if (!hasPermission) {
                     convertBtnHtml = `
                         <button id="btn-bid-result" type="button" class="btn btn-sm btn-outline" style="opacity: 0.5; cursor: not-allowed; display: inline-flex; align-items: center; gap: 4px;" disabled aria-label="입찰결과 처리" title="입찰결과 처리 권한이 없습니다.">
-                            <i data-lucide="scale" style="width:14px; height:14px;"></i> ⚖ 입찰결과
+                            입찰결과
                         </button>
                     `;
                 } else {
                     convertBtnHtml = `
                         <button id="btn-bid-result" type="button" class="btn btn-sm btn-info" style="background: linear-gradient(135deg, #0284c7, #2563eb); color: #ffffff; border: none; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" onclick="event.stopPropagation(); app.openBidResultModal('${project.id}')" aria-label="입찰결과 처리" title="낙찰 또는 실패 결과를 처리합니다.">
-                            <i data-lucide="scale" style="width:14px; height:14px;"></i> ⚖ 입찰결과
+                            입찰결과
                         </button>
                     `;
                 }
