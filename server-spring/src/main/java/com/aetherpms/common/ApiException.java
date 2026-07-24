@@ -41,4 +41,9 @@ public class ApiException extends RuntimeException {
     public static ApiException unauthorized(String message) {
         return new ApiException(HttpStatus.UNAUTHORIZED, message);
     }
+
+    /** 권한 부족(RBAC 0031) — 403. */
+    public static ApiException forbidden(String message) {
+        return new ApiException(HttpStatus.FORBIDDEN, message);
+    }
 }

@@ -10,6 +10,8 @@ import OfficialDocsView from './views/OfficialDocsView.vue';
 import MeetingMinutesView from './views/MeetingMinutesView.vue';
 import ResourceManagementView from './views/ResourceManagementView.vue';
 import ProjectMemberManagementView from './views/ProjectMemberManagementView.vue';
+import LoginView from './views/LoginView.vue';
+import { isAuthenticated } from './lib/auth';
 import BidNoticeSearchView from './views/BidNoticeSearchView.vue';
 import BidNoticeDetailView from './views/BidNoticeDetailView.vue';
 import ItemDetailView from './views/ItemDetailView.vue';
@@ -25,6 +27,7 @@ export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', redirect: '/projects/active' },
+    { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
     { path: '/dashboard', name: 'dashboard', component: DashboardView },
     // 0025 §A: 프로젝트 관리 하위 2목록(입찰/수행). 구 /projects는 수행단계로 리다이렉트(하위호환).
     { path: '/projects', redirect: '/projects/active' },
@@ -62,4 +65,15 @@ export const router = createRouter({
     },
     { path: '/:pathMatch(.*)*', redirect: '/projects/active' },
   ],
+});
+
+// 0031 §D — 라우트 가드. RBAC 시행(rbac.enforce) 여부는 App 부팅에서 authRequired로 주입.
+//   authRequired=false(dev 기본)면 게스트 허용. true면 미인증 → /login(redirect 보존).
+export const authState = { required: false };
+router.beforeEach((to) => {
+  if (to.meta.public) return true;
+  if (authState.required && !isAuthenticated.value) {
+    return { path: '/login', query: to.fullPath !== '/login' ? { redirect: to.fullPath } : {} };
+  }
+  return true;
 });

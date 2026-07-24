@@ -12,6 +12,7 @@
 //  - 새 조회가 필요하면 여기에 메서드를 추가한다.
 
 import { getCurrentUserId } from './currentUser';
+import { getAuthToken } from './auth';
 import type {
   Project, ProjectMember, ConsortiumMember, Artifact, Issue, ActionItem,
   OfficialDoc, MeetingMinute, Activity, AppState, VrbInfo, DashboardSignals, DashboardWidgets, Task,
@@ -45,8 +46,13 @@ function apiBase(): string | null {
 //  - 백엔드 actor.resolveActor가 이 헤더로 행위자(멘션 셀프 제외·알림 수신자 등)를 식별.
 //  - 0005 실 로그인 도입 시 이 헤더 소스를 인증 토큰으로 교체(currentUser 모듈만 변경).
 function userHeader(): Record<string, string> {
+  const h: Record<string, string> = {};
+  // 0031: 로그인 세션 토큰(있으면). 없으면 dev 사용자 선택기(X-User-Id) 폴백.
+  const token = getAuthToken();
+  if (token) h.Authorization = `Bearer ${token}`;
   const uid = getCurrentUserId();
-  return uid ? { 'X-User-Id': uid } : {};
+  if (uid) h['X-User-Id'] = uid;
+  return h;
 }
 
 // 0003 계약: 응답은 도메인 모델(camelCase, types.ts와 동일 형태) — 무매핑.
