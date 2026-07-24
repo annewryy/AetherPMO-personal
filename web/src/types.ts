@@ -37,6 +37,15 @@ export interface Project {
   sourceProjectId: number | null; // ← A단계 lineage: 입찰→수행 원본 프로젝트
   consortiumMembers: ConsortiumMember[];
   vrbInfo: VrbInfo | null;
+  // 0025 — 목록 카드 필드: 입찰(프로젝트 자체 컨소시엄 역할/지분·VRB 상태·제출마감), 수행(집계 카운트)
+  proposalDeadline: string | null;
+  consortiumRole: string | null;
+  consortiumShare: number | null;
+  vrbStatus: string | null;
+  memberCount: number;
+  artifactTotal: number;
+  artifactApproved: number;
+  artifactInReview: number;
 }
 
 // GET /api/projects 서버측 필터(0015 §B — 클라이언트 필터링 금지, 서버 쿼리로 전달).
@@ -47,6 +56,8 @@ export type ProjectLocationFilter = '서울' | '대전' | '대구' | '광주' | 
 export interface ProjectFilters {
   location?: ProjectLocationFilter | string;
   status?: string;
+  /** 0025: project_stage 서버측 필터 — 콤마 허용(예: 'EXECUTION,COMPLETED'). */
+  stage?: string;
 }
 
 // 프로젝트 생성 입력 (0017 — POST /api/projects, camelCase 화이트리스트).

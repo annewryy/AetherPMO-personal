@@ -101,6 +101,15 @@ public class ProjectEntity {
     @Column(name = "source_project_id")
     private Long sourceProjectId;
 
+    @Column(name = "consortium_role")
+    private String consortiumRole;
+
+    @Column(name = "consortium_share")
+    private BigDecimal consortiumShare;
+
+    @Column(name = "vrb_status")
+    private String vrbStatus;
+
     public Long getProjectId() { return projectId; }
     public String getProjectCode() { return projectCode; }
     public String getProjectName() { return projectName; }
@@ -128,4 +137,7 @@ public class ProjectEntity {
     public LocalDate getProposalDeadline() { return proposalDeadline; }
     public String getProjectStage() { return projectStage; }
     public Long getSourceProjectId() { return sourceProjectId; }
+    public String getConsortiumRole() { return consortiumRole; }
+    public BigDecimal getConsortiumShare() { return consortiumShare; }
+    public String getVrbStatus() { return vrbStatus; }
 }

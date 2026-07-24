@@ -8,7 +8,12 @@ import CurrentUserSelector from './components/CurrentUserSelector.vue';
 import NotificationBell from './components/NotificationBell.vue';
 
 const route = useRoute();
-const isProjects = computed(() => route.path === '/projects' || route.path.startsWith('/projects/'));
+// 0025: 상세(/projects/:id)는 어느 목록에서 왔는지 알 수 없으므로 수행단계를 기본 활성으로 둔다.
+const isBiddingList = computed(() => route.path === '/projects/bidding');
+const isExecList = computed(
+  () => route.path === '/projects/active' || /^\/projects\/\d+/.test(route.path),
+);
+const isBidNotices = computed(() => route.path.startsWith('/bid-notices'));
 </script>
 
 <template>
@@ -19,10 +24,11 @@ const isProjects = computed(() => route.path === '/projects' || route.path.start
       </div>
       <nav class="nav">
         <RouterLink to="/dashboard" active-class="active">대시보드</RouterLink>
-        <RouterLink to="/projects" :class="{ active: isProjects }">프로젝트</RouterLink>
 
-        <div class="group">입찰</div>
-        <RouterLink to="/bid-notices" active-class="active">나라장터 공고조회</RouterLink>
+        <div class="group">프로젝트 관리</div>
+        <RouterLink to="/projects/bidding" :class="{ active: isBiddingList }" class="sub">입찰단계</RouterLink>
+        <RouterLink to="/projects/active" :class="{ active: isExecList }" class="sub">수행단계</RouterLink>
+        <RouterLink to="/bid-notices" :class="{ active: isBidNotices }" class="sub">나라장터 공고조회</RouterLink>
 
         <div class="group">템플릿</div>
         <RouterLink to="/catalog" exact-active-class="active" class="sub">카탈로그</RouterLink>

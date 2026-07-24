@@ -328,7 +328,7 @@ watch(() => route.query.panel, applyPanelQuery);
         </div>
         <div class="head-actions">
           <button class="btn" @click="showEditForm = true">수정</button>
-          <RouterLink to="/projects" class="back">← 목록</RouterLink>
+          <RouterLink :to="project.stage === 'BIDDING' ? '/projects/bidding' : '/projects/active'" class="back">← 목록</RouterLink>
         </div>
       </div>
 

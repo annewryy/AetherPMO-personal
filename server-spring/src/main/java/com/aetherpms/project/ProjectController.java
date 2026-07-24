@@ -1,11 +1,13 @@
 package com.aetherpms.project;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -35,19 +37,25 @@ public class ProjectController {
     private static final Set<String> LOCATIONS = Set.of("서울", "대전", "대구", "광주");
     private static final String LOCATION_ETC = "기타";
 
+    /** 0025: project_stage 허용값(콤마 구분 stage 파라미터 검증용). */
+    private static final Set<String> STAGES = Set.of("BIDDING", "EXECUTION", "COMPLETED");
+
     private final ProjectRepository projectRepository;
     private final ProjectCompanyRepository companyRepository;
     private final ProjectCreateService createService;
     private final ProjectUpdateService updateService;
+    private final JdbcTemplate jdbc;
 
     public ProjectController(ProjectRepository projectRepository,
                              ProjectCompanyRepository companyRepository,
                              ProjectCreateService createService,
-                             ProjectUpdateService updateService) {
+                             ProjectUpdateService updateService,
+                             JdbcTemplate jdbc) {
         this.projectRepository = projectRepository;
         this.companyRepository = companyRepository;
         this.createService = createService;
         this.updateService = updateService;
+        this.jdbc = jdbc;
     }
 
     // ---- POST /api/projects — 프로젝트 생성 (0017 §B P1) ------------------
@@ -69,7 +77,8 @@ public class ProjectController {
     @GetMapping("/api/projects")
     public List<Map<String, Object>> list(
             @RequestParam(required = false) String location,
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String stage) {
 
         String loc = location != null ? location.trim() : null;
         boolean hasLocation = loc != null && !loc.isEmpty();
@@ -77,10 +86,23 @@ public class ProjectController {
         String locationLike = hasLocation && LOCATIONS.contains(loc) ? loc : null;
         String statusFilter = status != null && !status.trim().isEmpty() ? status.trim() : null;
 
+        // 0025 §B-4: stage 필터(콤마 허용 — 예: EXECUTION,COMPLETED). 미지정이면 전체.
+        Set<String> stageFilter = parseStages(stage);
+
         List<ProjectEntity> projects = anyFilter(locationLike, etc, statusFilter)
                 ? projectRepository.findFiltered(locationLike, etc, statusFilter)
                 : projectRepository.findAllByOrderByProjectIdAsc();
+        if (stageFilter != null) {
+            projects = projects.stream()
+                    .filter(p -> stageFilter.contains(p.getProjectStage()))
+                    .toList();
+        }
         List<ProjectCompanyEntity> companies = companyRepository.findAllByOrderByProjectCompanyIdAsc();
+
+        // 0025 §B-3: 목록 카드 집계(투입 인력수·산출물 상태 카운트) — GROUP BY 2쿼리, N+1 금지.
+        Map<Long, Integer> memberCounts = countsByProject(
+                "SELECT project_id, COUNT(*) FROM pms_project_member WHERE is_active = 1 GROUP BY project_id");
+        Map<Long, int[]> artifactCounts = artifactCountsByProject();
 
         List<Map<String, Object>> result = new ArrayList<>();
         for (ProjectEntity p : projects) {
@@ -93,6 +115,11 @@ public class ProjectController {
                 }
             }
             mapped.put("consortiumMembers", members);
+            mapped.put("memberCount", memberCounts.getOrDefault(p.getProjectId(), 0));
+            int[] ac = artifactCounts.getOrDefault(p.getProjectId(), new int[3]);
+            mapped.put("artifactTotal", ac[0]);
+            mapped.put("artifactApproved", ac[1]);
+            mapped.put("artifactInReview", ac[2]);
             result.add(mapped);
         }
         return result;
@@ -100,5 +127,36 @@ public class ProjectController {
 
     private static boolean anyFilter(String locationLike, boolean etc, String status) {
         return locationLike != null || etc || status != null;
+    }
+
+    /** stage 파라미터 파싱 — 허용값 외는 무시, 유효값이 없으면 null(필터 안 함). */
+    private static Set<String> parseStages(String stage) {
+        if (stage == null || stage.isBlank()) return null;
+        Set<String> parsed = new java.util.HashSet<>();
+        for (String s : stage.split(",")) {
+            String v = s.trim().toUpperCase();
+            if (STAGES.contains(v)) parsed.add(v);
+        }
+        return parsed.isEmpty() ? null : parsed;
+    }
+
+    private Map<Long, Integer> countsByProject(String sql) {
+        Map<Long, Integer> out = new HashMap<>();
+        jdbc.query(sql, rs -> { out.put(rs.getLong(1), rs.getInt(2)); });
+        return out;
+    }
+
+    /** project_id → [total, approved, underReview] (pms_deliverable). */
+    private Map<Long, int[]> artifactCountsByProject() {
+        Map<Long, int[]> out = new HashMap<>();
+        jdbc.query("""
+                SELECT project_id,
+                       COUNT(*),
+                       SUM(status = 'APPROVED'),
+                       SUM(status = 'UNDER_REVIEW')
+                  FROM pms_deliverable
+                 GROUP BY project_id""",
+                rs -> { out.put(rs.getLong(1), new int[]{rs.getInt(2), rs.getInt(3), rs.getInt(4)}); });
+        return out;
     }
 }

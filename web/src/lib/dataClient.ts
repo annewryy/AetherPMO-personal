@@ -146,6 +146,7 @@ export const dataClient = {
       const qs = new URLSearchParams();
       if (filters.location && filters.location.trim()) qs.set('location', filters.location.trim());
       if (filters.status && filters.status.trim()) qs.set('status', filters.status.trim());
+      if (filters.stage && filters.stage.trim()) qs.set('stage', filters.stage.trim());
       const q = qs.toString();
       return apiGet<Project[]>(`/api/projects${q ? `?${q}` : ''}`);
     },
