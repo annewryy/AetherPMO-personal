@@ -3039,6 +3039,8 @@ class AetherPMO {
                 remarks: '나라장터 수주 목표 전략 사업',
                 status: 'Bidding',
                 bidStatus: '제안 준비중',
+                bidding_status: 'drafting',
+                is_bidding_project: true,
                 progress: 0,
                 resources: 0
             },
@@ -3057,6 +3059,8 @@ class AetherPMO {
                 remarks: '컨소시엄 구성 완료',
                 status: 'Bidding',
                 bidStatus: '제안 제출',
+                bidding_status: 'submitted',
+                is_bidding_project: true,
                 progress: 0,
                 resources: 0
             },
@@ -3075,6 +3079,8 @@ class AetherPMO {
                 remarks: '주사업자 참여',
                 status: 'Bidding',
                 bidStatus: '결과 대기',
+                bidding_status: 'waiting_result',
+                is_bidding_project: true,
                 progress: 0,
                 resources: 0
             },
@@ -6350,7 +6356,23 @@ class AetherPMO {
 
     getBiddingProjectsList() {
         const projects = this.state.projects || [];
-        const realProjects = projects.filter(p => p.status === 'Bidding');
+        const realProjects = projects.filter(project => {
+            const bStatus = this.normalizeBiddingStatus(project);
+            const lStatus = this.normalizeProjectLifecycleStatus(project);
+            return Boolean(
+                project.is_bidding_project ||
+                project.isBiddingProject ||
+                project.bidding_status ||
+                project.biddingStatus ||
+                project.bid_result ||
+                project.bidResult ||
+                project.convertedToExecutionAt ||
+                bStatus === 'won' ||
+                bStatus === 'closed' ||
+                lStatus === 'BIDDING'
+            );
+        });
+
         if (realProjects.length > 0) {
             return realProjects;
         }
@@ -6538,14 +6560,27 @@ class AetherPMO {
 
     normalizeBiddingStatus(project) {
         if (!project) return 'review';
-        const status = project.biddingStatusKey || project.bidStatus || project.status;
-        if (status === '제안 준비중' || status === 'drafting') return 'drafting';
-        if (status === '참여검토' || status === 'review') return 'review';
-        if (status === '가격검토' || status === 'price_review') return 'price_review';
-        if (status === '제안 제출' || status === '제출완료' || status === 'submitted') return 'submitted';
-        if (status === '결과 대기' || status === '결과대기' || status === 'waiting_result') return 'waiting_result';
-        if (status === '수주' || status === '낙찰' || status === 'won') return 'won';
-        if (status === '실패' || status === '종료' || status === 'closed' || status === 'lost') return 'closed';
+        const value = String(
+            project.bidding_status ||
+            project.biddingStatus ||
+            project.bid_result ||
+            project.bidResult ||
+            project.biddingStatusKey ||
+            project.bidStatus ||
+            project.status ||
+            ''
+        ).trim().toLowerCase();
+
+        if (['won', 'win', 'awarded', 'successful', '낙찰', '수주'].includes(value)) {
+            return 'won';
+        }
+        if (['lost', 'failed', 'failure', 'closed', '실패', '유찰', '탈락', '종료'].includes(value)) {
+            return 'closed';
+        }
+        if (['submitted', '제안 제출', '제출완료'].includes(value)) return 'submitted';
+        if (['drafting', '제안 준비중'].includes(value)) return 'drafting';
+        if (['price_review', '가격검토'].includes(value)) return 'price_review';
+        if (['waiting_result', '결과 대기', '결과대기'].includes(value)) return 'waiting_result';
         return 'review';
     }
 
@@ -6787,6 +6822,57 @@ class AetherPMO {
         }
     }
 
+    replaceProjectInState(updatedProject) {
+        if (!updatedProject) return;
+        const projectId = String(updatedProject.id || updatedProject.project_id);
+        const projects = this.state.projects || [];
+        const index = projects.findIndex(p => String(p.id || p.project_id) === projectId);
+
+        if (index >= 0) {
+            this.state.projects[index] = {
+                ...this.state.projects[index],
+                ...updatedProject
+            };
+        } else {
+            this.state.projects.push(updatedProject);
+        }
+
+        if (this.state.currentProject && String(this.state.currentProject.id || this.state.currentProject.project_id) === projectId) {
+            this.state.currentProject = {
+                ...this.state.currentProject,
+                ...updatedProject
+            };
+        }
+    }
+
+    navigateToExecutionStage(projectId) {
+        this.activeProjectStageFilter = 'Active';
+        this.state.highlightProjectId = projectId;
+        this.state.projectDetailSourceView = 'projects/active';
+
+        window.location.hash = 'projects/active';
+        this.switchView('projects');
+        this.setActiveSidebarMenu('projects/active');
+    }
+
+    setActiveSidebarMenu(route) {
+        document.querySelectorAll('.sidebar-nav .nav-item, .sidebar-nav .submenu-item').forEach(el => {
+            el.classList.remove('active');
+        });
+
+        if (route === 'projects/active') {
+            const activeSubmenu = document.querySelector('.submenu-item[data-subview="active"]');
+            if (activeSubmenu) activeSubmenu.classList.add('active');
+            const projectsNav = document.querySelector('.nav-item[data-view="projects"]');
+            if (projectsNav) projectsNav.classList.add('active');
+        } else if (route === 'projects/bidding') {
+            const biddingSubmenu = document.querySelector('.submenu-item[data-subview="bidding"]');
+            if (biddingSubmenu) biddingSubmenu.classList.add('active');
+            const projectsNav = document.querySelector('.nav-item[data-view="projects"]');
+            if (projectsNav) projectsNav.classList.add('active');
+        }
+    }
+
     async processBidWonResult() {
         const projectId = this.activeBidResultProjectId;
         if (!projectId) return;
@@ -6803,26 +6889,44 @@ class AetherPMO {
 
         if (!confirmed) return;
 
-        project.status = 'In Progress';
-        project.project_status = 'In Progress';
-        project.bidStatus = 'won';
-        project.biddingStatus = 'won';
-        project.biddingStatusKey = 'won';
-        project.bidResult = 'WON';
-        project.bid_result = 'WON';
-        project.bidResultAt = new Date().toISOString();
-        project.bid_result_at = project.bidResultAt;
-        project.convertedToExecutionAt = project.bidResultAt;
-        project.converted_to_execution_at = project.bidResultAt;
+        const now = new Date().toISOString();
+        const updateData = {
+            status: 'In Progress',
+            project_status: 'In Progress',
+            bidStatus: 'won',
+            biddingStatus: 'won',
+            bidding_status: 'won',
+            biddingStatusKey: 'won',
+            bidResult: 'WON',
+            bid_result: 'WON',
+            bidResultAt: now,
+            bid_result_at: now,
+            convertedToExecutionAt: now,
+            converted_to_execution_at: now,
+            execution_started_at: now,
+            is_bidding_project: true
+        };
+
+        console.log('[Bid Won Start]', { projectId, updateData });
+
+        Object.assign(project, updateData);
 
         await this.saveState('project_upsert', project);
+        this.replaceProjectInState(project);
+
+        console.log('[Bid Won Saved]', {
+            projectId: project.id || project.project_id,
+            status: project.status,
+            biddingStatus: project.bidding_status || project.biddingStatus
+        });
+
         this.closeBidResultModal();
 
         if (typeof this.showToast === 'function') {
-            this.showToast('🎉 낙찰 처리되었습니다. 수행단계로 전환합니다.', 'success');
+            this.showToast('🎉 낙찰 처리되었습니다. 수행단계로 이동합니다.', 'success');
         }
 
-        this.renderProjectDetail(project.id || project.project_id);
+        this.navigateToExecutionStage(project.id || project.project_id);
     }
 
     async processBidLostResult() {
@@ -6841,17 +6945,34 @@ class AetherPMO {
 
         if (!confirmed) return;
 
-        project.status = 'Bidding';
-        project.project_status = 'Bidding';
-        project.bidStatus = 'lost';
-        project.biddingStatus = 'lost';
-        project.biddingStatusKey = 'closed';
-        project.bidResult = 'LOST';
-        project.bid_result = 'LOST';
-        project.bidResultAt = new Date().toISOString();
-        project.bid_result_at = project.bidResultAt;
+        const now = new Date().toISOString();
+        const updateData = {
+            status: 'Bidding',
+            project_status: 'Bidding',
+            bidStatus: 'lost',
+            biddingStatus: 'lost',
+            bidding_status: 'lost',
+            biddingStatusKey: 'closed',
+            bidResult: 'LOST',
+            bid_result: 'LOST',
+            bidResultAt: now,
+            bid_result_at: now,
+            is_bidding_project: true
+        };
+
+        console.log('[Bid Lost Start]', { projectId, updateData });
+
+        Object.assign(project, updateData);
 
         await this.saveState('project_upsert', project);
+        this.replaceProjectInState(project);
+
+        console.log('[Bid Lost Saved]', {
+            projectId: project.id || project.project_id,
+            status: project.status,
+            biddingStatus: project.bidding_status || project.biddingStatus
+        });
+
         this.closeBidResultModal();
 
         if (typeof this.showToast === 'function') {
