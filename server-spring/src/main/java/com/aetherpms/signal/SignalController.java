@@ -20,14 +20,22 @@ import jakarta.servlet.http.HttpServletRequest;
 public class SignalController {
 
     private final SignalEngine engine;
+    private final DashboardWidgetService widgetService;
 
-    public SignalController(SignalEngine engine) {
+    public SignalController(SignalEngine engine, DashboardWidgetService widgetService) {
         this.engine = engine;
+        this.widgetService = widgetService;
     }
 
     @GetMapping("/api/dashboard/signals")
     public Map<String, Object> dashboardSignals() {
         return engine.dashboardSignals();
+    }
+
+    // 0026 §A — 대시보드 위젯(오늘 해야할 일·최근 활동·규칙 기반 3위젯). 읽기 전용.
+    @GetMapping("/api/dashboard/widgets")
+    public Map<String, Object> dashboardWidgets() {
+        return widgetService.widgets();
     }
 
     @PostMapping("/api/signals/evaluate")

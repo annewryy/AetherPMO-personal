@@ -8,7 +8,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
 import type {
-  Project, Issue, ActionItem, Artifact, DashboardSignals, TodaySignalItem,
+  Project, Issue, ActionItem, Artifact, DashboardSignals, DashboardWidgets,
 } from '../types';
 import StageBadge from '../components/StageBadge.vue';
 import StateNotice from '../components/StateNotice.vue';
@@ -21,6 +21,9 @@ const actionItems = ref<ActionItem[]>([]);
 const artifacts = ref<Artifact[]>([]);
 const signals = ref<DashboardSignals | null>(null);
 const signalsError = ref(false);
+// 0026 — 오늘 해야할 일·최근 활동·규칙 기반 3위젯
+const widgets = ref<DashboardWidgets | null>(null);
+const widgetsError = ref(false);
 const loading = ref(true);
 const loadError = ref<string | null>(null);
 
@@ -125,31 +128,22 @@ const delaySignals = computed(() =>
     .sort((a, b) => (b.delayPct ?? 0) - (a.delayPct ?? 0)),
 );
 
-const KIND_ORDER: Record<string, number> = { DELAY: 0, DUE_TODAY: 1, HIGH_PRIORITY: 2 };
-const KIND_LABELS: Record<string, string> = { DELAY: '지연', DUE_TODAY: '오늘 마감', HIGH_PRIORITY: '고우선순위' };
-const todayItems = computed(() =>
-  [...(signals.value?.today ?? [])]
-    .sort((a, b) => (KIND_ORDER[a.kind] ?? 9) - (KIND_ORDER[b.kind] ?? 9)),
-);
-
 function projectName(id: number): string {
   return projects.value.find((p) => p.id === id)?.name ?? `#${id}`;
 }
 
-// 배치23 B안: Today 항목 클릭 → 해당 아이템 상세 페이지로 이동(엔티티 유형별 상세 route).
-//   entityId가 있으면 상세 페이지, 없거나 PROJECT면 프로젝트 상세로 폴백.
-function openTodayItem(item: TodaySignalItem) {
-  const detailPath: Record<string, string | undefined> = {
-    ISSUE: 'issues',
-    ACTION_ITEM: 'action-items',
-    DELIVERABLE: 'deliverables',
-  };
-  const base = detailPath[item.entityType];
-  if (base && item.entityId != null) {
-    router.push(`/${base}/${item.entityId}`);
-    return;
-  }
-  router.push(`/projects/${item.projectId}`);
+// 0026 — 위젯 항목 클릭 이동. 기존 Today 혼합 위젯은 "오늘 해야할 일" 3열로 대체(0003 D1).
+function fmtDate(v: string | null | undefined): string {
+  return v ? v.slice(0, 10) : '—';
+}
+const LEVEL_LABELS: Record<string, string> = { OK: '양호', WARN: '주의', DANGER: '위험' };
+function openRisk(r: { kind: string; issueId?: number; projectId: number }) {
+  if (r.kind === 'OPEN_RISK' && r.issueId != null) router.push(`/issues/${r.issueId}`);
+  else router.push(`/projects/${r.projectId}`);
+}
+function openReco(r: { entityType?: string | null; entityId?: number | null; projectId: number }) {
+  if (r.entityType === 'ISSUE' && r.entityId != null) router.push(`/issues/${r.entityId}`);
+  else router.push(`/projects/${r.projectId}`);
 }
 
 // ---- 진행률 바 차트·도넛(기존 유지) --------------------------------------------
@@ -206,13 +200,15 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-  // 신호는 별도 로드 — 실패해도 대시보드 본체는 유지
-  try {
-    signals.value = await dataClient.dashboard.signals();
-  } catch (e) {
-    signalsError.value = true;
-    console.error('[dashboard] 신호 로드 실패:', e);
-  }
+  // 신호·위젯은 별도 로드 — 실패해도 대시보드 본체는 유지
+  const [sigResult, widgetResult] = await Promise.allSettled([
+    dataClient.dashboard.signals(),
+    dataClient.dashboard.widgets(),
+  ]);
+  if (sigResult.status === 'fulfilled') signals.value = sigResult.value;
+  else { signalsError.value = true; console.error('[dashboard] 신호 로드 실패:', sigResult.reason); }
+  if (widgetResult.status === 'fulfilled') widgets.value = widgetResult.value;
+  else { widgetsError.value = true; console.error('[dashboard] 위젯 로드 실패:', widgetResult.reason); }
 });
 </script>
 
@@ -253,11 +249,91 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 신호 위젯 (0007 — API_BASE 전용) -->
+      <!-- 신호·위젯 (0007·0026 — API_BASE 전용) -->
       <div v-if="!apiMode" class="signal-off">
-        신호 위젯(지연 신호·Today)은 백엔드 연동(API_BASE) 후 제공됩니다 — 폴백 모드에서는 숨김.
+        신호·위젯(오늘 해야할 일·지연 신호·규칙 기반)은 백엔드 연동(API_BASE) 후 제공됩니다 — 폴백 모드에서는 숨김.
       </div>
-      <div v-else class="charts">
+      <template v-else>
+        <!-- 0026 D1 — 오늘 해야할 일 (3열) -->
+        <div class="triple">
+          <section class="card">
+            <h2 class="card-title">오늘/지연 WBS 일정</h2>
+            <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+            <div v-else-if="!widgets || widgets.today.tasks.length === 0" class="card-empty">해당 항목이 없습니다.</div>
+            <ul v-else class="mini-list">
+              <li v-for="t in widgets.today.tasks" :key="t.taskId" class="mini-item" @click="router.push(`/tasks/${t.taskId}`)">
+                <span class="due-badge" :class="t.overdue ? 'due-over' : 'due-today'">{{ t.overdue ? '지연' : '오늘' }}</span>
+                <span class="mini-title">{{ t.name }}</span>
+                <span class="mini-meta">{{ t.projectName }} · 진행률 {{ t.progress }}% · 기한 {{ t.dueDate }}</span>
+              </li>
+            </ul>
+          </section>
+          <section class="card">
+            <h2 class="card-title">오늘/지연 액션아이템</h2>
+            <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+            <div v-else-if="!widgets || widgets.today.actions.length === 0" class="card-empty">해당 항목이 없습니다.</div>
+            <ul v-else class="mini-list">
+              <li v-for="a in widgets.today.actions" :key="a.actionId" class="mini-item" @click="router.push(`/action-items/${a.actionId}`)">
+                <span class="due-badge" :class="a.overdue ? 'due-over' : 'due-today'">{{ a.overdue ? '지연' : '오늘' }}</span>
+                <span class="mini-title">{{ a.title }}</span>
+                <span class="mini-meta">{{ a.projectName }}<template v-if="a.assigneeName"> · {{ a.assigneeName }}</template> · 기한 {{ a.dueDate }}</span>
+              </li>
+            </ul>
+          </section>
+          <section class="card">
+            <h2 class="card-title">오늘/지연 제출 산출물</h2>
+            <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+            <div v-else-if="!widgets || widgets.today.deliverables.length === 0" class="card-empty">해당 항목이 없습니다.</div>
+            <ul v-else class="mini-list">
+              <li v-for="d in widgets.today.deliverables" :key="d.deliverableId" class="mini-item" @click="router.push(`/deliverables/${d.deliverableId}`)">
+                <span class="due-badge" :class="d.overdue ? 'due-over' : 'due-today'">{{ d.overdue ? '지연' : '오늘' }}</span>
+                <span class="mini-title">{{ d.name }}</span>
+                <span class="mini-meta">{{ d.projectName }} · 기한 {{ d.dueDate }}</span>
+              </li>
+            </ul>
+          </section>
+        </div>
+
+        <!-- 0026 D3~D5 — 규칙 기반 3위젯 (AI 미채택, 설정 가능한 기준: 관리자>신호 규칙 HEALTH_SCORE) -->
+        <div class="triple">
+          <section class="card">
+            <h2 class="card-title">주의가 필요한 프로젝트 <span class="card-sub">건강도 점수 낮은 순</span></h2>
+            <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+            <div v-else-if="!widgets || widgets.attention.length === 0" class="card-empty">대상 프로젝트가 없습니다.</div>
+            <ul v-else class="mini-list">
+              <li v-for="a in widgets.attention" :key="a.projectId" class="mini-item" @click="openDetail(a.projectId)">
+                <span class="score" :class="'score-' + a.level.toLowerCase()">{{ a.score }}점 · {{ LEVEL_LABELS[a.level] ?? a.level }}</span>
+                <span class="mini-title">{{ a.projectName }}</span>
+                <span v-if="a.factors.length" class="mini-meta">{{ a.factors.join(' · ') }}</span>
+              </li>
+            </ul>
+          </section>
+          <section class="card">
+            <h2 class="card-title">주요 리스크 <span class="card-sub">우선순위·경과일 순</span></h2>
+            <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+            <div v-else-if="!widgets || widgets.risks.length === 0" class="card-empty">오픈 리스크가 없습니다.</div>
+            <ul v-else class="mini-list">
+              <li v-for="(r, i) in widgets.risks" :key="i" class="mini-item" @click="openRisk(r)">
+                <span class="due-badge" :class="r.kind === 'DELAY' ? 'due-over' : 'due-today'">{{ r.kind === 'DELAY' ? '진척 지연' : (r.priority || '리스크') }}</span>
+                <span class="mini-title">{{ r.title }}</span>
+                <span class="mini-meta">{{ r.projectName }}<template v-if="r.ageDays != null"> · {{ r.ageDays }}일 경과</template></span>
+              </li>
+            </ul>
+          </section>
+          <section class="card">
+            <h2 class="card-title">지금 실행하면 좋은 조치</h2>
+            <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+            <div v-else-if="!widgets || widgets.recommendations.length === 0" class="card-empty">권장 조치가 없습니다.</div>
+            <ul v-else class="mini-list">
+              <li v-for="(r, i) in widgets.recommendations" :key="i" class="mini-item" @click="openReco(r)">
+                <span class="mini-title">{{ r.text }}</span>
+                <span class="mini-meta">{{ r.projectName }}</span>
+              </li>
+            </ul>
+          </section>
+        </div>
+
+        <!-- 지연 신호 (0007 유지) -->
         <section class="card">
           <h2 class="card-title">지연 신호 <span class="card-sub">기대 vs 실제, 지연 큰 순</span></h2>
           <div v-if="signalsError" class="card-empty">신호를 불러오지 못했습니다.</div>
@@ -275,27 +351,7 @@ onMounted(async () => {
             </tbody>
           </table>
         </section>
-
-        <section class="card">
-          <h2 class="card-title">Today — 오늘 확인 필요 <span class="card-sub">지연 &gt; 오늘마감 &gt; 고우선순위</span></h2>
-          <div v-if="signalsError" class="card-empty">신호를 불러오지 못했습니다.</div>
-          <div v-else-if="todayItems.length === 0" class="card-empty">오늘 확인할 항목이 없습니다.</div>
-          <ul v-else class="today-list">
-            <li v-for="(item, i) in todayItems" :key="i" class="today-item" @click="openTodayItem(item)">
-              <span class="kind" :class="'kind-' + item.kind">{{ KIND_LABELS[item.kind] ?? item.kind }}</span>
-              <span class="today-title">
-                {{ item.title }}
-                <span v-if="item.auto" class="auto-badge">자동</span>
-              </span>
-              <span class="today-meta">
-                {{ item.projectName || projectName(item.projectId) }}
-                <template v-if="item.dueDate"> · {{ item.dueDate }}</template>
-                <template v-if="item.priority"> · {{ item.priority }}</template>
-              </span>
-            </li>
-          </ul>
-        </section>
-      </div>
+      </template>
 
       <!-- 진행률 바 차트 + 사업유형 도넛 (유지) -->
       <div class="charts">
@@ -335,6 +391,53 @@ onMounted(async () => {
               </li>
             </ul>
           </div>
+        </section>
+      </div>
+
+      <!-- 0026 D2 — 최근 활동 (3열, API_BASE 전용) -->
+      <div v-if="apiMode" class="triple">
+        <section class="card">
+          <h2 class="card-title">최근 공문</h2>
+          <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+          <div v-else-if="!widgets || widgets.recent.officialDocs.length === 0" class="card-empty">등록된 공문이 없습니다.</div>
+          <ul v-else class="mini-list">
+            <li v-for="d in widgets.recent.officialDocs" :key="d.docId" class="mini-item" @click="router.push('/official-docs')">
+              <span v-if="d.currentStatus" class="due-badge due-today">{{ d.currentStatus }}</span>
+              <span class="mini-title">{{ d.title }}</span>
+              <span class="mini-meta">
+                <template v-if="d.docNumber">{{ d.docNumber }} · </template>{{ d.projectName }}
+                <template v-if="d.drafterName"> · {{ d.drafterName }}</template>
+                <template v-if="d.draftDate"> · {{ fmtDate(d.draftDate) }}</template>
+              </span>
+            </li>
+          </ul>
+        </section>
+        <section class="card">
+          <h2 class="card-title">최근 회의록</h2>
+          <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+          <div v-else-if="!widgets || widgets.recent.meetings.length === 0" class="card-empty">등록된 회의록이 없습니다.</div>
+          <ul v-else class="mini-list">
+            <li v-for="m in widgets.recent.meetings" :key="m.meetingId" class="mini-item" @click="router.push('/meeting-minutes')">
+              <span class="mini-title">{{ m.title }}</span>
+              <span class="mini-meta">
+                {{ m.projectName }}<template v-if="m.location"> · {{ m.location }}</template> · {{ fmtDate(m.meetDate) }}
+              </span>
+            </li>
+          </ul>
+        </section>
+        <section class="card">
+          <h2 class="card-title">최근 제출 산출물</h2>
+          <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+          <div v-else-if="!widgets || widgets.recent.deliverables.length === 0" class="card-empty">제출된 산출물이 없습니다.</div>
+          <ul v-else class="mini-list">
+            <li v-for="d in widgets.recent.deliverables" :key="d.deliverableId" class="mini-item" @click="router.push(`/deliverables/${d.deliverableId}`)">
+              <span class="due-badge due-today">제출</span>
+              <span class="mini-title">{{ d.name }}</span>
+              <span class="mini-meta">
+                {{ d.projectName }}<template v-if="d.authorName"> · {{ d.authorName }}</template> · {{ fmtDate(d.submittedAt) }}
+              </span>
+            </li>
+          </ul>
         </section>
       </div>
 
@@ -399,6 +502,27 @@ onMounted(async () => {
 }
 
 .charts { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; margin-bottom: 16px; }
+/* 0026 — 3열 위젯 공통 */
+.triple { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 4px; }
+.mini-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.mini-item {
+  display: flex; flex-direction: column; gap: 2px; cursor: pointer;
+  padding: 8px 6px; border-radius: 6px;
+}
+.mini-item:hover { background: var(--panel-2); }
+.mini-item + .mini-item { border-top: 1px solid var(--border); }
+.mini-title { font-size: 12.5px; font-weight: 600; line-height: 1.35; }
+.mini-meta { font-size: 11px; color: var(--muted); }
+.due-badge {
+  align-self: flex-start; padding: 1px 7px; border-radius: 999px;
+  font-size: 10px; font-weight: 700;
+}
+.due-today { background: color-mix(in srgb, var(--yellow) 20%, transparent); color: var(--yellow); }
+.due-over { background: color-mix(in srgb, var(--red) 18%, transparent); color: var(--red); }
+.score { align-self: flex-start; padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; }
+.score-ok { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); }
+.score-warn { background: color-mix(in srgb, var(--yellow) 20%, transparent); color: var(--yellow); }
+.score-danger { background: color-mix(in srgb, var(--red) 18%, transparent); color: var(--red); }
 .card {
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
   padding: 16px; margin-bottom: 12px;

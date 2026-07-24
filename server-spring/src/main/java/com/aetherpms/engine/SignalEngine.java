@@ -178,6 +178,15 @@ public class SignalEngine {
     // GET /api/dashboard/signals
     // =====================================================================
 
+    /** 0026: 위젯 서비스용 — 활성 프로젝트 지연 신호만(camelCase 맵). Today 계산 없이 가볍게. */
+    public List<Map<String, Object>> delaySignalMaps() {
+        LocalDate today = LocalDate.now();
+        List<Map<String, Object>> projects = jdbc.queryForList(ACTIVE_PROJECTS_SQL);
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (DelaySignal s : computeDelaySignals(projects, today)) out.add(delaySignalMap(s));
+        return out;
+    }
+
     public Map<String, Object> dashboardSignals() {
         LocalDate today = LocalDate.now();
         List<Map<String, Object>> projects = jdbc.queryForList(ACTIVE_PROJECTS_SQL);
