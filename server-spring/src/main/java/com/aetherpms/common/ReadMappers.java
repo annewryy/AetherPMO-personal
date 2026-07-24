@@ -225,6 +225,7 @@ public final class ReadMappers {
         out.put("requiredLarge", n.getRequiredLarge());
         out.put("docFormat", n.getDocFormat());
         out.put("fileNameBase", n.getFileNameBase());
+        out.put("docTemplateId", n.getDocTemplateId());
         out.put("children", new ArrayList<>());
         return out;
     }

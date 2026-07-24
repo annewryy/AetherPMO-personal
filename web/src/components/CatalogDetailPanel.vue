@@ -12,6 +12,7 @@ const props = defineProps<{
   node: CatalogNode;
   path: CatalogNode[];           // 루트(PHASE)→선택 노드까지의 경로(선택 노드 포함)
   workflowsById: Map<number, Workflow>;
+  templateNamesById?: Map<number, string>;   // 0030 — 기본 양식명 표시(선택)
 }>();
 
 const emit = defineEmits<{ (e: 'select', id: number): void }>();
@@ -70,6 +71,10 @@ const deliverableWorkflows = computed(() => {
       </div>
       <div v-if="!isTask && node.docFormat"><dt>문서형식</dt><dd class="code">{{ node.docFormat }}</dd></div>
       <div v-if="!isTask && node.fileNameBase" class="wide"><dt>표준 파일명</dt><dd>{{ node.fileNameBase }}</dd></div>
+      <div v-if="!isTask && node.docTemplateId != null" class="wide">
+        <dt>기본 양식</dt>
+        <dd>{{ templateNamesById?.get(node.docTemplateId) ?? `#${node.docTemplateId}` }}</dd>
+      </div>
       <div class="wide"><dt>소속 경로</dt><dd class="path">{{ breadcrumb }}</dd></div>
       <div v-if="node.description" class="wide"><dt>설명</dt><dd>{{ node.description }}</dd></div>
     </dl>

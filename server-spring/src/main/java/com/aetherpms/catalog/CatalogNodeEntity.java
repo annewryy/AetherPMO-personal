@@ -78,6 +78,9 @@ public class CatalogNodeEntity {
     @Column(name = "file_name_base")
     private String fileNameBase;
 
+    @Column(name = "doc_template_id")
+    private Long docTemplateId;
+
     public Long getNodeId() { return nodeId; }
     public Long getParentNodeId() { return parentNodeId; }
     public String getNodeType() { return nodeType; }
@@ -99,4 +102,5 @@ public class CatalogNodeEntity {
     public Boolean getRequiredLarge() { return requiredLarge; }
     public String getDocFormat() { return docFormat; }
     public String getFileNameBase() { return fileNameBase; }
+    public Long getDocTemplateId() { return docTemplateId; }
 }

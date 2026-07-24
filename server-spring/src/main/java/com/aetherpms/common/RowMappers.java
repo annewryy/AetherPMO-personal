@@ -166,6 +166,7 @@ public final class RowMappers {
         o.put("requiredLarge", boolOrNull(v(n, "required_large")));
         o.put("docFormat", v(n, "doc_format"));
         o.put("fileNameBase", v(n, "file_name_base"));
+        o.put("docTemplateId", asLong(v(n, "doc_template_id")));
         o.put("children", new java.util.ArrayList<>());
         return o;
     }

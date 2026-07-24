@@ -5,7 +5,7 @@
 // 백엔드 응답 그대로 표시(dataClient.apiSend가 message 패스스루).
 import { ref, computed, onMounted } from 'vue';
 import { dataClient } from '../../lib/dataClient';
-import type { CatalogNode, CatalogNodeType, CatalogNodeInput, Workflow } from '../../types';
+import type { CatalogNode, CatalogNodeType, CatalogNodeInput, Workflow, DocTemplate } from '../../types';
 import CatalogNodeItem from '../../components/CatalogNodeItem.vue';
 import StateNotice from '../../components/StateNotice.vue';
 
@@ -65,7 +65,10 @@ const form = ref({
   requiredLarge: null as boolean | null,
   docFormat: '',
   fileNameBase: '',
+  docTemplateId: null as number | null,
 });
+
+const docTemplates = ref<DocTemplate[]>([]);
 
 const METHODOLOGIES = ['OPMS', 'ODS', 'OMS', 'BIS'] as const;
 
@@ -88,6 +91,7 @@ function selectNode(n: CatalogNode) {
     requiredLarge: n.requiredLarge,
     docFormat: n.docFormat ?? '',
     fileNameBase: n.fileNameBase ?? '',
+    docTemplateId: n.docTemplateId,
   };
 }
 
@@ -110,6 +114,7 @@ function openCreate(parent: CatalogNode | null) {
     requiredLarge: null,
     docFormat: '',
     fileNameBase: '',
+    docTemplateId: null,
   };
 }
 
@@ -134,6 +139,7 @@ function toInput(): CatalogNodeInput {
     requiredLarge: form.value.requiredLarge,
     docFormat: form.value.docFormat.trim() || null,
     fileNameBase: form.value.fileNameBase.trim() || null,
+    docTemplateId: form.value.docTemplateId,
   };
 }
 
@@ -226,7 +232,11 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-  if (apiMode.value) void loadPattern();
+  if (apiMode.value) {
+    void loadPattern();
+    dataClient.docTemplates.list().then((v) => { docTemplates.value = v; })
+      .catch((e) => console.error('[admin] 양식 목록 로드 실패:', e));
+  }
 });
 </script>
 
@@ -355,6 +365,15 @@ onMounted(async () => {
                 </span>
               </label>
               <label class="field">
+                <span class="label">기본 양식 <span class="hint">(양식은 1:N — 산출물 관리에서 등록)</span></span>
+                <select v-model="form.docTemplateId" class="select">
+                  <option :value="null">선택 안 함</option>
+                  <option v-for="t in docTemplates" :key="t.id" :value="t.id">
+                    {{ t.category ? `[${t.category}] ` : '' }}{{ t.name }}
+                  </option>
+                </select>
+              </label>
+              <label class="field">
                 <span class="label">문서형식</span>
                 <input v-model="form.docFormat" type="text" class="input" placeholder=".hwpx" />
               </label>
@@ -443,4 +462,5 @@ onMounted(async () => {
 .pattern-ok { color: var(--green); font-size: 12.5px; }
 .req-checks { display: flex; gap: 10px; }
 .req-checks .chk { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+.hint { font-weight: 400; color: var(--muted); font-size: 11px; }
 </style>

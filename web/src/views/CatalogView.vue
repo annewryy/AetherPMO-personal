@@ -6,7 +6,7 @@
 import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
-import type { CatalogNode, Workflow } from '../types';
+import type { CatalogNode, Workflow, DocTemplate } from '../types';
 import CatalogNodeItem from '../components/CatalogNodeItem.vue';
 import CatalogDetailPanel from '../components/CatalogDetailPanel.vue';
 import StateNotice from '../components/StateNotice.vue';
@@ -15,6 +15,12 @@ const route = useRoute();
 
 const phases = ref<CatalogNode[]>([]);
 const workflows = ref<Workflow[]>([]);
+const docTemplates = ref<DocTemplate[]>([]);
+const templateNamesById = computed(() => {
+  const m = new Map<number, string>();
+  for (const t of docTemplates.value) m.set(t.id, t.name);
+  return m;
+});
 const loading = ref(true);
 const loadError = ref<string | null>(null);
 
@@ -129,9 +135,10 @@ async function applyDeepLink() {
 
 onMounted(async () => {
   try {
-    [phases.value, workflows.value] = await Promise.all([
+    [phases.value, workflows.value, docTemplates.value] = await Promise.all([
       dataClient.catalog.tree(),
       dataClient.workflows.list(),
+      dataClient.docTemplates.list().catch(() => []),
     ]);
     // 첫 탭 = 존재하는 방법론 우선(표준 시드 후 OPMS), 없으면 커스텀.
     const first = visibleTabs.value[0];
@@ -210,6 +217,7 @@ watch(() => route.query.node, applyDeepLink);
         <CatalogDetailPanel
           v-if="selectedNode && selectedPath"
           :node="selectedNode" :path="selectedPath" :workflows-by-id="workflowsById"
+          :template-names-by-id="templateNamesById"
           @select="selectNodeById"
         />
         <div v-else class="detail-empty">

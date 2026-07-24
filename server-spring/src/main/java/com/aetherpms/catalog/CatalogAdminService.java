@@ -41,7 +41,7 @@ public class CatalogAdminService {
             "template_file_ref", "template_tags", "workflow_id", "is_active",
             // 0029 — 테일러링 표준 트리 필드(관리자 편집 — 요구 0004 §4)
             "methodology", "required_small", "required_medium", "required_large",
-            "doc_format", "file_name_base");
+            "doc_format", "file_name_base", "doc_template_id");
     private static final Map<String, String> NODE_ALIASES = Map.ofEntries(
             Map.entry("parentId", "parent_node_id"), Map.entry("nodeType", "node_type"),
             Map.entry("isOptional", "is_optional"), Map.entry("sortOrder", "sort_order"),
@@ -50,7 +50,7 @@ public class CatalogAdminService {
             Map.entry("workflowId", "workflow_id"), Map.entry("isActive", "is_active"),
             Map.entry("requiredSmall", "required_small"), Map.entry("requiredMedium", "required_medium"),
             Map.entry("requiredLarge", "required_large"), Map.entry("docFormat", "doc_format"),
-            Map.entry("fileNameBase", "file_name_base"));
+            Map.entry("fileNameBase", "file_name_base"), Map.entry("docTemplateId", "doc_template_id"));
 
     private static final List<String> METHODOLOGIES = List.of("OPMS", "ODS", "OMS", "BIS");
 
@@ -149,7 +149,7 @@ public class CatalogAdminService {
         } else if (requireAll) {
             throw ApiException.badRequest("node_type은 필수입니다. (허용: " + String.join(", ", NODE_TYPES) + ")");
         }
-        for (String k : List.of("parent_node_id", "workflow_id", "sort_order", "seq_no")) {
+        for (String k : List.of("parent_node_id", "workflow_id", "sort_order", "seq_no", "doc_template_id")) {
             if (!body.containsKey(k)) continue;
             if (body.get(k) == null) { out.put(k, null); continue; }
             Integer n = intOrNull(body.get(k));

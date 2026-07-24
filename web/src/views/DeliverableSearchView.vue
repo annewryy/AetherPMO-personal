@@ -1,267 +1,284 @@
 <script setup lang="ts">
-// P1-4 산출물 템플릿 검색 (/app/catalog/deliverables) — 0011 B-6 개정.
-// 분류(PHASE)→프로세스(ACTIVITY→TASK)→산출물 트리 + 평면 검색을 병행한다.
-//  - 트리: CatalogView의 트리 컴포넌트(CatalogNodeItem) 재사용(별도 쿼리 금지 — catalog.tree() 하나).
-//  - 검색: name·code 텍스트 필터. 검색 시 결과 행 클릭은 카탈로그(P1-3)로 딥링크 유지.
-//  - 트리에서 산출물/태스크 클릭 → 동일 딥링크(?node=<id>).
-import { ref, computed, watch, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+// 산출물 관리 (/app/catalog/deliverables) — 0030 개편.
+//   양식(pms_doc_template) 마스터를 유경님 UI처럼 좌측 "분류 네비 + 우측 리스트"로 관리한다.
+//   테일러링 노드와 양식은 1:N — 특정 양식 연결(기본 양식)은 관리자 테일러링 노드 폼에서.
+//   리스트형만 제공(트리·카탈로그 딥링크 폐기 — 1:1 오해 방지, 너울님 2026-07-24).
+import { ref, computed, onMounted, watch } from 'vue';
 import { dataClient } from '../lib/dataClient';
-import type { CatalogNode } from '../types';
+import type { DocTemplate, DocTemplateInput } from '../types';
 import StateNotice from '../components/StateNotice.vue';
-import CatalogNodeItem from '../components/CatalogNodeItem.vue';
+import ModalShell from '../components/ModalShell.vue';
 import PageSizeSelect from '../components/PageSizeSelect.vue';
 import Pager from '../components/Pager.vue';
 import { DEFAULT_PAGE_SIZE, usePagination } from '../lib/pagination';
 
-const router = useRouter();
+const apiMode = computed(() => !!window.API_BASE);
 
-const tree = ref<CatalogNode[]>([]);
+const templates = ref<DocTemplate[]>([]);
 const loading = ref(true);
 const loadError = ref<string | null>(null);
 const query = ref('');
-const viewMode = ref<'tree' | 'flat'>('tree');
+const categoryFilter = ref<string | '__all__'>('__all__');
 
-// 트리 뷰 상태(분류 선택 + 펼침)
-const selectedPhaseId = ref<number | null>(null);
-const expanded = ref<Record<number, boolean>>({});
-
-interface FlatDeliverable {
-  node: CatalogNode;
-  path: string[];   // PHASE > ACTIVITY > TASK
-}
-
-const totalNodes = ref(0);
-
-const deliverables = computed<FlatDeliverable[]>(() => {
-  const out: FlatDeliverable[] = [];
-  const walk = (nodes: CatalogNode[], trail: string[]) => {
-    for (const n of nodes) {
-      if (n.nodeType === 'DELIVERABLE') out.push({ node: n, path: trail });
-      walk(n.children, [...trail, n.name]);
-    }
-  };
-  walk(tree.value, []);
-  return out;
+// 분류 네비 — distinct category(없음 = '미분류'), 유경님 착수/수행/종료단계 분류 관례.
+const NO_CATEGORY = '__none__';
+const categories = computed(() => {
+  const m = new Map<string, number>();
+  for (const t of templates.value) {
+    const key = t.category?.trim() || NO_CATEGORY;
+    m.set(key, (m.get(key) ?? 0) + 1);
+  }
+  return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko'));
 });
 
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase();
-  if (!q) return deliverables.value;
-  return deliverables.value.filter(({ node }) =>
-    node.name.toLowerCase().includes(q) || (node.code ?? '').toLowerCase().includes(q),
-  );
+  return templates.value.filter((t) => {
+    if (categoryFilter.value !== '__all__') {
+      const key = t.category?.trim() || NO_CATEGORY;
+      if (key !== categoryFilter.value) return false;
+    }
+    if (!q) return true;
+    return t.name.toLowerCase().includes(q) || (t.description ?? '').toLowerCase().includes(q);
+  });
 });
 
-const selectedPhase = computed(() =>
-  tree.value.find((p) => p.id === selectedPhaseId.value) ?? null,
-);
-
-// 배치8 — 평면(목록) 뷰 공통 페이징. 검색/뷰변경 시 1페이지 리셋.
 const pageSize = ref<number>(DEFAULT_PAGE_SIZE);
 const { page, total, totalPages, paged, goPage, resetPage, setPageSize, rowNo } =
   usePagination(filtered, pageSize);
-watch([query, viewMode], () => resetPage());
+watch([query, categoryFilter], () => resetPage());
 
-function countByType(node: CatalogNode, type: string): number {
-  let n = node.nodeType === type ? 1 : 0;
-  for (const c of node.children) n += countByType(c, type);
-  return n;
-}
-function toggle(id: number) { expanded.value[id] = !expanded.value[id]; }
-function selectPhase(id: number) { selectedPhaseId.value = id; }
-
-// 트리 노드/평면 행 클릭 → 카탈로그(P1-3) 딥링크(트리 펼침·하이라이트는 그쪽에서)
-function openInCatalog(id: number) {
-  router.push({ path: '/catalog', query: { node: String(id) } });
-}
-
-onMounted(async () => {
+async function load() {
+  loading.value = true;
+  loadError.value = null;
   try {
-    tree.value = await dataClient.catalog.tree();
-    if (tree.value.length) selectedPhaseId.value = tree.value[0].id;
-    let n = 0;
-    const count = (nodes: CatalogNode[]) => { for (const x of nodes) { n++; count(x.children); } };
-    count(tree.value);
-    totalNodes.value = n;
+    templates.value = await dataClient.docTemplates.list();
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e);
   } finally {
     loading.value = false;
   }
+}
+
+// ---- 등록/수정/삭제 ----------------------------------------------------------
+const editing = ref<DocTemplate | null>(null);
+const showForm = ref(false);
+const form = ref<DocTemplateInput>({ name: '' });
+const saving = ref(false);
+const formError = ref<string | null>(null);
+
+function openCreate() {
+  editing.value = null;
+  form.value = {
+    name: '', description: null, docFormat: null, fileRef: null,
+    category: categoryFilter.value !== '__all__' && categoryFilter.value !== NO_CATEGORY
+      ? categoryFilter.value : null,
+  };
+  formError.value = null;
+  showForm.value = true;
+}
+function openEdit(t: DocTemplate) {
+  editing.value = t;
+  form.value = {
+    name: t.name, category: t.category, docFormat: t.docFormat,
+    fileRef: t.fileRef, description: t.description,
+  };
+  formError.value = null;
+  showForm.value = true;
+}
+async function save() {
+  if (!form.value.name.trim()) { formError.value = '양식명은 필수입니다.'; return; }
+  saving.value = true;
+  formError.value = null;
+  try {
+    if (editing.value) await dataClient.docTemplates.update(editing.value.id, form.value);
+    else await dataClient.docTemplates.create(form.value);
+    showForm.value = false;
+    await load();
+  } catch (e) {
+    formError.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    saving.value = false;
+  }
+}
+async function remove(t: DocTemplate) {
+  if (!confirm(`양식 '${t.name}'을(를) 삭제할까요?`)) return;
+  try {
+    await dataClient.docTemplates.remove(t.id);
+    await load();
+  } catch (e) {
+    alert(e instanceof Error ? e.message : String(e));
+  }
+}
+
+onMounted(() => {
+  if (apiMode.value) void load();
+  else loading.value = false;
 });
 </script>
 
 <template>
   <div>
-    <h1 class="title">산출물 템플릿 검색</h1>
-    <p class="sub">
-      분류→프로세스→산출물 트리와 평면 검색을 병행합니다 — 행/노드 클릭 시 카탈로그의 해당 위치로 이동.
-      <span v-if="totalNodes" class="count">산출물 {{ deliverables.length }}개 / 전체 {{ totalNodes }}노드</span>
-    </p>
+    <h1 class="title">산출물 관리</h1>
+    <p class="sub">산출물 양식(문서 템플릿) 목록 — 테일러링 산출물과 양식은 1:N이며, 테일러링 설정에서 특정 양식을 선택해 연결합니다.</p>
 
-    <div class="toolbar">
-      <div class="seg">
-        <button class="seg-btn" :class="{ on: viewMode === 'tree' }" @click="viewMode = 'tree'">트리</button>
-        <button class="seg-btn" :class="{ on: viewMode === 'flat' }" @click="viewMode = 'flat'">목록</button>
+    <div v-if="!apiMode" class="notice">산출물 관리는 백엔드(API_BASE) 연결 후 사용할 수 있습니다.</div>
+    <template v-else>
+      <StateNotice :loading="loading" :error="loadError" :empty="false" empty-text="" />
+
+      <div v-if="!loading && !loadError" class="layout">
+        <!-- 좌측: 분류 네비 -->
+        <aside class="cat-nav">
+          <button class="cat" :class="{ on: categoryFilter === '__all__' }" @click="categoryFilter = '__all__'">
+            전체 <span class="cnt">{{ templates.length }}</span>
+          </button>
+          <button
+            v-for="[key, cnt] in categories" :key="key"
+            class="cat" :class="{ on: categoryFilter === key }"
+            @click="categoryFilter = key"
+          >
+            {{ key === '__none__' ? '미분류' : key }} <span class="cnt">{{ cnt }}</span>
+          </button>
+        </aside>
+
+        <!-- 우측: 리스트 -->
+        <section class="list-panel">
+          <div class="toolbar">
+            <input v-model="query" class="search" type="search" placeholder="양식명·설명 검색" />
+            <button class="btn btn-primary" @click="openCreate">+ 양식 등록</button>
+          </div>
+
+          <div v-if="templates.length === 0" class="notice">
+            등록된 양식이 없습니다 — "+ 양식 등록"으로 표준 양식 문서를 등록하세요.
+          </div>
+          <div v-else-if="filtered.length === 0" class="notice">조건에 맞는 양식이 없습니다.</div>
+          <template v-else>
+            <div class="list-head">
+              <span class="count">총 <strong>{{ total.toLocaleString('ko-KR') }}</strong>건</span>
+              <PageSizeSelect :model-value="pageSize" @update:model-value="setPageSize" />
+            </div>
+            <table class="grid">
+              <thead>
+                <tr>
+                  <th class="no">No.</th><th>양식명</th><th>분류</th><th>형식</th>
+                  <th>파일 참조</th><th>설명</th><th class="num">사용 노드</th><th>관리</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(t, idx) in paged" :key="t.id">
+                  <td class="no">{{ rowNo(idx) }}</td>
+                  <td class="name">{{ t.name }}<span v-if="!t.isActive" class="off-tag">비활성</span></td>
+                  <td>{{ t.category || '—' }}</td>
+                  <td class="code">{{ t.docFormat || '—' }}</td>
+                  <td class="muted ellip" :title="t.fileRef ?? ''">{{ t.fileRef || '—' }}</td>
+                  <td class="muted ellip" :title="t.description ?? ''">{{ t.description || '—' }}</td>
+                  <td class="num">{{ t.nodeCount }}</td>
+                  <td class="actions">
+                    <button class="btn btn-sm" @click="openEdit(t)">수정</button>
+                    <button class="btn btn-sm btn-danger" @click="remove(t)">삭제</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <Pager :page="page" :total-pages="totalPages" :total="total" @update:page="goPage" />
+          </template>
+        </section>
       </div>
-      <input v-model="query" class="search" type="search" placeholder="산출물명·코드 검색" />
-    </div>
-
-    <StateNotice
-      :loading="loading" :error="loadError"
-      :empty="!loading && !loadError && deliverables.length === 0"
-      empty-text="산출물 템플릿이 없습니다 — 데이터 소스(백엔드 API 또는 Supabase 시드) 연결 후 표시됩니다."
-    />
-
-    <!-- 트리 뷰: 분류(PHASE) 선택 + 프로세스 트리 -->
-    <div v-if="!loading && !loadError && deliverables.length > 0 && viewMode === 'tree'" class="tree-layout">
-      <aside class="phase-list">
-        <button
-          v-for="p in tree" :key="p.id"
-          class="phase" :class="{ on: p.id === selectedPhaseId }"
-          @click="selectPhase(p.id)"
-        >
-          <span class="phase-name">{{ p.name }}</span>
-          <span class="phase-counts">산출물 {{ countByType(p, 'DELIVERABLE') }}</span>
-        </button>
-      </aside>
-      <section class="tree-panel">
-        <template v-if="selectedPhase">
-          <div v-if="selectedPhase.children.length === 0" class="empty">하위 프로세스가 없습니다.</div>
-          <ul v-else class="tree">
-            <CatalogNodeItem
-              v-for="n in selectedPhase.children" :key="n.id"
-              :node="n" :expanded="expanded" :toggle="toggle"
-              :selected-id="null" :highlight-id="null"
-              @select="openInCatalog($event.id)"
-            />
-          </ul>
-        </template>
-      </section>
-    </div>
-
-    <!-- 평면 목록 뷰 -->
-    <template v-if="!loading && !loadError && deliverables.length > 0 && viewMode === 'flat'">
-      <div v-if="filtered.length === 0" class="notice">검색 조건에 맞는 산출물이 없습니다.</div>
-      <template v-else>
-      <div class="list-head">
-        <span class="lcount">총 <strong>{{ total.toLocaleString('ko-KR') }}</strong>건</span>
-        <PageSizeSelect :model-value="pageSize" @update:model-value="setPageSize" />
-      </div>
-      <table class="grid">
-        <thead>
-          <tr><th class="no">No.</th><th>코드</th><th>산출물명</th><th>분류</th><th>소속 경로</th><th>비고</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="({ node, path }, idx) in paged" :key="node.id" class="row" @click="openInCatalog(node.id)">
-            <td class="no">{{ rowNo(idx) }}</td>
-            <td class="code">{{ node.code || '—' }}</td>
-            <td class="name">{{ node.name }}</td>
-            <td>{{ node.deliverableCategory || '—' }}</td>
-            <td class="path">
-              <template v-for="(seg, i) in path" :key="i">
-                <span v-if="i > 0" class="sep">›</span>{{ seg }}
-              </template>
-              <span v-if="path.length === 0" class="muted">—</span>
-            </td>
-            <td><span v-if="node.isOptional" class="optional">선택</span><span v-else class="muted">—</span></td>
-          </tr>
-        </tbody>
-      </table>
-      <Pager :page="page" :total-pages="totalPages" :total="total" @update:page="goPage" />
-      </template>
     </template>
 
-    <!-- 트리 뷰에서 검색어가 있으면 매칭 목록도 함께(딥링크 유지) -->
-    <div v-if="!loading && !loadError && viewMode === 'tree' && query.trim()" class="tree-search-hits">
-      <h3 class="hits-title">검색 결과 {{ filtered.length }}건</h3>
-      <div v-if="filtered.length === 0" class="notice">검색 조건에 맞는 산출물이 없습니다.</div>
-      <ul v-else class="hits">
-        <li v-for="{ node, path } in filtered" :key="node.id" class="hit" @click="openInCatalog(node.id)">
-          <span class="code">{{ node.code || '—' }}</span>
-          <span class="name">{{ node.name }}</span>
-          <span class="path">
-            <template v-for="(seg, i) in path" :key="i"><span v-if="i > 0" class="sep">›</span>{{ seg }}</template>
-          </span>
-        </li>
-      </ul>
-    </div>
+    <!-- 등록/수정 모달 -->
+    <ModalShell v-if="showForm" :title="editing ? '양식 수정' : '양식 등록'" @close="showForm = false">
+      <label class="label">양식명 <span class="req">*</span></label>
+      <input v-model="form.name" class="input" type="text" placeholder="예: 사업계획서(표준형)" :disabled="saving" />
+      <div class="row2">
+        <div>
+          <label class="label">분류</label>
+          <input v-model="form.category" class="input" type="text" placeholder="예: 착수단계 템플릿" :disabled="saving" list="cat-list" />
+          <datalist id="cat-list">
+            <option v-for="[key] in categories" :key="key" :value="key === '__none__' ? '' : key" />
+          </datalist>
+        </div>
+        <div>
+          <label class="label">문서형식</label>
+          <input v-model="form.docFormat" class="input" type="text" placeholder=".hwpx" :disabled="saving" />
+        </div>
+      </div>
+      <label class="label">파일 참조</label>
+      <input v-model="form.fileRef" class="input" type="text" placeholder="파일 경로/파일명 (NAS 연동 전 텍스트)" :disabled="saving" />
+      <label class="label">설명</label>
+      <textarea v-model="form.description" class="input" rows="2" placeholder="양식 용도·특징 (선택)" :disabled="saving"></textarea>
+      <div v-if="formError" class="err">{{ formError }}</div>
+      <template #footer>
+        <button class="btn btn-sm" :disabled="saving" @click="showForm = false">취소</button>
+        <button class="btn btn-primary btn-sm" :disabled="saving || !form.name.trim()" @click="save">
+          {{ saving ? '저장 중…' : (editing ? '저장' : '등록') }}
+        </button>
+      </template>
+    </ModalShell>
   </div>
 </template>
 
 <style scoped>
 .title { font-size: 22px; margin: 0 0 4px; }
-.sub { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
-.count { margin-left: 8px; font-size: 13px; }
-
-.toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-.seg { display: flex; gap: 4px; }
-.seg-btn {
-  border: 1px solid var(--border); background: var(--panel); color: var(--muted);
-  border-radius: 8px; padding: 7px 14px; font-size: 14px; cursor: pointer; font-family: inherit;
-}
-.seg-btn.on { border-color: var(--accent); color: var(--text); background: rgba(139, 92, 246, 0.12); }
-
-.search {
-  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 14px; padding: 8px 12px; min-width: 280px; outline: none;
-}
-.search:focus { border-color: var(--accent); }
-
-.tree-layout { display: flex; gap: 14px; align-items: flex-start; }
-.phase-list { width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
-.phase {
-  text-align: left; border: 1px solid var(--border); background: var(--panel);
-  border-radius: 8px; padding: 10px 12px; cursor: pointer; color: var(--text);
-  display: flex; flex-direction: column; gap: 3px; font-family: inherit;
-}
-.phase:hover { background: var(--panel-2); }
-.phase.on { border-color: var(--accent); background: rgba(139, 92, 246, 0.1); }
-.phase-name { font-size: 14px; font-weight: 600; }
-.phase-counts { font-size: 12px; color: var(--muted); }
-.tree-panel {
-  flex: 1; min-width: 0;
-  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px;
-}
-.tree { margin: 0; padding: 0; }
-.empty { font-size: 14px; color: var(--muted); padding: 8px; }
-
-.tree-search-hits { margin-top: 16px; }
-.hits-title { font-size: 14px; margin: 0 0 8px; color: var(--muted); }
-.hits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.hit {
-  display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer;
-  background: var(--panel); border: 1px solid var(--border); border-radius: 8px; font-size: 14px;
-}
-.hit:hover { border-color: var(--accent); }
-
+.sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
 .notice {
   padding: 16px; border-radius: 8px;
   background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 14px;
 }
-.list-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
-.lcount { font-size: 14px; color: var(--muted); }
-.lcount strong { color: var(--text); }
+
+.layout { display: flex; gap: 14px; align-items: flex-start; }
+.cat-nav { width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
+.cat {
+  text-align: left; border: 1px solid var(--border); background: var(--panel);
+  border-radius: 8px; padding: 10px 12px; cursor: pointer; color: var(--text);
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 14px; font-weight: 600; font-family: inherit;
+}
+.cat:hover { background: var(--panel-2); }
+.cat.on { border-color: var(--accent); background: rgba(139, 92, 246, 0.1); }
+.cnt { font-size: 12px; color: var(--muted); font-weight: 500; }
+
+.list-panel { flex: 1; min-width: 0; }
+.toolbar { display: flex; gap: 12px; margin-bottom: 14px; }
+.search {
+  flex: 1; max-width: 320px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-size: 14px; padding: 7px 12px; outline: none;
+}
+.search:focus { border-color: var(--accent); }
+
+.list-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 12px; }
+.count { font-size: 14px; color: var(--muted); }
+.count strong { color: var(--text); }
+
 .grid { border-collapse: collapse; width: 100%; font-size: 14px; }
 .grid th, .grid td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
-.grid th { color: var(--muted); font-weight: 600; font-size: 13px; }
+.grid th { color: var(--muted); font-weight: 600; font-size: 13px; white-space: nowrap; }
 .grid .no { width: 48px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
-.row { cursor: pointer; }
-.row:hover { background: var(--panel); }
-.code { font-family: ui-monospace, monospace; color: var(--muted); }
+.grid .num { text-align: right; }
 .name { font-weight: 600; }
-.path { color: var(--muted); font-size: 13px; }
-.sep { margin: 0 5px; opacity: 0.6; }
-.muted { color: var(--muted); }
-.optional {
-  font-size: 11px; color: var(--muted);
-  border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px;
+.off-tag {
+  margin-left: 6px; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 999px;
+  background: var(--panel-2); color: var(--muted);
 }
+.code { font-family: ui-monospace, monospace; }
+.muted { color: var(--muted); }
+.ellip { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.actions { display: flex; gap: 4px; white-space: nowrap; }
 
-@media (max-width: 900px) {
-  .tree-layout { flex-wrap: wrap; }
-  .phase-list { width: 100%; flex-direction: row; flex-wrap: wrap; }
-  .tree-panel { flex: 1 1 100%; }
+.label { font-size: 12.5px; color: var(--muted); display: block; margin-top: 4px; }
+.req { color: var(--red); }
+.input {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-size: 14px; padding: 8px 10px; outline: none;
+  font-family: inherit; width: 100%; box-sizing: border-box;
+}
+.input:focus { border-color: var(--accent); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.err { color: var(--red); font-size: 13px; margin-top: 6px; }
+
+@media (max-width: 1000px) {
+  .layout { flex-wrap: wrap; }
+  .cat-nav { width: 100%; flex-direction: row; flex-wrap: wrap; }
 }
 </style>

@@ -41,7 +41,7 @@ const isBidNotices = computed(() => route.path.startsWith('/bid-notices'));
 
         <div class="group">테일러링</div>
         <RouterLink to="/catalog" exact-active-class="active" class="sub"><FileCheck :size="15" class="nico" />테일러링</RouterLink>
-        <RouterLink to="/catalog/deliverables" active-class="active" class="sub"><FileSearch :size="15" class="nico" />산출물 검색</RouterLink>
+        <RouterLink to="/catalog/deliverables" active-class="active" class="sub"><FileSearch :size="15" class="nico" />산출물 관리</RouterLink>
 
         <div class="group">전사 현황</div>
         <RouterLink to="/issues" active-class="active"><AlertTriangle :size="16" class="nico" />이슈/리스크</RouterLink>

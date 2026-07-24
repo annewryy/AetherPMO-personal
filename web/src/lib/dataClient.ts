@@ -15,7 +15,7 @@ import { getCurrentUserId } from './currentUser';
 import type {
   Project, ProjectMember, ConsortiumMember, Artifact, Issue, ActionItem,
   OfficialDoc, MeetingMinute, Activity, AppState, VrbInfo, DashboardSignals, DashboardWidgets, Task,
-  SignalRule, SignalRuleInput, CatalogNodeInput, Company, CompanyInput,
+  SignalRule, SignalRuleInput, CatalogNodeInput, Company, CompanyInput, DocTemplate, DocTemplateInput,
   CatalogNode, Workflow, WorkflowStatus, WorkflowTransition, WorkflowTransitionCondition,
   WorkflowInput, WorkflowStatusInput, WorkflowTransitionInput, TransitionConditionInput,
   CommentEntityType, EntityComment, CommentCreateInput,
@@ -337,6 +337,24 @@ export const dataClient = {
     },
     put(key: string, value: string): Promise<AppSetting> {
       return apiSend<AppSetting>('PUT', `/api/admin/settings/${encodeURIComponent(key)}`, { value });
+    },
+  },
+
+  // 0030 — 산출물 양식 마스터
+  docTemplates: {
+    async list(category?: string): Promise<DocTemplate[]> {
+      if (!apiBase()) return [];
+      const q = category ? `?category=${encodeURIComponent(category)}` : '';
+      return apiGet<DocTemplate[]>(`/api/doc-templates${q}`);
+    },
+    create(input: DocTemplateInput): Promise<DocTemplate> {
+      return apiSend<DocTemplate>('POST', '/api/doc-templates', input);
+    },
+    update(id: number, patch: Partial<DocTemplateInput>): Promise<DocTemplate> {
+      return apiSend<DocTemplate>('PATCH', `/api/doc-templates/${id}`, patch);
+    },
+    remove(id: number): Promise<void> {
+      return apiSend<void>('DELETE', `/api/doc-templates/${id}`);
     },
   },
 
