@@ -174,6 +174,9 @@ def main():
             is_bis = meth == 'BIS'
             if not pc or not ac or not tc:
                 continue
+            # 헤더/잡행 가드 — 코드 형식 검증(BIS는 헤더가 8행까지라 'Phase Code' 등이 흘러든다).
+            if not CODE_RE.fullmatch(pc) or not CODE_RE.fullmatch(ac) or not re.fullmatch(r'\d{1,2}', tc):
+                continue
             if not is_bis and (not dn or not dc):
                 continue
             if is_bis and not tn:
