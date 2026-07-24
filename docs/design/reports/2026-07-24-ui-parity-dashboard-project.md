@@ -1,12 +1,12 @@
-# UI 파리티 — 대시보드·프로젝트관리 (유경님 UI 기준 갭 + 결정사항)
+# UI 파리티 분석 리포트 — 대시보드·프로젝트관리 (2026-07-24)
 
 > 레거시(`/`, 유경님) UI와 우리 `/app`의 차이를 **프로젝트관리 단계까지** 비교 분석하고,
 > 너울님 결정(2026-07-24)을 반영해 구현 범위를 확정한 문서.
 > 분석 근거: 루트 `index.html`/`app.js`(레거시) vs `web/src`(우리) 코드 대조.
 
 - **작성**: 너울님 팀 · 2026-07-24
-- **관련**: [design/0024](../design/0024-legacy-parity-schema.md) §B (레거시 파리티 갭) · [requirements/0002](0002-parity-features-clarification.md) (급여·게시판·체크리스트 — 별도 트랙)
-- **상태**: 범위 확정 → 설계/구현 대기
+- **관련**: [design/0024](../0024-legacy-parity-schema.md) §B (레거시 파리티 갭) · [requirements/0002](../../requirements/0002-parity-features-clarification.md) (급여·게시판·체크리스트 — 별도 트랙)
+- **상태**: B1~B3 구현 완료 — [0025](../0025-project-menu-list-revamp.md)·[0026](../0026-dashboard-parity.md)·[0027](../0027-bid-overview-parity.md) (2026-07-24 main 병합)
 
 ---
 

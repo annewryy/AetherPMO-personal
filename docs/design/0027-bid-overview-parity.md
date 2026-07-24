@@ -1,6 +1,6 @@
 # 0027 — 입찰 상세 사업개요 파리티 (B3)
 
-> [requirements/0003](../requirements/0003-ui-parity-dashboard-project.md) §4 + 결정 4(외주 소속회사) 구현 설계.
+> [파리티 분석 리포트](reports/2026-07-24-ui-parity-dashboard-project.md) §4 + 결정 4(외주 소속회사) 구현 설계.
 > 레거시 사업개요 탭 6섹션(2행×3열) + 헤더 KPI 6카드를 우리 상세에 이식. "연관정보"는 **"현황 요약"** 으로 개칭.
 
 - **브랜치**: `impl/0027-bid-overview-parity`

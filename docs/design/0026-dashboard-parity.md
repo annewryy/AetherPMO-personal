@@ -1,6 +1,6 @@
 # 0026 — 대시보드 파리티 (B2)
 
-> [requirements/0003](../requirements/0003-ui-parity-dashboard-project.md) §2 구현 설계.
+> [파리티 분석 리포트](reports/2026-07-24-ui-parity-dashboard-project.md) §2 구현 설계.
 > 레거시 Classic 대시보드의 "오늘 해야할 일"·"최근 활동" 3열 + AI 포털 우측 3위젯의 **규칙 기반** 이식(결정 1: AI 미채택).
 
 - **브랜치**: `impl/0026-dashboard-parity`

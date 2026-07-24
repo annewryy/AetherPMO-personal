@@ -1,6 +1,6 @@
 # 0025 — 프로젝트 관리 메뉴·목록 개편 (B1)
 
-> [requirements/0003](../requirements/0003-ui-parity-dashboard-project.md) §1·§3 구현 설계.
+> [파리티 분석 리포트](reports/2026-07-24-ui-parity-dashboard-project.md) §1·§3 구현 설계.
 > 유경님 UI 기준: 프로젝트 관리 하위 메뉴 3개 + 입찰/수행 목록 분리. 나라장터 분할 패널은 미채택(결정 2).
 
 - **브랜치**: `impl/0025-project-menu-list-revamp`
