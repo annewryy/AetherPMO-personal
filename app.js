@@ -6348,16 +6348,21 @@ class AetherPMO {
     }
 
     getBiddingProjectsList() {
-        const realProjects = (this.state.projects || []).filter(p => p.status === 'Bidding');
+        const projects = this.state.projects || [];
+        const realProjects = projects.filter(p => p.status === 'Bidding');
         if (realProjects.length > 0) {
             return realProjects;
         }
+
+        const proj3Name = '월드컵(난지천)공원 인조잔디축구장 재정비공사 재해예방 기술지도 용역';
+
         return [
             {
-                id: 'demo-bid-1',
-                name: '[국방부] 차세대 융합 정보시스템 통합 구축사업',
-                code: 'BID-2026-001',
-                customer: '국방부 지능정보화정책관',
+                id: projects[2] ? projects[2].id : 'proj-3',
+                projectId: projects[2] ? projects[2].id : 'proj-3',
+                name: proj3Name,
+                code: 'PRJ-2026-003',
+                customer: '서울시 서부공원여가센터',
                 status: 'Bidding',
                 bidStatus: 'drafting',
                 biddingStatusKey: 'drafting',
@@ -6376,14 +6381,15 @@ class AetherPMO {
                     source: 'mock',
                     analyzedAt: null
                 },
-                isDemo: true,
+                isDemoPresentation: true,
                 source: 'demo'
             },
             {
-                id: 'demo-bid-2',
-                name: '[행정안전부] 국가 재난안전 데이터 클라우드 전환 사업',
-                code: 'BID-2026-002',
-                customer: '행정안전부 디지털정부국',
+                id: projects[0] ? projects[0].id : 'proj-1',
+                projectId: projects[0] ? projects[0].id : 'proj-1',
+                name: projects[0] ? projects[0].name : '[국방부] 차세대 융합 정보시스템 통합 구축사업',
+                code: 'PRJ-2026-001',
+                customer: projects[0] ? projects[0].customer : '국방부 지능정보화정책관',
                 status: 'Bidding',
                 bidStatus: 'review',
                 biddingStatusKey: 'review',
@@ -6402,14 +6408,15 @@ class AetherPMO {
                     source: 'mock',
                     analyzedAt: null
                 },
-                isDemo: true,
+                isDemoPresentation: true,
                 source: 'demo'
             },
             {
-                id: 'demo-bid-3',
-                name: '[보건복지부] 스마트 의료 빅데이터 분석 플랫폼 구축',
-                code: 'BID-2026-003',
-                customer: '보건복지부 정보화담당관',
+                id: projects[1] ? projects[1].id : 'proj-2',
+                projectId: projects[1] ? projects[1].id : 'proj-2',
+                name: projects[1] ? projects[1].name : '[행정안전부] 국가 재난안전 데이터 클라우드 전환 사업',
+                code: 'PRJ-2026-002',
+                customer: projects[1] ? projects[1].customer : '행정안전부 디지털정부국',
                 status: 'Bidding',
                 bidStatus: 'submitted',
                 biddingStatusKey: 'submitted',
@@ -6428,14 +6435,15 @@ class AetherPMO {
                     source: 'mock',
                     analyzedAt: null
                 },
-                isDemo: true,
+                isDemoPresentation: true,
                 source: 'demo'
             },
             {
-                id: 'demo-bid-4',
-                name: '[한국전력공사] 지능형 전력망 AI 예측 모니터링 고도화',
-                code: 'BID-2026-004',
-                customer: '한국전력공사 ICT기획처',
+                id: projects[3] ? projects[3].id : 'proj-4',
+                projectId: projects[3] ? projects[3].id : 'proj-4',
+                name: projects[3] ? projects[3].name : '[한국전력공사] 지능형 전력망 AI 예측 모니터링 고도화',
+                code: 'PRJ-2026-004',
+                customer: projects[3] ? projects[3].customer : '한국전력공사 ICT기획처',
                 status: 'Bidding',
                 bidStatus: 'waiting_result',
                 biddingStatusKey: 'waiting_result',
@@ -6454,14 +6462,15 @@ class AetherPMO {
                     source: 'mock',
                     analyzedAt: null
                 },
-                isDemo: true,
+                isDemoPresentation: true,
                 source: 'demo'
             },
             {
-                id: 'demo-bid-5',
-                name: '[국토교통부] 스마트시티 자율주행 도로 관제 플랫폼',
-                code: 'BID-2026-005',
-                customer: '국토교통부 도시경제과',
+                id: projects[4] ? projects[4].id : 'proj-5',
+                projectId: projects[4] ? projects[4].id : 'proj-5',
+                name: projects[4] ? projects[4].name : '[국토교통부] 스마트시티 자율주행 도로 관제 플랫폼',
+                code: 'PRJ-2026-005',
+                customer: projects[4] ? projects[4].customer : '국토교통부 도시경제과',
                 status: 'Bidding',
                 bidStatus: 'won',
                 biddingStatusKey: 'won',
@@ -6480,7 +6489,7 @@ class AetherPMO {
                     source: 'mock',
                     analyzedAt: null
                 },
-                isDemo: true,
+                isDemoPresentation: true,
                 source: 'demo'
             }
         ];
@@ -6638,6 +6647,32 @@ class AetherPMO {
         `;
     }
 
+    openBiddingProjectDetail(projectId) {
+        const targetId = String(projectId);
+        const project = (this.state.projects || []).find(
+            p => String(p.id || p.project_id) === targetId
+        );
+
+        if (!project) {
+            console.error('[Bidding Project Detail] Project not found:', projectId);
+            if (typeof this.showToast === 'function') {
+                this.showToast('프로젝트 정보를 찾을 수 없습니다.', 'error');
+            }
+            return;
+        }
+
+        console.log('[Bidding Project Detail] Target Project:', project);
+
+        // Set active/current project state
+        this.activeProjectId = project.id || project.project_id;
+        this.state.currentProject = project;
+        this.state.selectedProject = project;
+        this.state.currentProjectId = project.id || project.project_id;
+
+        // Existing project detail routing reuse
+        this.switchView('project-detail', project.id || project.project_id);
+    }
+
     renderBiddingSplitPane() {
         const leftGrid = document.getElementById('bidding-projects-list-container');
         if (!leftGrid) return;
@@ -6685,7 +6720,7 @@ class AetherPMO {
                 card.className = 'bidding-project-card';
                 card.setAttribute('tabindex', '0');
                 card.setAttribute('role', 'button');
-                card.setAttribute('aria-label', `${p.name} 입찰 상세 정보 보기`);
+                card.setAttribute('aria-label', `${p.name} 프로젝트 상세 보기`);
 
                 card.innerHTML = `
                     <div class="bidding-project-card-header">
@@ -6696,7 +6731,11 @@ class AetherPMO {
                         <span style="font-size:14px; font-weight:800; color:var(--text-main); font-family:monospace;">${budgetText}</span>
                     </div>
 
-                    <h3 class="bidding-project-title" style="margin: 8px 0; font-size:15px; font-weight:700;">${this.escapeHtml(p.name)}</h3>
+                    <h3 class="bidding-project-title" style="margin: 8px 0; font-size:15px; font-weight:700;">
+                        <a href="#" class="project-name-link" onclick="event.preventDefault(); event.stopPropagation(); app.openBiddingProjectDetail('${projectId}')">
+                            ${this.escapeHtml(p.name)}
+                        </a>
+                    </h3>
 
                     <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted); margin-bottom: 8px;">
                         <span>🏛️ ${this.escapeHtml(p.customer || '발주처 미정')}</span>
@@ -6710,10 +6749,15 @@ class AetherPMO {
                             ✨ 수주 가능성 ${aiInfo.winGrade || 'HIGH'} (${aiInfo.winProbability || 82}%) · 위험도 ${aiInfo.riskLevel || 'LOW'}
                             <span style="font-size:9px; color:var(--text-muted); margin-left:4px;">(시연용 분석)</span>
                         </span>
-                        <button type="button" class="btn-ai-copilot" onclick="event.stopPropagation(); app.openAiCopilotMenu('${projectId}', event)">
-                            <i data-lucide="bot" style="width:12px; height:12px;"></i>
-                            <span>🤖 AI Copilot</span>
-                        </button>
+                        <div style="display:flex; gap:6px;">
+                            <button type="button" class="btn btn-xs btn-outline" style="font-size:11px; font-weight:700; height:28px;" onclick="event.stopPropagation(); app.openBiddingDetailModal('${projectId}')">
+                                📋 입찰정보
+                            </button>
+                            <button type="button" class="btn-ai-copilot" onclick="event.stopPropagation(); app.openAiCopilotMenu('${projectId}', event)">
+                                <i data-lucide="bot" style="width:12px; height:12px;"></i>
+                                <span>🤖 AI Copilot</span>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="bidding-card-urgent-task">
@@ -6723,13 +6767,13 @@ class AetherPMO {
                 `;
 
                 card.addEventListener('click', (e) => {
-                    this.openBiddingDetailModal(projectId);
+                    this.openBiddingProjectDetail(projectId);
                 });
 
                 card.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        this.openBiddingDetailModal(projectId);
+                        this.openBiddingProjectDetail(projectId);
                     }
                 });
 
