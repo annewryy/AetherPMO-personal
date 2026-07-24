@@ -6882,6 +6882,98 @@ class AetherPMO {
         }
     }
 
+    async updateProjectStatus(projectId, nextStatus, extraData = {}) {
+        const targetId = String(projectId);
+        const projects = this.state.projects || [];
+        const index = projects.findIndex(p => String(p.id || p.project_id) === targetId);
+
+        if (index < 0) {
+            console.error('[updateProjectStatus] Target project not found:', projectId);
+            return null;
+        }
+
+        const project = projects[index];
+        const isBidding = Boolean(project.is_bidding_project || project.isBiddingProject || project.status === 'Bidding');
+
+        const updateData = {
+            status: nextStatus,
+            project_status: nextStatus,
+            ...extraData
+        };
+
+        if (isBidding) {
+            updateData.is_bidding_project = true;
+
+            if (nextStatus === 'In Progress') {
+                updateData.bidding_status = extraData.bidding_status || 'won';
+                updateData.biddingStatus = extraData.biddingStatus || 'won';
+                updateData.bidStatus = '수주';
+                updateData.bid_result = extraData.bid_result || 'WON';
+                updateData.bidResult = extraData.bidResult || 'WON';
+                updateData.bid_result_at = extraData.bid_result_at || new Date().toISOString();
+            } else if (nextStatus === 'Bid Failed' || nextStatus === 'Completed' || nextStatus === 'Closed') {
+                updateData.bidding_status = extraData.bidding_status || 'lost';
+                updateData.biddingStatus = extraData.biddingStatus || 'lost';
+                updateData.bidStatus = '실패';
+                updateData.bid_result = extraData.bid_result || 'LOST';
+                updateData.bidResult = extraData.bidResult || 'LOST';
+                updateData.bid_result_at = extraData.bid_result_at || new Date().toISOString();
+            }
+        }
+
+        console.log('[updateProjectStatus Request]', { projectId: targetId, nextStatus, updateData });
+
+        const updatedProject = await this.updateProject(targetId, updateData);
+        this.replaceProjectInState(updatedProject);
+        return updatedProject;
+    }
+
+    async applyBidResult(projectId, { projectStatus, biddingStatus, bidResult }) {
+        try {
+            console.log('[applyBidResult Start]', { projectId, projectStatus, biddingStatus, bidResult });
+
+            const updatedProject = await this.updateProjectStatus(projectId, projectStatus, {
+                bidding_status: biddingStatus,
+                biddingStatus: biddingStatus,
+                bid_result: bidResult,
+                bidResult: bidResult
+            });
+
+            if (!updatedProject) {
+                throw new Error('프로젝트 상태 변경 결과가 없습니다.');
+            }
+
+            console.log('[Bid Result Step 1] DB saved', updatedProject);
+            console.log('[Bid Result Step 2] State replaced');
+
+            this.closeBidResultModal();
+            console.log('[Bid Result Step 3] Modal closed');
+
+            if (bidResult === 'WON') {
+                if (typeof this.showToast === 'function') {
+                    this.showToast('🎉 낙찰 처리되었습니다. 수행단계로 이동합니다.', 'success');
+                }
+                console.log('[Bid Result Step 4] Toast shown');
+                await this.navigateAfterBidWon(updatedProject.id || updatedProject.project_id);
+            } else {
+                if (typeof this.showToast === 'function') {
+                    this.showToast('입찰 실패 처리되었습니다. 종료/실패 탭으로 이동합니다.', 'warning');
+                }
+                console.log('[Bid Result Step 4] Toast shown');
+                await this.navigateAfterBidLost(updatedProject.id || updatedProject.project_id);
+            }
+            console.log('[Bid Result Step 5] Navigation requested');
+
+            return updatedProject;
+        } catch (error) {
+            console.error('[applyBidResult Failed]', error);
+            if (typeof this.showToast === 'function') {
+                this.showToast('입찰 결과 처리 중 오류가 발생했습니다.', 'error');
+            }
+            throw error;
+        }
+    }
+
     async confirmBidWon(projectId = null) {
         const targetId = projectId || this.activeBidResultProjectId;
         if (!targetId) return;
@@ -6898,56 +6990,11 @@ class AetherPMO {
 
         if (!confirmed) return;
 
-        try {
-            const now = new Date().toISOString();
-            const updateData = {
-                status: 'In Progress',
-                project_status: 'In Progress',
-                bidding_status: 'won',
-                biddingStatus: 'won',
-                biddingStatusKey: 'won',
-                bid_result: 'WON',
-                bidResult: 'WON',
-                bid_result_at: now,
-                bidResultAt: now,
-                converted_to_execution_at: now,
-                convertedToExecutionAt: now,
-                execution_started_at: now,
-                is_bidding_project: true
-            };
-
-            console.log('[Bid Won Confirm Start]', { projectId: targetId, updateData });
-
-            const updatedProject = await this.updateProject(targetId, updateData);
-            if (!updatedProject) {
-                throw new Error('낙찰 저장 결과가 없습니다.');
-            }
-
-            console.log('[Bid Result Step 1] DB saved', {
-                id: updatedProject.id || updatedProject.project_id,
-                status: updatedProject.status,
-                biddingStatus: updatedProject.bidding_status || updatedProject.biddingStatus
-            });
-
-            this.replaceProjectInState(updatedProject);
-            console.log('[Bid Result Step 2] State replaced');
-
-            this.closeBidResultModal();
-            console.log('[Bid Result Step 3] Modal closed');
-
-            if (typeof this.showToast === 'function') {
-                this.showToast('🎉 낙찰 처리되었습니다. 수행단계로 이동합니다.', 'success');
-            }
-            console.log('[Bid Result Step 4] Toast shown');
-
-            await this.navigateAfterBidWon(updatedProject.id || updatedProject.project_id);
-            console.log('[Bid Result Step 5] Navigation requested');
-        } catch (error) {
-            console.error('[Bid Won Confirm Failed]', error);
-            if (typeof this.showToast === 'function') {
-                this.showToast('낙찰 처리 중 오류가 발생했습니다.', 'error');
-            }
-        }
+        return this.applyBidResult(targetId, {
+            projectStatus: 'In Progress',
+            biddingStatus: 'won',
+            bidResult: 'WON'
+        });
     }
 
     async navigateAfterBidWon(projectId) {
@@ -6987,53 +7034,11 @@ class AetherPMO {
 
         if (!confirmed) return;
 
-        try {
-            const now = new Date().toISOString();
-            const updateData = {
-                status: 'Bidding',
-                project_status: 'Bidding',
-                bidding_status: 'lost',
-                biddingStatus: 'lost',
-                biddingStatusKey: 'closed',
-                bid_result: 'LOST',
-                bidResult: 'LOST',
-                bid_result_at: now,
-                bidResultAt: now,
-                is_bidding_project: true
-            };
-
-            console.log('[Bid Lost Confirm Start]', { projectId: targetId, updateData });
-
-            const updatedProject = await this.updateProject(targetId, updateData);
-            if (!updatedProject) {
-                throw new Error('실패 저장 결과가 없습니다.');
-            }
-
-            console.log('[Bid Result Step 1] DB saved', {
-                id: updatedProject.id || updatedProject.project_id,
-                status: updatedProject.status,
-                biddingStatus: updatedProject.bidding_status || updatedProject.biddingStatus
-            });
-
-            this.replaceProjectInState(updatedProject);
-            console.log('[Bid Result Step 2] State replaced');
-
-            this.closeBidResultModal();
-            console.log('[Bid Result Step 3] Modal closed');
-
-            if (typeof this.showToast === 'function') {
-                this.showToast('입찰 실패 처리되었습니다. 종료/실패 탭으로 이동합니다.', 'warning');
-            }
-            console.log('[Bid Result Step 4] Toast shown');
-
-            await this.navigateAfterBidLost(updatedProject.id || updatedProject.project_id);
-            console.log('[Bid Result Step 5] Navigation requested');
-        } catch (error) {
-            console.error('[Bid Lost Confirm Failed]', error);
-            if (typeof this.showToast === 'function') {
-                this.showToast('입찰 실패 처리 중 오류가 발생했습니다.', 'error');
-            }
-        }
+        return this.applyBidResult(targetId, {
+            projectStatus: 'Bid Failed',
+            biddingStatus: 'lost',
+            bidResult: 'LOST'
+        });
     }
 
     async navigateAfterBidLost(projectId) {
