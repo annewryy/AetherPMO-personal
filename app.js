@@ -3038,8 +3038,8 @@ class AetherPMO {
                 inspectionDate: '2026-12-25',
                 remarks: '나라장터 수주 목표 전략 사업',
                 status: 'Bidding',
-                bidStatus: '제안 준비중',
-                bidding_status: 'drafting',
+                bidStatus: 'proposal_preparing',
+                bidding_status: 'proposal_preparing',
                 is_bidding_project: true,
                 progress: 0,
                 resources: 0
@@ -3058,8 +3058,8 @@ class AetherPMO {
                 inspectionDate: '2026-06-18',
                 remarks: '컨소시엄 구성 완료',
                 status: 'Bidding',
-                bidStatus: '제안 제출',
-                bidding_status: 'submitted',
+                bidStatus: 'proposal_submitted',
+                bidding_status: 'proposal_submitted',
                 is_bidding_project: true,
                 progress: 0,
                 resources: 0
@@ -6558,30 +6558,65 @@ class AetherPMO {
         return value.toUpperCase();
     }
 
-    normalizeBiddingStatus(project) {
-        if (!project) return 'review';
-        const value = String(
-            project.bidding_status ||
-            project.biddingStatus ||
-            project.bid_result ||
-            project.bidResult ||
-            project.biddingStatusKey ||
-            project.bidStatus ||
-            project.status ||
-            ''
-        ).trim().toLowerCase();
+    normalizeBiddingStatus(projectOrValue) {
+        if (!projectOrValue) return 'proposal_preparing';
+        const rawValue = typeof projectOrValue === 'object'
+            ? (
+                projectOrValue.bidding_status ??
+                projectOrValue.biddingStatus ??
+                projectOrValue.bid_status ??
+                projectOrValue.proposal_status ??
+                projectOrValue.biddingStatusKey ??
+                projectOrValue.bidStatus ??
+                ''
+            )
+            : projectOrValue;
 
-        if (['won', 'win', 'awarded', 'successful', '낙찰', '수주'].includes(value)) {
-            return 'won';
-        }
-        if (['lost', 'failed', 'failure', 'closed', '실패', '유찰', '탈락', '종료'].includes(value)) {
-            return 'closed';
-        }
-        if (['submitted', '제안 제출', '제출완료'].includes(value)) return 'submitted';
-        if (['drafting', '제안 준비중'].includes(value)) return 'drafting';
-        if (['price_review', '가격검토'].includes(value)) return 'price_review';
-        if (['waiting_result', '결과 대기', '결과대기'].includes(value)) return 'waiting_result';
-        return 'review';
+        const value = String(rawValue || '')
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, '');
+
+        const statusMap = {
+            // 제안 준비중
+            'proposal_preparing': 'proposal_preparing',
+            'preparing': 'proposal_preparing',
+            'drafting': 'proposal_preparing',
+            '작성중': 'proposal_preparing',
+            '제안준비중': 'proposal_preparing',
+            'review': 'proposal_preparing',
+            'considering': 'proposal_preparing',
+            '참여검토': 'proposal_preparing',
+
+            // 제안 제출
+            'proposal_submitted': 'proposal_submitted',
+            'submitted': 'proposal_submitted',
+            '제출완료': 'proposal_submitted',
+            '제안제출': 'proposal_submitted',
+
+            // 결과 대기
+            'waiting_result': 'waiting_result',
+            'waitingresult': 'waiting_result',
+            '결과대기': 'waiting_result',
+
+            // 낙찰
+            'won': 'won',
+            'awarded': 'won',
+            'win': 'won',
+            'successful': 'won',
+            '수주': 'won',
+            '낙찰': 'won',
+
+            // 실패
+            'lost': 'lost',
+            'failed': 'lost',
+            'failure': 'lost',
+            'closed': 'lost',
+            '실패': 'lost',
+            '종료/실패': 'lost'
+        };
+
+        return statusMap[value] || 'proposal_preparing';
     }
 
     getDDayBadge(endDateStr) {
@@ -6603,11 +6638,9 @@ class AetherPMO {
 
     renderBiddingStepper(statusKey) {
         const steps = [
-            { key: 'review', label: '참여검토', percent: 15 },
-            { key: 'drafting', label: '제안서 작성', percent: 40 },
-            { key: 'price_review', label: '가격검토', percent: 65 },
-            { key: 'submitted', label: '제출완료', percent: 85 },
-            { key: 'waiting_result', label: '결과대기', percent: 95 },
+            { key: 'proposal_preparing', label: '제안 준비중', percent: 25 },
+            { key: 'proposal_submitted', label: '제안 제출', percent: 50 },
+            { key: 'waiting_result', label: '결과 대기', percent: 75 },
             { key: 'won', label: '낙찰', percent: 100 }
         ];
         let activeIdx = steps.findIndex(s => s.key === statusKey);
@@ -6643,9 +6676,10 @@ class AetherPMO {
 
         const totalCount = allBiddingProjects.length;
 
+        const activeStatuses = ['proposal_preparing', 'proposal_submitted', 'waiting_result'];
         const inProgressCount = allBiddingProjects.filter(p => {
             const key = this.normalizeBiddingStatus(p);
-            return ['review', 'drafting', 'price_review'].includes(key);
+            return activeStatuses.includes(key);
         }).length;
 
         const today = new Date();
@@ -6663,7 +6697,7 @@ class AetherPMO {
         const thisYear = today.getFullYear();
         const submittedThisMonthCount = allBiddingProjects.filter(p => {
             const key = this.normalizeBiddingStatus(p);
-            if (['submitted', 'waiting_result', 'won'].includes(key)) {
+            if (['proposal_submitted', 'waiting_result', 'won'].includes(key)) {
                 const subDate = p.submittedDate ? new Date(p.submittedDate) : (p.endDate ? new Date(p.endDate) : null);
                 if (subDate && !isNaN(subDate.getTime())) {
                     return subDate.getMonth() === thisMonth && subDate.getFullYear() === thisYear;
@@ -6674,8 +6708,8 @@ class AetherPMO {
         }).length;
 
         const wonCount = allBiddingProjects.filter(p => this.normalizeBiddingStatus(p) === 'won').length;
-        const closedCount = allBiddingProjects.filter(p => this.normalizeBiddingStatus(p) === 'closed').length;
-        const resolvedCount = wonCount + closedCount;
+        const lostCount = allBiddingProjects.filter(p => this.normalizeBiddingStatus(p) === 'lost').length;
+        const resolvedCount = wonCount + lostCount;
         const winRateText = resolvedCount > 0 ? (Math.round((wonCount / resolvedCount) * 100) + '%') : '0%';
 
         const totalValue = allBiddingProjects.reduce((sum, p) => sum + (p.budget || 0), 0);
@@ -7163,14 +7197,12 @@ class AetherPMO {
                 const dDayObj = this.getDDayBadge(p.endDate);
                 const stepperHtml = this.renderBiddingStepper(statusKey);
 
-                let statusBadgeText = '참여검토';
+                let statusBadgeText = '제안 준비중';
                 let statusBadgeCls = 'bid-status-preparing';
-                if (statusKey === 'drafting') { statusBadgeText = '작성중'; statusBadgeCls = 'bid-status-preparing'; }
-                else if (statusKey === 'price_review') { statusBadgeText = '가격검토'; statusBadgeCls = 'bid-status-preparing'; }
-                else if (statusKey === 'submitted') { statusBadgeText = '제출완료'; statusBadgeCls = 'bid-status-submitted'; }
-                else if (statusKey === 'waiting_result') { statusBadgeText = '결과대기'; statusBadgeCls = 'bid-status-waiting'; }
+                if (statusKey === 'proposal_submitted') { statusBadgeText = '제안 제출'; statusBadgeCls = 'bid-status-submitted'; }
+                else if (statusKey === 'waiting_result') { statusBadgeText = '결과 대기'; statusBadgeCls = 'bid-status-waiting'; }
                 else if (statusKey === 'won') { statusBadgeText = '낙찰'; statusBadgeCls = 'bid-status-success'; }
-                else if (statusKey === 'closed') { statusBadgeText = '종료/실패'; statusBadgeCls = 'bid-status-failed'; }
+                else if (statusKey === 'lost') { statusBadgeText = '실패'; statusBadgeCls = 'bid-status-failed'; }
 
                 const aiInfo = p.aiAnalysis || { winProbability: 80, winGrade: 'HIGH', riskLevel: 'LOW' };
                 const urgentText = p.urgentTask || 'RFP 제안서 기술 파트 2차 검토 및 서류 제출';
@@ -10365,8 +10397,8 @@ class AetherPMO {
         document.getElementById('project-risk-level').value = project.riskLevel || '보통';
 
         // Populate bid status fields
-        document.getElementById('project-bid-status').value = project.bidStatus || '제안 준비중';
-        document.getElementById('project-bid-status-group').style.display = (project.status === 'Bidding') ? 'block' : 'none';
+        document.getElementById('project-bid-status').value = this.normalizeBiddingStatus(project);
+        document.getElementById('project-bid-status-group').style.display = (project.status === 'Bidding' || project.is_bidding_project) ? 'block' : 'none';
 
         // Populate bidding fields
         const isBidding = project.status === 'Bidding';
@@ -10552,9 +10584,38 @@ class AetherPMO {
                 const old = this.state.projects[index];
                 const oldManagerId = old.managerId;
 
+                const rawBidStatus = document.getElementById('project-bid-status')?.value || 'proposal_preparing';
+                const normBidStatus = this.normalizeBiddingStatus(rawBidStatus);
+
+                let targetStatus = status;
+                let targetBiddingStatus = normBidStatus;
+                let targetBidResult = old.bid_result || old.bidResult || '';
+
+                if (normBidStatus === 'won' || targetStatus === 'In Progress') {
+                    if (old.is_bidding_project || old.status === 'Bidding') {
+                        targetStatus = 'In Progress';
+                        targetBiddingStatus = 'won';
+                        targetBidResult = 'WON';
+                    }
+                } else if (normBidStatus === 'lost' || targetStatus === 'Bid Failed') {
+                    if (old.is_bidding_project || old.status === 'Bidding') {
+                        targetStatus = 'Bid Failed';
+                        targetBiddingStatus = 'lost';
+                        targetBidResult = 'LOST';
+                    }
+                }
+
                 const updatedProject = { 
                     ...old, 
-                    name, desc, dept, manager, managerId, startDate, endDate, status, bidStatus: status === 'Bidding' ? bidStatus : '',
+                    name, desc, dept, manager, managerId, startDate, endDate,
+                    status: targetStatus,
+                    project_status: targetStatus,
+                    bidding_status: targetBiddingStatus,
+                    biddingStatus: targetBiddingStatus,
+                    bid_result: targetBidResult,
+                    bidResult: targetBidResult,
+                    bidStatus: normBidStatus,
+                    is_bidding_project: Boolean(old.is_bidding_project || old.status === 'Bidding'),
                     progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
                     projectCode, bizType, contractDate, location, relatedBiz, riskLevel, wbs,
                     bidNumber, customerName, projectBudget, businessType,

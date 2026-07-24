@@ -875,12 +875,11 @@
                                 </div>
                                 <div class="bidding-status-tabs" id="bidding-pipeline-tabs">
                                     <button class="bidding-status-tab active" data-bid-status="all" onclick="app.setBiddingStatusFilter('all')">전체</button>
-                                    <button class="bidding-status-tab" data-bid-status="review" onclick="app.setBiddingStatusFilter('review')">참여검토</button>
-                                    <button class="bidding-status-tab" data-bid-status="drafting" onclick="app.setBiddingStatusFilter('drafting')">작성중</button>
-                                    <button class="bidding-status-tab" data-bid-status="submitted" onclick="app.setBiddingStatusFilter('submitted')">제출완료</button>
-                                    <button class="bidding-status-tab" data-bid-status="waiting_result" onclick="app.setBiddingStatusFilter('waiting_result')">결과대기</button>
+                                    <button class="bidding-status-tab" data-bid-status="proposal_preparing" onclick="app.setBiddingStatusFilter('proposal_preparing')">제안 준비중</button>
+                                    <button class="bidding-status-tab" data-bid-status="proposal_submitted" onclick="app.setBiddingStatusFilter('proposal_submitted')">제안 제출</button>
+                                    <button class="bidding-status-tab" data-bid-status="waiting_result" onclick="app.setBiddingStatusFilter('waiting_result')">결과 대기</button>
                                     <button class="bidding-status-tab" data-bid-status="won" onclick="app.setBiddingStatusFilter('won')">낙찰</button>
-                                    <button class="bidding-status-tab" data-bid-status="closed" onclick="app.setBiddingStatusFilter('closed')">종료/실패</button>
+                                    <button class="bidding-status-tab" data-bid-status="lost" onclick="app.setBiddingStatusFilter('lost')">실패</button>
                                 </div>
                             </div>
                             <div class="bidding-projects-grid" id="bidding-projects-list-container">
@@ -2663,11 +2662,11 @@
                         <div class="form-group" id="project-bid-status-group" style="display: none;">
                             <label for="project-bid-status">입찰 제안 상태</label>
                             <select id="project-bid-status">
-                                <option value="제안 준비중" selected>제안 준비중</option>
-                                <option value="제안 제출">제안 제출</option>
-                                <option value="결과 대기">결과 대기</option>
-                                <option value="수주">수주</option>
-                                <option value="실패">실패</option>
+                                <option value="proposal_preparing" selected>제안 준비중</option>
+                                <option value="proposal_submitted">제안 제출</option>
+                                <option value="waiting_result">결과 대기</option>
+                                <option value="won">낙찰</option>
+                                <option value="lost">실패</option>
                             </select>
                         </div>
                         <!-- 입찰단계 전용 필드 -->
