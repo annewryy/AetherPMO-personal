@@ -59,6 +59,25 @@ public class CatalogNodeEntity {
     @Column(name = "is_active")
     private Boolean isActive;
 
+    // 0029 — 테일러링 표준 트리(V15): 방법론 구분·규모별 필수·문서형식·표준 파일명
+    @Column(name = "methodology")
+    private String methodology;
+
+    @Column(name = "required_small")
+    private Boolean requiredSmall;
+
+    @Column(name = "required_medium")
+    private Boolean requiredMedium;
+
+    @Column(name = "required_large")
+    private Boolean requiredLarge;
+
+    @Column(name = "doc_format")
+    private String docFormat;
+
+    @Column(name = "file_name_base")
+    private String fileNameBase;
+
     public Long getNodeId() { return nodeId; }
     public Long getParentNodeId() { return parentNodeId; }
     public String getNodeType() { return nodeType; }
@@ -74,4 +93,10 @@ public class CatalogNodeEntity {
     public String getTemplateTags() { return templateTags; }
     public Long getWorkflowId() { return workflowId; }
     public Boolean getIsActive() { return isActive; }
+    public String getMethodology() { return methodology; }
+    public Boolean getRequiredSmall() { return requiredSmall; }
+    public Boolean getRequiredMedium() { return requiredMedium; }
+    public Boolean getRequiredLarge() { return requiredLarge; }
+    public String getDocFormat() { return docFormat; }
+    public String getFileNameBase() { return fileNameBase; }
 }

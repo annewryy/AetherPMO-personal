@@ -59,6 +59,17 @@ const deliverableWorkflows = computed(() => {
       <div><dt>코드</dt><dd class="code">{{ node.code || '—' }}</dd></div>
       <div><dt>필수 여부</dt><dd>{{ node.isOptional ? '선택' : '필수' }}</dd></div>
       <div v-if="!isTask"><dt>분류</dt><dd>{{ node.deliverableCategory || '—' }}</dd></div>
+      <!-- 0029: 규모별 필수(테일러링 가이드 — 10억↓/10~50억/50억↑) + 문서형식·표준 파일명 -->
+      <div v-if="!isTask && node.requiredSmall != null" class="wide">
+        <dt>규모별 필수</dt>
+        <dd class="size-req">
+          <span class="sq" :class="{ req: node.requiredSmall }">소(10억↓) {{ node.requiredSmall ? '필수' : '선택' }}</span>
+          <span class="sq" :class="{ req: node.requiredMedium }">중(10~50억) {{ node.requiredMedium ? '필수' : '선택' }}</span>
+          <span class="sq" :class="{ req: node.requiredLarge }">대(50억↑) {{ node.requiredLarge ? '필수' : '선택' }}</span>
+        </dd>
+      </div>
+      <div v-if="!isTask && node.docFormat"><dt>문서형식</dt><dd class="code">{{ node.docFormat }}</dd></div>
+      <div v-if="!isTask && node.fileNameBase" class="wide"><dt>표준 파일명</dt><dd>{{ node.fileNameBase }}</dd></div>
       <div class="wide"><dt>소속 경로</dt><dd class="path">{{ breadcrumb }}</dd></div>
       <div v-if="node.description" class="wide"><dt>설명</dt><dd>{{ node.description }}</dd></div>
     </dl>
@@ -151,4 +162,10 @@ const deliverableWorkflows = computed(() => {
 }
 .link:hover { text-decoration: underline; }
 .wf-item + .wf-item { margin-top: 12px; }
+.size-req { display: flex; gap: 6px; flex-wrap: wrap; }
+.sq {
+  font-size: 12px; padding: 2px 8px; border-radius: 999px;
+  background: var(--panel-2); color: var(--muted);
+}
+.sq.req { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); font-weight: 600; }
 </style>

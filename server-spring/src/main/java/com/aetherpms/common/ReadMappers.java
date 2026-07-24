@@ -218,6 +218,13 @@ public final class ReadMappers {
         out.put("workflowId", n.getWorkflowId());
         // is_active !== false (컬럼 null → 활성). 여기선 NOT NULL DEFAULT 1이지만 방어.
         out.put("isActive", n.getIsActive() == null || n.getIsActive());
+        // 0029 — 테일러링 표준 트리 필드
+        out.put("methodology", n.getMethodology());
+        out.put("requiredSmall", n.getRequiredSmall());
+        out.put("requiredMedium", n.getRequiredMedium());
+        out.put("requiredLarge", n.getRequiredLarge());
+        out.put("docFormat", n.getDocFormat());
+        out.put("fileNameBase", n.getFileNameBase());
         out.put("children", new ArrayList<>());
         return out;
     }

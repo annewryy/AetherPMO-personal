@@ -38,13 +38,21 @@ public class CatalogAdminService {
     private static final Set<String> NODE_FIELDS = Set.of(
             "parent_node_id", "node_type", "code", "name", "description", "is_optional",
             "sort_order", "seq_no", "deliverable_category", "stage",
-            "template_file_ref", "template_tags", "workflow_id", "is_active");
+            "template_file_ref", "template_tags", "workflow_id", "is_active",
+            // 0029 — 테일러링 표준 트리 필드(관리자 편집 — 요구 0004 §4)
+            "methodology", "required_small", "required_medium", "required_large",
+            "doc_format", "file_name_base");
     private static final Map<String, String> NODE_ALIASES = Map.ofEntries(
             Map.entry("parentId", "parent_node_id"), Map.entry("nodeType", "node_type"),
             Map.entry("isOptional", "is_optional"), Map.entry("sortOrder", "sort_order"),
             Map.entry("seqNo", "seq_no"), Map.entry("deliverableCategory", "deliverable_category"),
             Map.entry("templateFileRef", "template_file_ref"), Map.entry("templateTags", "template_tags"),
-            Map.entry("workflowId", "workflow_id"), Map.entry("isActive", "is_active"));
+            Map.entry("workflowId", "workflow_id"), Map.entry("isActive", "is_active"),
+            Map.entry("requiredSmall", "required_small"), Map.entry("requiredMedium", "required_medium"),
+            Map.entry("requiredLarge", "required_large"), Map.entry("docFormat", "doc_format"),
+            Map.entry("fileNameBase", "file_name_base"));
+
+    private static final List<String> METHODOLOGIES = List.of("OPMS", "ODS", "OMS", "BIS");
 
     @Transactional
     public Map<String, Object> createNode(Map<String, Object> body, Actor actor) {
@@ -153,7 +161,22 @@ public class CatalogAdminService {
             if (!(body.get(k) instanceof Boolean bv)) throw ApiException.badRequest(k + "는 boolean이어야 합니다.");
             out.put(k, bv);
         }
-        for (String k : List.of("code", "description", "deliverable_category", "stage", "template_file_ref")) {
+        // 0029 — 규모별 필수(boolean 또는 null=해당없음)
+        for (String k : List.of("required_small", "required_medium", "required_large")) {
+            if (!body.containsKey(k)) continue;
+            Object v = body.get(k);
+            if (v != null && !(v instanceof Boolean)) throw ApiException.badRequest(k + "는 boolean 또는 null이어야 합니다.");
+            out.put(k, v);
+        }
+        if (body.containsKey("methodology")) {
+            Object v = body.get("methodology");
+            if (v != null && !METHODOLOGIES.contains(str(v))) {
+                throw ApiException.badRequest("methodology는 " + String.join("/", METHODOLOGIES) + " 또는 null이어야 합니다.");
+            }
+            out.put("methodology", v == null ? null : str(v));
+        }
+        for (String k : List.of("code", "description", "deliverable_category", "stage", "template_file_ref",
+                "doc_format", "file_name_base")) {
             if (!body.containsKey(k)) continue;
             out.put(k, body.get(k) == null ? null : str(body.get(k)));
         }

@@ -159,6 +159,13 @@ public final class RowMappers {
         o.put("templateTags", Json.readAny(str(v(n, "template_tags"))));
         o.put("workflowId", asLong(v(n, "workflow_id")));
         o.put("isActive", activeDefault(v(n, "is_active")));
+        // 0029 — 테일러링 표준 트리 필드
+        o.put("methodology", v(n, "methodology"));
+        o.put("requiredSmall", boolOrNull(v(n, "required_small")));
+        o.put("requiredMedium", boolOrNull(v(n, "required_medium")));
+        o.put("requiredLarge", boolOrNull(v(n, "required_large")));
+        o.put("docFormat", v(n, "doc_format"));
+        o.put("fileNameBase", v(n, "file_name_base"));
         o.put("children", new java.util.ArrayList<>());
         return o;
     }
