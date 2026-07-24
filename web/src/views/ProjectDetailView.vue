@@ -14,8 +14,9 @@ import { useRoute, useRouter } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
 import type {
   Project, Issue, ActionItem, Artifact, MeetingMinute, VrbInfo, OfficialDoc, Activity, Task,
-  ProjectProgress, ProjectWbs,
+  ProjectProgress, ProjectWbs, ProjectMemberDetail,
 } from '../types';
+import { employmentTypeLabel } from '../lib/personLabels';
 import StageBadge from '../components/StageBadge.vue';
 import ProgressBar from '../components/ProgressBar.vue';
 import StatusBadge from '../components/StatusBadge.vue';
@@ -95,8 +96,9 @@ async function loadTab(key: TabKey) {
   loadedTabs.add(key);
   const pid = projectId.value;
   if (key === 'overview' || key === 'tasks') loadProgress();
+  if (key === 'overview') { void loadOverviewSections(pid); return; }
   // members는 컴포넌트가 자체 로드(GET /members) — 여기서는 지연로드 대상 아님.
-  const needsLoad = !['overview', 'consortium', 'members'].includes(key);
+  const needsLoad = !['consortium', 'members'].includes(key);
   if (!needsLoad) return;
   tabLoading.value = true;
   try {
@@ -221,6 +223,126 @@ async function onPanelChanged() {
   else if (k === 'task') await reloadTasks();
 }
 
+// ---- 0027 개요 탭 6섹션 (레거시 사업개요 파리티) --------------------------------
+// 개요 진입 시 참여인력·WBS(주요일정)·활동로그(최근활동)·목록 카운트(현황 요약)를 병렬 로드.
+// 각 로드는 독립 실패 허용(한 섹션 실패가 개요 전체를 막지 않음).
+const members = ref<ProjectMemberDetail[]>([]);
+const includeExcludedMembers = ref(false);
+const overviewLoaded = ref(false);
+
+async function loadOverviewSections(pid: number) {
+  if (overviewLoaded.value) return;
+  overviewLoaded.value = true;
+  await Promise.all([
+    dataClient.projectMembers.listDetail(pid).then((v) => { members.value = v; }).catch((e) => console.error('[overview] 참여인력:', e)),
+    dataClient.projects.wbs(pid).then((v) => { wbs.value = v; }).catch((e) => console.error('[overview] WBS:', e)),
+    dataClient.activities.listByProject(pid).then((v) => { activities.value = v; }).catch((e) => console.error('[overview] 활동:', e)),
+    dataClient.artifacts.listByProject(pid).then((v) => { artifacts.value = v; }).catch((e) => console.error('[overview] 산출물:', e)),
+    dataClient.meetingMinutes.listByProject(pid).then((v) => { meetings.value = v; }).catch((e) => console.error('[overview] 회의록:', e)),
+    dataClient.issues.listByProject(pid).then((v) => { issues.value = v; }).catch((e) => console.error('[overview] 이슈:', e)),
+    dataClient.actionItems.listByProject(pid).then((v) => { actionItems.value = v; }).catch((e) => console.error('[overview] 액션:', e)),
+    dataClient.officialDocs.listByProject(pid).then((v) => { officialDocs.value = v; }).catch((e) => console.error('[overview] 공문:', e)),
+  ]);
+}
+
+const activeMembers = computed(() => members.value.filter((m) => m.isActive !== false));
+const shownMembers = computed(() =>
+  includeExcludedMembers.value ? members.value : activeMembers.value);
+
+/** 주요일정 — WBS PHASE 타임라인(이름·기간·진척률). */
+const phaseTimeline = computed(() =>
+  (wbs.value?.phases ?? []).map((ph) => ({
+    nodeId: ph.nodeId,
+    name: ph.name,
+    start: ph.plannedStartDate,
+    end: ph.plannedEndDate,
+    rate: ph.actualRate,
+    state: ph.actualRate >= 100 ? 'done' : ph.actualRate > 0 ? 'doing' : 'todo',
+  })));
+
+const recentActivities = computed(() => activitiesSorted.value.slice(0, 4));
+
+/** 현황 요약(구 연관정보) — 건수 + 이동 탭(현 단계에 없는 탭은 숨김). */
+const relatedRows = computed(() => {
+  if (!project.value) return [];
+  const bidding = project.value.stage === 'BIDDING';
+  const rows: { label: string; count: number; tab: TabKey }[] = [
+    { label: bidding ? '제안준비서류' : '산출물', count: artifacts.value.length, tab: bidding ? 'tasks' : 'artifacts' },
+    { label: '회의록', count: meetings.value.length, tab: 'meeting-minutes' },
+    { label: '이슈/리스크', count: issues.value.length, tab: 'issues' },
+    { label: '액션아이템', count: actionItems.value.length, tab: 'action-items' },
+    { label: '공문', count: officialDocs.value.length, tab: 'official-docs' },
+  ];
+  return rows.filter((r) => tabs.value.includes(r.tab));
+});
+
+// 비고(remarks) 인라인 저장 — 레거시 기본정보 카드의 상태 메모.
+const remarksDraft = ref('');
+const remarksSaving = ref(false);
+watch(project, (p) => { remarksDraft.value = p?.remarks ?? ''; }, { immediate: true });
+async function saveRemarks() {
+  if (!project.value) return;
+  remarksSaving.value = true;
+  try {
+    project.value = await dataClient.projects.update(project.value.id, { remarks: remarksDraft.value });
+  } catch (e) {
+    alert(e instanceof Error ? e.message : String(e));
+  } finally {
+    remarksSaving.value = false;
+  }
+}
+
+// 담당조직 정보(입찰 전용) — 표시 + 인라인 수정 토글.
+const OWNER_FIELDS = [
+  { key: 'salesOwner', label: '영업 담당자' },
+  { key: 'proposalOwner', label: '제안전략팀 담당자' },
+  { key: 'proposalPm', label: '제안PM' },
+  { key: 'businessManager', label: '사업관리 담당자' },
+  { key: 'contractOwner', label: '계약 담당자' },
+  { key: 'legalOwner', label: '법무 담당자' },
+] as const;
+type OwnerKey = typeof OWNER_FIELDS[number]['key'];
+const ownersEditing = ref(false);
+const ownersDraft = ref<Record<OwnerKey, string>>({} as Record<OwnerKey, string>);
+const ownersSaving = ref(false);
+function startOwnersEdit() {
+  const p = project.value;
+  const d = {} as Record<OwnerKey, string>;
+  for (const f of OWNER_FIELDS) d[f.key] = (p?.[f.key] ?? '') as string;
+  ownersDraft.value = d;
+  ownersEditing.value = true;
+}
+async function saveOwners() {
+  if (!project.value) return;
+  ownersSaving.value = true;
+  try {
+    const patch: Record<string, string> = {};
+    for (const f of OWNER_FIELDS) patch[f.key] = ownersDraft.value[f.key] ?? '';
+    project.value = await dataClient.projects.update(project.value.id, patch);
+    ownersEditing.value = false;
+  } catch (e) {
+    alert(e instanceof Error ? e.message : String(e));
+  } finally {
+    ownersSaving.value = false;
+  }
+}
+
+/** D-Day(입찰 헤더) — 제안서 제출마감일 기준. */
+const dday = computed(() => {
+  const p = project.value;
+  if (!p || p.stage !== 'BIDDING') return null;
+  if (!p.proposalDeadline) return { label: '마감일 미정', cls: 'dday-none' };
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = Math.round((new Date(`${p.proposalDeadline}T00:00:00`).getTime() - today.getTime()) / 86400000);
+  if (diff === 0) return { label: 'D-Day', cls: 'dday-hot' };
+  if (diff > 0) return { label: `D-${diff}`, cls: diff <= 7 ? 'dday-hot' : 'dday-norm' };
+  return { label: `D+${-diff}`, cls: 'dday-over' };
+});
+
+function initial(name: string | null): string {
+  return (name ?? '?').trim().charAt(0) || '?';
+}
+
 // ---- 계산 진척률(B-8) ---------------------------------------------------------
 const progress = ref<ProjectProgress | null>(null);
 const progressLoaded = ref(false);
@@ -287,6 +409,8 @@ async function loadProject() {
   wbs.value = null;
   progress.value = null; progressLoaded.value = false;
   panelTarget.value = null;
+  members.value = []; overviewLoaded.value = false;
+  ownersEditing.value = false; includeExcludedMembers.value = false;
   try {
     project.value = await dataClient.projects.get(projectId.value);
     if (project.value?.sourceProjectId != null) {
@@ -320,6 +444,7 @@ watch(() => route.query.panel, applyPanelQuery);
           <h1 class="title">
             {{ project.name }}
             <StageBadge :stage="project.stage" class="head-badge" />
+            <span v-if="dday" class="dday-badge" :class="dday.cls">{{ dday.label }}</span>
           </h1>
           <p class="sub">
             <span class="code">{{ project.projectCode || '—' }}</span>
@@ -329,6 +454,19 @@ watch(() => route.query.panel, applyPanelQuery);
         <div class="head-actions">
           <button class="btn" @click="showEditForm = true">수정</button>
           <RouterLink :to="project.stage === 'BIDDING' ? '/projects/bidding' : '/projects/active'" class="back">← 목록</RouterLink>
+        </div>
+      </div>
+
+      <!-- 0027: 헤더 KPI 6카드 (레거시 상세 헤더 파리티) -->
+      <div class="kpi-row">
+        <div class="kpi"><span class="kpi-k">고객사</span><span class="kpi-v">{{ project.customerName || '—' }}</span></div>
+        <div class="kpi"><span class="kpi-k">사업책임자</span><span class="kpi-v">{{ project.manager || '—' }}</span></div>
+        <div class="kpi"><span class="kpi-k">사업기간</span><span class="kpi-v">{{ fmtDate(project.startDate) }} ~ {{ fmtDate(project.endDate) }}</span></div>
+        <div class="kpi"><span class="kpi-k">계약금액</span><span class="kpi-v">{{ fmtAmount(project.projectBudget) }}</span></div>
+        <div class="kpi"><span class="kpi-k">사업상태</span><span class="kpi-v">{{ project.status || '—' }}</span></div>
+        <div class="kpi">
+          <span class="kpi-k">진척률</span>
+          <span class="kpi-v kpi-progress"><ProgressBar :value="progress ? progress.overall : project.progress" /></span>
         </div>
       </div>
 
@@ -355,32 +493,73 @@ watch(() => route.query.panel, applyPanelQuery);
       <div class="tab-body">
         <div v-if="tabLoading" class="card-empty">불러오는 중…</div>
 
-        <!-- 공통: 개요 -->
+        <!-- 공통: 개요 — 0027 레거시 사업개요 6섹션(2행×3열) 파리티 -->
         <template v-else-if="activeTab === 'overview'">
-          <section class="card">
-            <h2 class="card-title">개요</h2>
-            <dl class="meta">
-              <div><dt>상태</dt><dd>{{ project.status || '—' }}</dd></div>
-              <div><dt>단계</dt><dd>{{ project.stage || '—' }}</dd></div>
-              <div><dt>사업유형</dt><dd>{{ project.businessType || '—' }}</dd></div>
-              <div><dt>고객사</dt><dd>{{ project.customerName || '—' }}</dd></div>
-              <div><dt>수행장소</dt><dd>{{ project.location || '—' }}</dd></div>
-              <div><dt>담당부서</dt><dd>{{ project.dept || '—' }}</dd></div>
-              <div><dt>PM</dt><dd>{{ project.manager || '—' }}</dd></div>
-              <div><dt>기간</dt><dd>{{ fmtDate(project.startDate) }} ~ {{ fmtDate(project.endDate) }}</dd></div>
-              <div><dt>계약금액</dt><dd>{{ fmtAmount(project.projectBudget) }}</dd></div>
-              <div class="wide">
-                <dt>진행률
-                  <span v-if="progress && !progress.fallback" class="calc-tag" title="산출물 승인 기준 계산값 (0006 롤업)">계산</span>
-                  <span v-else class="calc-tag manual" title="전개 산출물이 없어 수동 입력값을 사용합니다">수동</span>
-                </dt>
-                <dd><ProgressBar :value="progress ? progress.overall : project.progress" /></dd>
-              </div>
-            </dl>
-          </section>
-
-          <div class="cards-2">
+          <div class="ov-grid">
+            <!-- ① 기본정보 (단계 분기) -->
             <section class="card">
+              <h2 class="card-title">기본 정보</h2>
+              <dl class="meta ov-meta">
+                <template v-if="project.stage === 'BIDDING'">
+                  <div><dt>프로젝트 코드</dt><dd>{{ project.projectCode || '—' }}</dd></div>
+                  <div><dt>공고번호</dt><dd>{{ project.announcementNo || project.bidNumber || '—' }}</dd></div>
+                  <div><dt>발주기관</dt><dd>{{ project.customerName || '—' }}</dd></div>
+                  <div><dt>사업예산</dt><dd>{{ fmtAmount(project.budget) }}</dd></div>
+                  <div><dt>사업유형</dt><dd>{{ project.businessType || '—' }}</dd></div>
+                  <div><dt>제안서 제출마감일</dt><dd>{{ fmtDate(project.proposalDeadline) }}</dd></div>
+                  <div><dt>입찰상태</dt><dd>{{ project.bidStatus || '—' }}</dd></div>
+                </template>
+                <template v-else>
+                  <div><dt>상태</dt><dd>{{ project.status || '—' }}</dd></div>
+                  <div><dt>사업유형</dt><dd>{{ project.businessType || '—' }}</dd></div>
+                  <div><dt>고객사</dt><dd>{{ project.customerName || '—' }}</dd></div>
+                  <div><dt>수행장소</dt><dd>{{ project.location || '—' }}</dd></div>
+                  <div><dt>담당부서</dt><dd>{{ project.dept || '—' }}</dd></div>
+                  <div><dt>기간</dt><dd>{{ fmtDate(project.startDate) }} ~ {{ fmtDate(project.endDate) }}</dd></div>
+                  <div><dt>계약금액</dt><dd>{{ fmtAmount(project.projectBudget) }}</dd></div>
+                  <div class="wide">
+                    <dt>진행률
+                      <span v-if="progress && !progress.fallback" class="calc-tag" title="산출물 승인 기준 계산값 (0006 롤업)">계산</span>
+                      <span v-else class="calc-tag manual" title="전개 산출물이 없어 수동 입력값을 사용합니다">수동</span>
+                    </dt>
+                    <dd><ProgressBar :value="progress ? progress.overall : project.progress" /></dd>
+                  </div>
+                </template>
+              </dl>
+              <div class="remarks-box">
+                <label class="remarks-label">비고</label>
+                <textarea v-model="remarksDraft" class="remarks-input" rows="2"
+                          placeholder="상태 메모 (저장 시 반영)" :disabled="remarksSaving"></textarea>
+                <button class="btn btn-sm" :disabled="remarksSaving || remarksDraft === (project.remarks ?? '')"
+                        @click="saveRemarks">{{ remarksSaving ? '저장 중…' : '저장' }}</button>
+              </div>
+            </section>
+
+            <!-- ② 입찰: 담당조직 정보 / 수행: 프로세스별 진척률 -->
+            <section v-if="project.stage === 'BIDDING'" class="card">
+              <h2 class="card-title">
+                담당조직 정보
+                <button v-if="!ownersEditing" class="btn-link" @click="startOwnersEdit">수정</button>
+              </h2>
+              <dl v-if="!ownersEditing" class="meta ov-meta">
+                <div v-for="f in OWNER_FIELDS" :key="f.key">
+                  <dt>{{ f.label }}</dt><dd>{{ project[f.key] || '—' }}</dd>
+                </div>
+              </dl>
+              <div v-else class="owners-edit">
+                <label v-for="f in OWNER_FIELDS" :key="f.key" class="owner-field">
+                  <span>{{ f.label }}</span>
+                  <input v-model="ownersDraft[f.key]" class="owner-input" type="text" :disabled="ownersSaving" />
+                </label>
+                <div class="owners-actions">
+                  <button class="btn btn-sm" :disabled="ownersSaving" @click="ownersEditing = false">취소</button>
+                  <button class="btn btn-primary btn-sm" :disabled="ownersSaving" @click="saveOwners">
+                    {{ ownersSaving ? '저장 중…' : '저장' }}
+                  </button>
+                </div>
+              </div>
+            </section>
+            <section v-else class="card">
               <h2 class="card-title">
                 프로세스별 진척률
                 <span v-if="progress && progress.phases.length > 0" class="calc-tag" title="0006 recursive CTE 롤업">계산</span>
@@ -393,6 +572,79 @@ watch(() => route.query.panel, applyPanelQuery);
                 </li>
               </ul>
             </section>
+
+            <!-- ③ 참여인력 요약 -->
+            <section class="card">
+              <h2 class="card-title">
+                참여 인력
+                <span class="title-side">현재 투입 {{ activeMembers.length }}명(총 {{ members.length }}명)</span>
+              </h2>
+              <label class="chk-line">
+                <input v-model="includeExcludedMembers" type="checkbox" /> 제외 인력 포함
+              </label>
+              <div v-if="shownMembers.length === 0" class="card-empty">참여 인력이 없습니다.</div>
+              <ul v-else class="member-brief">
+                <li v-for="m in shownMembers.slice(0, 8)" :key="m.memberId">
+                  <span class="avatar">{{ initial(m.name) }}</span>
+                  <span class="mb-main">
+                    <span class="mb-name">
+                      {{ m.name }}
+                      <span class="mb-emp">{{ employmentTypeLabel(m.employmentType) }}</span>
+                      <span v-if="m.isActive === false" class="mb-out">제외</span>
+                    </span>
+                    <span class="mb-sub">{{ [m.roleName || m.participationRole, m.department].filter(Boolean).join(' · ') || '—' }}</span>
+                  </span>
+                </li>
+              </ul>
+              <button class="btn-link more" @click="selectTab('members')">전체보기 →</button>
+            </section>
+
+            <!-- ④ 주요 일정 (WBS 타임라인) -->
+            <section class="card">
+              <h2 class="card-title">주요 일정</h2>
+              <div v-if="phaseTimeline.length === 0" class="card-empty">전개된 일정이 없습니다.</div>
+              <ul v-else class="timeline">
+                <li v-for="t in phaseTimeline" :key="t.nodeId" :class="t.state">
+                  <span class="tl-dot">{{ t.state === 'done' ? '✓' : t.state === 'doing' ? '●' : '○' }}</span>
+                  <span class="tl-main">
+                    <span class="tl-name">{{ t.name }}</span>
+                    <span class="tl-sub">{{ fmtDate(t.start) }} ~ {{ fmtDate(t.end) }} · 진척률 {{ t.rate }}%</span>
+                  </span>
+                </li>
+              </ul>
+              <button class="btn-link more" @click="selectTab('wbs')">WBS/일정 →</button>
+            </section>
+
+            <!-- ⑤ 최근 활동 -->
+            <section class="card">
+              <h2 class="card-title">최근 활동</h2>
+              <div v-if="recentActivities.length === 0" class="card-empty">활동 내역이 없습니다.</div>
+              <ul v-else class="activity-brief">
+                <li v-for="(a, i) in recentActivities" :key="i">
+                  <span class="ab-text">
+                    <span class="ab-kind">{{ a.entityType || a.type || '—' }}</span>
+                    {{ a.text || '—' }}
+                  </span>
+                  <span class="ab-date">{{ fmtDate(a.date) }}</span>
+                </li>
+              </ul>
+              <button class="btn-link more" @click="selectTab('activity')">활동로그 →</button>
+            </section>
+
+            <!-- ⑥ 현황 요약 (구 연관정보) -->
+            <section class="card">
+              <h2 class="card-title">현황 요약</h2>
+              <ul class="related">
+                <li v-for="r in relatedRows" :key="r.tab">
+                  <button class="rel-btn" @click="selectTab(r.tab)">
+                    <span class="rel-label">{{ r.label }}</span>
+                    <span class="rel-count">{{ r.count }}건</span>
+                  </button>
+                </li>
+              </ul>
+            </section>
+
+            <!-- 컨소시엄 요약 (기존 유지) -->
             <section class="card">
               <h2 class="card-title">컨소시엄 요약</h2>
               <div v-if="project.consortiumMembers.length === 0" class="card-empty">컨소시엄 구성이 없습니다.</div>
@@ -680,6 +932,100 @@ watch(() => route.query.panel, applyPanelQuery);
 .cards { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; }
 /* 개요 하단: 프로세스별 진척률 + 컨소시엄 요약 = 동일 폭 2열 */
 .cards-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+
+/* ---- 0027 헤더 KPI 6카드 + D-Day ---- */
+.kpi-row {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px; margin: 0 0 16px;
+}
+.kpi {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0;
+}
+.kpi-k { font-size: 11px; color: var(--muted); }
+.kpi-v { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kpi-progress { overflow: visible; }
+.dday-badge {
+  display: inline-block; margin-left: 8px; padding: 3px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; vertical-align: middle;
+}
+.dday-badge.dday-norm { background: var(--panel-2); color: var(--muted); }
+.dday-badge.dday-hot { background: color-mix(in srgb, #e5a13d 20%, transparent); color: #e5a13d; }
+.dday-badge.dday-over { background: color-mix(in srgb, #e5484d 18%, transparent); color: #e5484d; }
+.dday-badge.dday-none { background: var(--panel-2); color: var(--muted); }
+
+/* ---- 0027 개요 6섹션 그리드 ---- */
+.ov-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 1100px) { .ov-grid { grid-template-columns: 1fr 1fr; } }
+.ov-meta { grid-template-columns: 1fr; }
+.title-side { font-size: 11.5px; color: var(--muted); font-weight: 500; margin-left: 8px; }
+.btn-link {
+  border: 0; background: transparent; color: var(--accent);
+  font-size: 12px; font-weight: 600; cursor: pointer; padding: 0 4px; margin-left: 6px;
+}
+.btn-link.more { display: block; margin: 10px 0 0; padding: 0; }
+.chk-line { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; margin-bottom: 8px; }
+
+.remarks-box { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.remarks-label { font-size: 11px; color: var(--muted); }
+.remarks-input {
+  width: 100%; box-sizing: border-box; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 12.5px; padding: 8px 10px; outline: none;
+  font-family: inherit; resize: vertical;
+}
+.remarks-input:focus { border-color: var(--accent); }
+
+.owners-edit { display: flex; flex-direction: column; gap: 8px; }
+.owner-field { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.owner-input {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 12.5px; padding: 6px 8px; outline: none; width: 100%;
+}
+.owner-input:focus { border-color: var(--accent); }
+.owners-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+.member-brief { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.member-brief li { display: flex; align-items: center; gap: 10px; }
+.avatar {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  background: color-mix(in srgb, var(--accent) 25%, transparent); color: var(--accent);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
+}
+.mb-main { display: flex; flex-direction: column; min-width: 0; }
+.mb-name { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.mb-emp {
+  font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 999px;
+  background: var(--panel-2); color: var(--muted);
+}
+.mb-out {
+  font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 999px;
+  background: color-mix(in srgb, #e5484d 18%, transparent); color: #e5484d;
+}
+.mb-sub { font-size: 11.5px; color: var(--muted); }
+
+.timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.timeline li { display: flex; gap: 10px; align-items: flex-start; }
+.tl-dot { width: 18px; text-align: center; font-size: 12px; color: var(--muted); flex-shrink: 0; }
+.timeline li.done .tl-dot { color: #34d399; }
+.timeline li.doing .tl-dot { color: var(--accent); }
+.tl-main { display: flex; flex-direction: column; min-width: 0; }
+.tl-name { font-size: 13px; font-weight: 600; }
+.tl-sub { font-size: 11.5px; color: var(--muted); }
+
+.activity-brief { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.activity-brief li { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; }
+.ab-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ab-kind { color: var(--muted); font-size: 11px; margin-right: 4px; font-family: ui-monospace, monospace; }
+.ab-date { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+
+.related { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rel-btn {
+  width: 100%; display: flex; justify-content: space-between; align-items: center;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-size: 12.5px; padding: 8px 12px; cursor: pointer; font-family: inherit;
+}
+.rel-btn:hover { border-color: var(--accent); }
+.rel-count { font-weight: 700; color: var(--accent); }
 .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
 .card-title { font-size: 14px; margin: 0 0 14px; }
 .card-empty { font-size: 13px; color: var(--muted); padding: 8px 0; }

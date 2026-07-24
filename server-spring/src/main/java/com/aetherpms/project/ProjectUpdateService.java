@@ -64,7 +64,10 @@ public class ProjectUpdateService {
             "pmName", "manager", "pmId", "managerId",
             "bidStatus", "status", "stage",
             "plannedStartDate", "startDate", "plannedEndDate", "endDate",
-            "remarks", "milestones");
+            "remarks", "milestones",
+            // 0027: 담당조직 정보(입찰 개요 카드 인라인 수정)
+            "salesOwner", "proposalOwner", "proposalPm",
+            "businessManager", "contractOwner", "legalOwner");
 
     @Transactional
     public Map<String, Object> update(long rawId, Map<String, Object> body, Actor actor) {
@@ -106,6 +109,12 @@ public class ProjectUpdateService {
         putDateIfPresent(fields, "planned_end_date", b, "plannedEndDate", "endDate");
         putStrIfPresent(fields, "remarks", b, "remarks");
         putStrIfPresent(fields, "milestones", b, "milestones");
+        putStrIfPresent(fields, "sales_owner", b, "salesOwner");
+        putStrIfPresent(fields, "proposal_owner", b, "proposalOwner");
+        putStrIfPresent(fields, "proposal_pm", b, "proposalPm");
+        putStrIfPresent(fields, "business_manager", b, "businessManager");
+        putStrIfPresent(fields, "contract_owner", b, "contractOwner");
+        putStrIfPresent(fields, "legal_owner", b, "legalOwner");
         if (b.containsKey("status")) fields.put("status", inList("status", b.get("status"), STATUSES));
         if (b.containsKey("bidStatus")) fields.put("bid_status", inList("bidStatus", b.get("bidStatus"), BID_STATUSES));
         if (b.containsKey("stage")) fields.put("project_stage", inList("stage", b.get("stage"), STAGES));

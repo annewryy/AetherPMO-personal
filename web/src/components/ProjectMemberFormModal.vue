@@ -3,10 +3,10 @@
 //  - 필수 name + 선택 필드(구분·인력구분·소속·직급·부서·참여역할·PM여부).
 //  - 백엔드가 pms_person에 find-or-insert 후 프로젝트에 연결(0005 §D).
 //  - 쓰기는 백엔드 전용(dataClient가 API_BASE 게이트). 오류는 서버 {message} 그대로.
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import { EMPLOYMENT_TYPES } from '../lib/personLabels';
-import type { ProjectMemberInput, ProjectMemberType, EmploymentType, OrgPick, ProjectMemberDetail } from '../types';
+import type { ProjectMemberInput, ProjectMemberType, EmploymentType, OrgPick, ProjectMemberDetail, Company } from '../types';
 import ModalShell from './ModalShell.vue';
 import OrgPickerModal from './OrgPickerModal.vue';
 
@@ -22,7 +22,38 @@ const PARTICIPATION_ROLES = ['PM', 'PL', 'PMO', 'TA', 'AA', 'DA', 'DBA', 'SE', '
 const name = ref('');
 const memberType = ref<ProjectMemberType>('INTERNAL');
 const employmentType = ref<EmploymentType | ''>('');
-const company = ref('');
+
+// 0027 결정4 — 소속회사: 자유 텍스트 → 회사 기준정보(pms_company) 선택.
+//   '__new__' 선택 시 신규 회사명을 입력받아 저장 시점에 companies.create 후 연결.
+//   외주 계열(project_contract/turnkey/freelancer)은 소속회사 필수.
+const OUTSOURCED_TYPES: ReadonlySet<string> = new Set(['project_contract', 'turnkey', 'freelancer']);
+const companies = ref<Company[]>([]);
+const companySelect = ref<number | '' | '__new__'>('');
+const newCompanyName = ref('');
+const company = ref('');   // 표시명(제출 본문 company) — select/신규 입력에서 파생
+
+const companyRequired = computed(() => OUTSOURCED_TYPES.has(employmentType.value));
+
+onMounted(async () => {
+  try {
+    companies.value = (await dataClient.companies.list()).filter((c) => c.isActive !== false);
+    syncCompanySelect();
+  } catch (e) {
+    console.error('[member-form] 회사 목록 로드 실패:', e);
+  }
+});
+
+/** 프리필/조직도 선택으로 들어온 company(명)·companyId를 select 상태에 반영. */
+function syncCompanySelect() {
+  const m2 = props.member;
+  const byId = m2?.companyId != null ? companies.value.find((c) => c.id === m2.companyId) : null;
+  if (byId) { companySelect.value = byId.id; return; }
+  const nm = (company.value || '').trim();
+  if (!nm) return;
+  const byName = companies.value.find((c) => c.name === nm);
+  if (byName) companySelect.value = byName.id;
+  else { companySelect.value = '__new__'; newCompanyName.value = nm; }
+}
 const position = ref('');
 const department = ref('');
 const roleName = ref('');
@@ -65,7 +96,7 @@ function onOrgPick(p: OrgPick) {
   if (p.department) department.value = p.department;
   if (p.position) position.value = p.position;
   if (p.source === 'EXTERNAL') {
-    if (p.companyName) company.value = p.companyName;
+    if (p.companyName) { company.value = p.companyName; syncCompanySelect(); }
     if (p.employmentType) employmentType.value = p.employmentType as EmploymentType;
   }
   picked.value = {
@@ -79,7 +110,10 @@ function onOrgPick(p: OrgPick) {
 function clearPicked() {
   picked.value = null;
   amaranthEmpNo.value = '';
-  if (!isEdit.value) { name.value = ''; department.value = ''; position.value = ''; company.value = ''; }
+  if (!isEdit.value) {
+    name.value = ''; department.value = ''; position.value = ''; company.value = '';
+    companySelect.value = ''; newCompanyName.value = '';
+  }
 }
 
 const submitting = ref(false);
@@ -87,8 +121,41 @@ const error = ref<string | null>(null);
 
 async function submit() {
   if (!name.value.trim()) { error.value = '성명은 필수입니다.'; return; }
+  // 외주 계열은 소속회사 필수(결정 4).
+  const isNew = companySelect.value === '__new__';
+  if (companyRequired.value && !companySelect.value) {
+    error.value = '외주 인력은 소속회사를 선택(또는 신규 입력)해야 합니다.'; return;
+  }
+  if (isNew && !newCompanyName.value.trim()) {
+    error.value = '신규 회사명을 입력해 주세요.'; return;
+  }
   submitting.value = true;
   error.value = null;
+
+  // 소속회사 확정: 기존 선택 → id·명, 신규 → companies.create 후 연결.
+  let companyId: number | null = null;
+  try {
+    if (typeof companySelect.value === 'number') {
+      const c = companies.value.find((x) => x.id === companySelect.value);
+      companyId = c?.id ?? null;
+      company.value = c?.name ?? company.value;
+    } else if (isNew) {
+      const created = await dataClient.companies.create({
+        name: newCompanyName.value.trim(), type: 'PARTNER', isActive: true, agencyCode: null,
+      });
+      companyId = created.id;
+      company.value = created.name;
+      companies.value = [...companies.value, created];
+      companySelect.value = created.id;
+    } else {
+      company.value = '';
+    }
+  } catch (e) {
+    submitting.value = false;
+    error.value = `신규 회사 등록 실패: ${e instanceof Error ? e.message : String(e)}`;
+    return;
+  }
+
   const input: ProjectMemberInput = {
     name: name.value.trim(),
     memberType: memberType.value,
@@ -97,6 +164,7 @@ async function submit() {
   if (amaranthEmpNo.value) input.amaranthEmpNo = amaranthEmpNo.value;
   input.employmentType = (employmentType.value || null) as EmploymentType | null;
   input.company = company.value.trim() || null;
+  input.companyId = companyId;
   input.position = position.value.trim() || null;
   input.department = department.value.trim() || null;
   input.roleName = roleName.value.trim() || null;
@@ -159,8 +227,15 @@ async function submit() {
 
     <div class="row2">
       <div>
-        <label class="label">소속</label>
-        <input v-model="company" class="input" type="text" placeholder="소속 (선택)" :disabled="submitting" />
+        <label class="label">소속회사 <span v-if="companyRequired" class="req">*</span></label>
+        <select v-model="companySelect" class="input" :disabled="submitting">
+          <option value="">{{ companyRequired ? '선택하세요' : '선택 안 함' }}</option>
+          <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.name }}</option>
+          <option value="__new__">— 신규 회사 입력</option>
+        </select>
+        <input v-if="companySelect === '__new__'" v-model="newCompanyName" class="input new-company"
+               type="text" placeholder="신규 회사명 (저장 시 기준정보 등록)" :disabled="submitting" />
+        <p v-if="companyRequired" class="hint-line">외주 계열 인력은 소속회사가 필수입니다.</p>
       </div>
       <div>
         <label class="label">직급/직책</label>
@@ -230,4 +305,5 @@ async function submit() {
 }
 .btn-link:disabled { opacity: 0.5; cursor: default; }
 .hint-line { font-size: 11.5px; color: var(--muted); margin: 4px 0 0; }
+.new-company { margin-top: 6px; }
 </style>
