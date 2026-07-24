@@ -6145,6 +6145,7 @@ class AetherPMO {
             }
 
             element.addEventListener('click', () => {
+                this.state.projectDetailSourceView = this.activeProjectStageFilter === 'Bidding' ? 'projects/bidding' : (this.activeProjectStageFilter === 'Active' ? 'projects/active' : 'projects');
                 window.location.hash = `project-detail/${p.id}`;
             });
 
@@ -6703,6 +6704,9 @@ class AetherPMO {
 
         console.log('[Bidding Project Detail] Target Project:', project);
 
+        // Track source view for returning
+        this.state.projectDetailSourceView = 'projects/bidding';
+
         // Set active/current project state
         this.activeProjectId = project.id || project.project_id;
         this.state.currentProject = project;
@@ -6711,6 +6715,32 @@ class AetherPMO {
 
         // Existing project detail routing reuse
         this.switchView('project-detail', project.id || project.project_id);
+    }
+
+    goBackToProjectList() {
+        console.count('[Project Detail Back Click]');
+        const sourceView = this.state.projectDetailSourceView || (this.activeProjectStageFilter === 'Bidding' ? 'projects/bidding' : (this.activeProjectStageFilter === 'Active' ? 'projects/active' : 'projects'));
+        console.log('[Project Detail Back Source]', {
+            sourceView: sourceView,
+            currentProjectId: this.activeProjectId
+        });
+
+        this.state.currentProject = null;
+        this.state.selectedProject = null;
+
+        if (sourceView === 'projects/bidding' || sourceView === 'bidding-stage' || sourceView === 'bidding') {
+            this.activeProjectStageFilter = 'Bidding';
+            window.location.hash = 'projects/bidding';
+            this.switchView('projects');
+        } else if (sourceView === 'projects/active' || sourceView === 'execution-stage' || sourceView === 'active') {
+            this.activeProjectStageFilter = 'Active';
+            window.location.hash = 'projects/active';
+            this.switchView('projects');
+        } else {
+            const hashTarget = sourceView.startsWith('#') ? sourceView : `#${sourceView}`;
+            window.location.hash = hashTarget;
+            this.switchView(sourceView.replace('#', ''));
+        }
     }
 
     openBidResultModal(projectId) {
@@ -9088,7 +9118,7 @@ class AetherPMO {
                             <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">${project.desc || '상세 설명이 등록되지 않은 프로젝트입니다.'}</p>
                         </div>
                         <div class="project-header-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; overflow:visible;">
-                            <button id="btn-list-project" class="btn btn-sm btn-outline" onclick="window.location.hash = 'projects'">
+                            <button id="btn-back-project-list" type="button" class="btn btn-sm btn-outline" onclick="event.stopPropagation(); app.goBackToProjectList()" aria-label="목록으로 복귀" title="목록으로 이동합니다.">
                                 <i data-lucide="arrow-left" style="width:14px; height:14px;"></i> 목록으로
                             </button>
                             <button id="btn-edit-project" class="btn btn-sm btn-primary" onclick="app.openEditProjectModal('${project.id}')">
