@@ -6673,6 +6673,59 @@ class AetherPMO {
         this.switchView('project-detail', project.id || project.project_id);
     }
 
+    async convertBiddingProjectToExecution(projectId) {
+        const targetId = String(projectId);
+        let project = (this.state.projects || []).find(
+            p => String(p.id || p.project_id) === targetId
+        );
+
+        if (!project) {
+            if (typeof this.showToast === 'function') {
+                this.showToast('프로젝트 정보를 찾을 수 없습니다.', 'error');
+            }
+            return;
+        }
+
+        const biddingStatus = this.normalizeBiddingStatus(project);
+        const role = (this.state.currentUser && this.state.currentUser.role) || 'SYS_ADMIN';
+        const hasPermission = ['SYS_ADMIN', 'EXEC_ADMIN', 'PM', 'admin'].includes(role);
+
+        if (!hasPermission) {
+            if (typeof this.showToast === 'function') {
+                this.showToast('수행단계 전환 권한이 없습니다.', 'warning');
+            }
+            return;
+        }
+
+        if (biddingStatus !== 'won') {
+            if (typeof this.showToast === 'function') {
+                this.showToast('수주 확정된 프로젝트만 수행단계로 전환할 수 있습니다.', 'warning');
+            }
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `[수행단계 전환]\n\n'${project.name}' 프로젝트를 입찰단계에서 수행단계로 전환하시겠습니까?\n\n전환 후 프로젝트 상태가 '수행중'으로 변경되며, 수행단계 메뉴에서 관리할 수 있습니다.`
+        );
+
+        if (!confirmed) return;
+
+        project.status = 'In Progress';
+        project.bidStatus = 'won';
+        project.biddingStatusKey = 'won';
+        project.convertedToExecutionAt = new Date().toISOString();
+        project.converted_to_execution_at = project.convertedToExecutionAt;
+
+        await this.saveState('project_upsert', project);
+
+        if (typeof this.showToast === 'function') {
+            this.showToast('🎉 수행단계로 전환되었습니다. 수행단계 목록에서 확인하실 수 있습니다.', 'success');
+        }
+
+        // Refresh current project detail view immediately
+        this.renderProjectDetail(project.id || project.project_id);
+    }
+
     renderBiddingSplitPane() {
         const leftGrid = document.getElementById('bidding-projects-list-container');
         if (!leftGrid) return;
