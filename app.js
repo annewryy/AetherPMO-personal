@@ -10572,6 +10572,8 @@ class AetherPMO {
         });
         const finalProgress = totalWeight > 0 ? Math.round(weightedProgress * (100 / totalWeight)) : 0;
 
+        let savedProject = null;
+
         try {
             if (id) {
                 // UPDATE PROCESS
@@ -10621,6 +10623,7 @@ class AetherPMO {
                     bidNumber, customerName, projectBudget, businessType,
                     salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner
                 };
+                savedProject = updatedProject;
 
                 // Supabase Sync
                 if (this.useSupabase) {
@@ -10686,6 +10689,7 @@ class AetherPMO {
                         status: '미상신', plannedDate: '', submittedDate: '', approvedDate: '', vrbNumber: '', memo: ''
                     }
                 };
+                savedProject = newProject;
 
                 // PM member registration
                 const newPmMember = {
@@ -10795,7 +10799,45 @@ class AetherPMO {
 
             this.updateProjectsOverdueStatus();
             this.closeProjectModal();
-            this.handleRouting();
+
+            const rawBidStatus = document.getElementById('project-bid-status')?.value || '';
+            const normBidStatus = savedProject ? this.normalizeBiddingStatus(savedProject) : (rawBidStatus ? this.normalizeBiddingStatus(rawBidStatus) : 'proposal_preparing');
+            const isBiddingProject = Boolean(
+                (savedProject && (savedProject.is_bidding_project || savedProject.isBiddingProject || savedProject.status === 'Bidding')) ||
+                status === 'Bidding'
+            );
+
+            if (isBiddingProject && normBidStatus) {
+                const targetTab = normBidStatus;
+                const targetProjectId = id || (savedProject ? savedProject.id : null);
+                console.log('[saveProjectForm Post-Save Bidding Navigation]', {
+                    projectId: targetProjectId,
+                    normBidStatus: targetTab,
+                    status: savedProject ? savedProject.status : status
+                });
+
+                if (targetTab === 'won' || (savedProject && savedProject.status === 'In Progress')) {
+                    this.activeProjectStageFilter = 'Active';
+                    this.state.projectDetailSourceView = 'projects/active';
+                    this.state.highlightProjectId = targetProjectId;
+                    window.location.hash = 'projects/active';
+                    await this.switchView('projects');
+                    this.renderProjects();
+                    this.setActiveSidebarMenu('projects/active');
+                } else {
+                    this.activeProjectStageFilter = 'Bidding';
+                    this.activeBiddingStatusFilter = targetTab;
+                    this.state.biddingPipelineTab = targetTab;
+                    this.state.projectDetailSourceView = 'projects/bidding';
+                    this.state.highlightProjectId = targetProjectId;
+                    window.location.hash = 'projects/bidding';
+                    await this.switchView('projects');
+                    this.setBiddingStatusFilter(targetTab);
+                    this.setActiveSidebarMenu('projects/bidding');
+                }
+            } else {
+                this.handleRouting();
+            }
             
             // Show Success Notification
             this.showToast(id ? '사업 정보가 성공적으로 수정되었습니다.' : '신규 사업이 성공적으로 등록되었습니다.', 'success');
