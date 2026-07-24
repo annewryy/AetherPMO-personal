@@ -6679,14 +6679,13 @@ class AetherPMO {
                 const pmName = p.pmName || p.pm || '안유경';
                 const teamPlusText = p.teamCount ? ` +${p.teamCount - 1}` : ' +2';
                 const budgetText = p.budget ? (p.budget / 100000000).toFixed(1) + ' 억원' : '예산 미정';
-                const projectId = p.id || p.project_id || p.code;
+                const projectId = p.id || p.project_id;
 
                 const card = document.createElement('div');
                 card.className = 'bidding-project-card';
                 card.setAttribute('tabindex', '0');
                 card.setAttribute('role', 'button');
                 card.setAttribute('aria-label', `${p.name} 입찰 상세 정보 보기`);
-                card.setAttribute('onclick', `app.openBiddingDetailModal('${projectId}')`);
 
                 card.innerHTML = `
                     <div class="bidding-project-card-header">
@@ -6746,9 +6745,10 @@ class AetherPMO {
     }
 
     openBiddingDetailModal(projectId) {
+        console.count('[Bidding Detail Open]');
         console.log('[Bidding Detail Click]', projectId);
         const allBiddingProjects = this.getBiddingProjectsList();
-        const project = allBiddingProjects.find(p => p.id === projectId || p.project_id === projectId || p.code === projectId) || (this.state.projects || []).find(p => p.id === projectId || p.project_id === projectId || p.code === projectId);
+        const project = allBiddingProjects.find(p => (p.id && p.id === projectId) || (p.project_id && p.project_id === projectId)) || (this.state.projects || []).find(p => (p.id && p.id === projectId) || (p.project_id && p.project_id === projectId));
         console.log('[Bidding Detail Project]', project);
         if (!project) return;
 
