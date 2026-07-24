@@ -6822,6 +6822,25 @@ class AetherPMO {
         }
     }
 
+    async updateProject(projectId, updateData) {
+        const targetId = String(projectId);
+        const projects = this.state.projects || [];
+        const index = projects.findIndex(p => String(p.id || p.project_id) === targetId);
+
+        if (index < 0) {
+            console.error('[updateProject] Target project not found:', projectId);
+            return null;
+        }
+
+        const updatedProject = {
+            ...projects[index],
+            ...updateData
+        };
+
+        await this.saveState('project_upsert', updatedProject);
+        return updatedProject;
+    }
+
     replaceProjectInState(updatedProject) {
         if (!updatedProject) return;
         const projectId = String(updatedProject.id || updatedProject.project_id);
@@ -6845,16 +6864,6 @@ class AetherPMO {
         }
     }
 
-    navigateToExecutionStage(projectId) {
-        this.activeProjectStageFilter = 'Active';
-        this.state.highlightProjectId = projectId;
-        this.state.projectDetailSourceView = 'projects/active';
-
-        window.location.hash = 'projects/active';
-        this.switchView('projects');
-        this.setActiveSidebarMenu('projects/active');
-    }
-
     setActiveSidebarMenu(route) {
         document.querySelectorAll('.sidebar-nav .nav-item, .sidebar-nav .submenu-item').forEach(el => {
             el.classList.remove('active');
@@ -6873,12 +6882,12 @@ class AetherPMO {
         }
     }
 
-    async processBidWonResult() {
-        const projectId = this.activeBidResultProjectId;
-        if (!projectId) return;
+    async confirmBidWon(projectId = null) {
+        const targetId = projectId || this.activeBidResultProjectId;
+        if (!targetId) return;
 
         const project = (this.state.projects || []).find(
-            p => String(p.id || p.project_id) === String(projectId)
+            p => String(p.id || p.project_id) === String(targetId)
         );
 
         if (!project) return;
@@ -6889,52 +6898,85 @@ class AetherPMO {
 
         if (!confirmed) return;
 
-        const now = new Date().toISOString();
-        const updateData = {
-            status: 'In Progress',
-            project_status: 'In Progress',
-            bidStatus: 'won',
-            biddingStatus: 'won',
-            bidding_status: 'won',
-            biddingStatusKey: 'won',
-            bidResult: 'WON',
-            bid_result: 'WON',
-            bidResultAt: now,
-            bid_result_at: now,
-            convertedToExecutionAt: now,
-            converted_to_execution_at: now,
-            execution_started_at: now,
-            is_bidding_project: true
-        };
+        try {
+            const now = new Date().toISOString();
+            const updateData = {
+                status: 'In Progress',
+                project_status: 'In Progress',
+                bidding_status: 'won',
+                biddingStatus: 'won',
+                biddingStatusKey: 'won',
+                bid_result: 'WON',
+                bidResult: 'WON',
+                bid_result_at: now,
+                bidResultAt: now,
+                converted_to_execution_at: now,
+                convertedToExecutionAt: now,
+                execution_started_at: now,
+                is_bidding_project: true
+            };
 
-        console.log('[Bid Won Start]', { projectId, updateData });
+            console.log('[Bid Won Confirm Start]', { projectId: targetId, updateData });
 
-        Object.assign(project, updateData);
+            const updatedProject = await this.updateProject(targetId, updateData);
+            if (!updatedProject) {
+                throw new Error('낙찰 저장 결과가 없습니다.');
+            }
 
-        await this.saveState('project_upsert', project);
-        this.replaceProjectInState(project);
+            console.log('[Bid Result Step 1] DB saved', {
+                id: updatedProject.id || updatedProject.project_id,
+                status: updatedProject.status,
+                biddingStatus: updatedProject.bidding_status || updatedProject.biddingStatus
+            });
 
-        console.log('[Bid Won Saved]', {
-            projectId: project.id || project.project_id,
-            status: project.status,
-            biddingStatus: project.bidding_status || project.biddingStatus
-        });
+            this.replaceProjectInState(updatedProject);
+            console.log('[Bid Result Step 2] State replaced');
 
-        this.closeBidResultModal();
+            this.closeBidResultModal();
+            console.log('[Bid Result Step 3] Modal closed');
 
-        if (typeof this.showToast === 'function') {
-            this.showToast('🎉 낙찰 처리되었습니다. 수행단계로 이동합니다.', 'success');
+            if (typeof this.showToast === 'function') {
+                this.showToast('🎉 낙찰 처리되었습니다. 수행단계로 이동합니다.', 'success');
+            }
+            console.log('[Bid Result Step 4] Toast shown');
+
+            await this.navigateAfterBidWon(updatedProject.id || updatedProject.project_id);
+            console.log('[Bid Result Step 5] Navigation requested');
+        } catch (error) {
+            console.error('[Bid Won Confirm Failed]', error);
+            if (typeof this.showToast === 'function') {
+                this.showToast('낙찰 처리 중 오류가 발생했습니다.', 'error');
+            }
         }
-
-        this.navigateToExecutionStage(project.id || project.project_id);
     }
 
-    async processBidLostResult() {
-        const projectId = this.activeBidResultProjectId;
-        if (!projectId) return;
+    async navigateAfterBidWon(projectId) {
+        console.log('[Bid Won Navigate Start]', {
+            projectId,
+            beforeHash: window.location.hash
+        });
+
+        this.activeProjectStageFilter = 'Active';
+        this.state.projectDetailSourceView = 'projects/active';
+        this.state.highlightProjectId = projectId;
+
+        window.location.hash = 'projects/active';
+        await this.switchView('projects');
+        this.renderProjects();
+        this.setActiveSidebarMenu('projects/active');
+
+        console.log('[Bid Won Navigate End]', {
+            afterHash: window.location.hash,
+            activeRoute: 'projects/active'
+        });
+    }
+
+    async confirmBidLost(projectId = null) {
+        const targetId = projectId || this.activeBidResultProjectId;
+        if (!targetId) return;
 
         const project = (this.state.projects || []).find(
-            p => String(p.id || p.project_id) === String(projectId)
+            p => String(p.id || p.project_id) === String(targetId)
         );
 
         if (!project) return;
@@ -6945,41 +6987,85 @@ class AetherPMO {
 
         if (!confirmed) return;
 
-        const now = new Date().toISOString();
-        const updateData = {
-            status: 'Bidding',
-            project_status: 'Bidding',
-            bidStatus: 'lost',
-            biddingStatus: 'lost',
-            bidding_status: 'lost',
-            biddingStatusKey: 'closed',
-            bidResult: 'LOST',
-            bid_result: 'LOST',
-            bidResultAt: now,
-            bid_result_at: now,
-            is_bidding_project: true
-        };
+        try {
+            const now = new Date().toISOString();
+            const updateData = {
+                status: 'Bidding',
+                project_status: 'Bidding',
+                bidding_status: 'lost',
+                biddingStatus: 'lost',
+                biddingStatusKey: 'closed',
+                bid_result: 'LOST',
+                bidResult: 'LOST',
+                bid_result_at: now,
+                bidResultAt: now,
+                is_bidding_project: true
+            };
 
-        console.log('[Bid Lost Start]', { projectId, updateData });
+            console.log('[Bid Lost Confirm Start]', { projectId: targetId, updateData });
 
-        Object.assign(project, updateData);
+            const updatedProject = await this.updateProject(targetId, updateData);
+            if (!updatedProject) {
+                throw new Error('실패 저장 결과가 없습니다.');
+            }
 
-        await this.saveState('project_upsert', project);
-        this.replaceProjectInState(project);
+            console.log('[Bid Result Step 1] DB saved', {
+                id: updatedProject.id || updatedProject.project_id,
+                status: updatedProject.status,
+                biddingStatus: updatedProject.bidding_status || updatedProject.biddingStatus
+            });
 
-        console.log('[Bid Lost Saved]', {
-            projectId: project.id || project.project_id,
-            status: project.status,
-            biddingStatus: project.bidding_status || project.biddingStatus
+            this.replaceProjectInState(updatedProject);
+            console.log('[Bid Result Step 2] State replaced');
+
+            this.closeBidResultModal();
+            console.log('[Bid Result Step 3] Modal closed');
+
+            if (typeof this.showToast === 'function') {
+                this.showToast('입찰 실패 처리되었습니다. 종료/실패 탭으로 이동합니다.', 'warning');
+            }
+            console.log('[Bid Result Step 4] Toast shown');
+
+            await this.navigateAfterBidLost(updatedProject.id || updatedProject.project_id);
+            console.log('[Bid Result Step 5] Navigation requested');
+        } catch (error) {
+            console.error('[Bid Lost Confirm Failed]', error);
+            if (typeof this.showToast === 'function') {
+                this.showToast('입찰 실패 처리 중 오류가 발생했습니다.', 'error');
+            }
+        }
+    }
+
+    async navigateAfterBidLost(projectId) {
+        console.log('[Bid Lost Navigate Start]', {
+            projectId,
+            beforeHash: window.location.hash
         });
 
-        this.closeBidResultModal();
+        this.activeProjectStageFilter = 'Bidding';
+        this.activeBiddingStatusFilter = 'closed';
+        this.state.biddingPipelineTab = 'closed';
+        this.state.projectDetailSourceView = 'projects/bidding';
+        this.state.highlightProjectId = projectId;
 
-        if (typeof this.showToast === 'function') {
-            this.showToast('입찰 실패로 처리되었습니다. 종료/실패 탭에서 확인하실 수 있습니다.', 'warning');
-        }
+        window.location.hash = 'projects/bidding';
+        await this.switchView('projects');
+        this.setBiddingStatusFilter('closed');
+        this.setActiveSidebarMenu('projects/bidding');
 
-        this.renderProjectDetail(project.id || project.project_id);
+        console.log('[Bid Lost Navigate End]', {
+            afterHash: window.location.hash,
+            activeRoute: 'projects/bidding',
+            pipelineTab: 'closed'
+        });
+    }
+
+    async processBidWonResult(projectId) {
+        await this.confirmBidWon(projectId);
+    }
+
+    async processBidLostResult(projectId) {
+        await this.confirmBidLost(projectId);
     }
 
     renderBidResultModalHtml() {
@@ -7014,7 +7100,7 @@ class AetherPMO {
 
                     <div style="display: flex; flex-direction: column; gap: 12px;">
                         <!-- Option 1: Won (🏆 낙찰) -->
-                        <div class="bid-result-option-card" onclick="app.processBidWonResult()" style="padding: 16px; border-radius: 12px; border: 2px solid rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.08); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: space-between;">
+                        <div id="confirm-bid-won" data-action="confirm-bid-won" class="bid-result-option-card" onclick="app.confirmBidWon()" style="padding: 16px; border-radius: 12px; border: 2px solid rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.08); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: space-between;">
                             <div>
                                 <div style="display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; color: #10b981;">
                                     <span>🏆 낙찰</span>
@@ -7025,7 +7111,7 @@ class AetherPMO {
                         </div>
 
                         <!-- Option 2: Lost (✕ 실패) -->
-                        <div class="bid-result-option-card" onclick="app.processBidLostResult()" style="padding: 16px; border-radius: 12px; border: 2px solid rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.08); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: space-between;">
+                        <div id="confirm-bid-lost" data-action="confirm-bid-lost" class="bid-result-option-card" onclick="app.confirmBidLost()" style="padding: 16px; border-radius: 12px; border: 2px solid rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.08); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: space-between;">
                             <div>
                                 <div style="display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; color: #ef4444;">
                                     <span>✕ 실패</span>
