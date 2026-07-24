@@ -478,8 +478,8 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.title { font-size: 20px; margin: 0 0 4px; }
-.sub { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
+.title { font-size: 22px; margin: 0 0 4px; }
+.sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
 
 .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
 .kpi {
@@ -487,8 +487,8 @@ onMounted(async () => {
   padding: 14px 16px;
 }
 .kpi-value { font-size: 26px; font-weight: 700; line-height: 1.2; }
-.kpi-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
-.kpi-break { font-size: 11px; color: var(--text); margin-top: 3px; opacity: 0.85; }
+.kpi-label { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.kpi-break { font-size: 12px; color: var(--text); margin-top: 3px; opacity: 0.85; }
 .kpi-green .kpi-value { color: var(--green); }
 .kpi-red .kpi-value { color: var(--red); }
 .kpi-yellow .kpi-value { color: var(--yellow); }
@@ -498,7 +498,7 @@ onMounted(async () => {
 .signal-off {
   padding: 10px 14px; margin-bottom: 16px; border-radius: 8px;
   background: var(--panel); border: 1px dashed var(--border);
-  color: var(--muted); font-size: 12px;
+  color: var(--muted); font-size: 13px;
 }
 
 .charts { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; margin-bottom: 16px; }
@@ -511,15 +511,15 @@ onMounted(async () => {
 }
 .mini-item:hover { background: var(--panel-2); }
 .mini-item + .mini-item { border-top: 1px solid var(--border); }
-.mini-title { font-size: 12.5px; font-weight: 600; line-height: 1.35; }
-.mini-meta { font-size: 11px; color: var(--muted); }
+.mini-title { font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+.mini-meta { font-size: 12px; color: var(--muted); }
 .due-badge {
   align-self: flex-start; padding: 1px 7px; border-radius: 999px;
-  font-size: 10px; font-weight: 700;
+  font-size: 11px; font-weight: 700;
 }
 .due-today { background: color-mix(in srgb, var(--yellow) 20%, transparent); color: var(--yellow); }
 .due-over { background: color-mix(in srgb, var(--red) 18%, transparent); color: var(--red); }
-.score { align-self: flex-start; padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; }
+.score { align-self: flex-start; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; }
 .score-ok { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); }
 .score-warn { background: color-mix(in srgb, var(--yellow) 20%, transparent); color: var(--yellow); }
 .score-danger { background: color-mix(in srgb, var(--red) 18%, transparent); color: var(--red); }
@@ -527,26 +527,26 @@ onMounted(async () => {
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
   padding: 16px; margin-bottom: 12px;
 }
-.card-title { font-size: 14px; margin: 0 0 14px; }
-.card-sub { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 6px; }
-.card-empty { font-size: 13px; color: var(--muted); }
+.card-title { font-size: 15px; margin: 0 0 14px; }
+.card-sub { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+.card-empty { font-size: 14px; color: var(--muted); }
 
 .bars { display: flex; flex-direction: column; gap: 10px; }
 .bar-row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .bar-row:hover .bar-name { color: var(--text); }
 .bar-name {
-  width: 180px; flex-shrink: 0; font-size: 12px; color: var(--muted);
+  width: 180px; flex-shrink: 0; font-size: 13px; color: var(--muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .bar-track { flex: 1; height: 8px; border-radius: 999px; background: var(--panel-2); overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 999px; background: var(--accent); }
-.bar-num { width: 40px; text-align: right; font-size: 12px; color: var(--muted); }
+.bar-num { width: 40px; text-align: right; font-size: 13px; color: var(--muted); }
 
 .donut-wrap { display: flex; align-items: center; gap: 20px; }
 .donut { width: 150px; height: 150px; flex-shrink: 0; }
-.donut-total { fill: var(--text); font-size: 20px; font-weight: 700; }
-.donut-caption { fill: var(--muted); font-size: 9px; }
-.legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+.donut-total { fill: var(--text); font-size: 22px; font-weight: 700; }
+.donut-caption { fill: var(--muted); font-size: 10px; }
+.legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
 .legend-num { color: var(--muted); }
 
@@ -558,22 +558,22 @@ onMounted(async () => {
 .today-item:last-child { border-bottom: 0; }
 .today-item:hover { background: var(--panel-2); }
 .kind {
-  flex-shrink: 0; font-size: 10px; font-weight: 600;
+  flex-shrink: 0; font-size: 11px; font-weight: 600;
   padding: 1px 7px; border-radius: 999px;
 }
 .kind-DELAY { color: var(--red); background: rgba(239, 68, 68, 0.12); }
 .kind-DUE_TODAY { color: var(--yellow); background: rgba(251, 191, 36, 0.12); }
 .kind-HIGH_PRIORITY { color: var(--accent); background: rgba(139, 92, 246, 0.12); }
-.today-title { font-size: 13px; font-weight: 600; }
-.today-meta { font-size: 11px; color: var(--muted); }
+.today-title { font-size: 14px; font-weight: 600; }
+.today-meta { font-size: 12px; color: var(--muted); }
 .auto-badge {
-  font-size: 10px; font-weight: 600; color: var(--accent);
+  font-size: 11px; font-weight: 600; color: var(--accent);
   border: 1px solid var(--accent); border-radius: 999px; padding: 0 6px; margin-left: 4px;
 }
 
-.grid { border-collapse: collapse; width: 100%; font-size: 13px; }
+.grid { border-collapse: collapse; width: 100%; font-size: 14px; }
 .grid th, .grid td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
-.grid th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.grid th { color: var(--muted); font-weight: 600; font-size: 13px; }
 .grid tbody tr:last-child td { border-bottom: 0; }
 .grid .num { text-align: right; white-space: nowrap; }
 .row { cursor: pointer; }
@@ -582,7 +582,7 @@ onMounted(async () => {
 .delta-bad { color: var(--red); font-weight: 600; }
 .delta-good { color: var(--green); font-weight: 600; }
 .tag {
-  font-size: 10px; color: var(--muted);
+  font-size: 11px; color: var(--muted);
   border: 1px solid var(--border); border-radius: 999px; padding: 0 6px;
 }
 

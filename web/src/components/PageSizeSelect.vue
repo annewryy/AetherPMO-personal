@@ -21,10 +21,10 @@ function onChange(e: Event) {
 
 <style scoped>
 .page-size { display: inline-flex; align-items: center; gap: 6px; }
-.pslabel { font-size: 12px; color: var(--muted); }
+.pslabel { font-size: 13px; color: var(--muted); }
 .psselect {
   background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 6px 10px; outline: none; cursor: pointer;
+  color: var(--text); font-size: 14px; padding: 6px 10px; outline: none; cursor: pointer;
 }
 .psselect:focus { border-color: var(--accent); }
 </style>

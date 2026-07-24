@@ -9,6 +9,7 @@ import ActionItemsView from './views/ActionItemsView.vue';
 import OfficialDocsView from './views/OfficialDocsView.vue';
 import MeetingMinutesView from './views/MeetingMinutesView.vue';
 import ResourceManagementView from './views/ResourceManagementView.vue';
+import ProjectMemberManagementView from './views/ProjectMemberManagementView.vue';
 import BidNoticeSearchView from './views/BidNoticeSearchView.vue';
 import BidNoticeDetailView from './views/BidNoticeDetailView.vue';
 import ItemDetailView from './views/ItemDetailView.vue';
@@ -42,6 +43,8 @@ export const router = createRouter({
     { path: '/official-docs', name: 'official-docs', component: OfficialDocsView },
     { path: '/meeting-minutes', name: 'meeting-minutes', component: MeetingMinutesView },
     { path: '/persons', name: 'persons', component: ResourceManagementView },
+    // 0028 §C — 참여인력 관리(전사 프로젝트-인력 매핑)
+    { path: '/project-members', name: 'project-members', component: ProjectMemberManagementView },
     { path: '/bid-notices', name: 'bid-notices', component: BidNoticeSearchView },
     // 0017 §A: 공고 상세 전체 페이지(리스트 행 클릭 → 라우트 이동, 드로어 폐기).
     { path: '/bid-notices/:bidNtceNo', name: 'bid-notice-detail', component: BidNoticeDetailView, props: true },

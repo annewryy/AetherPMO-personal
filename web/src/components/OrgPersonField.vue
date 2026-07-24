@@ -54,12 +54,12 @@ function onPick(p: OrgPick) {
 /* .input 스타일은 각 폼에서 전역 정의된 것을 따르되, 없으면 최소 스타일 보강 */
 .opf-in {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 8px 10px; outline: none; width: 100%; box-sizing: border-box;
+  color: var(--text); font-size: 14px; padding: 8px 10px; outline: none; width: 100%; box-sizing: border-box;
 }
 .opf-in:focus { border-color: var(--accent); }
 .opf-btn {
   flex-shrink: 0; border: 1px solid var(--accent); background: transparent; color: var(--accent);
-  font-size: 12.5px; font-weight: 600; padding: 8px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+  font-size: 13.5px; font-weight: 600; padding: 8px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap;
 }
 .opf-btn:hover:not(:disabled) { background: rgba(99, 102, 241, 0.12); }
 .opf-btn:disabled { opacity: 0.5; cursor: default; }

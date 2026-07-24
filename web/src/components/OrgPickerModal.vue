@@ -292,17 +292,17 @@ function extSub(e: OrgExternalMember): string {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 18px; border-bottom: 1px solid var(--border);
 }
-.title { font-size: 15px; margin: 0; }
-.x { border: 0; background: transparent; color: var(--muted); font-size: 15px; cursor: pointer; padding: 4px; }
+.title { font-size: 16px; margin: 0; }
+.x { border: 0; background: transparent; color: var(--muted); font-size: 16px; cursor: pointer; padding: 4px; }
 .x:hover { color: var(--text); }
 .search { padding: 12px 16px 8px; }
 .input {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 8px 10px; outline: none; width: 100%; box-sizing: border-box;
+  color: var(--text); font-size: 14px; padding: 8px 10px; outline: none; width: 100%; box-sizing: border-box;
 }
 .input:focus { border-color: var(--accent); }
 .body { overflow-y: auto; padding: 0 8px 12px; }
-.notice { padding: 14px 12px; font-size: 13px; color: var(--muted); }
+.notice { padding: 14px 12px; font-size: 14px; color: var(--muted); }
 .notice.err { color: var(--red); }
 .list { list-style: none; margin: 0; padding: 0; }
 .item {
@@ -312,17 +312,17 @@ function extSub(e: OrgExternalMember): string {
 .item:hover { background: var(--panel-2, var(--bg)); }
 .item.muted { color: var(--muted); cursor: default; }
 .item.muted:hover { background: transparent; }
-.caret { width: 14px; text-align: center; font-size: 10px; color: var(--muted); flex-shrink: 0; }
+.caret { width: 14px; text-align: center; font-size: 11px; color: var(--muted); flex-shrink: 0; }
 .caret-sp { width: 14px; flex-shrink: 0; }
 .dot { width: 7px; height: 7px; border-radius: 999px; flex-shrink: 0; margin: 0 3px; }
 .dot.int { background: var(--blue, var(--accent)); }
 .dot.ext { background: var(--yellow, #f59e0b); }
-.nm { font-size: 13px; color: var(--text); }
+.nm { font-size: 14px; color: var(--text); }
 .nm.group { font-weight: 700; }
 .leaf .nm { font-weight: 500; }
-.sub { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tag {
-  margin-left: auto; font-size: 10px; font-weight: 600; color: var(--muted);
+  margin-left: auto; font-size: 11px; font-weight: 600; color: var(--muted);
   border: 1px solid var(--border); border-radius: 999px; padding: 0 7px;
 }
 </style>

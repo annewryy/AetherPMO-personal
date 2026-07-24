@@ -154,21 +154,21 @@ watch(() => props.projectId, load, { immediate: true });
 
 <style scoped>
 .tab-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.gate-hint { font-size: 12px; color: var(--muted); }
-.card-empty { font-size: 13px; color: var(--muted); padding: 8px 0; }
+.gate-hint { font-size: 13px; color: var(--muted); }
+.card-empty { font-size: 14px; color: var(--muted); padding: 8px 0; }
 
 .list-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
-.count { font-size: 13px; color: var(--muted); }
+.count { font-size: 14px; color: var(--muted); }
 .count strong { color: var(--text); }
 
-.grid { border-collapse: collapse; width: 100%; font-size: 13px; }
+.grid { border-collapse: collapse; width: 100%; font-size: 14px; }
 .grid th, .grid td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
-.grid th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.grid th { color: var(--muted); font-weight: 600; font-size: 13px; }
 .grid .no { width: 48px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .name { font-weight: 600; }
 .muted { color: var(--muted); }
 .pm-tag {
-  font-size: 10px; font-weight: 700; color: var(--accent);
+  font-size: 11px; font-weight: 700; color: var(--accent);
   border: 1px solid var(--accent); border-radius: 999px; padding: 0 7px;
 }
 
@@ -177,15 +177,15 @@ watch(() => props.projectId, load, { immediate: true });
 .ops { white-space: nowrap; }
 .op-btn {
   border: 1px solid var(--border); background: var(--panel-2, var(--panel)); color: var(--text);
-  font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 7px; cursor: pointer; margin-right: 4px;
+  font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 7px; cursor: pointer; margin-right: 4px;
 }
 .op-btn:hover:not(:disabled) { border-color: var(--accent); }
 .op-btn:disabled { opacity: 0.5; cursor: default; }
 .op-btn.danger { color: var(--red); }
 .op-btn.danger:hover:not(:disabled) { border-color: var(--red); }
-.confirm-txt { font-size: 12px; color: var(--red); font-weight: 600; margin-right: 6px; }
+.confirm-txt { font-size: 13px; color: var(--red); font-weight: 600; margin-right: 6px; }
 .op-error {
-  color: var(--red); font-size: 12.5px; margin-bottom: 10px;
+  color: var(--red); font-size: 13.5px; margin-bottom: 10px;
   border: 1px solid var(--red); border-radius: 8px; padding: 8px 10px; background: rgba(239, 68, 68, 0.08);
 }
 </style>

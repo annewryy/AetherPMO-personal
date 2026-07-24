@@ -96,21 +96,21 @@ function onToggle(e: Event) {
 .tnode { list-style: none; margin: 0; padding: 0; }
 .row {
   display: flex; align-items: center; gap: 7px;
-  padding: 4px 6px; border-radius: 6px; cursor: pointer; font-size: 12px;
+  padding: 4px 6px; border-radius: 6px; cursor: pointer; font-size: 13px;
 }
 .row:hover { background: var(--panel-2); }
 .row.focused { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
 .cb { flex-shrink: 0; cursor: pointer; margin: 0; }
 .type {
-  font-size: 10px; color: var(--muted); border: 1px solid var(--border);
+  font-size: 11px; color: var(--muted); border: 1px solid var(--border);
   border-radius: 4px; padding: 0 5px; flex-shrink: 0;
 }
 .row.PHASE .type { color: var(--accent); border-color: var(--accent); }
-.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--muted); }
+.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); }
 .name { color: var(--text); }
 .row.PHASE .name { font-weight: 600; }
 .opt {
-  font-size: 10px; color: var(--muted); background: var(--panel-2);
+  font-size: 11px; color: var(--muted); background: var(--panel-2);
   border-radius: 999px; padding: 0 6px;
 }
 .children { margin: 0; padding: 0; }

@@ -131,7 +131,7 @@ defineExpose({ reset });
 .ta-wrap { position: relative; }
 .input {
   background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 7px 10px; outline: none;
+  color: var(--text); font-size: 14px; padding: 7px 10px; outline: none;
   font-family: inherit; resize: vertical; width: 100%; box-sizing: border-box;
 }
 .input:focus { border-color: var(--accent); }
@@ -143,11 +143,11 @@ defineExpose({ reset });
 }
 .mention-item {
   display: flex; align-items: center; gap: 8px; padding: 6px 8px;
-  border-radius: 6px; cursor: pointer; font-size: 13px;
+  border-radius: 6px; cursor: pointer; font-size: 14px;
 }
 .mention-item:hover, .mention-item.on { background: var(--accent); color: #fff; }
 .mm-name { font-weight: 600; }
-.mm-role { font-size: 11px; color: var(--muted); }
+.mm-role { font-size: 12px; color: var(--muted); }
 .mention-item.on .mm-role, .mention-item:hover .mm-role { color: rgba(255, 255, 255, 0.8); }
 .row { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
 </style>

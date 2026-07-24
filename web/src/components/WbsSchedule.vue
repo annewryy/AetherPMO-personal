@@ -318,7 +318,7 @@ function rateText(v: number | null): string {
 </template>
 
 <style scoped>
-.wbs { font-size: 13px; }
+.wbs { font-size: 14px; }
 
 /* 그리드 컬럼: 표 6열 + 간트 1열(가변). CSS 변수로 head/body 공유. */
 .wbs-head, .wbs-row {
@@ -336,7 +336,7 @@ function rateText(v: number | null): string {
 .wbs-head {
   border-bottom: 2px solid var(--border);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   padding-bottom: 6px;
 }
@@ -346,13 +346,13 @@ function rateText(v: number | null): string {
 /* 날짜 축 */
 .col-gantt { position: relative; }
 .axis { position: relative; height: 24px; }
-.axis-none { color: var(--muted); font-weight: 400; font-size: 12px; line-height: 24px; }
+.axis-none { color: var(--muted); font-weight: 400; font-size: 13px; line-height: 24px; }
 .tick { position: absolute; top: 0; transform: translateX(-50%); text-align: center; }
 .tick-line { display: block; width: 1px; height: 6px; margin: 0 auto; background: var(--border); }
-.tick-label { display: block; font-size: 10px; color: var(--muted); white-space: nowrap; }
+.tick-label { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; }
 .today-head {
   position: absolute; top: 2px; transform: translateX(-50%);
-  font-size: 10px; font-weight: 700; color: var(--red); white-space: nowrap;
+  font-size: 11px; font-weight: 700; color: var(--red); white-space: nowrap;
 }
 
 /* 바디 행 */
@@ -373,7 +373,7 @@ function rateText(v: number | null): string {
 .task-link:hover { text-decoration: underline; }
 .task-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
 .type-tag {
-  flex-shrink: 0; font-size: 10px; font-weight: 600;
+  flex-shrink: 0; font-size: 11px; font-weight: 600;
   padding: 1px 6px; border-radius: 999px; background: var(--panel-2); color: var(--muted);
 }
 .ty-PHASE { color: var(--accent); background: rgba(99, 102, 241, 0.12); }
@@ -381,14 +381,14 @@ function rateText(v: number | null): string {
 .ty-TASK { color: var(--green); background: rgba(52, 211, 153, 0.12); }
 
 .col-assignee { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.col-range { font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; font-size: 12px; }
+.col-range { font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; font-size: 13px; }
 .col-range.late { color: var(--red); font-weight: 600; }
 .strong { font-weight: 700; }
 .muted { color: var(--muted); }
 
 /* 미착수/지연 뱃지(트리 셀) */
 .flag {
-  flex-shrink: 0; font-size: 10px; font-weight: 700;
+  flex-shrink: 0; font-size: 11px; font-weight: 700;
   padding: 1px 6px; border-radius: 999px; white-space: nowrap;
 }
 .flag-late { color: var(--red); background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(239, 68, 68, 0.4); }
@@ -396,7 +396,7 @@ function rateText(v: number | null): string {
 
 /* 상태 pill */
 .status-pill {
-  font-size: 11px; font-weight: 600;
+  font-size: 12px; font-weight: 600;
   padding: 1px 8px; border-radius: 999px; background: var(--panel-2); color: var(--muted);
 }
 .st-IN_PROGRESS { color: var(--blue); background: rgba(59, 130, 246, 0.12); }
@@ -428,13 +428,13 @@ function rateText(v: number | null): string {
   position: absolute; top: -2px; bottom: -2px; width: 2px;
   background: var(--red); opacity: 0.55; z-index: 1; transform: translateX(-1px);
 }
-.no-plan { font-size: 11px; color: var(--muted); line-height: 20px; }
+.no-plan { font-size: 12px; color: var(--muted); line-height: 20px; }
 
 /* 범례 */
 .legend {
   display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
   margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);
-  font-size: 12px; color: var(--muted);
+  font-size: 13px; color: var(--muted);
 }
 .lg { display: inline-flex; align-items: center; gap: 6px; }
 .sw { display: inline-block; width: 22px; height: 12px; border-radius: 3px; }
@@ -443,7 +443,7 @@ function rateText(v: number | null): string {
 .sw-delayed { background: rgba(239, 68, 68, 0.18); border: 1px solid var(--red); }
 .sw-today { width: 3px; background: var(--red); border-radius: 0; }
 
-.card-empty { font-size: 13px; color: var(--muted); padding: 8px 0; }
+.card-empty { font-size: 14px; color: var(--muted); padding: 8px 0; }
 
 @media (max-width: 1100px) {
   .wbs-head, .wbs-row {

@@ -317,10 +317,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
   display: flex; align-items: center; justify-content: space-between;
   padding: 18px 24px; border-bottom: 1px solid var(--border);
 }
-.mtitle { font-size: 17px; margin: 0; }
+.mtitle { font-size: 18px; margin: 0; }
 .x {
   border: 0; background: transparent; color: var(--muted);
-  font-size: 16px; cursor: pointer; line-height: 1; padding: 6px; border-radius: 6px;
+  font-size: 17px; cursor: pointer; line-height: 1; padding: 6px; border-radius: 6px;
 }
 .x:hover:not(:disabled) { background: var(--panel-2); color: var(--text); }
 .x:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -335,9 +335,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
   display: inline-flex; align-items: center; justify-content: center;
   width: 26px; height: 26px; border-radius: 999px; flex-shrink: 0;
   border: 1px solid var(--border); background: var(--panel-2); color: var(--muted);
-  font-size: 12px; font-weight: 700;
+  font-size: 13px; font-weight: 700;
 }
-.step .slabel { font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.step .slabel { font-size: 14px; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .step.on .dot { background: var(--accent); border-color: var(--accent); color: #fff; }
 .step.on .slabel { color: var(--text); }
 .step.done .dot { background: var(--accent); border-color: var(--accent); color: #fff; opacity: 0.75; }
@@ -348,22 +348,22 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
 
 .body { padding: 20px 24px; overflow-y: auto; }
 .pane { display: flex; flex-direction: column; gap: 14px; }
-.lead { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.55; }
+.lead { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.55; }
 
 .form { display: flex; flex-direction: column; gap: 14px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
-.flabel { font-size: 12px; font-weight: 600; color: var(--muted); }
+.flabel { font-size: 13px; font-weight: 600; color: var(--muted); }
 .req { color: var(--accent); }
 .in {
   background: var(--panel-2, var(--panel)); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 9px 12px; outline: none; width: 100%; box-sizing: border-box;
+  color: var(--text); font-size: 14px; padding: 9px 12px; outline: none; width: 100%; box-sizing: border-box;
 }
 .in:focus { border-color: var(--accent); }
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
 
-.hint { margin: 0; font-size: 12px; color: var(--muted); opacity: 0.85; }
-.tl-state { font-size: 13px; color: var(--muted); margin: 4px 0; }
+.hint { margin: 0; font-size: 13px; color: var(--muted); opacity: 0.85; }
+.tl-state { font-size: 14px; color: var(--muted); margin: 4px 0; }
 .tl-state.err { color: var(--danger, #c0392b); }
 .tl-state .detail { opacity: 0.75; }
 
@@ -373,12 +373,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
   border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); padding: 16px 18px;
 }
 .summary .wide { grid-column: 1 / -1; }
-.summary dt { color: var(--muted); font-size: 11px; margin-bottom: 3px; }
-.summary dd { margin: 0; font-size: 14px; color: var(--text); }
+.summary dt { color: var(--muted); font-size: 12px; margin-bottom: 3px; }
+.summary dd { margin: 0; font-size: 15px; color: var(--text); }
 
 .notice {
   padding: 12px 14px; border-radius: 8px;
-  background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 13px;
+  background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 14px;
 }
 .notice.err { border-color: var(--danger, #c0392b); color: var(--danger, #c0392b); }
 .notice .detail { opacity: 0.75; }
@@ -390,7 +390,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
 .spacer { flex: 1; }
 .btn {
   border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
-  font-size: 13px; font-weight: 600; padding: 9px 18px; border-radius: 8px; cursor: pointer;
+  font-size: 14px; font-weight: 600; padding: 9px 18px; border-radius: 8px; cursor: pointer;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }

@@ -116,18 +116,18 @@ const fmtDate = (v: string | null) => (v ? String(v).split('T')[0] : '—');
 </template>
 
 <style scoped>
-.title { font-size: 20px; margin: 0 0 4px; }
-.sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+.title { font-size: 22px; margin: 0 0 4px; }
+.sub { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
 .notice {
   padding: 16px; border-radius: 8px;
-  background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 13px;
+  background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 14px;
 }
 .list-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
-.count { font-size: 13px; color: var(--muted); }
+.count { font-size: 14px; color: var(--muted); }
 .count strong { color: var(--text); }
-.grid { border-collapse: collapse; width: 100%; font-size: 13px; }
+.grid { border-collapse: collapse; width: 100%; font-size: 14px; }
 .grid th, .grid td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
-.grid th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.grid th { color: var(--muted); font-weight: 600; font-size: 13px; }
 .grid .no { width: 48px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .row { cursor: pointer; }
 .row:hover { background: var(--panel); }
@@ -135,15 +135,15 @@ const fmtDate = (v: string | null) => (v ? String(v).split('T')[0] : '—');
 .name { font-weight: 600; }
 .cell-actions { display: flex; gap: 6px; }
 .auto-badge {
-  font-size: 10px; font-weight: 600; color: var(--accent);
+  font-size: 11px; font-weight: 600; color: var(--accent);
   border: 1px solid var(--accent); border-radius: 999px; padding: 0 6px; margin-left: 6px;
 }
 .dcode {
-  font-family: ui-monospace, monospace; font-size: 11px; font-weight: 400;
+  font-family: ui-monospace, monospace; font-size: 12px; font-weight: 400;
   color: var(--muted); margin-right: 6px;
 }
 .rel-link {
-  font-size: 11px; font-weight: 400; color: var(--blue); margin-left: 8px;
+  font-size: 12px; font-weight: 400; color: var(--blue); margin-left: 8px;
   border: 1px solid var(--border); border-radius: 999px; padding: 0 7px;
   text-decoration: none;
 }

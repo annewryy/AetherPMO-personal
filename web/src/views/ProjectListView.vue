@@ -359,32 +359,32 @@ onMounted(() => { void load(); });
 </template>
 
 <style scoped>
-.title { font-size: 20px; margin: 0 0 4px; }
-.sub { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
+.title { font-size: 22px; margin: 0 0 4px; }
+.sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
 .created-banner {
   padding: 12px 16px; border-radius: 8px; margin: 0 0 16px;
-  background: var(--panel); border: 1px solid var(--accent); color: var(--text); font-size: 13px;
+  background: var(--panel); border: 1px solid var(--accent); color: var(--text); font-size: 14px;
 }
 
 .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
 .tab {
   border: 0; background: transparent; color: var(--muted);
-  font-size: 13px; padding: 5px 14px; border-radius: 6px; cursor: pointer;
+  font-size: 14px; padding: 5px 14px; border-radius: 6px; cursor: pointer;
 }
 .tab:hover { color: var(--text); }
 .tab.on { background: var(--accent); color: #fff; }
 
 .select {
   background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 7px 12px; outline: none; cursor: pointer;
+  color: var(--text); font-size: 14px; padding: 7px 12px; outline: none; cursor: pointer;
 }
 .select:focus { border-color: var(--accent); }
 
 .view-toggle { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
 .vbtn {
   border: 0; background: transparent; color: var(--muted);
-  font-size: 13px; padding: 5px 14px; border-radius: 6px; cursor: pointer;
+  font-size: 14px; padding: 5px 14px; border-radius: 6px; cursor: pointer;
 }
 .vbtn:hover { color: var(--text); }
 .vbtn.on { background: var(--accent); color: #fff; }
@@ -392,22 +392,22 @@ onMounted(() => { void load(); });
 .search {
   margin-left: auto;
   background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 7px 12px; min-width: 220px; outline: none;
+  color: var(--text); font-size: 14px; padding: 7px 12px; min-width: 220px; outline: none;
 }
 .search:focus { border-color: var(--accent); }
 
 .notice {
   padding: 16px; border-radius: 8px;
-  background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 13px;
+  background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 14px;
 }
 .notice .detail { opacity: 0.7; }
 
 .list-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 12px; }
-.count { font-size: 13px; color: var(--muted); }
+.count { font-size: 14px; color: var(--muted); }
 .count strong { color: var(--text); }
-.grid { border-collapse: collapse; width: 100%; font-size: 13px; }
+.grid { border-collapse: collapse; width: 100%; font-size: 14px; }
 .grid th, .grid td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
-.grid th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.grid th { color: var(--muted); font-weight: 600; font-size: 13px; }
 .grid .no { width: 48px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .col-progress { width: 140px; }
 .row { cursor: pointer; }
@@ -419,7 +419,7 @@ onMounted(() => { void load(); });
 /* 배지 */
 .badge {
   display: inline-block; padding: 2px 8px; border-radius: 999px;
-  font-size: 11px; font-weight: 600; white-space: nowrap;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
 }
 .badge.bid { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .badge.status { background: var(--panel-2); color: var(--text); }
@@ -430,7 +430,7 @@ onMounted(() => { void load(); });
 .badge.dday-none { background: var(--panel-2); color: var(--muted); }
 .dept-tag {
   display: inline-block; margin-right: 6px; padding: 2px 8px; border-radius: 4px;
-  background: var(--panel-2); color: var(--muted); font-size: 11px; font-family: inherit;
+  background: var(--panel-2); color: var(--muted); font-size: 12px; font-family: inherit;
 }
 
 /* 카드형 */
@@ -443,16 +443,16 @@ onMounted(() => { void load(); });
 .card:hover { border-color: var(--accent); }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .head-badges { display: flex; gap: 6px; }
-.card-code { color: var(--muted); font-family: ui-monospace, monospace; font-size: 12px; }
-.card-name { font-weight: 600; font-size: 14px; line-height: 1.35; }
+.card-code { color: var(--muted); font-family: ui-monospace, monospace; font-size: 13px; }
+.card-name { font-weight: 600; font-size: 15px; line-height: 1.35; }
 .card-desc {
-  font-size: 12px; color: var(--muted); line-height: 1.4;
+  font-size: 13px; color: var(--muted); line-height: 1.4;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.card-meta { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text); }
+.card-meta { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text); }
 .meta-item { color: var(--text); }
 .meta-k { color: var(--muted); margin-right: 6px; }
 .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.card-status { font-size: 12px; color: var(--muted); white-space: nowrap; }
-.card-src { font-size: 11px; color: var(--muted); border-top: 1px dashed var(--border); padding-top: 8px; }
+.card-status { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.card-src { font-size: 12px; color: var(--muted); border-top: 1px dashed var(--border); padding-top: 8px; }
 </style>

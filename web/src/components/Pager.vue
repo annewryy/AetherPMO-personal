@@ -31,6 +31,6 @@ function go(p: number) {
 
 <style scoped>
 .pager { display: flex; align-items: center; gap: 12px; justify-content: center; margin-top: 16px; }
-.page-info { font-size: 13px; color: var(--muted); }
+.page-info { font-size: 14px; color: var(--muted); }
 .page-total { opacity: 0.75; margin-left: 4px; }
 </style>

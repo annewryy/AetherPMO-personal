@@ -22,7 +22,7 @@ defineProps<{
 <style scoped>
 .notice {
   padding: 16px; border-radius: 8px;
-  background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 13px;
+  background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 14px;
 }
 .notice .detail { opacity: 0.7; }
 </style>

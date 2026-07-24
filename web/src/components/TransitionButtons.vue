@@ -112,7 +112,7 @@ async function submit(comment: string) {
 
 <style scoped>
 .tb { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.gate, .dim { font-size: 11px; color: var(--muted); }
-.err { font-size: 11px; color: var(--red); }
+.gate, .dim { font-size: 12px; color: var(--muted); }
+.err { font-size: 12px; color: var(--red); }
 .is-req { border-color: var(--yellow); }
 </style>

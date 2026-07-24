@@ -130,7 +130,7 @@ function toggle() {
 .bell-wrap { position: relative; }
 .bell {
   position: relative; border: 1px solid var(--border); background: var(--panel-2);
-  border-radius: 8px; padding: 5px 9px; cursor: pointer; font-size: 15px; line-height: 1;
+  border-radius: 8px; padding: 5px 9px; cursor: pointer; font-size: 16px; line-height: 1;
 }
 .bell:hover { border-color: var(--accent); }
 .bell.disabled { opacity: 0.5; cursor: not-allowed; }
@@ -138,7 +138,7 @@ function toggle() {
   position: absolute; top: -6px; right: -6px;
   min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   background: var(--red); color: #fff; border-radius: 999px;
-  font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+  font-size: 11px; font-weight: 700; line-height: 16px; text-align: center;
 }
 .dropdown {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 80;
@@ -150,25 +150,25 @@ function toggle() {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 14px; border-bottom: 1px solid var(--border);
 }
-.dd-title { font-size: 13px; font-weight: 600; }
+.dd-title { font-size: 14px; font-weight: 600; }
 .dd-all {
   border: 0; background: transparent; color: var(--accent);
-  font-size: 12px; cursor: pointer; font-family: inherit;
+  font-size: 13px; cursor: pointer; font-family: inherit;
 }
 .dd-all:hover { text-decoration: underline; }
-.dd-err { padding: 14px; font-size: 12px; color: var(--red); }
-.dd-empty { padding: 18px 14px; font-size: 12px; color: var(--muted); }
+.dd-err { padding: 14px; font-size: 13px; color: var(--red); }
+.dd-empty { padding: 18px 14px; font-size: 13px; color: var(--muted); }
 .dd-list { list-style: none; margin: 0; padding: 0; }
 .dd-item { padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
 .dd-item:last-child { border-bottom: 0; }
 .dd-item:hover { background: var(--panel-2); }
 .dd-item.unread { background: rgba(139, 92, 246, 0.07); }
 .dd-item-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
-.dd-actor { font-size: 12px; font-weight: 600; }
+.dd-actor { font-size: 13px; font-weight: 600; }
 .dd-type {
-  font-size: 10px; font-weight: 600; color: var(--accent);
+  font-size: 11px; font-weight: 600; color: var(--accent);
   border: 1px solid var(--accent); border-radius: 999px; padding: 0 6px;
 }
-.dd-time { margin-left: auto; font-size: 11px; color: var(--muted); }
-.dd-preview { margin: 0; font-size: 12px; color: var(--muted); word-break: break-word; }
+.dd-time { margin-left: auto; font-size: 12px; color: var(--muted); }
+.dd-preview { margin: 0; font-size: 13px; color: var(--muted); word-break: break-word; }
 </style>

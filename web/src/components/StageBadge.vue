@@ -20,7 +20,7 @@ const label = computed(() => LABELS[props.stage] ?? props.stage);
   display: inline-block;
   padding: 2px 10px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   background: var(--panel-2);
   color: var(--muted);

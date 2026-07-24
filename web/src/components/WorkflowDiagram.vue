@@ -227,26 +227,26 @@ const initialIndex = computed(() => {
 <style scoped>
 .diagram { display: flex; flex-direction: column; gap: 10px; }
 .wf-head { display: flex; align-items: center; gap: 8px; }
-.wf-name { font-size: 13px; font-weight: 600; }
+.wf-name { font-size: 14px; font-weight: 600; }
 .wf-default {
-  font-size: 10px; color: var(--muted);
+  font-size: 11px; color: var(--muted);
   border: 1px solid var(--border); border-radius: 999px; padding: 0 7px;
 }
-.empty { font-size: 12px; color: var(--muted); }
+.empty { font-size: 13px; color: var(--muted); }
 
 /* 가로 스크롤 금지: 폭 100%(viewBox 비율 스케일), 원본 크기 이상 확대는 안 함 */
 .svg { display: block; width: 100%; height: auto; margin: 0 auto; }
 .edge { stroke: #9ca3af; stroke-width: 1.5; }
 .edge-branch { stroke: var(--accent); }
 .edge-back { stroke: var(--red); }
-.edge-label { font-size: 10px; fill: var(--muted); }
-.node-label { font-size: 11px; font-weight: 600; }
+.edge-label { font-size: 11px; fill: var(--muted); }
+.node-label { font-size: 12px; font-weight: 600; }
 
-.trans-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+.trans-table { border-collapse: collapse; width: 100%; font-size: 13px; }
 .trans-table th, .trans-table td {
   text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border);
 }
-.trans-table th { color: var(--muted); font-weight: 600; font-size: 11px; }
+.trans-table th { color: var(--muted); font-weight: 600; font-size: 12px; }
 .trans-table tbody tr:last-child td { border-bottom: 0; }
 .arrow-cell { color: var(--muted); }
 .cond { color: var(--text); }

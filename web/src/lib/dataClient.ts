@@ -21,7 +21,7 @@ import type {
   CommentEntityType, EntityComment, CommentCreateInput,
   AvailableTransition, TransitionEntity, ProjectProgress, ProjectWbs,
   IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput,
-  ProjectMemberRef, ProjectMemberDetail, ProjectMemberInput, AppNotification,
+  ProjectMemberRef, ProjectMemberDetail, ProjectMemberInput, ProjectMemberAssignment, AppNotification,
   Person, PersonProjectHistory, PersonFilters, InsourcingTransition, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput,
   BidAgency, BidNoticeFilters, BidNoticeResult, BidNoticeDetail,
 } from '../types';
@@ -476,6 +476,11 @@ export const dataClient = {
     // 참여인력 삭제(DELETE) — 행 제거(가용성 CASCADE). person 마스터는 보존.
     remove(projectId: number, memberId: number): Promise<void> {
       return apiSend<void>('DELETE', `/api/projects/${projectId}/members/${memberId}`);
+    },
+    // 0028 — 참여인력 관리(전사): 프로젝트⨝매핑 전체 목록(비활성 포함).
+    async listAll(): Promise<ProjectMemberAssignment[]> {
+      if (!apiBase()) return [];
+      return apiGet<ProjectMemberAssignment[]>('/api/project-members');
     },
   },
 

@@ -82,8 +82,8 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.module-title { font-size: 16px; margin: 0 0 4px; }
-.sub { color: var(--muted); font-size: 12px; margin: 0 0 14px; }
+.module-title { font-size: 17px; margin: 0 0 4px; }
+.sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
 
 .layout { display: flex; gap: 14px; align-items: flex-start; }
 .wf-list { width: 230px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -94,17 +94,17 @@ onMounted(async () => {
 }
 .wf-item:hover { background: var(--panel-2); }
 .wf-item.on { border-color: var(--accent); background: rgba(139, 92, 246, 0.1); }
-.wf-name { font-size: 13px; font-weight: 600; }
+.wf-name { font-size: 14px; font-weight: 600; }
 .default-chip {
-  margin-left: 6px; font-size: 10px; color: var(--muted); font-weight: 400;
+  margin-left: 6px; font-size: 11px; color: var(--muted); font-weight: 400;
   border: 1px solid var(--border); border-radius: 999px; padding: 0 6px;
 }
-.wf-meta { font-size: 11px; color: var(--muted); }
+.wf-meta { font-size: 12px; color: var(--muted); }
 
 .detail {
   flex: 1; min-width: 0;
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px;
 }
-.wf-desc { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
-.usage { font-size: 12px; color: var(--muted); margin: 12px 0 0; }
+.wf-desc { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+.usage { font-size: 13px; color: var(--muted); margin: 12px 0 0; }
 </style>

@@ -74,15 +74,15 @@ async function submit() {
 </template>
 
 <style scoped>
-.label { font-size: 12px; color: var(--muted); }
+.label { font-size: 13px; color: var(--muted); }
 .req { color: var(--red); }
 .input {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 8px 10px; outline: none;
+  color: var(--text); font-size: 14px; padding: 8px 10px; outline: none;
   font-family: inherit; width: 100%;
 }
 .input:focus { border-color: var(--accent); }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .row2 > div { display: flex; flex-direction: column; gap: 4px; }
-.err { color: var(--red); font-size: 12px; }
+.err { color: var(--red); font-size: 13px; }
 </style>

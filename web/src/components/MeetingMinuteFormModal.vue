@@ -78,14 +78,14 @@ async function submit() {
 </template>
 
 <style scoped>
-.label { font-size: 12px; color: var(--muted); }
+.label { font-size: 13px; color: var(--muted); }
 .req { color: var(--red); }
 .hint { color: var(--muted); font-weight: 400; }
 .input {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; padding: 8px 10px; outline: none;
+  color: var(--text); font-size: 14px; padding: 8px 10px; outline: none;
   font-family: inherit; width: 100%; resize: vertical;
 }
 .input:focus { border-color: var(--accent); }
-.err { color: var(--red); font-size: 12px; }
+.err { color: var(--red); font-size: 13px; }
 </style>

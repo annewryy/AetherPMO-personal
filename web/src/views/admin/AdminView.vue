@@ -32,16 +32,16 @@ const MODULES = [
   position: sticky; top: 0; z-index: 10;
   margin: -24px -28px 16px; padding: 8px 28px;
   background: rgba(251, 191, 36, 0.1); border-bottom: 1px solid rgba(251, 191, 36, 0.35);
-  color: var(--yellow); font-size: 12px; font-weight: 600;
+  color: var(--yellow); font-size: 13px; font-weight: 600;
 }
-.title { font-size: 20px; margin: 0 0 16px; }
+.title { font-size: 22px; margin: 0 0 16px; }
 .layout { display: flex; gap: 16px; align-items: flex-start; }
 .submenu {
   width: 150px; flex-shrink: 0;
   display: flex; flex-direction: column; gap: 2px;
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px;
 }
-.item { padding: 8px 10px; border-radius: 6px; font-size: 13px; color: var(--muted); }
+.item { padding: 8px 10px; border-radius: 6px; font-size: 14px; color: var(--muted); }
 .item:hover { color: var(--text); background: var(--panel-2); text-decoration: none; }
 .item.on { color: #fff; background: var(--accent); }
 .module { flex: 1; min-width: 0; }
