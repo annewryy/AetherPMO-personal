@@ -123,7 +123,8 @@ public class ProjectScopeService {
     /** 신규 항목 생성 가드 — 요청 본문의 projectId(없으면 도메인 검증에 위임)로 판정. */
     public void assertItemCreateBody(AuthContext ctx, Map<String, Object> body, String entityPath) {
         if (!scopedWriter(ctx) || body == null) return;
-        Object pid = body.get("projectId");
+        // 생성 API는 camelCase(이슈 등)·snake_case(액션아이템·회의록 등)가 혼재 — 둘 다 수용
+        Object pid = body.get("projectId") != null ? body.get("projectId") : body.get("project_id");
         if (pid == null) return;
         long projectId;
         try {
@@ -131,7 +132,7 @@ public class ProjectScopeService {
         } catch (NumberFormatException e) {
             return;
         }
-        Object an = body.get("assigneeName");
+        Object an = body.get("assigneeName") != null ? body.get("assigneeName") : body.get("assignee_name");
         assertItemCreate(ctx, projectId, entityPath, an == null ? null : String.valueOf(an));
     }
 

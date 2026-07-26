@@ -62,7 +62,7 @@ public class RbacInterceptor implements HandlerInterceptor {
         }
         // 0032 §5① — OPMS 마스터(방법론 카탈로그·산출물 양식) 조회는 SYS/EXEC/PM만.
         //   WORKER/VIEWER·비로그인은 403/401 (사용자 관리 등 /api/admin/users는 위 쓰기 가드 + 아래 조회 가드).
-        if (!write && (path.startsWith("/api/catalog/nodes") || path.startsWith("/api/doc-templates"))) {
+        if (!write && (path.startsWith("/api/catalog/") || path.startsWith("/api/doc-templates"))) {
             if (ctx == null) throw ApiException.unauthorized("로그인이 필요합니다.");
             if ("WORKER".equals(ctx.role()) || "VIEWER".equals(ctx.role())) {
                 throw ApiException.forbidden("방법론·산출물 양식 마스터는 조회 권한이 없습니다.");
