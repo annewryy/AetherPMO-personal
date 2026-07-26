@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.aetherpms.common.CurrentActor;
+import com.aetherpms.auth.AuthContext;
+import com.aetherpms.auth.ProjectScopeService;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -46,25 +48,33 @@ public class ProjectController {
     private final ProjectUpdateService updateService;
     private final ProjectConvertService convertService;
     private final JdbcTemplate jdbc;
+    private final ProjectScopeService scope;
 
     public ProjectController(ProjectRepository projectRepository,
                              ProjectCompanyRepository companyRepository,
                              ProjectCreateService createService,
                              ProjectUpdateService updateService,
                              JdbcTemplate jdbc,
-                             ProjectConvertService convertService) {
+                             ProjectConvertService convertService,
+                             ProjectScopeService scope) {
         this.projectRepository = projectRepository;
         this.companyRepository = companyRepository;
         this.createService = createService;
         this.updateService = updateService;
         this.jdbc = jdbc;
         this.convertService = convertService;
+        this.scope = scope;
     }
 
     // ---- POST /api/projects — 프로젝트 생성 (0017 §B P1) ------------------
     @PostMapping("/api/projects")
     public ResponseEntity<Map<String, Object>> create(
             @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
+        // 0032 §3 — 프로젝트(입찰) 등록: WORKER는 불가(PM은 등록 가능)
+        AuthContext cctx = AuthContext.of(req);
+        if (cctx != null && "WORKER".equals(cctx.role())) {
+            throw com.aetherpms.common.ApiException.forbidden("프로젝트 등록은 PM·관리자만 수행할 수 있습니다.");
+        }
         Map<String, Object> result = createService.create(body, CurrentActor.resolve(req));
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
@@ -74,6 +84,7 @@ public class ProjectController {
     public Map<String, Object> update(
             @PathVariable("id") long id,
             @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
+        scope.assertCanEditProject(AuthContext.of(req), id);  // 0032 §4 — PM=담당 프로젝트만
         return updateService.update(id, body, CurrentActor.resolve(req));
     }
 
@@ -81,6 +92,7 @@ public class ProjectController {
     @PostMapping("/api/projects/{id}/convert-to-execution")
     public Map<String, Object> convertToExecution(@PathVariable("id") long id,
             @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
+        scope.assertCanEditProject(AuthContext.of(req), id);  // 0032 §4 — 전환=프로젝트 수정 권한
         return convertService.convertToExecution(id, body, CurrentActor.resolve(req));
     }
 
@@ -88,7 +100,8 @@ public class ProjectController {
     public List<Map<String, Object>> list(
             @RequestParam(required = false) String location,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String stage) {
+            @RequestParam(required = false) String stage,
+            HttpServletRequest req) {
 
         String loc = location != null ? location.trim() : null;
         boolean hasLocation = loc != null && !loc.isEmpty();
@@ -106,6 +119,12 @@ public class ProjectController {
             projects = projects.stream()
                     .filter(p -> stageFilter.contains(p.getProjectStage()))
                     .toList();
+        }
+        // 0035 — 참여 스코프(PM/WORKER, rbac.enforce 시): 참여인력 등록 프로젝트만
+        AuthContext ctx = AuthContext.of(req);
+        if (scope.isScoped(ctx)) {
+            java.util.Set<Long> mine = scope.memberProjectIds(ctx);
+            projects = projects.stream().filter(p -> mine.contains(p.getProjectId())).toList();
         }
         List<ProjectCompanyEntity> companies = companyRepository.findAllByOrderByProjectCompanyIdAsc();
 

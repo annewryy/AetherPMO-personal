@@ -1,5 +1,7 @@
 package com.aetherpms.task;
 
+import com.aetherpms.auth.ProjectScopeService;
+import com.aetherpms.auth.AuthContext;
 import java.util.Map;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,11 +16,15 @@ import jakarta.servlet.http.HttpServletRequest;
 @RestController
 public class TaskWriteController {
     private final WorkSurfaceService service;
-    public TaskWriteController(WorkSurfaceService service) { this.service = service; }
+    private final ProjectScopeService scope;
+    public TaskWriteController(WorkSurfaceService service, ProjectScopeService scope) {
+        this.service = service; this.scope = scope;
+    }
 
     @PatchMapping("/api/tasks/{id}")
     public Map<String, Object> patchTask(@PathVariable long id,
             @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
+        scope.assertItemWrite(AuthContext.of(req), "tasks", id);  // 0032 §5②
         return service.patch("tasks", id, body, CurrentActor.resolve(req));
     }
 }

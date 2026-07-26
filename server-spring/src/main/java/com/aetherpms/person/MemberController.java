@@ -1,5 +1,7 @@
 package com.aetherpms.person;
 
+import com.aetherpms.auth.ProjectScopeService;
+import com.aetherpms.auth.AuthContext;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
@@ -24,13 +26,17 @@ public class MemberController {
 
     private final MemberService service;
 
-    public MemberController(MemberService service) {
+    private final ProjectScopeService scope;
+
+    public MemberController(MemberService service, ProjectScopeService scope) {
         this.service = service;
+        this.scope = scope;
     }
 
     @PostMapping("/api/projects/{id}/members")
     public ResponseEntity<Map<String, Object>> createMember(@PathVariable("id") long projectId,
             @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
+        scope.assertCanManageMembers(AuthContext.of(req), projectId);  // 0032 §5②
         Map<String, Object> result = service.createMember(projectId, body, CurrentActor.resolve(req));
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
@@ -39,12 +45,14 @@ public class MemberController {
     public Map<String, Object> updateMember(@PathVariable("id") long projectId,
             @PathVariable("memberId") long memberId,
             @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
+        scope.assertCanManageMembers(AuthContext.of(req), projectId);  // 0032 §5②
         return service.updateMember(projectId, memberId, body, CurrentActor.resolve(req));
     }
 
     @DeleteMapping("/api/projects/{id}/members/{memberId}")
     public ResponseEntity<Void> deleteMember(@PathVariable("id") long projectId,
             @PathVariable("memberId") long memberId, HttpServletRequest req) {
+        scope.assertCanManageMembers(AuthContext.of(req), projectId);  // 0032 §5②
         service.deleteMember(projectId, memberId, CurrentActor.resolve(req));
         return ResponseEntity.noContent().build();
     }
