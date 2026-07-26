@@ -145,6 +145,9 @@ public class WbsService {
             String actualEnd = dateStr(r.get("task_actual_end"));
             Map<String, Object> node = baseNode(nodeId, r, actualByNode, today,
                     plannedStart, plannedEnd, actualStart, actualEnd);
+            // 태스크 상세 이동용 실제 pms_task.task_id — nodeId(카탈로그 노드 id)와 다르다.
+            //   전개 매핑이 없으면 null(아직 태스크 미생성) → 프론트는 이동 비활성.
+            node.put("taskId", asLongOrNull(r.get("task_id")));
             node.put("status", str(r.get("task_status")));
             node.put("assigneeId", str(r.get("assignee_id")));
             node.put("assigneeName", str(r.get("assignee_name")));

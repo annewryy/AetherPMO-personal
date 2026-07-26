@@ -44,15 +44,18 @@ public class ProjectCreateService {
     private final ProjectCodeService projectCodeService;
     private final AuditWriter audit;
     private final TailoringExpansionService tailoringExpansion;
+    private final com.aetherpms.person.MemberAutoService memberAuto;
 
     public ProjectCreateService(JdbcTemplate jdbc, ProjectRepository projectRepository,
                                 ProjectCodeService projectCodeService, AuditWriter audit,
-                                TailoringExpansionService tailoringExpansion) {
+                                TailoringExpansionService tailoringExpansion,
+            com.aetherpms.person.MemberAutoService memberAuto) {
         this.jdbc = jdbc;
         this.projectRepository = projectRepository;
         this.projectCodeService = projectCodeService;
         this.audit = audit;
         this.tailoringExpansion = tailoringExpansion;
+        this.memberAuto = memberAuto;
     }
 
     // pms_project CHECK 값들 — 생성 시 기본은 입찰 프리셋, 입력 허용 시 검증용.
@@ -69,6 +72,9 @@ public class ProjectCreateService {
             "announcementNo", "proposalDeadline", "businessType",
             "team", "dept", "location",
             "pmName", "manager", "pmId", "managerId",
+            // 0031: 생성 시 담당조직 지정(유경님 생성 폼 파리티)
+            "salesOwner", "proposalOwner", "proposalPm",
+            "businessManager", "contractOwner", "legalOwner",
             "bidStatus", "status", "stage",
             "plannedStartDate", "startDate", "plannedEndDate", "endDate",
             "remarks", "milestones",
@@ -109,6 +115,12 @@ public class ProjectCreateService {
         putStr(fields, "dept", b.get("dept"));
         putStr(fields, "location", b.get("location"));
         putStr(fields, "pm_name", firstNonNull(b.get("pmName"), b.get("manager")));
+        putStr(fields, "sales_owner", b.get("salesOwner"));
+        putStr(fields, "proposal_owner", b.get("proposalOwner"));
+        putStr(fields, "proposal_pm", b.get("proposalPm"));
+        putStr(fields, "business_manager", b.get("businessManager"));
+        putStr(fields, "contract_owner", b.get("contractOwner"));
+        putStr(fields, "legal_owner", b.get("legalOwner"));
         putStr(fields, "pm_id", firstNonNull(b.get("pmId"), b.get("managerId")));
         putDate(fields, "planned_start_date", firstNonNull(b.get("plannedStartDate"), b.get("startDate")));
         putDate(fields, "planned_end_date", firstNonNull(b.get("plannedEndDate"), b.get("endDate")));
@@ -137,6 +149,16 @@ public class ProjectCreateService {
         // tailoring 없으면 (0,0) — 배치10 프론트 등 기존 호출은 tailoring 없이 기본 생성.
         TailoringExpansionService.ExpansionResult expansion =
                 tailoringExpansion.expand(projectId, b.get("tailoring"));
+
+        // 0031: 생성 시 지정한 책임자(pm_name)·담당조직 → 참여인력 자동 등록(책임자만 PM 플래그)
+        if (created.get("pm_name") != null) {
+            memberAuto.ensureMember(projectId, created.get("pm_name").toString(), true, actor);
+        }
+        for (String ownerCol : List.of("sales_owner", "proposal_owner", "proposal_pm", "business_manager", "contract_owner", "legal_owner")) {
+            if (created.get(ownerCol) != null) {
+                memberAuto.ensureMember(projectId, created.get(ownerCol).toString(), false, actor);
+            }
+        }
 
         String reason = (expansion.createdTasks() + expansion.createdDeliverables()) > 0
                 ? "프로젝트 신규 생성(테일러링 전개)" : "프로젝트 신규 생성";

@@ -9,9 +9,10 @@
 // 목록 행 제목/명 클릭 → 우측 사이드 상세 패널(DetailPanel)로 통일한다(카탈로그 마스터-디테일).
 // 필드 인라인 PATCH·상태 전이·사유 코멘트·코멘트 스레드는 전부 패널 안에서 처리한다.
 // ?panel=<kind>:<id> 딥링크로 알림 클릭 시 특정 대상 패널을 연다(?comment=<id>로 코멘트 강조).
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
+import { setCurrentProjectStage } from '../lib/currentProjectStage';
 import type {
   Project, Issue, ActionItem, Artifact, MeetingMinute, VrbInfo, OfficialDoc, Activity, Task,
   ProjectProgress, ProjectWbs, ProjectMemberDetail,
@@ -27,6 +28,7 @@ import IssueFormModal from '../components/IssueFormModal.vue';
 import ActionItemFormModal from '../components/ActionItemFormModal.vue';
 import MeetingMinuteFormModal from '../components/MeetingMinuteFormModal.vue';
 import WbsSchedule from '../components/WbsSchedule.vue';
+import WbsGantt from '../components/WbsGantt.vue';
 import ProjectFormModal from '../components/ProjectFormModal.vue';
 import ProjectMembers from '../components/ProjectMembers.vue';
 
@@ -46,14 +48,14 @@ type TabKey =
   | 'overview' | 'activity'                                    // 공통
   | 'members'                                                   // 배치21 참여인력(공통)
   | 'tasks' | 'consortium' | 'vrb'                             // BIDDING
-  | 'wbs'                                                       // 배치20 WBS/일정
+  | 'wbs' | 'gantt'                                             // 배치20 WBS/일정 · 0031 간트차트
   | 'artifacts' | 'meeting-minutes' | 'issues' | 'action-items' | 'official-docs'; // EXECUTION
 
 const TAB_LABELS: Record<TabKey, string> = {
   overview: '개요', activity: '활동로그',
   members: '참여인력',
   tasks: '제안 태스크', consortium: '컨소시엄', vrb: 'VRB',
-  wbs: 'WBS/일정',
+  wbs: 'WBS/일정', gantt: '간트차트',
   artifacts: '산출물', 'meeting-minutes': '회의록', issues: '이슈/리스크',
   'action-items': '액션아이템', 'official-docs': '공문',
 };
@@ -64,8 +66,8 @@ const tabs = computed<TabKey[]>(() => {
   // 참여인력: 입찰·실행 공통(유경님 요구 §1).
   const stageTabs: TabKey[] =
     project.value.stage === 'BIDDING'
-      ? ['tasks', 'wbs', 'consortium', 'vrb', 'members']
-      : ['wbs', 'artifacts', 'meeting-minutes', 'issues', 'action-items', 'official-docs', 'members'];
+      ? ['tasks', 'wbs', 'gantt', 'consortium', 'vrb', 'members']
+      : ['wbs', 'gantt', 'artifacts', 'meeting-minutes', 'issues', 'action-items', 'official-docs', 'members'];
   return ['overview', ...stageTabs, 'activity'];
 });
 
@@ -111,6 +113,7 @@ async function loadTab(key: TabKey) {
       case 'official-docs': officialDocs.value = await dataClient.officialDocs.listByProject(pid); break;
       case 'activity': activities.value = await dataClient.activities.listByProject(pid); break;
       case 'wbs': wbs.value = await dataClient.projects.wbs(pid); break;
+      case 'gantt': if (!wbs.value) wbs.value = await dataClient.projects.wbs(pid); break;
       case 'tasks': {
         [tasks.value, artifacts.value] = await Promise.all([
           dataClient.tasks.listByProject(pid),
@@ -413,6 +416,8 @@ async function loadProject() {
   ownersEditing.value = false; includeExcludedMembers.value = false;
   try {
     project.value = await dataClient.projects.get(projectId.value);
+    // 0031: 사이드바 입찰/수행 메뉴 활성 — 실제 단계 공유
+    setCurrentProjectStage(project.value?.stage ?? null);
     if (project.value?.sourceProjectId != null) {
       sourceProject.value = await dataClient.projects.get(project.value.sourceProjectId);
     }
@@ -426,6 +431,7 @@ async function loadProject() {
 }
 
 watch(projectId, loadProject, { immediate: true });
+onUnmounted(() => setCurrentProjectStage(null));
 watch(activeTab, (t) => loadTab(t));
 watch(() => route.query.panel, applyPanelQuery);
 </script>
@@ -769,6 +775,13 @@ watch(() => route.query.panel, applyPanelQuery);
             WBS/일정은 백엔드(API_BASE) 연결 후 표시됩니다.
           </div>
           <WbsSchedule v-else-if="wbs" :wbs="wbs" />
+          <div v-else class="card-empty">WBS 데이터를 불러올 수 없습니다.</div>
+        </template>
+
+        <!-- 0031: 간트차트 — 계획·실적 이중 바(기존 WBS 탭 유지, 별도 탭) -->
+        <template v-else-if="activeTab === 'gantt'">
+          <div v-if="!apiMode" class="card-empty">간트차트는 백엔드(API_BASE) 연결 후 표시됩니다.</div>
+          <WbsGantt v-else-if="wbs" :wbs="wbs" />
           <div v-else class="card-empty">WBS 데이터를 불러올 수 없습니다.</div>
         </template>
 

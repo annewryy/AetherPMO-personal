@@ -9,14 +9,32 @@ import {
   Layers, Home, FileSignature, PlayCircle, Search, FileCheck, FileSearch,
   AlertTriangle, CheckSquare, Mail, Presentation, Users, UserCog, Settings,
 } from 'lucide-vue-next';
+import { currentProjectStage } from './lib/currentProjectStage';
 import CurrentUserSelector from './components/CurrentUserSelector.vue';
 import NotificationBell from './components/NotificationBell.vue';
+import UserMenu from './components/UserMenu.vue';
+import { isAuthenticated, currentUser } from './lib/auth';
 
 const route = useRoute();
-// 0025: 상세(/projects/:id)는 어느 목록에서 왔는지 알 수 없으므로 수행단계를 기본 활성으로 둔다.
-const isBiddingList = computed(() => route.path === '/projects/bidding');
+
+// 0031 — 상단바 날짜(요구 0004 §3)
+const todayLabel = (() => {
+  const d = new Date();
+  const wd = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
+  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. (${wd})`;
+})();
+
+// 관리자 콘솔은 SYS_ADMIN만 노출(미로그인 dev는 노출 — 점진 적용).
+const showAdmin = computed(() => !isAuthenticated.value || currentUser.value?.role === 'SYS_ADMIN');
+// 0025→0031 수정: 상세(/projects/:id)는 상세 화면이 로드한 프로젝트의 실제 단계
+// (currentProjectStage)로 입찰/수행 메뉴 활성을 결정한다(로딩 중엔 미활성).
+const isDetail = computed(() => /^\/projects\/\d+/.test(route.path));
+const isBiddingList = computed(
+  () => route.path === '/projects/bidding' || (isDetail.value && currentProjectStage.value === 'BIDDING'),
+);
 const isExecList = computed(
-  () => route.path === '/projects/active' || /^\/projects\/\d+/.test(route.path),
+  () => route.path === '/projects/active'
+    || (isDetail.value && currentProjectStage.value != null && currentProjectStage.value !== 'BIDDING'),
 );
 const isBidNotices = computed(() => route.path.startsWith('/bid-notices'));
 </script>
@@ -53,14 +71,18 @@ const isBidNotices = computed(() => route.path.startsWith('/bid-notices'));
         <RouterLink to="/persons" active-class="active" class="sub"><Users :size="15" class="nico" />인력관리</RouterLink>
         <RouterLink to="/project-members" active-class="active" class="sub"><UserCog :size="15" class="nico" />참여인력 관리</RouterLink>
 
-        <div class="group">관리자</div>
-        <RouterLink to="/admin" :class="{ active: route.path.startsWith('/admin') }"><Settings :size="16" class="nico" />관리자 콘솔</RouterLink>
+        <template v-if="showAdmin">
+          <div class="group">관리자</div>
+          <RouterLink to="/admin" :class="{ active: route.path.startsWith('/admin') }"><Settings :size="16" class="nico" />관리자 콘솔</RouterLink>
+        </template>
       </nav>
     </aside>
     <div class="main-col">
       <header class="topbar">
-        <CurrentUserSelector />
+        <span class="today">{{ todayLabel }}</span>
+        <CurrentUserSelector v-if="!isAuthenticated" />
         <NotificationBell />
+        <UserMenu />
       </header>
       <main class="content">
         <RouterView />
@@ -122,5 +144,6 @@ const isBidNotices = computed(() => route.path.startsWith('/bid-notices'));
   display: flex; align-items: center; justify-content: flex-end; gap: 16px;
   padding: 10px 28px; border-bottom: 1px solid var(--border); background: var(--panel);
 }
+.today { font-size: 13px; color: var(--muted); margin-right: auto; }
 .content { flex: 1; min-width: 0; padding: 24px 32px; max-width: 1440px; width: 100%; margin: 0 auto; box-sizing: border-box; }
 </style>

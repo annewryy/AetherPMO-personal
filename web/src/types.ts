@@ -88,6 +88,13 @@ export interface ProjectCreateInput {
   location?: string;
   pmName?: string;
   pmId?: number | null;
+  // 0031 — 생성 시 담당조직 지정(유경님 생성 폼 파리티)
+  salesOwner?: string;
+  proposalOwner?: string;
+  proposalPm?: string;
+  businessManager?: string;
+  contractOwner?: string;
+  legalOwner?: string;
   bidStatus?: string;
   status?: string;
   stage?: ProjectStage;
@@ -270,6 +277,8 @@ export interface Task {
   progress: number;            // progress_rate
   plannedStartDate: string | null;
   plannedEndDate: string | null;
+  actualStartDate: string | null;   // 0031 — 실적 기간(태스크 상세에서 지정)
+  actualEndDate: string | null;
   depth: number;
   sortOrder: number;
   catalogNodeId: number | null;
@@ -613,6 +622,8 @@ export interface WbsDeliverableCounts {
 
 export interface WbsNode {
   nodeId: number;
+  /** TASK만: 실제 pms_task.task_id(상세 이동용). nodeId는 카탈로그 노드 id — 혼용 금지(0031 수정). */
+  taskId?: number | null;
   code: string | null;
   name: string;
   nodeType: WbsNodeType;

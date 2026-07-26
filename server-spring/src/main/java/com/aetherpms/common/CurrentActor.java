@@ -16,6 +16,8 @@ public final class CurrentActor {
             java.util.regex.Pattern.CASE_INSENSITIVE);
 
     public static Actor resolve(HttpServletRequest req) {
+        // 0031 노트: 로그인 세션 사용자를 행위자로 승격하는 것은 감사로그 user_uid 조인 포맷과의
+        //   정합을 확인한 뒤 별도 배치에서 전환한다(0005 §G). 현재는 X-User-Id(dev) 유지.
         String value = req == null ? null : req.getHeader("X-User-Id");
         if (value != null && UUID_RE.matcher(value).matches()) {
             return new Actor(value);
