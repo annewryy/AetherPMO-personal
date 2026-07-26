@@ -3274,6 +3274,7 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s ease;
+    pointer-events: auto;
 }
 .btn-ai-copilot:hover {
     background: linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(139, 92, 246, 0.4));

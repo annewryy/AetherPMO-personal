@@ -3038,7 +3038,9 @@ class AetherPMO {
                 inspectionDate: '2026-12-25',
                 remarks: '나라장터 수주 목표 전략 사업',
                 status: 'Bidding',
-                bidStatus: '제안 준비중',
+                bidStatus: 'proposal_preparing',
+                bidding_status: 'proposal_preparing',
+                is_bidding_project: true,
                 progress: 0,
                 resources: 0
             },
@@ -3056,7 +3058,9 @@ class AetherPMO {
                 inspectionDate: '2026-06-18',
                 remarks: '컨소시엄 구성 완료',
                 status: 'Bidding',
-                bidStatus: '제안 제출',
+                bidStatus: 'proposal_submitted',
+                bidding_status: 'proposal_submitted',
+                is_bidding_project: true,
                 progress: 0,
                 resources: 0
             },
@@ -3075,6 +3079,8 @@ class AetherPMO {
                 remarks: '주사업자 참여',
                 status: 'Bidding',
                 bidStatus: '결과 대기',
+                bidding_status: 'waiting_result',
+                is_bidding_project: true,
                 progress: 0,
                 resources: 0
             },
@@ -6145,6 +6151,7 @@ class AetherPMO {
             }
 
             element.addEventListener('click', () => {
+                this.state.projectDetailSourceView = this.activeProjectStageFilter === 'Bidding' ? 'projects/bidding' : (this.activeProjectStageFilter === 'Active' ? 'projects/active' : 'projects');
                 window.location.hash = `project-detail/${p.id}`;
             });
 
@@ -6348,16 +6355,41 @@ class AetherPMO {
     }
 
     getBiddingProjectsList() {
-        const realProjects = (this.state.projects || []).filter(p => p.status === 'Bidding');
+        const projects = this.state.projects || [];
+        const realProjects = projects.filter(project => {
+            const bStatus = this.normalizeBiddingStatus(project);
+            const lStatus = this.normalizeProjectLifecycleStatus(project);
+            return Boolean(
+                project.is_bidding_project ||
+                project.isBiddingProject ||
+                project.bidding_status ||
+                project.biddingStatus ||
+                project.bid_result ||
+                project.bidResult ||
+                project.convertedToExecutionAt ||
+                bStatus === 'won' ||
+                bStatus === 'lost' ||
+                bStatus === 'closed' ||
+                lStatus === 'BIDDING' ||
+                lStatus === 'BID_FAILED' ||
+                project.status === 'Bid Failed' ||
+                project.status === 'Bidding'
+            );
+        });
+
         if (realProjects.length > 0) {
             return realProjects;
         }
+
+        const proj3Name = '월드컵(난지천)공원 인조잔디축구장 재정비공사 재해예방 기술지도 용역';
+
         return [
             {
-                id: 'demo-bid-1',
-                name: '[국방부] 차세대 융합 정보시스템 통합 구축사업',
-                code: 'BID-2026-001',
-                customer: '국방부 지능정보화정책관',
+                id: projects[2] ? projects[2].id : 'proj-3',
+                projectId: projects[2] ? projects[2].id : 'proj-3',
+                name: proj3Name,
+                code: 'PRJ-2026-003',
+                customer: '서울시 서부공원여가센터',
                 status: 'Bidding',
                 bidStatus: 'drafting',
                 biddingStatusKey: 'drafting',
@@ -6376,14 +6408,15 @@ class AetherPMO {
                     source: 'mock',
                     analyzedAt: null
                 },
-                isDemo: true,
+                isDemoPresentation: true,
                 source: 'demo'
             },
             {
-                id: 'demo-bid-2',
-                name: '[행정안전부] 국가 재난안전 데이터 클라우드 전환 사업',
-                code: 'BID-2026-002',
-                customer: '행정안전부 디지털정부국',
+                id: projects[0] ? projects[0].id : 'proj-1',
+                projectId: projects[0] ? projects[0].id : 'proj-1',
+                name: projects[0] ? projects[0].name : '[국방부] 차세대 융합 정보시스템 통합 구축사업',
+                code: 'PRJ-2026-001',
+                customer: projects[0] ? projects[0].customer : '국방부 지능정보화정책관',
                 status: 'Bidding',
                 bidStatus: 'review',
                 biddingStatusKey: 'review',
@@ -6402,14 +6435,15 @@ class AetherPMO {
                     source: 'mock',
                     analyzedAt: null
                 },
-                isDemo: true,
+                isDemoPresentation: true,
                 source: 'demo'
             },
             {
-                id: 'demo-bid-3',
-                name: '[보건복지부] 스마트 의료 빅데이터 분석 플랫폼 구축',
-                code: 'BID-2026-003',
-                customer: '보건복지부 정보화담당관',
+                id: projects[1] ? projects[1].id : 'proj-2',
+                projectId: projects[1] ? projects[1].id : 'proj-2',
+                name: projects[1] ? projects[1].name : '[행정안전부] 국가 재난안전 데이터 클라우드 전환 사업',
+                code: 'PRJ-2026-002',
+                customer: projects[1] ? projects[1].customer : '행정안전부 디지털정부국',
                 status: 'Bidding',
                 bidStatus: 'submitted',
                 biddingStatusKey: 'submitted',
@@ -6428,14 +6462,15 @@ class AetherPMO {
                     source: 'mock',
                     analyzedAt: null
                 },
-                isDemo: true,
+                isDemoPresentation: true,
                 source: 'demo'
             },
             {
-                id: 'demo-bid-4',
-                name: '[한국전력공사] 지능형 전력망 AI 예측 모니터링 고도화',
-                code: 'BID-2026-004',
-                customer: '한국전력공사 ICT기획처',
+                id: projects[3] ? projects[3].id : 'proj-4',
+                projectId: projects[3] ? projects[3].id : 'proj-4',
+                name: projects[3] ? projects[3].name : '[한국전력공사] 지능형 전력망 AI 예측 모니터링 고도화',
+                code: 'PRJ-2026-004',
+                customer: projects[3] ? projects[3].customer : '한국전력공사 ICT기획처',
                 status: 'Bidding',
                 bidStatus: 'waiting_result',
                 biddingStatusKey: 'waiting_result',
@@ -6454,14 +6489,15 @@ class AetherPMO {
                     source: 'mock',
                     analyzedAt: null
                 },
-                isDemo: true,
+                isDemoPresentation: true,
                 source: 'demo'
             },
             {
-                id: 'demo-bid-5',
-                name: '[국토교통부] 스마트시티 자율주행 도로 관제 플랫폼',
-                code: 'BID-2026-005',
-                customer: '국토교통부 도시경제과',
+                id: projects[4] ? projects[4].id : 'proj-5',
+                projectId: projects[4] ? projects[4].id : 'proj-5',
+                name: projects[4] ? projects[4].name : '[국토교통부] 스마트시티 자율주행 도로 관제 플랫폼',
+                code: 'PRJ-2026-005',
+                customer: projects[4] ? projects[4].customer : '국토교통부 도시경제과',
                 status: 'Bidding',
                 bidStatus: 'won',
                 biddingStatusKey: 'won',
@@ -6480,23 +6516,117 @@ class AetherPMO {
                     source: 'mock',
                     analyzedAt: null
                 },
-                isDemo: true,
+                isDemoPresentation: true,
                 source: 'demo'
             }
         ];
     }
 
-    normalizeBiddingStatus(project) {
-        if (!project) return 'review';
-        const status = project.biddingStatusKey || project.bidStatus || project.status;
-        if (status === '제안 준비중' || status === 'drafting') return 'drafting';
-        if (status === '참여검토' || status === 'review') return 'review';
-        if (status === '가격검토' || status === 'price_review') return 'price_review';
-        if (status === '제안 제출' || status === '제출완료' || status === 'submitted') return 'submitted';
-        if (status === '결과 대기' || status === '결과대기' || status === 'waiting_result') return 'waiting_result';
-        if (status === '수주' || status === '낙찰' || status === 'won') return 'won';
-        if (status === '실패' || status === '종료' || status === 'closed' || status === 'lost') return 'closed';
-        return 'review';
+    normalizeProjectLifecycleStatus(project) {
+        if (!project) return 'UNKNOWN';
+        const value = String(
+            project.status ||
+            project.project_status ||
+            project.lifecycleStatus ||
+            ''
+        ).trim().toLowerCase();
+
+        if (
+            [
+                'bidding',
+                'bid',
+                'bid proposal',
+                'proposal',
+                '입찰',
+                '입찰단계',
+                '입찰제안',
+                '입찰 제안'
+            ].includes(value)
+        ) {
+            return 'BIDDING';
+        }
+
+        if (
+            [
+                'in progress',
+                'in_progress',
+                'performing',
+                'execution',
+                '수행중',
+                '수행'
+            ].includes(value)
+        ) {
+            return 'IN_PROGRESS';
+        }
+
+        return value.toUpperCase();
+    }
+
+    normalizeBiddingStatus(projectOrValue) {
+        if (!projectOrValue) return 'proposal_preparing';
+        const rawValue = typeof projectOrValue === 'object'
+            ? (
+                projectOrValue.bidding_status ??
+                projectOrValue.biddingStatus ??
+                projectOrValue.bid_status ??
+                projectOrValue.proposal_status ??
+                projectOrValue.biddingStatusKey ??
+                projectOrValue.bidStatus ??
+                projectOrValue.bid_result ??
+                projectOrValue.bidResult ??
+                (projectOrValue.status === 'Bid Failed' ? 'lost' : '') ??
+                ''
+            )
+            : projectOrValue;
+
+        const value = String(rawValue || '')
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, '');
+
+        const statusMap = {
+            // 제안 준비중
+            'proposal_preparing': 'proposal_preparing',
+            'preparing': 'proposal_preparing',
+            'drafting': 'proposal_preparing',
+            '작성중': 'proposal_preparing',
+            '제안준비중': 'proposal_preparing',
+            'review': 'proposal_preparing',
+            'considering': 'proposal_preparing',
+            '참여검토': 'proposal_preparing',
+
+            // 제안 제출
+            'proposal_submitted': 'proposal_submitted',
+            'submitted': 'proposal_submitted',
+            '제출완료': 'proposal_submitted',
+            '제안제출': 'proposal_submitted',
+
+            // 결과 대기
+            'waiting_result': 'waiting_result',
+            'waitingresult': 'waiting_result',
+            '결과대기': 'waiting_result',
+
+            // 낙찰
+            'won': 'won',
+            'awarded': 'won',
+            'win': 'won',
+            'successful': 'won',
+            '수주': 'won',
+            '낙찰': 'won',
+
+            // 실패
+            'lost': 'lost',
+            'failed': 'lost',
+            'failure': 'lost',
+            'closed': 'lost',
+            'bidfailed': 'lost',
+            'bid_failed': 'lost',
+            '실패': 'lost',
+            '입찰실패': 'lost',
+            '종료/실패': 'lost'
+        };
+
+        return statusMap[value] || 'proposal_preparing';
     }
 
     getDDayBadge(endDateStr) {
@@ -6518,11 +6648,9 @@ class AetherPMO {
 
     renderBiddingStepper(statusKey) {
         const steps = [
-            { key: 'review', label: '참여검토', percent: 15 },
-            { key: 'drafting', label: '제안서 작성', percent: 40 },
-            { key: 'price_review', label: '가격검토', percent: 65 },
-            { key: 'submitted', label: '제출완료', percent: 85 },
-            { key: 'waiting_result', label: '결과대기', percent: 95 },
+            { key: 'proposal_preparing', label: '제안 준비중', percent: 25 },
+            { key: 'proposal_submitted', label: '제안 제출', percent: 50 },
+            { key: 'waiting_result', label: '결과 대기', percent: 75 },
             { key: 'won', label: '낙찰', percent: 100 }
         ];
         let activeIdx = steps.findIndex(s => s.key === statusKey);
@@ -6558,9 +6686,10 @@ class AetherPMO {
 
         const totalCount = allBiddingProjects.length;
 
+        const activeStatuses = ['proposal_preparing', 'proposal_submitted', 'waiting_result'];
         const inProgressCount = allBiddingProjects.filter(p => {
             const key = this.normalizeBiddingStatus(p);
-            return ['review', 'drafting', 'price_review'].includes(key);
+            return activeStatuses.includes(key);
         }).length;
 
         const today = new Date();
@@ -6578,7 +6707,7 @@ class AetherPMO {
         const thisYear = today.getFullYear();
         const submittedThisMonthCount = allBiddingProjects.filter(p => {
             const key = this.normalizeBiddingStatus(p);
-            if (['submitted', 'waiting_result', 'won'].includes(key)) {
+            if (['proposal_submitted', 'waiting_result', 'won'].includes(key)) {
                 const subDate = p.submittedDate ? new Date(p.submittedDate) : (p.endDate ? new Date(p.endDate) : null);
                 if (subDate && !isNaN(subDate.getTime())) {
                     return subDate.getMonth() === thisMonth && subDate.getFullYear() === thisYear;
@@ -6589,8 +6718,8 @@ class AetherPMO {
         }).length;
 
         const wonCount = allBiddingProjects.filter(p => this.normalizeBiddingStatus(p) === 'won').length;
-        const closedCount = allBiddingProjects.filter(p => this.normalizeBiddingStatus(p) === 'closed').length;
-        const resolvedCount = wonCount + closedCount;
+        const lostCount = allBiddingProjects.filter(p => this.normalizeBiddingStatus(p) === 'lost').length;
+        const resolvedCount = wonCount + lostCount;
         const winRateText = resolvedCount > 0 ? (Math.round((wonCount / resolvedCount) * 100) + '%') : '0%';
 
         const totalValue = allBiddingProjects.reduce((sum, p) => sum + (p.budget || 0), 0);
@@ -6638,6 +6767,419 @@ class AetherPMO {
         `;
     }
 
+    openBiddingProjectDetail(projectId) {
+        const targetId = String(projectId);
+        const project = (this.state.projects || []).find(
+            p => String(p.id || p.project_id) === targetId
+        );
+
+        if (!project) {
+            console.error('[Bidding Project Detail] Project not found:', projectId);
+            if (typeof this.showToast === 'function') {
+                this.showToast('프로젝트 정보를 찾을 수 없습니다.', 'error');
+            }
+            return;
+        }
+
+        console.log('[Bidding Project Detail] Target Project:', project);
+
+        // Track source view for returning
+        this.state.projectDetailSourceView = 'projects/bidding';
+
+        // Set active/current project state
+        this.activeProjectId = project.id || project.project_id;
+        this.state.currentProject = project;
+        this.state.selectedProject = project;
+        this.state.currentProjectId = project.id || project.project_id;
+
+        // Existing project detail routing reuse
+        this.switchView('project-detail', project.id || project.project_id);
+    }
+
+    goBackToProjectList() {
+        console.count('[Project Detail Back Click]');
+        const sourceView = this.state.projectDetailSourceView || (this.activeProjectStageFilter === 'Bidding' ? 'projects/bidding' : (this.activeProjectStageFilter === 'Active' ? 'projects/active' : 'projects'));
+        console.log('[Project Detail Back Source]', {
+            sourceView: sourceView,
+            currentProjectId: this.activeProjectId
+        });
+
+        this.state.currentProject = null;
+        this.state.selectedProject = null;
+
+        if (sourceView === 'projects/bidding' || sourceView === 'bidding-stage' || sourceView === 'bidding') {
+            this.activeProjectStageFilter = 'Bidding';
+            window.location.hash = 'projects/bidding';
+            this.switchView('projects');
+        } else if (sourceView === 'projects/active' || sourceView === 'execution-stage' || sourceView === 'active') {
+            this.activeProjectStageFilter = 'Active';
+            window.location.hash = 'projects/active';
+            this.switchView('projects');
+        } else {
+            const hashTarget = sourceView.startsWith('#') ? sourceView : `#${sourceView}`;
+            window.location.hash = hashTarget;
+            this.switchView(sourceView.replace('#', ''));
+        }
+    }
+
+    openBidResultModal(projectId) {
+        const targetId = String(projectId);
+        const project = (this.state.projects || []).find(
+            p => String(p.id || p.project_id) === targetId
+        );
+
+        if (!project) {
+            if (typeof this.showToast === 'function') {
+                this.showToast('프로젝트 정보를 찾을 수 없습니다.', 'error');
+            }
+            return;
+        }
+
+        this.activeBidResultProjectId = project.id || project.project_id;
+
+        let modal = document.getElementById('bid-result-modal');
+        if (!modal) {
+            this.renderBidResultModalHtml();
+            modal = document.getElementById('bid-result-modal');
+        }
+
+        const nameElem = document.getElementById('bid-result-project-name');
+        if (nameElem) {
+            nameElem.textContent = `‘${project.name}’의 입찰 결과를 선택해 주세요.`;
+        }
+
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.add('active');
+        }
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    closeBidResultModal() {
+        const modal = document.getElementById('bid-result-modal');
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.remove('active');
+        }
+    }
+
+    async updateProject(projectId, updateData) {
+        const targetId = String(projectId);
+        const projects = this.state.projects || [];
+        const index = projects.findIndex(p => String(p.id || p.project_id) === targetId);
+
+        if (index < 0) {
+            console.error('[updateProject] Target project not found:', projectId);
+            return null;
+        }
+
+        const updatedProject = {
+            ...projects[index],
+            ...updateData
+        };
+
+        await this.saveState('project_upsert', updatedProject);
+        return updatedProject;
+    }
+
+    replaceProjectInState(updatedProject) {
+        if (!updatedProject) return;
+        const projectId = String(updatedProject.id || updatedProject.project_id);
+        const projects = this.state.projects || [];
+        const index = projects.findIndex(p => String(p.id || p.project_id) === projectId);
+
+        if (index >= 0) {
+            this.state.projects[index] = {
+                ...this.state.projects[index],
+                ...updatedProject
+            };
+        } else {
+            this.state.projects.push(updatedProject);
+        }
+
+        if (this.state.currentProject && String(this.state.currentProject.id || this.state.currentProject.project_id) === projectId) {
+            this.state.currentProject = {
+                ...this.state.currentProject,
+                ...updatedProject
+            };
+        }
+    }
+
+    setActiveSidebarMenu(route) {
+        document.querySelectorAll('.sidebar-nav .nav-item, .sidebar-nav .submenu-item').forEach(el => {
+            el.classList.remove('active');
+        });
+
+        if (route === 'projects/active') {
+            const activeSubmenu = document.querySelector('.submenu-item[data-subview="active"]');
+            if (activeSubmenu) activeSubmenu.classList.add('active');
+            const projectsNav = document.querySelector('.nav-item[data-view="projects"]');
+            if (projectsNav) projectsNav.classList.add('active');
+        } else if (route === 'projects/bidding') {
+            const biddingSubmenu = document.querySelector('.submenu-item[data-subview="bidding"]');
+            if (biddingSubmenu) biddingSubmenu.classList.add('active');
+            const projectsNav = document.querySelector('.nav-item[data-view="projects"]');
+            if (projectsNav) projectsNav.classList.add('active');
+        }
+    }
+
+    async updateProjectStatus(projectId, nextStatus, extraData = {}) {
+        const targetId = String(projectId);
+        const projects = this.state.projects || [];
+        const index = projects.findIndex(p => String(p.id || p.project_id) === targetId);
+
+        if (index < 0) {
+            console.error('[updateProjectStatus] Target project not found:', projectId);
+            return null;
+        }
+
+        const project = projects[index];
+        const isBidding = Boolean(project.is_bidding_project || project.isBiddingProject || project.status === 'Bidding');
+
+        const updateData = {
+            status: nextStatus,
+            project_status: nextStatus,
+            ...extraData
+        };
+
+        if (isBidding) {
+            updateData.is_bidding_project = true;
+
+            if (nextStatus === 'In Progress') {
+                updateData.bidding_status = extraData.bidding_status || 'won';
+                updateData.biddingStatus = extraData.biddingStatus || 'won';
+                updateData.bidStatus = '수주';
+                updateData.bid_result = extraData.bid_result || 'WON';
+                updateData.bidResult = extraData.bidResult || 'WON';
+                updateData.bid_result_at = extraData.bid_result_at || new Date().toISOString();
+            } else if (nextStatus === 'Bid Failed' || nextStatus === 'Completed' || nextStatus === 'Closed') {
+                updateData.bidding_status = extraData.bidding_status || 'lost';
+                updateData.biddingStatus = extraData.biddingStatus || 'lost';
+                updateData.bidStatus = '실패';
+                updateData.bid_result = extraData.bid_result || 'LOST';
+                updateData.bidResult = extraData.bidResult || 'LOST';
+                updateData.bid_result_at = extraData.bid_result_at || new Date().toISOString();
+            }
+        }
+
+        console.log('[updateProjectStatus Request]', { projectId: targetId, nextStatus, updateData });
+
+        const updatedProject = await this.updateProject(targetId, updateData);
+        this.replaceProjectInState(updatedProject);
+        return updatedProject;
+    }
+
+    async applyBidResult(projectId, { projectStatus, biddingStatus, bidResult }) {
+        try {
+            console.log('[applyBidResult Start]', { projectId, projectStatus, biddingStatus, bidResult });
+
+            const updatedProject = await this.updateProjectStatus(projectId, projectStatus, {
+                bidding_status: biddingStatus,
+                biddingStatus: biddingStatus,
+                bid_result: bidResult,
+                bidResult: bidResult
+            });
+
+            if (!updatedProject) {
+                throw new Error('프로젝트 상태 변경 결과가 없습니다.');
+            }
+
+            console.log('[Bid Result Step 1] DB saved', updatedProject);
+            console.log('[Bid Result Step 2] State replaced');
+
+            this.closeBidResultModal();
+            console.log('[Bid Result Step 3] Modal closed');
+
+            if (bidResult === 'WON') {
+                if (typeof this.showToast === 'function') {
+                    this.showToast('🎉 낙찰 처리되었습니다. 수행단계로 이동합니다.', 'success');
+                }
+                console.log('[Bid Result Step 4] Toast shown');
+                await this.navigateAfterBidWon(updatedProject.id || updatedProject.project_id);
+            } else {
+                if (typeof this.showToast === 'function') {
+                    this.showToast('입찰 실패 처리되었습니다. 종료/실패 탭으로 이동합니다.', 'warning');
+                }
+                console.log('[Bid Result Step 4] Toast shown');
+                await this.navigateAfterBidLost(updatedProject.id || updatedProject.project_id);
+            }
+            console.log('[Bid Result Step 5] Navigation requested');
+
+            return updatedProject;
+        } catch (error) {
+            console.error('[applyBidResult Failed]', error);
+            if (typeof this.showToast === 'function') {
+                this.showToast('입찰 결과 처리 중 오류가 발생했습니다.', 'error');
+            }
+            throw error;
+        }
+    }
+
+    async confirmBidWon(projectId = null) {
+        const targetId = projectId || this.activeBidResultProjectId;
+        if (!targetId) return;
+
+        const project = (this.state.projects || []).find(
+            p => String(p.id || p.project_id) === String(targetId)
+        );
+
+        if (!project) return;
+
+        const confirmed = window.confirm(
+            `[입찰 낙찰 처리]\n\n'${project.name}' 사업을 낙찰(수주 확정) 처리하시겠습니까?\n\n수행단계로 전환되며 수행중인 프로젝트 목록에서 관리할 수 있습니다.`
+        );
+
+        if (!confirmed) return;
+
+        return this.applyBidResult(targetId, {
+            projectStatus: 'In Progress',
+            biddingStatus: 'won',
+            bidResult: 'WON'
+        });
+    }
+
+    async navigateAfterBidWon(projectId) {
+        console.log('[Bid Won Navigate Start]', {
+            projectId,
+            beforeHash: window.location.hash
+        });
+
+        this.activeProjectStageFilter = 'Active';
+        this.state.projectDetailSourceView = 'projects/active';
+        this.state.highlightProjectId = projectId;
+
+        window.location.hash = 'projects/active';
+        await this.switchView('projects');
+        this.renderProjects();
+        this.setActiveSidebarMenu('projects/active');
+
+        console.log('[Bid Won Navigate End]', {
+            afterHash: window.location.hash,
+            activeRoute: 'projects/active'
+        });
+    }
+
+    async confirmBidLost(projectId = null) {
+        const targetId = projectId || this.activeBidResultProjectId;
+        if (!targetId) return;
+
+        const project = (this.state.projects || []).find(
+            p => String(p.id || p.project_id) === String(targetId)
+        );
+
+        if (!project) return;
+
+        const confirmed = window.confirm(
+            `[입찰 실패 처리]\n\n'${project.name}' 사업을 입찰 실패로 처리하시겠습니까?\n\n처리 후 입찰 진행 목록에서는 제외되며, 종료/실패 탭에서 확인할 수 있습니다.`
+        );
+
+        if (!confirmed) return;
+
+        return this.applyBidResult(targetId, {
+            projectStatus: 'Bid Failed',
+            biddingStatus: 'lost',
+            bidResult: 'LOST'
+        });
+    }
+
+    async navigateAfterBidLost(projectId) {
+        console.log('[Bid Lost Navigate Start]', {
+            projectId,
+            beforeHash: window.location.hash
+        });
+
+        this.activeProjectStageFilter = 'Bidding';
+        this.activeBiddingStatusFilter = 'closed';
+        this.state.biddingPipelineTab = 'closed';
+        this.state.projectDetailSourceView = 'projects/bidding';
+        this.state.highlightProjectId = projectId;
+
+        window.location.hash = 'projects/bidding';
+        await this.switchView('projects');
+        this.setBiddingStatusFilter('closed');
+        this.setActiveSidebarMenu('projects/bidding');
+
+        console.log('[Bid Lost Navigate End]', {
+            afterHash: window.location.hash,
+            activeRoute: 'projects/bidding',
+            pipelineTab: 'closed'
+        });
+    }
+
+    async processBidWonResult(projectId) {
+        await this.confirmBidWon(projectId);
+    }
+
+    async processBidLostResult(projectId) {
+        await this.confirmBidLost(projectId);
+    }
+
+    renderBidResultModalHtml() {
+        if (document.getElementById('bid-result-modal')) return;
+
+        const modalDiv = document.createElement('div');
+        modalDiv.id = 'bid-result-modal';
+        modalDiv.className = 'modal';
+        modalDiv.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(4px);';
+        
+        modalDiv.innerHTML = `
+            <div class="modal-content" style="width: 100%; max-width: 480px; border-radius: 16px; padding: 24px; background: var(--bg-card); border: 1px solid var(--bg-card-border); box-shadow: var(--shadow-xl); color: var(--text-main);">
+                <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 16px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(99, 102, 241, 0.15); display: flex; align-items: center; justify-content: center; color: var(--primary);">
+                            <i data-lucide="scale" style="width: 20px; height: 20px;"></i>
+                        </div>
+                        <div>
+                            <h3 style="font-size: 18px; font-weight: 800; margin: 0; color: var(--text-main);">입찰결과 처리</h3>
+                            <span style="font-size: 12px; color: var(--text-muted);">사업의 입찰 결과를 선택해 주세요.</span>
+                        </div>
+                    </div>
+                    <button type="button" class="close-btn" onclick="app.closeBidResultModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px;">
+                        <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                    </button>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <p id="bid-result-project-name" style="font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 16px; padding: 12px 14px; background: rgba(99, 102, 241, 0.08); border-radius: 8px; border: 1px solid rgba(99, 102, 241, 0.2); line-height: 1.4;">
+                        사업명
+                    </p>
+
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <!-- Option 1: Won (🏆 낙찰) -->
+                        <div id="confirm-bid-won" data-action="confirm-bid-won" class="bid-result-option-card" onclick="app.confirmBidWon()" style="padding: 16px; border-radius: 12px; border: 2px solid rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.08); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: space-between;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; color: #10b981;">
+                                    <span>🏆 낙찰</span>
+                                </div>
+                                <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px; margin-bottom: 0;">수행단계로 전환하여 관리합니다.</p>
+                            </div>
+                            <i data-lucide="chevron-right" style="width: 20px; height: 20px; color: #10b981;"></i>
+                        </div>
+
+                        <!-- Option 2: Lost (✕ 실패) -->
+                        <div id="confirm-bid-lost" data-action="confirm-bid-lost" class="bid-result-option-card" onclick="app.confirmBidLost()" style="padding: 16px; border-radius: 12px; border: 2px solid rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.08); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: space-between;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; color: #ef4444;">
+                                    <span>✕ 실패</span>
+                                </div>
+                                <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px; margin-bottom: 0;">입찰 실패 상태로 종료합니다.</p>
+                            </div>
+                            <i data-lucide="chevron-right" style="width: 20px; height: 20px; color: #ef4444;"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--bg-card-border); padding-top: 16px;">
+                    <button type="button" class="btn btn-outline" onclick="app.closeBidResultModal()">취소</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modalDiv);
+    }
+
     renderBiddingSplitPane() {
         const leftGrid = document.getElementById('bidding-projects-list-container');
         if (!leftGrid) return;
@@ -6665,26 +7207,25 @@ class AetherPMO {
                 const dDayObj = this.getDDayBadge(p.endDate);
                 const stepperHtml = this.renderBiddingStepper(statusKey);
 
-                let statusBadgeText = '참여검토';
+                let statusBadgeText = '제안 준비중';
                 let statusBadgeCls = 'bid-status-preparing';
-                if (statusKey === 'drafting') { statusBadgeText = '작성중'; statusBadgeCls = 'bid-status-preparing'; }
-                else if (statusKey === 'price_review') { statusBadgeText = '가격검토'; statusBadgeCls = 'bid-status-preparing'; }
-                else if (statusKey === 'submitted') { statusBadgeText = '제출완료'; statusBadgeCls = 'bid-status-submitted'; }
-                else if (statusKey === 'waiting_result') { statusBadgeText = '결과대기'; statusBadgeCls = 'bid-status-waiting'; }
+                if (statusKey === 'proposal_submitted') { statusBadgeText = '제안 제출'; statusBadgeCls = 'bid-status-submitted'; }
+                else if (statusKey === 'waiting_result') { statusBadgeText = '결과 대기'; statusBadgeCls = 'bid-status-waiting'; }
                 else if (statusKey === 'won') { statusBadgeText = '낙찰'; statusBadgeCls = 'bid-status-success'; }
-                else if (statusKey === 'closed') { statusBadgeText = '종료/실패'; statusBadgeCls = 'bid-status-failed'; }
+                else if (statusKey === 'lost') { statusBadgeText = '실패'; statusBadgeCls = 'bid-status-failed'; }
 
                 const aiInfo = p.aiAnalysis || { winProbability: 80, winGrade: 'HIGH', riskLevel: 'LOW' };
                 const urgentText = p.urgentTask || 'RFP 제안서 기술 파트 2차 검토 및 서류 제출';
                 const pmName = p.pmName || p.pm || '안유경';
                 const teamPlusText = p.teamCount ? ` +${p.teamCount - 1}` : ' +2';
                 const budgetText = p.budget ? (p.budget / 100000000).toFixed(1) + ' 억원' : '예산 미정';
+                const projectId = p.id || p.project_id;
 
                 const card = document.createElement('div');
                 card.className = 'bidding-project-card';
                 card.setAttribute('tabindex', '0');
                 card.setAttribute('role', 'button');
-                card.setAttribute('aria-label', `${p.name} 입찰 상세 정보 보기`);
+                card.setAttribute('aria-label', `${p.name} 프로젝트 상세 보기`);
 
                 card.innerHTML = `
                     <div class="bidding-project-card-header">
@@ -6695,7 +7236,11 @@ class AetherPMO {
                         <span style="font-size:14px; font-weight:800; color:var(--text-main); font-family:monospace;">${budgetText}</span>
                     </div>
 
-                    <h3 class="bidding-project-title" style="margin: 8px 0; font-size:15px; font-weight:700;">${this.escapeHtml(p.name)}</h3>
+                    <h3 class="bidding-project-title" style="margin: 8px 0; font-size:15px; font-weight:700;">
+                        <a href="#" class="project-name-link" onclick="event.preventDefault(); event.stopPropagation(); app.openBiddingProjectDetail('${projectId}')">
+                            ${this.escapeHtml(p.name)}
+                        </a>
+                    </h3>
 
                     <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted); margin-bottom: 8px;">
                         <span>🏛️ ${this.escapeHtml(p.customer || '발주처 미정')}</span>
@@ -6709,10 +7254,15 @@ class AetherPMO {
                             ✨ 수주 가능성 ${aiInfo.winGrade || 'HIGH'} (${aiInfo.winProbability || 82}%) · 위험도 ${aiInfo.riskLevel || 'LOW'}
                             <span style="font-size:9px; color:var(--text-muted); margin-left:4px;">(시연용 분석)</span>
                         </span>
-                        <button type="button" class="btn-ai-copilot" onclick="event.stopPropagation(); app.openAiCopilotMenu('${p.id}', event)">
-                            <i data-lucide="bot" style="width:12px; height:12px;"></i>
-                            <span>🤖 AI Copilot</span>
-                        </button>
+                        <div style="display:flex; gap:6px;">
+                            <button type="button" class="btn btn-xs btn-outline" style="font-size:11px; font-weight:700; height:28px;" onclick="event.stopPropagation(); app.openBiddingDetailModal('${projectId}')">
+                                📋 입찰정보
+                            </button>
+                            <button type="button" class="btn-ai-copilot" onclick="event.stopPropagation(); app.openAiCopilotMenu('${projectId}', event)">
+                                <i data-lucide="bot" style="width:12px; height:12px;"></i>
+                                <span>🤖 AI Copilot</span>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="bidding-card-urgent-task">
@@ -6721,14 +7271,14 @@ class AetherPMO {
                     </div>
                 `;
 
-                card.addEventListener('click', () => {
-                    this.openBiddingDetailModal(p.id);
+                card.addEventListener('click', (e) => {
+                    this.openBiddingProjectDetail(projectId);
                 });
 
                 card.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        this.openBiddingDetailModal(p.id);
+                        this.openBiddingProjectDetail(projectId);
                     }
                 });
 
@@ -6744,8 +7294,11 @@ class AetherPMO {
     }
 
     openBiddingDetailModal(projectId) {
+        console.count('[Bidding Detail Open]');
+        console.log('[Bidding Detail Click]', projectId);
         const allBiddingProjects = this.getBiddingProjectsList();
-        const project = allBiddingProjects.find(p => p.id === projectId) || (this.state.projects || []).find(p => p.id === projectId);
+        const project = allBiddingProjects.find(p => (p.id && p.id === projectId) || (p.project_id && p.project_id === projectId)) || (this.state.projects || []).find(p => (p.id && p.id === projectId) || (p.project_id && p.project_id === projectId));
+        console.log('[Bidding Detail Project]', project);
         if (!project) return;
 
         this.activeBiddingDetailProject = project;
@@ -8758,6 +9311,52 @@ class AetherPMO {
             const riskColor = project.riskLevel === '높음' ? 'var(--danger)' : project.riskLevel === '보통' ? 'var(--warning)' : 'var(--success)';
             const riskGlow = project.riskLevel === '높음' ? 'var(--danger-glow)' : project.riskLevel === '보통' ? 'var(--warning-glow)' : 'var(--success-glow)';
 
+            const lifecycleStatus = this.normalizeProjectLifecycleStatus(project);
+            const canShowConvertButton = (lifecycleStatus === 'BIDDING');
+
+            const biddingStatus = this.normalizeBiddingStatus(project);
+            const isWon = (biddingStatus === 'won');
+
+            const rawRole = this.state?.currentUser?.role;
+            const userRole = String(rawRole || 'SYS_ADMIN').toUpperCase();
+            const allowedRoles = ['SYS_ADMIN', 'EXEC_ADMIN', 'PM', 'ADMIN'];
+            const hasPermission = allowedRoles.includes(userRole);
+
+            const canConvert = canShowConvertButton && isWon && hasPermission;
+
+            console.log('[Execution Convert Button]', {
+                projectId: project?.id || project?.project_id,
+                status: project?.status,
+                lifecycleStatus: lifecycleStatus,
+                biddingStatus: project?.biddingStatus,
+                bidding_status: project?.bidding_status,
+                normalizedBiddingStatus: biddingStatus,
+                role: rawRole,
+                userRole: userRole,
+                hasPermission: hasPermission,
+                canShowConvertButton: canShowConvertButton,
+                canConvert: canConvert
+            });
+
+            const showBidResultButton = (lifecycleStatus === 'BIDDING');
+
+            let convertBtnHtml = '';
+            if (showBidResultButton) {
+                if (!hasPermission) {
+                    convertBtnHtml = `
+                        <button id="btn-bid-result" type="button" class="btn btn-sm btn-outline" style="opacity: 0.5; cursor: not-allowed; display: inline-flex; align-items: center; gap: 4px;" disabled aria-label="입찰결과 처리" title="입찰결과 처리 권한이 없습니다.">
+                            <i data-lucide="scale" style="width:14px; height:14px;"></i> 입찰결과
+                        </button>
+                    `;
+                } else {
+                    convertBtnHtml = `
+                        <button id="btn-bid-result" type="button" class="btn btn-sm btn-info" style="background: linear-gradient(135deg, #0284c7, #2563eb); color: #ffffff; border: none; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" onclick="event.stopPropagation(); app.openBidResultModal('${project.id}')" aria-label="입찰결과 처리" title="낙찰 또는 실패 결과를 처리합니다.">
+                            <i data-lucide="scale" style="width:14px; height:14px;"></i> 입찰결과
+                        </button>
+                    `;
+                }
+            }
+
             detailHeader.innerHTML = `
                 <div class="project-detail-summary-header" style="background:var(--bg-card); border:1px solid var(--bg-card-border); padding:20px; border-radius:12px; margin-bottom: 24px; box-shadow: var(--shadow-sm);">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 20px; flex-wrap:wrap; gap:16px;">
@@ -8772,14 +9371,15 @@ class AetherPMO {
                             <h2 style="font-size:24px; font-weight:800; margin-top:12px; margin-bottom:6px; color:var(--text-main); letter-spacing:-0.5px;">${project.name}</h2>
                             <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">${project.desc || '상세 설명이 등록되지 않은 프로젝트입니다.'}</p>
                         </div>
-                        <div style="display:flex; gap:10px; align-items:center;">
-                            <button class="btn btn-sm btn-outline" onclick="window.location.hash = 'projects'">
+                        <div class="project-header-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; overflow:visible;">
+                            <button id="btn-back-project-list" type="button" class="btn btn-sm btn-outline" onclick="event.stopPropagation(); app.goBackToProjectList()" aria-label="목록으로 복귀" title="목록으로 이동합니다.">
                                 <i data-lucide="arrow-left" style="width:14px; height:14px;"></i> 목록으로
                             </button>
-                            <button class="btn btn-sm btn-primary" onclick="app.openEditProjectModal('${project.id}')">
+                            <button id="btn-edit-project" class="btn btn-sm btn-primary" onclick="app.openEditProjectModal('${project.id}')">
                                 <i data-lucide="edit-3" style="width:14px; height:14px;"></i> 프로젝트 수정
                             </button>
-                            <button class="btn btn-sm btn-danger" onclick="app.deleteProject('${project.id}')">
+                            ${convertBtnHtml}
+                            <button id="btn-delete-project" class="btn btn-sm btn-danger" onclick="app.deleteProject('${project.id}')">
                                 <i data-lucide="trash-2" style="width:14px; height:14px;"></i> 프로젝트 삭제
                             </button>
                         </div>
@@ -9807,8 +10407,8 @@ class AetherPMO {
         document.getElementById('project-risk-level').value = project.riskLevel || '보통';
 
         // Populate bid status fields
-        document.getElementById('project-bid-status').value = project.bidStatus || '제안 준비중';
-        document.getElementById('project-bid-status-group').style.display = (project.status === 'Bidding') ? 'block' : 'none';
+        document.getElementById('project-bid-status').value = this.normalizeBiddingStatus(project);
+        document.getElementById('project-bid-status-group').style.display = (project.status === 'Bidding' || project.is_bidding_project) ? 'block' : 'none';
 
         // Populate bidding fields
         const isBidding = project.status === 'Bidding';
@@ -9982,6 +10582,8 @@ class AetherPMO {
         });
         const finalProgress = totalWeight > 0 ? Math.round(weightedProgress * (100 / totalWeight)) : 0;
 
+        let savedProject = null;
+
         try {
             if (id) {
                 // UPDATE PROCESS
@@ -9994,14 +10596,44 @@ class AetherPMO {
                 const old = this.state.projects[index];
                 const oldManagerId = old.managerId;
 
+                const rawBidStatus = document.getElementById('project-bid-status')?.value || 'proposal_preparing';
+                const normBidStatus = this.normalizeBiddingStatus(rawBidStatus);
+
+                let targetStatus = status;
+                let targetBiddingStatus = normBidStatus;
+                let targetBidResult = old.bid_result || old.bidResult || '';
+
+                if (normBidStatus === 'won' || targetStatus === 'In Progress') {
+                    if (old.is_bidding_project || old.status === 'Bidding') {
+                        targetStatus = 'In Progress';
+                        targetBiddingStatus = 'won';
+                        targetBidResult = 'WON';
+                    }
+                } else if (normBidStatus === 'lost' || targetStatus === 'Bid Failed') {
+                    if (old.is_bidding_project || old.status === 'Bidding') {
+                        targetStatus = 'Bid Failed';
+                        targetBiddingStatus = 'lost';
+                        targetBidResult = 'LOST';
+                    }
+                }
+
                 const updatedProject = { 
                     ...old, 
-                    name, desc, dept, manager, managerId, startDate, endDate, status, bidStatus: status === 'Bidding' ? bidStatus : '',
+                    name, desc, dept, manager, managerId, startDate, endDate,
+                    status: targetStatus,
+                    project_status: targetStatus,
+                    bidding_status: targetBiddingStatus,
+                    biddingStatus: targetBiddingStatus,
+                    bid_result: targetBidResult,
+                    bidResult: targetBidResult,
+                    bidStatus: normBidStatus,
+                    is_bidding_project: Boolean(old.is_bidding_project || old.status === 'Bidding'),
                     progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
                     projectCode, bizType, contractDate, location, relatedBiz, riskLevel, wbs,
                     bidNumber, customerName, projectBudget, businessType,
                     salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner
                 };
+                savedProject = updatedProject;
 
                 // Supabase Sync
                 if (this.useSupabase) {
@@ -10067,6 +10699,7 @@ class AetherPMO {
                         status: '미상신', plannedDate: '', submittedDate: '', approvedDate: '', vrbNumber: '', memo: ''
                     }
                 };
+                savedProject = newProject;
 
                 // PM member registration
                 const newPmMember = {
@@ -10176,7 +10809,45 @@ class AetherPMO {
 
             this.updateProjectsOverdueStatus();
             this.closeProjectModal();
-            this.handleRouting();
+
+            const rawBidStatus = document.getElementById('project-bid-status')?.value || '';
+            const normBidStatus = savedProject ? this.normalizeBiddingStatus(savedProject) : (rawBidStatus ? this.normalizeBiddingStatus(rawBidStatus) : 'proposal_preparing');
+            const isBiddingProject = Boolean(
+                (savedProject && (savedProject.is_bidding_project || savedProject.isBiddingProject || savedProject.status === 'Bidding')) ||
+                status === 'Bidding'
+            );
+
+            if (isBiddingProject && normBidStatus) {
+                const targetTab = normBidStatus;
+                const targetProjectId = id || (savedProject ? savedProject.id : null);
+                console.log('[saveProjectForm Post-Save Bidding Navigation]', {
+                    projectId: targetProjectId,
+                    normBidStatus: targetTab,
+                    status: savedProject ? savedProject.status : status
+                });
+
+                if (targetTab === 'won' || (savedProject && savedProject.status === 'In Progress')) {
+                    this.activeProjectStageFilter = 'Active';
+                    this.state.projectDetailSourceView = 'projects/active';
+                    this.state.highlightProjectId = targetProjectId;
+                    window.location.hash = 'projects/active';
+                    await this.switchView('projects');
+                    this.renderProjects();
+                    this.setActiveSidebarMenu('projects/active');
+                } else {
+                    this.activeProjectStageFilter = 'Bidding';
+                    this.activeBiddingStatusFilter = targetTab;
+                    this.state.biddingPipelineTab = targetTab;
+                    this.state.projectDetailSourceView = 'projects/bidding';
+                    this.state.highlightProjectId = targetProjectId;
+                    window.location.hash = 'projects/bidding';
+                    await this.switchView('projects');
+                    this.setBiddingStatusFilter(targetTab);
+                    this.setActiveSidebarMenu('projects/bidding');
+                }
+            } else {
+                this.handleRouting();
+            }
             
             // Show Success Notification
             this.showToast(id ? '사업 정보가 성공적으로 수정되었습니다.' : '신규 사업이 성공적으로 등록되었습니다.', 'success');
