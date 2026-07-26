@@ -38,8 +38,10 @@ public class AuthService {
                 "SELECT * FROM pms_user WHERE (username = ? OR email = ?) AND is_active = 1",
                 loginId.trim(), loginId.trim());
         Map<String, Object> user = rows.isEmpty() ? null : rows.get(0);
-        // 0034(이원 로그인): 비밀번호 미설정 계정 = 아마란스 연동 대상(연동 준비중) — 안내 구분.
-        if (user != null && (user.get("password") == null || str(user.get("password")).isBlank())) {
+        // 0034(이원 로그인): 비밀번호 미설정/레거시 해시(아마란스 시드 bcrypt 등 PBKDF2 외 형식) 계정
+        //   = 아마란스 연동 대상(연동 준비중) — 안내 구분. 사용 가능 비번은 pbkdf2-sha256$... 형식뿐.
+        if (user != null && (user.get("password") == null || str(user.get("password")).isBlank()
+                || !str(user.get("password")).startsWith("pbkdf2-sha256$"))) {
             throw ApiException.unauthorized(
                 "이 계정은 아마란스 연동 로그인 대상입니다(연동 준비중). "
                 + "비밀번호 로그인이 필요하면 시스템 관리자에게 비밀번호 발급을 요청하세요.");
