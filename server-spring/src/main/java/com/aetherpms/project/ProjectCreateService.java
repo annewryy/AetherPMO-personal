@@ -150,9 +150,14 @@ public class ProjectCreateService {
         TailoringExpansionService.ExpansionResult expansion =
                 tailoringExpansion.expand(projectId, b.get("tailoring"));
 
-        // 0031: 생성 시 지정한 책임자(pm_name) → 참여인력 자동 등록(PM 플래그)
+        // 0031: 생성 시 지정한 책임자(pm_name)·담당조직 → 참여인력 자동 등록(책임자만 PM 플래그)
         if (created.get("pm_name") != null) {
             memberAuto.ensureMember(projectId, created.get("pm_name").toString(), true, actor);
+        }
+        for (String ownerCol : List.of("sales_owner", "proposal_owner", "proposal_pm", "business_manager", "contract_owner", "legal_owner")) {
+            if (created.get(ownerCol) != null) {
+                memberAuto.ensureMember(projectId, created.get(ownerCol).toString(), false, actor);
+            }
         }
 
         String reason = (expansion.createdTasks() + expansion.createdDeliverables()) > 0

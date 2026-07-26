@@ -129,9 +129,14 @@ public class ProjectUpdateService {
         Map<String, Object> after = WriteSupport.updateReturning(
                 jdbc, "pms_project", "project_id", id, fields, false);
 
-        // 0031: 프로젝트 책임자(pm_name) 지정 → 참여인력 자동 등록(PM 플래그)
+        // 0031: 책임자(pm_name)·담당조직 지정 → 참여인력 자동 등록(책임자만 PM 플래그)
         if (fields.containsKey("pm_name") && after.get("pm_name") != null) {
             memberAuto.ensureMember(id, after.get("pm_name").toString(), true, actor);
+        }
+        for (String ownerCol : List.of("sales_owner", "proposal_owner", "proposal_pm", "business_manager", "contract_owner", "legal_owner")) {
+            if (fields.containsKey(ownerCol) && after.get(ownerCol) != null) {
+                memberAuto.ensureMember(id, after.get(ownerCol).toString(), false, actor);
+            }
         }
 
         List<String> cols = new ArrayList<>(fields.keySet());
