@@ -38,6 +38,12 @@ public class AuthService {
                 "SELECT * FROM pms_user WHERE (username = ? OR email = ?) AND is_active = 1",
                 loginId.trim(), loginId.trim());
         Map<String, Object> user = rows.isEmpty() ? null : rows.get(0);
+        // 0034(이원 로그인): 비밀번호 미설정 계정 = 아마란스 연동 대상(연동 준비중) — 안내 구분.
+        if (user != null && (user.get("password") == null || str(user.get("password")).isBlank())) {
+            throw ApiException.unauthorized(
+                "이 계정은 아마란스 연동 로그인 대상입니다(연동 준비중). "
+                + "비밀번호 로그인이 필요하면 시스템 관리자에게 비밀번호 발급을 요청하세요.");
+        }
         if (user == null || !PasswordHasher.verify(password, str(user.get("password")))) {
             throw ApiException.unauthorized("아이디 또는 비밀번호가 올바르지 않습니다.");
         }
@@ -47,6 +53,18 @@ public class AuthService {
         Map<String, Object> out = me(token);
         out.put("token", token);
         return out;
+    }
+
+    /** 0034 — 관리자 비밀번호 발급/재설정(아마란스 연동 불가 자사 직원·외부 인력 PW 경로). */
+    @Transactional
+    public void setPasswordByAdmin(String loginId, String newPassword) {
+        if (loginId == null || loginId.isBlank()) throw ApiException.badRequest("loginId는 필수입니다.");
+        if (newPassword == null || newPassword.length() < 8) {
+            throw ApiException.badRequest("비밀번호는 8자 이상이어야 합니다.");
+        }
+        int n = jdbc.update("UPDATE pms_user SET password = ? WHERE (username = ? OR email = ?) AND is_active = 1",
+                PasswordHasher.hash(newPassword), loginId.trim(), loginId.trim());
+        if (n == 0) throw ApiException.notFound("사용자를 찾을 수 없습니다: " + loginId);
     }
 
     @Transactional
