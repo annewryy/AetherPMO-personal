@@ -613,6 +613,8 @@ export interface WbsDeliverableCounts {
 
 export interface WbsNode {
   nodeId: number;
+  /** TASK만: 실제 pms_task.task_id(상세 이동용). nodeId는 카탈로그 노드 id — 혼용 금지(0031 수정). */
+  taskId?: number | null;
   code: string | null;
   name: string;
   nodeType: WbsNodeType;

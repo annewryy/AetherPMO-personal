@@ -13,11 +13,12 @@ const props = defineProps<{ wbs: import('../types').ProjectWbs }>();
 
 const router = useRouter();
 
-// 배치23 B안: TASK 행 클릭 → 태스크 상세 페이지(/tasks/{nodeId}). nodeId=pms_task.task_id.
-//   여기서 상태·진척 변경 가능. PHASE/ACTIVITY는 상세 대상 아님.
+// 배치23 B안 + 0031 수정: TASK 행 클릭 → 태스크 상세(/tasks/{taskId}).
+//   nodeId는 카탈로그 노드 id라 상세 이동에 쓰면 404 — 실제 pms_task.task_id(taskId)로 이동한다.
+//   taskId가 없으면(전개 매핑 없음) 이동하지 않는다.
 function openTask(node: WbsNode) {
-  if (node.nodeType !== 'TASK') return;
-  router.push(`/tasks/${node.nodeId}`);
+  if (node.nodeType !== 'TASK' || node.taskId == null) return;
+  router.push(`/tasks/${node.taskId}`);
 }
 
 // ---- 트리 평탄화(표·간트 공통 행) ------------------------------------------------
