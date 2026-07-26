@@ -72,6 +72,9 @@ public class ProjectCreateService {
             "announcementNo", "proposalDeadline", "businessType",
             "team", "dept", "location",
             "pmName", "manager", "pmId", "managerId",
+            // 0031: 생성 시 담당조직 지정(유경님 생성 폼 파리티)
+            "salesOwner", "proposalOwner", "proposalPm",
+            "businessManager", "contractOwner", "legalOwner",
             "bidStatus", "status", "stage",
             "plannedStartDate", "startDate", "plannedEndDate", "endDate",
             "remarks", "milestones",
@@ -112,6 +115,12 @@ public class ProjectCreateService {
         putStr(fields, "dept", b.get("dept"));
         putStr(fields, "location", b.get("location"));
         putStr(fields, "pm_name", firstNonNull(b.get("pmName"), b.get("manager")));
+        putStr(fields, "sales_owner", b.get("salesOwner"));
+        putStr(fields, "proposal_owner", b.get("proposalOwner"));
+        putStr(fields, "proposal_pm", b.get("proposalPm"));
+        putStr(fields, "business_manager", b.get("businessManager"));
+        putStr(fields, "contract_owner", b.get("contractOwner"));
+        putStr(fields, "legal_owner", b.get("legalOwner"));
         putStr(fields, "pm_id", firstNonNull(b.get("pmId"), b.get("managerId")));
         putDate(fields, "planned_start_date", firstNonNull(b.get("plannedStartDate"), b.get("startDate")));
         putDate(fields, "planned_end_date", firstNonNull(b.get("plannedEndDate"), b.get("endDate")));

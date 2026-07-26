@@ -88,6 +88,13 @@ export interface ProjectCreateInput {
   location?: string;
   pmName?: string;
   pmId?: number | null;
+  // 0031 — 생성 시 담당조직 지정(유경님 생성 폼 파리티)
+  salesOwner?: string;
+  proposalOwner?: string;
+  proposalPm?: string;
+  businessManager?: string;
+  contractOwner?: string;
+  legalOwner?: string;
   bidStatus?: string;
   status?: string;
   stage?: ProjectStage;

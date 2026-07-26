@@ -55,6 +55,13 @@ const bidStatus = ref(p?.bidStatus && BID_STATUSES.includes(p.bidStatus) ? p.bid
 const plannedStartDate = ref(p?.startDate ? String(p.startDate).split('T')[0] : '');
 const plannedEndDate = ref(p?.endDate ? String(p.endDate).split('T')[0] : '');
 const announcementNo = ref(p?.announcementNo ?? '');
+// 0031 — 담당조직 6종(유경님 생성 폼 파리티). OrgPersonField(직접 입력+조직도 선택).
+const salesOwner = ref(p?.salesOwner ?? '');
+const proposalOwner = ref(p?.proposalOwner ?? '');
+const proposalPm = ref(p?.proposalPm ?? '');
+const businessManager = ref(p?.businessManager ?? '');
+const contractOwner = ref(p?.contractOwner ?? '');
+const legalOwner = ref(p?.legalOwner ?? '');
 const description = ref(p?.desc ?? '');
 const remarks = ref(p?.remarks ?? '');
 
@@ -78,6 +85,12 @@ function buildCreate(): ProjectCreateInput {
   if (s(plannedStartDate.value)) input.plannedStartDate = s(plannedStartDate.value);
   if (s(plannedEndDate.value)) input.plannedEndDate = s(plannedEndDate.value);
   if (s(announcementNo.value)) input.announcementNo = s(announcementNo.value);
+  if (s(salesOwner.value)) input.salesOwner = s(salesOwner.value);
+  if (s(proposalOwner.value)) input.proposalOwner = s(proposalOwner.value);
+  if (s(proposalPm.value)) input.proposalPm = s(proposalPm.value);
+  if (s(businessManager.value)) input.businessManager = s(businessManager.value);
+  if (s(contractOwner.value)) input.contractOwner = s(contractOwner.value);
+  if (s(legalOwner.value)) input.legalOwner = s(legalOwner.value);
   if (s(description.value)) input.description = s(description.value);
   if (s(remarks.value)) input.remarks = s(remarks.value);
   return input;
@@ -106,6 +119,12 @@ function buildPatch(): ProjectUpdateInput {
   if (t(plannedStartDate.value) !== origStart) patch.plannedStartDate = t(plannedStartDate.value);
   if (t(plannedEndDate.value) !== origEnd) patch.plannedEndDate = t(plannedEndDate.value);
   if (t(announcementNo.value) !== (orig.announcementNo ?? '')) patch.announcementNo = t(announcementNo.value);
+  if (t(salesOwner.value) !== (orig.salesOwner ?? '')) patch.salesOwner = t(salesOwner.value);
+  if (t(proposalOwner.value) !== (orig.proposalOwner ?? '')) patch.proposalOwner = t(proposalOwner.value);
+  if (t(proposalPm.value) !== (orig.proposalPm ?? '')) patch.proposalPm = t(proposalPm.value);
+  if (t(businessManager.value) !== (orig.businessManager ?? '')) patch.businessManager = t(businessManager.value);
+  if (t(contractOwner.value) !== (orig.contractOwner ?? '')) patch.contractOwner = t(contractOwner.value);
+  if (t(legalOwner.value) !== (orig.legalOwner ?? '')) patch.legalOwner = t(legalOwner.value);
   if (t(description.value) !== (orig.desc ?? '')) patch.description = t(description.value);
   if (t(remarks.value) !== (orig.remarks ?? '')) patch.remarks = t(remarks.value);
   return patch;
@@ -208,6 +227,39 @@ async function submit() {
       </div>
     </div>
 
+    <!-- 0031 — 담당조직 지정(유경님 생성 폼 파리티) -->
+    <div class="owners-head">담당조직 지정 <span class="owners-sub">(선택 — 상세 개요에서 수정 가능)</span></div>
+    <div class="row2">
+      <div>
+        <label class="label">영업 담당자</label>
+        <OrgPersonField v-model="salesOwner" placeholder="영업 담당자" :disabled="submitting" title="영업 담당자 선택" />
+      </div>
+      <div>
+        <label class="label">제안전략팀 담당자</label>
+        <OrgPersonField v-model="proposalOwner" placeholder="제안전략팀 담당자" :disabled="submitting" title="제안전략팀 담당자 선택" />
+      </div>
+    </div>
+    <div class="row2">
+      <div>
+        <label class="label">제안PM</label>
+        <OrgPersonField v-model="proposalPm" placeholder="제안PM" :disabled="submitting" title="제안PM 선택" />
+      </div>
+      <div>
+        <label class="label">사업관리 담당자</label>
+        <OrgPersonField v-model="businessManager" placeholder="사업관리 담당자" :disabled="submitting" title="사업관리 담당자 선택" />
+      </div>
+    </div>
+    <div class="row2">
+      <div>
+        <label class="label">계약 담당자</label>
+        <OrgPersonField v-model="contractOwner" placeholder="계약 담당자" :disabled="submitting" title="계약 담당자 선택" />
+      </div>
+      <div>
+        <label class="label">법무 담당자</label>
+        <OrgPersonField v-model="legalOwner" placeholder="법무 담당자" :disabled="submitting" title="법무 담당자 선택" />
+      </div>
+    </div>
+
     <label class="label">공고번호</label>
     <input v-model="announcementNo" class="input" type="text" placeholder="나라장터 공고번호 (선택)" :disabled="submitting" />
 
@@ -243,4 +295,6 @@ async function submit() {
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .row2 > div { display: flex; flex-direction: column; gap: 4px; }
 .err { color: var(--red); font-size: 13px; }
+.owners-head { font-size: 13px; font-weight: 700; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.owners-sub { font-weight: 400; color: var(--muted); font-size: 11.5px; }
 </style>

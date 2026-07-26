@@ -45,6 +45,13 @@ const form = reactive({
   announcementNo: props.notice.announcementNo || '',
   proposalDeadline: toDeadline(props.notice.endDate),
   pmName: '',
+  // 0031 — 담당조직 지정(유경님 생성 폼 파리티)
+  salesOwner: '',
+  proposalOwner: '',
+  proposalPm: '',
+  businessManager: '',
+  contractOwner: '',
+  legalOwner: '',
 });
 
 // --- Step 2 카탈로그 선택(테일러링) 상태 (0017 §C) ---
@@ -146,6 +153,12 @@ async function submit() {
     if (form.announcementNo.trim()) input.announcementNo = form.announcementNo.trim();
     if (form.proposalDeadline.trim()) input.proposalDeadline = form.proposalDeadline.trim();
     if (form.pmName.trim()) input.pmName = form.pmName.trim();
+    if (form.salesOwner.trim()) input.salesOwner = form.salesOwner.trim();
+    if (form.proposalOwner.trim()) input.proposalOwner = form.proposalOwner.trim();
+    if (form.proposalPm.trim()) input.proposalPm = form.proposalPm.trim();
+    if (form.businessManager.trim()) input.businessManager = form.businessManager.trim();
+    if (form.contractOwner.trim()) input.contractOwner = form.contractOwner.trim();
+    if (form.legalOwner.trim()) input.legalOwner = form.legalOwner.trim();
 
     // 0017 §C 테일러링: 선택 노드 → 조상 포함(cascade up) tailoring 엔트리(isSelected:true).
     //   선택이 없으면 tailoring 생략 → 백엔드 기본 생성(회귀 없음).
@@ -226,6 +239,22 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
                 <span class="flabel">PM</span>
                 <OrgPersonField v-model="form.pmName" placeholder="PM 이름" :disabled="saving" title="PM 선택" />
               </label>
+            </div>
+            <!-- 0031 — 담당조직 지정(선택, 상세 개요에서 수정 가능) -->
+            <p class="owners-head">담당조직 지정 <span class="owners-sub">(선택)</span></p>
+            <div class="grid2">
+              <label class="field"><span class="flabel">영업 담당자</span>
+                <OrgPersonField v-model="form.salesOwner" placeholder="영업 담당자" :disabled="saving" title="영업 담당자 선택" /></label>
+              <label class="field"><span class="flabel">제안전략팀 담당자</span>
+                <OrgPersonField v-model="form.proposalOwner" placeholder="제안전략팀 담당자" :disabled="saving" title="제안전략팀 담당자 선택" /></label>
+              <label class="field"><span class="flabel">제안PM</span>
+                <OrgPersonField v-model="form.proposalPm" placeholder="제안PM" :disabled="saving" title="제안PM 선택" /></label>
+              <label class="field"><span class="flabel">사업관리 담당자</span>
+                <OrgPersonField v-model="form.businessManager" placeholder="사업관리 담당자" :disabled="saving" title="사업관리 담당자 선택" /></label>
+              <label class="field"><span class="flabel">계약 담당자</span>
+                <OrgPersonField v-model="form.contractOwner" placeholder="계약 담당자" :disabled="saving" title="계약 담당자 선택" /></label>
+              <label class="field"><span class="flabel">법무 담당자</span>
+                <OrgPersonField v-model="form.legalOwner" placeholder="법무 담당자" :disabled="saving" title="법무 담당자 선택" /></label>
             </div>
             <p class="hint">단계·상태(입찰)·발번(-B)은 등록 시 자동으로 지정됩니다.</p>
           </form>
@@ -394,4 +423,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.owners-head { font-size: 13px; font-weight: 700; margin: 12px 0 6px; padding-top: 12px; border-top: 1px solid var(--border); }
+.owners-sub { font-weight: 400; color: var(--muted); font-size: 11.5px; }
 </style>
