@@ -7,6 +7,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
+
 import com.aetherpms.common.Actor;
 import com.aetherpms.common.ApiException;
 import com.aetherpms.common.AuditWriter;
@@ -29,19 +31,31 @@ public class ProjectConvertService {
     private final ProjectUpdateService updateService; // detailShape 재사용 대신 조회용 아님 — 미사용 시 제거
     private final AuditWriter audit;
     private final MemberAutoService memberAuto;
+    private final TailoringExpansionService tailoringExpansion;
 
     public ProjectConvertService(JdbcTemplate jdbc, ProjectCodeService codeService,
                                  ProjectUpdateService updateService, AuditWriter audit,
-                                 MemberAutoService memberAuto) {
+                                 MemberAutoService memberAuto, TailoringExpansionService tailoringExpansion) {
         this.jdbc = jdbc;
         this.codeService = codeService;
         this.updateService = updateService;
         this.audit = audit;
         this.memberAuto = memberAuto;
+        this.tailoringExpansion = tailoringExpansion;
     }
 
+    /** 마법사 오버라이드 화이트리스트(camelCase → 컬럼). 0033 개정: 전환 시 추가 입력. */
+    private static final Map<String, String> OVERRIDE_COLS = Map.ofEntries(
+            Map.entry("name", "project_name"), Map.entry("customerName", "customer_name"),
+            Map.entry("pmName", "pm_name"), Map.entry("dept", "dept"), Map.entry("team", "team"),
+            Map.entry("location", "location"), Map.entry("businessType", "business_type"),
+            Map.entry("description", "description"),
+            Map.entry("contractAmount", "contract_amount"), Map.entry("budget", "budget"),
+            Map.entry("plannedStartDate", "planned_start_date"), Map.entry("plannedEndDate", "planned_end_date"));
+
     @Transactional
-    public Map<String, Object> convertToExecution(long sourceId, Actor actor) {
+    public Map<String, Object> convertToExecution(long sourceId, Map<String, Object> body, Actor actor) {
+        Map<String, Object> b = body == null ? Map.of() : body;
         Map<String, Object> src = jdbc.queryForList(
                 "SELECT * FROM pms_project WHERE project_id = ? FOR UPDATE", sourceId)
                 .stream().findFirst()
@@ -92,17 +106,59 @@ public class ProjectConvertService {
                 SELECT ?, field, contact_type, user_id, name, company, company_id, title, phone, email, note
                   FROM pms_contact_point WHERE project_id = ?""", newId, sourceId);
 
+        // 마법사 추가 입력(오버라이드) 적용 — 넘어온 키만, 빈 문자열은 무시
+        Map<String, Object> overrides = new LinkedHashMap<>();
+        for (Map.Entry<String, String> e : OVERRIDE_COLS.entrySet()) {
+            if (!b.containsKey(e.getKey()) || b.get(e.getKey()) == null) continue;
+            String raw = b.get(e.getKey()).toString().trim();
+            if (raw.isEmpty()) continue;
+            Object val = raw;
+            if (e.getValue().endsWith("_date")) {
+                try {
+                    java.time.LocalDate.parse(raw);
+                } catch (java.time.format.DateTimeParseException ex) {
+                    throw ApiException.badRequest(e.getKey() + "는 yyyy-MM-dd 형식이어야 합니다.");
+                }
+            } else if (e.getValue().equals("contract_amount") || e.getValue().equals("budget")) {
+                try {
+                    val = new java.math.BigDecimal(raw);
+                } catch (NumberFormatException ex) {
+                    throw ApiException.badRequest(e.getKey() + "는 숫자여야 합니다.");
+                }
+            }
+            overrides.put(e.getValue(), val);
+        }
+        if (!overrides.isEmpty()) {
+            StringBuilder set = new StringBuilder();
+            Object[] vals = new Object[overrides.size() + 1];
+            int i = 0;
+            for (Map.Entry<String, Object> e : overrides.entrySet()) {
+                if (i > 0) set.append(", ");
+                set.append(e.getKey()).append(" = ?");
+                vals[i++] = e.getValue();
+            }
+            vals[i] = newId;
+            jdbc.update("UPDATE pms_project SET " + set + " WHERE project_id = ?", vals);
+        }
+
+        // 테일러링 전개(0017 P3a 재사용) — 선택 없으면 (0,0)
+        TailoringExpansionService.ExpansionResult expansion = tailoringExpansion.expand(newId, b.get("tailoring"));
+
         // 입찰 원본: 수주·완료 처리(stage는 BIDDING 유지 — 0001)
         jdbc.update("UPDATE pms_project SET bid_status = '수주', status = '완료' WHERE project_id = ?", sourceId);
 
-        // PM 참여인력 자동 등록(0031 규칙 재사용)
-        if (src.get("pm_name") != null) {
-            memberAuto.ensureMember(newId, src.get("pm_name").toString(), true, actor);
+        // PM 참여인력 자동 등록(0031 규칙 재사용, 오버라이드 우선)
+        Object pmName = overrides.getOrDefault("pm_name", src.get("pm_name"));
+        if (pmName != null) {
+            memberAuto.ensureMember(newId, pmName.toString(), true, actor);
         }
 
+        String expansionNote = (expansion.createdTasks() + expansion.createdDeliverables()) > 0
+                ? " · 테일러링 전개(태스크 " + expansion.createdTasks() + "·산출물 " + expansion.createdDeliverables() + ")"
+                : "";
         audit.write("PROJECT", newId, newId, "INSERT", null, null,
                 Map.of("project_code", execCode, "source_project_id", sourceId),
-                actor, "[전환] 입찰 → 수행 프로젝트 생성 (원본 " + srcCode + ")");
+                actor, "[전환] 입찰 → 수행 프로젝트 생성 (원본 " + srcCode + ")" + expansionNote);
         audit.write("PROJECT", sourceId, sourceId, "UPDATE",
                 List.of("bid_status", "status"),
                 Map.of("bid_status", str(src.get("bid_status")), "status", str(src.get("status"))),

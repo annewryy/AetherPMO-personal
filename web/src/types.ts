@@ -141,6 +141,24 @@ export interface ProjectUpdateInput {
   legalOwner?: string;
 }
 
+// 0033 — 입찰→수행 전환 마법사 입력(POST /api/projects/{id}/convert-to-execution).
+//   전부 선택(미지정 시 입찰 값 복사). tailoring 있으면 수행 프로젝트에 전개.
+export interface ProjectConvertInput {
+  name?: string;
+  customerName?: string;
+  contractAmount?: number;
+  budget?: number;
+  pmName?: string;
+  dept?: string;
+  team?: string;
+  location?: string;
+  businessType?: string;
+  description?: string;
+  plannedStartDate?: string;
+  plannedEndDate?: string;
+  tailoring?: TailoringEntry[];
+}
+
 // 0017 §C 테일러링 엔트리 — 생성 시 함께 보내는 카탈로그 선택 1건.
 //   catalogNodeId: 선택한 카탈로그 노드(PHASE/ACTIVITY/TASK/DELIVERABLE) id.
 //   isSelected: 기본 true(포함). false면 제외 의사(현재 UI는 선택분만 true로 수집).

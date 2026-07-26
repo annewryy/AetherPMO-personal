@@ -79,8 +79,9 @@ public class ProjectController {
 
     // ---- POST /api/projects/{id}/convert-to-execution — 입찰→수행 전환(0033/설계 0001) ----
     @PostMapping("/api/projects/{id}/convert-to-execution")
-    public Map<String, Object> convertToExecution(@PathVariable("id") long id, HttpServletRequest req) {
-        return convertService.convertToExecution(id, CurrentActor.resolve(req));
+    public Map<String, Object> convertToExecution(@PathVariable("id") long id,
+            @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
+        return convertService.convertToExecution(id, body, CurrentActor.resolve(req));
     }
 
     @GetMapping("/api/projects")
