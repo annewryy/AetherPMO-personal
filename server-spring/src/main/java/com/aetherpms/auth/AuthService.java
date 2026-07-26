@@ -90,7 +90,13 @@ public class AuthService {
             jdbc.update("DELETE FROM pms_session WHERE token = ?", token);
             return null;
         }
-        return userShape(r);
+        Map<String, Object> shaped = userShape(r);
+        // 0034 — 아마란스 연동 가능 여부(조직 미러 매칭): 위임 기능(전자결재 등) 게이트 표시용
+        Integer org = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM pms_org_member WHERE mber_id = ?",
+                Integer.class, str(r.get("username")));
+        shaped.put("amaranthLinked", org != null && org > 0);
+        return shaped;
     }
 
     public Map<String, Object> me(String token) {
