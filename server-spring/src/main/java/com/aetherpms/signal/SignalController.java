@@ -21,10 +21,13 @@ public class SignalController {
 
     private final SignalEngine engine;
     private final DashboardWidgetService widgetService;
+    private final com.aetherpms.notification.NotificationService notificationService;
 
-    public SignalController(SignalEngine engine, DashboardWidgetService widgetService) {
+    public SignalController(SignalEngine engine, DashboardWidgetService widgetService,
+            com.aetherpms.notification.NotificationService notificationService) {
         this.engine = engine;
         this.widgetService = widgetService;
+        this.notificationService = notificationService;
     }
 
     @GetMapping("/api/dashboard/signals")
@@ -40,6 +43,9 @@ public class SignalController {
 
     @PostMapping("/api/signals/evaluate")
     public Map<String, Object> evaluate(HttpServletRequest req) {
-        return engine.evaluate(CurrentActor.resolve(req));
+        Map<String, Object> result = new java.util.LinkedHashMap<>(engine.evaluate(CurrentActor.resolve(req)));
+        // 0033 ⑦ — 일 1회 실행에 편승: 마감 임박·경과 알림 + 읽음 90일 보존 정리
+        result.put("notificationSweep", notificationService.dailySweep());
+        return result;
     }
 }

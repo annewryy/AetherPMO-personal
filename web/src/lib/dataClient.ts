@@ -582,6 +582,16 @@ export const dataClient = {
     },
   },
 
+  // 0033 3차 — 개인 알림 설정(유형별 on/off)
+  notificationPrefs: {
+    get(): Promise<{ prefs: Record<string, boolean>; types: string[] }> {
+      return apiGet('/api/me/notification-prefs');
+    },
+    put(prefs: Record<string, boolean>): Promise<{ prefs: Record<string, boolean>; types: string[] }> {
+      return apiSend('PUT', '/api/me/notification-prefs', prefs);
+    },
+  },
+
   // 신호 규칙 (0007 §2·§2.5 — 사용자 등록형 룰 빌더).
   // 첫 실제 쓰기 화면(쓰기 경로 파일럿): 생성/수정/삭제/토글은 백엔드 전용,
   // Supabase 폴백에선 목록 읽기만(화면이 쓰기 컨트롤을 비활성 + 안내).

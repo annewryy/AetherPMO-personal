@@ -7,11 +7,13 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
 import { currentUserId } from '../lib/currentUser';
+import { isAuthenticated } from '../lib/auth';
 import type { AppNotification, CommentEntityType } from '../types';
 
 const router = useRouter();
 const apiMode = computed(() => !!window.API_BASE);
-const enabled = computed(() => apiMode.value && !!currentUserId.value);
+// 0033 — 세션 로그인(아마란스·자체 공통) 또는 레거시 현재 사용자(개방 모드)면 활성
+const enabled = computed(() => apiMode.value && (isAuthenticated.value || !!currentUserId.value));
 
 const items = ref<AppNotification[]>([]);
 const open = ref(false);
@@ -19,6 +21,12 @@ const loadError = ref<string | null>(null);
 
 const unreadCount = computed(() => items.value.filter((n) => !n.isRead).length);
 
+// 0033 — 알림 유형 라벨
+const TYPE_LABEL: Record<string, string> = {
+  MENTION: '멘션', REPLY: '답글', ASSIGNED: '담당 지정', PROJECT_ASSIGNED: '프로젝트 투입',
+  COMMENT_ON_MINE: '내 항목 코멘트', STATUS_CHANGED: '반려', DUE_SOON: '마감 임박',
+  OVERDUE: '기한 경과', RULE_RISK: '자동 리스크',
+};
 // 엔티티 타입 → 상세 패널 kind + 프로젝트 상세 탭
 const KIND: Record<string, { kind: string; tab: string }> = {
   ISSUE: { kind: 'issue', tab: 'issues' },
@@ -46,6 +54,10 @@ async function onClick(n: AppNotification) {
   // 읽음 처리(실패해도 이동은 진행)
   if (!n.isRead) {
     try { await dataClient.notifications.read(n.id); n.isRead = true; } catch { /* 무시 */ }
+  }
+  if (n.entityType === 'PROJECT') {
+    router.push(`/projects/${n.entityId}`);
+    return;
   }
   const map = KIND[n.entityType];
   if (map && n.projectId != null) {
@@ -80,7 +92,7 @@ onMounted(() => {
   timer = window.setInterval(() => { if (enabled.value && !open.value) load(); }, 30000);
 });
 onBeforeUnmount(() => { if (timer) window.clearInterval(timer); });
-watch([currentUserId, apiMode], () => { open.value = false; load(); });
+watch([currentUserId, apiMode, isAuthenticated], () => { open.value = false; load(); });
 
 function toggle() {
   if (!enabled.value) return;
@@ -94,7 +106,7 @@ function toggle() {
     <button
       class="bell" type="button"
       :class="{ disabled: !enabled }"
-      :title="enabled ? '알림' : (apiMode ? '현재 사용자를 선택하세요' : '알림은 백엔드(API_BASE) 연결 후 활성화')"
+      :title="enabled ? '알림' : (apiMode ? '로그인 후 사용할 수 있습니다' : '알림은 백엔드(API_BASE) 연결 후 활성화')"
       @click="toggle"
     >
       🔔
@@ -116,10 +128,10 @@ function toggle() {
         >
           <div class="dd-item-head">
             <span class="dd-actor">{{ n.actorName || '누군가' }}</span>
-            <span class="dd-type">{{ n.type === 'REPLY' ? '답글' : '멘션' }}</span>
+            <span class="dd-type">{{ TYPE_LABEL[n.type] ?? n.type }}</span>
             <span class="dd-time">{{ fmtTime(n.createdAt) }}</span>
           </div>
-          <p class="dd-preview">{{ n.preview || '코멘트에서 회원님을 언급했습니다.' }}</p>
+          <p class="dd-preview">{{ n.preview || '새 알림이 있습니다.' }}</p>
         </li>
       </ul>
     </div>

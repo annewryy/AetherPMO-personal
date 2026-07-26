@@ -23,12 +23,15 @@ import com.aetherpms.common.ApiException;
 @Service
 public class MemberService {
 
+    private com.aetherpms.notification.NotificationService notify;
+
     private final JdbcTemplate jdbc;
     private final PersonSyncService personSync;
 
-    public MemberService(JdbcTemplate jdbc, PersonSyncService personSync) {
+    public MemberService(JdbcTemplate jdbc, PersonSyncService personSync, com.aetherpms.notification.NotificationService notify) {
         this.jdbc = jdbc;
         this.personSync = personSync;
+        this.notify = notify;
     }
 
     private static final List<String> MEMBER_TYPES = List.of("INTERNAL", "EXTERNAL");
@@ -95,6 +98,12 @@ public class MemberService {
         Object[] vals = cols.stream().map(fields::get).toArray();
         jdbc.update("INSERT INTO pms_project_member (" + colList + ") VALUES (" + ph + ")", vals);
         Long memberId = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+        // 0033 ② — 참여인력 등록 알림(수신 person 직접 확정 — 이름 판정 불필요)
+        boolean isPmFlag = Integer.valueOf(1).equals(fields.get("is_project_manager"));
+        String pjName = jdbc.query("SELECT project_name FROM pms_project WHERE project_id = ?",
+                rs -> rs.next() ? rs.getString(1) : null, projectId);
+        notify.notifyPerson(personId, "PROJECT_ASSIGNED", projectId, "PROJECT", projectId, null,
+                "프로젝트 '" + pjName + "'에 " + (isPmFlag ? "PM으로 " : "") + "참여인력으로 등록되었습니다.");
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("memberId", memberId);

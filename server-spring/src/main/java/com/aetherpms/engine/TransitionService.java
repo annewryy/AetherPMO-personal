@@ -23,10 +23,13 @@ import com.aetherpms.engine.ConditionEngine;
 @Service
 public class TransitionService {
 
+    private com.aetherpms.notification.NotificationService notify;
+
     private final JdbcTemplate jdbc;
 
-    public TransitionService(JdbcTemplate jdbc) {
+    public TransitionService(JdbcTemplate jdbc, com.aetherpms.notification.NotificationService notify) {
         this.jdbc = jdbc;
+        this.notify = notify;
     }
 
     private record EntityConfig(String table, String idCol, String entityType) {}
@@ -158,6 +161,17 @@ public class TransitionService {
         }
 
         jdbc.update("UPDATE " + cfg.table() + " SET status = ? WHERE " + cfg.idCol() + " = ?", toStatus, id);
+
+        // 0033 ⑥ — 담당 항목 반려 전이만 알림(v1 — 승인·완료는 소음 방지 차원에서 제외)
+        if ("REJECTED".equalsIgnoreCase(toStatus) || "반려".equals(toStatus)) {
+            String assigneeCol = "DELIVERABLE".equals(cfg.entityType()) ? "author_name" : "assignee_name";
+            Object assignee = ent.get(assigneeCol);
+            Object title = ent.get("DELIVERABLE".equals(cfg.entityType()) ? "deliverable_name" : "task_name");
+            if (assignee != null) {
+                notify.notifyByName(toLong(ent.get("project_id")), assignee.toString(), "STATUS_CHANGED",
+                        cfg.entityType(), id, "반려되었습니다: " + (title == null ? cfg.entityType() : title));
+            }
+        }
 
         jdbc.update(
                 "INSERT INTO pms_audit_log (entity_type, entity_id, project_id, action, changed_fields, "
