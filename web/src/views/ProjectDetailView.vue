@@ -379,6 +379,26 @@ async function onIssueCreated() { showIssueForm.value = false; await reloadIssue
 async function onActionCreated() { showActionForm.value = false; await reloadActions(); }
 async function onMeetingCreated() { showMeetingForm.value = false; await reloadMeetings(); }
 
+// ---- 0033: 입찰 → 수행 전환 ---------------------------------------------------
+const converting = ref(false);
+async function convertToExecution() {
+  if (!project.value) return;
+  const ok = window.confirm(
+    `'${project.value.name}'을(를) 수행 프로젝트로 전환합니다.\n\n` +
+    '· 사업 정보·컨소시엄·연락처를 복사한 새 수행 프로젝트가 생성됩니다\n' +
+    '· 이 입찰 프로젝트는 수주·완료 처리됩니다(기록 유지)\n\n계속할까요?');
+  if (!ok) return;
+  converting.value = true;
+  try {
+    const created = await dataClient.projects.convertToExecution(project.value.id);
+    router.push(`/projects/${created.id}`);
+  } catch (e) {
+    alert(e instanceof Error ? e.message : String(e));
+  } finally {
+    converting.value = false;
+  }
+}
+
 // ---- 프로젝트 수정 모달(배치18) ----------------------------------------------
 const showEditForm = ref(false);
 async function onProjectSaved(updated: Project) {
@@ -458,6 +478,12 @@ watch(() => route.query.panel, applyPanelQuery);
           </p>
         </div>
         <div class="head-actions">
+          <button
+            v-if="project.stage === 'BIDDING'"
+            class="btn btn-primary" :disabled="converting"
+            title="사업 정보·컨소시엄을 복사한 수행 프로젝트를 생성하고, 이 입찰은 수주·완료 처리합니다"
+            @click="convertToExecution"
+          >{{ converting ? '전환 중…' : '수행 전환' }}</button>
           <button class="btn" @click="showEditForm = true">수정</button>
           <RouterLink :to="project.stage === 'BIDDING' ? '/projects/bidding' : '/projects/active'" class="back">← 목록</RouterLink>
         </div>

@@ -44,18 +44,21 @@ public class ProjectController {
     private final ProjectCompanyRepository companyRepository;
     private final ProjectCreateService createService;
     private final ProjectUpdateService updateService;
+    private final ProjectConvertService convertService;
     private final JdbcTemplate jdbc;
 
     public ProjectController(ProjectRepository projectRepository,
                              ProjectCompanyRepository companyRepository,
                              ProjectCreateService createService,
                              ProjectUpdateService updateService,
-                             JdbcTemplate jdbc) {
+                             JdbcTemplate jdbc,
+                             ProjectConvertService convertService) {
         this.projectRepository = projectRepository;
         this.companyRepository = companyRepository;
         this.createService = createService;
         this.updateService = updateService;
         this.jdbc = jdbc;
+        this.convertService = convertService;
     }
 
     // ---- POST /api/projects — 프로젝트 생성 (0017 §B P1) ------------------
@@ -72,6 +75,12 @@ public class ProjectController {
             @PathVariable("id") long id,
             @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
         return updateService.update(id, body, CurrentActor.resolve(req));
+    }
+
+    // ---- POST /api/projects/{id}/convert-to-execution — 입찰→수행 전환(0033/설계 0001) ----
+    @PostMapping("/api/projects/{id}/convert-to-execution")
+    public Map<String, Object> convertToExecution(@PathVariable("id") long id, HttpServletRequest req) {
+        return convertService.convertToExecution(id, CurrentActor.resolve(req));
     }
 
     @GetMapping("/api/projects")

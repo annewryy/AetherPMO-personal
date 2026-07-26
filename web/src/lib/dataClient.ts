@@ -173,6 +173,11 @@ export const dataClient = {
       return apiSend<Project>('POST', '/api/projects', input);
     },
 
+    // 0033 — 입찰→수행 전환(설계 0001 스폰 트랜잭션). 응답 = 새 수행 프로젝트 상세.
+    convertToExecution(id: number): Promise<Project> {
+      return apiSend<Project>('POST', `/api/projects/${id}/convert-to-execution`);
+    },
+
     // 배치19 WBS/일정 트리(날짜축 간트 + 진척 숫자). API_BASE 전용(롤업·기대치는 백엔드).
     //   폴백 모드에선 null → 화면은 "백엔드 연결 후 표시" 안내.
     async wbs(projectId: number): Promise<ProjectWbs | null> {
