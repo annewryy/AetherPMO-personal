@@ -9,6 +9,7 @@ import {
   Layers, Home, FileSignature, PlayCircle, Search, FileCheck, FileSearch,
   AlertTriangle, CheckSquare, Mail, Presentation, Users, UserCog, Settings,
 } from 'lucide-vue-next';
+import { currentProjectStage } from './lib/currentProjectStage';
 import CurrentUserSelector from './components/CurrentUserSelector.vue';
 import NotificationBell from './components/NotificationBell.vue';
 import UserMenu from './components/UserMenu.vue';
@@ -25,10 +26,15 @@ const todayLabel = (() => {
 
 // 관리자 콘솔은 SYS_ADMIN만 노출(미로그인 dev는 노출 — 점진 적용).
 const showAdmin = computed(() => !isAuthenticated.value || currentUser.value?.role === 'SYS_ADMIN');
-// 0025: 상세(/projects/:id)는 어느 목록에서 왔는지 알 수 없으므로 수행단계를 기본 활성으로 둔다.
-const isBiddingList = computed(() => route.path === '/projects/bidding');
+// 0025→0031 수정: 상세(/projects/:id)는 상세 화면이 로드한 프로젝트의 실제 단계
+// (currentProjectStage)로 입찰/수행 메뉴 활성을 결정한다(로딩 중엔 미활성).
+const isDetail = computed(() => /^\/projects\/\d+/.test(route.path));
+const isBiddingList = computed(
+  () => route.path === '/projects/bidding' || (isDetail.value && currentProjectStage.value === 'BIDDING'),
+);
 const isExecList = computed(
-  () => route.path === '/projects/active' || /^\/projects\/\d+/.test(route.path),
+  () => route.path === '/projects/active'
+    || (isDetail.value && currentProjectStage.value != null && currentProjectStage.value !== 'BIDDING'),
 );
 const isBidNotices = computed(() => route.path.startsWith('/bid-notices'));
 </script>

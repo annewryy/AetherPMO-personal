@@ -9,9 +9,10 @@
 // 목록 행 제목/명 클릭 → 우측 사이드 상세 패널(DetailPanel)로 통일한다(카탈로그 마스터-디테일).
 // 필드 인라인 PATCH·상태 전이·사유 코멘트·코멘트 스레드는 전부 패널 안에서 처리한다.
 // ?panel=<kind>:<id> 딥링크로 알림 클릭 시 특정 대상 패널을 연다(?comment=<id>로 코멘트 강조).
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
+import { setCurrentProjectStage } from '../lib/currentProjectStage';
 import type {
   Project, Issue, ActionItem, Artifact, MeetingMinute, VrbInfo, OfficialDoc, Activity, Task,
   ProjectProgress, ProjectWbs, ProjectMemberDetail,
@@ -413,6 +414,8 @@ async function loadProject() {
   ownersEditing.value = false; includeExcludedMembers.value = false;
   try {
     project.value = await dataClient.projects.get(projectId.value);
+    // 0031: 사이드바 입찰/수행 메뉴 활성 — 실제 단계 공유
+    setCurrentProjectStage(project.value?.stage ?? null);
     if (project.value?.sourceProjectId != null) {
       sourceProject.value = await dataClient.projects.get(project.value.sourceProjectId);
     }
@@ -426,6 +429,7 @@ async function loadProject() {
 }
 
 watch(projectId, loadProject, { immediate: true });
+onUnmounted(() => setCurrentProjectStage(null));
 watch(activeTab, (t) => loadTab(t));
 watch(() => route.query.panel, applyPanelQuery);
 </script>
