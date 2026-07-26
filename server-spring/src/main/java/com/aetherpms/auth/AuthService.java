@@ -38,6 +38,14 @@ public class AuthService {
                 "SELECT * FROM pms_user WHERE (username = ? OR email = ?) AND is_active = 1",
                 loginId.trim(), loginId.trim());
         Map<String, Object> user = rows.isEmpty() ? null : rows.get(0);
+        // 0034(이원 로그인): 비밀번호 미설정/레거시 해시(아마란스 시드 bcrypt 등 PBKDF2 외 형식) 계정
+        //   = 아마란스 연동 대상(연동 준비중) — 안내 구분. 사용 가능 비번은 pbkdf2-sha256$... 형식뿐.
+        if (user != null && (user.get("password") == null || str(user.get("password")).isBlank()
+                || !str(user.get("password")).startsWith("pbkdf2-sha256$"))) {
+            throw ApiException.unauthorized(
+                "이 계정은 아마란스 연동 로그인 대상입니다(연동 준비중). "
+                + "비밀번호 로그인이 필요하면 시스템 관리자에게 비밀번호 발급을 요청하세요.");
+        }
         if (user == null || !PasswordHasher.verify(password, str(user.get("password")))) {
             throw ApiException.unauthorized("아이디 또는 비밀번호가 올바르지 않습니다.");
         }
@@ -47,6 +55,18 @@ public class AuthService {
         Map<String, Object> out = me(token);
         out.put("token", token);
         return out;
+    }
+
+    /** 0034 — 관리자 비밀번호 발급/재설정(아마란스 연동 불가 자사 직원·외부 인력 PW 경로). */
+    @Transactional
+    public void setPasswordByAdmin(String loginId, String newPassword) {
+        if (loginId == null || loginId.isBlank()) throw ApiException.badRequest("loginId는 필수입니다.");
+        if (newPassword == null || newPassword.length() < 8) {
+            throw ApiException.badRequest("비밀번호는 8자 이상이어야 합니다.");
+        }
+        int n = jdbc.update("UPDATE pms_user SET password = ? WHERE (username = ? OR email = ?) AND is_active = 1",
+                PasswordHasher.hash(newPassword), loginId.trim(), loginId.trim());
+        if (n == 0) throw ApiException.notFound("사용자를 찾을 수 없습니다: " + loginId);
     }
 
     @Transactional
@@ -70,7 +90,13 @@ public class AuthService {
             jdbc.update("DELETE FROM pms_session WHERE token = ?", token);
             return null;
         }
-        return userShape(r);
+        Map<String, Object> shaped = userShape(r);
+        // 0034 — 아마란스 연동 가능 여부(조직 미러 매칭): 위임 기능(전자결재 등) 게이트 표시용
+        Integer org = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM pms_org_member WHERE mber_id = ?",
+                Integer.class, str(r.get("username")));
+        shaped.put("amaranthLinked", org != null && org > 0);
+        return shaped;
     }
 
     public Map<String, Object> me(String token) {

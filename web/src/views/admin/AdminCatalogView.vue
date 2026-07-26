@@ -29,6 +29,16 @@ const CHILD_TYPE: Record<string, CatalogNodeType> = {
   ROOT: 'PHASE', PHASE: 'ACTIVITY', ACTIVITY: 'TASK', TASK: 'DELIVERABLE',
 };
 
+// 0034 — 트리 헤더 추가 버튼을 컨텍스트형으로: 선택한 상위 항목의 하위 유형을 추가.
+//   미선택(또는 산출물 선택)이면 분류(PHASE) 추가.
+const addParent = computed(() =>
+  mode.value === 'edit' && selectedNode.value && CHILD_TYPE[selectedNode.value.nodeType]
+    ? selectedNode.value : null);
+const addLabel = computed(() =>
+  addParent.value
+    ? `하위 ${TYPE_LABELS[CHILD_TYPE[addParent.value.nodeType]]} 추가 — ${addParent.value.name}`
+    : '분류(PHASE) 추가');
+
 // 평면화(부모 선택 드롭다운·선택 노드 탐색용)
 interface FlatNode { node: CatalogNode; depth: number; }
 const flat = computed<FlatNode[]>(() => {
@@ -145,6 +155,39 @@ function toInput(): CatalogNodeInput {
 
 // 0029 §C — 파일명 패턴 설정(요구 0004 §4). 관리자에서 조회·수정.
 const filenamePattern = ref('');
+const codePattern = ref('');
+const codePatternSaved = ref(false);
+const codePatternSaving = ref(false);
+async function loadCodePattern() {
+  try {
+    const r = await dataClient.adminSettings.get('project.code.pattern');
+    codePattern.value = r.value ?? '';
+  } catch (e) {
+    console.error('[admin] 코드 패턴 로드 실패:', e);
+  }
+}
+async function saveCodePattern() {
+  codePatternSaving.value = true;
+  codePatternSaved.value = false;
+  try {
+    const r = await dataClient.adminSettings.put('project.code.pattern', codePattern.value);
+    codePattern.value = r.value ?? '';
+    codePatternSaved.value = true;
+    window.setTimeout(() => { codePatternSaved.value = false; }, 2500);
+  } catch (e) {
+    alert(e instanceof Error ? e.message : String(e));
+  } finally {
+    codePatternSaving.value = false;
+  }
+}
+// 패턴 미리보기(연도·순번 예시)
+const codePreview = computed(() => {
+  const y = new Date().getFullYear();
+  return (codePattern.value || 'PRJ-{연도}-{순번}')
+    .replace('{연도2}', String(y % 100).padStart(2, '0'))
+    .replace('{연도}', String(y))
+    .replace('{순번}', '001');
+});
 const patternSaved = ref(false);
 const patternSaving = ref(false);
 async function loadPattern() {
@@ -234,6 +277,7 @@ onMounted(async () => {
   }
   if (apiMode.value) {
     void loadPattern();
+    void loadCodePattern();
     dataClient.docTemplates.list().then((v) => { docTemplates.value = v; })
       .catch((e) => console.error('[admin] 양식 목록 로드 실패:', e));
   }
@@ -265,6 +309,16 @@ onMounted(async () => {
         </button>
         <span v-if="patternSaved" class="pattern-ok">저장됨</span>
       </div>
+      <label class="pattern-label">프로젝트 코드 패턴
+        <span class="pattern-hint">토큰: {연도} {연도2} {순번}(필수) — 예: OKC{연도2}-{순번} → 미리보기 <code>{{ codePreview }}</code>{{ '' }} (입찰은 -B 자동 부착)</span>
+      </label>
+      <div class="pattern-row">
+        <input v-model="codePattern" class="input pattern-input" type="text" :disabled="codePatternSaving" />
+        <button class="btn btn-sm" :disabled="codePatternSaving || !codePattern.trim()" @click="saveCodePattern">
+          {{ codePatternSaving ? '저장 중…' : '패턴 저장' }}
+        </button>
+        <span v-if="codePatternSaved" class="pattern-ok">저장됨</span>
+      </div>
     </div>
 
     <StateNotice
@@ -277,7 +331,9 @@ onMounted(async () => {
       <section class="tree-panel">
         <div class="tree-head">
           <span class="tree-title">전체 트리 (비활성 포함)</span>
-          <button class="btn btn-sm" :disabled="!apiMode" @click="openCreate(null)">+ 분류(PHASE) 추가</button>
+          <button class="btn btn-sm btn-primary" :disabled="!apiMode" :title="addLabel" @click="openCreate(addParent)">
+            + {{ addLabel }}
+          </button>
         </div>
         <ul class="tree">
           <CatalogNodeItem
@@ -294,7 +350,7 @@ onMounted(async () => {
         <template v-if="mode === 'idle'">
           <div class="empty">
             트리에서 노드를 선택하면 수정 폼이 열립니다.<br />
-            '+ 분류(PHASE) 추가' 또는 노드 선택 후 '하위 추가'로 노드를 만듭니다.
+            트리 상단 추가 버튼이 선택한 항목에 따라 바뀝니다 — 분류→하위 활동, 활동→태스크, 태스크→산출물. 분류를 추가하려면 폼을 닫아 선택을 해제하세요.
           </div>
         </template>
 
@@ -393,9 +449,6 @@ onMounted(async () => {
 
         <template v-if="mode === 'edit' && selectedNode">
           <div class="node-ops">
-            <button class="btn btn-sm" :disabled="!apiMode" @click="openCreate(selectedNode)">
-              + 하위 추가 ({{ TYPE_LABELS[CHILD_TYPE[selectedNode.nodeType] ?? 'DELIVERABLE'] }})
-            </button>
             <button class="btn btn-sm" :disabled="!apiMode" @click="toggleActive(selectedNode)">
               {{ selectedNode.isActive ? '비활성화' : '활성화' }}
             </button>
@@ -463,4 +516,6 @@ onMounted(async () => {
 .req-checks { display: flex; gap: 10px; }
 .req-checks .chk { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
 .hint { font-weight: 400; color: var(--muted); font-size: 11px; }
+.title-add { margin-left: 10px; vertical-align: middle; }
+.tree-actions { display: inline-flex; gap: 6px; align-items: center; }
 </style>

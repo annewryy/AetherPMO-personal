@@ -38,10 +38,13 @@ const isExecList = computed(
     || (isDetail.value && currentProjectStage.value != null && currentProjectStage.value !== 'BIDDING'),
 );
 const isBidNotices = computed(() => route.path.startsWith('/bid-notices'));
+// 0034 — 로그인 페이지는 초기 화면(셸 없이 전체화면)
+const isLoginPage = computed(() => route.path === '/login');
 </script>
 
 <template>
-  <div class="shell">
+  <RouterView v-if="isLoginPage" />
+  <div v-else class="shell">
     <aside class="sidebar">
       <div class="brand">
         <div class="logo-icon"><Layers :size="22" /></div>

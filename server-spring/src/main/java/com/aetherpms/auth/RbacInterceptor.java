@@ -26,7 +26,7 @@ public class RbacInterceptor implements HandlerInterceptor {
     /** SYS_ADMIN 전용 경로 prefix(0004 §1-1: 방법론·시스템 마스터). */
     private static final List<String> SYS_ADMIN_PREFIXES = List.of(
             "/api/catalog/nodes", "/api/doc-templates", "/api/admin/settings",
-            "/api/workflows", "/api/signal-rules");
+            "/api/workflows", "/api/signal-rules", "/api/admin/users");
     private static final Set<String> WRITE = Set.of("POST", "PATCH", "PUT", "DELETE");
 
     private final JdbcTemplate jdbc;

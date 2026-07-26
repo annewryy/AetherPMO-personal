@@ -31,6 +31,7 @@ import WbsSchedule from '../components/WbsSchedule.vue';
 import WbsGantt from '../components/WbsGantt.vue';
 import ProjectFormModal from '../components/ProjectFormModal.vue';
 import ProjectMembers from '../components/ProjectMembers.vue';
+import ExecConvertWizard from '../components/ExecConvertWizard.vue';
 
 const props = defineProps<{ id: string }>();
 const route = useRoute();
@@ -379,6 +380,13 @@ async function onIssueCreated() { showIssueForm.value = false; await reloadIssue
 async function onActionCreated() { showActionForm.value = false; await reloadActions(); }
 async function onMeetingCreated() { showMeetingForm.value = false; await reloadMeetings(); }
 
+// ---- 0033 개정: 입찰 → 수행 전환 마법사(정보 보완 + 테일러링 선택) -------------
+const showConvertWizard = ref(false);
+function onConverted(created: Project) {
+  showConvertWizard.value = false;
+  router.push(`/projects/${created.id}`);
+}
+
 // ---- 프로젝트 수정 모달(배치18) ----------------------------------------------
 const showEditForm = ref(false);
 async function onProjectSaved(updated: Project) {
@@ -458,6 +466,12 @@ watch(() => route.query.panel, applyPanelQuery);
           </p>
         </div>
         <div class="head-actions">
+          <button
+            v-if="project.stage === 'BIDDING'"
+            class="btn btn-primary"
+            title="입찰 정보를 기반으로 수행 프로젝트를 생성합니다(추가 정보 입력 + 테일러링 선택)"
+            @click="showConvertWizard = true"
+          >수행 전환</button>
           <button class="btn" @click="showEditForm = true">수정</button>
           <RouterLink :to="project.stage === 'BIDDING' ? '/projects/bidding' : '/projects/active'" class="back">← 목록</RouterLink>
         </div>
@@ -910,6 +924,13 @@ watch(() => route.query.panel, applyPanelQuery);
       />
 
       <!-- 배치18 — 프로젝트 수정 -->
+      <ExecConvertWizard
+        v-if="showConvertWizard && project"
+        :project="project"
+        @converted="onConverted"
+        @close="showConvertWizard = false"
+      />
+
       <ProjectFormModal
         v-if="showEditForm" mode="edit" :project="project"
         @saved="onProjectSaved" @close="showEditForm = false"

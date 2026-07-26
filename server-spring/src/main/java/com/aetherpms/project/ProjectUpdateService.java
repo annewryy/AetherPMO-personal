@@ -148,6 +148,9 @@ public class ProjectUpdateService {
     }
 
     /** GET /api/projects/{id} 와 동일 shape(consortiumMembers·vrbInfo·counts). */
+    /** 0033 전환 서비스 등 외부에서 상세 shape 재사용. */
+    public Map<String, Object> detailShapePublic(long id) { return detailShape(id); }
+
     private Map<String, Object> detailShape(long id) {
         ProjectEntity entity = projectRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("프로젝트를 찾을 수 없습니다."));

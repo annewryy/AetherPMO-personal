@@ -23,7 +23,7 @@ import type {
   AvailableTransition, TransitionEntity, ProjectProgress, ProjectWbs,
   IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput,
   ProjectMemberRef, ProjectMemberDetail, ProjectMemberInput, ProjectMemberAssignment, AppNotification, AppSetting,
-  Person, PersonProjectHistory, PersonFilters, InsourcingTransition, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput,
+  Person, PersonProjectHistory, PersonFilters, InsourcingTransition, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput, ProjectConvertInput,
   BidAgency, BidNoticeFilters, BidNoticeResult, BidNoticeDetail,
 } from '../types';
 
@@ -171,6 +171,11 @@ export const dataClient = {
     //   400/기타 실패 시 apiSend가 백엔드 {message}를 그대로 던진다(화면에서 표시).
     create(input: ProjectCreateInput): Promise<Project> {
       return apiSend<Project>('POST', '/api/projects', input);
+    },
+
+    // 0033 — 입찰→수행 전환(설계 0001 스폰 트랜잭션 + 마법사 입력). 응답 = 새 수행 프로젝트 상세.
+    convertToExecution(id: number, input: ProjectConvertInput = {}): Promise<Project> {
+      return apiSend<Project>('POST', `/api/projects/${id}/convert-to-execution`, input);
     },
 
     // 배치19 WBS/일정 트리(날짜축 간트 + 진척 숫자). API_BASE 전용(롤업·기대치는 백엔드).

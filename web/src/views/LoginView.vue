@@ -10,6 +10,8 @@ const route = useRoute();
 const loginId = ref('');
 const password = ref('');
 const submitting = ref(false);
+// 0034 — 이원 로그인: 비밀번호(동작) / 아마란스 연동(연동 스펙 확보 시 활성 — 설계 0005 §H)
+const method = ref<'password' | 'amaranth'>('password');
 const error = ref<string | null>(null);
 
 async function submit() {
@@ -42,7 +44,21 @@ async function submit() {
       </div>
 
       <h1 class="title">로그인</h1>
-      <form @submit.prevent="submit">
+
+      <div class="method-tabs" role="tablist">
+        <button class="mtab" :class="{ on: method === 'password' }" type="button" @click="method = 'password'">비밀번호 로그인</button>
+        <button class="mtab" :class="{ on: method === 'amaranth' }" type="button" @click="method = 'amaranth'">아마란스 연동</button>
+      </div>
+
+      <div v-if="method === 'amaranth'" class="amaranth-note">
+        <p><strong>아마란스 연동 로그인 — 준비중</strong></p>
+        <p>아마란스 인증 연동(키 발급)이 연결되면 자사 직원은 아마란스 계정으로 로그인하고,
+        전자결재 확인 등 아마란스 위임 기능을 바로 사용할 수 있습니다.</p>
+        <p class="sub-note">지금은 비밀번호 로그인을 이용하세요 — 아마란스 위임 기능 외 모든 기능은 동일하게 동작합니다.
+        비밀번호가 없는 자사 직원은 시스템 관리자에게 발급을 요청하세요.</p>
+      </div>
+
+      <form v-else @submit.prevent="submit">
         <label class="label">아이디 또는 이메일</label>
         <input v-model="loginId" class="input" type="text" autocomplete="username" :disabled="submitting" placeholder="admin" />
         <label class="label">비밀번호</label>
@@ -87,4 +103,18 @@ async function submit() {
 .btn-login:disabled { opacity: 0.6; cursor: default; }
 .hint { font-size: 11.5px; color: var(--muted); margin: 16px 0 0; text-align: center; }
 .hint code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
+.method-tabs {
+  display: flex; gap: 4px; margin-bottom: 16px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px;
+}
+.mtab {
+  flex: 1; border: 0; background: transparent; color: var(--muted);
+  font-size: 13px; font-weight: 600; padding: 7px 0; border-radius: 6px; cursor: pointer; font-family: inherit;
+}
+.mtab.on { background: var(--accent); color: #fff; }
+.amaranth-note {
+  border: 1px dashed var(--border); border-radius: 10px; padding: 14px 16px;
+  font-size: 13px; line-height: 1.6; color: var(--text); display: flex; flex-direction: column; gap: 8px;
+}
+.amaranth-note .sub-note { color: var(--muted); font-size: 12.5px; }
 </style>
