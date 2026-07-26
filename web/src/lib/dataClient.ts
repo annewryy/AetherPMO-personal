@@ -365,6 +365,16 @@ export const dataClient = {
     },
   },
 
+  // 0036 — 대시보드 위젯 기준(SYS_ADMIN 전용): 건강도 감점·등급 임계·파생 신호 하한·표시 건수
+  dashboardCriteria: {
+    get(): Promise<{ criteria: Record<string, number>; custom: boolean; defaults: Record<string, number> }> {
+      return apiGet('/api/admin/dashboard-criteria');
+    },
+    put(criteria: Record<string, number>): Promise<{ criteria: Record<string, number>; custom: boolean }> {
+      return apiSend('PUT', '/api/admin/dashboard-criteria', criteria);
+    },
+  },
+
   // 0032 §6 — 사용자 관리(SYS_ADMIN 전용)
   adminUsers: {
     list(params: { q?: string; role?: string; page?: number; size?: number }): Promise<{

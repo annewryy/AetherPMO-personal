@@ -25,14 +25,14 @@ import com.aetherpms.engine.SignalEngine;
 public class DashboardWidgetService {
 
     private static final int RECENT_LIMIT = 5;
-    private static final int TOP_LIMIT = 5;
-    /** 파생 리스크·권장 조치를 만드는 진척 갭 하한(%p). */
-    private static final int DELAY_RISK_PCT = 10;
 
-    private static final Map<String, Number> DEFAULT_WEIGHTS = Map.of(
+    /** 0036 — 관리자 편집 기준의 기본값(행 없을 때 fail-open). delayRiskPct=파생 리스크·권장
+     *  조치 진척 갭 하한(%p), topLimit=위젯 표시 건수. DashboardCriteriaController가 편집. */
+    static final Map<String, Number> DEFAULT_WEIGHTS = Map.of(
             "delay", -25, "issueHigh", -15, "issueMid", -10, "issueLow", -5,
             "overdueDeliverablePer", -3, "progressGapMax", -15,
-            "warnBelow", 70, "dangerBelow", 50);
+            "warnBelow", 70, "dangerBelow", 50,
+            "delayRiskPct", 10, "topLimit", 5);
 
     private final JdbcTemplate jdbc;
     private final SignalEngine engine;
@@ -47,15 +47,16 @@ public class DashboardWidgetService {
         String todayStr = today.toString();
 
         List<Map<String, Object>> delaySignals = engine.delaySignalMaps();
+        Map<String, Number> w = healthWeights();  // 0036 — 위젯 기준(관리자 편집) 1회 로드
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("generatedAt", java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC)
                 .format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME));
         out.put("today", todaySection(todayStr));
         out.put("recent", recentSection());
-        out.put("attention", attentionSection(todayStr, delaySignals));
-        out.put("risks", risksSection(today, delaySignals));
-        out.put("recommendations", recommendationsSection(todayStr, delaySignals));
+        out.put("attention", attentionSection(todayStr, delaySignals, w));
+        out.put("risks", risksSection(today, delaySignals, w));
+        out.put("recommendations", recommendationsSection(todayStr, delaySignals, w));
         return out;
     }
 
@@ -182,8 +183,8 @@ public class DashboardWidgetService {
         }
     }
 
-    private List<Map<String, Object>> attentionSection(String todayStr, List<Map<String, Object>> delaySignals) {
-        Map<String, Number> w = healthWeights();
+    private List<Map<String, Object>> attentionSection(String todayStr, List<Map<String, Object>> delaySignals,
+                                                       Map<String, Number> w) {
 
         List<Map<String, Object>> projects = jdbc.queryForList(
                 "SELECT project_id, project_name, status, planned_end_date FROM pms_project "
@@ -259,12 +260,13 @@ public class DashboardWidgetService {
             scored.add(m);
         }
         scored.sort(Comparator.comparingInt(m -> (int) m.get("score")));
-        return scored.subList(0, Math.min(TOP_LIMIT, scored.size()));
+        return scored.subList(0, Math.min(w.get("topLimit").intValue(), scored.size()));
     }
 
     // ---- D4: 주요 리스크 ----------------------------------------------------
 
-    private List<Map<String, Object>> risksSection(LocalDate today, List<Map<String, Object>> delaySignals) {
+    private List<Map<String, Object>> risksSection(LocalDate today, List<Map<String, Object>> delaySignals,
+                                                   Map<String, Number> w) {
         List<Map<String, Object>> out = new ArrayList<>();
         jdbc.query("""
                 SELECT i.issue_id, i.project_id, p.project_name, i.title, i.priority, i.reported_date
@@ -285,7 +287,7 @@ public class DashboardWidgetService {
         // 파생: 진척 갭 큰 프로젝트 → 일정 지연 리스크(등록 전 신호)
         for (Map<String, Object> sig : delaySignals) {
             Object d = sig.get("delayPct");
-            if (!(d instanceof Number n) || n.intValue() < DELAY_RISK_PCT) continue;
+            if (!(d instanceof Number n) || n.intValue() < w.get("delayRiskPct").intValue()) continue;
             out.add(row(mapOfNullable(
                     "kind", "DELAY",
                     "projectId", ((Number) sig.get("projectId")).longValue(),
@@ -294,17 +296,18 @@ public class DashboardWidgetService {
                             + sig.get("actual") + "% (" + n.intValue() + "%p)",
                     "delayPct", n.intValue())));
         }
-        return out.subList(0, Math.min(TOP_LIMIT, out.size()));
+        return out.subList(0, Math.min(w.get("topLimit").intValue(), out.size()));
     }
 
     // ---- D5: 지금 실행하면 좋은 조치 ------------------------------------------
 
-    private List<Map<String, Object>> recommendationsSection(String todayStr, List<Map<String, Object>> delaySignals) {
+    private List<Map<String, Object>> recommendationsSection(String todayStr, List<Map<String, Object>> delaySignals,
+                                                             Map<String, Number> w) {
         List<Map<String, Object>> out = new ArrayList<>();
 
         for (Map<String, Object> sig : delaySignals) {
             Object d = sig.get("delayPct");
-            if (!(d instanceof Number n) || n.intValue() < DELAY_RISK_PCT) continue;
+            if (!(d instanceof Number n) || n.intValue() < w.get("delayRiskPct").intValue()) continue;
             out.add(reco(((Number) sig.get("projectId")).longValue(),
                     s(String.valueOf(sig.get("projectName"))),
                     "진척 점검 회의 소집 — 기대 대비 " + n.intValue() + "%p 지연", "PROJECT", null));
@@ -339,7 +342,7 @@ public class DashboardWidgetService {
                 rs -> { out.add(reco(rs.getLong(2), s(rs.getString(3)),
                         "리스크 '" + s(rs.getString(4)) + "' 대응 액션 등록", "ISSUE", rs.getLong(1))); });
 
-        return out.subList(0, Math.min(TOP_LIMIT, out.size()));
+        return out.subList(0, Math.min(w.get("topLimit").intValue(), out.size()));
     }
 
     private Map<String, Object> reco(long projectId, String projectName, String text,
