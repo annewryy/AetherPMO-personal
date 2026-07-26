@@ -7,9 +7,10 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import {
   Layers, Home, FileSignature, PlayCircle, Search, FileCheck, FileSearch,
-  AlertTriangle, CheckSquare, Mail, Presentation, Users, UserCog, Settings,
+  AlertTriangle, CheckSquare, Mail, Presentation, Users, UserCog, Settings, Sun, Moon,
 } from 'lucide-vue-next';
 import { currentProjectStage } from './lib/currentProjectStage';
+import { theme, toggleTheme } from './lib/theme';
 import CurrentUserSelector from './components/CurrentUserSelector.vue';
 import NotificationBell from './components/NotificationBell.vue';
 import UserMenu from './components/UserMenu.vue';
@@ -56,16 +57,14 @@ const isBidNotices = computed(() => route.path.startsWith('/bid-notices'));
         <RouterLink to="/projects/bidding" :class="{ active: isBiddingList }" class="sub"><FileSignature :size="15" class="nico" />입찰단계</RouterLink>
         <RouterLink to="/projects/active" :class="{ active: isExecList }" class="sub"><PlayCircle :size="15" class="nico" />수행단계</RouterLink>
         <RouterLink to="/bid-notices" :class="{ active: isBidNotices }" class="sub"><Search :size="15" class="nico" />나라장터 공고조회</RouterLink>
+        <RouterLink to="/issues" active-class="active" class="sub"><AlertTriangle :size="15" class="nico" />이슈/리스크</RouterLink>
+        <RouterLink to="/action-items" active-class="active" class="sub"><CheckSquare :size="15" class="nico" />액션아이템</RouterLink>
+        <RouterLink to="/official-docs" active-class="active" class="sub"><Mail :size="15" class="nico" />공문</RouterLink>
+        <RouterLink to="/meeting-minutes" active-class="active" class="sub"><Presentation :size="15" class="nico" />회의록</RouterLink>
 
         <div class="group">테일러링</div>
         <RouterLink to="/catalog" exact-active-class="active" class="sub"><FileCheck :size="15" class="nico" />테일러링</RouterLink>
         <RouterLink to="/catalog/deliverables" active-class="active" class="sub"><FileSearch :size="15" class="nico" />산출물 관리</RouterLink>
-
-        <div class="group">전사 현황</div>
-        <RouterLink to="/issues" active-class="active"><AlertTriangle :size="16" class="nico" />이슈/리스크</RouterLink>
-        <RouterLink to="/action-items" active-class="active"><CheckSquare :size="16" class="nico" />액션아이템</RouterLink>
-        <RouterLink to="/official-docs" active-class="active"><Mail :size="16" class="nico" />공문</RouterLink>
-        <RouterLink to="/meeting-minutes" active-class="active"><Presentation :size="16" class="nico" />회의록</RouterLink>
 
         <div class="group">인력관리</div>
         <RouterLink to="/persons" active-class="active" class="sub"><Users :size="15" class="nico" />인력관리</RouterLink>
@@ -76,6 +75,14 @@ const isBidNotices = computed(() => route.path.startsWith('/bid-notices'));
           <RouterLink to="/admin" :class="{ active: route.path.startsWith('/admin') }"><Settings :size="16" class="nico" />관리자 콘솔</RouterLink>
         </template>
       </nav>
+      <!-- 0032 — 테마 토글(요구 0004 §3-3): 사이드바 좌측 하단 -->
+      <div class="side-foot">
+        <button class="theme-toggle" type="button" @click="toggleTheme">
+          <Sun v-if="theme === 'dark'" :size="15" class="nico" />
+          <Moon v-else :size="15" class="nico" />
+          {{ theme === 'dark' ? '라이트 테마' : '다크 테마' }}
+        </button>
+      </div>
     </aside>
     <div class="main-col">
       <header class="topbar">
@@ -146,4 +153,12 @@ const isBidNotices = computed(() => route.path.startsWith('/bid-notices'));
 }
 .today { font-size: 13px; color: var(--muted); margin-right: auto; }
 .content { flex: 1; min-width: 0; padding: 24px 32px; max-width: 1440px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+.side-foot { margin-top: auto; padding: 8px 4px 0; border-top: 1px solid var(--border); }
+.theme-toggle {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  border: 0; background: transparent; color: var(--muted);
+  font-size: 13px; font-weight: 600; padding: 8px 10px; border-radius: 6px;
+  cursor: pointer; font-family: inherit;
+}
+.theme-toggle:hover { color: var(--text); background: var(--panel-2); }
 </style>

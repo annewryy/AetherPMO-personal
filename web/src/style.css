@@ -18,6 +18,19 @@
   color: var(--text);
   background: var(--bg);
 }
+/* 0032 — 라이트 테마 토큰(사이드바 하단 토글, lib/theme.ts가 data-theme 적용) */
+:root[data-theme='light'] {
+  --bg: #f4f5f8;
+  --panel: #ffffff;
+  --panel-2: #eceef3;
+  --border: #d9dde5;
+  --text: #1f2430;
+  --muted: #667085;
+  --accent: #7c4ce6;
+  color: var(--text);
+  background: var(--bg);
+}
+
 * { box-sizing: border-box; }
 body { margin: 0; }
 a { color: var(--accent); text-decoration: none; }
