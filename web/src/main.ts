@@ -5,8 +5,11 @@ import App from './App.vue';
 import { router } from './router';
 import './style.css';
 import { restoreSession } from './lib/auth';
+import { authState } from './router';
 
 // 0031 — 저장 토큰으로 세션 복원 후 마운트(미인증/실패여도 진행 — dev는 게스트 허용).
+// 0034: 백엔드 연결 환경은 로그인 필수(폴백 데모만 게스트 허용)
+authState.required = !!window.API_BASE;
 restoreSession().finally(() => {
   createApp(App).use(router).mount('#app');
 });

@@ -67,8 +67,9 @@ export const router = createRouter({
   ],
 });
 
-// 0031 §D — 라우트 가드. RBAC 시행(rbac.enforce) 여부는 App 부팅에서 authRequired로 주입.
-//   authRequired=false(dev 기본)면 게스트 허용. true면 미인증 → /login(redirect 보존).
+// 0031 §D → 0034 개정 — 라우트 가드: 백엔드(API_BASE) 연결 환경에서는 **로그인 필수**.
+//   미인증 접근은 전부 /login으로(원래 경로는 ?redirect= 보존, 로그인 성공 시 복귀).
+//   API_BASE 없는 폴백(Vercel 데모)만 게스트 허용 — main.ts 부팅에서 주입.
 export const authState = { required: false };
 router.beforeEach((to) => {
   if (to.meta.public) return true;
