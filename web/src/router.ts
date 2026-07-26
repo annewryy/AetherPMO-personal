@@ -20,6 +20,7 @@ import AdminSignalRulesView from './views/admin/AdminSignalRulesView.vue';
 import AdminCatalogView from './views/admin/AdminCatalogView.vue';
 import AdminWorkflowsView from './views/admin/AdminWorkflowsView.vue';
 import AdminCompaniesView from './views/admin/AdminCompaniesView.vue';
+import AdminUsersView from './views/admin/AdminUsersView.vue';
 
 // 히스토리 base: 빌드에서는 '/app/'(vite base), dev에서는 '/'.
 // 딥링크(/app/...)는 vercel.json rewrite가 처리한다(0004 추가 인프라).
@@ -61,6 +62,7 @@ export const router = createRouter({
         { path: 'catalog', name: 'admin-catalog', component: AdminCatalogView },
         { path: 'workflows', name: 'admin-workflows', component: AdminWorkflowsView },
         { path: 'companies', name: 'admin-companies', component: AdminCompaniesView },
+        { path: 'users', name: 'admin-users', component: AdminUsersView },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/projects/active' },

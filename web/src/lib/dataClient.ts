@@ -142,6 +142,20 @@ const COMMENT_ENTITY_PATHS: Record<CommentEntityType, string> = {
 
 // ---- 공개 API -------------------------------------------------------------
 
+// 0032 §6 — 관리자 사용자 관리 행
+export interface AdminUser {
+  userId: number;
+  username: string;
+  email: string;
+  name: string | null;
+  role: string;
+  isActive: boolean;
+  personId: number | null;
+  personName: string | null;
+  hasPassword: boolean;
+  amaranthLinked: boolean;
+}
+
 export const dataClient = {
   projects: {
     // 0015 §B: 선택적 서버측 필터(location/status). 인자 없으면 전체 반환(하위호환).
@@ -348,6 +362,26 @@ export const dataClient = {
     },
     put(key: string, value: string): Promise<AppSetting> {
       return apiSend<AppSetting>('PUT', `/api/admin/settings/${encodeURIComponent(key)}`, { value });
+    },
+  },
+
+  // 0032 §6 — 사용자 관리(SYS_ADMIN 전용)
+  adminUsers: {
+    list(params: { q?: string; role?: string; page?: number; size?: number }): Promise<{
+      items: AdminUser[]; total: number; page: number; size: number;
+    }> {
+      const qs = new URLSearchParams();
+      if (params.q) qs.set('q', params.q);
+      if (params.role) qs.set('role', params.role);
+      qs.set('page', String(params.page ?? 1));
+      qs.set('size', String(params.size ?? 20));
+      return apiGet(`/api/admin/users?${qs.toString()}`);
+    },
+    patch(id: number, body: { role?: string; isActive?: boolean; personId?: number | null }) {
+      return apiSend<{ ok: boolean }>('PATCH', `/api/admin/users/${id}`, body);
+    },
+    setPassword(loginId: string, password: string) {
+      return apiSend<{ ok: boolean }>('POST', '/api/admin/users/password', { loginId, password });
     },
   },
 

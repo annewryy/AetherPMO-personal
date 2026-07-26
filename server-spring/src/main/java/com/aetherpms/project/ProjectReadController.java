@@ -1,5 +1,8 @@
 package com.aetherpms.project;
 
+import com.aetherpms.auth.AuthContext;
+import com.aetherpms.auth.ProjectScopeService;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -18,22 +21,26 @@ import com.aetherpms.common.ReadSupport;
 @RestController
 public class ProjectReadController {
 
+    private final ProjectScopeService scope;
+
     private final JdbcTemplate jdbc;
     private final ProjectRepository projectRepository;
     private final ProjectCompanyRepository companyRepository;
     private final VrbInfoReadRepository vrbRepository;
 
     public ProjectReadController(JdbcTemplate jdbc, ProjectRepository projectRepository,
-            ProjectCompanyRepository companyRepository, VrbInfoReadRepository vrbRepository) {
+            ProjectCompanyRepository companyRepository, VrbInfoReadRepository vrbRepository, ProjectScopeService scope) {
         this.jdbc = jdbc;
         this.projectRepository = projectRepository;
         this.companyRepository = companyRepository;
         this.vrbRepository = vrbRepository;
+        this.scope = scope;
     }
 
     @GetMapping("/api/projects/{id}")
-    public Map<String, Object> projectDetail(@PathVariable("id") long rawId) {
+    public Map<String, Object> projectDetail(@PathVariable("id") long rawId, HttpServletRequest req) {
         long id = ReadSupport.parseId(rawId);
+        scope.assertCanView(AuthContext.of(req), id);  // 0035 참여 스코프
         ProjectEntity entity = projectRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("프로젝트를 찾을 수 없습니다."));
 

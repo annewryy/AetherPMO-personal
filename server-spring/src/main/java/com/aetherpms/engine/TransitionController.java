@@ -1,5 +1,7 @@
 package com.aetherpms.engine;
 
+import com.aetherpms.auth.ProjectScopeService;
+import com.aetherpms.auth.AuthContext;
 import java.util.List;
 import java.util.Map;
 
@@ -22,9 +24,11 @@ import jakarta.servlet.http.HttpServletRequest;
 public class TransitionController {
 
     private final TransitionService service;
+    private final ProjectScopeService scope;
 
-    public TransitionController(TransitionService service) {
+    public TransitionController(TransitionService service, ProjectScopeService scope) {
         this.service = service;
+        this.scope = scope;
     }
 
     @GetMapping("/api/{entity}/{id}/transitions")
@@ -36,6 +40,9 @@ public class TransitionController {
     @PostMapping("/api/{entity}/{id}/transition")
     public Map<String, Object> execute(@PathVariable String entity, @PathVariable long id,
             @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
+        // 0032 §5② — 상태 전이도 쓰기: projects는 프로젝트 수정 권한, 그 외는 항목 쓰기 가드
+        if ("projects".equals(entity)) scope.assertCanEditProject(AuthContext.of(req), id);
+        else scope.assertItemWrite(AuthContext.of(req), entity, id);
         return service.execute(entity, id, body, CurrentActor.resolve(req));
     }
 }

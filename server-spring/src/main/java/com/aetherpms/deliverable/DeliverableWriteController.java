@@ -1,5 +1,7 @@
 package com.aetherpms.deliverable;
 
+import com.aetherpms.auth.ProjectScopeService;
+import com.aetherpms.auth.AuthContext;
 import com.aetherpms.common.ApiException;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,16 +25,20 @@ import java.util.Map;
 public class DeliverableWriteController {
 
     private final JdbcTemplate jdbc;
+    private final ProjectScopeService scope;
 
-    public DeliverableWriteController(JdbcTemplate jdbc) {
+    public DeliverableWriteController(JdbcTemplate jdbc, ProjectScopeService scope) {
         this.jdbc = jdbc;
+        this.scope = scope;
     }
 
     @PatchMapping("/api/deliverables/{id}")
     @Transactional
     public Map<String, Object> patch(@PathVariable("id") long id,
-            @RequestBody(required = false) Map<String, Object> body) {
+            @RequestBody(required = false) Map<String, Object> body,
+            jakarta.servlet.http.HttpServletRequest req) {
         if (id <= 0) throw ApiException.badRequest("유효하지 않은 id입니다.");
+        scope.assertItemWrite(AuthContext.of(req), "deliverables", id);  // 0032 §5②
         Map<String, Object> b = body == null ? Map.of() : body;
         List<String> allowed = List.of("authorName", "dueDate");
         List<String> unknown = b.keySet().stream().filter(k -> !allowed.contains(k)).toList();

@@ -3,7 +3,7 @@
 //   나라장터→입찰 마법사와 동일 흐름. Step1 입찰 정보 프리필 + 수행 추가 입력(기간 등)
 //   → Step2 테일러링 선택(CatalogSelector 재사용) → Step3 확인·전환.
 //   전환 트랜잭션(정보 복사·컨소시엄/연락처 복제·수주·완료 처리·전개)은 백엔드(0001 경계).
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, watch } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import type { Project, ProjectConvertInput, CatalogNode, TailoringEntry } from '../types';
 import CatalogSelector from './CatalogSelector.vue';
@@ -29,6 +29,48 @@ const form = reactive({
 
 // --- 테일러링 선택(마법사 0017 §C 로직 재사용) ---
 const catalogTree = ref<CatalogNode[]>([]);
+
+// 0029 Phase B — 사업 유형 → 방법론 세트(OPMS=사업관리 공통 + 구축/유지관리/ISP 택1),
+//   규모 = 계약금액 자동 판정(10억↓ 소 / 10~50억 중 / 50억↑ 대, 0029 required_* 기준).
+const BIZ_TYPES = [
+  { key: 'SI', label: 'SI 구축', methodologies: ['OPMS', 'ODS'] as string[] | null },
+  { key: 'SM', label: '유지보수·운영', methodologies: ['OPMS', 'OMS'] as string[] | null },
+  { key: 'ISP', label: 'ISP·컨설팅', methodologies: ['OPMS', 'BIS'] as string[] | null },
+  { key: 'ALL', label: '전체(커스텀 포함)', methodologies: null },
+];
+const bizType = ref('SI');
+
+function flattenNodes(nodes: CatalogNode[], acc: CatalogNode[] = []): CatalogNode[] {
+  for (const n of nodes) { acc.push(n); flattenNodes(n.children, acc); }
+  return acc;
+}
+const filteredTree = computed<CatalogNode[]>(() => {
+  const t = BIZ_TYPES.find((b) => b.key === bizType.value);
+  if (!t || !t.methodologies) return catalogTree.value;
+  return catalogTree.value.filter((r) => r.methodology != null && t.methodologies!.includes(r.methodology));
+});
+// 유형 변경 시 필터 밖 노드는 선택에서 제거(전개 대상 오염 방지)
+watch(bizType, () => {
+  const allowed = new Set(flattenNodes(filteredTree.value).map((n) => n.id));
+  for (const id of [...selectedNodeIds]) if (!allowed.has(id)) selectedNodeIds.delete(id);
+});
+
+const sizeInfo = computed<{ field: 'requiredSmall' | 'requiredMedium' | 'requiredLarge'; label: string } | null>(() => {
+  const amt = form.contractAmount;
+  if (amt == null || Number.isNaN(amt) || amt <= 0) return null;
+  if (amt < 1_000_000_000) return { field: 'requiredSmall', label: '소형 (10억 미만)' };
+  if (amt < 5_000_000_000) return { field: 'requiredMedium', label: '중형 (10~50억)' };
+  return { field: 'requiredLarge', label: '대형 (50억 이상)' };
+});
+const requiredNodes = computed<CatalogNode[]>(() => {
+  if (!sizeInfo.value) return [];
+  const f = sizeInfo.value.field;
+  return flattenNodes(filteredTree.value).filter((n) => n[f] === true);
+});
+const requiredSelectedCount = computed(() => requiredNodes.value.filter((n) => selectedNodeIds.has(n.id)).length);
+function autoSelectRequired() {
+  for (const n of requiredNodes.value) selectedNodeIds.add(n.id);
+}
 const catalogLoading = ref(false);
 const catalogError = ref<string | null>(null);
 const catalogLoaded = ref(false);
@@ -195,14 +237,39 @@ async function submit() {
           </p>
           <p v-if="catalogLoading" class="tl-state">테일러링 표준 트리 불러오는 중…</p>
           <p v-else-if="catalogError" class="tl-state err">불러오기 실패: {{ catalogError }}</p>
-          <CatalogSelector
-            v-else
-            :tree="catalogTree"
-            :selected="selectedNodeIds"
-            :disabled="saving"
-            @toggle="toggleNode"
-            @clear="clearSelection"
-          />
+          <template v-else>
+            <!-- 0029 Phase B — 유형·규모 연동 자동 전개 -->
+            <div class="tailor-ctl">
+              <div class="ctl-row">
+                <span class="ctl-key">사업 유형</span>
+                <button
+                  v-for="t in BIZ_TYPES" :key="t.key" type="button"
+                  class="type-chip" :class="{ on: bizType === t.key }" :disabled="saving"
+                  @click="bizType = t.key"
+                >{{ t.label }}</button>
+              </div>
+              <div class="ctl-row">
+                <span class="ctl-key">규모 판정</span>
+                <template v-if="sizeInfo">
+                  <span class="size-badge">{{ sizeInfo.label }}</span>
+                  <span class="ctl-note">필수 산출물 {{ requiredNodes.length }}건 중 {{ requiredSelectedCount }}건 선택됨</span>
+                  <button
+                    type="button" class="btn btn-sm btn-primary"
+                    :disabled="saving || requiredNodes.length === 0 || requiredSelectedCount === requiredNodes.length"
+                    @click="autoSelectRequired"
+                  >규모별 필수 자동 선택</button>
+                </template>
+                <span v-else class="ctl-note">계약금액(1단계)을 입력하면 규모(소/중/대)를 판정해 필수 산출물을 자동 선택할 수 있습니다.</span>
+              </div>
+            </div>
+            <CatalogSelector
+              :tree="filteredTree"
+              :selected="selectedNodeIds"
+              :disabled="saving"
+              @toggle="toggleNode"
+              @clear="clearSelection"
+            />
+          </template>
         </section>
 
         <!-- Step 3. 확인 & 전환 -->
@@ -337,4 +404,24 @@ async function submit() {
 .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 .owners-head { font-size: 13px; font-weight: 700; margin: 12px 0 6px; padding-top: 12px; border-top: 1px solid var(--border); }
 .owners-sub { font-weight: 400; color: var(--muted); font-size: 11.5px; }
+
+/* 0029 Phase B — 유형·규모 연동 컨트롤 */
+.tailor-ctl {
+  display: flex; flex-direction: column; gap: 6px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2, var(--panel));
+  padding: 8px 10px; margin-bottom: 8px;
+}
+.ctl-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ctl-key { font-size: 12px; color: var(--muted); width: 66px; flex-shrink: 0; }
+.type-chip {
+  border: 1px solid var(--border); background: var(--panel); color: var(--muted);
+  font-size: 12px; padding: 3px 10px; border-radius: 999px; cursor: pointer; font-family: inherit;
+}
+.type-chip:hover:not(:disabled) { color: var(--text); }
+.type-chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.size-badge {
+  font-size: 12px; font-weight: 700; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 999px; padding: 2px 10px;
+}
+.ctl-note { font-size: 12px; color: var(--muted); }
 </style>

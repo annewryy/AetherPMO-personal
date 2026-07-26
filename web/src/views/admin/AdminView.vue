@@ -6,12 +6,13 @@ const MODULES = [
   { path: '/admin/catalog', label: '테일러링' },
   { path: '/admin/workflows', label: '워크플로' },
   { path: '/admin/companies', label: '기준정보' },
+  { path: '/admin/users', label: '사용자' },
 ];
 </script>
 
 <template>
   <div>
-    <div class="banner">관리자 인증은 추후 적용(0005) — 현재 개방 상태입니다.</div>
+    <div class="banner">시스템 관리자(SYS_ADMIN) 전용 콘솔 — RBAC 시행 시 다른 역할은 접근이 차단됩니다(0032).</div>
     <h1 class="title">관리자</h1>
     <div class="layout">
       <nav class="submenu">

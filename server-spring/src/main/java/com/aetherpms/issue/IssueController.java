@@ -1,5 +1,7 @@
 package com.aetherpms.issue;
 
+import com.aetherpms.auth.ProjectScopeService;
+import com.aetherpms.auth.AuthContext;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
@@ -16,13 +18,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class IssueController {
 
     private final IssueService service;
+    private final ProjectScopeService scope;
 
-    public IssueController(IssueService service) {
+    public IssueController(IssueService service, ProjectScopeService scope) {
         this.service = service;
+        this.scope = scope;
     }
 
     @PostMapping("/api/issues")
-    public ResponseEntity<Map<String, Object>> create(@RequestBody(required = false) Map<String, Object> body) {
+    public ResponseEntity<Map<String, Object>> create(@RequestBody(required = false) Map<String, Object> body,
+            jakarta.servlet.http.HttpServletRequest req) {
+        scope.assertItemCreateBody(AuthContext.of(req), body, "issues");  // 0032 §5②
         Map<String, Object> result = service.createIssue(body == null ? Map.of() : body);
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }

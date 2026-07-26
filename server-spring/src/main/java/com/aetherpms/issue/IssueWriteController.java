@@ -1,5 +1,7 @@
 package com.aetherpms.issue;
 
+import com.aetherpms.auth.ProjectScopeService;
+import com.aetherpms.auth.AuthContext;
 import java.util.Map;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,17 +17,22 @@ import jakarta.servlet.http.HttpServletRequest;
 @RestController
 public class IssueWriteController {
     private final WorkSurfaceService service;
-    public IssueWriteController(WorkSurfaceService service) { this.service = service; }
+    private final ProjectScopeService scope;
+    public IssueWriteController(WorkSurfaceService service, ProjectScopeService scope) {
+        this.service = service; this.scope = scope;
+    }
 
     @PatchMapping("/api/issues/{id}")
     public Map<String, Object> patchIssue(@PathVariable long id,
             @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
+        scope.assertItemWrite(AuthContext.of(req), "issues", id);  // 0032 §5②
         return service.patch("issues", id, body, CurrentActor.resolve(req));
     }
 
     @PostMapping("/api/issues/{id}/convert-to-issue")
     public Map<String, Object> convertToIssue(@PathVariable long id,
             @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
+        scope.assertItemWrite(AuthContext.of(req), "issues", id);  // 0032 §5②
         return service.convertToIssue(id, body, CurrentActor.resolve(req));
     }
 }

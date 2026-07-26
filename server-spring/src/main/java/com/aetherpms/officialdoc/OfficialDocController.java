@@ -1,5 +1,7 @@
 package com.aetherpms.officialdoc;
 
+import com.aetherpms.auth.ProjectScopeService;
+import com.aetherpms.auth.AuthContext;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
@@ -27,13 +29,17 @@ public class OfficialDocController {
 
     private final OfficialDocService service;
 
-    public OfficialDocController(OfficialDocService service) {
+    private final ProjectScopeService scope;
+
+    public OfficialDocController(OfficialDocService service, ProjectScopeService scope) {
         this.service = service;
+        this.scope = scope;
     }
 
     @PostMapping("/api/official-docs")
     public ResponseEntity<Map<String, Object>> create(
             @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
+        scope.assertItemCreateBody(AuthContext.of(req), body, "official-docs");  // 0032 §5②
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(service.create(body, CurrentActor.resolve(req)));
     }
@@ -41,11 +47,13 @@ public class OfficialDocController {
     @PatchMapping("/api/official-docs/{id}")
     public Map<String, Object> update(@PathVariable("id") long id,
             @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
+        scope.assertItemWrite(AuthContext.of(req), "official-docs", id);  // 0032 §5②
         return service.update(id, body, CurrentActor.resolve(req));
     }
 
     @DeleteMapping("/api/official-docs/{id}")
     public Map<String, Object> delete(@PathVariable("id") long id, HttpServletRequest req) {
+        scope.assertItemWrite(AuthContext.of(req), "official-docs", id);  // 0032 §5②
         return service.delete(id, CurrentActor.resolve(req));
     }
 }

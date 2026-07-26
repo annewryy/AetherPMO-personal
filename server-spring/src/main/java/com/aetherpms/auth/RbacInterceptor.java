@@ -44,16 +44,32 @@ public class RbacInterceptor implements HandlerInterceptor {
 
         AuthContext ctx = AuthContext.of(req);
         boolean write = WRITE.contains(method);
-        boolean sysAdminPath = SYS_ADMIN_PREFIXES.stream().anyMatch(path::startsWith);
+        boolean sysAdminPath = path.startsWith("/api/admin/")
+                || SYS_ADMIN_PREFIXES.stream().anyMatch(path::startsWith);
 
         if (write && ctx == null) {
             throw ApiException.unauthorized("로그인이 필요합니다.");
+        }
+        // 0035 — VIEWER는 읽기 전용(0004 §1: 수정·삭제 불가)
+        if (write && ctx != null && "VIEWER".equals(ctx.role())) {
+            throw ApiException.forbidden("조회 전용 계정(VIEWER)은 변경 작업을 수행할 수 없습니다.");
         }
         if (sysAdminPath && write) {
             if (ctx == null) throw ApiException.unauthorized("로그인이 필요합니다.");
             if (!ctx.isSysAdmin()) {
                 throw ApiException.forbidden("이 작업은 시스템 관리자(SYS_ADMIN)만 수행할 수 있습니다.");
             }
+        }
+        // 0032 §5① — OPMS 마스터(방법론 카탈로그·산출물 양식) 조회는 SYS/EXEC/PM만.
+        //   WORKER/VIEWER·비로그인은 403/401 (사용자 관리 등 /api/admin/users는 위 쓰기 가드 + 아래 조회 가드).
+        if (!write && (path.startsWith("/api/catalog/") || path.startsWith("/api/doc-templates"))) {
+            if (ctx == null) throw ApiException.unauthorized("로그인이 필요합니다.");
+            if ("WORKER".equals(ctx.role()) || "VIEWER".equals(ctx.role())) {
+                throw ApiException.forbidden("방법론·산출물 양식 마스터는 조회 권한이 없습니다.");
+            }
+        }
+        if (!write && path.startsWith("/api/admin/") && (ctx == null || !ctx.isSysAdmin())) {
+            throw ApiException.forbidden("관리자 콘솔은 시스템 관리자(SYS_ADMIN)만 접근할 수 있습니다.");
         }
         return true;
     }
