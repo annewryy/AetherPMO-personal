@@ -32,7 +32,8 @@ const CHILD_TYPE: Record<string, CatalogNodeType> = {
 // 0034 — 트리 헤더 추가 버튼을 컨텍스트형으로: 선택한 상위 항목의 하위 유형을 추가.
 //   미선택(또는 산출물 선택)이면 분류(PHASE) 추가.
 const addParent = computed(() =>
-  selectedNode.value && CHILD_TYPE[selectedNode.value.nodeType] ? selectedNode.value : null);
+  mode.value === 'edit' && selectedNode.value && CHILD_TYPE[selectedNode.value.nodeType]
+    ? selectedNode.value : null);
 const addLabel = computed(() =>
   addParent.value
     ? `하위 ${TYPE_LABELS[CHILD_TYPE[addParent.value.nodeType]]} 추가 — ${addParent.value.name}`
@@ -330,12 +331,9 @@ onMounted(async () => {
       <section class="tree-panel">
         <div class="tree-head">
           <span class="tree-title">전체 트리 (비활성 포함)</span>
-          <span class="tree-actions">
-            <button class="btn btn-sm btn-primary" :disabled="!apiMode" :title="addLabel" @click="openCreate(addParent)">
-              + {{ addLabel }}
-            </button>
-            <button v-if="addParent" class="btn btn-sm" :disabled="!apiMode" @click="openCreate(null)">+ 분류</button>
-          </span>
+          <button class="btn btn-sm btn-primary" :disabled="!apiMode" :title="addLabel" @click="openCreate(addParent)">
+            + {{ addLabel }}
+          </button>
         </div>
         <ul class="tree">
           <CatalogNodeItem
@@ -352,18 +350,13 @@ onMounted(async () => {
         <template v-if="mode === 'idle'">
           <div class="empty">
             트리에서 노드를 선택하면 수정 폼이 열립니다.<br />
-            상단 추가 버튼은 선택한 항목에 따라 바뀝니다 — 분류 선택 시 하위 활동, 활동 선택 시 태스크, 태스크 선택 시 산출물을 추가합니다.
+            트리 상단 추가 버튼이 선택한 항목에 따라 바뀝니다 — 분류→하위 활동, 활동→태스크, 태스크→산출물. 분류를 추가하려면 폼을 닫아 선택을 해제하세요.
           </div>
         </template>
 
         <template v-else>
           <h3 class="form-title">
             {{ mode === 'create' ? '노드 추가' : `노드 수정 — ${selectedNode?.name ?? ''}` }}
-            <button
-              v-if="mode === 'edit' && selectedNode && CHILD_TYPE[selectedNode.nodeType]"
-              class="btn btn-sm btn-primary title-add" :disabled="!apiMode"
-              @click="openCreate(selectedNode)"
-            >+ 하위 {{ TYPE_LABELS[CHILD_TYPE[selectedNode.nodeType]] }} 추가</button>
           </h3>
           <div class="form-grid">
             <label class="field wide">
@@ -456,9 +449,6 @@ onMounted(async () => {
 
         <template v-if="mode === 'edit' && selectedNode">
           <div class="node-ops">
-            <button class="btn btn-sm" :disabled="!apiMode" @click="openCreate(selectedNode)">
-              + 하위 추가 ({{ TYPE_LABELS[CHILD_TYPE[selectedNode.nodeType] ?? 'DELIVERABLE'] }})
-            </button>
             <button class="btn btn-sm" :disabled="!apiMode" @click="toggleActive(selectedNode)">
               {{ selectedNode.isActive ? '비활성화' : '활성화' }}
             </button>
