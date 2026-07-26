@@ -56,3 +56,15 @@ a:hover { text-decoration: underline; }
 .btn[disabled]:hover { background: var(--panel); }
 .btn-primary:disabled:hover,
 .btn-primary[disabled]:hover { background: var(--accent); }
+
+/* 0033 — 날짜 입력 달력화: 전체 필드 클릭으로 달력 오픈(lib/datePicker.ts) + 아이콘 테마 정합 */
+input[type='date'] { cursor: pointer; }
+input[type='date']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.75;
+  filter: invert(0.8);           /* 다크: 어두운 기본 아이콘을 밝게 */
+}
+:root[data-theme='light'] input[type='date']::-webkit-calendar-picker-indicator {
+  filter: none;
+}
+input[type='date']:hover::-webkit-calendar-picker-indicator { opacity: 1; }

@@ -1,4 +1,5 @@
 import './lib/theme';
+import './lib/datePicker';
 import { createApp } from 'vue';
 import App from './App.vue';
 import { router } from './router';
