@@ -23,7 +23,7 @@ import com.aetherpms.common.ApiException;
 public class AppSettingController {
 
     /** 편집 허용 설정 키 — 무분별한 key-value 남용 방지. */
-    private static final Set<String> ALLOWED_KEYS = Set.of("deliverable.filename.pattern");
+    private static final Set<String> ALLOWED_KEYS = Set.of("deliverable.filename.pattern", "project.code.pattern");
 
     private final JdbcTemplate jdbc;
 
@@ -47,6 +47,9 @@ public class AppSettingController {
         Object v = body == null ? null : body.get("value");
         if (v == null || v.toString().trim().isEmpty()) {
             throw ApiException.badRequest("value는 비울 수 없습니다.");
+        }
+        if ("project.code.pattern".equals(key) && !v.toString().contains("{순번}")) {
+            throw ApiException.badRequest("프로젝트 코드 패턴에는 {순번} 토큰이 반드시 포함되어야 합니다(코드 유일성).");
         }
         int n = jdbc.update("UPDATE pms_app_setting SET setting_value = ? WHERE setting_key = ?",
                 v.toString().trim(), key);

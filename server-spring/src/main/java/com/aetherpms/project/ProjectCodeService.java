@@ -33,7 +33,10 @@ public class ProjectCodeService {
         return nextBaseCode() + "-B";
     }
 
-    /** 베이스 코드 PRJ-{연도}-{NNN} 원자 발번(접미사 없음). */
+    /** 발번 패턴 기본값 — 관리자 설정(project.code.pattern, V21)으로 오버라이드(요구 0004 §4). */
+    private static final String DEFAULT_PATTERN = "PRJ-{연도}-{순번}";
+
+    /** 베이스 코드 원자 발번(접미사 없음) — 패턴 토큰: {연도}(4)·{연도2}(2)·{순번}(3자리 0패딩). */
     public String nextBaseCode() {
         int year = LocalDate.now().getYear();
         jdbc.update(
@@ -45,6 +48,19 @@ public class ProjectCodeService {
                 "SELECT last_seq FROM pms_project_code_counter WHERE year_val = ?",
                 Long.class, year);
         long n = seq == null ? 1 : seq;
-        return String.format("PRJ-%d-%03d", year, n);
+
+        String pattern = DEFAULT_PATTERN;
+        try {
+            String v = jdbc.queryForObject(
+                    "SELECT setting_value FROM pms_app_setting WHERE setting_key = 'project.code.pattern'",
+                    String.class);
+            if (v != null && v.contains("{순번}")) pattern = v.trim();
+        } catch (org.springframework.dao.EmptyResultDataAccessException ignored) {
+            // 설정 없음 — 기본 패턴
+        }
+        return pattern
+                .replace("{연도2}", String.format("%02d", year % 100))
+                .replace("{연도}", String.valueOf(year))
+                .replace("{순번}", String.format("%03d", n));
     }
 }

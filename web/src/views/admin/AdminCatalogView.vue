@@ -145,6 +145,39 @@ function toInput(): CatalogNodeInput {
 
 // 0029 §C — 파일명 패턴 설정(요구 0004 §4). 관리자에서 조회·수정.
 const filenamePattern = ref('');
+const codePattern = ref('');
+const codePatternSaved = ref(false);
+const codePatternSaving = ref(false);
+async function loadCodePattern() {
+  try {
+    const r = await dataClient.adminSettings.get('project.code.pattern');
+    codePattern.value = r.value ?? '';
+  } catch (e) {
+    console.error('[admin] 코드 패턴 로드 실패:', e);
+  }
+}
+async function saveCodePattern() {
+  codePatternSaving.value = true;
+  codePatternSaved.value = false;
+  try {
+    const r = await dataClient.adminSettings.put('project.code.pattern', codePattern.value);
+    codePattern.value = r.value ?? '';
+    codePatternSaved.value = true;
+    window.setTimeout(() => { codePatternSaved.value = false; }, 2500);
+  } catch (e) {
+    alert(e instanceof Error ? e.message : String(e));
+  } finally {
+    codePatternSaving.value = false;
+  }
+}
+// 패턴 미리보기(연도·순번 예시)
+const codePreview = computed(() => {
+  const y = new Date().getFullYear();
+  return (codePattern.value || 'PRJ-{연도}-{순번}')
+    .replace('{연도2}', String(y % 100).padStart(2, '0'))
+    .replace('{연도}', String(y))
+    .replace('{순번}', '001');
+});
 const patternSaved = ref(false);
 const patternSaving = ref(false);
 async function loadPattern() {
@@ -234,6 +267,7 @@ onMounted(async () => {
   }
   if (apiMode.value) {
     void loadPattern();
+    void loadCodePattern();
     dataClient.docTemplates.list().then((v) => { docTemplates.value = v; })
       .catch((e) => console.error('[admin] 양식 목록 로드 실패:', e));
   }
@@ -264,6 +298,16 @@ onMounted(async () => {
           {{ patternSaving ? '저장 중…' : '패턴 저장' }}
         </button>
         <span v-if="patternSaved" class="pattern-ok">저장됨</span>
+      </div>
+      <label class="pattern-label">프로젝트 코드 패턴
+        <span class="pattern-hint">토큰: {연도} {연도2} {순번}(필수) — 예: OKC{연도2}-{순번} → 미리보기 <code>{{ codePreview }}</code>{{ '' }} (입찰은 -B 자동 부착)</span>
+      </label>
+      <div class="pattern-row">
+        <input v-model="codePattern" class="input pattern-input" type="text" :disabled="codePatternSaving" />
+        <button class="btn btn-sm" :disabled="codePatternSaving || !codePattern.trim()" @click="saveCodePattern">
+          {{ codePatternSaving ? '저장 중…' : '패턴 저장' }}
+        </button>
+        <span v-if="codePatternSaved" class="pattern-ok">저장됨</span>
       </div>
     </div>
 
@@ -301,6 +345,11 @@ onMounted(async () => {
         <template v-else>
           <h3 class="form-title">
             {{ mode === 'create' ? '노드 추가' : `노드 수정 — ${selectedNode?.name ?? ''}` }}
+            <button
+              v-if="mode === 'edit' && selectedNode && CHILD_TYPE[selectedNode.nodeType]"
+              class="btn btn-sm btn-primary title-add" :disabled="!apiMode"
+              @click="openCreate(selectedNode)"
+            >+ 하위 {{ TYPE_LABELS[CHILD_TYPE[selectedNode.nodeType]] }} 추가</button>
           </h3>
           <div class="form-grid">
             <label class="field wide">
@@ -463,4 +512,5 @@ onMounted(async () => {
 .req-checks { display: flex; gap: 10px; }
 .req-checks .chk { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
 .hint { font-weight: 400; color: var(--muted); font-size: 11px; }
+.title-add { margin-left: 10px; vertical-align: middle; }
 </style>
