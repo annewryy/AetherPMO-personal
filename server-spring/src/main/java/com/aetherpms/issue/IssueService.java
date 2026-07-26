@@ -53,6 +53,9 @@ public class IssueService {
         String displayCode = displayCodeService.nextIssueDisplayCode(projectId);
         issue.setSourceRuleId(null); // 수동 등록 마커
         issue.setDisplayCode(displayCode);
+        // status 미지정 생성이 NULL로 저장되면 대시보드 신호·오픈 집계(status <> '완료')에서
+        // 통째로 누락된다(2026-07-27 시드 중 발견) — 초기 상태 '발생' 기본값.
+        if (issue.getStatus() == null) issue.setStatus("발생");
 
         IssueEntity saved = issueRepository.saveAndFlush(issue);
         return IssueMapper.mapIssue(saved);

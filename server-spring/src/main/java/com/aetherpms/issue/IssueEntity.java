@@ -72,6 +72,7 @@ public class IssueEntity {
     public LocalDate getResolvedDate() { return resolvedDate; }
     public LocalDate getDueDate() { return dueDate; }
     public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
     public String getReviewComment() { return reviewComment; }
     public Long getSourceRuleId() { return sourceRuleId; }
     public Long getRelatedTaskId() { return relatedTaskId; }
