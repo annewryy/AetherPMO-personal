@@ -52,6 +52,12 @@ public class TaskEntity {
     @Column(name = "catalog_node_id")
     private Long catalogNodeId;
 
+    @Column(name = "actual_start_date")
+    private java.time.LocalDate actualStartDate;
+
+    @Column(name = "actual_end_date")
+    private java.time.LocalDate actualEndDate;
+
     @Column(name = "assignee_id", columnDefinition = "char(36)")
     private String assigneeId;
 
@@ -59,6 +65,8 @@ public class TaskEntity {
     private String assigneeName;
 
     public Long getTaskId() { return taskId; }
+    public java.time.LocalDate getActualStartDate() { return actualStartDate; }
+    public java.time.LocalDate getActualEndDate() { return actualEndDate; }
     public String getAssigneeId() { return assigneeId; }
     public String getAssigneeName() { return assigneeName; }
     public Long getParentTaskId() { return parentTaskId; }

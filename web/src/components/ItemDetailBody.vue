@@ -461,8 +461,28 @@ const TASK_STATUS_LABELS: Record<string, string> = {
             <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">조직도</button>
           </dd>
         </div>
-        <div class="wide"><dt>기간</dt>
-          <dd>{{ fmtDate(task?.plannedStartDate) }} ~ {{ fmtDate(task?.plannedEndDate) }}</dd>
+        <!-- 0031: 태스크 일정 지정 — 계획/실적 시작·종료(백엔드 PATCH 화이트리스트 확장) -->
+        <div class="wide"><dt>계획 기간</dt>
+          <dd class="date-range">
+            <input type="date" class="date-in" :value="task?.plannedStartDate ?? ''"
+                   :disabled="!apiMode || savingField === 'planned'"
+                   @change="patch({ planned_start_date: ($event.target as HTMLInputElement).value || null }, 'planned')" />
+            <span class="tilde">~</span>
+            <input type="date" class="date-in" :value="task?.plannedEndDate ?? ''"
+                   :disabled="!apiMode || savingField === 'planned'"
+                   @change="patch({ planned_end_date: ($event.target as HTMLInputElement).value || null }, 'planned')" />
+          </dd>
+        </div>
+        <div class="wide"><dt>실적 기간</dt>
+          <dd class="date-range">
+            <input type="date" class="date-in" :value="task?.actualStartDate ?? ''"
+                   :disabled="!apiMode || savingField === 'actual'"
+                   @change="patch({ actual_start_date: ($event.target as HTMLInputElement).value || null }, 'actual')" />
+            <span class="tilde">~</span>
+            <input type="date" class="date-in" :value="task?.actualEndDate ?? ''"
+                   :disabled="!apiMode || savingField === 'actual'"
+                   @change="patch({ actual_end_date: ($event.target as HTMLInputElement).value || null }, 'actual')" />
+          </dd>
         </div>
       </template>
     </dl>
@@ -612,4 +632,11 @@ const TASK_STATUS_LABELS: Record<string, string> = {
 .attach-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .pending { font-size: 13px; color: var(--muted); font-style: italic; }
 .err { color: var(--red); font-size: 13px; margin: 0; }
+.date-range { display: flex; align-items: center; gap: 6px; }
+.date-in {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 12.5px; padding: 4px 8px; outline: none; font-family: inherit;
+}
+.date-in:focus { border-color: var(--accent); }
+.tilde { color: var(--muted); }
 </style>

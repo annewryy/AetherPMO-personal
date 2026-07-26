@@ -270,6 +270,8 @@ export interface Task {
   progress: number;            // progress_rate
   plannedStartDate: string | null;
   plannedEndDate: string | null;
+  actualStartDate: string | null;   // 0031 — 실적 기간(태스크 상세에서 지정)
+  actualEndDate: string | null;
   depth: number;
   sortOrder: number;
   catalogNodeId: number | null;

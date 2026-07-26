@@ -44,15 +44,18 @@ public class ProjectCreateService {
     private final ProjectCodeService projectCodeService;
     private final AuditWriter audit;
     private final TailoringExpansionService tailoringExpansion;
+    private final com.aetherpms.person.MemberAutoService memberAuto;
 
     public ProjectCreateService(JdbcTemplate jdbc, ProjectRepository projectRepository,
                                 ProjectCodeService projectCodeService, AuditWriter audit,
-                                TailoringExpansionService tailoringExpansion) {
+                                TailoringExpansionService tailoringExpansion,
+            com.aetherpms.person.MemberAutoService memberAuto) {
         this.jdbc = jdbc;
         this.projectRepository = projectRepository;
         this.projectCodeService = projectCodeService;
         this.audit = audit;
         this.tailoringExpansion = tailoringExpansion;
+        this.memberAuto = memberAuto;
     }
 
     // pms_project CHECK 값들 — 생성 시 기본은 입찰 프리셋, 입력 허용 시 검증용.
@@ -137,6 +140,11 @@ public class ProjectCreateService {
         // tailoring 없으면 (0,0) — 배치10 프론트 등 기존 호출은 tailoring 없이 기본 생성.
         TailoringExpansionService.ExpansionResult expansion =
                 tailoringExpansion.expand(projectId, b.get("tailoring"));
+
+        // 0031: 생성 시 지정한 책임자(pm_name) → 참여인력 자동 등록(PM 플래그)
+        if (created.get("pm_name") != null) {
+            memberAuto.ensureMember(projectId, created.get("pm_name").toString(), true, actor);
+        }
 
         String reason = (expansion.createdTasks() + expansion.createdDeliverables()) > 0
                 ? "프로젝트 신규 생성(테일러링 전개)" : "프로젝트 신규 생성";

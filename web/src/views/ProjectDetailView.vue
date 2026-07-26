@@ -28,6 +28,7 @@ import IssueFormModal from '../components/IssueFormModal.vue';
 import ActionItemFormModal from '../components/ActionItemFormModal.vue';
 import MeetingMinuteFormModal from '../components/MeetingMinuteFormModal.vue';
 import WbsSchedule from '../components/WbsSchedule.vue';
+import WbsGantt from '../components/WbsGantt.vue';
 import ProjectFormModal from '../components/ProjectFormModal.vue';
 import ProjectMembers from '../components/ProjectMembers.vue';
 
@@ -47,14 +48,14 @@ type TabKey =
   | 'overview' | 'activity'                                    // 공통
   | 'members'                                                   // 배치21 참여인력(공통)
   | 'tasks' | 'consortium' | 'vrb'                             // BIDDING
-  | 'wbs'                                                       // 배치20 WBS/일정
+  | 'wbs' | 'gantt'                                             // 배치20 WBS/일정 · 0031 간트차트
   | 'artifacts' | 'meeting-minutes' | 'issues' | 'action-items' | 'official-docs'; // EXECUTION
 
 const TAB_LABELS: Record<TabKey, string> = {
   overview: '개요', activity: '활동로그',
   members: '참여인력',
   tasks: '제안 태스크', consortium: '컨소시엄', vrb: 'VRB',
-  wbs: 'WBS/일정',
+  wbs: 'WBS/일정', gantt: '간트차트',
   artifacts: '산출물', 'meeting-minutes': '회의록', issues: '이슈/리스크',
   'action-items': '액션아이템', 'official-docs': '공문',
 };
@@ -65,8 +66,8 @@ const tabs = computed<TabKey[]>(() => {
   // 참여인력: 입찰·실행 공통(유경님 요구 §1).
   const stageTabs: TabKey[] =
     project.value.stage === 'BIDDING'
-      ? ['tasks', 'wbs', 'consortium', 'vrb', 'members']
-      : ['wbs', 'artifacts', 'meeting-minutes', 'issues', 'action-items', 'official-docs', 'members'];
+      ? ['tasks', 'wbs', 'gantt', 'consortium', 'vrb', 'members']
+      : ['wbs', 'gantt', 'artifacts', 'meeting-minutes', 'issues', 'action-items', 'official-docs', 'members'];
   return ['overview', ...stageTabs, 'activity'];
 });
 
@@ -112,6 +113,7 @@ async function loadTab(key: TabKey) {
       case 'official-docs': officialDocs.value = await dataClient.officialDocs.listByProject(pid); break;
       case 'activity': activities.value = await dataClient.activities.listByProject(pid); break;
       case 'wbs': wbs.value = await dataClient.projects.wbs(pid); break;
+      case 'gantt': if (!wbs.value) wbs.value = await dataClient.projects.wbs(pid); break;
       case 'tasks': {
         [tasks.value, artifacts.value] = await Promise.all([
           dataClient.tasks.listByProject(pid),
@@ -773,6 +775,13 @@ watch(() => route.query.panel, applyPanelQuery);
             WBS/일정은 백엔드(API_BASE) 연결 후 표시됩니다.
           </div>
           <WbsSchedule v-else-if="wbs" :wbs="wbs" />
+          <div v-else class="card-empty">WBS 데이터를 불러올 수 없습니다.</div>
+        </template>
+
+        <!-- 0031: 간트차트 — 계획·실적 이중 바(기존 WBS 탭 유지, 별도 탭) -->
+        <template v-else-if="activeTab === 'gantt'">
+          <div v-if="!apiMode" class="card-empty">간트차트는 백엔드(API_BASE) 연결 후 표시됩니다.</div>
+          <WbsGantt v-else-if="wbs" :wbs="wbs" />
           <div v-else class="card-empty">WBS 데이터를 불러올 수 없습니다.</div>
         </template>
 

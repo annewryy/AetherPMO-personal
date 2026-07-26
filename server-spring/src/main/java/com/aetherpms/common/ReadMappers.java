@@ -178,6 +178,8 @@ public final class ReadMappers {
         out.put("progress", num(t.getProgressRate()));
         out.put("plannedStartDate", dateStr(t.getPlannedStartDate()));
         out.put("plannedEndDate", dateStr(t.getPlannedEndDate()));
+        out.put("actualStartDate", dateStr(t.getActualStartDate()));
+        out.put("actualEndDate", dateStr(t.getActualEndDate()));
         out.put("depth", num(t.getDepth()));
         out.put("sortOrder", num(t.getSortOrder()));
         out.put("displayCode", t.getDisplayCode());

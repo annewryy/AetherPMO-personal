@@ -35,16 +35,18 @@ import com.aetherpms.common.WriteSupport;
 public class ProjectUpdateService {
 
     private final JdbcTemplate jdbc;
+    private final com.aetherpms.person.MemberAutoService memberAuto;
     private final ProjectRepository projectRepository;
     private final ProjectCompanyRepository companyRepository;
     private final AuditWriter audit;
 
     public ProjectUpdateService(JdbcTemplate jdbc, ProjectRepository projectRepository,
-                                ProjectCompanyRepository companyRepository, AuditWriter audit) {
+                                ProjectCompanyRepository companyRepository, AuditWriter audit, com.aetherpms.person.MemberAutoService memberAuto) {
         this.jdbc = jdbc;
         this.projectRepository = projectRepository;
         this.companyRepository = companyRepository;
         this.audit = audit;
+        this.memberAuto = memberAuto;
     }
 
     // create 와 동일한 CHECK 값(수정 시에도 enum 검증).
@@ -126,6 +128,11 @@ public class ProjectUpdateService {
 
         Map<String, Object> after = WriteSupport.updateReturning(
                 jdbc, "pms_project", "project_id", id, fields, false);
+
+        // 0031: 프로젝트 책임자(pm_name) 지정 → 참여인력 자동 등록(PM 플래그)
+        if (fields.containsKey("pm_name") && after.get("pm_name") != null) {
+            memberAuto.ensureMember(id, after.get("pm_name").toString(), true, actor);
+        }
 
         List<String> cols = new ArrayList<>(fields.keySet());
         audit.write("PROJECT", id, id, "UPDATE", cols,

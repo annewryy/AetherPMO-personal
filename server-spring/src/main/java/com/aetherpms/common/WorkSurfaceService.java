@@ -30,11 +30,15 @@ public class WorkSurfaceService {
     private final AuditWriter audit;
     private final DisplayCodeService displayCodeService;
 
-    public WorkSurfaceService(JdbcTemplate jdbc, AuditWriter audit, DisplayCodeService displayCodeService) {
+    public WorkSurfaceService(JdbcTemplate jdbc, AuditWriter audit, DisplayCodeService displayCodeService,
+                              com.aetherpms.person.MemberAutoService memberAuto) {
         this.jdbc = jdbc;
         this.audit = audit;
         this.displayCodeService = displayCodeService;
+        this.memberAuto = memberAuto;
     }
+
+    private final com.aetherpms.person.MemberAutoService memberAuto;
 
     // ---- enum vocabulary (Node work-surface.ts) ---------------------------
     private static final List<String> TASK_STATUSES = List.of("TODO", "IN_PROGRESS", "REVIEW", "REJECTED", "DONE");
@@ -45,6 +49,7 @@ public class WorkSurfaceService {
     private enum Entity {
         TASK("pms_task", "task_id", "TASK",
                 Set.of("progress_rate", "status", "actual_start_date", "actual_end_date",
+                       "planned_start_date", "planned_end_date",   // 0031: 태스크 일정 지정
                        "assignee_id", "assignee_name")),
         ISSUE("pms_issue", "issue_id", "ISSUE",
                 Set.of("status", "priority", "due_date", "resolved_date", "owner_uid", "owner_name", "title")),
@@ -102,6 +107,12 @@ public class WorkSurfaceService {
                 WriteSupport.pick(before, cols), WriteSupport.pick(after, cols),
                 actor, "작업 화면 필드 수정");
 
+        // 0031: 태스크 담당자 지정 → 참여인력 자동 등록(있으면 no-op)
+        if (cfg == Entity.TASK && fields.containsKey("assignee_name")
+                && after.get("assignee_name") != null && projectId != null) {
+            memberAuto.ensureMember(projectId, after.get("assignee_name").toString(), false, actor);
+        }
+
         if (comment != null) {
             boolean statusChanged = fields.containsKey("status");
             insertComment(cfg.type, id, projectId, comment,
@@ -126,6 +137,16 @@ public class WorkSurfaceService {
                     out.put("progress_rate", p);
                 }
                 if (out.get("status") != null) out.put("status", requireInList("status", out.get("status"), TASK_STATUSES));
+                for (String dcol : List.of("planned_start_date", "planned_end_date",
+                        "actual_start_date", "actual_end_date")) {
+                    if (out.get(dcol) != null) {
+                        try {
+                            java.time.LocalDate.parse(out.get(dcol).toString());
+                        } catch (java.time.format.DateTimeParseException e) {
+                            throw ApiException.badRequest(dcol + "는 yyyy-MM-dd 형식이어야 합니다.");
+                        }
+                    }
+                }
                 if (out.get("assignee_id") != null) {
                     int a = intOf(out.get("assignee_id"), "assignee_id는 양의 정수여야 합니다.");
                     if (a <= 0) throw ApiException.badRequest("assignee_id는 양의 정수여야 합니다.");

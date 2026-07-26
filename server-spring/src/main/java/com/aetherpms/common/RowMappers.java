@@ -122,10 +122,14 @@ public final class RowMappers {
         o.put("progress", num(v(t, "progress_rate")));
         o.put("plannedStartDate", dateStr(v(t, "planned_start_date")));
         o.put("plannedEndDate", dateStr(v(t, "planned_end_date")));
+        o.put("actualStartDate", dateStr(v(t, "actual_start_date")));
+        o.put("actualEndDate", dateStr(v(t, "actual_end_date")));
         o.put("depth", num(v(t, "depth")));
         o.put("sortOrder", num(v(t, "sort_order")));
         o.put("displayCode", v(t, "display_code"));
         o.put("catalogNodeId", asLong(v(t, "catalog_node_id")));
+        o.put("assignee", v(t, "assignee_name"));
+        o.put("assigneeId", v(t, "assignee_id"));
         return o;
     }
 
