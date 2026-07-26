@@ -127,13 +127,13 @@ public class NotificationService {
                       String openCond, String titleCol) {}
         List<Target> targets = List.of(
                 new Target("pms_task", "task_id", "planned_end_date", "assignee_name", "TASK",
-                        "status <> 'DONE' AND COALESCE(progress_rate,0) < 100", "task_name"),
+                        "e.status <> 'DONE' AND COALESCE(e.progress_rate,0) < 100", "task_name"),
                 new Target("pms_action_item", "action_id", "due_date", "assignee_name", "ACTION_ITEM",
-                        "COALESCE(status,'대기') <> '완료'", "title"),
+                        "COALESCE(e.status,'대기') <> '완료'", "title"),
                 new Target("pms_issue", "issue_id", "due_date", "owner_name", "ISSUE",
-                        "COALESCE(status,'발생') <> '완료'", "title"),
+                        "COALESCE(e.status,'발생') <> '완료'", "title"),
                 new Target("pms_deliverable", "deliverable_id", "due_date", "author_name", "DELIVERABLE",
-                        "submitted_at IS NULL AND status <> 'APPROVED'", "deliverable_name"));
+                        "e.submitted_at IS NULL AND e.status <> 'APPROVED'", "deliverable_name"));
         for (Target t : targets) {
             try {
                 List<Map<String, Object>> rows = jdbc.queryForList(
