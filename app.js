@@ -6787,17 +6787,30 @@ class AetherPMO {
                 projectViewDisplay: getComputedStyle(document.getElementById('view-projects')).display
             });
 
-            [0, 100, 500].forEach(delay => {
-                setTimeout(() => {
-                    const view = document.getElementById('view-projects');
-                    console.log(`[PROJECT VIEW ${delay}ms]`, {
-                        active: view?.classList.contains('active'),
-                        display: view ? getComputedStyle(view).display : null,
-                        visibility: view ? getComputedStyle(view).visibility : null,
-                        opacity: view ? getComputedStyle(view).opacity : null,
-                        childCount: view?.children?.length
-                    });
-                }, delay);
+            [
+                '#view-dashboard',
+                '#view-projects',
+                '#view-projects-g2b',
+                '#view-tailoring',
+                '#view-artifacts',
+                '#view-resources',
+                '#view-backup'
+            ].forEach(selector => {
+                const el = document.querySelector(selector);
+                const rect = el?.getBoundingClientRect();
+
+                console.log('[DOM PARENT HIERARCHY CHECK]', selector, {
+                    parentTag: el?.parentElement?.tagName,
+                    parentId: el?.parentElement?.id,
+                    parentClass: el?.parentElement?.className,
+                    grandParentTag: el?.parentElement?.parentElement?.tagName,
+                    grandParentId: el?.parentElement?.parentElement?.id,
+                    grandParentClass: el?.parentElement?.parentElement?.className,
+                    left: rect?.left,
+                    top: rect?.top,
+                    width: rect?.width,
+                    height: rect?.height
+                });
             });
         }
     }
