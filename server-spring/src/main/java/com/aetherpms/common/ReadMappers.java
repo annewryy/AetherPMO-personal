@@ -184,6 +184,7 @@ public final class ReadMappers {
         out.put("sortOrder", num(t.getSortOrder()));
         out.put("displayCode", t.getDisplayCode());
         out.put("catalogNodeId", t.getCatalogNodeId());
+        out.put("deliverableId", t.getDeliverableId()); // 0038
         out.put("assignee", t.getAssigneeName());   // 담당자명(직접 저장). 조직도 선택으로 채움
         out.put("assigneeId", t.getAssigneeId());
         return out;

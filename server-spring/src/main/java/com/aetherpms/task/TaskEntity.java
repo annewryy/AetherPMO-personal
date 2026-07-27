@@ -52,6 +52,9 @@ public class TaskEntity {
     @Column(name = "catalog_node_id")
     private Long catalogNodeId;
 
+    @Column(name = "deliverable_id")
+    private Long deliverableId; // 0038 — 실사용 산출물(후보 중 택1)
+
     @Column(name = "actual_start_date")
     private java.time.LocalDate actualStartDate;
 
@@ -80,4 +83,5 @@ public class TaskEntity {
     public Integer getSortOrder() { return sortOrder; }
     public String getDisplayCode() { return displayCode; }
     public Long getCatalogNodeId() { return catalogNodeId; }
+    public Long getDeliverableId() { return deliverableId; }
 }
