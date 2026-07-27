@@ -6426,6 +6426,159 @@ class AetherPMO {
         this.updateProjectStageCounts();
     }
 
+    createProjectCardElement(p) {
+        const pArtifacts = (this.state.artifacts || []).filter(a => a.projectId === p.id || a.project_id === p.id);
+        const approved = pArtifacts.filter(a => a.status === 'Approved').length;
+        const review = pArtifacts.filter(a => a.status === 'Under Review').length;
+        
+        // 실시간 투입인력 수 계산 (isActive !== false인 멤버들의 개수)
+        const activeMembersCount = (this.state.projectMembers || []).filter(
+            m => (m.projectId === p.id || m.project_id === p.id) && m.isActive !== false
+        ).length;
+
+        const isList = this.projectListViewMode === 'list';
+        const element = document.createElement('div');
+        
+        if (isList) {
+            element.className = 'project-list-row';
+            element.setAttribute('style', `
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 16px 20px;
+                background: var(--bg-card);
+                border: 1px solid var(--bg-card-border);
+                border-radius: 12px;
+                cursor: pointer;
+                transition: all 0.2s ease-in-out;
+                gap: 16px;
+                flex-wrap: wrap;
+            `);
+            
+            element.addEventListener('mouseenter', () => {
+                element.style.borderColor = 'var(--primary)';
+                element.style.background = 'var(--bg-hover-item)';
+                element.style.transform = 'translateY(-2px)';
+                element.style.boxShadow = 'var(--shadow-md)';
+            });
+            element.addEventListener('mouseleave', () => {
+                element.style.borderColor = 'var(--bg-card-border)';
+                element.style.background = 'var(--bg-card)';
+                element.style.transform = 'none';
+                element.style.boxShadow = 'none';
+            });
+
+            element.innerHTML = `
+                <div style="flex: 2; min-width: 250px; display: flex; flex-direction: column; gap: 6px;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span class="project-dept-tag" style="margin: 0; padding: 2px 8px; font-size: 10px;">${p.dept || 'PMO사업부'}</span>
+                        <span style="font-family: monospace; font-size: 10px; font-weight: 700; color: var(--text-muted); background: var(--bg-hover-item); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--bg-card-border);">${p.projectCode || p.project_code || p.id}</span>
+                        <span class="status-badge status-${(p.status || '').toLowerCase().replace(' ', '')}" style="font-size: 10px; padding: 2px 8px;">${this.translateStatus(p.status || 'In Progress')}</span>
+                        ${p.isOverdue && p.status !== 'Completed' ? `<span class="status-badge status-overdue" style="font-size: 10px; padding: 2px 8px;">기간초과</span>` : ''}
+                    </div>
+                    <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 4px 0 0 0; letter-spacing: -0.3px;">${p.name || '무제 프로젝트'}</h3>
+                    <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; line-height: 1.4;">${p.desc || p.remarks || '설명이 없습니다.'}</p>
+                </div>
+                
+                <div style="flex: 1.2; min-width: 180px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted);">
+                    <div style="display:flex; justify-content:space-between;">
+                        <span>PM: <strong style="color: var(--text-main);">${p.manager || p.pmName || '미정'}</strong></span>
+                        <span>인원: <strong style="color: var(--text-main);">${activeMembersCount}명</strong></span>
+                    </div>
+                    <div style="font-size: 11px;">
+                        <i data-lucide="calendar" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 4px; margin-top:-2px;"></i>
+                        <span>${p.startDate || '-'} ~ ${p.endDate || '-'}</span>
+                    </div>
+                </div>
+
+                <div style="flex: 1.2; min-width: 150px; display: flex; flex-direction: column; gap: 4px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700;">
+                        <span style="color: var(--text-muted);">진척률</span>
+                        <span style="color: var(--primary);">${p.progress || 0}%</span>
+                    </div>
+                    <div class="progress-bar-container" style="height: 6px; margin: 0; background: var(--bg-hover-item);">
+                        <div class="progress-bar-fill" style="width: ${p.progress || 0}%; background: var(--primary);"></div>
+                    </div>
+                </div>
+
+                <div style="flex: 1; min-width: 130px; display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
+                    <span class="artifacts-count-badge" style="font-size: 12px; display: flex; align-items: center; gap: 4px; margin: 0;">
+                        <i data-lucide="file-check" style="width: 14px; height: 14px;"></i>
+                        <span><b>${approved}</b> / ${pArtifacts.length}</span>
+                        ${review > 0 ? `<span class="text-warning font-bold" style="font-size: 10px;">(검토 ${review})</span>` : ''}
+                    </span>
+                    <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.openEditProjectModal('${p.id}')" style="height: 28px; padding: 0 10px; display: flex; align-items: center; gap: 4px;">
+                        <i data-lucide="edit-3" style="width: 12px; height: 12px;"></i>
+                        <span>수정</span>
+                    </button>
+                </div>
+            `;
+        } else {
+            element.className = 'project-card';
+            element.innerHTML = `
+                <div class="project-card-header">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="project-dept-tag">${p.dept || 'PMO사업부'}</span>
+                        <span style="font-family: monospace; font-size: 11px; font-weight: 600; color: var(--text-muted); background: var(--bg-hover-item); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--bg-card-border);">${p.projectCode || p.project_code || p.id}</span>
+                    </div>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <span class="status-badge status-${(p.status || '').toLowerCase().replace(' ', '')}">${this.translateStatus(p.status || 'In Progress')}</span>
+                        ${p.isOverdue && p.status !== 'Completed' ? `<span class="status-badge status-overdue">기간초과</span>` : ''}
+                    </div>
+                </div>
+                <h3 class="project-card-title">${p.name || '무제 프로젝트'}</h3>
+                <p class="project-card-desc">${p.desc || p.remarks || '설명이 없습니다.'}</p>
+                
+                <div class="project-card-details">
+                    <div class="detail-row">
+                        <span>매니저 (PM)</span>
+                        <span>${p.manager || p.pmName || '미정'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>프로젝트 기간</span>
+                        <span>${p.startDate || '-'} ~ ${p.endDate || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>투입 인력</span>
+                        <span>${activeMembersCount} 명</span>
+                    </div>
+                </div>
+
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" style="width: ${p.progress || 0}%"></div>
+                </div>
+
+                <div class="project-card-footer">
+                    <span class="artifacts-count-badge">
+                        <i data-lucide="file-check"></i>
+                        산출물 <b>${approved}</b> / ${pArtifacts.length}
+                        ${review > 0 ? `<span class="text-warning ml-2 font-bold">(검토 ${review})</span>` : ''}
+                    </span>
+                    <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.openEditProjectModal('${p.id}')">
+                        <i data-lucide="edit-3" style="width:12px; height:12px;"></i> 수정
+                    </button>
+                </div>
+            `;
+        }
+
+        const badge = element.querySelector('.artifacts-count-badge');
+        if (badge) {
+            badge.style.cursor = 'pointer';
+            badge.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.initialArtifactFilterProjectId = p.id;
+                window.location.hash = 'artifacts';
+            });
+        }
+
+        element.addEventListener('click', () => {
+            this.state.projectDetailSourceView = this.activeProjectStageFilter === 'Bidding' ? 'projects/bidding' : (this.activeProjectStageFilter === 'Active' ? 'projects/active' : 'projects');
+            window.location.hash = `project-detail/${p.id}`;
+        });
+
+        return element;
+    }
+
     renderProjects() {
         console.log('[renderProjects:start]', {
             activeProjectStageFilter: this.activeProjectStageFilter,
@@ -9838,6 +9991,12 @@ class AetherPMO {
         });
 
         return selectedList;
+    }
+
+    openProjectDetail(projectId) {
+        if (!projectId) return;
+        this.activeProjectId = projectId;
+        window.location.hash = `project-detail/${projectId}`;
     }
 
     renderProjectDetail(projectId) {
