@@ -2269,7 +2269,6 @@ class AetherPMO {
                     await this.loadStateFromSupabase();
                 }
             }
-
         } catch (e) {
             console.error('[Supabase] Failed loading state from database. Falling back to LocalStorage.', e);
             const stored = localStorage.getItem('aether_pms_state');
