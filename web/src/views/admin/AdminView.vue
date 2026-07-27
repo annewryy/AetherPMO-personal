@@ -7,6 +7,7 @@ const MODULES = [
   { path: '/admin/workflows', label: '워크플로' },
   { path: '/admin/companies', label: '기준정보' },
   { path: '/admin/users', label: '사용자' },
+  { path: '/admin/notifications', label: '알림 기준' },
 ];
 </script>
 

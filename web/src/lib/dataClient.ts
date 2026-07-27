@@ -12,7 +12,7 @@
 //  - 새 조회가 필요하면 여기에 메서드를 추가한다.
 
 import { getCurrentUserId } from './currentUser';
-import { getAuthToken } from './auth';
+import { getAuthToken, clearSession } from './auth';
 import type {
   Project, ProjectMember, ConsortiumMember, Artifact, Issue, ActionItem,
   OfficialDoc, MeetingMinute, Activity, AppState, VrbInfo, DashboardSignals, DashboardWidgets, Task,
@@ -55,10 +55,21 @@ function userHeader(): Record<string, string> {
   return h;
 }
 
+// 0033 — 세션 만료(로그인했던 토큰이 401) 전역 처리: 로컬 세션 정리 후 로그인 페이지로.
+//   로그인 화면에서 재로그인하면 redirect로 원래 화면 복귀. auth API 자체(로그인 시도 등)는 제외.
+function handleExpiredSession(status: number, path: string): void {
+  if (status !== 401 || !getAuthToken() || path.startsWith('/api/auth/')) return;
+  clearSession();
+  const base = import.meta.env.BASE_URL || '/';
+  const current = window.location.pathname.replace(base, '/') + window.location.search;
+  window.location.href = `${base}login?redirect=${encodeURIComponent(current)}`;
+}
+
 // 0003 계약: 응답은 도메인 모델(camelCase, types.ts와 동일 형태) — 무매핑.
 async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${apiBase()}${path}`, { headers: userHeader() });
   if (!res.ok) {
+    handleExpiredSession(res.status, path);
     // 백엔드가 {message}를 주면(예: 나라장터 502 — serviceKey 미설정·기간 가드) 그대로 노출.
     let msg = `[dataClient] API ${path} 실패: ${res.status}`;
     try {
@@ -84,6 +95,7 @@ async function apiSend<T>(method: 'POST' | 'PATCH' | 'PUT' | 'DELETE', path: str
     body: body != null ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
+    handleExpiredSession(res.status, path);
     // 0009: 백엔드 가드 응답(409 참조 수·400 계층 규칙 등)의 message를 그대로 사용자에게 노출
     let msg = `API ${method} ${path} 실패: ${res.status}`;
     try {

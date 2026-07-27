@@ -23,7 +23,8 @@ import com.aetherpms.common.ApiException;
 public class AppSettingController {
 
     /** 편집 허용 설정 키 — 무분별한 key-value 남용 방지. */
-    private static final Set<String> ALLOWED_KEYS = Set.of("deliverable.filename.pattern", "project.code.pattern");
+    private static final Set<String> ALLOWED_KEYS =
+            Set.of("deliverable.filename.pattern", "project.code.pattern", "notification.policy");
 
     private final JdbcTemplate jdbc;
 
@@ -51,6 +52,7 @@ public class AppSettingController {
         if ("project.code.pattern".equals(key) && !v.toString().contains("{순번}")) {
             throw ApiException.badRequest("프로젝트 코드 패턴에는 {순번} 토큰이 반드시 포함되어야 합니다(코드 유일성).");
         }
+        if ("notification.policy".equals(key)) validateNotificationPolicy(v.toString());
         int n = jdbc.update("UPDATE pms_app_setting SET setting_value = ? WHERE setting_key = ?",
                 v.toString().trim(), key);
         if (n == 0) {
@@ -58,6 +60,32 @@ public class AppSettingController {
                     key, v.toString().trim());
         }
         return get(key);
+    }
+
+    /** 0033 §6 — 관리자 알림 전역 기준 JSON 검증: {disabledTypes:[], biddingMinStatus:'제안제출'|null} */
+    private static void validateNotificationPolicy(String raw) {
+        Object parsed = com.aetherpms.common.Json.readObject(raw);
+        if (!(parsed instanceof Map<?, ?> m)) throw ApiException.badRequest("notification.policy는 JSON 객체여야 합니다.");
+        List<String> types = com.aetherpms.notification.NotificationService.TYPES;
+        for (Object k : m.keySet()) {
+            if (!"disabledTypes".equals(k) && !"biddingMinStatus".equals(k)) {
+                throw ApiException.badRequest("허용되지 않는 정책 키: " + k + " (허용: disabledTypes, biddingMinStatus)");
+            }
+        }
+        Object dt = m.get("disabledTypes");
+        if (dt != null) {
+            if (!(dt instanceof List<?> list)) throw ApiException.badRequest("disabledTypes는 배열이어야 합니다.");
+            for (Object t : list) {
+                if (!types.contains(String.valueOf(t))) {
+                    throw ApiException.badRequest("알 수 없는 알림 유형: " + t + " (허용: " + String.join(", ", types) + ")");
+                }
+            }
+        }
+        Object bm = m.get("biddingMinStatus");
+        if (bm != null && !com.aetherpms.notification.NotificationService.BID_ORDER.contains(String.valueOf(bm))) {
+            throw ApiException.badRequest("biddingMinStatus는 "
+                    + String.join(", ", com.aetherpms.notification.NotificationService.BID_ORDER) + " 중 하나여야 합니다.");
+        }
     }
 
     private static void requireAllowed(String key) {

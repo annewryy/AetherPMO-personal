@@ -71,6 +71,13 @@ export async function logout(): Promise<void> {
   currentUser.value = null;
 }
 
+/** 0033 — 서버 호출 없이 로컬 세션만 정리(만료 401 전역 처리용). */
+export function clearSession(): void {
+  token.value = null;
+  currentUser.value = null;
+  try { localStorage.removeItem(TOKEN_KEY); } catch { /* 무시 */ }
+}
+
 /** 앱 부팅 시 저장 토큰으로 세션 복원. 실패(만료 등)면 정리. */
 export async function restoreSession(): Promise<void> {
   if (!token.value || !apiBase()) return;

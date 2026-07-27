@@ -121,7 +121,7 @@ async function doLogout() {
     <div v-if="showNotif" class="pw-overlay" @click.self="showNotif = false">
       <div class="pw-card notif-card">
         <h3 class="pw-title">알림 설정</h3>
-        <p class="notif-sub">끈 유형은 이후 알림이 생성되지 않습니다(이미 받은 알림은 유지).</p>
+        <p class="notif-sub">끈 유형은 이후 알림이 생성되지 않습니다(이미 받은 알림은 유지). 관리자가 전역으로 끈 유형은 개인 설정과 무관하게 발송되지 않습니다.</p>
         <div class="notif-list">
           <label v-for="t in NOTIF_TYPES" :key="t.key" class="notif-row">
             <input v-model="notifPrefs[t.key]" type="checkbox" :disabled="notifSaving" />
