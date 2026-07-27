@@ -78,6 +78,10 @@ public class PersonService {
             }
         }
 
+        if (!q.includeInactive()) {
+            // 0038 — 기본은 재직 인력만. '재직 외 포함' 체크 시 전체(status NULL=수동 등록 → 재직 취급).
+            where.add("(p.status IS NULL OR p.status = '재직')");
+        }
         if (q.departments() != null && !q.departments().isEmpty()) {
             // 0038 — 조직도 트리 선택 부서(하위 포함) 필터: 부서명 IN
             where.add("p.department IN (" + String.join(",",

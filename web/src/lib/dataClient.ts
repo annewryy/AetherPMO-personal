@@ -693,6 +693,7 @@ export const dataClient = {
       if (filters.location && filters.location.trim()) qs.set('location', filters.location.trim());
       if (filters.customer && filters.customer.trim()) qs.set('customer', filters.customer.trim());
       if (filters.departments && filters.departments.length) qs.set('departments', filters.departments.join(','));
+      if (filters.includeInactive) qs.set('includeInactive', 'true');
       const q = qs.toString();
       return apiGet<Person[]>(`/api/persons${q ? `?${q}` : ''}`);
     },

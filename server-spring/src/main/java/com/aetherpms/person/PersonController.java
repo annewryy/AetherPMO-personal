@@ -34,12 +34,14 @@ public class PersonController {
             @RequestParam(name = "projectId", required = false) Long projectId,
             @RequestParam(name = "location", required = false) String location,
             @RequestParam(name = "customer", required = false) String customer,
-            @RequestParam(name = "departments", required = false) String departments) {
+            @RequestParam(name = "departments", required = false) String departments,
+            @RequestParam(name = "includeInactive", required = false) String includeInactive) {
         PersonQuery q = new PersonQuery(
                 splitTypes(employmentTypes), match, name, company, projectId, location, customer,
                 departments == null || departments.isBlank() ? null
                         : java.util.Arrays.stream(departments.split(",")).map(String::trim)
-                              .filter(d -> !d.isEmpty()).toList());
+                              .filter(d -> !d.isEmpty()).toList(),
+                "true".equalsIgnoreCase(includeInactive));
         return service.list(q);
     }
 

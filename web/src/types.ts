@@ -946,6 +946,7 @@ export interface PersonProjectHistory {
 // GET /api/persons 서버측 필터(0014 A — 클라이언트 필터링 금지, 서버 쿼리로 전달).
 export interface PersonFilters {
   departments?: string[];        // 0038 — 조직도 트리 선택(하위 포함 부서명)
+  includeInactive?: boolean;     // 0038 — 재직 외(종료 등) 포함 여부(기본 false=재직만)
   employmentTypes?: string[];        // 복수선택 → 콤마 조립
   match?: 'or' | 'and';              // 기본 or
   name?: string;

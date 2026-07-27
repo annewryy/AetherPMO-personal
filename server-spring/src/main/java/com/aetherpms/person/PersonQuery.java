@@ -15,5 +15,6 @@ public record PersonQuery(
         Long projectId,
         String location,
         String customer,
-        List<String> departments) {
+        List<String> departments,
+        boolean includeInactive) {
 }

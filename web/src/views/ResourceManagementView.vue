@@ -34,6 +34,8 @@ const location = ref('');
 const customer = ref('');
 // 0038 — 좌측 조직도 트리 선택(하위 포함 부서명 목록, 서버 IN 필터)
 const deptFilter = ref<string[]>([]);
+// 0038 — 기본은 재직 인력만, 체크 시 재직 외(종료 등) 포함
+const includeInactive = ref(false);
 // 0038 — 로그인 ID 컬럼은 시스템 관리자에게만
 const isAdmin = computed(() => currentUser.value?.role === 'SYS_ADMIN');
 function onDeptSelect(v: { deptCode: string | null; deptNames: string[] }) {
@@ -69,6 +71,7 @@ function buildFilters(): PersonFilters {
   const pv = project.value.trim();
   if (pv && /^\d+$/.test(pv)) f.projectId = Number(pv);
   if (deptFilter.value.length) f.departments = [...deptFilter.value];
+  if (includeInactive.value) f.includeInactive = true;
   return f;
 }
 
@@ -88,6 +91,7 @@ async function search() {
 }
 
 function reset() {
+  includeInactive.value = false;
   selectedTypes.value = [];
   matchMode.value = 'or';
   name.value = company.value = project.value = location.value = customer.value = '';
@@ -195,6 +199,9 @@ onMounted(() => {
         <input v-model="project" class="in" type="search" placeholder="투입 프로젝트 ID" @keyup.enter="search" />
         <input v-model="location" class="in" type="search" placeholder="수행장소" @keyup.enter="search" />
         <input v-model="customer" class="in" type="search" placeholder="고객사" @keyup.enter="search" />
+        <label class="chk inactive-chk" title="기본은 재직 인력만 조회합니다">
+          <input v-model="includeInactive" type="checkbox" @change="search" /> 재직 외 포함
+        </label>
         <button class="btn btn-primary" :disabled="!apiMode" @click="search">조회</button>
         <button class="btn" :disabled="!apiMode" @click="reset">초기화</button>
       </div>
