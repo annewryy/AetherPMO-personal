@@ -558,7 +558,7 @@ class AetherPMO {
 
         const officialDocsMenu = document.querySelector('.sidebar-nav .nav-item[data-view="official-docs"]');
         if (officialDocsMenu) {
-            officialDocsMenu.style.display = (role === 'WORKER') ? 'none' : 'flex';
+            officialDocsMenu.style.display = 'none';
         }
 
         // Helper checks for PM and Worker scoping
