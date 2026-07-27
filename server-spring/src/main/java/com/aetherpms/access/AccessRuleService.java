@@ -248,11 +248,15 @@ public class AccessRuleService {
             if (ruleMatches(rule, person)) matched.add(shape(rule));
         }
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("person", Map.of(
-                "personId", person.get("person_id"), "name", person.get("name"),
-                "department", person.get("department"), "position", person.get("position"),
-                "positionCode", PositionCode.of((String) person.get("position")),
-                "employmentType", person.get("employment_type")));
+        // Map.of는 null 값을 허용하지 않음(부서·직책 미기재 인력이 흔함) — LinkedHashMap으로 구성.
+        Map<String, Object> personOut = new LinkedHashMap<>();
+        personOut.put("personId", person.get("person_id"));
+        personOut.put("name", person.get("name"));
+        personOut.put("department", person.get("department"));
+        personOut.put("position", person.get("position"));
+        personOut.put("positionCode", PositionCode.of((String) person.get("position")));
+        personOut.put("employmentType", person.get("employment_type"));
+        out.put("person", personOut);
         out.put("matchedRules", matched);
         out.put("effectiveMenus", resolveMenus(personId));
         return out;
