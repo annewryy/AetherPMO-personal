@@ -9,6 +9,7 @@ const MODULES = [
   { path: '/admin/users', label: '사용자' },
   { path: '/admin/notifications', label: '알림 기준' },
   { path: '/admin/access-rules', label: '접근 규칙' },
+  { path: '/admin/role-capabilities', label: '역할 권한' },
 ];
 </script>
 

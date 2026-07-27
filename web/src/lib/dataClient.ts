@@ -655,6 +655,16 @@ export const dataClient = {
     },
   },
 
+  // 0034 §2단계 — 프로젝트 역할(④) 전역 관리포인트 권한
+  roleCapabilities: {
+    list(): Promise<{ roles: { roleCode: string; capabilities: Record<string, unknown> }[]; capabilityKeys: string[]; tristateKeys: string[] }> {
+      return apiGet('/api/admin/role-capabilities');
+    },
+    update(roleCode: string, body: Record<string, unknown>) {
+      return apiSend('PATCH', `/api/admin/role-capabilities/${roleCode}`, body);
+    },
+  },
+
   // 0033 3차 — 개인 알림 설정(유형별 on/off)
   notificationPrefs: {
     get(): Promise<{ prefs: Record<string, boolean>; types: string[] }> {

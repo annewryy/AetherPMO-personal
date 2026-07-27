@@ -55,8 +55,8 @@ public class ActionItemReadController {
         List<Map<String, Object>> all = repo.findAllByOrderByActionIdDesc().stream()
                 .map(ReadMappers::mapActionItem).toList();
         AuthContext ctx = AuthContext.of(req);
-        if (!scope.isScoped(ctx)) return all;
-        java.util.Set<Long> mine = scope.memberProjectIds(ctx);
-        return all.stream().filter(m -> mine.contains(((Number) m.get("projectId")).longValue())).toList();
+        java.util.Set<Long> visible = scope.visibleProjectIdsOrNull(ctx);
+        if (visible == null) return all;
+        return all.stream().filter(m -> visible.contains(((Number) m.get("projectId")).longValue())).toList();
     }
 }

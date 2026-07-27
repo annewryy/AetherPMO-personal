@@ -211,26 +211,38 @@ public class AccessRuleService {
         return resolveMenus(personId);
     }
 
-    /** 로그인 사용자의 유효 메뉴 키 집합. person 미연결/매칭 규칙 없음 = 기본값(대시보드만, 0034 §5 결정3). */
-    public Set<String> resolveMenus(Long personId) {
-        if (personId == null) return Set.of(MenuKeys.DASHBOARD);
+    /** 이 person에게 매칭되는 활성 규칙 전부(원본 shape) — 메뉴 판정과 2단계 capability 판정 공용. */
+    public List<Map<String, Object>> matchedRulesFor(Long personId) {
+        if (personId == null) return List.of();
         List<Map<String, Object>> people = jdbc.queryForList(
                 "SELECT department, position, employment_type FROM pms_person WHERE person_id = ?", personId);
-        if (people.isEmpty()) return Set.of(MenuKeys.DASHBOARD);
+        if (people.isEmpty()) return List.of();
         Map<String, Object> person = people.get(0);
 
-        Set<String> menus = new HashSet<>();
-        List<Map<String, Object>> rules = jdbc.queryForList(
-                "SELECT * FROM pms_access_rule WHERE enabled = 1");
+        List<Map<String, Object>> out = new ArrayList<>();
+        List<Map<String, Object>> rules = jdbc.queryForList("SELECT * FROM pms_access_rule WHERE enabled = 1");
         for (Map<String, Object> rule : rules) {
             try {
-                if (ruleMatches(rule, person)) {
-                    Object arr = Json.readArray(String.valueOf(rule.get("menu_keys")));
-                    if (arr instanceof List<?> list) for (Object k : list) menus.add(String.valueOf(k));
-                }
+                if (ruleMatches(rule, person)) out.add(rule);
             } catch (RuntimeException e) {
                 log.warn("접근 규칙 판정 실패(rule_id={}) — 이 규칙 건너뜀: {}", rule.get("rule_id"), e.getMessage());
             }
+        }
+        return out;
+    }
+
+    /** 0034 §0단계/1단계에서 쓰던 dept 확장을 2단계(ProjectScopeService)에서도 재사용. */
+    public Set<String> expandDeptNamesPublic(String deptCode, boolean includeSub) {
+        return expandDeptNames(deptCode, includeSub);
+    }
+
+    /** 로그인 사용자의 유효 메뉴 키 집합. person 미연결/매칭 규칙 없음 = 기본값(대시보드만, 0034 §5 결정3). */
+    public Set<String> resolveMenus(Long personId) {
+        List<Map<String, Object>> rules = matchedRulesFor(personId);
+        Set<String> menus = new HashSet<>();
+        for (Map<String, Object> rule : rules) {
+            Object arr = Json.readArray(String.valueOf(rule.get("menu_keys")));
+            if (arr instanceof List<?> list) for (Object k : list) menus.add(String.valueOf(k));
         }
         return menus.isEmpty() ? Set.of(MenuKeys.DASHBOARD) : menus;
     }

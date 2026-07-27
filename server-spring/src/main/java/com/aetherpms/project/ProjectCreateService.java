@@ -39,6 +39,8 @@ import com.aetherpms.common.WriteSupport;
 @Service
 public class ProjectCreateService {
 
+    private final com.aetherpms.access.ExecAutoRegisterService execAuto;
+
     private final JdbcTemplate jdbc;
     private final ProjectRepository projectRepository;
     private final ProjectCodeService projectCodeService;
@@ -49,13 +51,14 @@ public class ProjectCreateService {
     public ProjectCreateService(JdbcTemplate jdbc, ProjectRepository projectRepository,
                                 ProjectCodeService projectCodeService, AuditWriter audit,
                                 TailoringExpansionService tailoringExpansion,
-            com.aetherpms.person.MemberAutoService memberAuto) {
+            com.aetherpms.person.MemberAutoService memberAuto, com.aetherpms.access.ExecAutoRegisterService execAuto) {
         this.jdbc = jdbc;
         this.projectRepository = projectRepository;
         this.projectCodeService = projectCodeService;
         this.audit = audit;
         this.tailoringExpansion = tailoringExpansion;
         this.memberAuto = memberAuto;
+        this.execAuto = execAuto;
     }
 
     // pms_project CHECK 값들 — 생성 시 기본은 입찰 프리셋, 입력 허용 시 검증용.
@@ -159,6 +162,7 @@ public class ProjectCreateService {
                 memberAuto.ensureMember(projectId, created.get(ownerCol).toString(), false, actor);
             }
         }
+        execAuto.ensureProjectHasExec(projectId);  // 0034 §5 결정4 — 경영진 자동 참여 등록
 
         String reason = (expansion.createdTasks() + expansion.createdDeliverables()) > 0
                 ? "프로젝트 신규 생성(테일러링 전개)" : "프로젝트 신규 생성";

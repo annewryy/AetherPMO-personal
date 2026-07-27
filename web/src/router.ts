@@ -23,6 +23,7 @@ import AdminCompaniesView from './views/admin/AdminCompaniesView.vue';
 import AdminUsersView from './views/admin/AdminUsersView.vue';
 import AdminNotificationView from './views/admin/AdminNotificationView.vue';
 import AdminAccessRulesView from './views/admin/AdminAccessRulesView.vue';
+import AdminRoleCapabilitiesView from './views/admin/AdminRoleCapabilitiesView.vue';
 
 // 히스토리 base: 빌드에서는 '/app/'(vite base), dev에서는 '/'.
 // 딥링크(/app/...)는 vercel.json rewrite가 처리한다(0004 추가 인프라).
@@ -67,6 +68,7 @@ export const router = createRouter({
         { path: 'users', name: 'admin-users', component: AdminUsersView },
         { path: 'notifications', name: 'admin-notifications', component: AdminNotificationView },
         { path: 'access-rules', name: 'admin-access-rules', component: AdminAccessRulesView },
+        { path: 'role-capabilities', name: 'admin-role-capabilities', component: AdminRoleCapabilitiesView },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/projects/active' },

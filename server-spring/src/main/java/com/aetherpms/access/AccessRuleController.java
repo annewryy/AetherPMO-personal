@@ -22,9 +22,17 @@ import com.aetherpms.common.ApiException;
 public class AccessRuleController {
 
     private final AccessRuleService service;
+    private final ExecAutoRegisterService execAuto;
 
-    public AccessRuleController(AccessRuleService service) {
+    public AccessRuleController(AccessRuleService service, ExecAutoRegisterService execAuto) {
         this.service = service;
+        this.execAuto = execAuto;
+    }
+
+    /** 0034 §5 결정4(A) — 경영진 전 프로젝트 참여 등록 일괄 백필(모델 최초 적용 시 1회 실행). */
+    @PostMapping("/api/admin/access-rules/sync-exec")
+    public Map<String, Object> syncExec() {
+        return execAuto.syncAllProjects();
     }
 
     @GetMapping("/api/admin/access-rules")
