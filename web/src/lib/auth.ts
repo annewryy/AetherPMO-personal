@@ -10,6 +10,7 @@ export interface AuthUser {
   role: 'SYS_ADMIN' | 'EXEC_ADMIN' | 'PM' | 'WORKER' | 'VIEWER' | string;
   personId: number | null;
   name: string;
+  menus?: string[];  // 0034 §1단계 — 유효 메뉴 키(③ 접근 규칙 판정 결과, SYS_ADMIN/VIEWER는 특수값)
 }
 
 const TOKEN_KEY = 'aether.authToken';
@@ -61,7 +62,7 @@ export async function login(loginId: string, password: string): Promise<void> {
   const r = await call('/api/auth/login', 'POST', { loginId, password });
   token.value = r.token;
   writeToken(r.token);
-  currentUser.value = { id: r.id, username: r.username, email: r.email, role: r.role, personId: r.personId, name: r.name };
+  currentUser.value = { id: r.id, username: r.username, email: r.email, role: r.role, personId: r.personId, name: r.name, menus: r.menus };
 }
 
 export async function logout(): Promise<void> {
@@ -83,7 +84,7 @@ export async function restoreSession(): Promise<void> {
   if (!token.value || !apiBase()) return;
   try {
     const r = await call('/api/auth/me', 'GET');
-    currentUser.value = { id: r.id, username: r.username, email: r.email, role: r.role, personId: r.personId, name: r.name };
+    currentUser.value = { id: r.id, username: r.username, email: r.email, role: r.role, personId: r.personId, name: r.name, menus: r.menus };
   } catch {
     token.value = null;
     writeToken(null);

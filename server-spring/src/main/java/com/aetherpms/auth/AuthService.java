@@ -11,6 +11,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.aetherpms.access.AccessRuleService;
 import com.aetherpms.common.ApiException;
 
 /**
@@ -24,9 +25,11 @@ public class AuthService {
     private static final long SESSION_HOURS = 12;
 
     private final JdbcTemplate jdbc;
+    private final AccessRuleService accessRuleService;
 
-    public AuthService(JdbcTemplate jdbc) {
+    public AuthService(JdbcTemplate jdbc, AccessRuleService accessRuleService) {
         this.jdbc = jdbc;
+        this.accessRuleService = accessRuleService;
     }
 
     @Transactional
@@ -95,6 +98,9 @@ public class AuthService {
                 "SELECT COUNT(*) FROM pms_org_member WHERE mber_id = ?",
                 Integer.class, str(r.get("username")));
         shaped.put("amaranthLinked", org != null && org > 0);
+        // 0034 §1단계 — 유효 메뉴(AccessRuleService.effectiveMenus — RbacInterceptor와 동일 판정 공유)
+        Long personId = r.get("person_id") == null ? null : ((Number) r.get("person_id")).longValue();
+        shaped.put("menus", accessRuleService.effectiveMenus(str(r.get("role")), personId));
         return shaped;
     }
 

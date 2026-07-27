@@ -1,12 +1,16 @@
 package com.aetherpms.auth;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+import com.aetherpms.access.AccessRuleService;
+import com.aetherpms.access.MenuKeys;
 import com.aetherpms.common.ApiException;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,10 +33,27 @@ public class RbacInterceptor implements HandlerInterceptor {
             "/api/workflows", "/api/signal-rules", "/api/admin/users");
     private static final Set<String> WRITE = Set.of("POST", "PATCH", "PUT", "DELETE");
 
-    private final JdbcTemplate jdbc;
+    /**
+     * 0034 §1단계 — 메뉴 접근(①)이 확실히 매핑되는 전역 목록 경로만 서버에서도 문지기(프론트
+     * 숨김은 UX일 뿐). 프로젝트 상세 하위 경로(/api/projects/{id}/issues 등)는 0032
+     * ProjectScopeService가 이미 참여 여부로 막고 있어 중복 게이트하지 않는다.
+     */
+    private static final Map<String, String> MENU_GATED_PREFIXES = new LinkedHashMap<>() {{
+        put("/api/persons", MenuKeys.PERSONS);
+        put("/api/project-members", MenuKeys.PERSONS);
+        put("/api/official-docs", MenuKeys.OFFICIAL_DOCS);
+        put("/api/meeting-minutes", MenuKeys.MEETING_MINUTES);
+        put("/api/issues", MenuKeys.ISSUES);
+        put("/api/action-items", MenuKeys.ACTION_ITEMS);
+        put("/api/bid-notices", MenuKeys.BIDDING);
+    }};
 
-    public RbacInterceptor(JdbcTemplate jdbc) {
+    private final JdbcTemplate jdbc;
+    private final AccessRuleService accessRuleService;
+
+    public RbacInterceptor(JdbcTemplate jdbc, AccessRuleService accessRuleService) {
         this.jdbc = jdbc;
+        this.accessRuleService = accessRuleService;
     }
 
     @Override
@@ -72,6 +93,16 @@ public class RbacInterceptor implements HandlerInterceptor {
         }
         if (!write && path.startsWith("/api/admin/") && (ctx == null || !ctx.isSysAdmin())) {
             throw ApiException.forbidden("관리자 콘솔은 시스템 관리자(SYS_ADMIN)만 접근할 수 있습니다.");
+        }
+        // 0034 §1단계 — 전역 목록 경로 메뉴 게이트(③ 접근 규칙으로 이 메뉴가 없으면 403)
+        for (Map.Entry<String, String> e : MENU_GATED_PREFIXES.entrySet()) {
+            if (!path.startsWith(e.getKey())) continue;
+            if (ctx == null) throw ApiException.unauthorized("로그인이 필요합니다.");
+            Set<String> menus = accessRuleService.effectiveMenus(ctx.role(), ctx.personId());
+            if (!menus.contains(e.getValue())) {
+                throw ApiException.forbidden("이 메뉴에 대한 접근 권한이 없습니다.");
+            }
+            break;
         }
         return true;
     }

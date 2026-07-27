@@ -1117,3 +1117,37 @@ export interface MyDashboard {
   deliverables?: MyDashboardItem[];
   counts?: Record<'tasks' | 'actionItems' | 'issues' | 'deliverables', { total: number; open: number }>;
 }
+
+// 0034 §1단계 — 접근 규칙(③ 부서×직책×인력구분)
+export interface AccessRule {
+  ruleId: number;
+  name: string | null;
+  deptCode: string | null;
+  includeSub: boolean;
+  positionCode: string | null;
+  employmentType: string | null;
+  menuKeys: string[];
+  projectScope: 'ALL' | 'DEPT' | 'PARTICIPATING';
+  capabilities: Record<string, unknown> | null;
+  priority: number;
+  enabled: boolean;
+}
+export interface AccessRuleInput {
+  name: string | null;
+  deptCode: string | null;
+  includeSub: boolean;
+  positionCode: string | null;
+  employmentType: string | null;
+  menuKeys: string[];
+  projectScope: 'ALL' | 'DEPT' | 'PARTICIPATING';
+  priority: number;
+  enabled: boolean;
+}
+export interface AccessRuleSimulation {
+  person: {
+    personId: number; name: string; department: string | null;
+    position: string | null; positionCode: string; employmentType: string | null;
+  };
+  matchedRules: AccessRule[];
+  effectiveMenus: string[];
+}

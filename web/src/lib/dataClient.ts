@@ -633,6 +633,28 @@ export const dataClient = {
     },
   },
 
+  // 0034 §1단계 — 접근 규칙(③ 부서×직책×인력구분): 관리자 콘솔 > 접근 규칙
+  accessRules: {
+    list(): Promise<import('../types').AccessRule[]> {
+      return apiGet('/api/admin/access-rules');
+    },
+    menuKeys(): Promise<{ keys: string[]; labels: Record<string, string>; positionCodes: string[] }> {
+      return apiGet('/api/admin/access-rules/menu-keys');
+    },
+    create(body: Partial<import('../types').AccessRuleInput>) {
+      return apiSend<import('../types').AccessRule>('POST', '/api/admin/access-rules', body);
+    },
+    update(id: number, body: Partial<import('../types').AccessRuleInput>) {
+      return apiSend<import('../types').AccessRule>('PATCH', `/api/admin/access-rules/${id}`, body);
+    },
+    remove(id: number) {
+      return apiSend<{ ok: boolean }>('DELETE', `/api/admin/access-rules/${id}`);
+    },
+    simulate(personId: number): Promise<import('../types').AccessRuleSimulation> {
+      return apiGet(`/api/admin/access-rules/simulate?personId=${personId}`);
+    },
+  },
+
   // 0033 3차 — 개인 알림 설정(유형별 on/off)
   notificationPrefs: {
     get(): Promise<{ prefs: Record<string, boolean>; types: string[] }> {
