@@ -3834,10 +3834,9 @@ class AetherPMO {
             }
         });
 
-        // Main view tabs click handler
+        // Main view tabs click handler (.nav-item)
         document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
-                e.preventDefault();
                 const view = item.getAttribute('data-view');
                 const wrapper = item.closest('.nav-item-wrapper');
 
@@ -3845,13 +3844,37 @@ class AetherPMO {
                     wrapper.classList.toggle('collapsed');
                 }
 
-                if (view === 'projects') {
-                    window.location.hash = `projects/${this.activeProjectStageFilter.toLowerCase()}`;
-                } else {
-                    window.location.hash = view;
+                if (view) {
+                    e.preventDefault();
+                    if (view === 'projects') {
+                        const stage = (this.activeProjectStageFilter || 'Bidding').toLowerCase();
+                        window.location.hash = `projects/${stage}`;
+                    } else {
+                        window.location.hash = view;
+                    }
                 }
                 // Close sidebar on mobile after clicking
-                document.querySelector('.sidebar').classList.remove('open');
+                document.querySelector('.sidebar')?.classList.remove('open');
+            });
+        });
+
+        // Submenu items click handler (.submenu-item)
+        document.querySelectorAll('.sidebar-nav .submenu-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation(); // Stop bubbling up to parent .nav-item
+                const href = item.getAttribute('href');
+                if (href && href.startsWith('#')) {
+                    e.preventDefault();
+                    const hashPath = href.substring(1);
+                    if (hashPath.startsWith('projects/')) {
+                        const subStage = hashPath.split('/')[1];
+                        if (subStage === 'bidding') this.activeProjectStageFilter = 'Bidding';
+                        else if (subStage === 'active') this.activeProjectStageFilter = 'Active';
+                        else if (subStage === 'completed') this.activeProjectStageFilter = 'Completed';
+                    }
+                    window.location.hash = hashPath;
+                }
+                document.querySelector('.sidebar')?.classList.remove('open');
             });
         });
 
