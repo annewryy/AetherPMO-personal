@@ -6427,336 +6427,229 @@ class AetherPMO {
     }
 
     renderProjects() {
-        this.updateProjectsOverdueStatus();
-        this.updateProjectStageCounts();
-
-        document.querySelectorAll('.project-stage-tab').forEach(tab => {
-            tab.classList.remove('active');
-            if (tab.getAttribute('data-stage') === this.activeProjectStageFilter) {
-                tab.classList.add('active');
-            }
+        console.log('[renderProjects:start]', {
+            activeProjectStageFilter: this.activeProjectStageFilter,
+            totalProjects: this.state?.projects?.length
         });
 
-        const biddingContainer = document.getElementById('bidding-split-container');
-        const standardContainer = document.getElementById('standard-projects-container');
+        try {
+            console.log('[renderProjects:submethods:start]');
+            this.updateProjectsOverdueStatus();
+            this.updateProjectStageCounts();
+            console.log('[renderProjects:submethods:end]');
 
-        if (this.activeProjectStageFilter === 'Bidding') {
-            if (biddingContainer) biddingContainer.style.display = 'grid';
-            if (standardContainer) standardContainer.style.display = 'none';
-            this.renderBiddingSplitPane();
-            return;
-        }
-
-        if (biddingContainer) biddingContainer.style.display = 'none';
-        if (standardContainer) standardContainer.style.display = 'block';
-
-        const grid = document.getElementById('projects-grid-list');
-        if (!grid) return;
-
-        if (this.projectListViewMode === 'list') {
-            grid.style.display = 'flex';
-            grid.style.flexDirection = 'column';
-            grid.style.gap = '12px';
-        } else {
-            grid.style.display = 'grid';
-            grid.removeAttribute('style');
-        }
-
-        // 1. Read Inputs
-        const fKeyword = this.safeText(document.getElementById('project-search-input')?.value || '').trim().toLowerCase();
-
-        const advLoc = document.getElementById('adv-search-location')?.value || 'all';
-        const advStartDate = document.getElementById('adv-search-start-date')?.value || '';
-        const advEndDate = document.getElementById('adv-search-end-date')?.value || '';
-        const advPm = this.safeText(document.getElementById('adv-search-pm')?.value || '').trim().toLowerCase();
-        const advCustomer = this.safeText(document.getElementById('adv-search-customer')?.value || '').trim().toLowerCase();
-        const advName = this.safeText(document.getElementById('adv-search-name')?.value || '').trim().toLowerCase();
-        const advCode = this.safeText(document.getElementById('adv-search-code')?.value || '').trim().toLowerCase();
-
-        console.log('[PROJECT ACCESS DEBUG]', {
-            role: this.currentUser?.role,
-            userId: this.currentUser?.id,
-            totalProjects: this.state?.projects?.length,
-            accessibleProjects: (this.getAccessibleProjects() || []).length,
-            isAdmin: this.isAdminRole(this.currentUser?.role)
-        });
-
-        // 2. Filter Accessible Projects
-        const accessibleProjects = this.getAccessibleProjects();
-        const filtered = accessibleProjects.filter(p => {
-            const pStatusClean = (p.status || '').trim();
-
-            // A. Stage Filtering
-            let matchStage = false;
-            if (stage === 'Bidding') {
-                matchStage = pStatusClean === 'Bidding' || p.is_bidding_project || p.isBiddingProject;
-            } else if (stage === 'Active') {
-                matchStage = ['In Progress', 'On Hold', 'Delay', '수행중', '보류', '지연'].includes(pStatusClean);
-            } else if (stage === 'Completed') {
-                matchStage = ['Completed', '종료'].includes(pStatusClean);
-            }
-            if (!matchStage) return false;
-
-            // B. Primary Integrated Keyword Search (5 fields: name, projectCode, customer, manager, desc/remarks)
-            if (fKeyword) {
-                const nameMatch = this.safeText(p.name).toLowerCase().includes(fKeyword);
-                const codeMatch = this.safeText(p.projectCode || p.id).toLowerCase().includes(fKeyword);
-                const customerMatch = this.safeText(p.customer || p.customerName).toLowerCase().includes(fKeyword);
-                const managerMatch = this.safeText(p.manager || p.pmName || p.proposalPm).toLowerCase().includes(fKeyword);
-                const descMatch = (this.safeText(p.desc) + ' ' + this.safeText(p.remarks)).toLowerCase().includes(fKeyword);
-
-                if (!nameMatch && !codeMatch && !customerMatch && !managerMatch && !descMatch) {
-                    return false;
+            document.querySelectorAll('.project-stage-tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.getAttribute('data-stage') === this.activeProjectStageFilter) {
+                    tab.classList.add('active');
                 }
-            }
-
-            // C. Advanced Search - Location
-            if (advLoc !== 'all') {
-                const pLoc = p.location || '정부서울청사';
-                const normLoc = pLoc.includes('서울') ? '서울' :
-                                pLoc.includes('대전') ? '대전' :
-                                pLoc.includes('대구') ? '대구' :
-                                pLoc.includes('광주') ? '광주' : '기타';
-                if (normLoc !== advLoc) return false;
-            }
-
-            // D. Advanced Search - Date Overlap Range (project.startDate <= advEndDate AND project.endDate >= advStartDate)
-            if (advStartDate && p.endDate && p.endDate < advStartDate) {
-                return false;
-            }
-            if (advEndDate && p.startDate && p.startDate > advEndDate) {
-                return false;
-            }
-
-            // E. Advanced Search - PM
-            if (advPm && !this.safeText(p.manager || p.pmName).toLowerCase().includes(advPm)) {
-                return false;
-            }
-
-            // F. Advanced Search - Customer
-            if (advCustomer && !this.safeText(p.customer || p.customerName).toLowerCase().includes(advCustomer)) {
-                return false;
-            }
-
-            // G. Advanced Search - Name
-            if (advName && !this.safeText(p.name).toLowerCase().includes(advName)) {
-                return false;
-            }
-
-            // H. Advanced Search - Code
-            if (advCode && !this.safeText(p.projectCode || p.id).toLowerCase().includes(advCode)) {
-                return false;
-            }
-
-            return true;
-        });
-
-        // 3. Sort Projects (Default: updatedAt DESC -> fallback createdAt DESC -> fallback startDate DESC)
-        const sortOption = document.getElementById('project-sort-select')?.value || 'updatedAt';
-        filtered.sort((a, b) => {
-            if (sortOption === 'name') {
-                return (a.name || '').localeCompare(b.name || '', 'ko');
-            } else if (sortOption === 'startDate') {
-                return (b.startDate || '').localeCompare(a.startDate || '');
-            } else if (sortOption === 'endDate') {
-                return (a.endDate || '').localeCompare(b.endDate || '');
-            } else if (sortOption === 'manager') {
-                return (a.manager || '').localeCompare(b.manager || '', 'ko');
-            } else {
-                const timeA = new Date(a.updatedAt || a.updated_at || a.createdAt || a.created_at || a.startDate || 0).getTime();
-                const timeB = new Date(b.updatedAt || b.updated_at || b.createdAt || b.created_at || b.startDate || 0).getTime();
-                return timeB - timeA;
-            }
-        });
-
-        // 4. Update Search Results Count Badge
-        const countBadgeEl = document.getElementById('search-result-count');
-        if (countBadgeEl) {
-            countBadgeEl.innerHTML = `검색 결과 <b>${filtered.length}</b>건`;
-        }
-
-        grid.innerHTML = '';
-
-        if (filtered.length === 0) {
-            let emptyIcon = 'folder-open';
-            let emptyMsg = '조회 조건에 부합하는 프로젝트가 존재하지 않습니다.';
-            if (this.activeProjectStageFilter === 'Bidding') {
-                emptyMsg = '등록된 입찰 단계 제안 사업이 없습니다.';
-                emptyIcon = 'landmark';
-            } else if (this.activeProjectStageFilter === 'Completed') {
-                emptyMsg = '종료 및 검수가 완료된 프로젝트가 존재하지 않습니다.';
-                emptyIcon = 'archive';
-            }
-
-            grid.innerHTML = `
-                <div class="span-2 text-center text-muted py-5" style="grid-column: 1 / -1; padding: 48px 0;">
-                    <i data-lucide="${emptyIcon}" style="width:48px; height:48px; margin-bottom:12px; opacity:0.5; display:inline-block;"></i>
-                    <p>${emptyMsg}</p>
-                </div>
-            `;
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-            return;
-        }
-
-        filtered.forEach(p => {
-            const pArtifacts = this.state.artifacts.filter(a => a.projectId === p.id);
-            const approved = pArtifacts.filter(a => a.status === 'Approved').length;
-            const review = pArtifacts.filter(a => a.status === 'Under Review').length;
-            
-            // 실시간 투입인력 수 계산 (isActive !== false인 멤버들의 개수)
-            const activeMembersCount = (this.state.projectMembers || []).filter(
-                m => m.projectId === p.id && m.isActive !== false
-            ).length;
-
-            const isList = this.projectListViewMode === 'list';
-            const element = document.createElement('div');
-            
-            if (isList) {
-                element.className = 'project-list-row';
-                element.setAttribute('style', `
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    padding: 16px 20px;
-                    background: var(--bg-card);
-                    border: 1px solid var(--bg-card-border);
-                    border-radius: 12px;
-                    cursor: pointer;
-                    transition: all 0.2s ease-in-out;
-                    gap: 16px;
-                    flex-wrap: wrap;
-                `);
-                
-                element.addEventListener('mouseenter', () => {
-                    element.style.borderColor = 'var(--primary)';
-                    element.style.background = 'var(--bg-hover-item)';
-                    element.style.transform = 'translateY(-2px)';
-                    element.style.boxShadow = 'var(--shadow-md)';
-                });
-                element.addEventListener('mouseleave', () => {
-                    element.style.borderColor = 'var(--bg-card-border)';
-                    element.style.background = 'var(--bg-card)';
-                    element.style.transform = 'none';
-                    element.style.boxShadow = 'none';
-                });
-
-                element.innerHTML = `
-                    <div style="flex: 2; min-width: 250px; display: flex; flex-direction: column; gap: 6px;">
-                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                            <span class="project-dept-tag" style="margin: 0; padding: 2px 8px; font-size: 10px;">${p.dept}</span>
-                            <span style="font-family: monospace; font-size: 10px; font-weight: 700; color: var(--text-muted); background: var(--bg-hover-item); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--bg-card-border);">${p.projectCode || p.id}</span>
-                            <span class="status-badge status-${(p.status || '').toLowerCase().replace(' ', '')}" style="font-size: 10px; padding: 2px 8px;">${this.translateStatus(p.status || 'In Progress')}</span>
-                            ${p.isOverdue && p.status !== 'Completed' ? `<span class="status-badge status-overdue" style="font-size: 10px; padding: 2px 8px;">기간초과</span>` : ''}
-                        </div>
-                        <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 4px 0 0 0; letter-spacing: -0.3px;">${p.name}</h3>
-                        <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; line-height: 1.4;">${p.desc || '설명이 없습니다.'}</p>
-                    </div>
-                    
-                    <div style="flex: 1.2; min-width: 180px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted);">
-                        <div style="display:flex; justify-content:space-between;">
-                            <span>PM: <strong style="color: var(--text-main);">${p.manager}</strong></span>
-                            <span>인원: <strong style="color: var(--text-main);">${activeMembersCount}명</strong></span>
-                        </div>
-                        <div style="font-size: 11px;">
-                            <i data-lucide="calendar" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 4px; margin-top:-2px;"></i>
-                            <span>${p.startDate} ~ ${p.endDate}</span>
-                        </div>
-                    </div>
-
-                    <div style="flex: 1.2; min-width: 150px; display: flex; flex-direction: column; gap: 4px;">
-                        <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700;">
-                            <span style="color: var(--text-muted);">진척률</span>
-                            <span style="color: var(--primary);">${p.progress}%</span>
-                        </div>
-                        <div class="progress-bar-container" style="height: 6px; margin: 0; background: var(--bg-hover-item);">
-                            <div class="progress-bar-fill" style="width: ${p.progress}%; background: var(--primary);"></div>
-                        </div>
-                    </div>
-
-                    <div style="flex: 1; min-width: 130px; display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
-                        <span class="artifacts-count-badge" style="font-size: 12px; display: flex; align-items: center; gap: 4px; margin: 0;">
-                            <i data-lucide="file-check" style="width: 14px; height: 14px;"></i>
-                            <span><b>${approved}</b> / ${pArtifacts.length}</span>
-                            ${review > 0 ? `<span class="text-warning font-bold" style="font-size: 10px;">(검토 ${review})</span>` : ''}
-                        </span>
-                        <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.openEditProjectModal('${p.id}')" style="height: 28px; padding: 0 10px; display: flex; align-items: center; gap: 4px;">
-                            <i data-lucide="edit-3" style="width: 12px; height: 12px;"></i>
-                            <span>수정</span>
-                        </button>
-                    </div>
-                `;
-            } else {
-                element.className = 'project-card';
-                element.innerHTML = `
-                    <div class="project-card-header">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span class="project-dept-tag">${p.dept}</span>
-                            <span style="font-family: monospace; font-size: 11px; font-weight: 600; color: var(--text-muted); background: var(--bg-hover-item); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--bg-card-border);">${p.projectCode || p.id}</span>
-                        </div>
-                        <div style="display:flex; gap:6px; align-items:center;">
-                            <span class="status-badge status-${(p.status || '').toLowerCase().replace(' ', '')}">${this.translateStatus(p.status || 'In Progress')}</span>
-                            ${p.isOverdue && p.status !== 'Completed' ? `<span class="status-badge status-overdue">기간초과</span>` : ''}
-                        </div>
-                    </div>
-                    <h3 class="project-card-title">${p.name}</h3>
-                    <p class="project-card-desc">${p.desc || '설명이 없습니다.'}</p>
-                    
-                    <div class="project-card-details">
-                        <div class="detail-row">
-                            <span>매니저 (PM)</span>
-                            <span>${p.manager}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span>프로젝트 기간</span>
-                            <span>${p.startDate} ~ ${p.endDate}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span>투입 인력</span>
-                            <span>${activeMembersCount} 명</span>
-                        </div>
-                    </div>
-
-                    <div class="progress-bar-container">
-                        <div class="progress-bar-fill" style="width: ${p.progress}%"></div>
-                    </div>
-
-                    <div class="project-card-footer">
-                        <span class="artifacts-count-badge">
-                            <i data-lucide="file-check"></i>
-                            산출물 <b>${approved}</b> / ${pArtifacts.length}
-                            ${review > 0 ? `<span class="text-warning ml-2 font-bold">(검토 ${review})</span>` : ''}
-                        </span>
-                        <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.openEditProjectModal('${p.id}')">
-                            <i data-lucide="edit-3" style="width:12px; height:12px;"></i> 수정
-                        </button>
-                    </div>
-                `;
-            }
-
-            const badge = element.querySelector('.artifacts-count-badge');
-            if (badge) {
-                badge.style.cursor = 'pointer';
-                badge.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.initialArtifactFilterProjectId = p.id;
-                    window.location.hash = 'artifacts';
-                });
-            }
-
-            element.addEventListener('click', () => {
-                this.state.projectDetailSourceView = this.activeProjectStageFilter === 'Bidding' ? 'projects/bidding' : (this.activeProjectStageFilter === 'Active' ? 'projects/active' : 'projects');
-                window.location.hash = `project-detail/${p.id}`;
             });
 
-            grid.appendChild(element);
-        });
+            const biddingContainer = document.getElementById('bidding-split-container');
+            const standardContainer = document.getElementById('standard-projects-container');
 
-        this.applyRolePermissions();
+            if (this.activeProjectStageFilter === 'Bidding') {
+                if (biddingContainer) biddingContainer.style.display = 'grid';
+                if (standardContainer) standardContainer.style.display = 'none';
+                console.log('[renderProjects:biddingSplitPane:start]');
+                this.renderBiddingSplitPane();
+                console.log('[renderProjects:biddingSplitPane:end]');
+                return;
+            }
 
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
+            if (biddingContainer) biddingContainer.style.display = 'none';
+            if (standardContainer) standardContainer.style.display = 'block';
+
+            const grid = document.getElementById('projects-grid-list');
+            console.log('[PROJECT CONTAINER DEBUG]', {
+                selector: '#projects-grid-list',
+                exists: !!grid,
+                id: grid?.id,
+                className: grid?.className,
+                beforeChildCount: grid?.children?.length
+            });
+
+            if (!grid) return;
+
+            if (this.projectListViewMode === 'list') {
+                grid.style.display = 'flex';
+                grid.style.flexDirection = 'column';
+                grid.style.gap = '12px';
+            } else {
+                grid.style.display = 'grid';
+                grid.removeAttribute('style');
+            }
+
+            // 1. Read Inputs
+            const fKeyword = this.safeText(document.getElementById('project-search-input')?.value || '').trim().toLowerCase();
+            const advLoc = document.getElementById('adv-search-location')?.value || 'all';
+            const advStartDate = document.getElementById('adv-search-start-date')?.value || '';
+            const advEndDate = document.getElementById('adv-search-end-date')?.value || '';
+            const advPm = this.safeText(document.getElementById('adv-search-pm')?.value || '').trim().toLowerCase();
+            const advCustomer = this.safeText(document.getElementById('adv-search-customer')?.value || '').trim().toLowerCase();
+            const advName = this.safeText(document.getElementById('adv-search-name')?.value || '').trim().toLowerCase();
+            const advCode = this.safeText(document.getElementById('adv-search-code')?.value || '').trim().toLowerCase();
+
+            const stage = this.activeProjectStageFilter || 'Active';
+            const accessibleProjects = this.getAccessibleProjects();
+
+            console.log('[PROJECT FILTER DEBUG]', {
+                total: (this.state.projects || []).length,
+                accessible: accessibleProjects.length,
+                activeFilter: this.activeProjectStageFilter,
+                statusValues: [...new Set(accessibleProjects.map(project => project.status))]
+            });
+
+            // 2. Filter Accessible Projects
+            const filtered = accessibleProjects.filter(p => {
+                const pStatusClean = (p.status || '').trim();
+
+                let matchStage = false;
+                if (stage === 'Bidding') {
+                    matchStage = pStatusClean === 'Bidding' || p.is_bidding_project || p.isBiddingProject;
+                } else if (stage === 'Active') {
+                    matchStage = ['In Progress', 'On Hold', 'Delay', '수행중', '보류', '지연', 'Active'].includes(pStatusClean);
+                } else if (stage === 'Completed') {
+                    matchStage = ['Completed', '종료', '완료'].includes(pStatusClean);
+                }
+                if (!matchStage) return false;
+
+                if (fKeyword) {
+                    const nameMatch = this.safeText(p.name).toLowerCase().includes(fKeyword);
+                    const codeMatch = this.safeText(p.projectCode || p.id).toLowerCase().includes(fKeyword);
+                    const customerMatch = this.safeText(p.customer || p.customerName).toLowerCase().includes(fKeyword);
+                    const managerMatch = this.safeText(p.manager || p.pmName || p.proposalPm).toLowerCase().includes(fKeyword);
+                    const descMatch = (this.safeText(p.desc) + ' ' + this.safeText(p.remarks)).toLowerCase().includes(fKeyword);
+
+                    if (!nameMatch && !codeMatch && !customerMatch && !managerMatch && !descMatch) {
+                        return false;
+                    }
+                }
+
+                if (advLoc !== 'all') {
+                    const pLoc = p.location || '정부서울청사';
+                    const normLoc = pLoc.includes('서울') ? '서울' :
+                                    pLoc.includes('대전') ? '대전' :
+                                    pLoc.includes('대구') ? '대구' :
+                                    pLoc.includes('광주') ? '광주' : '기타';
+                    if (normLoc !== advLoc) return false;
+                }
+
+                if (advStartDate && p.endDate && p.endDate < advStartDate) return false;
+                if (advEndDate && p.startDate && p.startDate > advEndDate) return false;
+                if (advPm && !this.safeText(p.manager || p.pmName).toLowerCase().includes(advPm)) return false;
+                if (advCustomer && !this.safeText(p.customer || p.customerName).toLowerCase().includes(advCustomer)) return false;
+                if (advName && !this.safeText(p.name).toLowerCase().includes(advName)) return false;
+                if (advCode && !this.safeText(p.projectCode || p.id).toLowerCase().includes(advCode)) return false;
+
+                return true;
+            });
+
+            console.log('[PROJECT STAGE RESULT]', {
+                requestedStage: this.activeProjectStageFilter,
+                filteredCount: filtered.length,
+                filteredProjects: filtered.map(project => ({
+                    id: project.id,
+                    code: project.projectCode || project.project_code || project.id,
+                    status: project.status,
+                    stage: project.stage
+                }))
+            });
+
+            // 3. Sort Projects
+            const sortOption = document.getElementById('project-sort-select')?.value || 'updatedAt';
+            filtered.sort((a, b) => {
+                if (sortOption === 'name') {
+                    return (a.name || '').localeCompare(b.name || '', 'ko');
+                } else if (sortOption === 'startDate') {
+                    return (b.startDate || '').localeCompare(a.startDate || '');
+                } else if (sortOption === 'endDate') {
+                    return (a.endDate || '').localeCompare(b.endDate || '');
+                } else if (sortOption === 'manager') {
+                    return (a.manager || '').localeCompare(b.manager || '', 'ko');
+                } else {
+                    const timeA = new Date(a.updatedAt || a.updated_at || a.createdAt || a.created_at || a.startDate || 0).getTime();
+                    const timeB = new Date(b.updatedAt || b.updated_at || b.createdAt || b.created_at || b.startDate || 0).getTime();
+                    return timeB - timeA;
+                }
+            });
+
+            // 4. Update Search Results Count Badge
+            const countBadgeEl = document.getElementById('search-result-count');
+            if (countBadgeEl) {
+                countBadgeEl.innerHTML = `검색 결과 <b>${filtered.length}</b>건`;
+            }
+
+            grid.innerHTML = '';
+
+            if (filtered.length === 0) {
+                let emptyIcon = 'folder-open';
+                let emptyMsg = '조회 조건에 부합하는 프로젝트가 존재하지 않습니다.';
+                if (this.activeProjectStageFilter === 'Bidding') {
+                    emptyMsg = '등록된 입찰 단계 제안 사업이 없습니다.';
+                    emptyIcon = 'landmark';
+                } else if (this.activeProjectStageFilter === 'Completed') {
+                    emptyMsg = '종료 및 검수가 완료된 프로젝트가 존재하지 않습니다.';
+                    emptyIcon = 'archive';
+                } else if (!this.isAdminRole(this.currentUser?.role)) {
+                    emptyMsg = '현재 로그인 계정에 할당된 수행단계 프로젝트가 없습니다.';
+                }
+
+                grid.innerHTML = `
+                    <div class="span-2 text-center text-muted py-5" style="grid-column: 1 / -1; padding: 48px 0;">
+                        <i data-lucide="${emptyIcon}" style="width:48px; height:48px; margin-bottom:12px; opacity:0.5; display:inline-block;"></i>
+                        <p>${emptyMsg}</p>
+                    </div>
+                `;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                return;
+            }
+
+            // 5. Render Project Cards
+            filtered.forEach(p => {
+                const card = this.createProjectCardElement(p);
+                grid.appendChild(card);
+            });
+
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+
+            console.log('[PROJECT CONTAINER AFTER]', {
+                htmlLength: grid?.innerHTML?.length,
+                childCount: grid?.children?.length,
+                textPreview: grid?.innerText?.slice(0, 200)
+            });
+
+        } catch (error) {
+            console.error('[renderProjects:error]', {
+                message: error?.message,
+                stack: error?.stack,
+                error
+            });
+            throw error;
+        } finally {
+            console.log('[renderProjects:end]', {
+                projectViewActive: document.getElementById('view-projects')?.classList.contains('active'),
+                projectViewDisplay: getComputedStyle(document.getElementById('view-projects')).display
+            });
+
+            [0, 100, 500].forEach(delay => {
+                setTimeout(() => {
+                    const view = document.getElementById('view-projects');
+                    console.log(`[PROJECT VIEW ${delay}ms]`, {
+                        active: view?.classList.contains('active'),
+                        display: view ? getComputedStyle(view).display : null,
+                        visibility: view ? getComputedStyle(view).visibility : null,
+                        opacity: view ? getComputedStyle(view).opacity : null,
+                        childCount: view?.children?.length
+                    });
+                }, delay);
+            });
         }
     }
+
+
 
     async registerBiddingProjectFromG2B(announcementNo) {
         const ann = this.g2bAnnouncementsMap[announcementNo] || 
