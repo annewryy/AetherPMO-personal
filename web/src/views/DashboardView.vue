@@ -133,18 +133,31 @@ const summaryRows = computed<SummaryRow[]>(() => {
 });
 
 // 0038 — 요약 정렬(헤더 클릭 토글) + 5건 접기. 기본: Δ 큰 순(문제 프로젝트 위로).
-type SumKey = 'name' | 'expected' | 'actual' | 'delta';
+type SumKey = 'name' | 'stage' | 'expected' | 'actual' | 'delta' | 'risk' | 'issue' | 'action' | 'pm';
 const sumSort = ref<{ key: SumKey; dir: 1 | -1 }>({ key: 'delta', dir: -1 });
 function sortSummary(key: SumKey) {
+  const textKeys: SumKey[] = ['name', 'stage', 'pm'];
   sumSort.value = sumSort.value.key === key
     ? { key, dir: sumSort.value.dir === 1 ? -1 : 1 }
-    : { key, dir: key === 'name' ? 1 : -1 };
+    : { key, dir: textKeys.includes(key) ? 1 : -1 };
 }
 const sumArrow = (key: SumKey) => (sumSort.value.key === key ? (sumSort.value.dir === 1 ? '▲' : '▼') : '');
 const sortedSummary = computed<SummaryRow[]>(() => {
   const { key, dir } = sumSort.value;
-  const val = (r: SummaryRow): number | string | null =>
-    key === 'name' ? r.p.name : key === 'expected' ? r.expected : key === 'actual' ? r.actual : r.delta;
+  // 리스크·이슈·액션은 '미해결 건수' 기준 정렬(해결/총에서 미해결=total-done)
+  const val = (r: SummaryRow): number | string | null => {
+    switch (key) {
+      case 'name': return r.p.name;
+      case 'stage': return r.p.stage;
+      case 'pm': return r.p.manager || '';
+      case 'expected': return r.expected;
+      case 'actual': return r.actual;
+      case 'delta': return r.delta;
+      case 'risk': return r.risk.total === 0 ? null : r.risk.total - r.risk.done;
+      case 'issue': return r.issue.total === 0 ? null : r.issue.total - r.issue.done;
+      case 'action': return r.action.total === 0 ? null : r.action.total - r.action.done;
+    }
+  };
   return [...summaryRows.value].sort((a, b) => {
     const av = val(a); const bv = val(b);
     if (av == null && bv == null) return a.p.name.localeCompare(b.p.name);
@@ -161,8 +174,9 @@ function fmtPct(v: number | null): string {
 }
 function fmtDelta(v: number | null): string {
   if (v == null) return '—';
-  const r = Math.round(v * 10) / 10;
-  return r > 0 ? `+${r}%p` : `${r}%p`; // 양수=지연
+  // 내부값은 기대-실제(양수=지연)지만 표기는 반전 — 지연이면 마이너스(-65%p), 앞서면 플러스
+  const r = Math.round(-v * 10) / 10;
+  return r > 0 ? `+${r}%p` : `${r}%p`;
 }
 function ratioText(r: Ratio): string {
   return r.total === 0 ? '—' : `${r.done}/${r.total}`;
@@ -347,120 +361,121 @@ onMounted(async () => {
           </section>
         </div>
 
-        <!-- 0038 재배치 — 전역 오늘/지연·조치·최근 활동은 실무진(내 업무) 화면으로 -->
-        <template v-if="apiMode">
-        <!-- 0026 D1 — 오늘 해야할 일 (3열) -->
-        <div class="triple">
-          <section class="card">
-            <h2 class="card-title">오늘/지연 WBS 일정 <button type="button" class="cnt-badge" :title="expanded['tTasks'] ? '접기' : '전체 보기'" @click="toggleMore('tTasks')">{{ (widgets?.today.tasks ?? []).length }}건<template v-if="moreCount(widgets?.today.tasks) > 0"> {{ expanded['tTasks'] ? '▲' : '▼' }}</template></button></h2>
-            <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
-            <div v-else-if="!widgets || widgets.today.tasks.length === 0" class="card-empty">해당 항목이 없습니다.</div>
-            <ul v-else class="mini-list">
-              <li v-for="t in visibleOf('tTasks', widgets.today.tasks)" :key="t.taskId" class="mini-item" @click="router.push(`/tasks/${t.taskId}`)">
-                <span class="due-badge" :class="t.overdue ? 'due-over' : 'due-today'">{{ t.overdue ? '지연' : '오늘' }}</span>
-                <span class="mini-title">{{ t.name }}</span>
-                <span class="mini-meta">{{ t.projectName }} · 진행률 {{ t.progress }}% · 기한 {{ t.dueDate }}</span>
-              </li>
-            </ul>
-          </section>
-          <section class="card">
-            <h2 class="card-title">오늘/지연 액션아이템 <button type="button" class="cnt-badge" :title="expanded['tActs'] ? '접기' : '전체 보기'" @click="toggleMore('tActs')">{{ (widgets?.today.actions ?? []).length }}건<template v-if="moreCount(widgets?.today.actions) > 0"> {{ expanded['tActs'] ? '▲' : '▼' }}</template></button></h2>
-            <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
-            <div v-else-if="!widgets || widgets.today.actions.length === 0" class="card-empty">해당 항목이 없습니다.</div>
-            <ul v-else class="mini-list">
-              <li v-for="a in visibleOf('tActs', widgets.today.actions)" :key="a.actionId" class="mini-item" @click="router.push(`/action-items/${a.actionId}`)">
-                <span class="due-badge" :class="a.overdue ? 'due-over' : 'due-today'">{{ a.overdue ? '지연' : '오늘' }}</span>
-                <span class="mini-title">{{ a.title }}</span>
-                <span class="mini-meta">{{ a.projectName }}<template v-if="a.assigneeName"> · {{ a.assigneeName }}</template> · 기한 {{ a.dueDate }}</span>
-              </li>
-            </ul>
-          </section>
-          <section class="card">
-            <h2 class="card-title">오늘/지연 제출 산출물 <button type="button" class="cnt-badge" :title="expanded['tDelivs'] ? '접기' : '전체 보기'" @click="toggleMore('tDelivs')">{{ (widgets?.today.deliverables ?? []).length }}건<template v-if="moreCount(widgets?.today.deliverables) > 0"> {{ expanded['tDelivs'] ? '▲' : '▼' }}</template></button></h2>
-            <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
-            <div v-else-if="!widgets || widgets.today.deliverables.length === 0" class="card-empty">해당 항목이 없습니다.</div>
-            <ul v-else class="mini-list">
-              <li v-for="d in visibleOf('tDelivs', widgets.today.deliverables)" :key="d.deliverableId" class="mini-item" @click="router.push(`/deliverables/${d.deliverableId}`)">
-                <span class="due-badge" :class="d.overdue ? 'due-over' : 'due-today'">{{ d.overdue ? '지연' : '오늘' }}</span>
-                <span class="mini-title">{{ d.name }}</span>
-                <span class="mini-meta">{{ d.projectName }} · 기한 {{ d.dueDate }}</span>
-              </li>
-            </ul>
-          </section>
-        </div>
+      </template>
 
-        <div class="triple">
-          <section class="card">
-            <h2 class="card-title">주요 리스크 <span class="card-sub">우선순위·경과일 순</span> <button type="button" class="cnt-badge" :title="expanded['risks'] ? '접기' : '전체 보기'" @click="toggleMore('risks')">{{ (widgets?.risks ?? []).length }}건<template v-if="moreCount(widgets?.risks) > 0"> {{ expanded['risks'] ? '▲' : '▼' }}</template></button></h2>
-            <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
-            <div v-else-if="!widgets || widgets.risks.length === 0" class="card-empty">오픈 리스크가 없습니다.</div>
-            <ul v-else class="mini-list">
-              <li v-for="(r, i) in visibleOf('risks', widgets.risks)" :key="i" class="mini-item" @click="openRisk(r)">
-                <span class="due-badge" :class="r.kind === 'DELAY' ? 'due-over' : 'due-today'">{{ r.kind === 'DELAY' ? '진척 지연' : (r.priority || '리스크') }}</span>
-                <span class="mini-title">{{ r.title }}</span>
-                <span class="mini-meta">{{ r.projectName }}<template v-if="r.ageDays != null"> · {{ r.ageDays }}일 경과</template></span>
-              </li>
-            </ul>
-          </section>
-          <section class="card">
-            <h2 class="card-title">지금 실행하면 좋은 조치 <button type="button" class="cnt-badge" :title="expanded['reco'] ? '접기' : '전체 보기'" @click="toggleMore('reco')">{{ (widgets?.recommendations ?? []).length }}건<template v-if="moreCount(widgets?.recommendations) > 0"> {{ expanded['reco'] ? '▲' : '▼' }}</template></button></h2>
-            <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
-            <div v-else-if="!widgets || widgets.recommendations.length === 0" class="card-empty">권장 조치가 없습니다.</div>
-            <ul v-else class="mini-list">
-              <li v-for="(r, i) in visibleOf('reco', widgets.recommendations)" :key="i" class="mini-item" @click="openReco(r)">
-                <span class="mini-title">{{ r.text }}</span>
-                <span class="mini-meta">{{ r.projectName }}</span>
-              </li>
-            </ul>
-          </section>
-        </div>
-
-        <div class="triple">
-          <section class="card">
-          <h2 class="card-title">최근 공문 <button type="button" class="cnt-badge" @click="toggleMore('rDocs')">{{ (widgets?.recent.officialDocs ?? []).length }}건<template v-if="moreCount(widgets?.recent.officialDocs) > 0"> {{ expanded['rDocs'] ? '▲' : '▼' }}</template></button></h2>
+      <!-- 0038 재배치 — 전역 오늘/지연·조치·최근 활동은 실무진(내 업무) 화면으로 -->
+      <template v-if="apiMode">
+      <!-- 0026 D1 — 오늘 해야할 일 (3열) -->
+      <div class="triple">
+        <section class="card">
+          <h2 class="card-title">오늘/지연 WBS 일정 <button type="button" class="cnt-badge" :title="expanded['tTasks'] ? '접기' : '전체 보기'" @click="toggleMore('tTasks')">{{ (widgets?.today.tasks ?? []).length }}건<template v-if="moreCount(widgets?.today.tasks) > 0"> {{ expanded['tTasks'] ? '▲' : '▼' }}</template></button></h2>
           <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
-          <div v-else-if="!widgets || widgets.recent.officialDocs.length === 0" class="card-empty">등록된 공문이 없습니다.</div>
+          <div v-else-if="!widgets || widgets.today.tasks.length === 0" class="card-empty">해당 항목이 없습니다.</div>
           <ul v-else class="mini-list">
-            <li v-for="d in visibleOf('rDocs', widgets.recent.officialDocs)" :key="d.docId" class="mini-item" @click="router.push('/official-docs')">
-              <span v-if="d.currentStatus" class="due-badge due-today">{{ d.currentStatus }}</span>
-              <span class="mini-title">{{ d.title }}</span>
-              <span class="mini-meta">
-                <template v-if="d.docNumber">{{ d.docNumber }} · </template>{{ d.projectName }}
-                <template v-if="d.drafterName"> · {{ d.drafterName }}</template>
-                <template v-if="d.draftDate"> · {{ fmtDate(d.draftDate) }}</template>
-              </span>
+            <li v-for="t in visibleOf('tTasks', widgets.today.tasks)" :key="t.taskId" class="mini-item" @click="router.push(`/tasks/${t.taskId}`)">
+              <span class="due-badge" :class="t.overdue ? 'due-over' : 'due-today'">{{ t.overdue ? '지연' : '오늘' }}</span>
+              <span class="mini-title">{{ t.name }}</span>
+              <span class="mini-meta">{{ t.projectName }} · 진행률 {{ t.progress }}% · 기한 {{ t.dueDate }}</span>
             </li>
           </ul>
-          </section>
-          <section class="card">
-          <h2 class="card-title">최근 회의록 <button type="button" class="cnt-badge" @click="toggleMore('rMeet')">{{ (widgets?.recent.meetings ?? []).length }}건<template v-if="moreCount(widgets?.recent.meetings) > 0"> {{ expanded['rMeet'] ? '▲' : '▼' }}</template></button></h2>
+        </section>
+        <section class="card">
+          <h2 class="card-title">오늘/지연 액션아이템 <button type="button" class="cnt-badge" :title="expanded['tActs'] ? '접기' : '전체 보기'" @click="toggleMore('tActs')">{{ (widgets?.today.actions ?? []).length }}건<template v-if="moreCount(widgets?.today.actions) > 0"> {{ expanded['tActs'] ? '▲' : '▼' }}</template></button></h2>
           <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
-          <div v-else-if="!widgets || widgets.recent.meetings.length === 0" class="card-empty">등록된 회의록이 없습니다.</div>
+          <div v-else-if="!widgets || widgets.today.actions.length === 0" class="card-empty">해당 항목이 없습니다.</div>
           <ul v-else class="mini-list">
-            <li v-for="m in visibleOf('rMeet', widgets.recent.meetings)" :key="m.meetingId" class="mini-item" @click="router.push('/meeting-minutes')">
-              <span class="mini-title">{{ m.title }}</span>
-              <span class="mini-meta">
-                {{ m.projectName }}<template v-if="m.location"> · {{ m.location }}</template> · {{ fmtDate(m.meetDate) }}
-              </span>
+            <li v-for="a in visibleOf('tActs', widgets.today.actions)" :key="a.actionId" class="mini-item" @click="router.push(`/action-items/${a.actionId}`)">
+              <span class="due-badge" :class="a.overdue ? 'due-over' : 'due-today'">{{ a.overdue ? '지연' : '오늘' }}</span>
+              <span class="mini-title">{{ a.title }}</span>
+              <span class="mini-meta">{{ a.projectName }}<template v-if="a.assigneeName"> · {{ a.assigneeName }}</template> · 기한 {{ a.dueDate }}</span>
             </li>
           </ul>
-          </section>
-          <section class="card">
-          <h2 class="card-title">최근 제출 산출물 <button type="button" class="cnt-badge" @click="toggleMore('rDeliv')">{{ (widgets?.recent.deliverables ?? []).length }}건<template v-if="moreCount(widgets?.recent.deliverables) > 0"> {{ expanded['rDeliv'] ? '▲' : '▼' }}</template></button></h2>
+        </section>
+        <section class="card">
+          <h2 class="card-title">오늘/지연 제출 산출물 <button type="button" class="cnt-badge" :title="expanded['tDelivs'] ? '접기' : '전체 보기'" @click="toggleMore('tDelivs')">{{ (widgets?.today.deliverables ?? []).length }}건<template v-if="moreCount(widgets?.today.deliverables) > 0"> {{ expanded['tDelivs'] ? '▲' : '▼' }}</template></button></h2>
           <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
-          <div v-else-if="!widgets || widgets.recent.deliverables.length === 0" class="card-empty">제출된 산출물이 없습니다.</div>
+          <div v-else-if="!widgets || widgets.today.deliverables.length === 0" class="card-empty">해당 항목이 없습니다.</div>
           <ul v-else class="mini-list">
-            <li v-for="d in visibleOf('rDeliv', widgets.recent.deliverables)" :key="d.deliverableId" class="mini-item" @click="router.push(`/deliverables/${d.deliverableId}`)">
-              <span class="due-badge due-today">제출</span>
+            <li v-for="d in visibleOf('tDelivs', widgets.today.deliverables)" :key="d.deliverableId" class="mini-item" @click="router.push(`/deliverables/${d.deliverableId}`)">
+              <span class="due-badge" :class="d.overdue ? 'due-over' : 'due-today'">{{ d.overdue ? '지연' : '오늘' }}</span>
               <span class="mini-title">{{ d.name }}</span>
-              <span class="mini-meta">
-                {{ d.projectName }}<template v-if="d.authorName"> · {{ d.authorName }}</template> · {{ fmtDate(d.submittedAt) }}
-              </span>
+              <span class="mini-meta">{{ d.projectName }} · 기한 {{ d.dueDate }}</span>
             </li>
           </ul>
-          </section>
-        </div>
-        </template>
+        </section>
+      </div>
+
+      <div class="triple">
+        <section class="card">
+          <h2 class="card-title">주요 리스크 <span class="card-sub">우선순위·경과일 순</span> <button type="button" class="cnt-badge" :title="expanded['risks'] ? '접기' : '전체 보기'" @click="toggleMore('risks')">{{ (widgets?.risks ?? []).length }}건<template v-if="moreCount(widgets?.risks) > 0"> {{ expanded['risks'] ? '▲' : '▼' }}</template></button></h2>
+          <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+          <div v-else-if="!widgets || widgets.risks.length === 0" class="card-empty">오픈 리스크가 없습니다.</div>
+          <ul v-else class="mini-list">
+            <li v-for="(r, i) in visibleOf('risks', widgets.risks)" :key="i" class="mini-item" @click="openRisk(r)">
+              <span class="due-badge" :class="r.kind === 'DELAY' ? 'due-over' : 'due-today'">{{ r.kind === 'DELAY' ? '진척 지연' : (r.priority || '리스크') }}</span>
+              <span class="mini-title">{{ r.title }}</span>
+              <span class="mini-meta">{{ r.projectName }}<template v-if="r.ageDays != null"> · {{ r.ageDays }}일 경과</template></span>
+            </li>
+          </ul>
+        </section>
+        <section class="card">
+          <h2 class="card-title">지금 실행하면 좋은 조치 <button type="button" class="cnt-badge" :title="expanded['reco'] ? '접기' : '전체 보기'" @click="toggleMore('reco')">{{ (widgets?.recommendations ?? []).length }}건<template v-if="moreCount(widgets?.recommendations) > 0"> {{ expanded['reco'] ? '▲' : '▼' }}</template></button></h2>
+          <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+          <div v-else-if="!widgets || widgets.recommendations.length === 0" class="card-empty">권장 조치가 없습니다.</div>
+          <ul v-else class="mini-list">
+            <li v-for="(r, i) in visibleOf('reco', widgets.recommendations)" :key="i" class="mini-item" @click="openReco(r)">
+              <span class="mini-title">{{ r.text }}</span>
+              <span class="mini-meta">{{ r.projectName }}</span>
+            </li>
+          </ul>
+        </section>
+      </div>
+
+      <div class="triple">
+        <section class="card">
+        <h2 class="card-title">최근 공문 <button type="button" class="cnt-badge" @click="toggleMore('rDocs')">{{ (widgets?.recent.officialDocs ?? []).length }}건<template v-if="moreCount(widgets?.recent.officialDocs) > 0"> {{ expanded['rDocs'] ? '▲' : '▼' }}</template></button></h2>
+        <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+        <div v-else-if="!widgets || widgets.recent.officialDocs.length === 0" class="card-empty">등록된 공문이 없습니다.</div>
+        <ul v-else class="mini-list">
+          <li v-for="d in visibleOf('rDocs', widgets.recent.officialDocs)" :key="d.docId" class="mini-item" @click="router.push('/official-docs')">
+            <span v-if="d.currentStatus" class="due-badge due-today">{{ d.currentStatus }}</span>
+            <span class="mini-title">{{ d.title }}</span>
+            <span class="mini-meta">
+              <template v-if="d.docNumber">{{ d.docNumber }} · </template>{{ d.projectName }}
+              <template v-if="d.drafterName"> · {{ d.drafterName }}</template>
+              <template v-if="d.draftDate"> · {{ fmtDate(d.draftDate) }}</template>
+            </span>
+          </li>
+        </ul>
+        </section>
+        <section class="card">
+        <h2 class="card-title">최근 회의록 <button type="button" class="cnt-badge" @click="toggleMore('rMeet')">{{ (widgets?.recent.meetings ?? []).length }}건<template v-if="moreCount(widgets?.recent.meetings) > 0"> {{ expanded['rMeet'] ? '▲' : '▼' }}</template></button></h2>
+        <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+        <div v-else-if="!widgets || widgets.recent.meetings.length === 0" class="card-empty">등록된 회의록이 없습니다.</div>
+        <ul v-else class="mini-list">
+          <li v-for="m in visibleOf('rMeet', widgets.recent.meetings)" :key="m.meetingId" class="mini-item" @click="router.push('/meeting-minutes')">
+            <span class="mini-title">{{ m.title }}</span>
+            <span class="mini-meta">
+                {{ m.projectName }}<template v-if="m.location"> · {{ m.location }}</template> · {{ fmtDate(m.meetDate) }}
+            </span>
+          </li>
+        </ul>
+        </section>
+        <section class="card">
+        <h2 class="card-title">최근 제출 산출물 <button type="button" class="cnt-badge" @click="toggleMore('rDeliv')">{{ (widgets?.recent.deliverables ?? []).length }}건<template v-if="moreCount(widgets?.recent.deliverables) > 0"> {{ expanded['rDeliv'] ? '▲' : '▼' }}</template></button></h2>
+        <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+        <div v-else-if="!widgets || widgets.recent.deliverables.length === 0" class="card-empty">제출된 산출물이 없습니다.</div>
+        <ul v-else class="mini-list">
+          <li v-for="d in visibleOf('rDeliv', widgets.recent.deliverables)" :key="d.deliverableId" class="mini-item" @click="router.push(`/deliverables/${d.deliverableId}`)">
+            <span class="due-badge due-today">제출</span>
+            <span class="mini-title">{{ d.name }}</span>
+            <span class="mini-meta">
+                {{ d.projectName }}<template v-if="d.authorName"> · {{ d.authorName }}</template> · {{ fmtDate(d.submittedAt) }}
+            </span>
+          </li>
+        </ul>
+        </section>
+      </div>
       </template>
     </template>
 
@@ -506,12 +521,15 @@ onMounted(async () => {
         <table class="grid">
           <thead>
             <tr>
-              <th class="sortable" @click="sortSummary('name')">프로젝트명 {{ sumArrow('name') }}</th><th>단계</th>
+              <th class="sortable" @click="sortSummary('name')">프로젝트명 {{ sumArrow('name') }}</th>
+              <th class="sortable" @click="sortSummary('stage')">단계 {{ sumArrow('stage') }}</th>
               <th class="num sortable" @click="sortSummary('expected')">목표 {{ sumArrow('expected') }}</th>
               <th class="num sortable" @click="sortSummary('actual')">진행률 {{ sumArrow('actual') }}</th>
-              <th class="num sortable" @click="sortSummary('delta')">Δ {{ sumArrow('delta') }}</th>
-              <th class="num">리스크</th><th class="num">이슈</th><th class="num">액션</th>
-              <th>PM</th>
+              <th class="num sortable" @click="sortSummary('delta')">지연 {{ sumArrow('delta') }}</th>
+              <th class="num sortable" title="미해결 건수 기준 정렬" @click="sortSummary('risk')">리스크 {{ sumArrow('risk') }}</th>
+              <th class="num sortable" title="미해결 건수 기준 정렬" @click="sortSummary('issue')">이슈 {{ sumArrow('issue') }}</th>
+              <th class="num sortable" title="미해결 건수 기준 정렬" @click="sortSummary('action')">액션 {{ sumArrow('action') }}</th>
+              <th class="sortable" @click="sortSummary('pm')">PM {{ sumArrow('pm') }}</th>
             </tr>
           </thead>
           <tbody>
