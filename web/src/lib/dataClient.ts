@@ -665,6 +665,10 @@ export const dataClient = {
   // 대시보드 신호 (0007 §5) — API_BASE 전용, 읽기(계산 결과만).
   // Supabase 폴백에선 null 반환 → 위젯 숨김 + 안내(요약 테이블 목표/Δ는 '—').
   dashboard: {
+    // 0038 — 실무진용(내 업무): 세션 person 기준
+    my(): Promise<import('../types').MyDashboard> {
+      return apiGet('/api/dashboard/my');
+    },
     async signals(): Promise<DashboardSignals | null> {
       if (!apiBase()) return null;
       return apiGet<DashboardSignals>('/api/dashboard/signals');

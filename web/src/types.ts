@@ -1101,3 +1101,19 @@ export interface AppState {
   meetingMinutes: MeetingMinute[];
   activities: Activity[];
 }
+
+// 0038 — 실무진용 대시보드(내 업무, GET /api/dashboard/my)
+export interface MyDashboardItem {
+  id: number; title: string; dueDate: string | null; progress: number | null;
+  projectId: number; projectName: string; overdue: boolean; dueToday: boolean;
+}
+export interface MyDashboard {
+  needsPersonLink: boolean;
+  personName?: string;
+  projects?: { projectId: number; projectName: string; stage: string; status: string; isPm: boolean; progress: number | null }[];
+  tasks?: MyDashboardItem[];
+  actionItems?: MyDashboardItem[];
+  issues?: MyDashboardItem[];
+  deliverables?: MyDashboardItem[];
+  counts?: Record<'tasks' | 'actionItems' | 'issues' | 'deliverables', { total: number; open: number }>;
+}

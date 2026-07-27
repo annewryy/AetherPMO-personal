@@ -8,8 +8,9 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
 import type {
-  Project, Issue, ActionItem, Artifact, DashboardSignals, DashboardWidgets,
+  Project, Issue, ActionItem, Artifact, DashboardSignals, DashboardWidgets, MyDashboard,
 } from '../types';
+import { currentUser, isAuthenticated } from '../lib/auth';
 import StageBadge from '../components/StageBadge.vue';
 import StateNotice from '../components/StateNotice.vue';
 
@@ -29,6 +30,33 @@ const loadError = ref<string | null>(null);
 
 const apiMode = computed(() => !!window.API_BASE);
 
+// ---- 0038 — 관리자용/실무진용 분리: WORKER는 기본 '내 업무', 그 외 '전체 현황' ----
+const view = ref<'admin' | 'my'>(currentUser.value?.role === 'WORKER' ? 'my' : 'admin');
+const my = ref<MyDashboard | null>(null);
+const myError = ref('');
+// 0038 — 카드 목록 공통: 총 건수 표시 + 상위 3건만 기본 표시, 펼치기 토글
+const COLLAPSE_N = 3;
+const expanded = ref<Record<string, boolean>>({});
+function visibleOf<T>(key: string, list: T[] | undefined | null): T[] {
+  const l = list ?? [];
+  return expanded.value[key] ? l : l.slice(0, COLLAPSE_N);
+}
+function moreCount(list: unknown[] | undefined | null): number {
+  return Math.max(0, (list?.length ?? 0) - COLLAPSE_N);
+}
+function toggleMore(key: string) {
+  expanded.value = { ...expanded.value, [key]: !expanded.value[key] };
+}
+
+async function loadMy() {
+  if (!apiMode.value || !isAuthenticated.value) return;
+  try {
+    my.value = await dataClient.dashboard.my();
+  } catch (e) {
+    myError.value = e instanceof Error ? e.message : String(e);
+  }
+}
+
 const todayStr = (() => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -38,11 +66,19 @@ const todayStr = (() => {
 const isDone = (s: string) => s === '완료' || s === 'Completed';
 const isRiskType = (t: string) => (t || '').includes('리스크') || (t || '').toLowerCase().includes('risk');
 
-// ---- KPI (0007 재정의) -------------------------------------------------------
-// 진행 프로젝트: status ∉ {완료} — 지연·보류 포함, 종결 안 된 건 전부. 단계 분해 병기.
+// ---- KPI (0007 재정의 → 0038 개정: 전체 프로젝트 n/n, 유형별 미해결 n/총 N) ----
 const activeProjects = computed(() => projects.value.filter((p) => p.status !== 'Completed'));
+const biddingTotal = computed(() => projects.value.filter((p) => p.stage === 'BIDDING').length);
+const execTotal = computed(() => projects.value.filter((p) => p.stage === 'EXECUTION').length);
 const activeBidding = computed(() => activeProjects.value.filter((p) => p.stage === 'BIDDING').length);
 const activeExecution = computed(() => activeProjects.value.filter((p) => p.stage === 'EXECUTION').length);
+// 리스크/이슈 분리 카운트: 미해결 n / 총 N
+const riskAll = computed(() => issues.value.filter((i) => isRiskType(i.type)));
+const issueAll = computed(() => issues.value.filter((i) => !isRiskType(i.type)));
+const openOf = (list: { status: string }[]) => list.filter((i) => i.status === '발생' || i.status === '조치중').length;
+const riskOpen = computed(() => openOf(riskAll.value));
+const issueOpen = computed(() => openOf(issueAll.value));
+const actionOpen = computed(() => actionItems.value.filter((a) => !isDone(a.status)).length);
 
 const kpiDelayed = computed(() =>
   projects.value.filter(
@@ -50,10 +86,6 @@ const kpiDelayed = computed(() =>
       (p.endDate && p.endDate < todayStr && p.status !== 'Completed' && p.stage !== 'COMPLETED'),
   ).length,
 );
-const kpiOpenIssues = computed(() =>
-  issues.value.filter((i) => i.status === '발생' || i.status === '조치중').length,
-);
-const kpiOpenActions = computed(() => actionItems.value.filter((a) => !isDone(a.status)).length);
 const kpiDueToday = computed(() =>
   artifacts.value.filter((a) => a.dueDate === todayStr && a.status !== 'APPROVED').length +
   actionItems.value.filter((a) => a.dueDate === todayStr && !isDone(a.status)).length,
@@ -200,6 +232,7 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+  void loadMy(); // 0038 — 실무진용(내 업무)
   // 신호·위젯은 별도 로드 — 실패해도 대시보드 본체는 유지
   const [sigResult, widgetResult] = await Promise.allSettled([
     dataClient.dashboard.signals(),
@@ -223,25 +256,128 @@ onMounted(async () => {
       empty-text="등록된 프로젝트가 없습니다 — 데이터 소스(백엔드 API 또는 Supabase 시드) 연결 후 표시됩니다."
     />
 
-    <template v-if="!loading && !loadError && projects.length > 0">
-      <!-- KPI 5종 (0007 재정의) -->
+    <!-- 0038 — 관리자용(전체 현황) / 실무진용(내 업무) 분리. WORKER 기본=내 업무 -->
+    <div v-if="apiMode && isAuthenticated" class="view-tabs" role="tablist">
+      <button class="vtab" :class="{ on: view === 'admin' }" role="tab" @click="view = 'admin'">전체 현황 (관리자)</button>
+      <button class="vtab" :class="{ on: view === 'my' }" role="tab" @click="view = 'my'; loadMy()">내 업무 (실무)</button>
+    </div>
+
+    <!-- ==================== 실무진용: 내 업무 ==================== -->
+    <template v-if="view === 'my'">
+      <div v-if="myError" class="signal-off">내 업무를 불러오지 못했습니다. ({{ myError }})</div>
+      <div v-else-if="my?.needsPersonLink" class="signal-off">
+        계정에 인력(person)이 연결되어 있지 않아 내 담당 업무를 판정할 수 없습니다 — 시스템 관리자에게
+        [관리자 콘솔 &gt; 사용자]에서 인력 연결을 요청하세요.
+      </div>
+      <template v-else-if="my">
+        <div class="kpis">
+          <div class="kpi kpi-accent">
+            <div class="kpi-value">{{ my.counts?.tasks.open ?? 0 }}</div>
+            <div class="kpi-label">내 태스크 미완료</div>
+            <div class="kpi-break">총 {{ my.counts?.tasks.total ?? 0 }}건</div>
+          </div>
+          <div class="kpi kpi-blue">
+            <div class="kpi-value">{{ my.counts?.actionItems.open ?? 0 }}</div>
+            <div class="kpi-label">내 액션아이템 미완료</div>
+            <div class="kpi-break">총 {{ my.counts?.actionItems.total ?? 0 }}건</div>
+          </div>
+          <div class="kpi kpi-yellow">
+            <div class="kpi-value">{{ my.counts?.issues.open ?? 0 }}</div>
+            <div class="kpi-label">내 리스크·이슈 미해결</div>
+            <div class="kpi-break">총 {{ my.counts?.issues.total ?? 0 }}건</div>
+          </div>
+          <div class="kpi kpi-green">
+            <div class="kpi-value">{{ my.counts?.deliverables.open ?? 0 }}</div>
+            <div class="kpi-label">내 산출물 미제출</div>
+            <div class="kpi-break">총 {{ my.counts?.deliverables.total ?? 0 }}건</div>
+          </div>
+        </div>
+
+        <section class="card">
+          <h2 class="card-title">내 참여 프로젝트 <span class="card-sub">산출물 승인 기준 진척</span> <button type="button" class="cnt-badge" :title="expanded['myPj'] ? '접기' : '전체 보기'" @click="toggleMore('myPj')">{{ (my?.projects ?? []).length }}건<template v-if="moreCount(my?.projects) > 0"> {{ expanded['myPj'] ? '▲' : '▼' }}</template></button></h2>
+          <div v-if="!my.projects || my.projects.length === 0" class="card-empty">참여 중인 프로젝트가 없습니다.</div>
+          <ul v-else class="mini-list">
+            <li v-for="pj in visibleOf('myPj', my.projects") :key="pj.projectId" class="mini-item" @click="openDetail(pj.projectId)">
+              <span class="due-badge" :class="pj.stage === 'BIDDING' ? 'due-today' : 'due-over'">{{ pj.stage === 'BIDDING' ? '입찰' : '수행' }}</span>
+              <span class="mini-title">{{ pj.projectName }}<span v-if="pj.isPm" class="pm-mini">PM</span></span>
+              <span class="mini-meta">
+                {{ pj.status }}<template v-if="pj.progress != null"> · 진척 {{ pj.progress }}%</template>
+              </span>
+              <span v-if="pj.progress != null" class="my-bar"><span class="my-bar-fill" :style="{ width: pj.progress + '%' }" /></span>
+            </li>
+          </ul>
+        </section>
+
+        <div class="triple">
+          <section class="card">
+            <h2 class="card-title">내 태스크 <button type="button" class="cnt-badge" :title="expanded['myTasks'] ? '접기' : '전체 보기'" @click="toggleMore('myTasks')">{{ (my?.tasks ?? []).length }}건<template v-if="moreCount(my?.tasks) > 0"> {{ expanded['myTasks'] ? '▲' : '▼' }}</template></button></h2>
+            <div v-if="!my.tasks || my.tasks.length === 0" class="card-empty">미완료 태스크가 없습니다.</div>
+            <ul v-else class="mini-list">
+              <li v-for="t in visibleOf('myTasks', my.tasks") :key="t.id" class="mini-item" @click="router.push(`/tasks/${t.id}`)">
+                <span v-if="t.overdue || t.dueToday" class="due-badge" :class="t.overdue ? 'due-over' : 'due-today'">{{ t.overdue ? '지연' : '오늘' }}</span>
+                <span class="mini-title">{{ t.title }}</span>
+                <span class="mini-meta">{{ t.projectName }}<template v-if="t.progress != null"> · {{ t.progress }}%</template><template v-if="t.dueDate"> · 기한 {{ t.dueDate }}</template></span>
+              </li>
+            </ul>
+          </section>
+          <section class="card">
+            <h2 class="card-title">내 액션아이템 · 리스크 <button type="button" class="cnt-badge" @click="toggleMore('myActs'); toggleMore('myIss')">{{ (my?.actionItems ?? []).length + (my?.issues ?? []).length }}건 {{ expanded['myActs'] ? '▲' : '▼' }}</button></h2>
+            <div v-if="(!my.actionItems || my.actionItems.length === 0) && (!my.issues || my.issues.length === 0)" class="card-empty">해당 항목이 없습니다.</div>
+            <ul v-else class="mini-list">
+              <li v-for="a in visibleOf('myActs', my.actionItems)" :key="'a' + a.id" class="mini-item" @click="router.push(`/action-items/${a.id}`)">
+                <span v-if="a.overdue || a.dueToday" class="due-badge" :class="a.overdue ? 'due-over' : 'due-today'">{{ a.overdue ? '지연' : '오늘' }}</span>
+                <span class="mini-title">{{ a.title }}</span>
+                <span class="mini-meta">{{ a.projectName }}<template v-if="a.dueDate"> · 기한 {{ a.dueDate }}</template></span>
+              </li>
+              <li v-for="i in visibleOf('myIss', my.issues)" :key="'i' + i.id" class="mini-item" @click="router.push(`/issues/${i.id}`)">
+                <span v-if="i.overdue || i.dueToday" class="due-badge" :class="i.overdue ? 'due-over' : 'due-today'">{{ i.overdue ? '지연' : '오늘' }}</span>
+                <span class="mini-title">{{ i.title }}</span>
+                <span class="mini-meta">{{ i.projectName }}<template v-if="i.dueDate"> · 기한 {{ i.dueDate }}</template></span>
+              </li>
+            </ul>
+          </section>
+          <section class="card">
+            <h2 class="card-title">내 산출물 (미제출) <button type="button" class="cnt-badge" :title="expanded['myDel'] ? '접기' : '전체 보기'" @click="toggleMore('myDel')">{{ (my?.deliverables ?? []).length }}건<template v-if="moreCount(my?.deliverables) > 0"> {{ expanded['myDel'] ? '▲' : '▼' }}</template></button></h2>
+            <div v-if="!my.deliverables || my.deliverables.length === 0" class="card-empty">미제출 산출물이 없습니다.</div>
+            <ul v-else class="mini-list">
+              <li v-for="d in visibleOf('myDel', my.deliverables") :key="d.id" class="mini-item" @click="router.push(`/deliverables/${d.id}`)">
+                <span v-if="d.overdue || d.dueToday" class="due-badge" :class="d.overdue ? 'due-over' : 'due-today'">{{ d.overdue ? '지연' : '오늘' }}</span>
+                <span class="mini-title">{{ d.title }}</span>
+                <span class="mini-meta">{{ d.projectName }}<template v-if="d.dueDate"> · 기한 {{ d.dueDate }}</template></span>
+              </li>
+            </ul>
+          </section>
+        </div>
+      </template>
+    </template>
+
+    <!-- ==================== 관리자용: 전체 현황 ==================== -->
+    <template v-if="view === 'admin' && !loading && !loadError && projects.length > 0">
+      <!-- KPI (0038 개정: 전체 프로젝트 n/n · 유형별 미해결 n/총 N) -->
       <div class="kpis">
         <div class="kpi kpi-accent">
-          <div class="kpi-value">{{ activeProjects.length }}</div>
-          <div class="kpi-label">진행 프로젝트</div>
-          <div class="kpi-break">입찰 {{ activeBidding }} · 수행 {{ activeExecution }}</div>
+          <div class="kpi-value">{{ projects.length }}</div>
+          <div class="kpi-label">전체 프로젝트</div>
+          <div class="kpi-break">입찰 {{ activeBidding }}/{{ biddingTotal }} · 수행 {{ activeExecution }}/{{ execTotal }}</div>
         </div>
         <div class="kpi kpi-red">
           <div class="kpi-value">{{ kpiDelayed }}</div>
           <div class="kpi-label">지연</div>
         </div>
         <div class="kpi kpi-yellow">
-          <div class="kpi-value">{{ kpiOpenIssues }}</div>
-          <div class="kpi-label">오픈 리스크·이슈 (전체)</div>
+          <div class="kpi-value">{{ riskOpen }}</div>
+          <div class="kpi-label">리스크 미해결</div>
+          <div class="kpi-break">총 {{ riskAll.length }}건</div>
+        </div>
+        <div class="kpi kpi-yellow">
+          <div class="kpi-value">{{ issueOpen }}</div>
+          <div class="kpi-label">이슈 미해결</div>
+          <div class="kpi-break">총 {{ issueAll.length }}건</div>
         </div>
         <div class="kpi kpi-blue">
-          <div class="kpi-value">{{ kpiOpenActions }}</div>
-          <div class="kpi-label">미결 액션아이템 (전체)</div>
+          <div class="kpi-value">{{ actionOpen }}</div>
+          <div class="kpi-label">액션아이템 미완료</div>
+          <div class="kpi-break">총 {{ actionItems.length }}건</div>
         </div>
         <div class="kpi kpi-green">
           <div class="kpi-value">{{ kpiDueToday }}</div>
@@ -257,11 +393,11 @@ onMounted(async () => {
         <!-- 0026 D1 — 오늘 해야할 일 (3열) -->
         <div class="triple">
           <section class="card">
-            <h2 class="card-title">오늘/지연 WBS 일정</h2>
+            <h2 class="card-title">오늘/지연 WBS 일정 <button type="button" class="cnt-badge" :title="expanded['tTasks'] ? '접기' : '전체 보기'" @click="toggleMore('tTasks')">{{ (widgets?.today.tasks ?? []).length }}건<template v-if="moreCount(widgets?.today.tasks) > 0"> {{ expanded['tTasks'] ? '▲' : '▼' }}</template></button></h2>
             <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
             <div v-else-if="!widgets || widgets.today.tasks.length === 0" class="card-empty">해당 항목이 없습니다.</div>
             <ul v-else class="mini-list">
-              <li v-for="t in widgets.today.tasks" :key="t.taskId" class="mini-item" @click="router.push(`/tasks/${t.taskId}`)">
+              <li v-for="t in visibleOf('tTasks', widgets.today.tasks") :key="t.taskId" class="mini-item" @click="router.push(`/tasks/${t.taskId}`)">
                 <span class="due-badge" :class="t.overdue ? 'due-over' : 'due-today'">{{ t.overdue ? '지연' : '오늘' }}</span>
                 <span class="mini-title">{{ t.name }}</span>
                 <span class="mini-meta">{{ t.projectName }} · 진행률 {{ t.progress }}% · 기한 {{ t.dueDate }}</span>
@@ -269,11 +405,11 @@ onMounted(async () => {
             </ul>
           </section>
           <section class="card">
-            <h2 class="card-title">오늘/지연 액션아이템</h2>
+            <h2 class="card-title">오늘/지연 액션아이템 <button type="button" class="cnt-badge" :title="expanded['tActs'] ? '접기' : '전체 보기'" @click="toggleMore('tActs')">{{ (widgets?.today.actions ?? []).length }}건<template v-if="moreCount(widgets?.today.actions) > 0"> {{ expanded['tActs'] ? '▲' : '▼' }}</template></button></h2>
             <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
             <div v-else-if="!widgets || widgets.today.actions.length === 0" class="card-empty">해당 항목이 없습니다.</div>
             <ul v-else class="mini-list">
-              <li v-for="a in widgets.today.actions" :key="a.actionId" class="mini-item" @click="router.push(`/action-items/${a.actionId}`)">
+              <li v-for="a in visibleOf('tActs', widgets.today.actions") :key="a.actionId" class="mini-item" @click="router.push(`/action-items/${a.actionId}`)">
                 <span class="due-badge" :class="a.overdue ? 'due-over' : 'due-today'">{{ a.overdue ? '지연' : '오늘' }}</span>
                 <span class="mini-title">{{ a.title }}</span>
                 <span class="mini-meta">{{ a.projectName }}<template v-if="a.assigneeName"> · {{ a.assigneeName }}</template> · 기한 {{ a.dueDate }}</span>
@@ -281,11 +417,11 @@ onMounted(async () => {
             </ul>
           </section>
           <section class="card">
-            <h2 class="card-title">오늘/지연 제출 산출물</h2>
+            <h2 class="card-title">오늘/지연 제출 산출물 <button type="button" class="cnt-badge" :title="expanded['tDelivs'] ? '접기' : '전체 보기'" @click="toggleMore('tDelivs')">{{ (widgets?.today.deliverables ?? []).length }}건<template v-if="moreCount(widgets?.today.deliverables) > 0"> {{ expanded['tDelivs'] ? '▲' : '▼' }}</template></button></h2>
             <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
             <div v-else-if="!widgets || widgets.today.deliverables.length === 0" class="card-empty">해당 항목이 없습니다.</div>
             <ul v-else class="mini-list">
-              <li v-for="d in widgets.today.deliverables" :key="d.deliverableId" class="mini-item" @click="router.push(`/deliverables/${d.deliverableId}`)">
+              <li v-for="d in visibleOf('tDelivs', widgets.today.deliverables") :key="d.deliverableId" class="mini-item" @click="router.push(`/deliverables/${d.deliverableId}`)">
                 <span class="due-badge" :class="d.overdue ? 'due-over' : 'due-today'">{{ d.overdue ? '지연' : '오늘' }}</span>
                 <span class="mini-title">{{ d.name }}</span>
                 <span class="mini-meta">{{ d.projectName }} · 기한 {{ d.dueDate }}</span>
@@ -297,11 +433,11 @@ onMounted(async () => {
         <!-- 0026 D3~D5 — 규칙 기반 3위젯 (AI 미채택, 설정 가능한 기준: 관리자>신호 규칙 HEALTH_SCORE) -->
         <div class="triple">
           <section class="card">
-            <h2 class="card-title">주의가 필요한 프로젝트 <span class="card-sub">건강도 점수 낮은 순</span></h2>
+            <h2 class="card-title">주의가 필요한 프로젝트 <span class="card-sub">건강도 점수 낮은 순</span> <button type="button" class="cnt-badge" :title="expanded['att'] ? '접기' : '전체 보기'" @click="toggleMore('att')">{{ (widgets?.attention ?? []).length }}건<template v-if="moreCount(widgets?.attention) > 0"> {{ expanded['att'] ? '▲' : '▼' }}</template></button></h2>
             <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
             <div v-else-if="!widgets || widgets.attention.length === 0" class="card-empty">대상 프로젝트가 없습니다.</div>
             <ul v-else class="mini-list">
-              <li v-for="a in widgets.attention" :key="a.projectId" class="mini-item" @click="openDetail(a.projectId)">
+              <li v-for="a in visibleOf('att', widgets.attention") :key="a.projectId" class="mini-item" @click="openDetail(a.projectId)">
                 <span class="score" :class="'score-' + a.level.toLowerCase()">{{ a.score }}점 · {{ LEVEL_LABELS[a.level] ?? a.level }}</span>
                 <span class="mini-title">{{ a.projectName }}</span>
                 <span v-if="a.factors.length" class="mini-meta">{{ a.factors.join(' · ') }}</span>
@@ -309,11 +445,11 @@ onMounted(async () => {
             </ul>
           </section>
           <section class="card">
-            <h2 class="card-title">주요 리스크 <span class="card-sub">우선순위·경과일 순</span></h2>
+            <h2 class="card-title">주요 리스크 <span class="card-sub">우선순위·경과일 순</span> <button type="button" class="cnt-badge" :title="expanded['risks'] ? '접기' : '전체 보기'" @click="toggleMore('risks')">{{ (widgets?.risks ?? []).length }}건<template v-if="moreCount(widgets?.risks) > 0"> {{ expanded['risks'] ? '▲' : '▼' }}</template></button></h2>
             <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
             <div v-else-if="!widgets || widgets.risks.length === 0" class="card-empty">오픈 리스크가 없습니다.</div>
             <ul v-else class="mini-list">
-              <li v-for="(r, i) in widgets.risks" :key="i" class="mini-item" @click="openRisk(r)">
+              <li v-for="(r, i) in visibleOf('risks', widgets.risks") :key="i" class="mini-item" @click="openRisk(r)">
                 <span class="due-badge" :class="r.kind === 'DELAY' ? 'due-over' : 'due-today'">{{ r.kind === 'DELAY' ? '진척 지연' : (r.priority || '리스크') }}</span>
                 <span class="mini-title">{{ r.title }}</span>
                 <span class="mini-meta">{{ r.projectName }}<template v-if="r.ageDays != null"> · {{ r.ageDays }}일 경과</template></span>
@@ -321,11 +457,11 @@ onMounted(async () => {
             </ul>
           </section>
           <section class="card">
-            <h2 class="card-title">지금 실행하면 좋은 조치</h2>
+            <h2 class="card-title">지금 실행하면 좋은 조치 <button type="button" class="cnt-badge" :title="expanded['reco'] ? '접기' : '전체 보기'" @click="toggleMore('reco')">{{ (widgets?.recommendations ?? []).length }}건<template v-if="moreCount(widgets?.recommendations) > 0"> {{ expanded['reco'] ? '▲' : '▼' }}</template></button></h2>
             <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
             <div v-else-if="!widgets || widgets.recommendations.length === 0" class="card-empty">권장 조치가 없습니다.</div>
             <ul v-else class="mini-list">
-              <li v-for="(r, i) in widgets.recommendations" :key="i" class="mini-item" @click="openReco(r)">
+              <li v-for="(r, i) in visibleOf('reco', widgets.recommendations") :key="i" class="mini-item" @click="openReco(r)">
                 <span class="mini-title">{{ r.text }}</span>
                 <span class="mini-meta">{{ r.projectName }}</span>
               </li>
@@ -590,4 +726,25 @@ onMounted(async () => {
   .kpis { grid-template-columns: repeat(2, 1fr); }
   .charts { grid-template-columns: 1fr; }
 }
+
+/* 0038 — 뷰 탭 + 카드 건수 뱃지(클릭=펼치기) + 내 업무 */
+.view-tabs { display: flex; gap: 6px; margin: 2px 0 14px; }
+.vtab {
+  border: 1px solid var(--border); background: var(--panel); color: var(--muted);
+  font-size: 13.5px; font-weight: 600; padding: 7px 16px; border-radius: 999px; cursor: pointer; font-family: inherit;
+}
+.vtab:hover { color: var(--text); }
+.vtab.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cnt-badge {
+  margin-left: 6px; font-size: 11.5px; font-weight: 700; padding: 1px 9px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--panel-2); color: var(--muted);
+  cursor: pointer; font-family: inherit;
+}
+.cnt-badge:hover { color: var(--text); border-color: var(--accent); }
+.pm-mini {
+  margin-left: 6px; font-size: 10px; font-weight: 700; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 4px; padding: 0 4px; vertical-align: 1px;
+}
+.my-bar { display: block; height: 4px; background: var(--panel-2); border-radius: 2px; margin-top: 5px; overflow: hidden; }
+.my-bar-fill { display: block; height: 100%; background: var(--accent); }
 </style>
