@@ -14,5 +14,6 @@ public record PersonQuery(
         String company,
         Long projectId,
         String location,
-        String customer) {
+        String customer,
+        List<String> departments) {
 }

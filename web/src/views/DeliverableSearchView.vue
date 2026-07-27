@@ -115,6 +115,31 @@ onMounted(() => {
   if (apiMode.value) void load();
   else loading.value = false;
 });
+
+// ---- 0038 — 양식 파일 업로드/다운로드(실파일: FilePort — 태스크의 '템플릿 다운로드' 원천) ----
+const tplFileInput = ref<HTMLInputElement | null>(null);
+const tplTarget = ref<DocTemplate | null>(null);
+function pickFile(t: DocTemplate) {
+  tplTarget.value = t;
+  tplFileInput.value?.click();
+}
+async function onTplFile(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const f = input.files?.[0];
+  const t = tplTarget.value;
+  input.value = '';
+  if (!f || !t) return;
+  try {
+    await dataClient.files.upload(`/api/doc-templates/${t.id}/file`, f);
+    await load();
+  } catch (err) {
+    loadError.value = err instanceof Error ? err.message : String(err);
+  }
+}
+function downloadFile(t: DocTemplate) {
+  void dataClient.files.download(`/api/doc-templates/${t.id}/file`)
+    .catch((err) => { loadError.value = err instanceof Error ? err.message : String(err); });
+}
 </script>
 
 <template>
@@ -160,13 +185,14 @@ onMounted(() => {
             <table class="grid">
               <thead>
                 <tr>
-                  <th class="no">No.</th><th>양식명</th><th>분류</th><th>형식</th>
+                  <th class="no">No.</th><th class="code">양식 ID</th><th>양식명</th><th>분류</th><th>형식</th>
                   <th>파일 참조</th><th>설명</th><th class="num">사용 노드</th><th>관리</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(t, idx) in paged" :key="t.id">
                   <td class="no">{{ rowNo(idx) }}</td>
+                  <td class="code">T-{{ t.id }}</td>
                   <td class="name">{{ t.name }}<span v-if="!t.isActive" class="off-tag">비활성</span></td>
                   <td>{{ t.category || '—' }}</td>
                   <td class="code">{{ t.docFormat || '—' }}</td>
@@ -174,6 +200,9 @@ onMounted(() => {
                   <td class="muted ellip" :title="t.description ?? ''">{{ t.description || '—' }}</td>
                   <td class="num">{{ t.nodeCount }}</td>
                   <td class="actions">
+                    <button class="btn btn-sm" :title="t.fileRef ? '양식 파일 다운로드' : '등록된 파일 없음'"
+                            :disabled="!t.fileRef" @click="downloadFile(t)">받기</button>
+                    <button class="btn btn-sm" title="양식 파일 업로드(교체)" @click="pickFile(t)">파일</button>
                     <button class="btn btn-sm" @click="openEdit(t)">수정</button>
                     <button class="btn btn-sm btn-danger" @click="remove(t)">삭제</button>
                   </td>
@@ -181,6 +210,7 @@ onMounted(() => {
               </tbody>
             </table>
             <Pager :page="page" :total-pages="totalPages" :total="total" @update:page="goPage" />
+            <input ref="tplFileInput" type="file" style="display:none" @change="onTplFile" />
           </template>
         </section>
       </div>

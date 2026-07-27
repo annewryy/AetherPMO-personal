@@ -6,6 +6,10 @@ server:
 spring:
   application:
     name: aetherpms-server
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 55MB
   datasource:
     # 로컬/도커 MariaDB. 예: jdbc:mariadb://localhost:3306/aetherpms
     url: ${DATABASE_URL:jdbc:mariadb://localhost:3306/aetherpms}
@@ -58,3 +62,8 @@ amaranth:
 logging:
   level:
     org.hibernate.SQL: info
+
+# 0018/0038 — 파일 저장(dev=로컬 볼륨, NAS 확정 시 어댑터 교체)
+file:
+  storage:
+    dir: ${FILE_STORAGE_DIR:/data/files}

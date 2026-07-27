@@ -41,9 +41,10 @@ public class PersonService {
         StringBuilder sql = new StringBuilder(
             "SELECT DISTINCT p.person_id, p.source, p.amaranth_emp_no, p.name, " +
             "       p.employment_type, p.company_id, p.department, p.position, " +
-            "       p.phone, p.email, p.status, c.company_name " +
+            "       p.phone, p.email, p.status, c.company_name, u.username AS login_id " +
             "FROM pms_person p " +
-            "LEFT JOIN pms_company c ON c.company_id = p.company_id ");
+            "LEFT JOIN pms_company c ON c.company_id = p.company_id " +
+            "LEFT JOIN pms_user u ON u.person_id = p.person_id AND u.is_active = 1 ");
 
         List<Object> args = new ArrayList<>();
         List<String> where = new ArrayList<>();
@@ -77,6 +78,12 @@ public class PersonService {
             }
         }
 
+        if (q.departments() != null && !q.departments().isEmpty()) {
+            // 0038 — 조직도 트리 선택 부서(하위 포함) 필터: 부서명 IN
+            where.add("p.department IN (" + String.join(",",
+                    java.util.Collections.nCopies(q.departments().size(), "?")) + ")");
+            args.addAll(q.departments());
+        }
         if (notBlank(q.name())) {
             where.add("p.name LIKE ?");
             args.add("%" + q.name().trim() + "%");
@@ -203,6 +210,7 @@ public class PersonService {
         out.put("phone", r.get("phone"));
         out.put("email", r.get("email"));
         out.put("status", r.get("status"));
+        out.put("loginId", r.get("login_id")); // 0038 — 연결 계정 아이디(관리자 확인용, 미연결 null)
         return out;
     }
 

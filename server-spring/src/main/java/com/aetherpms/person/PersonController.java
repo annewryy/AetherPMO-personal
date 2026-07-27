@@ -33,9 +33,13 @@ public class PersonController {
             @RequestParam(name = "company", required = false) String company,
             @RequestParam(name = "projectId", required = false) Long projectId,
             @RequestParam(name = "location", required = false) String location,
-            @RequestParam(name = "customer", required = false) String customer) {
+            @RequestParam(name = "customer", required = false) String customer,
+            @RequestParam(name = "departments", required = false) String departments) {
         PersonQuery q = new PersonQuery(
-                splitTypes(employmentTypes), match, name, company, projectId, location, customer);
+                splitTypes(employmentTypes), match, name, company, projectId, location, customer,
+                departments == null || departments.isBlank() ? null
+                        : java.util.Arrays.stream(departments.split(",")).map(String::trim)
+                              .filter(d -> !d.isEmpty()).toList());
         return service.list(q);
     }
 

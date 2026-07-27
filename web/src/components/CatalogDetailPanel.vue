@@ -73,7 +73,7 @@ const deliverableWorkflows = computed(() => {
       <div v-if="!isTask && node.fileNameBase" class="wide"><dt>표준 파일명</dt><dd>{{ node.fileNameBase }}</dd></div>
       <div v-if="!isTask && node.docTemplateId != null" class="wide">
         <dt>기본 양식</dt>
-        <dd>{{ templateNamesById?.get(node.docTemplateId) ?? `#${node.docTemplateId}` }}</dd>
+        <dd><span class="code">T-{{ node.docTemplateId }}</span> · {{ templateNamesById?.get(node.docTemplateId) ?? '양식명 미로드' }}</dd>
       </div>
       <div class="wide"><dt>소속 경로</dt><dd class="path">{{ breadcrumb }}</dd></div>
       <div v-if="node.description" class="wide"><dt>설명</dt><dd>{{ node.description }}</dd></div>

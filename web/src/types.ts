@@ -849,6 +849,7 @@ export interface Person {
   phone: string | null;
   email: string | null;
   status: string | null;             // 재직상태
+  loginId?: string | null;           // 0038 — 연결 계정 아이디(관리자 확인용, 목록에만)
   // 목록에만 존재(GET /api/persons). 상세(GET /api/persons/{id})에는 없을 수 있음.
   activeProjectCount?: number;
 }
@@ -944,6 +945,7 @@ export interface PersonProjectHistory {
 
 // GET /api/persons 서버측 필터(0014 A — 클라이언트 필터링 금지, 서버 쿼리로 전달).
 export interface PersonFilters {
+  departments?: string[];        // 0038 — 조직도 트리 선택(하위 포함 부서명)
   employmentTypes?: string[];        // 복수선택 → 콤마 조립
   match?: 'or' | 'and';              // 기본 or
   name?: string;

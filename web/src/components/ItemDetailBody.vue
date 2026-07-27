@@ -375,6 +375,46 @@ const PRIORITIES = ['상', '중', '하'];
 const TASK_STATUS_LABELS: Record<string, string> = {
   TODO: '대기', IN_PROGRESS: '진행중', REVIEW: '검토중', REJECTED: '반려', DONE: '완료',
 };
+
+// ---- 0038 — 산출물 파일 액션(템플릿/수정본) ----
+const fileInput = ref<HTMLInputElement | null>(null);
+const fileBusy = ref(false);
+const fileMsg = ref('');
+const fileErr = ref('');
+async function fileAction(fn: () => Promise<void>, okMsg?: string) {
+  fileBusy.value = true;
+  fileMsg.value = '';
+  fileErr.value = '';
+  try {
+    await fn();
+    if (okMsg) fileMsg.value = okMsg;
+  } catch (e) {
+    fileErr.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    fileBusy.value = false;
+  }
+}
+function downloadTemplate() {
+  const id = props.artifact?.id;
+  if (id == null) return;
+  void fileAction(() => dataClient.files.download(`/api/deliverables/${id}/template-file`));
+}
+function downloadCurrent() {
+  const id = props.artifact?.id;
+  if (id == null) return;
+  void fileAction(() => dataClient.files.download(`/api/deliverables/${id}/file`));
+}
+function onFilePicked(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const f = input.files?.[0];
+  const id = props.artifact?.id;
+  input.value = '';
+  if (!f || id == null) return;
+  void fileAction(async () => {
+    const r = (await dataClient.files.upload(`/api/deliverables/${id}/file`, f)) as { versionNo?: number };
+    fileMsg.value = `업로드 완료 (v${r.versionNo ?? '?'})`;
+  });
+}
 </script>
 
 <template>
@@ -450,6 +490,17 @@ const TASK_STATUS_LABELS: Record<string, string> = {
         </div>
         <div><dt>마감일</dt><dd>{{ fmtDate(artifact?.dueDate) }}</dd></div>
         <div><dt>제출일</dt><dd>{{ artifact?.submitDate || '—' }}</dd></div>
+        <!-- 0038 — 산출물 파일: 템플릿 기반 착수(다운로드) → 수정본 업로드(버전 증가) → 최신본 다운로드 -->
+        <div class="wide"><dt>파일</dt>
+          <dd class="file-actions">
+            <button class="mini-btn" type="button" :disabled="fileBusy" @click="downloadTemplate">템플릿 다운로드</button>
+            <button class="mini-btn" type="button" :disabled="fileBusy" @click="fileInput?.click()">수정본 업로드</button>
+            <button class="mini-btn" type="button" :disabled="fileBusy" @click="downloadCurrent">최신 파일</button>
+            <input ref="fileInput" type="file" class="file-hidden" @change="onFilePicked" />
+            <span v-if="fileMsg" class="file-ok">{{ fileMsg }}</span>
+            <span v-if="fileErr" class="file-err">{{ fileErr }}</span>
+          </dd>
+        </div>
       </template>
 
       <template v-else-if="kind === 'task'">
@@ -639,4 +690,10 @@ const TASK_STATUS_LABELS: Record<string, string> = {
 }
 .date-in:focus { border-color: var(--accent); }
 .tilde { color: var(--muted); }
+
+/* 0038 — 산출물 파일 액션 */
+.file-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.file-hidden { display: none; }
+.file-ok { font-size: 12px; color: var(--green); }
+.file-err { font-size: 12px; color: var(--red); }
 </style>

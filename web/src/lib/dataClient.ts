@@ -594,6 +594,45 @@ export const dataClient = {
     },
   },
 
+  // 0018/0038 — 파일 업로드/다운로드(인증 헤더 필요 → fetch+blob)
+  files: {
+    async download(path: string): Promise<void> {
+      const res = await fetch(`${apiBase()}${path}`, { headers: userHeader() });
+      if (!res.ok) {
+        let msg = `다운로드 실패: ${res.status}`;
+        try {
+          const b = await res.json();
+          if (b?.message) msg = b.message;
+        } catch { /* 본문 없음 */ }
+        throw new Error(msg);
+      }
+      const dispo = res.headers.get('Content-Disposition') || '';
+      const m = /filename\*=UTF-8''([^;]+)/.exec(dispo);
+      const fileName = m ? decodeURIComponent(m[1]) : 'download';
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    async upload(path: string, file: File): Promise<unknown> {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`${apiBase()}${path}`, { method: 'POST', headers: userHeader(), body: fd });
+      if (!res.ok) {
+        let msg = `업로드 실패: ${res.status}`;
+        try {
+          const b = await res.json();
+          if (b?.message) msg = b.message;
+        } catch { /* 본문 없음 */ }
+        throw new Error(msg);
+      }
+      return res.json();
+    },
+  },
+
   // 0033 3차 — 개인 알림 설정(유형별 on/off)
   notificationPrefs: {
     get(): Promise<{ prefs: Record<string, boolean>; types: string[] }> {
@@ -653,6 +692,7 @@ export const dataClient = {
       if (filters.projectId != null) qs.set('projectId', String(filters.projectId));
       if (filters.location && filters.location.trim()) qs.set('location', filters.location.trim());
       if (filters.customer && filters.customer.trim()) qs.set('customer', filters.customer.trim());
+      if (filters.departments && filters.departments.length) qs.set('departments', filters.departments.join(','));
       const q = qs.toString();
       return apiGet<Person[]>(`/api/persons${q ? `?${q}` : ''}`);
     },
