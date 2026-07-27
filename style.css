@@ -7488,4 +7488,25 @@ body.dark-theme .portal-copilot-task-item {
     border-color: rgba(148, 163, 184, 0.3);
 }
 
+/* ==========================================================================
+   View Position & Alignment Standardization (Matching Dashboard Position)
+   ========================================================================== */
+.content-body {
+    padding: 32px !important;
+}
+
+.content-view {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.view-header {
+    margin-bottom: 28px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+}
+
 
