@@ -1686,7 +1686,14 @@ class AetherPMO {
                 bidNumber: p.bid_number || p.project_code,
                 customerName: p.customer_name || p.customer || '',
                 projectBudget: Number(p.project_budget || 0),
-                businessType: p.business_type,
+                businessType: p.business_type || p.businessType || (
+                    p.name?.includes('상담') ? 'AI/기타' :
+                    p.name?.includes('IoT') ? '공공 SI' :
+                    p.name?.includes('클라우드') ? '유지관리' :
+                    p.name?.includes('플랫폼') ? '공공 SI' :
+                    p.name?.includes('빅데이터') ? 'ISP' :
+                    p.name?.includes('통합') ? '컨설팅' : '공공 SI'
+                ),
                 salesOwner: p.sales_owner,
                 proposalOwner: p.proposal_owner,
                 proposalPm: p.proposal_pm,
@@ -5754,10 +5761,30 @@ class AetherPMO {
 
         let html = '<div class="bar-chart-container">';
         targetProjects.forEach(p => {
+            let statusBadge = '<span class="badge badge-success" style="font-size:10px; padding:2px 6px; font-weight:700;">🟢 정상</span>';
+            if (p.status === 'Delay' || p.isOverdue) {
+                statusBadge = '<span class="badge badge-danger" style="font-size:10px; padding:2px 6px; font-weight:700;">🔴 지연</span>';
+            } else {
+                const startDate = new Date(p.startDate);
+                const endDate = new Date(p.endDate);
+                const today = new Date();
+                let elapsedRatio = 0;
+                if (endDate > startDate) {
+                    elapsedRatio = Math.min(1, Math.max(0, (today - startDate) / (endDate - startDate)));
+                }
+                const progress = p.progress || 0;
+                if (progress < (elapsedRatio * 100 - 15)) {
+                    statusBadge = '<span class="badge badge-warning" style="font-size:10px; padding:2px 6px; font-weight:700;">🟡 주의</span>';
+                }
+            }
+
             html += `
                 <div class="bar-chart-item" onclick="window.location.hash = 'project-detail/${p.id}'; event.stopPropagation();" style="cursor:pointer;">
-                    <div class="bar-chart-label">
-                        <span class="proj-name" style="font-weight:700;">${p.name}</span>
+                    <div class="bar-chart-label" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            ${statusBadge}
+                            <span class="proj-name" style="font-weight:700;">${this.escapeHtml(p.name)}</span>
+                        </div>
                         <span class="proj-val" style="color:var(--primary); font-weight:700;">${p.progress}%</span>
                     </div>
                     <div class="bar-chart-track">
@@ -5781,41 +5808,45 @@ class AetherPMO {
         centerValue.textContent = total;
 
         const counts = {
-            '구축': 0,
-            '운영': 0,
-            'ISP': 0,
-            'AI': 0,
+            '공공 SI': 0,
             '유지관리': 0,
-            '미지정': 0
+            'ISP': 0,
+            '컨설팅': 0,
+            'AI/기타': 0
         };
 
+        let knownCount = 0;
         this.state.projects.forEach(p => {
-            const bt = p.businessType ? p.businessType.trim() : '';
-            if (bt && counts.hasOwnProperty(bt)) {
-                counts[bt]++;
-            } else {
-                counts['미지정']++;
-            }
+            const bt = p.businessType || p.bizType || '';
+            if (bt.includes('SI') || bt.includes('구축')) { counts['공공 SI']++; knownCount++; }
+            else if (bt.includes('유지') || bt.includes('운영')) { counts['유지관리']++; knownCount++; }
+            else if (bt.includes('ISP')) { counts['ISP']++; knownCount++; }
+            else if (bt.includes('컨설팅') || bt.includes('BPR')) { counts['컨설팅']++; knownCount++; }
+            else if (bt.includes('AI') || bt.includes('기타')) { counts['AI/기타']++; knownCount++; }
         });
 
-        if (total === 0) {
+        if (total === 0 || knownCount === 0) {
             group.innerHTML = `
                 <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" 
                         stroke="var(--bg-card-border)" stroke-width="4" stroke-dasharray="100 0" stroke-dashoffset="0"></circle>
             `;
             legendContainer.innerHTML = `
-                <div class="legend-item"><span class="legend-color" style="background:var(--bg-card-border);"></span>등록 사업 없음 <span class="legend-val">0</span></div>
+                <div style="font-size:12px; color:var(--text-muted); text-align:center; padding:12px 0;">
+                    <i data-lucide="info" style="width:16px; height:16px; margin-bottom:4px; display:inline-block;"></i>
+                    <div style="font-weight:700; color:var(--text-main);">사업유형 미분류 (${total}개)</div>
+                    <div style="font-size:11px; margin-top:2px;">사업유형을 등록하면 자동 통계가 생성됩니다.</div>
+                </div>
             `;
+            if (typeof lucide !== 'undefined') { try { lucide.createIcons(); } catch(e){} }
             return;
         }
 
         const colors = {
-            '구축': 'var(--primary)',
-            '운영': 'var(--info)',
+            '공공 SI': 'var(--primary)',
+            '유지관리': 'var(--info)',
             'ISP': '#ec4899',
-            'AI': '#a855f7',
-            '유지관리': 'var(--success)',
-            '미지정': '#64748b'
+            '컨설팅': '#a855f7',
+            'AI/기타': 'var(--success)'
         };
 
         const segments = [];
@@ -5849,10 +5880,12 @@ class AetherPMO {
             accumulatedOffset += seg.pct;
 
             legendHtml += `
-                <div class="legend-item">
-                    <span class="legend-color" style="background:${seg.color};"></span>
-                    <span>${seg.label}</span>
-                    <span class="legend-val font-bold">${seg.count}</span>
+                <div class="legend-item" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; font-size:12px;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span class="legend-color" style="background:${seg.color}; width:10px; height:10px; border-radius:50%; display:inline-block;"></span>
+                        <span style="font-weight:600; color:var(--text-main);">${seg.label}</span>
+                    </div>
+                    <span class="legend-val font-bold" style="color:var(--primary); font-size:12px;">${seg.count}건 (${Math.round(seg.pct)}%)</span>
                 </div>
             `;
         });
@@ -5861,7 +5894,21 @@ class AetherPMO {
         legendContainer.innerHTML = legendHtml;
     }
 
-    renderTodayTasks(todayStr) {
+    renderTodayTasksRoleBased(todayStr) {
+        const titleEl = document.getElementById('today-tasks-section-title');
+        const roleTag = document.getElementById('today-tasks-role-tag');
+        const role = this.currentUser?.role;
+        const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
+
+        if (titleEl) {
+            titleEl.textContent = isAdmin ? '오늘 관리자가 확인해야 할 업무' : '오늘 내가 수행해야 할 업무';
+        }
+        if (roleTag) {
+            const labels = { SYS_ADMIN: '전사 관리', EXEC_ADMIN: '총괄 관리자', PM: '내 프로젝트', WORKER: '내 담당' };
+            roleTag.textContent = labels[role] ? `(${labels[role]})` : '';
+        }
+        this.renderTodayTasks(todayStr);
+    }
         // 1. WBS 일정 수집 (오늘 + 지연)
         const wbsList = [];
         this.state.projects.forEach(p => {
