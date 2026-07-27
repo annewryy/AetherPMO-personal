@@ -4147,6 +4147,12 @@ class AetherPMO {
     }
 
     async handleRouting() {
+        console.log('[handleRouting:start]', {
+            href: location.href,
+            hash: location.hash,
+            pathname: location.pathname
+        });
+
         // First check authentication
         const isAuthenticated = await this.checkAuth();
         if (!isAuthenticated) {
@@ -4246,6 +4252,11 @@ class AetherPMO {
      * Switch view display block/none
      */
     async switchView(viewName, params = null) {
+        console.log('[switchView:start]', {
+            requestedView: viewName,
+            targetElement: document.getElementById(`view-${viewName}`)
+        });
+
         document.querySelectorAll('.content-view').forEach(view => {
             view.classList.remove('active');
         });
