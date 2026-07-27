@@ -906,6 +906,18 @@ class AetherPMO {
                         console.warn(`[Supabase Sync] Skipping project_upsert for legacy non-UUID id: ${p.id}`);
                         break;
                     }
+
+                    const ALLOWED_BID_STATUSES = ['proposal_preparing', 'proposal_submitted', 'waiting_result', 'won', 'lost'];
+                    let cleanBidStatus = p.bid_status || p.bidding_status || p.bidStatus || null;
+                    if (cleanBidStatus) {
+                        cleanBidStatus = String(cleanBidStatus).trim().toLowerCase();
+                        if (cleanBidStatus === 'in progress' || cleanBidStatus === 'in_progress' || cleanBidStatus === 'execution') {
+                            cleanBidStatus = (p.bid_result === 'WON' || p.bidResult === 'WON') ? 'won' : null;
+                        } else if (!ALLOWED_BID_STATUSES.includes(cleanBidStatus)) {
+                            cleanBidStatus = null;
+                        }
+                    }
+
                     const projData = {
                         id: p.id,
                         project_code: p.projectCode || p.id,
@@ -921,7 +933,9 @@ class AetherPMO {
                         inspection_date: p.inspectionDate || null,
                         remarks: p.remarks,
                         status: p.status,
-                        bid_status: p.bidStatus || null,
+                        lifecycle_status: p.status,
+                        bid_status: cleanBidStatus,
+                        bidding_status: cleanBidStatus,
                         progress: p.progress,
                         resources: p.resources,
                         bid_number: p.bidNumber || null,
@@ -941,6 +955,15 @@ class AetherPMO {
                         resources_list: p.resourcesList || [],
                         member_ids: p.memberIds || []
                     };
+
+                    console.log('[Project Save Payload]', {
+                        id: projData.id,
+                        business_type: projData.business_type,
+                        status: projData.status,
+                        lifecycle_status: projData.lifecycle_status,
+                        bid_status: projData.bid_status
+                    });
+
                     const { error } = await this.supabase.from('projects').upsert(projData);
                     if (error) {
                         console.error('[Supabase Sync] project_upsert error details:', {
@@ -11488,24 +11511,40 @@ class AetherPMO {
                 const old = this.state.projects[index];
                 const oldManagerId = old.managerId;
 
-                const rawBidStatus = document.getElementById('project-bid-status')?.value || 'proposal_preparing';
-                const normBidStatus = this.normalizeBiddingStatus(rawBidStatus);
+                const rawBidStatus = document.getElementById('project-bid-status')?.value || '';
+                let normBidStatus = rawBidStatus ? this.normalizeBiddingStatus(rawBidStatus) : '';
 
                 let targetStatus = status;
                 let targetBiddingStatus = normBidStatus;
                 let targetBidResult = old.bid_result || old.bidResult || '';
 
-                if (normBidStatus === 'won' || targetStatus === 'In Progress') {
-                    if (old.is_bidding_project || old.status === 'Bidding') {
-                        targetStatus = 'In Progress';
+                // 수행 중/종료 프로젝트인 경우 bid_status 덮어쓰기 방지 및 분리
+                const isExecutionStage = old.status === 'In Progress' || old.status === 'Execution' || old.status === 'Completed' || status === 'In Progress' || status === 'Execution' || status === 'Completed';
+
+                if (isExecutionStage) {
+                    const oldBid = this.normalizeBiddingStatus(old);
+                    if (oldBid === 'won' || old.bid_result === 'WON' || old.bidResult === 'WON') {
                         targetBiddingStatus = 'won';
                         targetBidResult = 'WON';
-                    }
-                } else if (normBidStatus === 'lost' || targetStatus === 'Bid Failed') {
-                    if (old.is_bidding_project || old.status === 'Bidding') {
-                        targetStatus = 'Bid Failed';
+                    } else if (oldBid === 'lost' || old.bid_result === 'LOST' || old.bidResult === 'LOST') {
                         targetBiddingStatus = 'lost';
                         targetBidResult = 'LOST';
+                    } else {
+                        targetBiddingStatus = old.bid_status || old.bidding_status || null;
+                    }
+                } else {
+                    if (normBidStatus === 'won' || targetStatus === 'In Progress') {
+                        if (old.is_bidding_project || old.status === 'Bidding') {
+                            targetStatus = 'In Progress';
+                            targetBiddingStatus = 'won';
+                            targetBidResult = 'WON';
+                        }
+                    } else if (normBidStatus === 'lost' || targetStatus === 'Bid Failed') {
+                        if (old.is_bidding_project || old.status === 'Bidding') {
+                            targetStatus = 'Bid Failed';
+                            targetBiddingStatus = 'lost';
+                            targetBidResult = 'LOST';
+                        }
                     }
                 }
 
