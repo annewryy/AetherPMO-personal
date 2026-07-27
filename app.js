@@ -6782,16 +6782,22 @@ class AetherPMO {
             });
             throw error;
         } finally {
-            const _sidebar = document.querySelector('.sidebar')?.getBoundingClientRect();
-            const _main    = document.querySelector('.main-layout')?.getBoundingClientRect();
-            const _header  = document.querySelector('.main-header')?.getBoundingClientRect();
-            const _view    = document.querySelector('#view-projects')?.getBoundingClientRect();
-            console.log('[LAYOUT FINAL CHECK]', {
-                sidebar: _sidebar,
-                main: _main,
-                header: _header,
-                view: _view,
-                viewport: { width: window.innerWidth, height: window.innerHeight }
+            console.log('[renderProjects:end]', {
+                projectViewActive: document.getElementById('view-projects')?.classList.contains('active'),
+                projectViewDisplay: getComputedStyle(document.getElementById('view-projects')).display
+            });
+
+            [0, 100, 500].forEach(delay => {
+                setTimeout(() => {
+                    const view = document.getElementById('view-projects');
+                    console.log(`[PROJECT VIEW ${delay}ms]`, {
+                        active: view?.classList.contains('active'),
+                        display: view ? getComputedStyle(view).display : null,
+                        visibility: view ? getComputedStyle(view).visibility : null,
+                        opacity: view ? getComputedStyle(view).opacity : null,
+                        childCount: view?.children?.length
+                    });
+                }, delay);
             });
         }
     }

@@ -158,8 +158,8 @@ body {
     font-family: var(--font-ui);
     background-color: var(--bg-app);
     color: var(--text-main);
-    height: 100%;
-    overflow: hidden;
+    min-height: 100vh;
+    overflow-x: hidden;
     transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
@@ -179,20 +179,15 @@ body {
     background: var(--text-light);
 }
 
-/* --- Layout Flex (sidebar + main) --- */
+/* --- Layout Grid --- */
 .app-container {
-    display: flex;
-    width: 100%;
-    height: 100vh;
-    overflow: hidden;
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: 100vh;
 }
 
 /* --- Sidebar --- */
 .sidebar {
-    flex: 0 0 260px;
-    width: 260px;
-    min-width: 260px;
-    max-width: 260px;
     background-color: var(--bg-sidebar);
     border-right: 1px solid var(--bg-card-border);
     display: flex;
@@ -201,8 +196,7 @@ body {
     position: sticky;
     top: 0;
     z-index: 100;
-    box-sizing: border-box;
-    transition: width var(--transition-normal), flex var(--transition-normal), background-color var(--transition-normal), border-color var(--transition-normal);
+    transition: transform var(--transition-normal), background-color var(--transition-normal), border-color var(--transition-normal);
 }
 
 .sidebar-header {
@@ -474,22 +468,14 @@ body.dark-theme .toggle-slider {
 
 /* --- Main Layout --- */
 .main-layout {
-    flex: 1 1 0%;
-    min-width: 0;
-    width: auto;
-    max-width: none;
     display: flex;
     flex-direction: column;
-    height: 100%;
-    overflow: hidden;
-    box-sizing: border-box;
-    margin-left: 0;
-    padding-left: 0;
+    height: 100vh;
+    overflow-y: auto;
 }
 
 /* --- Header Bar --- */
 .main-header {
-    flex: 0 0 auto;
     background-color: var(--bg-header);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -498,8 +484,8 @@ body.dark-theme .toggle-slider {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    position: relative;
-    top: auto;
+    position: sticky;
+    top: 0;
     z-index: 90;
     transition: background-color var(--transition-normal), border-color var(--transition-normal);
 }
@@ -700,26 +686,12 @@ body.dark-theme .toggle-slider {
 
 /* --- Content Views System --- */
 .content-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    width: 100%;
-    min-width: 0;
-    max-width: none;
     padding: 32px;
-    box-sizing: border-box;
-    margin-left: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
+    flex: 1;
 }
 
 .content-view {
     display: none;
-    width: 100%;
-    min-width: 0;
-    max-width: none;
-    margin-left: 0;
-    padding-left: 0;
-    box-sizing: border-box;
     animation: fadeIn var(--transition-normal) forwards;
 }
 
@@ -2624,7 +2596,7 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
    ========================================================================== */
 @media (max-width: 1024px) {
     .app-container {
-        flex-direction: column;
+        grid-template-columns: 1fr;
     }
     
     .sidebar {
@@ -2633,19 +2605,12 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
         top: 0;
         bottom: 0;
         width: 260px;
-        flex: 0 0 260px;
         transform: translateX(-100%);
     }
     
     .sidebar.open {
         transform: translateX(0);
         box-shadow: 10px 0 30px rgba(0, 0, 0, 0.4);
-    }
-    
-    .main-layout {
-        width: 100%;
-        height: 100%;
-        min-height: 0;
     }
     
     .menu-toggle-btn {
@@ -7521,37 +7486,6 @@ body.dark-theme .portal-copilot-task-item {
     background: rgba(148, 163, 184, 0.12);
     color: #94a3b8;
     border-color: rgba(148, 163, 184, 0.3);
-}
-
-/* compact sidebar */
-.app-container.sidebar-compact .sidebar {
-    flex: 0 0 72px;
-    width: 72px;
-    min-width: 72px;
-    max-width: 72px;
-}
-
-/* project grid */
-#view-projects {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 0;
-    margin-left: 0;
-}
-
-#standard-projects-container {
-    width: 100%;
-    box-sizing: border-box;
-    margin-left: 0;
-}
-
-#projects-grid-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 20px;
-    width: 100%;
-    box-sizing: border-box;
-    margin-left: 0;
 }
 
 
