@@ -873,7 +873,8 @@ class AetherPMO {
                         customer: p.customer || p.customerName || '',
                         customer_name: p.customer || p.customerName || '',
                         project_budget: p.projectBudget || 0,
-                        business_type: p.businessType,
+                        business_type: p.businessType || p.bizType || null,
+                        biz_type: p.bizType || p.businessType || null,
                         sales_owner: p.salesOwner,
                         proposal_owner: p.proposalOwner,
                         proposal_pm: p.proposalPm,
@@ -11061,8 +11062,9 @@ class AetherPMO {
         document.getElementById('project-remarks').value = project.remarks || '';
 
         // Populate new fields
+        const currBizType = project.businessType || project.business_type || project.bizType || '';
         document.getElementById('project-code').value = project.projectCode || '';
-        document.getElementById('project-biz-type').value = project.bizType || '';
+        document.getElementById('project-biz-type').value = currBizType;
         document.getElementById('project-contract-date').value = project.contractDate || '';
         document.getElementById('project-location').value = project.location || '';
         document.getElementById('project-related-biz').value = project.relatedBiz || '';
@@ -11081,7 +11083,7 @@ class AetherPMO {
         document.getElementById('project-bid-number').value = project.bidNumber || '';
         document.getElementById('project-customer-name').value = project.customerName || '';
         document.getElementById('project-budget-bidding').value = project.projectBudget || '';
-        document.getElementById('project-business-type').value = project.businessType || '';
+        document.getElementById('project-business-type').value = currBizType;
         document.getElementById('project-sales-owner').value = project.salesOwner || '';
         document.getElementById('project-proposal-owner').value = project.proposalOwner || '';
         document.getElementById('project-proposal-pm').value = project.proposalPm || '';
@@ -11189,7 +11191,10 @@ class AetherPMO {
 
         // Retrieve new fields
         const projectCode = document.getElementById('project-code')?.value?.trim() || '';
-        const bizType = document.getElementById('project-biz-type')?.value?.trim() || '';
+        const rawBizType = document.getElementById('project-biz-type')?.value?.trim() || '';
+        const rawBusinessType = document.getElementById('project-business-type')?.value?.trim() || '';
+        const businessType = rawBusinessType || rawBizType || '';
+        const bizType = rawBizType || rawBusinessType || '';
         const contractDate = document.getElementById('project-contract-date')?.value || '';
         const location = document.getElementById('project-location')?.value?.trim() || '';
         const relatedBiz = document.getElementById('project-related-biz')?.value?.trim() || '';
@@ -11200,7 +11205,6 @@ class AetherPMO {
         const bidNumber = document.getElementById('project-bid-number')?.value?.trim() || '';
         const customerName = document.getElementById('project-customer-name')?.value?.trim() || '';
         const projectBudget = Number(document.getElementById('project-budget-bidding')?.value || 0);
-        const businessType = document.getElementById('project-business-type')?.value || '';
         const salesOwner = document.getElementById('project-sales-owner')?.value?.trim() || '';
         const proposalOwner = document.getElementById('project-proposal-owner')?.value?.trim() || '';
         const proposalPm = document.getElementById('project-proposal-pm')?.value?.trim() || '';
