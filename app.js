@@ -4073,8 +4073,11 @@ class AetherPMO {
             if (stage === 'bidding') {
                 this.activeProjectStageFilter = 'Bidding';
                 await this.switchView('projects');
-            } else if (stage === 'active' || stage === 'closed') {
+            } else if (stage === 'active') {
                 this.activeProjectStageFilter = 'Active';
+                await this.switchView('projects');
+            } else if (stage === 'completed' || stage === 'closed') {
+                this.activeProjectStageFilter = 'Completed';
                 await this.switchView('projects');
             } else if (stage === 'g2b') {
                 await this.switchView('projects-g2b');
@@ -5888,6 +5891,71 @@ class AetherPMO {
         this.renderProjects();
     }
 
+    updateProjectStageCounts() {
+        const projects = this.state.projects || [];
+
+        const biddingCount = projects.filter(p => {
+            const s = (p.status || '').trim();
+            return s === 'Bidding' || p.is_bidding_project || p.isBiddingProject;
+        }).length;
+
+        const activeCount = projects.filter(p => {
+            const s = (p.status || '').trim();
+            return ['In Progress', 'On Hold', 'Delay', '수행중', '보류', '지연'].includes(s);
+        }).length;
+
+        const completedCount = projects.filter(p => {
+            const s = (p.status || '').trim();
+            return ['Completed', '종료'].includes(s);
+        }).length;
+
+        const elBidding = document.getElementById('count-stage-bidding');
+        const elActive = document.getElementById('count-stage-active');
+        const elCompleted = document.getElementById('count-stage-completed');
+
+        if (elBidding) elBidding.textContent = biddingCount;
+        if (elActive) elActive.textContent = activeCount;
+        if (elCompleted) elCompleted.textContent = completedCount;
+    }
+
+    toggleAdvancedSearch() {
+        const panel = document.getElementById('advanced-search-panel');
+        const chevron = document.getElementById('adv-search-chevron');
+        if (!panel) return;
+        const isHidden = panel.style.display === 'none' || !panel.style.display;
+        panel.style.display = isHidden ? 'block' : 'none';
+        if (chevron) {
+            chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+    }
+
+    resetProjectFilters() {
+        const inputs = [
+            'project-search-input',
+            'adv-search-location',
+            'adv-search-start-date',
+            'adv-search-end-date',
+            'adv-search-pm',
+            'adv-search-customer',
+            'adv-search-name',
+            'adv-search-code'
+        ];
+        inputs.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                if (el.tagName === 'SELECT') {
+                    el.value = 'all';
+                } else {
+                    el.value = '';
+                }
+            }
+        });
+        const sortEl = document.getElementById('project-sort-select');
+        if (sortEl) sortEl.value = 'updatedAt';
+
+        this.renderProjects();
+    }
+
     setProjectStageFilter(stage) {
         this.activeProjectStageFilter = stage;
         
@@ -5898,7 +5966,20 @@ class AetherPMO {
             }
         });
 
-        this.renderProjects();
+        const biddingContainer = document.getElementById('bidding-split-container');
+        const standardContainer = document.getElementById('standard-projects-container');
+
+        if (stage === 'Bidding') {
+            if (biddingContainer) biddingContainer.style.display = 'grid';
+            if (standardContainer) standardContainer.style.display = 'none';
+            this.renderBiddingSplitPane();
+        } else {
+            if (biddingContainer) biddingContainer.style.display = 'none';
+            if (standardContainer) standardContainer.style.display = 'block';
+            this.renderProjects();
+        }
+
+        this.updateProjectStageCounts();
     }
 
     renderProjects() {
@@ -5934,63 +6015,124 @@ class AetherPMO {
             grid.style.gap = '12px';
         } else {
             grid.style.display = 'grid';
-            // 기존 style.css 스타일 복원
             grid.removeAttribute('style');
         }
 
-        const statusFilterContainer = document.getElementById('filter-group-status-container');
-        if (statusFilterContainer) {
-            statusFilterContainer.style.display = (this.activeProjectStageFilter === 'Active') ? 'block' : 'none';
-            if (this.activeProjectStageFilter !== 'Active') {
-                const fStatusSelect = document.getElementById('project-filter-status');
-                if (fStatusSelect) fStatusSelect.value = 'all';
-            }
-        }
+        // 1. Read Inputs
+        const fKeyword = this.safeText(document.getElementById('project-search-input')?.value || '').trim().toLowerCase();
 
-        const fLocationEl = document.getElementById('project-filter-location');
-        const fLocation = fLocationEl ? fLocationEl.value : 'all';
-        const fStatusSelect = document.getElementById('project-filter-status');
-        const fStatus = fStatusSelect ? fStatusSelect.value : 'all';
-        const fSearch = this.safeText(document.getElementById('project-search-input').value).trim();
+        const advLoc = document.getElementById('adv-search-location')?.value || 'all';
+        const advStartDate = document.getElementById('adv-search-start-date')?.value || '';
+        const advEndDate = document.getElementById('adv-search-end-date')?.value || '';
+        const advPm = this.safeText(document.getElementById('adv-search-pm')?.value || '').trim().toLowerCase();
+        const advCustomer = this.safeText(document.getElementById('adv-search-customer')?.value || '').trim().toLowerCase();
+        const advName = this.safeText(document.getElementById('adv-search-name')?.value || '').trim().toLowerCase();
+        const advCode = this.safeText(document.getElementById('adv-search-code')?.value || '').trim().toLowerCase();
 
-        const filtered = this.state.projects.filter(p => {
-            const pStatusClean = p.status?.trim() || '';
+        const stage = this.activeProjectStageFilter || 'Active';
+
+        // 2. Filter Projects
+        const filtered = (this.state.projects || []).filter(p => {
+            const pStatusClean = (p.status || '').trim();
+
+            // A. Stage Filtering
             let matchStage = false;
-            if (this.activeProjectStageFilter === 'Bidding') {
-                matchStage = pStatusClean === 'Bidding';
-            } else if (this.activeProjectStageFilter === 'Active') {
-                matchStage = pStatusClean === 'In Progress' || pStatusClean === 'On Hold' || pStatusClean === 'Delay' || pStatusClean === 'Completed';
-            } else if (this.activeProjectStageFilter === 'Closed') {
-                matchStage = pStatusClean === 'Completed';
+            if (stage === 'Bidding') {
+                matchStage = pStatusClean === 'Bidding' || p.is_bidding_project || p.isBiddingProject;
+            } else if (stage === 'Active') {
+                matchStage = ['In Progress', 'On Hold', 'Delay', '수행중', '보류', '지연'].includes(pStatusClean);
+            } else if (stage === 'Completed') {
+                matchStage = ['Completed', '종료'].includes(pStatusClean);
+            }
+            if (!matchStage) return false;
+
+            // B. Primary Integrated Keyword Search (5 fields: name, projectCode, customer, manager, desc/remarks)
+            if (fKeyword) {
+                const nameMatch = this.safeText(p.name).toLowerCase().includes(fKeyword);
+                const codeMatch = this.safeText(p.projectCode || p.id).toLowerCase().includes(fKeyword);
+                const customerMatch = this.safeText(p.customer || p.customerName).toLowerCase().includes(fKeyword);
+                const managerMatch = this.safeText(p.manager || p.pmName || p.proposalPm).toLowerCase().includes(fKeyword);
+                const descMatch = (this.safeText(p.desc) + ' ' + this.safeText(p.remarks)).toLowerCase().includes(fKeyword);
+
+                if (!nameMatch && !codeMatch && !customerMatch && !managerMatch && !descMatch) {
+                    return false;
+                }
             }
 
-            const pLoc = p.location || '정부서울청사';
-            const normLoc = pLoc.includes('서울') ? '서울' :
-                            pLoc.includes('대전') ? '대전' :
-                            pLoc.includes('대구') ? '대구' :
-                            pLoc.includes('광주') ? '광주' : '기타';
-            const matchLocation = fLocation === 'all' || normLoc === fLocation;
-            const matchStatus = fStatus === 'all' || pStatusClean === fStatus;
-            const matchSearch = !fSearch || 
-                this.safeText(p.name).includes(fSearch) || 
-                this.safeText(p.projectCode).includes(fSearch) || 
-                this.safeText(p.manager).includes(fSearch);
+            // C. Advanced Search - Location
+            if (advLoc !== 'all') {
+                const pLoc = p.location || '정부서울청사';
+                const normLoc = pLoc.includes('서울') ? '서울' :
+                                pLoc.includes('대전') ? '대전' :
+                                pLoc.includes('대구') ? '대구' :
+                                pLoc.includes('광주') ? '광주' : '기타';
+                if (normLoc !== advLoc) return false;
+            }
 
-            return matchStage && matchLocation && matchStatus && matchSearch;
+            // D. Advanced Search - Date Overlap Range (project.startDate <= advEndDate AND project.endDate >= advStartDate)
+            if (advStartDate && p.endDate && p.endDate < advStartDate) {
+                return false;
+            }
+            if (advEndDate && p.startDate && p.startDate > advEndDate) {
+                return false;
+            }
+
+            // E. Advanced Search - PM
+            if (advPm && !this.safeText(p.manager || p.pmName).toLowerCase().includes(advPm)) {
+                return false;
+            }
+
+            // F. Advanced Search - Customer
+            if (advCustomer && !this.safeText(p.customer || p.customerName).toLowerCase().includes(advCustomer)) {
+                return false;
+            }
+
+            // G. Advanced Search - Name
+            if (advName && !this.safeText(p.name).toLowerCase().includes(advName)) {
+                return false;
+            }
+
+            // H. Advanced Search - Code
+            if (advCode && !this.safeText(p.projectCode || p.id).toLowerCase().includes(advCode)) {
+                return false;
+            }
+
+            return true;
         });
 
-        console.log('[renderProjects this.state.projects]', this.state.projects);
-        console.log('[renderProjects filtered]', filtered);
+        // 3. Sort Projects (Default: updatedAt DESC -> fallback createdAt DESC -> fallback startDate DESC)
+        const sortOption = document.getElementById('project-sort-select')?.value || 'updatedAt';
+        filtered.sort((a, b) => {
+            if (sortOption === 'name') {
+                return (a.name || '').localeCompare(b.name || '', 'ko');
+            } else if (sortOption === 'startDate') {
+                return (b.startDate || '').localeCompare(a.startDate || '');
+            } else if (sortOption === 'endDate') {
+                return (a.endDate || '').localeCompare(b.endDate || '');
+            } else if (sortOption === 'manager') {
+                return (a.manager || '').localeCompare(b.manager || '', 'ko');
+            } else {
+                const timeA = new Date(a.updatedAt || a.updated_at || a.createdAt || a.created_at || a.startDate || 0).getTime();
+                const timeB = new Date(b.updatedAt || b.updated_at || b.createdAt || b.created_at || b.startDate || 0).getTime();
+                return timeB - timeA;
+            }
+        });
+
+        // 4. Update Search Results Count Badge
+        const countBadgeEl = document.getElementById('search-result-count');
+        if (countBadgeEl) {
+            countBadgeEl.innerHTML = `검색 결과 <b>${filtered.length}</b>건`;
+        }
 
         grid.innerHTML = '';
 
         if (filtered.length === 0) {
             let emptyIcon = 'folder-open';
-            let emptyMsg = '해당 단계에 속한 프로젝트가 존재하지 않습니다.';
+            let emptyMsg = '조회 조건에 부합하는 프로젝트가 존재하지 않습니다.';
             if (this.activeProjectStageFilter === 'Bidding') {
                 emptyMsg = '등록된 입찰 단계 제안 사업이 없습니다.';
                 emptyIcon = 'landmark';
-            } else if (this.activeProjectStageFilter === 'Closed') {
+            } else if (this.activeProjectStageFilter === 'Completed') {
                 emptyMsg = '종료 및 검수가 완료된 프로젝트가 존재하지 않습니다.';
                 emptyIcon = 'archive';
             }
