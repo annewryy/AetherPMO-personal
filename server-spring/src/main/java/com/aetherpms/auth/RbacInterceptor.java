@@ -51,7 +51,9 @@ public class RbacInterceptor implements HandlerInterceptor {
             throw ApiException.unauthorized("로그인이 필요합니다.");
         }
         // 0035 — VIEWER는 읽기 전용(0004 §1: 수정·삭제 불가)
-        if (write && ctx != null && "VIEWER".equals(ctx.role())) {
+        //   예외(0033): 본인 수신함(알림 읽음)·개인 알림 설정은 개인 상태라 허용
+        boolean personalPath = path.startsWith("/api/notifications") || path.startsWith("/api/me/");
+        if (write && ctx != null && "VIEWER".equals(ctx.role()) && !personalPath) {
             throw ApiException.forbidden("조회 전용 계정(VIEWER)은 변경 작업을 수행할 수 없습니다.");
         }
         if (sysAdminPath && write) {

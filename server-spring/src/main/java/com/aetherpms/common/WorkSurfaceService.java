@@ -31,12 +31,16 @@ public class WorkSurfaceService {
     private final DisplayCodeService displayCodeService;
 
     public WorkSurfaceService(JdbcTemplate jdbc, AuditWriter audit, DisplayCodeService displayCodeService,
-                              com.aetherpms.person.MemberAutoService memberAuto) {
+                              com.aetherpms.person.MemberAutoService memberAuto,
+                              com.aetherpms.notification.NotificationService notify) {
         this.jdbc = jdbc;
         this.audit = audit;
         this.displayCodeService = displayCodeService;
         this.memberAuto = memberAuto;
+        this.notify = notify;
     }
+
+    private final com.aetherpms.notification.NotificationService notify;
 
     private final com.aetherpms.person.MemberAutoService memberAuto;
 
@@ -111,6 +115,15 @@ public class WorkSurfaceService {
         if (cfg == Entity.TASK && fields.containsKey("assignee_name")
                 && after.get("assignee_name") != null && projectId != null) {
             memberAuto.ensureMember(projectId, after.get("assignee_name").toString(), false, actor);
+        }
+
+        // 0033 ① — 담당자가 나로 지정·변경되면 알림(이전 담당자에게는 알리지 않음)
+        String assigneeCol = switch (cfg) { case TASK, ACTION_ITEM -> "assignee_name"; case ISSUE -> "owner_name"; };
+        if (fields.containsKey(assigneeCol) && after.get(assigneeCol) != null
+                && !String.valueOf(after.get(assigneeCol)).equals(String.valueOf(before.get(assigneeCol)))) {
+            String itemTitle = str(after.get(cfg == Entity.TASK ? "task_name" : "title"));
+            notify.notifyByName(projectId, after.get(assigneeCol).toString(), "ASSIGNED",
+                    cfg.type, id, "담당자로 지정되었습니다: " + (itemTitle == null ? cfg.type : itemTitle));
         }
 
         if (comment != null) {
@@ -246,6 +259,11 @@ public class WorkSurfaceService {
         fields.put("display_code", displayCodeService.nextDisplayCode(projectId, "ACTION_ITEM", null));
         Map<String, Object> created = WriteSupport.insertReturning(jdbc, "pms_action_item", "action_id", fields);
 
+        if (created.get("assignee_name") != null) {
+            notify.notifyByName(projectId, created.get("assignee_name").toString(), "ASSIGNED",
+                    "ACTION_ITEM", toLong(created.get("action_id")),
+                    "담당자로 지정되었습니다: " + created.get("title"));  // 0033 ①
+        }
         audit.write("ACTION_ITEM", toLong(created.get("action_id")), projectId, "INSERT",
                 null, null, created, actor, "액션아이템 신규 등록");
         return RowMappers.mapActionItem(created);

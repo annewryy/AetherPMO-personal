@@ -27,12 +27,15 @@ import com.aetherpms.progress.ProgressService;
 @Service
 public class SignalEngine {
 
+    private com.aetherpms.notification.NotificationService notify;
+
     private final JdbcTemplate jdbc;
     private final ProgressService progressService;
 
-    public SignalEngine(JdbcTemplate jdbc, ProgressService progressService) {
+    public SignalEngine(JdbcTemplate jdbc, ProgressService progressService, com.aetherpms.notification.NotificationService notify) {
         this.jdbc = jdbc;
         this.progressService = progressService;
+        this.notify = notify;
     }
 
     // ---- 공용 SQL (Node 상수 이식, PG→MariaDB) ----------------------------
@@ -372,6 +375,11 @@ public class SignalEngine {
                             todayStr, ruleId, relatedTaskId);
                     Long issueId = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
                     createdIds.add(issueId);
+                    // 0033 ⑧ — 규칙 발동 자동 리스크 → 프로젝트 PM 알림
+                    if (project != null && project.get("pm_name") != null) {
+                        notify.notifyByName(m.projectId, String.valueOf(project.get("pm_name")),
+                                "RULE_RISK", "ISSUE", issueId, "[자동 등록] " + title);
+                    }
                     Map<String, Object> after = new LinkedHashMap<>();
                     after.put("status", "발생"); after.put("title", title);
                     after.put("source_rule_id", ruleId); after.put("related_task_id", relatedTaskId);

@@ -249,6 +249,7 @@ public final class RowMappers {
     public static Map<String, Object> mapNotification(Map<String, Object> n) {
         Map<String, Object> o = new LinkedHashMap<>();
         o.put("notificationId", asLong(v(n, "notification_id")));
+        o.put("id", asLong(v(n, "notification_id"))); // 프론트 AppNotification.id 계약(0012 벨)
         o.put("recipientUid", v(n, "recipient_uid"));
         o.put("type", v(n, "type"));
         o.put("projectId", asLong(v(n, "project_id")));

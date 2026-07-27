@@ -27,9 +27,13 @@ public class DeliverableWriteController {
     private final JdbcTemplate jdbc;
     private final ProjectScopeService scope;
 
-    public DeliverableWriteController(JdbcTemplate jdbc, ProjectScopeService scope) {
+    private final com.aetherpms.notification.NotificationService notify;
+
+    public DeliverableWriteController(JdbcTemplate jdbc, ProjectScopeService scope,
+            com.aetherpms.notification.NotificationService notify) {
         this.jdbc = jdbc;
         this.scope = scope;
+        this.notify = notify;
     }
 
     @PatchMapping("/api/deliverables/{id}")
@@ -64,8 +68,17 @@ public class DeliverableWriteController {
         Object[] vals = new Object[cols.size() + 1];
         for (int i = 0; i < cols.size(); i++) vals[i] = set.get(cols.get(i));
         vals[cols.size()] = id;
+        List<Map<String, Object>> beforeRows = jdbc.queryForList(
+                "SELECT project_id, author_name, deliverable_name FROM pms_deliverable WHERE deliverable_id = ?", id);
         int n = jdbc.update("UPDATE pms_deliverable SET " + assign + " WHERE deliverable_id = ?", vals);
         if (n == 0) throw ApiException.notFound("산출물을 찾을 수 없습니다.");
+        // 0033 ① — 담당자(author) 변경 알림
+        if (set.containsKey("author_name") && set.get("author_name") != null && !beforeRows.isEmpty()
+                && !String.valueOf(set.get("author_name")).equals(String.valueOf(beforeRows.get(0).get("author_name")))) {
+            notify.notifyByName(((Number) beforeRows.get(0).get("project_id")).longValue(),
+                    String.valueOf(set.get("author_name")), "ASSIGNED", "DELIVERABLE", id,
+                    "담당자로 지정되었습니다: " + beforeRows.get(0).get("deliverable_name"));
+        }
 
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT deliverable_id, deliverable_name, author_name, due_date, status " +

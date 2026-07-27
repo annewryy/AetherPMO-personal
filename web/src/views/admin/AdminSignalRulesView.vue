@@ -188,12 +188,64 @@ async function reload() {
   rules.value = await dataClient.signalRules.list();
 }
 
+// ---- 0036 — 대시보드 위젯 기준(주의 필요 프로젝트·주요 리스크·실행 조치) ----------
+const CRITERIA_FIELDS = [
+  { key: 'delay', label: '지연 상태·종료일 경과 감점', hint: '프로젝트당 1회' },
+  { key: 'issueHigh', label: '우선순위 상 이슈 감점', hint: '건당' },
+  { key: 'issueMid', label: '우선순위 중 이슈 감점', hint: '건당' },
+  { key: 'issueLow', label: '우선순위 하 이슈 감점', hint: '건당' },
+  { key: 'overdueDeliverablePer', label: '지연 산출물 감점', hint: '건당' },
+  { key: 'progressGapMax', label: '진척 갭 감점 상한', hint: '갭 %p만큼, 최대' },
+  { key: 'warnBelow', label: '주의(WARN) 임계 점수', hint: '미만이면 주의' },
+  { key: 'dangerBelow', label: '위험(DANGER) 임계 점수', hint: '미만이면 위험' },
+  { key: 'delayRiskPct', label: '파생 리스크 진척 갭 하한(%p)', hint: '주요 리스크·실행 조치' },
+  { key: 'topLimit', label: '위젯 표시 건수', hint: '주의·리스크·조치 공통' },
+] as const;
+const criteria = ref<Record<string, number>>({});
+const criteriaDefaults = ref<Record<string, number>>({});
+const criteriaCustom = ref(false);
+const criteriaOpen = ref(false);
+const criteriaSaving = ref(false);
+const criteriaMsg = ref('');
+const criteriaErr = ref('');
+
+async function loadCriteria() {
+  try {
+    const r = await dataClient.dashboardCriteria.get();
+    criteria.value = { ...r.criteria };
+    criteriaDefaults.value = { ...r.defaults };
+    criteriaCustom.value = r.custom;
+  } catch (e) {
+    criteriaErr.value = e instanceof Error ? e.message : String(e);
+  }
+}
+function resetCriteria() {
+  criteria.value = { ...criteriaDefaults.value };
+  criteriaMsg.value = '';
+}
+async function saveCriteria() {
+  criteriaSaving.value = true;
+  criteriaMsg.value = '';
+  criteriaErr.value = '';
+  try {
+    const r = await dataClient.dashboardCriteria.put(criteria.value);
+    criteria.value = { ...r.criteria };
+    criteriaCustom.value = r.custom;
+    criteriaMsg.value = '저장됨 — 대시보드에 즉시 반영됩니다.';
+  } catch (e) {
+    criteriaErr.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    criteriaSaving.value = false;
+  }
+}
+
 onMounted(async () => {
   try {
     [rules.value, projects.value] = await Promise.all([
       dataClient.signalRules.list(),
       dataClient.projects.list(),
     ]);
+    await loadCriteria();
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e);
   } finally {
@@ -211,6 +263,34 @@ onMounted(async () => {
       규칙 등록·수정·삭제는 백엔드(API_BASE) 연결 후 가능합니다 — 현재는 목록 조회만.
     </div>
     <div v-if="actionError" class="error-notice">{{ actionError }}</div>
+
+    <!-- 0036 — 대시보드 위젯 기준(주의 필요 프로젝트·주요 리스크·실행 조치) -->
+    <section class="card criteria">
+      <button type="button" class="crit-head" @click="criteriaOpen = !criteriaOpen">
+        <span class="crit-title">대시보드 위젯 기준
+          <span class="crit-badge">{{ criteriaCustom ? '사용자 설정' : '기본값' }}</span>
+        </span>
+        <span class="crit-toggle">{{ criteriaOpen ? '▾' : '▸' }}</span>
+      </button>
+      <div v-if="criteriaOpen" class="crit-body">
+        <p class="crit-desc">
+          주의가 필요한 프로젝트(건강도 100점 시작, 감점제)·주요 리스크·실행 조치 위젯의 판정 기준입니다.
+          감점은 음수, 등급은 점수 미만 기준(주의 ≥ 위험)입니다.
+        </p>
+        <div class="crit-grid">
+          <label v-for="f in CRITERIA_FIELDS" :key="f.key" class="crit-field">
+            <span class="crit-label">{{ f.label }} <em class="crit-hint">{{ f.hint }}</em></span>
+            <input v-model.number="criteria[f.key]" type="number" class="crit-in" :disabled="!apiMode || criteriaSaving" />
+          </label>
+        </div>
+        <div class="crit-actions">
+          <button class="btn btn-sm" :disabled="!apiMode || criteriaSaving" @click="resetCriteria">기본값 불러오기</button>
+          <button class="btn btn-sm btn-primary" :disabled="!apiMode || criteriaSaving" @click="saveCriteria">기준 저장</button>
+          <span v-if="criteriaMsg" class="crit-ok">{{ criteriaMsg }}</span>
+          <span v-if="criteriaErr" class="crit-err">{{ criteriaErr }}</span>
+        </div>
+      </div>
+    </section>
 
     <div class="toolbar">
       <select v-model="scopeFilter" class="select">
@@ -408,4 +488,30 @@ onMounted(async () => {
 .toggle.on { background: rgba(139, 92, 246, 0.3); border-color: var(--accent); }
 .toggle.on .knob { left: 17px; background: var(--accent); }
 .toggle:disabled { cursor: not-allowed; opacity: 0.6; }
+
+/* 0036 — 대시보드 위젯 기준 박스 */
+.criteria { margin-bottom: 14px; padding: 0; overflow: hidden; }
+.crit-head {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  background: none; border: 0; padding: 10px 14px; cursor: pointer; color: var(--text);
+  font-size: 14px; font-weight: 700; font-family: inherit;
+}
+.crit-badge {
+  font-size: 11px; font-weight: 600; margin-left: 8px; padding: 1px 8px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--muted);
+}
+.crit-toggle { color: var(--muted); }
+.crit-body { padding: 0 14px 12px; }
+.crit-desc { font-size: 12.5px; color: var(--muted); margin: 0 0 10px; }
+.crit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 14px; }
+.crit-field { display: flex; flex-direction: column; gap: 3px; }
+.crit-label { font-size: 12px; color: var(--text); }
+.crit-hint { font-style: normal; color: var(--muted); font-size: 11px; }
+.crit-in {
+  background: var(--panel-2, var(--panel)); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 13px; padding: 5px 8px; font-family: inherit;
+}
+.crit-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.crit-ok { font-size: 12.5px; color: var(--green); }
+.crit-err { font-size: 12.5px; color: var(--red); }
 </style>

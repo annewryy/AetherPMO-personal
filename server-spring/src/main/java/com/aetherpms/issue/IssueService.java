@@ -21,6 +21,8 @@ import com.aetherpms.common.ApiException;
 @Service
 public class IssueService {
 
+    private com.aetherpms.notification.NotificationService notify;
+
     private static final Set<String> ALLOWED = Set.of(
             "project_id", "title", "type", "priority",
             "owner_uid", "owner_name", "due_date", "reported_date");
@@ -33,10 +35,11 @@ public class IssueService {
 
     public IssueService(IssueRepository issueRepository,
                         DisplayCodeService displayCodeService,
-                        JdbcTemplate jdbc) {
+                        JdbcTemplate jdbc, com.aetherpms.notification.NotificationService notify) {
         this.issueRepository = issueRepository;
         this.displayCodeService = displayCodeService;
         this.jdbc = jdbc;
+        this.notify = notify;
     }
 
     @Transactional
@@ -53,8 +56,15 @@ public class IssueService {
         String displayCode = displayCodeService.nextIssueDisplayCode(projectId);
         issue.setSourceRuleId(null); // 수동 등록 마커
         issue.setDisplayCode(displayCode);
+        // status 미지정 생성이 NULL로 저장되면 대시보드 신호·오픈 집계(status <> '완료')에서
+        // 통째로 누락된다(2026-07-27 시드 중 발견) — 초기 상태 '발생' 기본값.
+        if (issue.getStatus() == null) issue.setStatus("발생");
 
         IssueEntity saved = issueRepository.saveAndFlush(issue);
+        if (saved.getOwnerName() != null) {
+            notify.notifyByName(projectId, saved.getOwnerName(), "ASSIGNED", "ISSUE",
+                    saved.getIssueId(), "담당자로 지정되었습니다: " + saved.getTitle());  // 0033 ①
+        }
         return IssueMapper.mapIssue(saved);
     }
 

@@ -21,12 +21,15 @@ import com.aetherpms.common.AuditWriter;
 @Service
 public class MemberAutoService {
 
+    private com.aetherpms.notification.NotificationService notify;
+
     private final JdbcTemplate jdbc;
     private final AuditWriter audit;
 
-    public MemberAutoService(JdbcTemplate jdbc, AuditWriter audit) {
+    public MemberAutoService(JdbcTemplate jdbc, AuditWriter audit, com.aetherpms.notification.NotificationService notify) {
         this.jdbc = jdbc;
         this.audit = audit;
+        this.notify = notify;
     }
 
     @Transactional
@@ -72,6 +75,13 @@ public class MemberAutoService {
                 projectId, memberType, name, personId,
                 employmentType, companyId, department, position, projectManager ? 1 : 0);
         Long memberId = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+        // 0033 ② — 담당 지정 경유 자동 등록도 투입 알림
+        if (personId != null) {
+            String pjName = jdbc.query("SELECT project_name FROM pms_project WHERE project_id = ?",
+                    rs -> rs.next() ? rs.getString(1) : null, projectId);
+            notify.notifyPerson(personId, "PROJECT_ASSIGNED", projectId, "PROJECT", projectId, null,
+                    "프로젝트 '" + pjName + "'에 " + (projectManager ? "PM으로 " : "") + "참여인력으로 등록되었습니다.");
+        }
 
         audit.write("PROJECT_MEMBER", memberId, projectId, "INSERT", null, null,
                 Map.of("name", name, "member_type", memberType, "auto", true),

@@ -26,10 +26,13 @@ import com.aetherpms.common.ApiException;
 @Service
 public class CommentService {
 
+    private com.aetherpms.notification.NotificationService notifySvc;
+
     private final JdbcTemplate jdbc;
 
-    public CommentService(JdbcTemplate jdbc) {
+    public CommentService(JdbcTemplate jdbc, com.aetherpms.notification.NotificationService notifySvc) {
         this.jdbc = jdbc;
+        this.notifySvc = notifySvc;
     }
 
     private static final Pattern UUID_RE = Pattern.compile(
@@ -38,14 +41,14 @@ public class CommentService {
             Pattern.CASE_INSENSITIVE);
     private static final int PREVIEW_MAX = 120;
 
-    private record EntityConfig(String table, String idCol, String entityType) {}
+    private record EntityConfig(String table, String idCol, String entityType, String assigneeCol) {}
 
     private static EntityConfig config(String entity) {
         return switch (entity) {
-            case "tasks" -> new EntityConfig("pms_task", "task_id", "TASK");
-            case "deliverables" -> new EntityConfig("pms_deliverable", "deliverable_id", "DELIVERABLE");
-            case "issues" -> new EntityConfig("pms_issue", "issue_id", "ISSUE");
-            case "action-items" -> new EntityConfig("pms_action_item", "action_id", "ACTION_ITEM");
+            case "tasks" -> new EntityConfig("pms_task", "task_id", "TASK", "assignee_name");
+            case "deliverables" -> new EntityConfig("pms_deliverable", "deliverable_id", "DELIVERABLE", "author_name");
+            case "issues" -> new EntityConfig("pms_issue", "issue_id", "ISSUE", "owner_name");
+            case "action-items" -> new EntityConfig("pms_action_item", "action_id", "ACTION_ITEM", "assignee_name");
             default -> throw ApiException.badRequest("지원하지 않는 엔티티입니다: " + entity
                     + " (지원: tasks, deliverables, issues, action-items)");
         };
@@ -133,12 +136,15 @@ public class CommentService {
             parentAuthorUid = str(parent.get("author_uid"));
         }
 
-        // ---- 코멘트 삽입 ----
+        // ---- 코멘트 삽입 (0033 §2 — 세션 person을 작성자로 병기) ----
+        com.aetherpms.auth.AuthContext session = notifySvc.sessionCtx();
         jdbc.update(
                 "INSERT INTO pms_comment (entity_type, entity_id, project_id, body, comment_type, "
-              + "parent_comment_id, author_uid, author_name, created_at) "
-              + "VALUES (?, ?, ?, ?, 'COMMENT', ?, ?, ?, CURRENT_TIMESTAMP(6))",
-                cfg.entityType(), id, projectId, body, parentCommentId, actor.userId(), null);
+              + "parent_comment_id, author_uid, author_person_id, author_name, created_at) "
+              + "VALUES (?, ?, ?, ?, 'COMMENT', ?, ?, ?, ?, CURRENT_TIMESTAMP(6))",
+                cfg.entityType(), id, projectId, body, parentCommentId, actor.userId(),
+                session == null ? null : session.personId(),
+                session == null ? null : session.name());
         Long commentId = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
 
         String preview = toPreview(body);
@@ -158,6 +164,23 @@ public class CommentService {
             if (!isSelf && !notified.contains(parentLc)) {
                 insertNotification(parentAuthorUid, "REPLY", projectId, cfg.entityType(), id, commentId,
                         actor.userId(), actorName, preview);
+            }
+        }
+
+        // ---- 0033 ④⑤ — person 축 알림: 답글(부모 작성자 person) + 내 담당 항목 코멘트 ----
+        Long parentAuthorPersonId = parentCommentId == null ? null : jdbc.query(
+                "SELECT author_person_id FROM pms_comment WHERE comment_id = ?",
+                rs -> rs.next() ? (Long) rs.getObject(1) : null, parentCommentId);
+        if (parentAuthorPersonId != null) {
+            notifySvc.notifyPerson(parentAuthorPersonId, "REPLY", projectId, cfg.entityType(), id,
+                    commentId, preview);
+        }
+        Object assignee = entityRow.get(cfg.assigneeCol());
+        if (assignee != null) {
+            Long assigneePersonId = notifySvc.resolvePersonByName(projectId, assignee.toString());
+            if (assigneePersonId != null && !assigneePersonId.equals(parentAuthorPersonId)) {
+                notifySvc.notifyPerson(assigneePersonId, "COMMENT_ON_MINE", projectId, cfg.entityType(), id,
+                        commentId, preview);
             }
         }
 
