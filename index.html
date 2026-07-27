@@ -822,8 +822,8 @@
                             <div style="display: flex; gap: 12px; align-items: center; width: 100%; flex-wrap: wrap;">
                                 <!-- Primary Keyword Search Input -->
                                 <div class="search-input-wrapper" style="flex: 1; min-width: 280px; position: relative;">
-                                    <i data-lucide="search" style="position: absolute; left: 14px; top: 12px; width: 16px; height: 16px; color: var(--primary);"></i>
-                                    <input type="text" id="project-search-input" placeholder="🔍 프로젝트명 / 프로젝트코드 / 고객사 / PM / 내용 검색" style="width: 100%; height: 42px; padding-left: 40px; padding-right: 12px; border-radius: 8px; border: 1px solid var(--bg-card-border); font-size: 13px;" oninput="app.renderProjects()">
+                                    <i data-lucide="search" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--primary); pointer-events: none;"></i>
+                                    <input type="text" id="project-search-input" placeholder="프로젝트명 / 프로젝트코드 / 고객사 / PM / 내용 검색" style="width: 100%; height: 42px; padding-left: 40px; padding-right: 12px; border-radius: 8px; border: 1px solid var(--bg-card-border); font-size: 13px;" oninput="app.renderProjects()">
                                 </div>
 
                                 <!-- Search Result Count Badge -->
