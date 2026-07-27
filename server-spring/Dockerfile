@@ -19,6 +19,8 @@ WORKDIR /app
 # 비루트 실행
 RUN groupadd -r app && useradd -r -g app app
 COPY --from=build /src/build/libs/aetherpms-server-0.0.1-SNAPSHOT.jar app.jar
+# 0018/0038 — 파일 저장 볼륨 마운트 지점(신규 볼륨이 app 소유로 초기화되도록 선생성)
+RUN mkdir -p /data/files && chown -R app:app /data
 USER app
 EXPOSE 8080
 # 컨테이너 메모리 인지 + UTC(스키마 UTC 저장 규약, 0013 A-2)
