@@ -118,6 +118,42 @@ body.light-theme select option {
     box-sizing: border-box;
 }
 
+/* Search Input WebKit Reset & Single Icon Alignment */
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration,
+input[type="text"]::-webkit-search-decoration,
+input[type="text"]::-webkit-search-cancel-button,
+input[type="text"]::-webkit-search-results-button,
+input[type="text"]::-webkit-search-results-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none !important;
+}
+
+.search-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-input-wrapper i[data-lucide="search"] {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: var(--primary);
+    pointer-events: none;
+    z-index: 2;
+}
+
+.search-input-wrapper input {
+    padding-left: 40px !important;
+}
+
 body {
     font-family: var(--font-ui);
     background-color: var(--bg-app);

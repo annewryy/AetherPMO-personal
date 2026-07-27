@@ -801,7 +801,7 @@
                         </div>
                     </div>
 
-                    <!-- Restructured Project Category Tabs -->
+                    <!-- Restructured Project Category Tabs (Bidding / Active / Completed) -->
                     <div class="project-stage-tabs-container">
                         <button class="project-stage-tab active" data-stage="Bidding" onclick="app.setProjectStageFilter('Bidding')">
                             <i data-lucide="file-signature"></i> 입찰 단계 <span class="stage-count-badge" id="count-stage-bidding">0</span>
@@ -809,47 +809,116 @@
                         <button class="project-stage-tab" data-stage="Active" onclick="app.setProjectStageFilter('Active')">
                             <i data-lucide="play-circle"></i> 수행 단계 <span class="stage-count-badge" id="count-stage-active">0</span>
                         </button>
+                        <button class="project-stage-tab" data-stage="Completed" onclick="app.setProjectStageFilter('Completed')">
+                            <i data-lucide="check-circle-2"></i> 종료 프로젝트 <span class="stage-count-badge" id="count-stage-completed">0</span>
+                        </button>
                     </div>
 
-                    <!-- Standard Stage Container (Active / Closed Stages) -->
+                    <!-- Standard Stage Container (Active / Completed Stages) -->
                     <div id="standard-projects-container">
-                        <!-- Filters and Search -->
-                        <div class="filter-bar" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; justify-content: flex-start; padding: 16px 24px;">
-                            <div class="filter-group" style="flex: 1; min-width: 140px; max-width: 200px;">
-                                <label for="project-filter-location">사업장소</label>
-                                <select id="project-filter-location" style="height: 38px;">
-                                    <option value="all">전체</option>
-                                    <option value="서울">서울</option>
-                                    <option value="대전">대전</option>
-                                    <option value="대구">대구</option>
-                                    <option value="광주">광주</option>
-                                    <option value="기타">기타</option>
-                                </select>
-                            </div>
-                            <div class="filter-group" id="filter-group-status-container" style="flex: 1; min-width: 140px; max-width: 200px;">
-                                <label for="project-filter-status">상태</label>
-                                <select id="project-filter-status" style="height: 38px;">
-                                    <option value="all">전체</option>
-                                    <option value="In Progress">수행중</option>
-                                    <option value="On Hold">보류</option>
-                                    <option value="Delay">지연</option>
-                                    <option value="Completed">종료</option>
-                                </select>
-                            </div>
-                            <div class="filter-group" style="flex: 2.5; min-width: 280px; max-width: 450px;">
-                                <label for="project-search-input">검색</label>
-                                <div class="search-input-wrapper">
-                                    <i data-lucide="search" style="position: absolute; left: 12px; top: 11px; width: 16px; height: 16px; color: var(--text-muted);"></i>
-                                    <input type="text" id="project-search-input" placeholder="프로젝트명, 프로젝트코드, PM 검색..." style="width: 100%; height: 38px; padding-left: 36px;">
+                        <!-- Filters and Integrated Search Bar -->
+                        <div class="filter-bar" style="display: flex; flex-direction: column; gap: 12px; padding: 16px 24px; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--bg-card-border); margin-bottom: 20px;">
+                            <!-- Main Search Row -->
+                            <div style="display: flex; gap: 12px; align-items: center; width: 100%; flex-wrap: wrap;">
+                                <!-- Primary Keyword Search Input -->
+                                <div class="search-input-wrapper" style="flex: 1; min-width: 280px; position: relative;">
+                                    <i data-lucide="search" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--primary); pointer-events: none;"></i>
+                                    <input type="text" id="project-search-input" placeholder="프로젝트명 / 프로젝트코드 / 고객사 / PM / 내용 검색" style="width: 100%; height: 42px; padding-left: 40px; padding-right: 12px; border-radius: 8px; border: 1px solid var(--bg-card-border); font-size: 13px;" oninput="app.renderProjects()">
+                                </div>
+
+                                <!-- Search Result Count Badge -->
+                                <span id="search-result-count" class="badge" style="font-size: 12px; padding: 8px 12px; border-radius: 6px; background: var(--bg-hover-item); color: var(--text-main); border: 1px solid var(--bg-card-border); white-space: nowrap;">
+                                    검색 결과 <b>0</b>건
+                                </span>
+
+                                <!-- Sort Select -->
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <i data-lucide="arrow-up-down" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
+                                    <select id="project-sort-select" style="height: 38px; border-radius: 8px; font-size: 12px; border: 1px solid var(--bg-card-border); padding: 0 10px; background: var(--bg-card); color: var(--text-main);" onchange="app.renderProjects()">
+                                        <option value="updatedAt">최근 수정순 (기본)</option>
+                                        <option value="name">프로젝트명순</option>
+                                        <option value="startDate">시작일순</option>
+                                        <option value="endDate">종료일순</option>
+                                        <option value="manager">PM명순</option>
+                                    </select>
+                                </div>
+
+                                <!-- Toggle Advanced Search Button -->
+                                <button type="button" class="btn btn-outline" id="btn-toggle-advanced-search" onclick="app.toggleAdvancedSearch()" style="height: 38px; display: flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap;">
+                                    <i data-lucide="sliders-horizontal" style="width: 14px; height: 14px;"></i>
+                                    <span>상세검색</span>
+                                    <i data-lucide="chevron-down" id="adv-search-chevron" style="width: 14px; height: 14px; transition: transform 0.2s;"></i>
+                                </button>
+
+                                <!-- Reset Filters Button -->
+                                <button type="button" class="btn btn-ghost text-muted" onclick="app.resetProjectFilters()" style="height: 38px; display: flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap;" title="모든 검색 조건 초기화">
+                                    <i data-lucide="rotate-ccw" style="width: 13px; height: 13px;"></i>
+                                    <span>초기화</span>
+                                </button>
+
+                                <!-- Card / List View Mode Toggle -->
+                                <div class="view-mode-toggle" style="display:flex; align-items:center; gap:4px; background:var(--bg-input); padding:4px; border-radius:8px; border:1px solid var(--bg-card-border); height:38px; margin-left: auto;">
+                                    <button type="button" class="view-mode-btn active" id="view-mode-card" onclick="app.setProjectListViewMode('card')" style="width:30px; height:30px; border-radius:6px; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; background:var(--primary); color:white; transition:all 0.2s;" title="카드형 보기">
+                                        <i data-lucide="grid" style="width:16px; height:16px;"></i>
+                                    </button>
+                                    <button type="button" class="view-mode-btn" id="view-mode-list" onclick="app.setProjectListViewMode('list')" style="width:30px; height:30px; border-radius:6px; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; background:transparent; color:var(--text-muted); transition:all 0.2s;" title="리스트형 보기">
+                                        <i data-lucide="list" style="width:16px; height:16px;"></i>
+                                    </button>
                                 </div>
                             </div>
-                            <div class="view-mode-toggle" style="display:flex; align-items:center; gap:4px; background:var(--bg-input); padding:4px; border-radius:8px; border:1px solid var(--bg-card-border); align-self: flex-end; height:38px; margin-bottom: 0; margin-left: auto;">
-                                <button type="button" class="view-mode-btn active" id="view-mode-card" onclick="app.setProjectListViewMode('card')" style="width:30px; height:30px; border-radius:6px; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; background:var(--primary); color:white; transition:all 0.2s;" title="카드형 보기">
-                                    <i data-lucide="grid" style="width:16px; height:16px;"></i>
-                                </button>
-                                <button type="button" class="view-mode-btn" id="view-mode-list" onclick="app.setProjectListViewMode('list')" style="width:30px; height:30px; border-radius:6px; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; background:transparent; color:var(--text-muted); transition:all 0.2s;" title="리스트형 보기">
-                                    <i data-lucide="list" style="width:16px; height:16px;"></i>
-                                </button>
+
+                            <!-- Advanced Search Collapsible Panel (Default Hidden) -->
+                            <div id="advanced-search-panel" style="display: none; padding-top: 14px; margin-top: 10px; border-top: 1px dashed var(--bg-card-border);">
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; font-size: 12px;">
+                                    <!-- 사업장소 -->
+                                    <div class="filter-group">
+                                        <label for="adv-search-location" style="display: block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">사업장소</label>
+                                        <select id="adv-search-location" style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--bg-card-border); padding: 0 8px; font-size: 12px; background: var(--bg-input);" onchange="app.renderProjects()">
+                                            <option value="all">전체</option>
+                                            <option value="서울">서울</option>
+                                            <option value="대전">대전</option>
+                                            <option value="대구">대구</option>
+                                            <option value="광주">광주</option>
+                                            <option value="기타">기타</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- 수행기간 (시작일 범위) -->
+                                    <div class="filter-group">
+                                        <label for="adv-search-start-date" style="display: block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">수행 기간 (시작일)</label>
+                                        <input type="date" id="adv-search-start-date" style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--bg-card-border); padding: 0 8px; font-size: 12px; background: var(--bg-input);" onchange="app.renderProjects()">
+                                    </div>
+
+                                    <!-- 수행기간 (종료일 범위) -->
+                                    <div class="filter-group">
+                                        <label for="adv-search-end-date" style="display: block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">수행 기간 (종료일)</label>
+                                        <input type="date" id="adv-search-end-date" style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--bg-card-border); padding: 0 8px; font-size: 12px; background: var(--bg-input);" onchange="app.renderProjects()">
+                                    </div>
+
+                                    <!-- 담당 PM -->
+                                    <div class="filter-group">
+                                        <label for="adv-search-pm" style="display: block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">담당 PM</label>
+                                        <input type="text" id="adv-search-pm" placeholder="PM 이름 입력..." style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--bg-card-border); padding: 0 10px; font-size: 12px; background: var(--bg-input);" oninput="app.renderProjects()">
+                                    </div>
+
+                                    <!-- 고객사 -->
+                                    <div class="filter-group">
+                                        <label for="adv-search-customer" style="display: block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">고객사</label>
+                                        <input type="text" id="adv-search-customer" placeholder="고객사명 입력..." style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--bg-card-border); padding: 0 10px; font-size: 12px; background: var(--bg-input);" oninput="app.renderProjects()">
+                                    </div>
+
+                                    <!-- 프로젝트명 -->
+                                    <div class="filter-group">
+                                        <label for="adv-search-name" style="display: block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">프로젝트명</label>
+                                        <input type="text" id="adv-search-name" placeholder="프로젝트명 상세..." style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--bg-card-border); padding: 0 10px; font-size: 12px; background: var(--bg-input);" oninput="app.renderProjects()">
+                                    </div>
+
+                                    <!-- 프로젝트 코드 -->
+                                    <div class="filter-group">
+                                        <label for="adv-search-code" style="display: block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">프로젝트 코드</label>
+                                        <input type="text" id="adv-search-code" placeholder="예: PRJ-2026-001..." style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--bg-card-border); padding: 0 10px; font-size: 12px; background: var(--bg-input);" oninput="app.renderProjects()">
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
