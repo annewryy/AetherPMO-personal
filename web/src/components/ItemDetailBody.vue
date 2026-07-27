@@ -564,14 +564,8 @@ function onFilePicked(e: Event) {
       <p v-if="engineError" class="err">{{ engineError }}</p>
     </section>
 
-    <!-- 첨부파일: 아마란스 위임 stub -->
-    <section class="section">
-      <h3 class="section-title">첨부파일</h3>
-      <div class="attach-row">
-        <span class="pending">아마란스(원챔버) 연계로 제공 예정</span>
-        <button class="btn btn-sm" @click="stub('amaranth', '첨부파일 열기')">아마란스에서 열기</button>
-      </div>
-    </section>
+    <!-- 첨부파일: 구 아마란스(원챔버) stub 제거(2026-07-09 자체완결 전환).
+         산출물 파일은 위 '파일' 행(0038 FilePort)로 대체 — 그 외 엔티티 첨부는 후속(0018). -->
 
     <!-- 코멘트 스레드 -->
     <section class="section">
