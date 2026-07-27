@@ -6782,64 +6782,21 @@ class AetherPMO {
             });
             throw error;
         } finally {
-            console.log('[renderProjects:end]', {
-                projectViewActive: document.getElementById('view-projects')?.classList.contains('active'),
-                projectViewDisplay: getComputedStyle(document.getElementById('view-projects')).display
-            });
-
-            const viewEl = document.querySelector('#view-projects');
             const gridEl = document.querySelector('#projects-grid-list');
-            const firstCardEl = gridEl?.firstElementChild;
-
-            [viewEl, gridEl, firstCardEl].forEach((el, idx) => {
-                if (!el) return;
-                const style = getComputedStyle(el);
-                const rect = el.getBoundingClientRect();
-                const tag = idx === 0 ? 'VIEW' : idx === 1 ? 'GRID' : 'FIRST_CARD';
-                console.log(`[VISIBILITY DEBUG ${tag}]`, {
-                    element: el,
-                    display: style.display,
-                    visibility: style.visibility,
-                    opacity: style.opacity,
-                    position: style.position,
-                    zIndex: style.zIndex,
-                    overflow: style.overflow,
-                    height: style.height,
-                    maxHeight: style.maxHeight,
-                    transform: style.transform,
-                    top: rect.top,
+            if (gridEl) {
+                const rect = gridEl.getBoundingClientRect();
+                console.log('[VIEWPORT VERIFICATION]', {
                     left: rect.left,
+                    top: rect.top,
                     width: rect.width,
-                    rectHeight: rect.height,
-                    offsetParent: el.offsetParent
+                    height: rect.height,
+                    inViewport:
+                        rect.right > 0 &&
+                        rect.bottom > 0 &&
+                        rect.left < window.innerWidth &&
+                        rect.top < window.innerHeight
                 });
-            });
-
-            if (firstCardEl) {
-                const cardRect = firstCardEl.getBoundingClientRect();
-                const centerX = cardRect.left + cardRect.width / 2;
-                const centerY = cardRect.top + cardRect.height / 2;
-                if (centerX > 0 && centerY > 0) {
-                    console.log('[ELEMENT FROM POINT DEBUG]', {
-                        centerX,
-                        centerY,
-                        elementFromPoint: document.elementFromPoint(centerX, centerY)
-                    });
-                }
             }
-
-            [0, 100, 500].forEach(delay => {
-                setTimeout(() => {
-                    const view = document.getElementById('view-projects');
-                    console.log(`[PROJECT VIEW ${delay}ms]`, {
-                        active: view?.classList.contains('active'),
-                        display: view ? getComputedStyle(view).display : null,
-                        visibility: view ? getComputedStyle(view).visibility : null,
-                        opacity: view ? getComputedStyle(view).opacity : null,
-                        childCount: view?.children?.length
-                    });
-                }, delay);
-            });
         }
     }
 

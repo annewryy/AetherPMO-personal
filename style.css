@@ -7488,4 +7488,38 @@ body.dark-theme .portal-copilot-task-item {
     border-color: rgba(148, 163, 184, 0.3);
 }
 
+/* Ensure view-projects and card grid container are strictly flow-positioned in viewport */
+#view-projects {
+    position: relative !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    left: 0 !important;
+    top: 0 !important;
+    transform: none !important;
+}
+
+#standard-projects-container {
+    position: relative !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    left: 0 !important;
+    top: 0 !important;
+    transform: none !important;
+}
+
+.projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 20px;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: relative !important;
+    left: 0 !important;
+    top: 0 !important;
+    transform: none !important;
+}
+
 
