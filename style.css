@@ -179,15 +179,20 @@ body {
     background: var(--text-light);
 }
 
-/* --- Layout Grid --- */
+/* --- Layout Flex (sidebar + main) --- */
 .app-container {
-    display: grid;
-    grid-template-columns: 260px 1fr;
+    display: flex;
+    width: 100%;
     min-height: 100vh;
+    overflow-x: hidden;
 }
 
 /* --- Sidebar --- */
 .sidebar {
+    flex: 0 0 260px;
+    width: 260px;
+    min-width: 260px;
+    max-width: 260px;
     background-color: var(--bg-sidebar);
     border-right: 1px solid var(--bg-card-border);
     display: flex;
@@ -196,7 +201,8 @@ body {
     position: sticky;
     top: 0;
     z-index: 100;
-    transition: transform var(--transition-normal), background-color var(--transition-normal), border-color var(--transition-normal);
+    box-sizing: border-box;
+    transition: width var(--transition-normal), flex var(--transition-normal), background-color var(--transition-normal), border-color var(--transition-normal);
 }
 
 .sidebar-header {
@@ -468,10 +474,18 @@ body.dark-theme .toggle-slider {
 
 /* --- Main Layout --- */
 .main-layout {
+    flex: 1 1 0%;
+    min-width: 0;
+    width: auto;
+    max-width: none;
     display: flex;
     flex-direction: column;
     height: 100vh;
     overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    margin-left: 0;
+    padding-left: 0;
 }
 
 /* --- Header Bar --- */
@@ -686,12 +700,24 @@ body.dark-theme .toggle-slider {
 
 /* --- Content Views System --- */
 .content-body {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
     padding: 32px;
-    flex: 1;
+    box-sizing: border-box;
+    margin-left: 0;
+    overflow-x: hidden;
 }
 
 .content-view {
     display: none;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    margin-left: 0;
+    padding-left: 0;
+    box-sizing: border-box;
     animation: fadeIn var(--transition-normal) forwards;
 }
 
@@ -2596,7 +2622,7 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
    ========================================================================== */
 @media (max-width: 1024px) {
     .app-container {
-        grid-template-columns: 1fr;
+        flex-direction: column;
     }
     
     .sidebar {
@@ -2605,12 +2631,19 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
         top: 0;
         bottom: 0;
         width: 260px;
+        flex: 0 0 260px;
         transform: translateX(-100%);
     }
     
     .sidebar.open {
         transform: translateX(0);
         box-shadow: 10px 0 30px rgba(0, 0, 0, 0.4);
+    }
+    
+    .main-layout {
+        width: 100%;
+        height: auto;
+        min-height: 100vh;
     }
     
     .menu-toggle-btn {
@@ -7488,113 +7521,35 @@ body.dark-theme .portal-copilot-task-item {
     border-color: rgba(148, 163, 184, 0.3);
 }
 
-/* ==========================================================================
-   Top-Level Flex Layout & Single-Flow Alignment (User Spec Compliance)
-   ========================================================================== */
-.app-container {
-    display: flex !important;
-    width: 100% !important;
-    min-height: 100vh !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow-x: hidden !important;
-}
-
-.sidebar {
-    flex: 0 0 260px !important;
-    width: 260px !important;
-    min-width: 260px !important;
-    max-width: 260px !important;
-    height: 100vh !important;
-    position: sticky !important;
-    top: 0 !important;
-    left: 0 !important;
-    z-index: 100 !important;
-    box-sizing: border-box !important;
-    margin: 0 !important;
-}
-
+/* compact sidebar */
 .app-container.sidebar-compact .sidebar {
-    flex: 0 0 72px !important;
-    width: 72px !important;
-    min-width: 72px !important;
-    max-width: 72px !important;
+    flex: 0 0 72px;
+    width: 72px;
+    min-width: 72px;
+    max-width: 72px;
 }
 
-.main-layout {
-    flex: 1 1 0% !important;
-    min-width: 0 !important;
-    width: auto !important;
-    max-width: none !important;
-    display: flex !important;
-    flex-direction: column !important;
-    height: 100vh !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    box-sizing: border-box !important;
-    margin-left: 0 !important;
-    padding-left: 0 !important;
-    left: auto !important;
-    transform: none !important;
-}
-
-.content-body {
-    flex: 1 1 auto !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: none !important;
-    padding: 32px !important;
-    box-sizing: border-box !important;
-    margin-left: 0 !important;
-    left: auto !important;
-    transform: none !important;
-}
-
-.content-view {
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: none !important;
-    margin-left: 0 !important;
-    padding-left: 0 !important;
-    left: auto !important;
-    transform: none !important;
-    box-sizing: border-box !important;
-}
-
+/* project grid */
 #view-projects {
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: none !important;
-    margin-left: 0 !important;
-    padding: 0 !important;
-    left: auto !important;
-    transform: none !important;
-    box-sizing: border-box !important;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0;
+    margin-left: 0;
 }
 
 #standard-projects-container {
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: none !important;
-    margin-left: 0 !important;
-    padding-left: 0 !important;
-    left: auto !important;
-    transform: none !important;
-    box-sizing: border-box !important;
+    width: 100%;
+    box-sizing: border-box;
+    margin-left: 0;
 }
 
 #projects-grid-list {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important;
-    gap: 20px !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: none !important;
-    margin-left: 0 !important;
-    padding-left: 0 !important;
-    left: auto !important;
-    transform: none !important;
-    box-sizing: border-box !important;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-left: 0;
 }
 
 
