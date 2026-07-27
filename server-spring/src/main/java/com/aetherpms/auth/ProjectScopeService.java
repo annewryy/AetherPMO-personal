@@ -56,6 +56,21 @@ public class ProjectScopeService {
         }
     }
 
+    /**
+     * 0034 §0단계 — 집계/위젯 응답 필터: 각 행의 "projectId" 키를 참여 집합과 대조해 걸러낸다.
+     * 비스코프 대상(관리자 등)은 원본 그대로 반환. projectId가 null인 행(전역 항목)은 통과.
+     */
+    public java.util.List<Map<String, Object>> visibleOnly(AuthContext ctx, java.util.List<Map<String, Object>> rows) {
+        if (!isScoped(ctx) || rows == null) return rows;
+        Set<Long> mine = memberProjectIds(ctx);
+        return rows.stream()
+                .filter(m -> {
+                    Object pid = m.get("projectId");
+                    return pid == null || mine.contains(((Number) pid).longValue());
+                })
+                .toList();
+    }
+
     // ================= 쓰기 가드 (0032 §5②) =================
 
     /** WORKER의 항목 쓰기 정책 — 매트릭스(0032 §3·§4) 기준. */
