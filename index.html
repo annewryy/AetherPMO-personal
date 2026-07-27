@@ -2712,14 +2712,15 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="project-business-type">사업유형(businessType)</label>
-                                    <select id="project-business-type">
-                                        <option value="">선택하세요</option>
-                                        <option value="구축">구축</option>
-                                        <option value="운영">운영</option>
-                                        <option value="ISP">ISP</option>
-                                        <option value="AI">AI</option>
+                                    <select id="project-business-type" onchange="app.handleBiddingBizTypeChange(this.value)">
+                                        <option value="공공 SI">공공 SI</option>
                                         <option value="유지관리">유지관리</option>
+                                        <option value="ISP">ISP</option>
+                                        <option value="컨설팅">컨설팅</option>
+                                        <option value="AI">AI</option>
+                                        <option value="custom">직접입력...</option>
                                     </select>
+                                    <input type="text" id="project-business-type-custom" placeholder="사업유형 직접 입력" style="display: none; margin-top: 8px;">
                                 </div>
                             </div>
                             
@@ -2764,8 +2765,17 @@
                             <input type="text" id="project-code" placeholder="예: PRJ-2026-001">
                         </div>
                         <div class="form-group">
-                            <label for="project-biz-type">사업 유형</label>
-                            <input type="text" id="project-biz-type" placeholder="예: ISP / BPR, SI 구축">
+                            <label for="project-biz-type-select">사업 유형</label>
+                            <select id="project-biz-type-select" onchange="app.handleBizTypeChange(this.value)">
+                                <option value="공공 SI" selected>공공 SI</option>
+                                <option value="유지관리">유지관리</option>
+                                <option value="ISP">ISP</option>
+                                <option value="컨설팅">컨설팅</option>
+                                <option value="AI">AI</option>
+                                <option value="custom">직접입력...</option>
+                            </select>
+                            <input type="text" id="project-biz-type-custom" placeholder="사업 유형 직접 입력" style="display: none; margin-top: 8px;">
+                            <input type="hidden" id="project-biz-type">
                         </div>
                         <div class="form-group">
                             <label for="project-contract-date">계약일</label>

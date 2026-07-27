@@ -5808,25 +5808,30 @@ class AetherPMO {
 
         centerValue.textContent = total;
 
-        const counts = {
-            '공공 SI': 0,
-            '유지관리': 0,
-            'ISP': 0,
-            '컨설팅': 0,
-            'AI/기타': 0
-        };
-
+        const counts = {};
         let knownCount = 0;
+
         this.state.projects.forEach(p => {
-            const bt = p.businessType || p.bizType || '';
-            if (bt.includes('SI') || bt.includes('구축')) { counts['공공 SI']++; knownCount++; }
-            else if (bt.includes('유지') || bt.includes('운영')) { counts['유지관리']++; knownCount++; }
-            else if (bt.includes('ISP')) { counts['ISP']++; knownCount++; }
-            else if (bt.includes('컨설팅') || bt.includes('BPR')) { counts['컨설팅']++; knownCount++; }
-            else if (bt.includes('AI') || bt.includes('기타')) { counts['AI/기타']++; knownCount++; }
+            let bt = (p.businessType || p.business_type || p.bizType || '').trim();
+            if (!bt) {
+                bt = '미분류';
+            } else if (bt.includes('SI') || bt.includes('구축')) {
+                bt = '공공 SI';
+            } else if (bt.includes('유지') || bt.includes('운영')) {
+                bt = '유지관리';
+            } else if (bt.includes('ISP')) {
+                bt = 'ISP';
+            } else if (bt.includes('컨설팅') || bt.includes('BPR')) {
+                bt = '컨설팅';
+            } else if (bt === 'AI' || bt.includes('AI') || bt.includes('인공지능')) {
+                bt = 'AI';
+            }
+            
+            counts[bt] = (counts[bt] || 0) + 1;
+            if (bt !== '미분류') knownCount++;
         });
 
-        if (total === 0 || knownCount === 0) {
+        if (total === 0 || Object.keys(counts).length === 0) {
             group.innerHTML = `
                 <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" 
                         stroke="var(--bg-card-border)" stroke-width="4" stroke-dasharray="100 0" stroke-dashoffset="0"></circle>
@@ -5842,25 +5847,32 @@ class AetherPMO {
             return;
         }
 
-        const colors = {
+        const presetColors = {
             '공공 SI': 'var(--primary)',
             '유지관리': 'var(--info)',
             'ISP': '#ec4899',
             '컨설팅': '#a855f7',
-            'AI/기타': 'var(--success)'
+            'AI': 'var(--success)',
+            '미분류': '#64748b'
         };
+
+        const fallbackColors = ['#f59e0b', '#06b6d4', '#10b981', '#6366f1', '#8b5cf6', '#e11d48'];
+        let colorIdx = 0;
 
         const segments = [];
         for (const [key, count] of Object.entries(counts)) {
             if (count > 0) {
+                const color = presetColors[key] || fallbackColors[(colorIdx++) % fallbackColors.length];
                 segments.push({
                     label: key,
                     count: count,
-                    color: colors[key],
+                    color: color,
                     pct: (count / total) * 100
                 });
             }
         }
+
+        segments.sort((a, b) => b.count - a.count);
 
         let accumulatedOffset = 0;
         let svgHtml = '';
@@ -11062,9 +11074,22 @@ class AetherPMO {
         document.getElementById('project-remarks').value = project.remarks || '';
 
         // Populate new fields
-        const currBizType = project.businessType || project.business_type || project.bizType || '';
+        const currBizType = project.businessType || project.business_type || project.bizType || '공공 SI';
         document.getElementById('project-code').value = project.projectCode || '';
-        document.getElementById('project-biz-type').value = currBizType;
+        
+        const standardTypes = ['공공 SI', '유지관리', 'ISP', '컨설팅', 'AI'];
+        const bizSelect = document.getElementById('project-biz-type-select');
+        const bizCustom = document.getElementById('project-biz-type-custom');
+        if (bizSelect) {
+            if (standardTypes.includes(currBizType)) {
+                bizSelect.value = currBizType;
+                if (bizCustom) { bizCustom.style.display = 'none'; bizCustom.value = ''; }
+            } else {
+                bizSelect.value = 'custom';
+                if (bizCustom) { bizCustom.style.display = 'block'; bizCustom.value = currBizType; }
+            }
+        }
+
         document.getElementById('project-contract-date').value = project.contractDate || '';
         document.getElementById('project-location').value = project.location || '';
         document.getElementById('project-related-biz').value = project.relatedBiz || '';
@@ -11083,7 +11108,18 @@ class AetherPMO {
         document.getElementById('project-bid-number').value = project.bidNumber || '';
         document.getElementById('project-customer-name').value = project.customerName || '';
         document.getElementById('project-budget-bidding').value = project.projectBudget || '';
-        document.getElementById('project-business-type').value = currBizType;
+        
+        const biddingSelect = document.getElementById('project-business-type');
+        const biddingCustom = document.getElementById('project-business-type-custom');
+        if (biddingSelect) {
+            if (standardTypes.includes(currBizType)) {
+                biddingSelect.value = currBizType;
+                if (biddingCustom) { biddingCustom.style.display = 'none'; biddingCustom.value = ''; }
+            } else {
+                biddingSelect.value = 'custom';
+                if (biddingCustom) { biddingCustom.style.display = 'block'; biddingCustom.value = currBizType; }
+            }
+        }
         document.getElementById('project-sales-owner').value = project.salesOwner || '';
         document.getElementById('project-proposal-owner').value = project.proposalOwner || '';
         document.getElementById('project-proposal-pm').value = project.proposalPm || '';
@@ -11120,6 +11156,34 @@ class AetherPMO {
 
     handlePmChange(value) {
         const customInput = document.getElementById('project-manager-custom');
+        if (customInput) {
+            if (value === 'custom') {
+                customInput.style.display = 'block';
+                customInput.value = '';
+                customInput.focus();
+            } else {
+                customInput.style.display = 'none';
+                customInput.value = '';
+            }
+        }
+    }
+
+    handleBizTypeChange(value) {
+        const customInput = document.getElementById('project-biz-type-custom');
+        if (customInput) {
+            if (value === 'custom') {
+                customInput.style.display = 'block';
+                customInput.value = '';
+                customInput.focus();
+            } else {
+                customInput.style.display = 'none';
+                customInput.value = '';
+            }
+        }
+    }
+
+    handleBiddingBizTypeChange(value) {
+        const customInput = document.getElementById('project-business-type-custom');
         if (customInput) {
             if (value === 'custom') {
                 customInput.style.display = 'block';
@@ -11191,10 +11255,17 @@ class AetherPMO {
 
         // Retrieve new fields
         const projectCode = document.getElementById('project-code')?.value?.trim() || '';
-        const rawBizType = document.getElementById('project-biz-type')?.value?.trim() || '';
-        const rawBusinessType = document.getElementById('project-business-type')?.value?.trim() || '';
-        const businessType = rawBusinessType || rawBizType || '';
-        const bizType = rawBizType || rawBusinessType || '';
+        
+        const bizSelectVal = document.getElementById('project-biz-type-select')?.value || '';
+        const bizCustomVal = document.getElementById('project-biz-type-custom')?.value?.trim() || '';
+        const rawBizType = (bizSelectVal === 'custom') ? bizCustomVal : bizSelectVal;
+
+        const biddingSelectVal = document.getElementById('project-business-type')?.value || '';
+        const biddingCustomVal = document.getElementById('project-business-type-custom')?.value?.trim() || '';
+        const rawBiddingType = (biddingSelectVal === 'custom') ? biddingCustomVal : biddingSelectVal;
+
+        const businessType = rawBiddingType || rawBizType || '공공 SI';
+        const bizType = rawBizType || rawBiddingType || '공공 SI';
         const contractDate = document.getElementById('project-contract-date')?.value || '';
         const location = document.getElementById('project-location')?.value?.trim() || '';
         const relatedBiz = document.getElementById('project-related-biz')?.value?.trim() || '';
