@@ -1570,6 +1570,7 @@ class AetherPMO {
                 } catch (e) {
                     console.warn('[Supabase] board_posts table fetch failed. Using defaults.', e);
                 }
+            }
             let projectArtifactsDb = [];
             if (this.useSupabase) {
                 try {
@@ -5920,7 +5921,6 @@ class AetherPMO {
             roleTag.textContent = labels[role] ? `(${labels[role]})` : '';
         }
         this.renderTodayTasks(todayStr);
-    }
         // 1. WBS 일정 수집 (오늘 + 지연)
         const wbsList = [];
         this.state.projects.forEach(p => {
