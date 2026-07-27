@@ -1044,6 +1044,30 @@ class AetherPMO {
                     if (error) console.error('[Supabase Sync] artifact_upsert error:', error);
                     break;
                 }
+                case 'project_artifact_upsert': {
+                    const pa = data;
+                    if (!pa || !this.isUuid(pa.projectId || pa.project_id)) {
+                        console.warn(`[Supabase Sync] Skipping project_artifact_upsert: invalid projectId`);
+                        break;
+                    }
+                    const paData = {
+                        project_id: pa.projectId || pa.project_id,
+                        artifact_template_id: pa.id || pa.artifactId,
+                        stage_code: pa.stageCode || pa.stage_code || 'PRP',
+                        activity_id: pa.activityId || pa.activity_id || '',
+                        name: pa.name,
+                        status: pa.status || 'NOT_STARTED',
+                        assignee_name: pa.assigneeName || pa.author || '미지정',
+                        is_selected: pa.is_selected === true,
+                        is_active: pa.is_active === true,
+                        updated_at: new Date().toISOString()
+                    };
+                    if (pa.dbId && this.isUuid(pa.dbId)) paData.id = pa.dbId;
+                    
+                    const { error } = await this.supabase.from('project_artifacts').upsert(paData, { onConflict: 'project_id, name' });
+                    if (error) console.error('[Supabase Sync] project_artifact_upsert error:', error, 'payload:', paData);
+                    break;
+                }
                 case 'artifact_delete': {
                     if (!this.isUuid(data)) {
                         console.warn(`[Supabase Sync] Skipping artifact_delete for legacy non-UUID id: ${data}`);
@@ -1545,11 +1569,13 @@ class AetherPMO {
                 } catch (e) {
                     console.warn('[Supabase] board_posts table fetch failed. Using defaults.', e);
                 }
+            let projectArtifactsDb = [];
+            if (this.useSupabase) {
                 try {
-                    const { data: dbReplies, error: errRep } = await this.supabase.from('board_replies').select('*');
-                    if (!errRep && dbReplies) boardReplies = dbReplies;
+                    const { data: dbPa, error: errPa } = await this.supabase.from('project_artifacts').select('*');
+                    if (!errPa && dbPa) projectArtifactsDb = dbPa;
                 } catch (e) {
-                    console.warn('[Supabase] board_replies table fetch failed. Using defaults.', e);
+                    console.warn('[Supabase] project_artifacts table fetch failed.', e);
                 }
             }
 
@@ -1582,6 +1608,31 @@ class AetherPMO {
                     participationRate: m.participation_rate || 100
                 };
             });
+
+            if (projectArtifactsDb && projectArtifactsDb.length > 0) {
+                if (!this.state.projectMethodologies) this.state.projectMethodologies = {};
+                projectArtifactsDb.forEach(pa => {
+                    const pid = pa.project_id;
+                    if (!this.state.projectMethodologies[pid]) {
+                        this.state.projectMethodologies[pid] = this.getDefaultMethodologyTemplate();
+                    }
+                    const meth = this.state.projectMethodologies[pid];
+                    (meth.stages || []).forEach(stg => {
+                        (stg.activities || []).forEach(act => {
+                            (act.artifacts || []).forEach(art => {
+                                if (art.id === pa.artifact_template_id || art.name === pa.name) {
+                                    art.dbId = pa.id;
+                                    art.is_selected = pa.is_selected === true;
+                                    art.is_active = pa.is_active === true;
+                                    if (pa.status) art.status = pa.status;
+                                    if (pa.assignee_name) art.assigneeName = pa.assignee_name;
+                                    if (pa.updated_at) art.updatedAt = pa.updated_at.split('T')[0];
+                                }
+                            });
+                        });
+                    });
+                });
+            }
 
             this.state.resources = (resources || []).map(r => ({
                 id: r.id,
@@ -4581,16 +4632,17 @@ class AetherPMO {
 
             const titleText = document.getElementById('dashboard-title-text');
             const subtitleText = document.getElementById('dashboard-subtitle-text');
+            const role = this.currentUser?.role;
+            const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
             if (titleText) {
-                titleText.innerHTML = '<i data-lucide="layout-dashboard" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> 통합 PMO 대시보드';
+                titleText.innerHTML = isAdmin
+                    ? '<i data-lucide="layout-dashboard" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> Executive Dashboard'
+                    : '<i data-lucide="layout-dashboard" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> 통합 PMO 대시보드';
             }
             if (subtitleText) {
-                subtitleText.textContent = '전체 프로젝트 진행 상태 및 사업 관리 요약';
-            }
-
-            const toggleBtn = document.getElementById('btn-toggle-dashboard-mode');
-            if (toggleBtn) {
-                toggleBtn.innerHTML = '<i data-lucide="sparkles" style="width:14px; height:14px; margin-right:4px;"></i> AI First 포털 보기';
+                subtitleText.textContent = isAdmin
+                    ? '포트폴리오 전체 현황 및 관리자 Action Center'
+                    : '전체 프로젝트 진행 상태 및 사업 관리 요약';
             }
 
             this.renderClassicDashboard();
@@ -4621,7 +4673,7 @@ class AetherPMO {
 
         const totalProjects = this.state.projects.length;
         const activeProjects = this.state.projects.filter(p => p.status === 'In Progress').length;
-        const biddingProjects = this.state.projects.filter(p => p.status === 'Bidding').length;
+        const biddingProjects = this.state.projects.filter(p => p.status === 'Bidding' || p.is_bidding_project || p.isBiddingProject).length;
         const delayedProjects = this.state.projects.filter(p => p.status === 'Delay' || (p.isOverdue && p.status !== 'Completed')).length;
         const todayDueProjects = this.state.projects.filter(p => p.endDate === todayStr && p.status !== 'Completed').length;
         const uncompletedActions = (this.state.actionItems || []).filter(a => a.status !== '완료' && a.status !== 'Completed').length;
@@ -4643,7 +4695,214 @@ class AetherPMO {
 
         this.renderDashboardProgressChart();
         this.renderBusinessTypeDonutChart();
+        this.renderAdminActionCenter(todayStr);
+        this.renderTodayTasksRoleBased(todayStr);
+        this.renderExecBottomRow();
+    }
+
+    // ── Executive Dashboard: Admin Action Center (Row 3) ──────────────────────
+    renderAdminActionCenter(todayStr) {
+        const adminCenter = document.getElementById('admin-action-center');
+        if (!adminCenter) return;
+
+        const role = this.currentUser?.role;
+
+        // --- 1. 승인 대기 문서 ---
+        const pendingDocs = (this.state.officialDocs || [])
+            .filter(d => d.currentStatus === '검토중' || d.currentStatus === '기안' || d.currentStatus === '결재대기');
+        const pendingDocsCount = pendingDocs.length;
+
+        // --- 2. 확인 필요 Risk (Critical/High, 미조치) ---
+        const criticalRisks = (this.state.issues || [])
+            .filter(i => (i.priority === 'Critical' || i.priority === 'High') && (i.status === '발생' || i.status === '조치중'));
+        const criticalRisksCount = criticalRisks.length;
+
+        // --- 3. 미조치/지연 Action Item ---
+        const today = new Date();
+        const overdueActions = (this.state.actionItems || [])
+            .filter(a => a.status !== '완료' && a.status !== 'Completed' && a.dueDate && a.dueDate <= todayStr);
+        const overdueActionsCount = overdueActions.length;
+
+        // --- 4. 오늘 종료 예정 프로젝트 ---
+        const endingTodayProjects = this.state.projects
+            .filter(p => p.endDate === todayStr && p.status !== 'Completed');
+        const endingTodayCount = endingTodayProjects.length;
+
+        const totalActionItems = criticalRisksCount + overdueActionsCount;
+
+        // Update Total Badge
+        const totalBadge = document.getElementById('exec-action-total-badge');
+        if (totalBadge) totalBadge.textContent = `${totalActionItems}건 조치 필요`;
+
+        // Render each card content
+        const renderExecList = (listId, items, templateFn, emptyText) => {
+            const el = document.getElementById(listId);
+            if (!el) return;
+            if (!items || items.length === 0) {
+                el.innerHTML = `<div class="exec-action-empty">${emptyText}</div>`;
+                return;
+            }
+            el.innerHTML = items.slice(0, 4).map(templateFn).join('');
+        };
+
+        const countEl = (id, val, isDanger) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.textContent = val;
+                if (isDanger && val > 0) el.style.background = 'rgba(239,68,68,0.15)';
+                else if (val > 0) el.style.background = 'rgba(245,158,11,0.15)';
+            }
+        };
+
+        // Update counts
+        countEl('exec-pending-docs-count', pendingDocsCount, false);
+        countEl('exec-critical-risk-count', criticalRisksCount, true);
+        countEl('exec-overdue-actions-count', overdueActionsCount, overdueActionsCount > 0);
+        countEl('exec-ending-today-count', endingTodayCount, false);
+
+        // Render pending docs
+        renderExecList('exec-pending-docs-list', pendingDocs,
+            d => `<div class="exec-action-item">
+                    <div class="exec-action-item-title">${this.escapeHtml(d.title || '제목 없음')}</div>
+                    <div class="exec-action-item-meta"><span>${d.drafter || '-'}</span><span class="badge badge-warning" style="font-size:9px;">${d.currentStatus}</span></div>
+                  </div>`,
+            '✅ 승인 대기 문서 없음'
+        );
+
+        // Render critical risks
+        renderExecList('exec-critical-risk-list', criticalRisks,
+            i => {
+                const proj = this.state.projects.find(p => p.id === i.projectId);
+                const projName = proj ? proj.name.substring(0, 14) : '알 수 없음';
+                const prioColor = i.priority === 'Critical' ? '#ef4444' : '#f59e0b';
+                return `<div class="exec-action-item">
+                    <div class="exec-action-item-title"><span style="color:${prioColor}; font-weight:700; margin-right:4px;">[${i.priority}]</span>${this.escapeHtml(i.title || '제목 없음')}</div>
+                    <div class="exec-action-item-meta"><span>${projName}</span><span class="badge badge-error" style="font-size:9px;">${i.status}</span></div>
+                </div>`;
+            },
+            '✅ 확인 필요 Risk 없음'
+        );
+
+        // Render overdue actions
+        renderExecList('exec-overdue-actions-list', overdueActions,
+            a => {
+                const proj = this.state.projects.find(p => p.id === a.projectId);
+                const projName = proj ? proj.name.substring(0, 14) : '알 수 없음';
+                const isOverdue = a.dueDate < todayStr;
+                return `<div class="exec-action-item">
+                    <div class="exec-action-item-title">${this.escapeHtml(a.title || '제목 없음')}</div>
+                    <div class="exec-action-item-meta"><span>${projName}</span><span class="badge ${isOverdue ? 'badge-error' : 'badge-warning'}" style="font-size:9px;">기한: ${a.dueDate}</span></div>
+                </div>`;
+            },
+            '✅ 미조치 Action 없음'
+        );
+
+        // Render ending today projects
+        renderExecList('exec-ending-today-list', endingTodayProjects,
+            p => `<div class="exec-action-item">
+                    <div class="exec-action-item-title">${this.escapeHtml(p.name)}</div>
+                    <div class="exec-action-item-meta"><span>${p.manager || '-'}</span><span class="badge badge-info" style="font-size:9px;">${p.endDate}</span></div>
+                </div>`,
+            '오늘 종료 예정 프로젝트 없음'
+        );
+
+        // Admin Action Center: only visible for SYS_ADMIN / EXEC_ADMIN
+        const acSection = adminCenter.closest('.dashboard-section-card');
+        if (acSection) {
+            const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
+            acSection.style.display = isAdmin ? '' : 'none';
+        }
+    }
+
+    // ── Role-based "오늘 해야 할 일" (Row 4) ────────────────────────────────
+    renderTodayTasksRoleBased(todayStr) {
+        // Update role tag if present
+        const roleTag = document.getElementById('today-tasks-role-tag');
+        const role = this.currentUser?.role;
+        if (roleTag) {
+            const labels = { SYS_ADMIN: '전사', EXEC_ADMIN: '전사', PM: '내 프로젝트', WORKER: '내 담당' };
+            const label = labels[role] || '';
+            roleTag.textContent = label ? `(${label})` : '';
+        }
         this.renderTodayTasks(todayStr);
+    }
+
+    // ── Executive Bottom Row (Row 5): 최근 프로젝트 / 최근 활동 / 최근 공지 ──
+    renderExecBottomRow() {
+        // 1. 최근 프로젝트 (최근 수정순)
+        const recentProjects = [...this.state.projects]
+            .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))
+            .slice(0, 6);
+        this.renderSubCardList('exec-recent-projects-list', recentProjects, p => {
+            const statusColors = {
+                'In Progress': 'var(--info)',
+                'Bidding': 'var(--warning)',
+                'Delay': 'var(--danger)',
+                'Completed': 'var(--success)',
+                'On Hold': 'var(--text-muted)'
+            };
+            const color = statusColors[p.status] || 'var(--text-muted)';
+            return `<div class="sub-card-item" onclick="window.location.hash = 'project-detail/${p.id}'; event.stopPropagation();">
+                <div class="item-header">
+                    <span class="item-title">${this.escapeHtml(p.name)}</span>
+                    <span class="badge" style="font-size:9px; background:${color}20; color:${color}; border:1px solid ${color}50;">${this.translateStatus(p.status)}</span>
+                </div>
+                <div class="item-desc">${this.escapeHtml(p.customer || '-')} · PM: ${this.escapeHtml(p.manager || '-')}</div>
+                <div class="item-meta"><span>진행률 ${p.progress || 0}%</span><span>${p.endDate || '-'}</span></div>
+            </div>`;
+        }, '등록된 프로젝트가 없습니다.');
+
+        // 2. 최근 활동 (회의록 + 산출물 통합, 최근 5건)
+        const meetings = (this.state.meetingMinutes || []).map(m => ({
+            type: 'meeting', icon: '📋', title: m.title, date: m.meetDate || m.createdAt || '', sub: m.location || ''
+        }));
+        const arts = (this.state.artifacts || []).filter(a => a.submitDate).map(a => ({
+            type: 'artifact', icon: '📁', title: a.name, date: a.submitDate, sub: a.author || ''
+        }));
+        const activities = [...meetings, ...arts]
+            .sort((a, b) => new Date(b.date) - new Date(a.date))
+            .slice(0, 6);
+
+        this.renderSubCardList('exec-recent-activities-list', activities, item =>
+            `<div class="sub-card-item">
+                <div class="item-header">
+                    <span class="item-title">${item.icon} ${this.escapeHtml(item.title)}</span>
+                </div>
+                <div class="item-meta"><span>${item.sub}</span><span>${item.date}</span></div>
+            </div>`,
+        '최근 활동이 없습니다.');
+
+        // 3. 최근 공지 (활동 로그에서 system 타입만 + 최근 순)
+        const notices = (this.state.activities || [])
+            .filter(a => a.type === 'system' || a.action === '시스템')
+            .sort((a, b) => new Date(b.timestamp || b.date || 0) - new Date(a.timestamp || a.date || 0))
+            .slice(0, 6);
+
+        if (notices.length > 0) {
+            this.renderSubCardList('exec-recent-notices-list', notices, n =>
+                `<div class="sub-card-item">
+                    <div class="item-header">
+                        <span class="item-title">📢 ${this.escapeHtml(n.description || n.message || '공지 없음')}</span>
+                    </div>
+                    <div class="item-meta"><span>${n.userName || 'system'}</span><span>${(n.timestamp || n.date || '').substring(0, 10)}</span></div>
+                </div>`,
+            '등록된 공지가 없습니다.');
+        } else {
+            // Fallback: 최근 활동 로그 전체에서 최신 6건
+            const recentLogs = (this.state.activities || [])
+                .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
+                .slice(0, 6);
+            this.renderSubCardList('exec-recent-notices-list', recentLogs, n =>
+                `<div class="sub-card-item">
+                    <div class="item-header">
+                        <span class="item-title">🔔 ${this.escapeHtml(n.description || '')}</span>
+                    </div>
+                    <div class="item-meta"><span>${n.userName || '-'}</span><span>${(n.timestamp || '').substring(0, 10)}</span></div>
+                </div>`,
+            '공지 / 활동 로그가 없습니다.');
+        }
+
+        // Also keep backward-compat (hidden spans)
         this.renderRecentRedesignedActivities();
     }
 
@@ -8596,7 +8855,7 @@ class AetherPMO {
             const project = this.state.projects.find(p => p.id === this.activeProjectId);
             if (project) this.renderProjectDetailOverview(project);
         } else if (tabId === 'artifacts') {
-            const projectArtifacts = this.state.artifacts.filter(art => art.projectId === this.activeProjectId);
+            const projectArtifacts = this.getProjectSelectedArtifacts(this.activeProjectId);
             this.renderProjectDetailArtifactsTable(projectArtifacts);
         } else if (tabId === 'meeting-minutes') {
             const projectMinutes = this.state.meetingMinutes.filter(m => m.projectId === this.activeProjectId);
@@ -9104,7 +9363,8 @@ class AetherPMO {
                             <table class="opms-artifact-table">
                                 <thead>
                                     <tr>
-                                        <th style="min-width: 240px;">산출물명</th>
+                                        <th style="width: 44px; text-align: center;">적용</th>
+                                        <th style="min-width: 220px;">산출물명</th>
                                         <th style="width: 100px;">상태</th>
                                         <th style="width: 120px;">진행률</th>
                                         <th style="width: 110px;">담당자</th>
@@ -9117,13 +9377,17 @@ class AetherPMO {
 
                 (act.artifacts || []).forEach(art => {
                     const isSelected = selectedArtifact && selectedArtifact.id === art.id;
+                    const isApplied = art.is_selected !== false && art.is_active !== false;
                     const stLabel = OPMS_STATUS_LABELS[art.status] || '미작성';
                     const artProg = OPMS_STATUS_PROGRESS[art.status] !== undefined ? OPMS_STATUS_PROGRESS[art.status] : 0;
 
                     html += `
-                        <tr class="opms-artifact-row ${isSelected ? 'selected' : ''}" onclick="app.openArtifactSummary('${projectId}', '${act.activityId}', '${art.id}')">
+                        <tr class="opms-artifact-row ${isSelected ? 'selected' : ''}" onclick="app.openArtifactSummary('${projectId}', '${act.activityId}', '${art.id}')" style="${isApplied ? '' : 'opacity: 0.5; background: rgba(0,0,0,0.1);'}">
+                            <td style="text-align: center;" onclick="event.stopPropagation();">
+                                <input type="checkbox" ${isApplied ? 'checked' : ''} onchange="app.toggleMethodologyArtifactSelection('${projectId}', '${art.id}', this.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary);" title="수행단계 산출물 적용 여부 선택">
+                            </td>
                             <td class="col-name" style="font-weight: 700; font-size: 14px;">
-                                <i data-lucide="file-text" style="width: 16px; height: 16px; display: inline-block; vertical-align: middle; margin-right: 8px; color: var(--primary);"></i>
+                                <i data-lucide="file-text" style="width: 16px; height: 16px; display: inline-block; vertical-align: middle; margin-right: 8px; color: ${isApplied ? 'var(--primary)' : 'var(--text-muted)'};"></i>
                                 ${this.escapeHtml(art.name || '미지정 산출물')}
                             </td>
                             <td class="col-status">
@@ -9416,6 +9680,79 @@ class AetherPMO {
             });
         });
         this.renderProjectDetailMethodology(projectId);
+    }
+
+    toggleMethodologyArtifactSelection(projectId, artifactId, isChecked) {
+        const methodologyObj = this.getProjectMethodology(projectId);
+        let targetArt = null;
+        let targetStage = null;
+        let targetAct = null;
+
+        methodologyObj.stages.forEach(stg => {
+            (stg.activities || []).forEach(act => {
+                (act.artifacts || []).forEach(art => {
+                    if (art.id === artifactId) {
+                        targetArt = art;
+                        targetStage = stg;
+                        targetAct = act;
+                        art.is_selected = isChecked;
+                        art.is_active = isChecked;
+                    }
+                });
+            });
+        });
+
+        if (targetArt) {
+            this.saveState('project_artifact_upsert', {
+                projectId,
+                stageCode: targetStage ? targetStage.stageCode : 'PRP',
+                activityId: targetAct ? targetAct.activityId : '',
+                ...targetArt
+            });
+        }
+
+        this.renderProjectDetailMethodology(projectId);
+
+        if (this.activeProjectId === projectId) {
+            const selectedArtifacts = this.getProjectSelectedArtifacts(projectId);
+            this.renderProjectDetailArtifactsTable(selectedArtifacts);
+        }
+    }
+
+    getProjectSelectedArtifacts(projectId) {
+        const methodologyObj = this.getProjectMethodology(projectId);
+        const selectedList = [];
+        const stageOrder = ['PRR', 'PRP', 'RAD', 'AAD', 'DTD', 'PED'];
+
+        stageOrder.forEach(stgCode => {
+            const stage = (methodologyObj.stages || []).find(s => s.stageCode === stgCode);
+            if (!stage) return;
+
+            (stage.activities || []).forEach(act => {
+                (act.artifacts || []).forEach(art => {
+                    if (art.is_selected === true && art.is_active === true) {
+                        const regArt = (this.state.artifacts || []).find(a => a.id === art.id || (a.projectId === projectId && a.name === art.name));
+
+                        selectedList.push({
+                            id: art.id,
+                            projectId: projectId,
+                            stageCode: stage.stageCode,
+                            stageName: stage.stageName || stgCode,
+                            activityId: act.activityId,
+                            activityName: act.activityName || '',
+                            name: art.name,
+                            status: regArt ? regArt.status : (art.status || 'NOT_STARTED'),
+                            assigneeName: regArt ? (regArt.author || regArt.assigneeName) : (art.assigneeName || '미지정'),
+                            updatedAt: regArt ? (regArt.submitDate || regArt.createdDate || regArt.dueDate) : (art.updatedAt || '2026-06-01'),
+                            fileName: regArt ? regArt.fileName : null,
+                            regArtId: regArt ? regArt.id : null
+                        });
+                    }
+                });
+            });
+        });
+
+        return selectedList;
     }
 
     renderProjectDetail(projectId) {
@@ -10014,7 +10351,7 @@ class AetherPMO {
 
         const members = (this.state.projectMembers || []).filter(m => m.projectId === projectId);
         if (members.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">등록된 참여인력이 없습니다.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">등록된 참여인력이 없습니다.</td></tr>';
             return;
         }
 
@@ -10025,11 +10362,22 @@ class AetherPMO {
                 ? '<span class="status-badge status-resolved">참여중</span>'
                 : '<span class="status-badge status-occurred">제외됨</span>';
             
+            const empType = mem.employmentType || mem.employment_type || 'UNKNOWN';
+            const empLabel = this.translateEmploymentType(empType);
+            
+            let empCss = 'employment-unknown';
+            if (empType === 'REGULAR_EMPLOYEE' || empType === 'regular') empCss = 'employment-regular';
+            else if (empType === 'INSOURCED_CONTRACTOR' || empType === 'outsourcing') empCss = 'employment-insourced';
+            else if (empType === 'PROJECT_CONTRACTOR' || empType === 'project_contract') empCss = 'employment-project';
+            
+            const empBadge = `<span class="employment-badge ${empCss}">${empLabel}</span>`;
+
             tr.innerHTML = `
                 <td class="font-bold text-xs">${this.escapeHtml(mem.name || mem.memberName || '-')} ${mem.isPm ? '<span class="badge badge-primary" style="font-size:10px; margin-left:4px;">PM</span>' : ''}</td>
                 <td><span class="badge-cat cat-etc">${this.escapeHtml(mem.role || mem.roleName || '수행원')}</span></td>
                 <td class="text-xs font-bold">${this.escapeHtml(mem.department || '-')}</td>
                 <td class="text-xs font-bold">${this.escapeHtml(mem.position || '연구원')}</td>
+                <td>${empBadge}</td>
                 <td class="text-xs text-muted font-bold">${mem.startDate || '-'}</td>
                 <td class="text-xs text-muted font-bold">${mem.endDate || '-'}</td>
                 <td>${statusBadge}</td>
@@ -10396,39 +10744,122 @@ class AetherPMO {
     }
 
     renderProjectDetailArtifactsTable(artifacts) {
+        const container = document.getElementById('project-detail-artifacts-container');
         const tbody = document.getElementById('project-detail-artifacts-tbody');
-        if (!tbody) return;
+        if (!tbody || !container) return;
 
-        if (artifacts.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">등록된 정식 산출물이 없습니다. [단계별 산출물 템플릿]에서 제출하거나 추가로 신규 등록할 수 있습니다.</td></tr>';
+        // If artifacts parameter is not provided, fetch selected ones
+        if (!artifacts) {
+            artifacts = this.getProjectSelectedArtifacts(this.activeProjectId);
+        }
+
+        if (!artifacts || artifacts.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state" style="padding: 50px 20px; text-align: center; background: var(--bg-card-hover); border-radius: 10px; border: 1px dashed var(--bg-card-border); margin: 10px 0;">
+                    <i data-lucide="file-x" style="width: 48px; height: 48px; color: var(--text-muted); margin: 0 auto 16px auto; display: block; opacity: 0.6;"></i>
+                    <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">테일러링에서 선택된 산출물이 없습니다.</h3>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">테일러링 설정에서 프로젝트 적용 산출물을 선택해 주세요.</p>
+                    <button class="btn btn-primary" onclick="app.setDetailTab('methodology')" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; font-weight: 700;">
+                        <i data-lucide="settings" style="width: 15px; height: 15px;"></i>
+                        테일러링 설정으로 이동
+                    </button>
+                </div>
+            `;
+            if (window.lucide) window.lucide.createIcons();
             return;
         }
 
-        tbody.innerHTML = '';
+        // Restore table structure if previously overwritten by empty state
+        if (!container.querySelector('table')) {
+            container.innerHTML = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 130px;">단계</th>
+                            <th style="min-width: 140px;">활동</th>
+                            <th style="min-width: 180px;">산출물명</th>
+                            <th style="width: 110px;">작성 상태</th>
+                            <th style="width: 110px;">담당자</th>
+                            <th style="width: 105px;">최종 수정일</th>
+                            <th style="width: 110px; text-align: center;">결재 상태</th>
+                            <th style="width: 100px; text-align: center;">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody id="project-detail-artifacts-tbody"></tbody>
+                </table>
+            `;
+        }
+
+        const targetTbody = document.getElementById('project-detail-artifacts-tbody');
+        if (!targetTbody) return;
+        targetTbody.innerHTML = '';
+
+        const stageNames = {
+            PRR: 'PRR 사업준비',
+            PRP: 'PRP 착수계획',
+            RAD: 'RAD 분석',
+            AAD: 'AAD 설계',
+            DTD: 'DTD 구현·인수',
+            PED: 'PED 종료'
+        };
+
+        const stageBadges = {
+            PRR: 'cat-requirements',
+            PRP: 'cat-etc',
+            RAD: 'cat-design',
+            AAD: 'cat-design',
+            DTD: 'cat-deploy',
+            PED: 'cat-test'
+        };
+
         artifacts.forEach(art => {
             const tr = document.createElement('tr');
-            const downloadHtml = art.fileName
-                ? `<a href="#" onclick="event.preventDefault(); alert('[다운로드] 파일이 다운로드됩니다: ${art.fileName}')" class="btn btn-xs btn-outline" style="display:inline-flex; align-items:center; gap:2px;"><i data-lucide="download" style="width:10px; height:10px;"></i> 다운로드</a>`
-                : '<span class="text-muted text-xs">-</span>';
+            
+            const stageLabel = stageNames[art.stageCode] || art.stageCode || 'PRP';
+            const stageBadgeClass = stageBadges[art.stageCode] || 'cat-etc';
+
+            // Status Badge
+            const st = art.status || 'NOT_STARTED';
+            let statusBadge = '<span class="status-badge status-onhold">미작성</span>';
+            if (st === 'APPROVED' || st === 'Approved') {
+                statusBadge = '<span class="status-badge status-resolved">승인완료</span>';
+            } else if (st === 'IN_REVIEW' || st === 'Under Review' || st === '검토중') {
+                statusBadge = '<span class="status-badge status-bidding">검토중</span>';
+            } else if (st === 'IN_PROGRESS' || st === 'In Progress' || st === '작성중') {
+                statusBadge = '<span class="status-badge status-inprogress">작성중</span>';
+            }
+
+            // Approval Status Badge
+            let approvalBadge = '<span class="badge badge-neutral" style="font-size:10px;">미결재</span>';
+            if (st === 'APPROVED' || st === 'Approved') {
+                approvalBadge = '<span class="badge badge-success" style="font-size:10px;">승인완료</span>';
+            } else if (st === 'IN_REVIEW' || st === 'Under Review' || st === '검토중') {
+                approvalBadge = '<span class="badge badge-warning" style="font-size:10px;">결재대기</span>';
+            }
+
+            const targetId = art.regArtId || art.id;
 
             tr.innerHTML = `
-                <td class="font-bold text-xs"><a href="#" onclick="event.preventDefault(); app.openArtifactDetailModal('${art.id}')" class="project-name-link">${art.name}</a></td>
-                <td><span class="badge-cat cat-${art.category.toLowerCase().replace(' ', '')}">${this.translateCategory(art.category)}</span></td>
-                <td class="text-center text-xs font-bold">${art.version}</td>
-                <td class="text-xs font-bold">${art.author || '안유경'}</td>
-                <td class="text-xs font-bold text-muted">${art.submitDate || art.createdDate || art.dueDate}</td>
-                <td><span class="status-badge status-${art.status.toLowerCase().replace(' ', '')}">${this.translateArtifactStatus(art.status)}</span></td>
-                <td>${downloadHtml}</td>
-                <td>
-                    <div class="actions-flex">
-                        <button class="btn btn-xs btn-outline" onclick="app.openArtifactDetailModal('${art.id}')">보기</button>
-                        <button class="btn btn-xs btn-outline" onclick="app.openEditArtifactModal('${art.id}')">수정</button>
-                        <button class="btn btn-xs btn-danger" onclick="app.deleteArtifact('${art.id}')">삭제</button>
+                <td><span class="badge-cat ${stageBadgeClass}" style="font-size:11px; font-weight:700;">${stageLabel}</span></td>
+                <td class="text-xs font-bold text-muted">${this.escapeHtml(art.activityName || '-')}</td>
+                <td class="font-bold text-xs">
+                    <i data-lucide="file-text" style="width:14px; height:14px; display:inline-block; vertical-align:middle; margin-right:6px; color:var(--primary);"></i>
+                    <a href="#" onclick="event.preventDefault(); app.openArtifactSummary('${this.activeProjectId}', '${art.activityId}', '${art.id}')" class="project-name-link">${this.escapeHtml(art.name)}</a>
+                </td>
+                <td>${statusBadge}</td>
+                <td class="text-xs font-bold">${this.escapeHtml(art.assigneeName || '미지정')}</td>
+                <td class="text-xs text-muted font-bold">${art.updatedAt || '-'}</td>
+                <td class="text-center">${approvalBadge}</td>
+                <td class="text-center">
+                    <div class="actions-flex" style="justify-content:center;">
+                        <button class="btn btn-xs btn-outline" onclick="app.openArtifactSummary('${this.activeProjectId}', '${art.activityId}', '${art.id}')">보기</button>
                     </div>
                 </td>
             `;
-            tbody.appendChild(tr);
+            targetTbody.appendChild(tr);
         });
+
+        if (window.lucide) window.lucide.createIcons();
     }
 
     /* ==========================================================================
@@ -17632,7 +18063,7 @@ class AetherPMO {
         } else {
             // cleared
             document.getElementById('member-name').value = '';
-            document.getElementById('member-employment-type').value = 'regular';
+            document.getElementById('member-employment-type').value = 'REGULAR_EMPLOYEE';
             document.getElementById('member-department').value = '';
             document.getElementById('member-position').value = '';
             document.getElementById('member-role-name').value = '';
@@ -17647,7 +18078,7 @@ class AetherPMO {
             document.getElementById('member-resource-select').value = '';
         }
         if (document.getElementById('member-employment-type')) {
-            document.getElementById('member-employment-type').value = 'regular';
+            document.getElementById('member-employment-type').value = 'REGULAR_EMPLOYEE';
         }
         document.getElementById('member-name').value = '';
         document.getElementById('member-part-role').value = 'DEV';
@@ -17720,14 +18151,11 @@ class AetherPMO {
                 : '기간 미지정';
 
             const typeLabel = this.translateEmploymentType(m.employmentType);
-            const typeColorMap = {
-                regular: { bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.3)', text: '#10b981' },
-                outsourcing: { bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.3)', text: '#3b82f6' },
-                project_contract: { bg: 'rgba(139, 92, 246, 0.1)', border: 'rgba(139, 92, 246, 0.3)', text: '#8b5cf6' },
-                turnkey: { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', text: '#f59e0b' }
-            };
-            const badgeStyle = typeColorMap[m.employmentType || 'regular'] || typeColorMap.regular;
-            const typeBadge = `<span class="status-badge" style="background:${badgeStyle.bg}; color:${badgeStyle.text}; border:1px solid ${badgeStyle.border}; font-size:10px; padding:2px 6px; font-weight:700;">${typeLabel}</span>`;
+            let empCss = 'employment-unknown';
+            if (m.employmentType === 'REGULAR_EMPLOYEE' || m.employmentType === 'regular') empCss = 'employment-regular';
+            else if (m.employmentType === 'INSOURCED_CONTRACTOR' || m.employmentType === 'outsourcing') empCss = 'employment-insourced';
+            else if (m.employmentType === 'PROJECT_CONTRACTOR' || m.employmentType === 'project_contract') empCss = 'employment-project';
+            const typeBadge = `<span class="employment-badge ${empCss}" style="font-size:10px; padding:2px 6px;">${typeLabel}</span>`;
 
             return `
                 <div class="dashboard-card" style="margin-bottom:10px; padding:12px; background: var(--bg-card-hover); border-color: ${m.isActive ? 'var(--bg-card-border)' : 'transparent'}; opacity: ${m.isActive ? 1 : 0.65};">
@@ -17775,7 +18203,7 @@ class AetherPMO {
             document.getElementById('member-resource-select').value = member.resourceId || '';
         }
         if (document.getElementById('member-employment-type')) {
-            document.getElementById('member-employment-type').value = member.employmentType || 'regular';
+            document.getElementById('member-employment-type').value = member.employmentType || 'REGULAR_EMPLOYEE';
         }
 
         document.getElementById('member-form-title').textContent = '참여 인력 수정';
@@ -17798,7 +18226,7 @@ class AetherPMO {
         const startDate = document.getElementById('member-start-date').value || null;
         const endDate = document.getElementById('member-end-date').value || null;
         const memo = document.getElementById('member-memo').value.trim();
-        const employmentType = document.getElementById('member-employment-type')?.value || 'regular';
+        const employmentType = document.getElementById('member-employment-type')?.value || 'REGULAR_EMPLOYEE';
         let resourceId = document.getElementById('member-resource-select')?.value || null;
 
         if (!name) {
@@ -18053,12 +18481,17 @@ class AetherPMO {
 
     translateEmploymentType(type) {
         const mapping = {
+            REGULAR_EMPLOYEE: '정규직',
+            INSOURCED_CONTRACTOR: '자사화',
+            PROJECT_CONTRACTOR: '프로젝트 계약직',
+            UNKNOWN: '미지정',
             regular: '정규직',
             outsourcing: '자사화',
             project_contract: '프로젝트 계약직',
             turnkey: '외부(턴키)'
         };
-        return mapping[type] || type || '정규직';
+        if (!type || type === '' || type === 'null' || type === 'undefined') return '미지정';
+        return mapping[type] || type || '미지정';
     }
 
     getDefaultResources() {
