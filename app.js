@@ -4693,6 +4693,14 @@ class AetherPMO {
             if (el) el.textContent = val;
         }
 
+        // Bidding KPI Card visibility: only for SYS_ADMIN and EXEC_ADMIN
+        const biddingKpiCard = document.getElementById('kpi-bidding-projects');
+        if (biddingKpiCard) {
+            const role = this.currentUser?.role;
+            const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
+            biddingKpiCard.style.display = isAdmin ? 'flex' : 'none';
+        }
+
         this.renderDashboardProgressChart();
         this.renderBusinessTypeDonutChart();
         this.renderAdminActionCenter(todayStr);
@@ -5702,16 +5710,50 @@ class AetherPMO {
         const container = document.getElementById('dashboard-progress-chart-container');
         if (!container) return;
 
-        // 진행중이거나 완료되지 않은 프로젝트들 필터링
-        const activeProjs = this.state.projects.filter(p => p.status !== 'Completed');
+        const role = this.currentUser?.role;
+        const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
+        const currentUserId = this.currentUser?.id;
+        const currentUserName = this.currentUser?.name || this.currentUser?.full_name || '';
+        const currentUserEmail = this.currentUser?.email || '';
 
-        if (activeProjs.length === 0) {
-            container.innerHTML = '<div class="empty-state" style="padding:40px 0; text-align:center; color:var(--text-muted); font-size:12px;">진행 중인 프로젝트가 없습니다.</div>';
+        // Filter active non-completed projects
+        let targetProjects = this.state.projects.filter(p => p.status !== 'Completed');
+
+        if (!isAdmin) {
+            targetProjects = targetProjects.filter(p => {
+                // 1. Is PM of the project
+                if (p.managerId && p.managerId === currentUserId) return true;
+                if (p.manager && currentUserName && p.manager === currentUserName) return true;
+
+                // 2. Is member in projectMembers
+                const isMember = (this.state.projectMembers || []).some(m => 
+                    m.projectId === p.id && 
+                    m.isActive !== false &&
+                    (
+                        (m.userId && m.userId === currentUserId) ||
+                        (m.name && currentUserName && m.name === currentUserName) ||
+                        (m.email && currentUserEmail && m.email === currentUserEmail)
+                    )
+                );
+                if (isMember) return true;
+
+                // 3. Included in project.memberIds
+                if (p.memberIds && Array.isArray(p.memberIds) && p.memberIds.includes(currentUserId)) return true;
+
+                return false;
+            });
+        }
+
+        if (targetProjects.length === 0) {
+            const emptyMsg = isAdmin 
+                ? '진행 중인 프로젝트가 없습니다.' 
+                : '할당된 진행 중인 프로젝트가 없습니다.';
+            container.innerHTML = `<div class="empty-state" style="padding:40px 0; text-align:center; color:var(--text-muted); font-size:12px;">${emptyMsg}</div>`;
             return;
         }
 
         let html = '<div class="bar-chart-container">';
-        activeProjs.forEach(p => {
+        targetProjects.forEach(p => {
             html += `
                 <div class="bar-chart-item" onclick="window.location.hash = 'project-detail/${p.id}'; event.stopPropagation();" style="cursor:pointer;">
                     <div class="bar-chart-label">
