@@ -353,31 +353,24 @@ onMounted(async () => {
 
     <!-- ==================== 관리자용: 전체 현황 ==================== -->
     <template v-if="view === 'admin' && !loading && !loadError && projects.length > 0">
-      <!-- KPI (0038 개정: 전체 프로젝트 n/n · 유형별 미해결 n/총 N) -->
+      <!-- KPI (0038 재개정: 지연/전체 통합 카드 + 전 항목 '미해결/총' 큰 숫자, 리스크=노랑·이슈=빨강) -->
       <div class="kpis">
         <div class="kpi kpi-accent">
-          <div class="kpi-value">{{ projects.length }}</div>
-          <div class="kpi-label">전체 프로젝트</div>
+          <div class="kpi-value"><span class="v-warn">{{ kpiDelayed }}</span><span class="v-sep">/</span>{{ projects.length }}</div>
+          <div class="kpi-label">지연 / 전체 프로젝트</div>
           <div class="kpi-break">입찰 {{ activeBidding }}/{{ biddingTotal }} · 수행 {{ activeExecution }}/{{ execTotal }}</div>
         </div>
+        <div class="kpi kpi-yellow">
+          <div class="kpi-value">{{ riskOpen }}<span class="v-sep">/</span><span class="v-total">{{ riskAll.length }}</span></div>
+          <div class="kpi-label">리스크 미해결 / 총</div>
+        </div>
         <div class="kpi kpi-red">
-          <div class="kpi-value">{{ kpiDelayed }}</div>
-          <div class="kpi-label">지연</div>
-        </div>
-        <div class="kpi kpi-yellow">
-          <div class="kpi-value">{{ riskOpen }}</div>
-          <div class="kpi-label">리스크 미해결</div>
-          <div class="kpi-break">총 {{ riskAll.length }}건</div>
-        </div>
-        <div class="kpi kpi-yellow">
-          <div class="kpi-value">{{ issueOpen }}</div>
-          <div class="kpi-label">이슈 미해결</div>
-          <div class="kpi-break">총 {{ issueAll.length }}건</div>
+          <div class="kpi-value">{{ issueOpen }}<span class="v-sep">/</span><span class="v-total">{{ issueAll.length }}</span></div>
+          <div class="kpi-label">이슈 미해결 / 총</div>
         </div>
         <div class="kpi kpi-blue">
-          <div class="kpi-value">{{ actionOpen }}</div>
-          <div class="kpi-label">액션아이템 미완료</div>
-          <div class="kpi-break">총 {{ actionItems.length }}건</div>
+          <div class="kpi-value">{{ actionOpen }}<span class="v-sep">/</span><span class="v-total">{{ actionItems.length }}</span></div>
+          <div class="kpi-label">액션아이템 미완료 / 총</div>
         </div>
         <div class="kpi kpi-green">
           <div class="kpi-value">{{ kpiDueToday }}</div>
@@ -747,4 +740,9 @@ onMounted(async () => {
 }
 .my-bar { display: block; height: 4px; background: var(--panel-2); border-radius: 2px; margin-top: 5px; overflow: hidden; }
 .my-bar-fill { display: block; height: 100%; background: var(--accent); }
+
+/* 0038 — KPI 'n / N' 표기: 총계도 크게, 지연 수치는 경고색 */
+.kpi-value .v-sep { margin: 0 6px; color: var(--muted); font-weight: 400; }
+.kpi-value .v-total { color: var(--text); }
+.kpi-value .v-warn { color: var(--red); }
 </style>
