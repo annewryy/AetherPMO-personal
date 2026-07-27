@@ -45,10 +45,54 @@ const OPMS_STATUS_PROGRESS = {
 };
 
 class AetherPMO {
+    isAdminRole(role) {
+        return role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
+    }
+
+    getAccessibleProjects() {
+        const projects = Array.isArray(this.state?.projects) ? this.state.projects : [];
+        const role = this.currentUser?.role;
+
+        if (this.isAdminRole(role)) {
+            return projects;
+        }
+
+        const userId = this.currentUser?.id;
+        const userEmail = this.currentUser?.email;
+        const userName = this.currentUser?.name;
+
+        return projects.filter(project => {
+            const isManager = (
+                (userId && (project.managerId === userId || project.pm_id === userId || project.project_manager_id === userId || project.manager_id === userId)) ||
+                (userEmail && (project.managerId === userEmail || project.manager_email === userEmail)) ||
+                (userName && (project.manager === userName || project.pmName === userName))
+            );
+
+            const isDirectMember = Array.isArray(project.members) && project.members.some(member =>
+                (userId && (member.user_id === userId || member.profile_id === userId || member.resourceId === userId)) ||
+                (userEmail && (member.email === userEmail || member.memberId === userEmail))
+            );
+
+            const isStateMember = (this.state?.projectMembers || []).some(pm =>
+                (pm.projectId === project.id || pm.project_id === project.id) &&
+                ((userId && (pm.resourceId === userId || pm.user_id === userId)) ||
+                 (userEmail && (pm.resourceId === userEmail || pm.email === userEmail)))
+            );
+
+            const isMemberIds = Array.isArray(project.memberIds) && (
+                (userId && project.memberIds.includes(userId)) ||
+                (userEmail && project.memberIds.includes(userEmail))
+            );
+
+            return isManager || isDirectMember || isStateMember || isMemberIds;
+        });
+    }
+
     get currentProjectId() {
         if (this.activeProjectId) return this.activeProjectId;
-        if (this.state && this.state.projects && this.state.projects.length > 0) {
-            return this.state.projects[0].id || this.state.projects[0].project_id;
+        const accessible = this.getAccessibleProjects();
+        if (accessible && accessible.length > 0) {
+            return accessible[0].id || accessible[0].project_id;
         }
         return null;
     }
@@ -6418,10 +6462,17 @@ class AetherPMO {
         const advName = this.safeText(document.getElementById('adv-search-name')?.value || '').trim().toLowerCase();
         const advCode = this.safeText(document.getElementById('adv-search-code')?.value || '').trim().toLowerCase();
 
-        const stage = this.activeProjectStageFilter || 'Active';
+        console.log('[PROJECT ACCESS DEBUG]', {
+            role: this.currentUser?.role,
+            userId: this.currentUser?.id,
+            totalProjects: this.state?.projects?.length,
+            accessibleProjects: (this.getAccessibleProjects() || []).length,
+            isAdmin: this.isAdminRole(this.currentUser?.role)
+        });
 
-        // 2. Filter Projects
-        const filtered = (this.state.projects || []).filter(p => {
+        // 2. Filter Accessible Projects
+        const accessibleProjects = this.getAccessibleProjects();
+        const filtered = accessibleProjects.filter(p => {
             const pStatusClean = (p.status || '').trim();
 
             // A. Stage Filtering
