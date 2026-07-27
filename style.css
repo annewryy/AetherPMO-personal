@@ -7489,7 +7489,7 @@ body.dark-theme .portal-copilot-task-item {
 }
 
 /* ==========================================================================
-   Top-Level Flex Layout & Full-Width Guarantee (User Spec Compliance)
+   Top-Level Flex Layout & Single-Flow Alignment (User Spec Compliance)
    ========================================================================== */
 .app-container {
     display: flex !important;
@@ -7497,7 +7497,7 @@ body.dark-theme .portal-copilot-task-item {
     min-height: 100vh !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow-x: hidden;
+    overflow-x: hidden !important;
 }
 
 .sidebar {
@@ -7508,8 +7508,10 @@ body.dark-theme .portal-copilot-task-item {
     height: 100vh !important;
     position: sticky !important;
     top: 0 !important;
+    left: 0 !important;
     z-index: 100 !important;
     box-sizing: border-box !important;
+    margin: 0 !important;
 }
 
 .app-container.sidebar-compact .sidebar {
@@ -7520,7 +7522,7 @@ body.dark-theme .portal-copilot-task-item {
 }
 
 .main-layout {
-    flex: 1 1 auto !important;
+    flex: 1 1 0% !important;
     min-width: 0 !important;
     width: auto !important;
     max-width: none !important;
@@ -7528,7 +7530,12 @@ body.dark-theme .portal-copilot-task-item {
     flex-direction: column !important;
     height: 100vh !important;
     overflow-y: auto !important;
+    overflow-x: hidden !important;
     box-sizing: border-box !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    left: auto !important;
+    transform: none !important;
 }
 
 .content-body {
@@ -7538,20 +7545,41 @@ body.dark-theme .portal-copilot-task-item {
     max-width: none !important;
     padding: 32px !important;
     box-sizing: border-box !important;
+    margin-left: 0 !important;
+    left: auto !important;
+    transform: none !important;
 }
 
 .content-view {
     width: 100% !important;
     min-width: 0 !important;
     max-width: none !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    left: auto !important;
+    transform: none !important;
     box-sizing: border-box !important;
 }
 
-#view-projects,
+#view-projects {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+    padding: 0 !important;
+    left: auto !important;
+    transform: none !important;
+    box-sizing: border-box !important;
+}
+
 #standard-projects-container {
     width: 100% !important;
     min-width: 0 !important;
     max-width: none !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    left: auto !important;
+    transform: none !important;
     box-sizing: border-box !important;
 }
 
@@ -7562,6 +7590,10 @@ body.dark-theme .portal-copilot-task-item {
     width: 100% !important;
     min-width: 0 !important;
     max-width: none !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    left: auto !important;
+    transform: none !important;
     box-sizing: border-box !important;
 }
 

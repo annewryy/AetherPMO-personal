@@ -6783,34 +6783,24 @@ class AetherPMO {
             throw error;
         } finally {
             [
-                '.app-container',
                 '.sidebar',
                 '.main-layout',
-                '.content-body',
                 '#view-projects',
-                '#projects-grid-list',
-                '#projects-grid-list .project-card'
+                '#projects-grid-list'
             ].forEach(selector => {
                 const el = document.querySelector(selector);
-                if (!el) {
-                    console.log('[LAYOUT WIDTH DEBUG]', selector, 'NOT FOUND');
-                    return;
-                }
+                const rect = el?.getBoundingClientRect();
+                const style = el && getComputedStyle(el);
 
-                const rect = el.getBoundingClientRect();
-                const style = getComputedStyle(el);
-
-                console.log('[LAYOUT WIDTH DEBUG]', selector, {
-                    parent: el.parentElement?.className,
-                    width: rect.width,
-                    left: rect.left,
-                    right: rect.right,
-                    display: style.display,
-                    position: style.position,
-                    flex: style.flex,
-                    flexBasis: style.flexBasis,
-                    maxWidth: style.maxWidth,
-                    transform: style.transform
+                console.log('[SINGLE FLOW DEBUG]', selector, {
+                    left: rect?.left,
+                    right: rect?.right,
+                    width: rect?.width,
+                    marginLeft: style?.marginLeft,
+                    paddingLeft: style?.paddingLeft,
+                    position: style?.position,
+                    cssLeft: style?.left,
+                    transform: style?.transform
                 });
             });
         }
