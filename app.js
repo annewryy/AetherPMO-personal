@@ -6782,26 +6782,16 @@ class AetherPMO {
             });
             throw error;
         } finally {
-            [
-                '.sidebar',
-                '.main-layout',
-                '#view-projects',
-                '#projects-grid-list'
-            ].forEach(selector => {
-                const el = document.querySelector(selector);
-                const rect = el?.getBoundingClientRect();
-                const style = el && getComputedStyle(el);
-
-                console.log('[SINGLE FLOW DEBUG]', selector, {
-                    left: rect?.left,
-                    right: rect?.right,
-                    width: rect?.width,
-                    marginLeft: style?.marginLeft,
-                    paddingLeft: style?.paddingLeft,
-                    position: style?.position,
-                    cssLeft: style?.left,
-                    transform: style?.transform
-                });
+            const _sidebar = document.querySelector('.sidebar')?.getBoundingClientRect();
+            const _main    = document.querySelector('.main-layout')?.getBoundingClientRect();
+            const _header  = document.querySelector('.main-header')?.getBoundingClientRect();
+            const _view    = document.querySelector('#view-projects')?.getBoundingClientRect();
+            console.log('[LAYOUT FINAL CHECK]', {
+                sidebar: _sidebar,
+                main: _main,
+                header: _header,
+                view: _view,
+                viewport: { width: window.innerWidth, height: window.innerHeight }
             });
         }
     }
