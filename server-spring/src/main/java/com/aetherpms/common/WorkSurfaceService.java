@@ -54,7 +54,8 @@ public class WorkSurfaceService {
         TASK("pms_task", "task_id", "TASK",
                 Set.of("progress_rate", "status", "actual_start_date", "actual_end_date",
                        "planned_start_date", "planned_end_date",   // 0031: 태스크 일정 지정
-                       "assignee_id", "assignee_name")),
+                       "assignee_id", "assignee_name",
+                       "deliverable_id")),                          // 0038: 실사용 산출물(후보 중 택1)
         ISSUE("pms_issue", "issue_id", "ISSUE",
                 Set.of("status", "priority", "due_date", "resolved_date", "owner_uid", "owner_name", "title")),
         ACTION_ITEM("pms_action_item", "action_id", "ACTION_ITEM",
@@ -102,6 +103,18 @@ public class WorkSurfaceService {
 
         Map<String, Object> before = WriteSupport.findOne(jdbc, cfg.table, cfg.idCol, id);
         if (before == null) throw ApiException.notFound("대상을 찾을 수 없습니다.");
+
+        // 0038 — 실사용 산출물은 이 태스크의 후보(pms_deliverable.task_id = 이 태스크)만 허용
+        if (cfg == Entity.TASK && fields.containsKey("deliverable_id") && fields.get("deliverable_id") != null) {
+            long did = ((Number) intOf(fields.get("deliverable_id"), "deliverable_id는 양의 정수여야 합니다.")).longValue();
+            Integer belongs = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM pms_deliverable WHERE deliverable_id = ? AND task_id = ?",
+                    Integer.class, did, id);
+            if (belongs == null || belongs == 0) {
+                throw ApiException.badRequest("이 태스크의 산출물 후보가 아닙니다: " + did);
+            }
+            fields.put("deliverable_id", did);
+        }
 
         List<String> cols = new ArrayList<>(fields.keySet());
         Map<String, Object> after = WriteSupport.updateReturning(jdbc, cfg.table, cfg.idCol, id, fields, false);

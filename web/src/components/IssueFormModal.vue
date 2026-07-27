@@ -77,7 +77,7 @@ async function submit() {
     </div>
 
     <label class="label">담당</label>
-    <OrgPersonField v-model="owner" placeholder="담당자명 (선택)" :disabled="submitting" title="담당자 선택" />
+    <OrgPersonField v-model="owner" placeholder="담당자명 (선택)" :disabled="submitting" title="담당자 선택" :project-id="pickedProjectId" />
 
     <div v-if="error" class="err">{{ error }}</div>
 

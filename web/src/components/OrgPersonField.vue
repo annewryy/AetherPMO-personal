@@ -1,20 +1,24 @@
 <script setup lang="ts">
 // 담당자/PM 입력 필드(0020) — 재사용.
-//   텍스트 입력(직접 타이핑 가능) + '조직도' 버튼 → OrgPickerModal로 조직도에서 선택.
+//   텍스트 입력(직접 타이핑 가능) + 선택 버튼:
+//     projectId 있으면(0038) '참여인력' → ProjectMemberPickerModal(그 프로젝트 참여인력 중 선택)
+//     없으면 '조직도' → OrgPickerModal(전사 조직도) — 프로젝트 문맥 밖(PM 지정 등)용.
 //   선택 시 이름을 v-model로 채우고, 필요하면 pick 이벤트로 전체 OrgPick도 전달.
 //   PM·프로젝트 담당자·이슈/액션/태스크/산출물 담당자 등 이름 기반 필드 어디서든 사용.
 import { ref } from 'vue';
 import OrgPickerModal from './OrgPickerModal.vue';
+import ProjectMemberPickerModal from './ProjectMemberPickerModal.vue';
 import type { OrgPick } from '../types';
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: string;
   placeholder?: string;
   disabled?: boolean;
   roots?: 'both' | 'internal' | 'external';
   allowNewExternal?: boolean;
   title?: string;
-}>(), { placeholder: '이름', disabled: false, roots: 'both', allowNewExternal: false, title: '담당자 선택' });
+  projectId?: number | null;   // 0038 — 지정 시 이 프로젝트 참여인력 중에서 선택
+}>(), { placeholder: '이름', disabled: false, roots: 'both', allowNewExternal: false, title: '담당자 선택', projectId: null });
 
 const emit = defineEmits<{
   (e: 'update:modelValue', v: string): void;
@@ -23,6 +27,10 @@ const emit = defineEmits<{
 
 const show = ref(false);
 
+function onMemberPick(name: string) {
+  show.value = false;
+  emit('update:modelValue', name);
+}
 function onPick(p: OrgPick) {
   show.value = false;
   if (p.source === 'NEW_EXTERNAL') return; // 신규 외부는 직접 타이핑 유도(입력은 그대로 둠)
@@ -38,11 +46,18 @@ function onPick(p: OrgPick) {
       :value="modelValue" :placeholder="placeholder" :disabled="disabled"
       @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
     />
-    <button class="opf-btn" type="button" :disabled="disabled" @click="show = true">조직도</button>
+    <button class="opf-btn" type="button" :disabled="disabled" @click="show = true">
+      {{ props.projectId != null ? '참여인력' : '조직도' }}
+    </button>
   </div>
 
+  <ProjectMemberPickerModal
+    v-if="show && props.projectId != null"
+    :project-id="props.projectId" :current="modelValue || null"
+    @select="onMemberPick" @clear="onMemberPick('')" @close="show = false"
+  />
   <OrgPickerModal
-    v-if="show"
+    v-if="show && props.projectId == null"
     :roots="roots" :allow-new-external="allowNewExternal" :title="title"
     @select="onPick" @close="show = false"
   />

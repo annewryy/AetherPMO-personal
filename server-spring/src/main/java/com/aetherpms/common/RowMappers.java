@@ -128,6 +128,7 @@ public final class RowMappers {
         o.put("sortOrder", num(v(t, "sort_order")));
         o.put("displayCode", v(t, "display_code"));
         o.put("catalogNodeId", asLong(v(t, "catalog_node_id")));
+        o.put("deliverableId", asLong(v(t, "deliverable_id"))); // 0038 — 실사용 산출물
         o.put("assignee", v(t, "assignee_name"));
         o.put("assigneeId", v(t, "assignee_id"));
         return o;

@@ -11,13 +11,13 @@ import { ref, computed, watch } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import { fullDisplayCode } from '../lib/displayCode';
 import type {
-  Issue, ActionItem, Artifact, Task, CommentEntityType, TransitionEntity, OrgPick,
+  Issue, ActionItem, Artifact, Task, CommentEntityType, TransitionEntity,
   AvailableTransition,
 } from '../types';
 import StatusBadge from './StatusBadge.vue';
 import CommentThread from './CommentThread.vue';
 import CommentModal from './CommentModal.vue';
-import OrgPickerModal from './OrgPickerModal.vue';
+import ProjectMemberPickerModal from './ProjectMemberPickerModal.vue';
 import StatusMenu, { type MenuTarget } from './StatusMenu.vue';
 import WorkflowViewModal, { type WfState, type WfEdge } from './WorkflowViewModal.vue';
 
@@ -167,10 +167,10 @@ async function saveAssignee(name: string | null) {
     savingField.value = null;
   }
 }
-function onAssigneePick(p: OrgPick) {
+// 0038 — 프로젝트 내 담당 지정은 참여인력 중에서 선택
+function onAssigneePick(name: string) {
   showAssigneePicker.value = false;
-  if (p.source === 'NEW_EXTERNAL') return;
-  void saveAssignee(p.name);
+  void saveAssignee(name || null);
 }
 
 // due_date (이슈=목표해결일 / 액션=마감일)
@@ -375,6 +375,20 @@ const TASK_STATUS_LABELS: Record<string, string> = {
   TODO: '대기', IN_PROGRESS: '진행중', REVIEW: '검토중', REJECTED: '반려', DONE: '완료',
 };
 
+// ---- 0038 — 태스크 실사용 산출물 후보(이 태스크 소속 산출물) ----
+const taskDeliverables = ref<Artifact[]>([]);
+watch(
+  () => [props.kind, props.task?.id, props.projectId] as const,
+  async ([kind, taskId, projectId]) => {
+    if (kind !== 'task' || taskId == null || !projectId || !apiMode.value) { taskDeliverables.value = []; return; }
+    try {
+      const all = await dataClient.artifacts.listByProject(projectId);
+      taskDeliverables.value = all.filter((a) => a.taskId === taskId);
+    } catch { taskDeliverables.value = []; }
+  },
+  { immediate: true },
+);
+
 // ---- 0038 — 산출물 파일 액션(템플릿/수정본) ----
 const fileInput = ref<HTMLInputElement | null>(null);
 const fileBusy = ref(false);
@@ -436,7 +450,7 @@ function onFilePicked(e: Event) {
         <div><dt>담당자</dt>
           <dd class="assignee-dd">
             <span>{{ currentAssignee || '—' }}</span>
-            <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">조직도</button>
+            <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">참여인력</button>
           </dd>
         </div>
         <div><dt>발생일</dt><dd>{{ fmtDate(issue?.reportedDate) }}</dd></div>
@@ -465,7 +479,7 @@ function onFilePicked(e: Event) {
         <div><dt>담당자</dt>
           <dd class="assignee-dd">
             <span>{{ currentAssignee || '—' }}</span>
-            <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">조직도</button>
+            <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">참여인력</button>
           </dd>
         </div>
         <div>
@@ -484,7 +498,7 @@ function onFilePicked(e: Event) {
         <div><dt>담당자</dt>
           <dd class="assignee-dd">
             <span>{{ currentAssignee || '—' }}</span>
-            <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">조직도</button>
+            <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">참여인력</button>
           </dd>
         </div>
         <div><dt>마감일</dt><dd>{{ fmtDate(artifact?.dueDate) }}</dd></div>
@@ -505,10 +519,24 @@ function onFilePicked(e: Event) {
       <template v-else-if="kind === 'task'">
         <div><dt>상태</dt><dd>{{ TASK_STATUS_LABELS[status] ?? status }}</dd></div>
         <div><dt>진척률</dt><dd>{{ task?.progress ?? 0 }}%</dd></div>
+        <!-- 0038 — 실사용 산출물: 이 태스크의 후보(pms_deliverable.task_id) 중 택1 → pms_task.deliverable_id -->
+        <div class="wide"><dt>사용 산출물</dt>
+          <dd>
+            <select
+              class="select-in" :value="task?.deliverableId ?? ''"
+              :disabled="!apiMode || savingField === 'deliverable' || taskDeliverables.length === 0"
+              @change="patch({ deliverable_id: ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null }, 'deliverable')"
+            >
+              <option value="">(선택 안 함)</option>
+              <option v-for="d in taskDeliverables" :key="d.id" :value="d.id">{{ d.name }}</option>
+            </select>
+            <span v-if="taskDeliverables.length === 0" class="hint-inline">이 태스크에 산출물 후보가 없습니다</span>
+          </dd>
+        </div>
         <div><dt>담당자</dt>
           <dd class="assignee-dd">
             <span>{{ currentAssignee || '—' }}</span>
-            <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">조직도</button>
+            <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">참여인력</button>
           </dd>
         </div>
         <!-- 0031: 태스크 일정 지정 — 계획/실적 시작·종료(백엔드 PATCH 화이트리스트 확장) -->
@@ -596,10 +624,12 @@ function onFilePicked(e: Event) {
     />
 
     <!-- 담당자 조직도 선택 -->
-    <OrgPickerModal
+    <ProjectMemberPickerModal
       v-if="showAssigneePicker"
-      title="담당자 선택"
-      @select="onAssigneePick" @close="showAssigneePicker = false"
+      :project-id="projectId" :current="currentAssignee || null"
+      @select="onAssigneePick"
+      @clear="onAssigneePick('')"
+      @close="showAssigneePicker = false"
     />
 
     <!-- 태스크/산출물 워크플로 전이 실행(사유 코멘트) -->
@@ -689,4 +719,10 @@ function onFilePicked(e: Event) {
 .file-hidden { display: none; }
 .file-ok { font-size: 12px; color: var(--green); }
 .file-err { font-size: 12px; color: var(--red); }
+
+.select-in {
+  background: var(--panel-2, var(--panel)); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 13px; padding: 5px 8px; font-family: inherit; max-width: 100%;
+}
+.hint-inline { font-size: 12px; color: var(--muted); margin-left: 6px; }
 </style>

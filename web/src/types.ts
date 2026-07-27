@@ -300,6 +300,7 @@ export interface Task {
   depth: number;
   sortOrder: number;
   catalogNodeId: number | null;
+  deliverableId?: number | null; // 0038 — 실사용 산출물(후보=이 태스크의 산출물 중 택1)
   // 0010 A-4 표시 코드(T-CT-2 등) — 표시·참조 전용, 정렬 금지(정렬 키는 sortOrder 유지)
   displayCode?: string | null;
 }

@@ -54,7 +54,7 @@ async function submit() {
     <div class="row2">
       <div>
         <label class="label">담당</label>
-        <OrgPersonField v-model="assignee" placeholder="담당자명 (선택)" :disabled="submitting" title="담당자 선택" />
+        <OrgPersonField v-model="assignee" placeholder="담당자명 (선택)" :disabled="submitting" title="담당자 선택" :project-id="pickedProjectId" />
       </div>
       <div>
         <label class="label">마감일</label>
