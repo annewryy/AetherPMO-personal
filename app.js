@@ -4830,18 +4830,7 @@ class AetherPMO {
         }
     }
 
-    // ── Role-based "오늘 해야 할 일" (Row 4) ────────────────────────────────
-    renderTodayTasksRoleBased(todayStr) {
-        // Update role tag if present
-        const roleTag = document.getElementById('today-tasks-role-tag');
-        const role = this.currentUser?.role;
-        if (roleTag) {
-            const labels = { SYS_ADMIN: '전사', EXEC_ADMIN: '전사', PM: '내 프로젝트', WORKER: '내 담당' };
-            const label = labels[role] || '';
-            roleTag.textContent = label ? `(${label})` : '';
-        }
-        this.renderTodayTasks(todayStr);
-    }
+
 
     // ── Executive Bottom Row (Row 5): 최근 프로젝트 / 최근 활동 / 최근 공지 ──
     renderExecBottomRow() {
@@ -5920,7 +5909,7 @@ class AetherPMO {
             const labels = { SYS_ADMIN: '전사 관리', EXEC_ADMIN: '총괄 관리자', PM: '내 프로젝트', WORKER: '내 담당' };
             roleTag.textContent = labels[role] ? `(${labels[role]})` : '';
         }
-        this.renderTodayTasks(todayStr);
+
         // 1. WBS 일정 수집 (오늘 + 지연)
         const wbsList = [];
         this.state.projects.forEach(p => {
