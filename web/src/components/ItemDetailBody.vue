@@ -9,7 +9,6 @@
 // 드로어의 닫기(✕) 버튼·aside 래퍼는 이 본문에 없다(호출측 chrome). 필드/상태 변경 후 'changed' emit.
 import { ref, computed, watch } from 'vue';
 import { dataClient } from '../lib/dataClient';
-import { stub } from '../lib/stub';
 import { fullDisplayCode } from '../lib/displayCode';
 import type {
   Issue, ActionItem, Artifact, Task, CommentEntityType, TransitionEntity, OrgPick,
