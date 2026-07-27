@@ -45,6 +45,17 @@ const OPMS_STATUS_PROGRESS = {
 };
 
 class AetherPMO {
+    get currentProjectId() {
+        if (this.activeProjectId) return this.activeProjectId;
+        if (this.state && this.state.projects && this.state.projects.length > 0) {
+            return this.state.projects[0].id || this.state.projects[0].project_id;
+        }
+        return null;
+    }
+    set currentProjectId(val) {
+        this.activeProjectId = val;
+    }
+
     constructor() {
         this.state = {
             projects: [],
@@ -4314,6 +4325,12 @@ class AetherPMO {
             if (this.useSupabase) {
                 await this.loadStateFromSupabase();
             }
+            console.log('[Active Stage Debug]', {
+                currentProjectId: this.currentProjectId,
+                selectedProject: this.state?.projects?.find(
+                    p => p.id === this.currentProjectId
+                )
+            });
             this.renderProjects();
         } else if (viewName === 'projects-g2b') {
             this.initG2BSearchView();
