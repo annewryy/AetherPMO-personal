@@ -297,7 +297,7 @@ onMounted(async () => {
           <h2 class="card-title">내 참여 프로젝트 <span class="card-sub">산출물 승인 기준 진척</span> <button type="button" class="cnt-badge" :title="expanded['myPj'] ? '접기' : '전체 보기'" @click="toggleMore('myPj')">{{ (my?.projects ?? []).length }}건<template v-if="moreCount(my?.projects) > 0"> {{ expanded['myPj'] ? '▲' : '▼' }}</template></button></h2>
           <div v-if="!my.projects || my.projects.length === 0" class="card-empty">참여 중인 프로젝트가 없습니다.</div>
           <ul v-else class="mini-list">
-            <li v-for="pj in visibleOf('myPj', my.projects") :key="pj.projectId" class="mini-item" @click="openDetail(pj.projectId)">
+            <li v-for="pj in visibleOf('myPj', my.projects)" :key="pj.projectId" class="mini-item" @click="openDetail(pj.projectId)">
               <span class="due-badge" :class="pj.stage === 'BIDDING' ? 'due-today' : 'due-over'">{{ pj.stage === 'BIDDING' ? '입찰' : '수행' }}</span>
               <span class="mini-title">{{ pj.projectName }}<span v-if="pj.isPm" class="pm-mini">PM</span></span>
               <span class="mini-meta">
@@ -313,7 +313,7 @@ onMounted(async () => {
             <h2 class="card-title">내 태스크 <button type="button" class="cnt-badge" :title="expanded['myTasks'] ? '접기' : '전체 보기'" @click="toggleMore('myTasks')">{{ (my?.tasks ?? []).length }}건<template v-if="moreCount(my?.tasks) > 0"> {{ expanded['myTasks'] ? '▲' : '▼' }}</template></button></h2>
             <div v-if="!my.tasks || my.tasks.length === 0" class="card-empty">미완료 태스크가 없습니다.</div>
             <ul v-else class="mini-list">
-              <li v-for="t in visibleOf('myTasks', my.tasks") :key="t.id" class="mini-item" @click="router.push(`/tasks/${t.id}`)">
+              <li v-for="t in visibleOf('myTasks', my.tasks)" :key="t.id" class="mini-item" @click="router.push(`/tasks/${t.id}`)">
                 <span v-if="t.overdue || t.dueToday" class="due-badge" :class="t.overdue ? 'due-over' : 'due-today'">{{ t.overdue ? '지연' : '오늘' }}</span>
                 <span class="mini-title">{{ t.title }}</span>
                 <span class="mini-meta">{{ t.projectName }}<template v-if="t.progress != null"> · {{ t.progress }}%</template><template v-if="t.dueDate"> · 기한 {{ t.dueDate }}</template></span>
@@ -340,7 +340,7 @@ onMounted(async () => {
             <h2 class="card-title">내 산출물 (미제출) <button type="button" class="cnt-badge" :title="expanded['myDel'] ? '접기' : '전체 보기'" @click="toggleMore('myDel')">{{ (my?.deliverables ?? []).length }}건<template v-if="moreCount(my?.deliverables) > 0"> {{ expanded['myDel'] ? '▲' : '▼' }}</template></button></h2>
             <div v-if="!my.deliverables || my.deliverables.length === 0" class="card-empty">미제출 산출물이 없습니다.</div>
             <ul v-else class="mini-list">
-              <li v-for="d in visibleOf('myDel', my.deliverables") :key="d.id" class="mini-item" @click="router.push(`/deliverables/${d.id}`)">
+              <li v-for="d in visibleOf('myDel', my.deliverables)" :key="d.id" class="mini-item" @click="router.push(`/deliverables/${d.id}`)">
                 <span v-if="d.overdue || d.dueToday" class="due-badge" :class="d.overdue ? 'due-over' : 'due-today'">{{ d.overdue ? '지연' : '오늘' }}</span>
                 <span class="mini-title">{{ d.title }}</span>
                 <span class="mini-meta">{{ d.projectName }}<template v-if="d.dueDate"> · 기한 {{ d.dueDate }}</template></span>
@@ -397,7 +397,7 @@ onMounted(async () => {
             <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
             <div v-else-if="!widgets || widgets.today.tasks.length === 0" class="card-empty">해당 항목이 없습니다.</div>
             <ul v-else class="mini-list">
-              <li v-for="t in visibleOf('tTasks', widgets.today.tasks") :key="t.taskId" class="mini-item" @click="router.push(`/tasks/${t.taskId}`)">
+              <li v-for="t in visibleOf('tTasks', widgets.today.tasks)" :key="t.taskId" class="mini-item" @click="router.push(`/tasks/${t.taskId}`)">
                 <span class="due-badge" :class="t.overdue ? 'due-over' : 'due-today'">{{ t.overdue ? '지연' : '오늘' }}</span>
                 <span class="mini-title">{{ t.name }}</span>
                 <span class="mini-meta">{{ t.projectName }} · 진행률 {{ t.progress }}% · 기한 {{ t.dueDate }}</span>
@@ -409,7 +409,7 @@ onMounted(async () => {
             <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
             <div v-else-if="!widgets || widgets.today.actions.length === 0" class="card-empty">해당 항목이 없습니다.</div>
             <ul v-else class="mini-list">
-              <li v-for="a in visibleOf('tActs', widgets.today.actions") :key="a.actionId" class="mini-item" @click="router.push(`/action-items/${a.actionId}`)">
+              <li v-for="a in visibleOf('tActs', widgets.today.actions)" :key="a.actionId" class="mini-item" @click="router.push(`/action-items/${a.actionId}`)">
                 <span class="due-badge" :class="a.overdue ? 'due-over' : 'due-today'">{{ a.overdue ? '지연' : '오늘' }}</span>
                 <span class="mini-title">{{ a.title }}</span>
                 <span class="mini-meta">{{ a.projectName }}<template v-if="a.assigneeName"> · {{ a.assigneeName }}</template> · 기한 {{ a.dueDate }}</span>
@@ -421,7 +421,7 @@ onMounted(async () => {
             <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
             <div v-else-if="!widgets || widgets.today.deliverables.length === 0" class="card-empty">해당 항목이 없습니다.</div>
             <ul v-else class="mini-list">
-              <li v-for="d in visibleOf('tDelivs', widgets.today.deliverables") :key="d.deliverableId" class="mini-item" @click="router.push(`/deliverables/${d.deliverableId}`)">
+              <li v-for="d in visibleOf('tDelivs', widgets.today.deliverables)" :key="d.deliverableId" class="mini-item" @click="router.push(`/deliverables/${d.deliverableId}`)">
                 <span class="due-badge" :class="d.overdue ? 'due-over' : 'due-today'">{{ d.overdue ? '지연' : '오늘' }}</span>
                 <span class="mini-title">{{ d.name }}</span>
                 <span class="mini-meta">{{ d.projectName }} · 기한 {{ d.dueDate }}</span>
@@ -437,7 +437,7 @@ onMounted(async () => {
             <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
             <div v-else-if="!widgets || widgets.attention.length === 0" class="card-empty">대상 프로젝트가 없습니다.</div>
             <ul v-else class="mini-list">
-              <li v-for="a in visibleOf('att', widgets.attention") :key="a.projectId" class="mini-item" @click="openDetail(a.projectId)">
+              <li v-for="a in visibleOf('att', widgets.attention)" :key="a.projectId" class="mini-item" @click="openDetail(a.projectId)">
                 <span class="score" :class="'score-' + a.level.toLowerCase()">{{ a.score }}점 · {{ LEVEL_LABELS[a.level] ?? a.level }}</span>
                 <span class="mini-title">{{ a.projectName }}</span>
                 <span v-if="a.factors.length" class="mini-meta">{{ a.factors.join(' · ') }}</span>
@@ -449,7 +449,7 @@ onMounted(async () => {
             <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
             <div v-else-if="!widgets || widgets.risks.length === 0" class="card-empty">오픈 리스크가 없습니다.</div>
             <ul v-else class="mini-list">
-              <li v-for="(r, i) in visibleOf('risks', widgets.risks") :key="i" class="mini-item" @click="openRisk(r)">
+              <li v-for="(r, i) in visibleOf('risks', widgets.risks)" :key="i" class="mini-item" @click="openRisk(r)">
                 <span class="due-badge" :class="r.kind === 'DELAY' ? 'due-over' : 'due-today'">{{ r.kind === 'DELAY' ? '진척 지연' : (r.priority || '리스크') }}</span>
                 <span class="mini-title">{{ r.title }}</span>
                 <span class="mini-meta">{{ r.projectName }}<template v-if="r.ageDays != null"> · {{ r.ageDays }}일 경과</template></span>
@@ -461,7 +461,7 @@ onMounted(async () => {
             <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
             <div v-else-if="!widgets || widgets.recommendations.length === 0" class="card-empty">권장 조치가 없습니다.</div>
             <ul v-else class="mini-list">
-              <li v-for="(r, i) in visibleOf('reco', widgets.recommendations") :key="i" class="mini-item" @click="openReco(r)">
+              <li v-for="(r, i) in visibleOf('reco', widgets.recommendations)" :key="i" class="mini-item" @click="openReco(r)">
                 <span class="mini-title">{{ r.text }}</span>
                 <span class="mini-meta">{{ r.projectName }}</span>
               </li>
