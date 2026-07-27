@@ -5,6 +5,7 @@
 // 백엔드 응답 그대로 표시(dataClient.apiSend가 message 패스스루).
 import { ref, computed, onMounted } from 'vue';
 import { dataClient } from '../../lib/dataClient';
+import DocTemplatePickerModal from '../../components/DocTemplatePickerModal.vue';
 import type { CatalogNode, CatalogNodeType, CatalogNodeInput, Workflow, DocTemplate } from '../../types';
 import CatalogNodeItem from '../../components/CatalogNodeItem.vue';
 import StateNotice from '../../components/StateNotice.vue';
@@ -282,6 +283,18 @@ onMounted(async () => {
       .catch((e) => console.error('[admin] 양식 목록 로드 실패:', e));
   }
 });
+
+// ---- 0038 — 기본 양식 검색 모달(선택·미리보기·다운로드) ----
+const showTplPicker = ref(false);
+const tplLabel = computed(() => {
+  if (form.value.docTemplateId == null) return null;
+  const t = docTemplates.value.find((x) => x.id === form.value.docTemplateId);
+  return t ? `T-${t.id} · ${t.name}` : `T-${form.value.docTemplateId}`;
+});
+function onTplSelect(t: { id: number }) {
+  form.value.docTemplateId = t.id;
+  showTplPicker.value = false;
+}
 </script>
 
 <template>
@@ -421,19 +434,20 @@ onMounted(async () => {
                 </span>
               </label>
               <label class="field">
-                <span class="label">기본 양식 <span class="hint">(양식은 1:N — 산출물 관리에서 등록)</span></span>
-                <select v-model="form.docTemplateId" class="select">
-                  <option :value="null">선택 안 함</option>
-                  <option v-for="t in docTemplates" :key="t.id" :value="t.id">
-                    {{ t.category ? `[${t.category}] ` : '' }}{{ t.name }}
-                  </option>
-                </select>
-              </label>
-              <label class="field">
                 <span class="label">문서형식</span>
                 <input v-model="form.docFormat" type="text" class="input" placeholder=".hwpx" />
               </label>
-              <label class="field">
+              <!-- 0038 — 기본 양식: 검색 모달(미리보기·파일 다운로드)로 선택 -->
+              <div class="field wide">
+                <span class="label">기본 양식 <span class="hint">— 검색해서 선택, 파일은 미리보기·다운로드로 확인</span></span>
+                <div class="tpl-row">
+                  <span v-if="tplLabel" class="tpl-chip">{{ tplLabel }}</span>
+                  <span v-else class="tpl-none">선택 안 함</span>
+                  <button class="btn btn-sm" type="button" @click="showTplPicker = true">양식 검색</button>
+                  <button v-if="form.docTemplateId != null" class="btn btn-sm" type="button" @click="form.docTemplateId = null">해제</button>
+                </div>
+              </div>
+              <label class="field wide">
                 <span class="label">표준 파일명(베이스)</span>
                 <input v-model="form.fileNameBase" type="text" class="input" placeholder="예: 프로세스 테일러링 가이드" />
               </label>
@@ -460,6 +474,13 @@ onMounted(async () => {
       </section>
     </div>
   </div>
+
+  <DocTemplatePickerModal
+    v-if="showTplPicker"
+    :selected-id="form.docTemplateId"
+    @select="onTplSelect"
+    @close="showTplPicker = false"
+  />
 </template>
 
 <style scoped>
@@ -518,4 +539,15 @@ onMounted(async () => {
 .hint { font-weight: 400; color: var(--muted); font-size: 11px; }
 .title-add { margin-left: 10px; vertical-align: middle; }
 .tree-actions { display: inline-flex; gap: 6px; align-items: center; }
+
+/* 0038 — 폼 정렬 보정(라벨 1줄 고정) + 기본 양식 선택 UI */
+.field > .label { min-height: 18px; display: flex; align-items: baseline; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.field .check { align-self: flex-start; margin-top: 6px; }
+.req-checks { display: flex; gap: 12px; align-items: center; min-height: 34px; }
+.tpl-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 34px; }
+.tpl-chip {
+  font-size: 12.5px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--accent); color: var(--accent); font-weight: 600;
+}
+.tpl-none { font-size: 13px; color: var(--muted); }
 </style>
