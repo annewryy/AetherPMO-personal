@@ -67,11 +67,13 @@ const isDone = (s: string) => s === '완료' || s === 'Completed';
 const isRiskType = (t: string) => (t || '').includes('리스크') || (t || '').toLowerCase().includes('risk');
 
 // ---- KPI (0007 재정의 → 0038 개정: 전체 프로젝트 n/n, 유형별 미해결 n/총 N) ----
-const activeProjects = computed(() => projects.value.filter((p) => p.status !== 'Completed'));
 const biddingTotal = computed(() => projects.value.filter((p) => p.stage === 'BIDDING').length);
 const execTotal = computed(() => projects.value.filter((p) => p.stage === 'EXECUTION').length);
-const activeBidding = computed(() => activeProjects.value.filter((p) => p.stage === 'BIDDING').length);
-const activeExecution = computed(() => activeProjects.value.filter((p) => p.stage === 'EXECUTION').length);
+// 0038 재개정 — 하단 분해도 상단과 같은 '지연/전체' 기준(지연이 어느 단계에서 왔는지)
+const isDelayedP = (p: Project) => p.status === 'Delay' ||
+  (!!p.endDate && p.endDate < todayStr && p.status !== 'Completed' && p.stage !== 'COMPLETED');
+const delayedBidding = computed(() => projects.value.filter((p) => p.stage === 'BIDDING' && isDelayedP(p)).length);
+const delayedExecution = computed(() => projects.value.filter((p) => p.stage === 'EXECUTION' && isDelayedP(p)).length);
 // 리스크/이슈 분리 카운트: 미해결 n / 총 N
 const riskAll = computed(() => issues.value.filter((i) => isRiskType(i.type)));
 const issueAll = computed(() => issues.value.filter((i) => !isRiskType(i.type)));
@@ -80,12 +82,7 @@ const riskOpen = computed(() => openOf(riskAll.value));
 const issueOpen = computed(() => openOf(issueAll.value));
 const actionOpen = computed(() => actionItems.value.filter((a) => !isDone(a.status)).length);
 
-const kpiDelayed = computed(() =>
-  projects.value.filter(
-    (p) => p.status === 'Delay' ||
-      (p.endDate && p.endDate < todayStr && p.status !== 'Completed' && p.stage !== 'COMPLETED'),
-  ).length,
-);
+const kpiDelayed = computed(() => projects.value.filter(isDelayedP).length);
 const kpiDueToday = computed(() =>
   artifacts.value.filter((a) => a.dueDate === todayStr && a.status !== 'APPROVED').length +
   actionItems.value.filter((a) => a.dueDate === todayStr && !isDone(a.status)).length,
@@ -104,9 +101,9 @@ interface SummaryRow {
 }
 
 const signalByProject = computed(() => {
-  const m = new Map<number, { expected: number | null; delayPct: number | null }>();
+  const m = new Map<number, { expected: number | null; actual: number | null; delayPct: number | null }>();
   for (const s of signals.value?.signals ?? []) {
-    m.set(s.projectId, { expected: s.expected, delayPct: s.delayPct });
+    m.set(s.projectId, { expected: s.expected, actual: s.actual, delayPct: s.delayPct });
   }
   return m;
 });
@@ -125,21 +122,39 @@ const summaryRows = computed<SummaryRow[]>(() => {
     return {
       p,
       expected: sig?.expected ?? null,
-      actual: p.progress,
+      actual: sig?.actual ?? p.progress,  // 0038 — 계산 진척(0006 rate) 우선, 폴백=수동 progress
       delta: sig?.delayPct ?? null,
       risk: ratio(risks),
       issue: ratio(pures),
       action: ratio(actions),
     };
   });
-  // 기본 정렬: Δ 지연 큰 순(문제 프로젝트 위로). Δ 없음(폴백)은 뒤로, 동률은 이름순.
-  return rows.sort((a, b) => {
-    if (a.delta == null && b.delta == null) return a.p.name.localeCompare(b.p.name);
-    if (a.delta == null) return 1;
-    if (b.delta == null) return -1;
-    return b.delta - a.delta || a.p.name.localeCompare(b.p.name);
+  return rows;
+});
+
+// 0038 — 요약 정렬(헤더 클릭 토글) + 5건 접기. 기본: Δ 큰 순(문제 프로젝트 위로).
+type SumKey = 'name' | 'expected' | 'actual' | 'delta';
+const sumSort = ref<{ key: SumKey; dir: 1 | -1 }>({ key: 'delta', dir: -1 });
+function sortSummary(key: SumKey) {
+  sumSort.value = sumSort.value.key === key
+    ? { key, dir: sumSort.value.dir === 1 ? -1 : 1 }
+    : { key, dir: key === 'name' ? 1 : -1 };
+}
+const sumArrow = (key: SumKey) => (sumSort.value.key === key ? (sumSort.value.dir === 1 ? '▲' : '▼') : '');
+const sortedSummary = computed<SummaryRow[]>(() => {
+  const { key, dir } = sumSort.value;
+  const val = (r: SummaryRow): number | string | null =>
+    key === 'name' ? r.p.name : key === 'expected' ? r.expected : key === 'actual' ? r.actual : r.delta;
+  return [...summaryRows.value].sort((a, b) => {
+    const av = val(a); const bv = val(b);
+    if (av == null && bv == null) return a.p.name.localeCompare(b.p.name);
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    const c = typeof av === 'string' ? av.localeCompare(String(bv)) : Number(av) - Number(bv);
+    return c * dir || a.p.name.localeCompare(b.p.name);
   });
 });
+const summaryVisible = computed(() => (expanded.value['summary'] ? sortedSummary.value : sortedSummary.value.slice(0, 5)));
 
 function fmtPct(v: number | null): string {
   return v == null ? '—' : `${Math.round(v)}%`;
@@ -151,17 +166,6 @@ function fmtDelta(v: number | null): string {
 }
 function ratioText(r: Ratio): string {
   return r.total === 0 ? '—' : `${r.done}/${r.total}`;
-}
-
-// ---- 신호 위젯 (API_BASE 전용) ------------------------------------------------
-const delaySignals = computed(() =>
-  [...(signals.value?.signals ?? [])]
-    .filter((s) => s.delayPct != null)
-    .sort((a, b) => (b.delayPct ?? 0) - (a.delayPct ?? 0)),
-);
-
-function projectName(id: number): string {
-  return projects.value.find((p) => p.id === id)?.name ?? `#${id}`;
 }
 
 // 0026 — 위젯 항목 클릭 이동. 기존 Today 혼합 위젯은 "오늘 해야할 일" 3열로 대체(0003 D1).
@@ -179,12 +183,6 @@ function openReco(r: { entityType?: string | null; entityId?: number | null; pro
 }
 
 // ---- 진행률 바 차트·도넛(기존 유지) --------------------------------------------
-const progressRows = computed(() =>
-  [...projects.value]
-    .filter((p) => p.stage !== 'COMPLETED')
-    .sort((a, b) => b.progress - a.progress)
-    .slice(0, 10),
-);
 
 const DONUT_COLORS = ['#8b5cf6', '#3b82f6', '#34d399', '#fbbf24', '#ef4444', '#ec4899', '#22d3ee', '#9ca3af'];
 const R = 42;
@@ -348,41 +346,9 @@ onMounted(async () => {
             </ul>
           </section>
         </div>
-      </template>
-    </template>
 
-    <!-- ==================== 관리자용: 전체 현황 ==================== -->
-    <template v-if="view === 'admin' && !loading && !loadError && projects.length > 0">
-      <!-- KPI (0038 재개정: 지연/전체 통합 카드 + 전 항목 '미해결/총' 큰 숫자, 리스크=노랑·이슈=빨강) -->
-      <div class="kpis">
-        <div class="kpi kpi-accent">
-          <div class="kpi-value"><span class="v-warn">{{ kpiDelayed }}</span><span class="v-sep">/</span>{{ projects.length }}</div>
-          <div class="kpi-label">지연 / 전체 프로젝트</div>
-          <div class="kpi-break">입찰 {{ activeBidding }}/{{ biddingTotal }} · 수행 {{ activeExecution }}/{{ execTotal }}</div>
-        </div>
-        <div class="kpi kpi-yellow">
-          <div class="kpi-value">{{ riskOpen }}<span class="v-sep">/</span><span class="v-total">{{ riskAll.length }}</span></div>
-          <div class="kpi-label">리스크 미해결 / 총</div>
-        </div>
-        <div class="kpi kpi-red">
-          <div class="kpi-value">{{ issueOpen }}<span class="v-sep">/</span><span class="v-total">{{ issueAll.length }}</span></div>
-          <div class="kpi-label">이슈 미해결 / 총</div>
-        </div>
-        <div class="kpi kpi-blue">
-          <div class="kpi-value">{{ actionOpen }}<span class="v-sep">/</span><span class="v-total">{{ actionItems.length }}</span></div>
-          <div class="kpi-label">액션아이템 미완료 / 총</div>
-        </div>
-        <div class="kpi kpi-green">
-          <div class="kpi-value">{{ kpiDueToday }}</div>
-          <div class="kpi-label">오늘 마감</div>
-        </div>
-      </div>
-
-      <!-- 신호·위젯 (0007·0026 — API_BASE 전용) -->
-      <div v-if="!apiMode" class="signal-off">
-        신호·위젯(오늘 해야할 일·지연 신호·규칙 기반)은 백엔드 연동(API_BASE) 후 제공됩니다 — 폴백 모드에서는 숨김.
-      </div>
-      <template v-else>
+        <!-- 0038 재배치 — 전역 오늘/지연·조치·최근 활동은 실무진(내 업무) 화면으로 -->
+        <template v-if="apiMode">
         <!-- 0026 D1 — 오늘 해야할 일 (3열) -->
         <div class="triple">
           <section class="card">
@@ -423,7 +389,150 @@ onMounted(async () => {
           </section>
         </div>
 
-        <!-- 0026 D3~D5 — 규칙 기반 3위젯 (AI 미채택, 설정 가능한 기준: 관리자>신호 규칙 HEALTH_SCORE) -->
+        <div class="triple">
+          <section class="card">
+            <h2 class="card-title">주요 리스크 <span class="card-sub">우선순위·경과일 순</span> <button type="button" class="cnt-badge" :title="expanded['risks'] ? '접기' : '전체 보기'" @click="toggleMore('risks')">{{ (widgets?.risks ?? []).length }}건<template v-if="moreCount(widgets?.risks) > 0"> {{ expanded['risks'] ? '▲' : '▼' }}</template></button></h2>
+            <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+            <div v-else-if="!widgets || widgets.risks.length === 0" class="card-empty">오픈 리스크가 없습니다.</div>
+            <ul v-else class="mini-list">
+              <li v-for="(r, i) in visibleOf('risks', widgets.risks)" :key="i" class="mini-item" @click="openRisk(r)">
+                <span class="due-badge" :class="r.kind === 'DELAY' ? 'due-over' : 'due-today'">{{ r.kind === 'DELAY' ? '진척 지연' : (r.priority || '리스크') }}</span>
+                <span class="mini-title">{{ r.title }}</span>
+                <span class="mini-meta">{{ r.projectName }}<template v-if="r.ageDays != null"> · {{ r.ageDays }}일 경과</template></span>
+              </li>
+            </ul>
+          </section>
+          <section class="card">
+            <h2 class="card-title">지금 실행하면 좋은 조치 <button type="button" class="cnt-badge" :title="expanded['reco'] ? '접기' : '전체 보기'" @click="toggleMore('reco')">{{ (widgets?.recommendations ?? []).length }}건<template v-if="moreCount(widgets?.recommendations) > 0"> {{ expanded['reco'] ? '▲' : '▼' }}</template></button></h2>
+            <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+            <div v-else-if="!widgets || widgets.recommendations.length === 0" class="card-empty">권장 조치가 없습니다.</div>
+            <ul v-else class="mini-list">
+              <li v-for="(r, i) in visibleOf('reco', widgets.recommendations)" :key="i" class="mini-item" @click="openReco(r)">
+                <span class="mini-title">{{ r.text }}</span>
+                <span class="mini-meta">{{ r.projectName }}</span>
+              </li>
+            </ul>
+          </section>
+        </div>
+
+        <div class="triple">
+          <section class="card">
+          <h2 class="card-title">최근 공문 <button type="button" class="cnt-badge" @click="toggleMore('rDocs')">{{ (widgets?.recent.officialDocs ?? []).length }}건<template v-if="moreCount(widgets?.recent.officialDocs) > 0"> {{ expanded['rDocs'] ? '▲' : '▼' }}</template></button></h2>
+          <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+          <div v-else-if="!widgets || widgets.recent.officialDocs.length === 0" class="card-empty">등록된 공문이 없습니다.</div>
+          <ul v-else class="mini-list">
+            <li v-for="d in visibleOf('rDocs', widgets.recent.officialDocs)" :key="d.docId" class="mini-item" @click="router.push('/official-docs')">
+              <span v-if="d.currentStatus" class="due-badge due-today">{{ d.currentStatus }}</span>
+              <span class="mini-title">{{ d.title }}</span>
+              <span class="mini-meta">
+                <template v-if="d.docNumber">{{ d.docNumber }} · </template>{{ d.projectName }}
+                <template v-if="d.drafterName"> · {{ d.drafterName }}</template>
+                <template v-if="d.draftDate"> · {{ fmtDate(d.draftDate) }}</template>
+              </span>
+            </li>
+          </ul>
+          </section>
+          <section class="card">
+          <h2 class="card-title">최근 회의록 <button type="button" class="cnt-badge" @click="toggleMore('rMeet')">{{ (widgets?.recent.meetings ?? []).length }}건<template v-if="moreCount(widgets?.recent.meetings) > 0"> {{ expanded['rMeet'] ? '▲' : '▼' }}</template></button></h2>
+          <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+          <div v-else-if="!widgets || widgets.recent.meetings.length === 0" class="card-empty">등록된 회의록이 없습니다.</div>
+          <ul v-else class="mini-list">
+            <li v-for="m in visibleOf('rMeet', widgets.recent.meetings)" :key="m.meetingId" class="mini-item" @click="router.push('/meeting-minutes')">
+              <span class="mini-title">{{ m.title }}</span>
+              <span class="mini-meta">
+                {{ m.projectName }}<template v-if="m.location"> · {{ m.location }}</template> · {{ fmtDate(m.meetDate) }}
+              </span>
+            </li>
+          </ul>
+          </section>
+          <section class="card">
+          <h2 class="card-title">최근 제출 산출물 <button type="button" class="cnt-badge" @click="toggleMore('rDeliv')">{{ (widgets?.recent.deliverables ?? []).length }}건<template v-if="moreCount(widgets?.recent.deliverables) > 0"> {{ expanded['rDeliv'] ? '▲' : '▼' }}</template></button></h2>
+          <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+          <div v-else-if="!widgets || widgets.recent.deliverables.length === 0" class="card-empty">제출된 산출물이 없습니다.</div>
+          <ul v-else class="mini-list">
+            <li v-for="d in visibleOf('rDeliv', widgets.recent.deliverables)" :key="d.deliverableId" class="mini-item" @click="router.push(`/deliverables/${d.deliverableId}`)">
+              <span class="due-badge due-today">제출</span>
+              <span class="mini-title">{{ d.name }}</span>
+              <span class="mini-meta">
+                {{ d.projectName }}<template v-if="d.authorName"> · {{ d.authorName }}</template> · {{ fmtDate(d.submittedAt) }}
+              </span>
+            </li>
+          </ul>
+          </section>
+        </div>
+        </template>
+      </template>
+    </template>
+
+    <!-- ==================== 관리자용: 전체 현황 ==================== -->
+    <template v-if="view === 'admin' && !loading && !loadError && projects.length > 0">
+      <!-- KPI (0038 재개정: 지연/전체 통합 카드 + 전 항목 '미해결/총' 큰 숫자, 리스크=노랑·이슈=빨강) -->
+      <div class="kpis">
+        <div class="kpi kpi-accent">
+          <div class="kpi-value"><span class="v-warn">{{ kpiDelayed }}</span><span class="v-sep">/</span>{{ projects.length }}</div>
+          <div class="kpi-label">지연 / 전체 프로젝트</div>
+          <div class="kpi-break">지연 — 입찰 {{ delayedBidding }}/{{ biddingTotal }} · 수행 {{ delayedExecution }}/{{ execTotal }}</div>
+        </div>
+        <div class="kpi kpi-yellow">
+          <div class="kpi-value">{{ riskOpen }}<span class="v-sep">/</span><span class="v-total">{{ riskAll.length }}</span></div>
+          <div class="kpi-label">리스크 미해결 / 총</div>
+        </div>
+        <div class="kpi kpi-red">
+          <div class="kpi-value">{{ issueOpen }}<span class="v-sep">/</span><span class="v-total">{{ issueAll.length }}</span></div>
+          <div class="kpi-label">이슈 미해결 / 총</div>
+        </div>
+        <div class="kpi kpi-blue">
+          <div class="kpi-value">{{ actionOpen }}<span class="v-sep">/</span><span class="v-total">{{ actionItems.length }}</span></div>
+          <div class="kpi-label">액션아이템 미완료 / 총</div>
+        </div>
+        <div class="kpi kpi-green">
+          <div class="kpi-value">{{ kpiDueToday }}</div>
+          <div class="kpi-label">오늘 마감</div>
+        </div>
+      </div>
+
+      <!-- 신호·위젯 (0007·0026 — API_BASE 전용) -->
+      <div v-if="!apiMode" class="signal-off">
+        신호·위젯(오늘 해야할 일·지연 신호·규칙 기반)은 백엔드 연동(API_BASE) 후 제공됩니다 — 폴백 모드에서는 숨김.
+      </div>
+      <template v-else>
+      <!-- 요약 테이블 (0038 재개정: 정렬 가능 헤더 + 5건 접기, 진행률=계산 진척) -->
+      <section class="card">
+        <h2 class="card-title">
+          프로젝트 요약
+          <span class="card-sub">헤더 클릭으로 정렬 · 해결/총은 현재 데이터 집계</span>
+          <button type="button" class="cnt-badge" @click="toggleMore('summary')">{{ sortedSummary.length }}건<template v-if="sortedSummary.length > 5"> {{ expanded['summary'] ? '▲' : '▼' }}</template></button>
+        </h2>
+        <table class="grid">
+          <thead>
+            <tr>
+              <th class="sortable" @click="sortSummary('name')">프로젝트명 {{ sumArrow('name') }}</th><th>단계</th>
+              <th class="num sortable" @click="sortSummary('expected')">목표 {{ sumArrow('expected') }}</th>
+              <th class="num sortable" @click="sortSummary('actual')">진행률 {{ sumArrow('actual') }}</th>
+              <th class="num sortable" @click="sortSummary('delta')">Δ {{ sumArrow('delta') }}</th>
+              <th class="num">리스크</th><th class="num">이슈</th><th class="num">액션</th>
+              <th>PM</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in summaryVisible" :key="r.p.id" class="row" @click="openDetail(r.p.id)">
+              <td class="name">{{ r.p.name }}</td>
+              <td><StageBadge :stage="r.p.stage" /></td>
+              <td class="num">{{ fmtPct(r.expected) }}</td>
+              <td class="num">{{ fmtPct(r.actual) }}</td>
+              <td class="num" :class="r.delta == null ? '' : r.delta > 0 ? 'delta-bad' : 'delta-good'">
+                {{ fmtDelta(r.delta) }}
+              </td>
+              <td class="num">{{ ratioText(r.risk) }}</td>
+              <td class="num">{{ ratioText(r.issue) }}</td>
+              <td class="num">{{ ratioText(r.action) }}</td>
+              <td>{{ r.p.manager || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+        <!-- 0038 재배치 — 요약 하위: 주의 프로젝트 | 주요 리스크 | 최근 회의록 -->
         <div class="triple">
           <section class="card">
             <h2 class="card-title">주의가 필요한 프로젝트 <span class="card-sub">건강도 점수 낮은 순</span> <button type="button" class="cnt-badge" :title="expanded['att'] ? '접기' : '전체 보기'" @click="toggleMore('att')">{{ (widgets?.attention ?? []).length }}건<template v-if="moreCount(widgets?.attention) > 0"> {{ expanded['att'] ? '▲' : '▼' }}</template></button></h2>
@@ -450,54 +559,24 @@ onMounted(async () => {
             </ul>
           </section>
           <section class="card">
-            <h2 class="card-title">지금 실행하면 좋은 조치 <button type="button" class="cnt-badge" :title="expanded['reco'] ? '접기' : '전체 보기'" @click="toggleMore('reco')">{{ (widgets?.recommendations ?? []).length }}건<template v-if="moreCount(widgets?.recommendations) > 0"> {{ expanded['reco'] ? '▲' : '▼' }}</template></button></h2>
-            <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
-            <div v-else-if="!widgets || widgets.recommendations.length === 0" class="card-empty">권장 조치가 없습니다.</div>
-            <ul v-else class="mini-list">
-              <li v-for="(r, i) in visibleOf('reco', widgets.recommendations)" :key="i" class="mini-item" @click="openReco(r)">
-                <span class="mini-title">{{ r.text }}</span>
-                <span class="mini-meta">{{ r.projectName }}</span>
-              </li>
-            </ul>
-          </section>
+          <h2 class="card-title">최근 회의록 <button type="button" class="cnt-badge" @click="toggleMore('rMeet')">{{ (widgets?.recent.meetings ?? []).length }}건<template v-if="moreCount(widgets?.recent.meetings) > 0"> {{ expanded['rMeet'] ? '▲' : '▼' }}</template></button></h2>
+          <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
+          <div v-else-if="!widgets || widgets.recent.meetings.length === 0" class="card-empty">등록된 회의록이 없습니다.</div>
+          <ul v-else class="mini-list">
+            <li v-for="m in visibleOf('rMeet', widgets.recent.meetings)" :key="m.meetingId" class="mini-item" @click="router.push('/meeting-minutes')">
+              <span class="mini-title">{{ m.title }}</span>
+              <span class="mini-meta">
+                {{ m.projectName }}<template v-if="m.location"> · {{ m.location }}</template> · {{ fmtDate(m.meetDate) }}
+              </span>
+            </li>
+          </ul>
+            </section>
         </div>
 
-        <!-- 지연 신호 (0007 유지) -->
-        <section class="card">
-          <h2 class="card-title">지연 신호 <span class="card-sub">기대 vs 실제, 지연 큰 순</span></h2>
-          <div v-if="signalsError" class="card-empty">신호를 불러오지 못했습니다.</div>
-          <div v-else-if="delaySignals.length === 0" class="card-empty">지연 신호가 없습니다.</div>
-          <table v-else class="grid">
-            <thead><tr><th>프로젝트</th><th class="num">목표</th><th class="num">실제</th><th class="num">Δ 지연</th><th></th></tr></thead>
-            <tbody>
-              <tr v-for="s in delaySignals" :key="s.projectId" class="row" @click="openDetail(s.projectId)">
-                <td class="name">{{ s.projectName || projectName(s.projectId) }}</td>
-                <td class="num">{{ fmtPct(s.expected) }}</td>
-                <td class="num">{{ fmtPct(s.actual) }}</td>
-                <td class="num" :class="(s.delayPct ?? 0) > 0 ? 'delta-bad' : 'delta-good'">{{ fmtDelta(s.delayPct) }}</td>
-                <td><span v-if="s.fallbackUsed" class="tag">폴백 기대치</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
       </template>
 
       <!-- 진행률 바 차트 + 사업유형 도넛 (유지) -->
       <div class="charts">
-        <section class="card">
-          <h2 class="card-title">프로젝트 진행률</h2>
-          <div v-if="progressRows.length === 0" class="card-empty">진행 중인 프로젝트가 없습니다.</div>
-          <div v-else class="bars">
-            <div v-for="p in progressRows" :key="p.id" class="bar-row" @click="openDetail(p.id)">
-              <span class="bar-name" :title="p.name">{{ p.name }}</span>
-              <div class="bar-track">
-                <div class="bar-fill" :style="{ width: Math.max(0, Math.min(100, p.progress)) + '%' }" />
-              </div>
-              <span class="bar-num">{{ p.progress }}%</span>
-            </div>
-          </div>
-        </section>
-
         <section class="card">
           <h2 class="card-title">사업유형 분포</h2>
           <div class="donut-wrap">
@@ -523,85 +602,7 @@ onMounted(async () => {
         </section>
       </div>
 
-      <!-- 0026 D2 — 최근 활동 (3열, API_BASE 전용) -->
-      <div v-if="apiMode" class="triple">
-        <section class="card">
-          <h2 class="card-title">최근 공문</h2>
-          <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
-          <div v-else-if="!widgets || widgets.recent.officialDocs.length === 0" class="card-empty">등록된 공문이 없습니다.</div>
-          <ul v-else class="mini-list">
-            <li v-for="d in widgets.recent.officialDocs" :key="d.docId" class="mini-item" @click="router.push('/official-docs')">
-              <span v-if="d.currentStatus" class="due-badge due-today">{{ d.currentStatus }}</span>
-              <span class="mini-title">{{ d.title }}</span>
-              <span class="mini-meta">
-                <template v-if="d.docNumber">{{ d.docNumber }} · </template>{{ d.projectName }}
-                <template v-if="d.drafterName"> · {{ d.drafterName }}</template>
-                <template v-if="d.draftDate"> · {{ fmtDate(d.draftDate) }}</template>
-              </span>
-            </li>
-          </ul>
-        </section>
-        <section class="card">
-          <h2 class="card-title">최근 회의록</h2>
-          <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
-          <div v-else-if="!widgets || widgets.recent.meetings.length === 0" class="card-empty">등록된 회의록이 없습니다.</div>
-          <ul v-else class="mini-list">
-            <li v-for="m in widgets.recent.meetings" :key="m.meetingId" class="mini-item" @click="router.push('/meeting-minutes')">
-              <span class="mini-title">{{ m.title }}</span>
-              <span class="mini-meta">
-                {{ m.projectName }}<template v-if="m.location"> · {{ m.location }}</template> · {{ fmtDate(m.meetDate) }}
-              </span>
-            </li>
-          </ul>
-        </section>
-        <section class="card">
-          <h2 class="card-title">최근 제출 산출물</h2>
-          <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
-          <div v-else-if="!widgets || widgets.recent.deliverables.length === 0" class="card-empty">제출된 산출물이 없습니다.</div>
-          <ul v-else class="mini-list">
-            <li v-for="d in widgets.recent.deliverables" :key="d.deliverableId" class="mini-item" @click="router.push(`/deliverables/${d.deliverableId}`)">
-              <span class="due-badge due-today">제출</span>
-              <span class="mini-title">{{ d.name }}</span>
-              <span class="mini-meta">
-                {{ d.projectName }}<template v-if="d.authorName"> · {{ d.authorName }}</template> · {{ fmtDate(d.submittedAt) }}
-              </span>
-            </li>
-          </ul>
-        </section>
-      </div>
 
-      <!-- 요약 테이블 (0007 확장) -->
-      <section class="card">
-        <h2 class="card-title">
-          프로젝트 요약
-          <span class="card-sub">Δ 지연 큰 순 · 해결/총은 현재 데이터 집계<template v-if="!apiMode">, 목표·Δ는 백엔드 연동 후</template></span>
-        </h2>
-        <table class="grid">
-          <thead>
-            <tr>
-              <th>프로젝트명</th><th>단계</th>
-              <th class="num">목표</th><th class="num">실제</th><th class="num">Δ 지연</th>
-              <th class="num">리스크</th><th class="num">이슈</th><th class="num">액션</th>
-              <th>PM</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="r in summaryRows" :key="r.p.id" class="row" @click="openDetail(r.p.id)">
-              <td class="name">{{ r.p.name }}</td>
-              <td><StageBadge :stage="r.p.stage" /></td>
-              <td class="num">{{ fmtPct(r.expected) }}</td>
-              <td class="num">{{ fmtPct(r.actual) }}</td>
-              <td class="num" :class="r.delta == null ? '' : r.delta > 0 ? 'delta-bad' : 'delta-good'">
-                {{ fmtDelta(r.delta) }}
-              </td>
-              <td class="num">{{ ratioText(r.risk) }}</td>
-              <td class="num">{{ ratioText(r.issue) }}</td>
-              <td class="num">{{ ratioText(r.action) }}</td>
-              <td>{{ r.p.manager || '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
     </template>
   </div>
 </template>
@@ -745,4 +746,7 @@ onMounted(async () => {
 .kpi-value .v-sep { margin: 0 6px; color: var(--muted); font-weight: 400; }
 .kpi-value .v-total { color: var(--text); }
 .kpi-value .v-warn { color: var(--red); }
+
+.grid th.sortable { cursor: pointer; user-select: none; }
+.grid th.sortable:hover { color: var(--text); }
 </style>
