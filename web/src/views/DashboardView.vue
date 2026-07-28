@@ -13,6 +13,7 @@ import type {
 import { currentUser, isAuthenticated } from '../lib/auth';
 import StageBadge from '../components/StageBadge.vue';
 import StateNotice from '../components/StateNotice.vue';
+import ProgressBar from '../components/ProgressBar.vue';
 
 const router = useRouter();
 
@@ -171,7 +172,10 @@ const sortedSummary = computed<SummaryRow[]>(() => {
     return c * dir || a.p.name.localeCompare(b.p.name);
   });
 });
-const summaryVisible = computed(() => (expanded.value['summary'] ? sortedSummary.value : sortedSummary.value.slice(0, 5)));
+// 0039 — 기본 노출 10건(요청). 표가 길어져도 스크롤이 생기지 않는 높이.
+const SUMMARY_COLLAPSE_N = 10;
+const summaryVisible = computed(() =>
+  (expanded.value['summary'] ? sortedSummary.value : sortedSummary.value.slice(0, SUMMARY_COLLAPSE_N)));
 
 function fmtPct(v: number | null): string {
   return v == null ? '—' : `${Math.round(v)}%`;
@@ -520,7 +524,7 @@ onMounted(async () => {
         <h2 class="card-title">
           프로젝트 요약
           <span class="card-sub">헤더 클릭으로 정렬 · 해결/총은 현재 데이터 집계</span>
-          <button type="button" class="cnt-badge" @click="toggleMore('summary')">{{ sortedSummary.length }}건<template v-if="sortedSummary.length > 5"> {{ expanded['summary'] ? '▲' : '▼' }}</template></button>
+          <button type="button" class="cnt-badge" @click="toggleMore('summary')">{{ sortedSummary.length }}건<template v-if="sortedSummary.length > SUMMARY_COLLAPSE_N"> {{ expanded['summary'] ? '▲' : '▼' }}</template></button>
         </h2>
         <table class="grid">
           <thead>
@@ -541,7 +545,10 @@ onMounted(async () => {
               <td class="name">{{ r.p.name }}</td>
               <td><StageBadge :stage="r.p.stage" /></td>
               <td class="num">{{ fmtPct(r.expected) }}</td>
-              <td class="num">{{ fmtPct(r.actual) }}</td>
+              <td class="progress-cell">
+                <ProgressBar :value="r.actual ?? 0" />
+                <span class="progress-num">{{ fmtPct(r.actual) }}</span>
+              </td>
               <td class="num" :class="r.delta == null ? '' : r.delta > 0 ? 'delta-bad' : 'delta-good'">
                 {{ fmtDelta(r.delta) }}
               </td>
@@ -554,8 +561,8 @@ onMounted(async () => {
         </table>
       </section>
 
-        <!-- 0038 재배치 — 요약 하위: 주의 프로젝트 | 주요 리스크 | 최근 회의록 -->
-        <div class="triple">
+        <!-- 0038 재배치 → 0039: 주의 프로젝트 | 주요 리스크 | 최근 회의록 | 사업유형 분포 -->
+        <div class="quad">
           <section class="card">
             <h2 class="card-title">주의가 필요한 프로젝트 <span class="card-sub">건강도 점수 낮은 순</span> <button type="button" class="cnt-badge" :title="expanded['att'] ? '접기' : '전체 보기'" @click="toggleMore('att')">{{ (widgets?.attention ?? []).length }}건<template v-if="moreCount(widgets?.attention) > 0"> {{ expanded['att'] ? '▲' : '▼' }}</template></button></h2>
             <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
@@ -593,13 +600,7 @@ onMounted(async () => {
             </li>
           </ul>
             </section>
-        </div>
-
-      </template>
-
-      <!-- 진행률 바 차트 + 사업유형 도넛 (유지) -->
-      <div class="charts">
-        <section class="card">
+          <section class="card">
           <h2 class="card-title">사업유형 분포</h2>
           <div class="donut-wrap">
             <svg viewBox="0 0 120 120" class="donut" role="img" aria-label="사업유형 분포 도넛 차트">
@@ -621,8 +622,11 @@ onMounted(async () => {
               </li>
             </ul>
           </div>
-        </section>
-      </div>
+          </section>
+        </div>
+
+      </template>
+
 
 
     </template>
@@ -656,6 +660,12 @@ onMounted(async () => {
 .charts { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; margin-bottom: 16px; }
 /* 0026 — 3열 위젯 공통 */
 .triple { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 4px; }
+/* 0039 — 사업유형 분포를 최근 회의록 옆으로 올려 4열로(요청). .triple은 '내 업무' 탭 3열 행이 공유 */
+.quad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 4px; }
+/* 0039 — 프로젝트 요약 진행률: 막대 + 숫자 병기 */
+.progress-cell { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.progress-cell > :first-child { flex: 1; }
+.progress-num { font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--muted); flex-shrink: 0; }
 .mini-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .mini-item {
   display: flex; flex-direction: column; gap: 2px; cursor: pointer;
@@ -741,6 +751,7 @@ onMounted(async () => {
 @media (max-width: 1000px) {
   .kpis { grid-template-columns: repeat(2, 1fr); }
   .charts { grid-template-columns: 1fr; }
+  .quad { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* 0038 — 뷰 탭 + 카드 건수 뱃지(클릭=펼치기) + 내 업무 */
