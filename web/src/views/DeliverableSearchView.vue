@@ -3,10 +3,10 @@
 //   테일러링 화면과 같은 구조로 본다: 방법론 탭 → (입찰/수행) 단계 → 그 아래 산출물.
 //   단, 액티비티·태스크 계층은 건너뛰고 **산출물만 평면 목록**으로 펼친다(양식 연결 상태를
 //   한눈에 훑는 게 이 화면의 목적이라 중간 계층은 경로 텍스트로만 남긴다).
-//   양식(pms_doc_template) 마스터 자체의 등록/수정/삭제는 마지막 '양식 마스터' 탭에 유지.
+//   양식(pms_doc_template) 마스터 표는 이 화면에서 제거했다 — 여기서는 산출물↔양식 연결만 본다.
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { dataClient } from '../lib/dataClient';
-import type { CatalogNode, DocTemplate, DocTemplateInput } from '../types';
+import type { CatalogNode, DocTemplate } from '../types';
 import { currentUser } from '../lib/auth';
 import StateNotice from '../components/StateNotice.vue';
 import ModalShell from '../components/ModalShell.vue';
@@ -32,8 +32,7 @@ const templateById = computed(() => {
   return m;
 });
 
-// ---- 탭: 방법론(테일러링과 동일 어휘) + 양식 마스터 ---------------------------
-const MASTER_TAB = '__master__';
+// ---- 탭: 방법론(테일러링과 동일 어휘) ----------------------------------------
 const METHODOLOGY_TABS = [
   { key: 'OPMS', label: 'OPMS 사업관리' },
   { key: 'ODS', label: 'ODS 시스템구축' },
@@ -50,11 +49,9 @@ const visibleTabs = computed(() =>
       : phases.value.some((p) => p.methodology === t.key)),
 );
 
-const filteredPhases = computed(() => {
-  if (tab.value === MASTER_TAB) return [];
-  return phases.value.filter((p) =>
-    tab.value === '__custom__' ? !p.methodology : p.methodology === tab.value);
-});
+const filteredPhases = computed(() =>
+  phases.value.filter((p) =>
+    tab.value === '__custom__' ? !p.methodology : p.methodology === tab.value));
 
 // ---- 단계(PHASE) 좌측 네비 — 테일러링과 같은 입찰/수행 구분 -------------------
 const STAGE_GROUPS: { key: string; label: string }[] = [
@@ -152,7 +149,7 @@ async function load() {
     ]);
     // 첫 탭 = 실제로 존재하는 방법론 우선(테일러링 화면과 같은 규칙).
     const first = visibleTabs.value[0];
-    tab.value = first ? first.key : MASTER_TAB;
+    if (first) tab.value = first.key;
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e);
   } finally {
@@ -265,93 +262,6 @@ async function clearLink(r: DeliverableRow) {
   }
 }
 
-// =============================================================================
-// 양식 마스터 탭 — 기존 분류 네비 + 목록 + 등록/수정/삭제(그대로 유지)
-// =============================================================================
-const NO_CATEGORY = '__none__';
-const masterQuery = ref('');
-const categoryFilter = ref<string | '__all__'>('__all__');
-
-const categories = computed(() => {
-  const m = new Map<string, number>();
-  for (const t of templates.value) {
-    const key = t.category?.trim() || NO_CATEGORY;
-    m.set(key, (m.get(key) ?? 0) + 1);
-  }
-  return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko'));
-});
-
-const masterFiltered = computed(() => {
-  const q = masterQuery.value.trim().toLowerCase();
-  return templates.value.filter((t) => {
-    if (categoryFilter.value !== '__all__') {
-      const key = t.category?.trim() || NO_CATEGORY;
-      if (key !== categoryFilter.value) return false;
-    }
-    if (!q) return true;
-    return t.name.toLowerCase().includes(q) || (t.description ?? '').toLowerCase().includes(q);
-  });
-});
-
-const masterPageSize = ref<number>(DEFAULT_PAGE_SIZE);
-const {
-  page: masterPage, total: masterTotal, totalPages: masterTotalPages, paged: masterPaged,
-  goPage: masterGoPage, resetPage: masterResetPage, setPageSize: masterSetPageSize, rowNo: masterRowNo,
-} = usePagination(masterFiltered, masterPageSize);
-watch([masterQuery, categoryFilter], () => masterResetPage());
-
-const editing = ref<DocTemplate | null>(null);
-const showForm = ref(false);
-const form = ref<DocTemplateInput>({ name: '' });
-const saving = ref(false);
-const formError = ref<string | null>(null);
-
-function openCreate() {
-  editing.value = null;
-  form.value = {
-    name: '', description: null, docFormat: null, fileRef: null,
-    category: categoryFilter.value !== '__all__' && categoryFilter.value !== NO_CATEGORY
-      ? categoryFilter.value : null,
-  };
-  formError.value = null;
-  showForm.value = true;
-}
-
-function openEdit(t: DocTemplate) {
-  editing.value = t;
-  form.value = {
-    name: t.name, category: t.category, docFormat: t.docFormat,
-    fileRef: t.fileRef, description: t.description,
-  };
-  formError.value = null;
-  showForm.value = true;
-}
-
-async function save() {
-  if (!form.value.name.trim()) { formError.value = '양식명은 필수입니다.'; return; }
-  saving.value = true;
-  formError.value = null;
-  try {
-    if (editing.value) await dataClient.docTemplates.update(editing.value.id, form.value);
-    else await dataClient.docTemplates.create(form.value);
-    showForm.value = false;
-    await load();
-  } catch (e) {
-    formError.value = e instanceof Error ? e.message : String(e);
-  } finally {
-    saving.value = false;
-  }
-}
-
-async function remove(t: DocTemplate) {
-  if (!confirm(`양식 '${t.name}'을(를) 삭제할까요?`)) return;
-  try {
-    await dataClient.docTemplates.remove(t.id);
-    await load();
-  } catch (e) {
-    alert(e instanceof Error ? e.message : String(e));
-  }
-}
 </script>
 
 <template>
@@ -359,7 +269,6 @@ async function remove(t: DocTemplate) {
     <h1 class="title">템플릿 관리</h1>
     <p class="sub">
       방법론 단계별 산출물과 연결된 양식(문서 템플릿) — 액티비티·작업 계층은 건너뛰고 산출물만 펼칩니다.
-      양식 자체의 등록·수정은 '양식 마스터' 탭에서.
     </p>
 
     <div v-if="!apiMode" class="notice">템플릿 관리는 백엔드(API_BASE) 연결 후 사용할 수 있습니다.</div>
@@ -367,23 +276,23 @@ async function remove(t: DocTemplate) {
       <StateNotice :loading="loading" :error="loadError" :empty="false" empty-text="" />
 
       <template v-if="!loading && !loadError">
-        <!-- 탭: 방법론 + 양식 마스터 -->
-        <div class="meth-tabs">
+        <!-- 탭: 방법론 -->
+        <div v-if="visibleTabs.length > 0" class="meth-tabs">
           <button
             v-for="t in visibleTabs" :key="t.key"
             class="mtab" :class="{ on: tab === t.key }"
             @click="selectTab(t.key)"
           >{{ t.label }}</button>
-          <span class="tab-sep" aria-hidden="true"></span>
-          <button class="mtab" :class="{ on: tab === MASTER_TAB }" @click="selectTab(MASTER_TAB)">
-            양식 마스터 <span class="tab-cnt">{{ templates.length }}</span>
-          </button>
         </div>
 
         <div v-if="actionError" class="error-notice">{{ actionError }}</div>
 
-        <!-- ================= 방법론 탭: 단계 → 산출물 평면 목록 ================= -->
-        <div v-if="tab !== MASTER_TAB" class="layout">
+        <div v-if="visibleTabs.length === 0" class="notice">
+          테일러링 표준 데이터가 없습니다 — 테일러링 관리에서 표준 트리를 먼저 구성하세요.
+        </div>
+
+        <!-- 단계 → 산출물 평면 목록 -->
+        <div v-else class="layout">
           <aside class="phase-list">
             <button class="phase all" :class="{ on: selectedPhaseId === null }" @click="selectedPhaseId = null">
               <span class="phase-name">전체</span>
@@ -504,75 +413,6 @@ async function remove(t: DocTemplate) {
           </section>
         </div>
 
-        <!-- ================= 양식 마스터 탭(기존 화면 유지) ================= -->
-        <div v-else class="layout">
-          <aside class="cat-nav">
-            <button class="cat" :class="{ on: categoryFilter === '__all__' }" @click="categoryFilter = '__all__'">
-              전체 <span class="cnt">{{ templates.length }}</span>
-            </button>
-            <button
-              v-for="[key, cnt] in categories" :key="key"
-              class="cat" :class="{ on: categoryFilter === key }"
-              @click="categoryFilter = key"
-            >
-              {{ key === '__none__' ? '미분류' : key }} <span class="cnt">{{ cnt }}</span>
-            </button>
-          </aside>
-
-          <section class="list-panel">
-            <div class="toolbar">
-              <input v-model="masterQuery" class="search" type="search" placeholder="양식명·설명 검색" />
-              <button class="btn btn-primary" :disabled="!canWrite"
-                      :title="canWrite ? '' : '시스템 관리자만 등록할 수 있습니다'" @click="openCreate">
-                + 양식 등록
-              </button>
-            </div>
-
-            <div v-if="templates.length === 0" class="notice">
-              등록된 양식이 없습니다 — "+ 양식 등록"으로 표준 양식 문서를 등록하세요.
-            </div>
-            <div v-else-if="masterFiltered.length === 0" class="notice">조건에 맞는 양식이 없습니다.</div>
-            <template v-else>
-              <div class="list-head">
-                <span class="count">총 <strong>{{ masterTotal.toLocaleString('ko-KR') }}</strong>건</span>
-                <PageSizeSelect :model-value="masterPageSize" @update:model-value="masterSetPageSize" />
-              </div>
-              <table class="grid">
-                <thead>
-                  <tr>
-                    <th class="no">No.</th><th class="code">양식 ID</th><th>양식명</th><th>분류</th><th>형식</th>
-                    <th>파일 참조</th><th>설명</th><th class="num">사용 노드</th><th>관리</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(t, idx) in masterPaged" :key="t.id">
-                    <td class="no">{{ masterRowNo(idx) }}</td>
-                    <td class="code">T-{{ t.id }}</td>
-                    <td class="name">{{ t.name }}<span v-if="!t.isActive" class="off-tag">비활성</span></td>
-                    <td>{{ t.category || '—' }}</td>
-                    <td class="code">{{ t.docFormat || '—' }}</td>
-                    <td class="muted ellip" :title="t.fileRef ?? ''">{{ t.fileRef || '—' }}</td>
-                    <td class="muted ellip" :title="t.description ?? ''">{{ t.description || '—' }}</td>
-                    <td class="num">{{ t.nodeCount }}</td>
-                    <td class="actions">
-                      <button class="btn btn-sm" :title="t.fileRef ? '양식 파일 다운로드' : '등록된 파일 없음'"
-                              :disabled="!t.fileRef" @click="download(t)">받기</button>
-                      <button class="btn btn-sm" :disabled="!t.fileRef || previewLoading"
-                              :title="t.fileRef ? '양식 파일 미리보기' : '등록된 파일 없음'"
-                              @click="openPreview(t)">미리보기</button>
-                      <button class="btn btn-sm" :disabled="!canWrite" title="양식 파일 업로드(교체)"
-                              @click="pickFile(t)">파일</button>
-                      <button class="btn btn-sm" :disabled="!canWrite" @click="openEdit(t)">수정</button>
-                      <button class="btn btn-sm btn-danger" :disabled="!canWrite" @click="remove(t)">삭제</button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <Pager :page="masterPage" :total-pages="masterTotalPages"
-                     :total="masterTotal" @update:page="masterGoPage" />
-            </template>
-          </section>
-        </div>
       </template>
     </template>
 
@@ -605,35 +445,6 @@ async function remove(t: DocTemplate) {
       @close="linkTarget = null"
     />
 
-    <!-- 양식 등록/수정 -->
-    <ModalShell v-if="showForm" :title="editing ? '양식 수정' : '양식 등록'" @close="showForm = false">
-      <label class="label">양식명 <span class="req">*</span></label>
-      <input v-model="form.name" class="input" type="text" placeholder="예: 사업계획서(표준형)" :disabled="saving" />
-      <div class="row2">
-        <div>
-          <label class="label">분류</label>
-          <input v-model="form.category" class="input" type="text" placeholder="예: 착수단계 템플릿" :disabled="saving" list="cat-list" />
-          <datalist id="cat-list">
-            <option v-for="[key] in categories" :key="key" :value="key === '__none__' ? '' : key" />
-          </datalist>
-        </div>
-        <div>
-          <label class="label">문서형식</label>
-          <input v-model="form.docFormat" class="input" type="text" placeholder=".hwpx" :disabled="saving" />
-        </div>
-      </div>
-      <label class="label">파일 참조</label>
-      <input v-model="form.fileRef" class="input" type="text" placeholder="파일 경로/파일명 (NAS 연동 전 텍스트)" :disabled="saving" />
-      <label class="label">설명</label>
-      <textarea v-model="form.description" class="input" rows="2" placeholder="양식 용도·특징 (선택)" :disabled="saving"></textarea>
-      <div v-if="formError" class="err">{{ formError }}</div>
-      <template #footer>
-        <button class="btn btn-sm" :disabled="saving" @click="showForm = false">취소</button>
-        <button class="btn btn-primary btn-sm" :disabled="saving || !form.name.trim()" @click="save">
-          {{ saving ? '저장 중…' : (editing ? '저장' : '등록') }}
-        </button>
-      </template>
-    </ModalShell>
   </div>
 </template>
 
@@ -660,8 +471,6 @@ async function remove(t: DocTemplate) {
 }
 .mtab:hover { color: var(--text); }
 .mtab.on { background: var(--accent); color: #fff; }
-.tab-sep { width: 1px; align-self: stretch; background: var(--border); margin: 4px 4px; }
-.tab-cnt { font-size: 11px; opacity: 0.8; }
 
 .layout { display: flex; gap: 14px; align-items: flex-start; }
 .phase-list { width: 190px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -685,17 +494,6 @@ async function remove(t: DocTemplate) {
 .phase.on { border-color: var(--accent); background: rgba(139, 92, 246, 0.1); }
 .phase-name { font-size: 14px; font-weight: 600; }
 .phase-counts { font-size: 12px; color: var(--muted); }
-
-.cat-nav { width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
-.cat {
-  text-align: left; border: 1px solid var(--border); background: var(--panel);
-  border-radius: 8px; padding: 10px 12px; cursor: pointer; color: var(--text);
-  display: flex; justify-content: space-between; align-items: center;
-  font-size: 14px; font-weight: 600; font-family: inherit;
-}
-.cat:hover { background: var(--panel-2); }
-.cat.on { border-color: var(--accent); background: rgba(139, 92, 246, 0.1); }
-.cnt { font-size: 12px; color: var(--muted); font-weight: 500; }
 
 .list-panel { flex: 1; min-width: 0; }
 .panel-head { margin-bottom: 12px; }
@@ -740,20 +538,9 @@ async function remove(t: DocTemplate) {
 .prev-frame { width: 100%; height: 60vh; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
 .prev-img { max-width: 100%; max-height: 60vh; display: block; margin: 0 auto; border-radius: 8px; }
 
-.label { font-size: 12.5px; color: var(--muted); display: block; margin-top: 4px; }
-.req { color: var(--red); }
-.input {
-  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 14px; padding: 8px 10px; outline: none;
-  font-family: inherit; width: 100%; box-sizing: border-box;
-}
-.input:focus { border-color: var(--accent); }
-.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.err { color: var(--red); font-size: 13px; margin-top: 6px; }
-
 @media (max-width: 1100px) {
   .layout { flex-wrap: wrap; }
-  .phase-list, .cat-nav { width: 100%; flex-direction: row; flex-wrap: wrap; }
+  .phase-list { width: 100%; flex-direction: row; flex-wrap: wrap; }
   .list-panel { flex: 1 1 100%; }
 }
 </style>
