@@ -22,7 +22,7 @@ import type {
   CommentEntityType, EntityComment, CommentCreateInput,
   AvailableTransition, TransitionEntity, ProjectProgress, ProjectWbs,
   IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput, MeetingMinuteUpdateInput,
-  ConsortiumPayload, ConsortiumMemberInput,
+  ConsortiumPayload, ConsortiumMemberInput, VrbInfoInput,
   ProjectMemberRef, ProjectMemberDetail, ProjectMemberInput, ProjectMemberAssignment, AppNotification, AppSetting,
   Person, PersonProjectHistory, PersonFilters, InsourcingTransition, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput, ProjectConvertInput,
   BidAgency, BidNoticeFilters, BidNoticeResult, BidNoticeDetail,
@@ -375,6 +375,10 @@ export const dataClient = {
     async getByProject(projectId: number): Promise<VrbInfo | null> {
       if (!apiBase()) return null;
       return apiGet<VrbInfo | null>(`/api/projects/${projectId}/vrb`);
+    },
+    // 0039 — 프로젝트당 1건이라 PUT upsert(행 없으면 생성).
+    save(projectId: number, input: VrbInfoInput): Promise<VrbInfo> {
+      return apiSend<VrbInfo>('PUT', `/api/projects/${projectId}/vrb`, input);
     },
   },
 

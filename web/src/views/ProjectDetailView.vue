@@ -29,6 +29,7 @@ import ActionItemFormModal from '../components/ActionItemFormModal.vue';
 import MeetingMinuteFormModal from '../components/MeetingMinuteFormModal.vue';
 import MeetingDetailPanel from '../components/MeetingDetailPanel.vue';
 import ConsortiumMemberFormModal from '../components/ConsortiumMemberFormModal.vue';
+import VrbFormModal from '../components/VrbFormModal.vue';
 import WbsSchedule from '../components/WbsSchedule.vue';
 import WbsGantt from '../components/WbsGantt.vue';
 import ProjectFormModal from '../components/ProjectFormModal.vue';
@@ -377,6 +378,13 @@ async function loadProgress() {
     console.error('[detail] 진척률 로드 실패:', e);
     progress.value = null;
   }
+}
+
+// 0039 — VRB 심의 정보 수정(프로젝트당 1건, PUT upsert)
+const showVrbForm = ref(false);
+function onVrbSaved(saved: import('../types').VrbInfo) {
+  showVrbForm.value = false;
+  vrb.value = saved;
 }
 
 // 0039 — 컨소시엄 구성원 CRUD. 응답에 목록+합계가 함께 온다.
@@ -929,15 +937,21 @@ watch(() => route.query.panel, applyPanelQuery);
           </table>
         </template>
 
+        <!-- BIDDING: VRB 심의 정보 (0039 — 수정 지원) -->
         <template v-else-if="activeTab === 'vrb'">
-          <div v-if="!vrb" class="card-empty">VRB 정보가 없습니다(미상신).</div>
-          <dl v-else class="meta vrb-meta">
-            <div><dt>상신 상태</dt><dd>{{ vrb.status }}</dd></div>
-            <div><dt>VRB 번호</dt><dd>{{ vrb.vrbNumber || '—' }}</dd></div>
-            <div><dt>상신 예정일</dt><dd>{{ fmtDate(vrb.plannedDate) }}</dd></div>
-            <div><dt>상신일</dt><dd>{{ fmtDate(vrb.submittedDate) }}</dd></div>
-            <div><dt>승인일</dt><dd>{{ fmtDate(vrb.approvedDate) }}</dd></div>
-            <div class="wide"><dt>메모</dt><dd>{{ vrb.memo || '—' }}</dd></div>
+          <div class="tab-toolbar vrb-toolbar">
+            <h3 class="vrb-title">VRB 심의 정보</h3>
+            <button class="btn btn-primary btn-sm" :disabled="!apiMode"
+              :title="apiMode ? '' : '수정은 백엔드 연결 후 활성화'"
+              @click="showVrbForm = true">VRB 정보 수정</button>
+          </div>
+          <dl class="meta vrb-meta">
+            <div><dt>진행 상태</dt><dd class="strong">{{ vrb?.status || '미상신' }}</dd></div>
+            <div><dt>심의번호</dt><dd>{{ vrb?.vrbNumber || '—' }}</dd></div>
+            <div><dt>상신 예정일</dt><dd>{{ fmtDate(vrb?.plannedDate) }}</dd></div>
+            <div><dt>실제 상신일</dt><dd>{{ fmtDate(vrb?.submittedDate) }}</dd></div>
+            <div><dt>승인/반려일</dt><dd>{{ fmtDate(vrb?.approvedDate) }}</dd></div>
+            <div class="wide"><dt>VRB 심의 메모</dt><dd>{{ vrb?.memo || '등록된 메모가 없습니다.' }}</dd></div>
           </dl>
         </template>
 
@@ -1006,6 +1020,11 @@ watch(() => route.query.panel, applyPanelQuery);
           :highlight-comment-id="highlightCommentId" @close="closeMeetingPanel" @changed="onMeetingChanged"
         />
       </SideDrawer>
+
+      <VrbFormModal
+        v-if="showVrbForm" :project-id="projectId" :vrb="vrb"
+        @saved="onVrbSaved" @close="showVrbForm = false"
+      />
 
       <ConsortiumMemberFormModal
         v-if="consortiumForm" :project-id="projectId" :member="consortiumForm.member"
@@ -1247,6 +1266,9 @@ watch(() => route.query.panel, applyPanelQuery);
   border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; margin-left: 6px;
 }
 .tab-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.vrb-toolbar { justify-content: space-between; }
+.vrb-title { font-size: 14px; margin: 0; }
+.vrb-meta .strong { font-weight: 700; }
 
 /* 0039 — 컨소시엄 탭 */
 .grid .num { text-align: right; font-variant-numeric: tabular-nums; }

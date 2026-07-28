@@ -309,6 +309,16 @@ export interface VrbInfo {
   memo: string;
 }
 
+/** 0039 — PUT /api/projects/{id}/vrb 본문(전 필드 선택, upsert). */
+export interface VrbInfoInput {
+  status?: string;
+  vrbNumber?: string | null;
+  plannedDate?: string | null;
+  submittedDate?: string | null;
+  approvedDate?: string | null;
+  memo?: string | null;
+}
+
 // 프로젝트 태스크 (pms_task — 테일러링 전개분. P1-2 제안 태스크 탭)
 export interface Task {
   id: number;                  // task_id
