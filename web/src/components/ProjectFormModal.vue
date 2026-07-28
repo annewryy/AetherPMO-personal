@@ -362,6 +362,7 @@ async function submit() {
         </p>
         <TailoringPicker
           v-else-if="catalogTree.length > 0"
+          :stage="(stage || 'BIDDING') as 'BIDDING' | 'EXECUTION' | 'COMPLETED'"
           :tree="catalogTree"
           :selected="selectedNodeIds"
           :contract-amount="contractAmount"

@@ -35,6 +35,8 @@ public class CatalogAdminService {
     }
 
     private static final List<String> NODE_TYPES = List.of("PHASE", "ACTIVITY", "TASK", "DELIVERABLE");
+    private static final List<String> CATALOG_STAGES = List.of("BIDDING", "EXECUTION");
+
     private static final Set<String> NODE_FIELDS = Set.of(
             "parent_node_id", "node_type", "code", "name", "description", "is_optional",
             "sort_order", "seq_no", "deliverable_category", "stage",
@@ -167,6 +169,14 @@ public class CatalogAdminService {
             Object v = body.get(k);
             if (v != null && !(v instanceof Boolean)) throw ApiException.badRequest(k + "는 boolean 또는 null이어야 합니다.");
             out.put(k, v);
+        }
+        // 0039 — PHASE의 입찰/수행 구분. DB CHECK에만 맡기면 500이 나므로 여기서 400으로 거른다.
+        if (body.containsKey("stage")) {
+            Object v = body.get("stage");
+            if (v != null && !CATALOG_STAGES.contains(str(v))) {
+                throw ApiException.badRequest("stage는 " + String.join("/", CATALOG_STAGES) + " 또는 null이어야 합니다.");
+            }
+            out.put("stage", v);
         }
         if (body.containsKey("methodology")) {
             Object v = body.get("methodology");

@@ -69,6 +69,7 @@ const form = ref({
   sortOrder: 0,
   workflowId: null as number | null,
   isActive: true,
+  stage: null as string | null,   // 0039 — PHASE의 입찰/수행 구분
   // 0029 — 테일러링 표준 필드
   methodology: null as string | null,
   requiredSmall: null as boolean | null,
@@ -96,6 +97,7 @@ function selectNode(n: CatalogNode) {
     sortOrder: n.sortOrder,
     workflowId: n.workflowId,
     isActive: n.isActive,
+    stage: n.stage ?? null,
     methodology: n.methodology ?? null,
     requiredSmall: n.requiredSmall,
     requiredMedium: n.requiredMedium,
@@ -119,6 +121,7 @@ function openCreate(parent: CatalogNode | null) {
     sortOrder: (parent?.children.length ?? roots.value.length) + 1,
     workflowId: null,
     isActive: true,
+    stage: (CHILD_TYPE[parent?.nodeType ?? 'ROOT'] ?? 'PHASE') === 'PHASE' ? 'EXECUTION' : null,
     methodology: parent?.methodology ?? null,
     requiredSmall: null,
     requiredMedium: null,
@@ -132,6 +135,7 @@ function openCreate(parent: CatalogNode | null) {
 function onParentChange() {
   const parent = form.value.parentId != null ? byId.value.get(form.value.parentId) : null;
   form.value.nodeType = CHILD_TYPE[parent?.nodeType ?? 'ROOT'] ?? 'PHASE';
+  form.value.stage = form.value.nodeType === 'PHASE' ? (form.value.stage ?? 'EXECUTION') : null;
 }
 
 function toInput(): CatalogNodeInput {
@@ -144,6 +148,8 @@ function toInput(): CatalogNodeInput {
     sortOrder: form.value.sortOrder,
     workflowId: form.value.workflowId,
     isActive: form.value.isActive,
+    // PHASE에만 의미가 있다 — 하위 노드는 상위 PHASE의 구분을 따른다.
+    stage: form.value.nodeType === 'PHASE' ? form.value.stage : null,
     methodology: form.value.methodology,
     requiredSmall: form.value.requiredSmall,
     requiredMedium: form.value.requiredMedium,
@@ -416,6 +422,13 @@ function onTplSelect(t: { id: number }) {
             <label class="field">
               <span class="label">활성</span>
               <input v-model="form.isActive" type="checkbox" class="check" />
+            </label>
+            <label v-if="form.nodeType === 'PHASE'" class="field">
+              <span class="label">구분</span>
+              <select v-model="form.stage" class="select" title="이 단계가 입찰 단계인지 수행 단계인지">
+                <option value="BIDDING">입찰</option>
+                <option value="EXECUTION">수행</option>
+              </select>
             </label>
             <label class="field">
               <span class="label">방법론</span>

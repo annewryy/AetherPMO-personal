@@ -17,6 +17,11 @@ const props = defineProps<{
   selected: Set<number>;             // 부모 소유 선택 집합
   contractAmount: number | null;     // 규모 판정 입력
   disabled?: boolean;
+  /**
+   * 0039 — 프로젝트 단계(BIDDING·EXECUTION). 주면 그 단계의 PHASE만 노출한다
+   * (입찰 프로젝트에 수행 단계 산출물을 전개하지 않도록). 미지정이면 전부 노출.
+   */
+  stage?: 'BIDDING' | 'EXECUTION' | 'COMPLETED' | null;
 }>();
 
 const emit = defineEmits<{
@@ -27,10 +32,16 @@ const emit = defineEmits<{
 }>();
 
 const bizType = ref('SI');
-const filteredTree = computed(() => filterTreeByBizType(props.tree, bizType.value));
+// 단계 필터 → 유형 필터 순으로 좁힌다. stage 미지정 노드는 '수행'으로 본다(V36 백필 기준).
+const stageScoped = computed(() => {
+  const want = props.stage === 'BIDDING' ? 'BIDDING' : props.stage ? 'EXECUTION' : null;
+  if (!want) return props.tree;
+  return props.tree.filter((n) => (n.stage ?? 'EXECUTION') === want);
+});
+const filteredTree = computed(() => filterTreeByBizType(stageScoped.value, bizType.value));
 
 // 유형 변경 시 필터 밖 노드는 선택에서 제거(전개 대상 오염 방지).
-watch(bizType, () => {
+watch([bizType, () => props.stage], () => {
   const allowed = new Set(flattenNodes(filteredTree.value).map((n) => n.id));
   const stale = [...props.selected].filter((id) => !allowed.has(id));
   if (stale.length) emit('remove', stale);

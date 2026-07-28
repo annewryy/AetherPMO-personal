@@ -523,6 +523,8 @@ export interface CatalogNodeInput {
   sortOrder: number;
   workflowId: number | null;
   isActive: boolean;
+  // 0039 — PHASE의 입찰/수행 구분(BIDDING·EXECUTION). PHASE 외 노드는 상위를 따르므로 null.
+  stage?: string | null;
   // 0029 — 테일러링 표준 필드(관리자 편집)
   methodology?: string | null;
   requiredSmall?: boolean | null;

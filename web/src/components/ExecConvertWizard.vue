@@ -178,6 +178,7 @@ async function submit() {
           <p v-else-if="catalogError" class="tl-state err">불러오기 실패: {{ catalogError }}</p>
           <TailoringPicker
             v-else
+            :stage="'EXECUTION'"
             :tree="catalogTree"
             :selected="selectedNodeIds"
             :contract-amount="form.contractAmount"

@@ -249,6 +249,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
           </p>
           <TailoringPicker
             v-else-if="catalogTree.length > 0"
+            :stage="'BIDDING'"
             :tree="catalogTree"
             :selected="selectedNodeIds"
             :contract-amount="form.contractAmount"
