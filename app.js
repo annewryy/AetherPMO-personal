@@ -11227,6 +11227,16 @@ class AetherPMO {
         return raw ? Number(raw) : 0;
     }
 
+    setFieldValue(id, value) {
+        const element = document.getElementById(id);
+        if (!element) {
+            console.warn(`[DOM Safe Guard] Missing element: #${id}`);
+            return;
+        }
+        element.value = (value !== null && value !== undefined) ? value : '';
+    }
+
+
     translateParticipationType(type) {
         if (!type) return '미지정';
         const t = String(type).toUpperCase();
@@ -11483,47 +11493,48 @@ class AetherPMO {
         document.getElementById('project-modal').classList.add('open');
     }
 
-    openEditProjectModal(projectId) {
+        openEditProjectModal(projectId) {
         const project = this.state.projects.find(p => p.id === projectId);
         if (!project) return;
 
-        document.getElementById('project-modal-title').textContent = '사업 정보 수정';
-        document.getElementById('project-id-field').value = project.id;
-        document.getElementById('project-name').value = project.name;
-        document.getElementById('project-desc').value = project.desc || '';
+        // Step 1: Basic Fields Population (Null-Safe)
+        const titleElem = document.getElementById('project-modal-title');
+        if (titleElem) titleElem.textContent = '사업 정보 수정';
+
+        this.setFieldValue('project-id-field', project.id);
+        this.setFieldValue('project-name', project.name);
+        this.setFieldValue('project-desc', project.desc);
         
         const deptValue = project.dept || '개발팀';
         const defaultDepts = ['개발팀', '기획팀', '디자인팀', '품질관리팀'];
         if (defaultDepts.includes(deptValue)) {
-            document.getElementById('project-dept').value = deptValue;
-            document.getElementById('project-dept-custom').style.display = 'none';
-            document.getElementById('project-dept-custom').value = '';
+            this.setFieldValue('project-dept', deptValue);
+            const deptCustom = document.getElementById('project-dept-custom');
+            if (deptCustom) { deptCustom.style.display = 'none'; deptCustom.value = ''; }
         } else {
-            document.getElementById('project-dept').value = 'custom';
-            document.getElementById('project-dept-custom').style.display = 'block';
-            document.getElementById('project-dept-custom').value = deptValue;
+            this.setFieldValue('project-dept', 'custom');
+            const deptCustom = document.getElementById('project-dept-custom');
+            if (deptCustom) { deptCustom.style.display = 'block'; deptCustom.value = deptValue; }
         }
         
         this.populateProjectManagerSelect(project.managerId || project.manager);
-        document.getElementById('project-customer').value = project.customer || '';
-        document.getElementById('project-budget').value = project.budget ? this.formatNumberWithCommas(project.budget) : '';
-        document.getElementById('project-start-date').value = project.startDate;
-        document.getElementById('project-end-date').value = project.endDate;
-        document.getElementById('project-inspection-date').value = project.inspectionDate || '';
-        document.getElementById('project-status').value = project.status;
-        document.getElementById('project-progress').value = project.progress;
-        // 투입 인력 수 = 해당 프로젝트의 is_active 참여인력 자동 계산
+        this.setFieldValue('project-customer', project.customer || project.customerName);
+        this.setFieldValue('project-budget', project.budget ? this.formatNumberWithCommas(project.budget) : '');
+        this.setFieldValue('project-start-date', project.startDate);
+        this.setFieldValue('project-end-date', project.endDate);
+        this.setFieldValue('project-inspection-date', project.inspectionDate);
+        this.setFieldValue('project-status', project.status === 'Completed' ? 'Completed' : 'In Progress');
+        this.setFieldValue('project-progress', project.progress ?? 0);
+
         const activeMemberCount = (this.state.projectMembers || []).filter(
             m => m.projectId === project.id && m.isActive !== false
         ).length;
-        document.getElementById('project-resources').value = activeMemberCount;
-        document.getElementById('project-milestones').value = project.milestones || '';
-        document.getElementById('project-remarks').value = project.remarks || '';
-
-        // Populate new fields
-        const currBizType = project.businessType || project.business_type || project.bizType || '공공 SI';
-        document.getElementById('project-code').value = project.projectCode || '';
+        this.setFieldValue('project-resources', activeMemberCount);
+        this.setFieldValue('project-milestones', project.milestones);
+        this.setFieldValue('project-remarks', project.remarks);
+        this.setFieldValue('project-code', project.projectCode);
         
+        const currBizType = project.businessType || project.business_type || project.bizType || '공공 SI';
         const standardTypes = ['공공 SI', '유지관리', 'ISP', '컨설팅', 'AI'];
         const bizSelect = document.getElementById('project-biz-type-select');
         const bizCustom = document.getElementById('project-biz-type-custom');
@@ -11537,52 +11548,45 @@ class AetherPMO {
             }
         }
 
-        document.getElementById('project-contract-date').value = project.contractDate || '';
-        document.getElementById('project-location').value = project.location || '';
-        document.getElementById('project-related-biz').value = project.relatedBiz || '';
-        document.getElementById('project-risk-level').value = project.riskLevel || '보통';
+        this.setFieldValue('project-contract-date', project.contractDate || project.startDate);
+        this.setFieldValue('project-location', project.location);
+        this.setFieldValue('project-related-biz', project.relatedBiz);
+        this.setFieldValue('project-risk-level', project.riskLevel || '보통');
 
-        // Populate Contract, Consortium, and Subcontract fields
+        // Step 2: Set Participation Type & Toggle Conditional Sections
         const partType = project.participationType || project.participation_type || 'PRIME_CONTRACTOR';
-        document.getElementById('project-participation-type').value = partType;
-        document.getElementById('project-prime-contractor-name').value = project.primeContractorName || project.prime_contractor_name || '';
-        document.getElementById('project-total-contract-amount').value = project.totalContractAmount ? this.formatNumberWithCommas(project.totalContractAmount) : '';
-        document.getElementById('project-company-share-rate').value = (project.companyShareRate !== undefined && project.companyShareRate !== null) ? project.companyShareRate : '';
+        this.setFieldValue('project-participation-type', partType);
+        
+        // Step 3: Handle Conditional Section Visibility
+        this.handleParticipationTypeChange(partType);
+
+        // Step 4: Set Contract, Subcontract, and Bidding Fields (Null-Safe)
+        this.setFieldValue('project-prime-contractor-name', project.primeContractorName || project.prime_contractor_name);
+        this.setFieldValue('project-total-contract-amount', project.totalContractAmount ? this.formatNumberWithCommas(project.totalContractAmount) : '');
+        this.setFieldValue('project-company-share-rate', (project.companyShareRate !== undefined && project.companyShareRate !== null) ? project.companyShareRate : '');
         
         const compAmount = project.companyContractAmount || project.company_contract_amount || project.contract_amount || project.budget || 0;
-        document.getElementById('project-company-contract-amount').value = compAmount ? this.formatNumberWithCommas(compAmount) : '';
+        this.setFieldValue('project-company-contract-amount', compAmount ? this.formatNumberWithCommas(compAmount) : '');
 
-        document.getElementById('project-original-project-name').value = project.originalProjectName || project.original_project_name || '';
-        document.getElementById('project-subcontract-project-name').value = project.subcontractProjectName || project.subcontract_project_name || '';
-        document.getElementById('project-subcontract-prime-contractor').value = project.subcontractPrimeContractor || project.prime_contractor_name || '';
-        document.getElementById('project-subcontract-client-name').value = project.subcontractClientName || project.subcontract_client_name || '';
-        document.getElementById('project-original-contract-amount').value = project.originalContractAmount ? this.formatNumberWithCommas(project.originalContractAmount) : '';
-        document.getElementById('project-original-project-code').value = project.originalProjectCode || project.original_project_code || '';
+        this.setFieldValue('project-original-project-name', project.originalProjectName || project.original_project_name);
+        this.setFieldValue('project-subcontract-project-name', project.subcontractProjectName || project.subcontract_project_name);
+        this.setFieldValue('project-subcontract-prime-contractor', project.subcontractPrimeContractor || project.prime_contractor_name);
+        this.setFieldValue('project-subcontract-client-name', project.subcontractClientName || project.subcontract_client_name);
+        this.setFieldValue('project-original-contract-amount', project.originalContractAmount ? this.formatNumberWithCommas(project.originalContractAmount) : '');
+        this.setFieldValue('project-original-project-code', project.originalProjectCode || project.original_project_code);
 
-        // Load consortium members for modal
-        let loadedMembers = project.consortiumMembers;
-        if (!loadedMembers || loadedMembers.length === 0) {
-            loadedMembers = (this.state.consortiumMembers || []).filter(c => c.projectId === project.id);
-        }
-        this.modalConsortiumMembers = JSON.parse(JSON.stringify(loadedMembers || []));
-        
-        this.handleParticipationTypeChange(partType);
-        this.checkManualContractAmount();
-        this.renderModalConsortiumTable();
+        // Populate bid status & bidding fields
+        this.setFieldValue('project-bid-status', this.normalizeBiddingStatus(project));
+        const bidGroup = document.getElementById('project-bid-status-group');
+        if (bidGroup) bidGroup.style.display = (project.status === 'Bidding' || project.is_bidding_project) ? 'block' : 'none';
 
-        // Populate bid status fields
-        document.getElementById('project-bid-status').value = this.normalizeBiddingStatus(project);
-        document.getElementById('project-bid-status-group').style.display = (project.status === 'Bidding' || project.is_bidding_project) ? 'block' : 'none';
-
-        // Populate bidding fields
         const isBidding = project.status === 'Bidding';
         const biddingFields = document.getElementById('project-bidding-fields');
-        if (biddingFields) {
-            biddingFields.style.display = isBidding ? 'block' : 'none';
-        }
-        document.getElementById('project-bid-number').value = project.bidNumber || '';
-        document.getElementById('project-customer-name').value = project.customerName || '';
-        document.getElementById('project-budget-bidding').value = project.projectBudget ? this.formatNumberWithCommas(project.projectBudget) : '';
+        if (biddingFields) biddingFields.style.display = isBidding ? 'block' : 'none';
+
+        this.setFieldValue('project-bid-number', project.bidNumber);
+        this.setFieldValue('project-customer-name', project.customerName);
+        this.setFieldValue('project-budget-bidding', project.projectBudget ? this.formatNumberWithCommas(project.projectBudget) : '');
         
         const biddingSelect = document.getElementById('project-business-type');
         const biddingCustom = document.getElementById('project-business-type-custom');
@@ -11595,22 +11599,33 @@ class AetherPMO {
                 if (biddingCustom) { biddingCustom.style.display = 'block'; biddingCustom.value = currBizType; }
             }
         }
-        document.getElementById('project-sales-owner').value = project.salesOwner || '';
-        document.getElementById('project-proposal-owner').value = project.proposalOwner || '';
-        document.getElementById('project-proposal-pm').value = project.proposalPm || '';
-        document.getElementById('project-business-manager').value = project.businessManager || '';
-        document.getElementById('project-contract-owner').value = project.contractOwner || '';
-        document.getElementById('project-legal-owner').value = project.legalOwner || '';
+        this.setFieldValue('project-sales-owner', project.salesOwner);
+        this.setFieldValue('project-proposal-owner', project.proposalOwner);
+        this.setFieldValue('project-proposal-pm', project.proposalPm);
+        this.setFieldValue('project-business-manager', project.businessManager);
+        this.setFieldValue('project-contract-owner', project.contractOwner);
+        this.setFieldValue('project-legal-owner', project.legalOwner);
 
         // Populate WBS stage inputs
         const stageIds = ['initiation', 'analysis', 'design', 'bpr', 'isp', 'closing'];
         stageIds.forEach(sid => {
             const stage = (project.wbs && project.wbs.stages) ? project.wbs.stages.find(s => s.id === sid) : null;
-            document.getElementById(`wbs-progress-${sid}`).value = stage ? stage.progress : 0;
-            document.getElementById(`wbs-weight-${sid}`).value = stage ? stage.weight : 0;
+            this.setFieldValue(`wbs-progress-${sid}`, stage ? stage.progress : 0);
+            this.setFieldValue(`wbs-weight-${sid}`, stage ? stage.weight : 0);
         });
 
-        document.getElementById('project-modal').classList.add('open');
+        // Step 5: Render Consortium Table & Check Manual Contract Amount
+        let loadedMembers = project.consortiumMembers;
+        if (!loadedMembers || loadedMembers.length === 0) {
+            loadedMembers = (this.state.consortiumMembers || []).filter(c => c.projectId === project.id);
+        }
+        this.modalConsortiumMembers = JSON.parse(JSON.stringify(loadedMembers || []));
+        
+        this.checkManualContractAmount();
+        this.renderModalConsortiumTable();
+
+        const modalElem = document.getElementById('project-modal');
+        if (modalElem) modalElem.classList.add('open');
     }
 
     closeProjectModal() {
