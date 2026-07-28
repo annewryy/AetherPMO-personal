@@ -21,6 +21,11 @@ function openTask(node: WbsNode) {
   router.push(`/tasks/${node.taskId}`);
 }
 
+// 0039 — WBS 산출물 행(4번째 레벨) 클릭 → 산출물 상세(조회·수정·상태 전이·코멘트).
+function openDeliverable(deliverableId: number) {
+  router.push(`/deliverables/${deliverableId}`);
+}
+
 // ---- 트리 평탄화(표·간트 공통 행) ------------------------------------------------
 interface FlatRow {
   node: WbsNode;
@@ -266,7 +271,12 @@ function rateText(v: number | null): string {
         <template v-if="row.deliverable">
           <div class="col-tree" :style="{ paddingLeft: 8 + row.depth * 20 + 'px' }">
             <span class="type-tag ty-DELIVERABLE">산출물</span>
-            <span class="node-name" :title="row.deliverable.name">{{ row.deliverable.name }}</span>
+            <span
+              class="node-name task-link" :title="row.deliverable.name + ' — 상세 열기'"
+              role="link" tabindex="0"
+              @click="openDeliverable(row.deliverable.deliverableId)"
+              @keydown.enter="openDeliverable(row.deliverable.deliverableId)"
+            >{{ row.deliverable.name }}</span>
           </div>
           <div class="col-assignee">{{ row.deliverable.assigneeName || '—' }}</div>
           <div class="col-range">{{ row.deliverable.dueDate ? shortDate(row.deliverable.dueDate) + ' 마감' : '—' }}</div>
@@ -422,7 +432,7 @@ function rateText(v: number | null): string {
 /* 0039 — 4번째 레벨(산출물) */
 .ty-DELIVERABLE { color: var(--yellow); background: rgba(251, 191, 36, 0.12); }
 .wbs-row.lvl-3 { background: transparent; font-size: 13px; }
-.wbs-row.lvl-3 .node-name { color: var(--muted); }
+.wbs-row.lvl-3 .node-name:not(.task-link) { color: var(--muted); }
 .dv-APPROVED { color: var(--green); background: rgba(52, 211, 153, 0.12); }
 .dv-SUBMITTED, .dv-IN_REVIEW { color: var(--blue); background: rgba(59, 130, 246, 0.12); }
 .dv-REJECTED { color: var(--red); background: rgba(239, 68, 68, 0.12); }
