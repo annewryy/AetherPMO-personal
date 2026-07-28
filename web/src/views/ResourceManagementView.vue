@@ -12,7 +12,7 @@ import {
 import type { Person, PersonFilters, InsourcingTransition } from '../types';
 import PersonDetailPanel from '../components/PersonDetailPanel.vue';
 import PersonFormModal from '../components/PersonFormModal.vue';
-import OrgDeptTree from '../components/OrgDeptTree.vue';
+import PersonNavigator, { type PersonScope } from '../components/PersonNavigator.vue';
 import { currentUser } from '../lib/auth';
 import PageSizeSelect from '../components/PageSizeSelect.vue';
 import Pager from '../components/Pager.vue';
@@ -49,8 +49,12 @@ const deptFilter = ref<string[]>([]);
 const includeInactive = ref(false);
 // 0038 — 로그인 ID 컬럼은 시스템 관리자에게만
 const isAdmin = computed(() => currentUser.value?.role === 'SYS_ADMIN');
-function onDeptSelect(v: { deptCode: string | null; deptNames: string[] }) {
-  deptFilter.value = v.deptNames;
+// 0039 — 좌측 네비: 내부(부서) · 외부(회사) 어느 쪽을 골라도 인력 마스터 목록을 좁힌다.
+//   부서와 회사는 서로 배타 — 하나를 고르면 다른 축은 비운다.
+function onScopeSelect(v: PersonScope) {
+  if (v.kind === 'all') { deptFilter.value = []; company.value = ''; }
+  else if (v.kind === 'dept') { deptFilter.value = v.deptNames; company.value = ''; }
+  else { deptFilter.value = []; company.value = v.companyName; }
   void search();
 }
 
@@ -106,6 +110,7 @@ function reset() {
   selectedTypes.value = [];
   matchMode.value = 'or';
   name.value = company.value = project.value = location.value = customer.value = '';
+  deptFilter.value = [];
   void search();
 }
 
@@ -177,10 +182,10 @@ onMounted(() => {
     </div>
 
     <div class="body-cols">
-      <!-- 0038 — 좌측 조직도 트리(기존 조직도 재사용): 부서 선택 → 하위 포함 인력 조회 -->
+      <!-- 0039 — 좌측 네비: 내부(부서 트리) + 외부(회사별). 전부 인력 마스터 기준 -->
       <aside class="org-side">
-        <div class="org-side-title">조직도</div>
-        <OrgDeptTree @select="onDeptSelect" />
+        <div class="org-side-title">인력 구분</div>
+        <PersonNavigator @select="onScopeSelect" />
       </aside>
       <div class="body-main">
     <!-- 인력구분 필터 (복수선택 + AND/OR) -->

@@ -1,14 +1,15 @@
 <script setup lang="ts">
 // 0039 — 인력 마스터 신규 등록/수정(인력관리 화면).
-//   참여인력 등록 폼(ProjectMemberFormModal)의 구성요소를 그대로 재사용한다:
-//   조직도 선택(OrgPickerModal) · 소속회사 select + 신규 회사 인라인 등록 · 인력구분 어휘.
+//   참여인력 등록 폼(ProjectMemberFormModal)의 구성요소를 재사용한다:
+//   소속회사 select + 신규 회사 인라인 등록 · 인력구분 어휘.
 //   차이점: 프로젝트 소속(참여역할·PM 플래그)이 없고, 인력 마스터 필드(연락처·이메일·재직상태)가 있다.
+//   '조직도에서 선택'은 두지 않는다 — 내부 인력은 아마란스 동기화로 이미 전원 마스터에 있고
+//   (사번 중복으로 저장도 거부됨), 외부 인력도 조직도 가지 자체가 기등록 마스터라 '신규 등록'과 맞지 않는다.
 import { ref, computed, onMounted } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import { EMPLOYMENT_TYPES } from '../lib/personLabels';
-import type { Company, EmploymentType, OrgPick, Person, PersonInput } from '../types';
+import type { Company, EmploymentType, Person, PersonInput } from '../types';
 import ModalShell from './ModalShell.vue';
-import OrgPickerModal from './OrgPickerModal.vue';
 
 const props = defineProps<{ person?: Person | null }>();  // 있으면 수정 모드
 const emit = defineEmits<{ (e: 'saved', person: Person): void; (e: 'close'): void }>();
@@ -34,10 +35,6 @@ const companySelect = ref<number | '' | '__new__'>(props.person?.companyId ?? ''
 const newCompanyName = ref('');
 const companyRequired = computed(() => OUTSOURCED.has(String(employmentType.value)));
 
-// 조직도 선택(내부 인력) — 참여인력 폼과 동일한 재사용 모달.
-const showOrgPicker = ref(false);
-const picked = ref<{ name: string; sub: string } | null>(null);
-
 onMounted(async () => {
   try {
     companies.value = (await dataClient.companies.list()).filter((c) => c.isActive !== false);
@@ -45,28 +42,6 @@ onMounted(async () => {
     console.error('[person-form] 회사 목록 로드 실패:', e);
   }
 });
-
-function onOrgPick(p: OrgPick) {
-  showOrgPicker.value = false;
-  if (p.source === 'NEW_EXTERNAL') { source.value = 'EXTERNAL'; picked.value = null; return; }
-  source.value = p.source === 'INTERNAL' ? 'INTERNAL' : 'EXTERNAL';
-  name.value = p.name ?? '';
-  if (p.amaranthEmpNo) amaranthEmpNo.value = p.amaranthEmpNo;
-  if (p.department) department.value = p.department;
-  if (p.position) position.value = p.position;
-  if (p.employmentType) employmentType.value = p.employmentType;
-  if (p.companyName) {
-    const hit = companies.value.find((c) => c.name === p.companyName);
-    if (hit) companySelect.value = hit.id;
-    else { companySelect.value = '__new__'; newCompanyName.value = p.companyName; }
-  }
-  picked.value = {
-    name: p.name ?? '',
-    sub: p.source === 'INTERNAL'
-      ? [p.department, p.position].filter(Boolean).join(' · ')
-      : [p.companyName, p.position].filter(Boolean).join(' · '),
-  };
-}
 
 async function submit() {
   if (!name.value.trim()) { error.value = '성명은 필수입니다.'; return; }
@@ -126,15 +101,7 @@ async function submit() {
 <template>
   <ModalShell :title="isEdit ? '인력 수정' : '인력 신규 등록'" @close="emit('close')">
     <label class="label">성명 <span class="req">*</span></label>
-    <div v-if="picked" class="picked">
-      <span class="picked-nm">{{ name }}</span>
-      <span class="picked-sub">{{ picked.sub }}</span>
-      <button class="btn-link" type="button" :disabled="submitting" @click="picked = null">다시 선택</button>
-    </div>
-    <div v-else class="name-row">
-      <input v-model="name" class="input name-in" type="text" placeholder="성명" :disabled="submitting" />
-      <button class="btn-outline" type="button" :disabled="submitting" @click="showOrgPicker = true">조직도에서 선택</button>
-    </div>
+    <input v-model="name" class="input" type="text" placeholder="성명" :disabled="submitting" />
 
     <div class="row2">
       <div>
@@ -145,7 +112,7 @@ async function submit() {
         </select>
       </div>
       <div>
-        <label class="label">사번 <span class="hint">(내부 인력 식별 키)</span></label>
+        <label class="label">사번 <span class="hint">(내부 인력 식별 키 — 보통 비움)</span></label>
         <input v-model="amaranthEmpNo" class="input" type="text" placeholder="사번 (선택)" :disabled="submitting" />
       </div>
     </div>
@@ -208,7 +175,6 @@ async function submit() {
     </template>
   </ModalShell>
 
-  <OrgPickerModal v-if="showOrgPicker" @select="onOrgPick" @close="showOrgPicker = false" />
 </template>
 
 <style scoped>
@@ -223,24 +189,6 @@ async function submit() {
 .input:focus { border-color: var(--accent); }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .row2 > div { display: flex; flex-direction: column; gap: 4px; }
-.name-row { display: flex; gap: 8px; align-items: center; }
-.name-in { flex: 1; }
-.btn-outline {
-  flex-shrink: 0; border: 1px solid var(--accent); background: transparent; color: var(--accent);
-  font-size: 13.5px; font-weight: 600; padding: 8px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap;
-}
-.btn-outline:hover:not(:disabled) { background: rgba(99, 102, 241, 0.12); }
-.btn-outline:disabled { opacity: 0.5; cursor: default; }
-.picked {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; background: var(--panel);
-}
-.picked-nm { font-size: 14px; font-weight: 700; }
-.picked-sub { font-size: 13px; color: var(--muted); flex: 1; }
-.btn-link {
-  border: 0; background: transparent; color: var(--accent);
-  font-size: 13px; font-weight: 600; cursor: pointer; padding: 2px 4px;
-}
 .hint-line { font-size: 12.5px; color: var(--muted); margin: 4px 0 0; }
 .new-company { margin-top: 6px; }
 .err { color: var(--red); font-size: 13px; }
