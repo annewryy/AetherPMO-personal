@@ -9177,6 +9177,14 @@ class AetherPMO {
             this.renderConsortiumTab();
         } else if (tabId === 'vrb') {
             this.renderVrbTab();
+        } else if (tabId === 'bid-readiness') {
+            this.renderBidReadinessTab(this.activeProjectId);
+        } else if (tabId === 'bidding-tasks') {
+            this.renderBiddingTasksTab(this.activeProjectId);
+        } else if (tabId === 'bidding-wbs') {
+            this.renderBiddingWbsTab(this.activeProjectId);
+        } else if (tabId === 'bidding-gantt') {
+            this.renderBiddingGanttTab(this.activeProjectId);
         } else if (tabId === 'methodology') {
             this.renderProjectDetailMethodology(this.activeProjectId);
         }
@@ -10243,13 +10251,13 @@ class AetherPMO {
         document.querySelectorAll('.detail-tab-btn').forEach(btn => {
             const tab = btn.getAttribute('data-tab');
             if (isBidding) {
-                if (tab === 'overview' || tab === 'artifacts' || tab === 'consortium' || tab === 'vrb') {
+                if (tab === 'overview' || tab === 'bidding-tasks' || tab === 'artifacts' || tab === 'bid-readiness' || tab === 'bidding-wbs' || tab === 'bidding-gantt' || tab === 'consortium' || tab === 'vrb') {
                     btn.style.display = 'inline-block';
                 } else {
                     btn.style.display = 'none';
                 }
             } else {
-                if (tab === 'consortium' || tab === 'vrb') {
+                if (tab === 'consortium' || tab === 'vrb' || tab === 'bid-readiness' || tab === 'bidding-tasks' || tab === 'bidding-wbs' || tab === 'bidding-gantt') {
                     btn.style.display = 'none';
                 } else {
                     btn.style.display = 'inline-block';
@@ -11226,6 +11234,202 @@ class AetherPMO {
         const raw = String(val).replace(/[^0-9]/g, '');
         return raw ? Number(raw) : 0;
     }
+
+    /* ==========================================================================
+       AETHER PMO BID READINESS CENTER (입찰 준비센터) MODULE
+       ========================================================================== */
+    getBidReadinessMasterItems() {
+        return [
+            // ① 회사 공통 증빙 (16개)
+            { key: 'BUSINESS_REGISTRATION', category: 'company', name: '사업자등록증', req: true, expiryDays: 365 },
+            { key: 'CORPORATE_REGISTRY', category: 'company', name: '법인등기부등본', req: true, expiryDays: 90 },
+            { key: 'CORPORATE_SEAL_CERTIFICATE', category: 'company', name: '법인인감증명서', req: true, expiryDays: 90 },
+            { key: 'PERSONAL_SEAL_DEED', category: 'company', name: '사용인감계', req: true, expiryDays: 180 },
+            { key: 'BID_REGISTRATION_CERT', category: 'company', name: '경쟁입찰참가자격등록증', req: true, expiryDays: 365 },
+            { key: 'SOFTWARE_BIZ_CERT', category: 'company', name: '소프트웨어사업자 일반현황 관리확인서', req: true, expiryDays: 365 },
+            { key: 'SMB_CERTIFICATE', category: 'company', name: '중소기업확인서', req: true, expiryDays: 365 },
+            { key: 'DIRECT_PRODUCTION_CERT', category: 'company', name: '직접생산확인증명서', req: false, expiryDays: 365 }, // 조건부 N/A 예시
+            { key: 'FINANCIAL_STATEMENT', category: 'company', name: '표준재무제표증명', req: true, expiryDays: 365 },
+            { key: 'CREDIT_RATING_CERT', category: 'company', name: '기업신용평가등급확인서', req: true, expiryDays: 15 }, // 만료예정 D-15 예시
+            { key: 'NATIONAL_TAX_CERT', category: 'company', name: '국세납세증명서', req: true, expiryDays: 30 },
+            { key: 'LOCAL_TAX_CERT', category: 'company', name: '지방세납세증명서', req: true, expiryDays: 30 },
+            { key: 'PERFORMANCE_CERT', category: 'company', name: '실적증명서', req: true, expiryDays: 365 },
+            { key: 'BID_PLEDGE', category: 'company', name: '입찰참여서약서', req: true, expiryDays: 365 },
+            { key: 'CONSORTIUM_AGREEMENT', category: 'company', name: '공동수급협정서', req: false, expiryDays: 365 }, // 조건부 N/A 예시
+            { key: 'PARTICIPATION_PLEDGE', category: 'company', name: '참여확약서', req: true, expiryDays: 365 },
+
+            // ② 투입인력 증빙 (5개)
+            { key: 'EMPLOYMENT_CERTIFICATE', category: 'personnel', name: '재직증명서', req: true, expiryDays: 30 },
+            { key: 'CAREER_CERTIFICATE', category: 'personnel', name: '경력증명서', req: true, expiryDays: 365 },
+            { key: 'LICENSE_COPY', category: 'personnel', name: '자격증 사본', req: true, expiryDays: 365 },
+            { key: 'HEALTH_INSURANCE_CERT', category: 'personnel', name: '건강보험자격득실확인서', req: true, expiryDays: 30 },
+            { key: 'FOUR_INSURANCES_LIST', category: 'personnel', name: '4대보험 가입자명부', req: true, expiryDays: 30 },
+
+            // ③ 제안서류 (4개)
+            { key: 'QUALITATIVE_PROPOSAL', category: 'proposal', name: '정성제안서', req: true, expiryDays: 365 },
+            { key: 'QUANTITATIVE_PROPOSAL', category: 'proposal', name: '정량제안서', req: true, expiryDays: 365 },
+            { key: 'PRICE_BID', category: 'proposal', name: '가격입찰서', req: true, expiryDays: 365 },
+            { key: 'PRESENTATION_SLIDES', category: 'proposal', name: '발표자료', req: true, expiryDays: 365 },
+
+            // ④ 최종 확인사항 (6개 체크리스트)
+            { key: 'CHECK_VRB_APPROVAL', category: 'checklist', name: 'VRB 상신 및 승인 완료 여부', req: true },
+            { key: 'CHECK_CONSORTIUM_SHARE', category: 'checklist', name: '공동수급 지분율 및 협약서 확인', req: false }, // 조건부 N/A 예시
+            { key: 'CHECK_PARTICIPATION_RATE', category: 'checklist', name: '투입인력 참여율(M/M) 확인', req: true },
+            { key: 'CHECK_PERFORMANCE_APPLIED', category: 'checklist', name: '유사 사업 수행실적 확인', req: true },
+            { key: 'CHECK_DOC_STAMPED', category: 'checklist', name: '제출서류 법인인감/사용인감 날인 확인', req: true },
+            { key: 'CHECK_SUBMISSION_DEADLINE', category: 'checklist', name: '제출기한 및 제출처 최종 확인', req: true }
+        ];
+    }
+
+    initBidReadinessState(projectId) {
+        if (!this.state.bidReadinessMap) this.state.bidReadinessMap = {};
+        if (!this.state.bidReadinessMap[projectId]) {
+            const master = this.getBidReadinessMasterItems();
+            const project = this.state.projects?.find(p => p.id === projectId);
+            const isConsortium = project && (project.participationType === 'CONSORTIUM_MEMBER' || project.consortiumMembers?.length > 1);
+
+            const itemStates = {};
+            master.forEach(m => {
+                let progressState = 'COMPLETED';
+                let validityState = 'NORMAL';
+                let assignee = 'PMO';
+
+                // Demo Default State Configuration (Exact 23 Completed, 3 N/A, 5 Incomplete = 82% Readiness)
+                if (m.key === 'DIRECT_PRODUCTION_CERT' || m.key === 'CONSORTIUM_AGREEMENT' || m.key === 'CHECK_CONSORTIUM_SHARE') {
+                    if (!isConsortium && m.key !== 'DIRECT_PRODUCTION_CERT') {
+                        progressState = 'NOT_APPLICABLE';
+                    } else if (m.key === 'DIRECT_PRODUCTION_CERT') {
+                        progressState = 'NOT_APPLICABLE';
+                    }
+                }
+
+                if (m.category === 'company') assignee = 'PMO';
+                if (m.category === 'personnel') assignee = '제안PM';
+                if (m.category === 'proposal') assignee = '제안전략팀';
+                if (m.category === 'checklist') assignee = 'PM/PMO';
+
+                // Specific Demo State Mapping
+                if (m.key === 'LOCAL_TAX_CERT') progressState = 'NOT_STARTED'; // 🔴 미등록
+                if (m.key === 'CREDIT_RATING_CERT') { progressState = 'UNDER_REVIEW'; validityState = 'EXPIRING_SOON'; } // ⚠ 만료예정 D-15
+                if (m.key === 'PRICE_BID') progressState = 'IN_PROGRESS'; // 🟡 작성중
+                if (m.key === 'PRESENTATION_SLIDES') progressState = 'UNDER_REVIEW'; // 🟡 검토중
+                if (m.key === 'CHECK_DOC_STAMPED') progressState = 'IN_PROGRESS'; // 🟡 미완료 날인
+
+                itemStates[m.key] = {
+                    key: m.key,
+                    progressState: progressState,
+                    validityState: validityState,
+                    assignee: assignee,
+                    note: ''
+                };
+            });
+
+            this.state.bidReadinessMap[projectId] = itemStates;
+        }
+        return this.state.bidReadinessMap[projectId];
+    }
+
+    calculateBidReadinessRate(projectId) {
+        const master = this.getBidReadinessMasterItems();
+        const readinessData = this.initBidReadinessState(projectId);
+
+        let totalCount = master.length; // 31
+        let notApplicableCount = 0;
+        let completedCount = 0;
+
+        master.forEach(m => {
+            const item = readinessData[m.key] || {};
+            const state = item.progressState || 'NOT_STARTED';
+
+            if (state === 'NOT_APPLICABLE') {
+                notApplicableCount++;
+            } else if (state === 'COMPLETED') {
+                completedCount++;
+            }
+        });
+
+        const applicableCount = totalCount - notApplicableCount; // e.g. 31 - 3 = 28
+        const incompleteCount = applicableCount - completedCount; // e.g. 28 - 23 = 5
+        const rate = applicableCount > 0 ? Math.round((completedCount / applicableCount) * 100) : 0; // 23/28 = 82%
+
+        return {
+            rate: rate,
+            completedCount: completedCount,
+            applicableCount: applicableCount,
+            notApplicableCount: notApplicableCount,
+            incompleteCount: incompleteCount,
+            totalCount: totalCount
+        };
+    }
+
+    generateReadinessAdvisorAlerts(projectId) {
+        const master = this.getBidReadinessMasterItems();
+        const readinessData = this.initBidReadinessState(projectId);
+        const artifacts = (this.state.artifacts || []).filter(a => a.projectId === projectId);
+        const project = this.state.projects?.find(p => p.id === projectId);
+
+        const alerts = [];
+
+        // Check missing required company docs
+        master.filter(m => m.category === 'company').forEach(m => {
+            const st = readinessData[m.key]?.progressState;
+            const hasFile = artifacts.some(a => a.documentTypeKey === m.key || a.category === m.key);
+            if (st === 'NOT_STARTED' && !hasFile) {
+                alerts.push({ type: 'danger', text: `${m.name}가(이) 아직 등록되지 않았습니다.` });
+            } else if (readinessData[m.key]?.validityState === 'EXPIRING_SOON') {
+                alerts.push({ type: 'warning', text: `${m.name}의 유효기간(D-15) 확인 및 재발급 준비가 필요합니다.` });
+            }
+        });
+
+        // Check proposal docs
+        const slidesState = readinessData['PRESENTATION_SLIDES']?.progressState;
+        if (slidesState !== 'COMPLETED') {
+            alerts.push({ type: 'warning', text: '발포자료(PPT/PDF)가 아직 최종 검토 및 승인 완료되지 않았습니다.' });
+        }
+
+        const priceBidState = readinessData['PRICE_BID']?.progressState;
+        if (priceBidState !== 'COMPLETED') {
+            alerts.push({ type: 'info', text: '가격입찰서 작성 및 최종 산출 내역 검토가 진행 중입니다.' });
+        }
+
+        // Check consortium
+        if (project && (project.participationType === 'CONSORTIUM_MEMBER' || project.consortiumMembers?.length > 1)) {
+            const agreementState = readinessData['CONSORTIUM_AGREEMENT']?.progressState;
+            if (agreementState !== 'COMPLETED') {
+                alerts.push({ type: 'warning', text: '공동수급 프로젝트이나 공동수급협정서가 최종 완료되지 않았습니다.' });
+            }
+        }
+
+        // Check checklist stamps & submission
+        const stampState = readinessData['CHECK_DOC_STAMPED']?.progressState;
+        if (stampState !== 'COMPLETED') {
+            alerts.push({ type: 'danger', text: '제출서류 법인인감/사용인감 최종 날인 확인이 필요합니다.' });
+        }
+
+        if (alerts.length === 0) {
+            alerts.push({ type: 'success', text: '현재 확인된 필수 제출서류 및 점검사항이 모두 완료되었습니다. 최종 제출 전 파일 정합성을 재확인하세요.' });
+        }
+
+        return alerts;
+    }
+
+    updateBidReadinessItemState(projectId, key, field, value) {
+        const readinessData = this.initBidReadinessState(projectId);
+        if (!readinessData[key]) readinessData[key] = { key: key };
+
+        readinessData[key][field] = value;
+
+        // Persist to LocalStorage
+        try {
+            localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+        } catch(e) {}
+
+        // Re-render Bid Readiness Tab
+        if (this.activeDetailTab === 'bid-readiness') {
+            this.renderBidReadinessTab(projectId);
+        }
+    }
+
 
     setFieldValue(id, value) {
         const element = document.getElementById(id);
