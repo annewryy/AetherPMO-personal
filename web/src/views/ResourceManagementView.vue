@@ -11,6 +11,7 @@ import {
 } from '../lib/personLabels';
 import type { Person, PersonFilters, InsourcingTransition } from '../types';
 import PersonDetailPanel from '../components/PersonDetailPanel.vue';
+import PersonFormModal from '../components/PersonFormModal.vue';
 import OrgDeptTree from '../components/OrgDeptTree.vue';
 import { currentUser } from '../lib/auth';
 import PageSizeSelect from '../components/PageSizeSelect.vue';
@@ -23,6 +24,16 @@ const loadError = ref<string | null>(null);
 const searched = ref(false); // 한 번이라도 조회했는지(초기 vs 결과 없음 구분)
 
 const apiMode = computed(() => !!window.API_BASE);
+
+// 0039 — 인력 마스터 신규 등록/수정. 참여인력 등록 폼의 조직도·회사 선택 흐름을 재사용한다.
+const personForm = ref<{ person: Person | null } | null>(null);
+function openPersonCreate() { personForm.value = { person: null }; }
+function openPersonEdit(p: Person) { personForm.value = { person: p }; }
+async function onPersonSaved(saved: Person) {
+  personForm.value = null;
+  if (selected.value?.personId === saved.personId) selected.value = saved;
+  await search();   // 목록 최신화(필터 그대로 재조회)
+}
 
 // --- 필터 상태 (전부 서버 파라미터) ---
 const selectedTypes = ref<string[]>([]);        // 인력구분 복수선택
@@ -204,6 +215,9 @@ onMounted(() => {
         </label>
         <button class="btn btn-primary" :disabled="!apiMode" @click="search">조회</button>
         <button class="btn" :disabled="!apiMode" @click="reset">초기화</button>
+        <button class="btn btn-primary add-person" :disabled="!apiMode"
+          :title="apiMode ? '' : '등록은 백엔드(API_BASE) 연결 후 활성화'"
+          @click="openPersonCreate">+ 인력 등록</button>
       </div>
     </div>
 
@@ -230,7 +244,7 @@ onMounted(() => {
             <th class="no">No.</th><th>성명</th>
             <th v-if="isAdmin">로그인 ID</th>
             <th>인력구분</th><th>소속회사</th><th>부서</th>
-            <th>직책</th><th>재직상태</th><th class="num">활성 프로젝트</th>
+            <th>직책</th><th>재직상태</th><th class="num">활성 프로젝트</th><th>작업</th>
           </tr>
         </thead>
         <tbody>
@@ -247,6 +261,9 @@ onMounted(() => {
             <td>{{ p.position || '—' }}</td>
             <td>{{ p.status || '—' }}</td>
             <td class="num">{{ p.activeProjectCount ?? 0 }}</td>
+            <td class="cell-actions" @click.stop>
+              <button class="btn btn-sm" :disabled="!apiMode" @click="openPersonEdit(p)">수정</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -255,6 +272,11 @@ onMounted(() => {
     </template>
       </div>
     </div>
+
+    <PersonFormModal
+      v-if="personForm" :person="personForm.person"
+      @saved="onPersonSaved" @close="personForm = null"
+    />
 
     <PersonDetailPanel
       v-if="selected"
@@ -306,6 +328,10 @@ onMounted(() => {
 .mtab.on { background: var(--accent); color: #fff; }
 
 .search-row { border-top: 1px solid var(--border); padding-top: 12px; }
+/* 0039 — 인력 등록/수정 */
+.add-person { margin-left: auto; }
+.cell-actions { display: flex; gap: 6px; }
+
 .in {
   background: var(--panel-2, var(--panel)); border: 1px solid var(--border); border-radius: 8px;
   color: var(--text); font-size: 14px; padding: 7px 11px; min-width: 130px; outline: none;

@@ -971,6 +971,20 @@ export interface Person {
   activeProjectCount?: number;
 }
 
+/** 0039 — 인력 마스터 신규 등록/수정 입력(POST /api/persons · PATCH /api/persons/{id}). */
+export interface PersonInput {
+  name: string;
+  source?: PersonSource | string;          // INTERNAL | EXTERNAL
+  amaranthEmpNo?: string | null;
+  employmentType?: EmploymentType | string;
+  companyId?: number | null;
+  department?: string | null;
+  position?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  status?: string | null;                  // 재직 | 종료
+}
+
 // 아마란스 조직/회원 미러(0020). 참여인력 등록의 조직도 선택에 사용.
 export interface OrgDept {
   deptCode: string;

@@ -24,7 +24,7 @@ import type {
   IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput, MeetingMinuteUpdateInput,
   ConsortiumPayload, ConsortiumMemberInput, VrbInfoInput,
   ProjectMemberRef, ProjectMemberDetail, ProjectMemberInput, ProjectMemberAssignment, AppNotification, AppSetting,
-  Person, PersonProjectHistory, PersonFilters, InsourcingTransition, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput, ProjectConvertInput,
+  Person, PersonInput, PersonProjectHistory, PersonFilters, InsourcingTransition, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput, ProjectConvertInput,
   BidAgency, BidNoticeFilters, BidNoticeResult, BidNoticeDetail,
 } from '../types';
 
@@ -746,6 +746,13 @@ export const dataClient = {
   //  - API_BASE 전용: 레거시(Supabase)엔 persons 테이블 없음 → 빈 배열/null + 화면 안내.
   //  - 필터는 쿼리스트링으로 조립(클라이언트 필터링 금지 — 0014 원칙).
   persons: {
+    // 0039 — 인력 마스터 신규 등록/수정(인력관리 화면). 응답은 상세(GET /api/persons/{id})와 동일 shape.
+    create(input: PersonInput): Promise<Person> {
+      return apiSend<Person>('POST', '/api/persons', input);
+    },
+    update(personId: number, patch: Partial<PersonInput>): Promise<Person> {
+      return apiSend<Person>('PATCH', `/api/persons/${personId}`, patch);
+    },
     async list(filters: PersonFilters = {}): Promise<Person[]> {
       if (!apiBase()) return []; // 폴백: persons 테이블 없음 → 빈 목록 + 화면 안내
       const qs = new URLSearchParams();
