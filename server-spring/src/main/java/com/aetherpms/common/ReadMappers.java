@@ -106,6 +106,7 @@ public final class ReadMappers {
         out.put("status", a.getStatus());
         out.put("displayCode", a.getDisplayCode());
         out.put("fileName", a.getFileName());
+        out.put("taskId", a.getTaskId());
         return out;
     }
 

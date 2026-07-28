@@ -301,6 +301,9 @@ export interface Task {
   sortOrder: number;
   catalogNodeId: number | null;
   deliverableId?: number | null; // 0038 — 실사용 산출물(후보=이 태스크의 산출물 중 택1)
+  // 담당자(mapTask가 assignee/assigneeId를 내보내는데 타입에 없어 상세패널에서 항상 비어 보이던 것 수정)
+  assignee?: string | null;
+  assigneeId?: string | null;
   // 0010 A-4 표시 코드(T-CT-2 등) — 표시·참조 전용, 정렬 금지(정렬 키는 sortOrder 유지)
   displayCode?: string | null;
   // 0039 — 관련항목(역방향 — 이 태스크를 참조하는 이슈·액션아이템·회의록). 읽기 전용(편집은 상대편에서).

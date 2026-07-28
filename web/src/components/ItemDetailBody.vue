@@ -485,6 +485,9 @@ watch(
   },
   { immediate: true },
 );
+// 0039 — 진척률이 산출물 승인비율로 자동 계산될 때 그 근거(승인 n/전체 N)를 화면에 밝힌다.
+const approvedDeliverableCount = computed(() =>
+  taskDeliverables.value.filter((d) => d.status === 'APPROVED').length);
 
 // ---- 0038 — 산출물 파일 액션(템플릿/수정본) ----
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -540,6 +543,9 @@ function onFilePicked(e: Event) {
       <span v-else class="plain-status">{{ status || '—' }}</span>
     </div>
 
+    <!-- 0039 — 카드 1: 항목 정보(필드 + 관련항목 + 저장 바). 코멘트는 별도 카드로 분리해
+         저장 버튼이 이 카드 하단에 자연스럽게 붙도록 한다. -->
+    <div class="card">
     <!-- 필드 (도메인별) -->
     <dl class="fields">
       <template v-if="kind === 'issue'">
@@ -619,8 +625,11 @@ function onFilePicked(e: Event) {
               class="f-input narrow" type="number" min="0" max="100"
             />
             <template v-else>
-              {{ task?.progress ?? 0 }}%
-              <span v-if="taskDeliverables.length > 0" class="hint-inline">(산출물 승인비율로 자동 계산)</span>
+              <b>{{ task?.progress ?? 0 }}%</b>
+              <span class="hint-inline">
+                산출물 승인 {{ approvedDeliverableCount }}/{{ taskDeliverables.length }} 기준 자동 계산
+                — 직접 입력은 산출물이 없는 태스크에서만 가능합니다
+              </span>
             </template>
           </dd>
         </div>
@@ -666,6 +675,25 @@ function onFilePicked(e: Event) {
       <label class="f-label">{{ detailLabel }}</label>
       <div class="ro-text">{{ detailText || '—' }}</div>
     </div>
+
+    <!-- 상태 변경 — 통일 드롭다운(현재 상태 → 전환 가능 상태 + 워크플로 보기).
+         0039 — 관련항목보다 위(요청): 상태가 먼저 눈에 들어와야 한다. -->
+    <section class="section">
+      <h3 class="section-title">상태 변경</h3>
+      <StatusMenu
+        :current-status="status"
+        :targets="statusTargets"
+        :disabled="!apiMode"
+        gate-message="상태 변경은 백엔드(API_BASE) 연결 후 활성화"
+        @select="onStatusSelect"
+        @view-workflow="openWorkflow"
+      />
+      <div v-if="apiMode && isRisk" class="convert-row">
+        <button class="btn btn-sm" title="리스크를 이슈로 전환 (0008 수동 전환)"
+          @click="convertOpen = true">이슈로 전환</button>
+      </div>
+      <p v-if="engineError" class="err">{{ engineError }}</p>
+    </section>
 
     <!-- 0039 — 관련항목: 이슈/액션은 매핑 편집(draft), 태스크/산출물은 역방향 읽기전용 표시 -->
     <section v-if="apiMode && (kind === 'issue' || kind === 'action')" class="section rel-section">
@@ -724,30 +752,13 @@ function onFilePicked(e: Event) {
         {{ savingField === 'draft' ? '저장 중…' : '저장' }}
       </button>
     </div>
-
-    <!-- 상태 변경 — 통일 드롭다운(현재 상태 → 전환 가능 상태 + 워크플로 보기) -->
-    <section class="section">
-      <h3 class="section-title">상태 변경</h3>
-      <StatusMenu
-        :current-status="status"
-        :targets="statusTargets"
-        :disabled="!apiMode"
-        gate-message="상태 변경은 백엔드(API_BASE) 연결 후 활성화"
-        @select="onStatusSelect"
-        @view-workflow="openWorkflow"
-      />
-      <div v-if="apiMode && isRisk" class="convert-row">
-        <button class="btn btn-sm" title="리스크를 이슈로 전환 (0008 수동 전환)"
-          @click="convertOpen = true">이슈로 전환</button>
-      </div>
-      <p v-if="engineError" class="err">{{ engineError }}</p>
-    </section>
+    </div><!-- /카드 1 -->
 
     <!-- 첨부파일: 구 아마란스(원챔버) stub 제거(2026-07-09 자체완결 전환).
          산출물 파일은 위 '파일' 행(0038 FilePort)로 대체 — 그 외 엔티티 첨부는 후속(0018). -->
 
-    <!-- 코멘트 스레드 -->
-    <section class="section">
+    <!-- 0039 — 카드 2: 코멘트(항목 정보 저장과 무관한 독립 영역) -->
+    <section class="card section comment-card">
       <h3 class="section-title">코멘트</h3>
       <CommentThread
         v-if="entityId != null"
@@ -807,6 +818,15 @@ function onFilePicked(e: Event) {
 
 <style scoped>
 .item-body { display: flex; flex-direction: column; gap: 12px; }
+
+/* 0039 — 항목 정보 / 코멘트를 카드로 분리(저장 버튼이 정보 카드 하단에 붙도록) */
+.card {
+  display: flex; flex-direction: column; gap: 12px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 16px;
+}
+.card > .section:first-child { border-top: 0; padding-top: 0; }
+.comment-card { gap: 8px; }
 .assignee-dd { display: flex; align-items: center; gap: 8px; }
 .mini-btn {
   border: 1px solid var(--accent); background: transparent; color: var(--accent);

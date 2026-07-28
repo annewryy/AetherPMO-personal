@@ -53,6 +53,11 @@ public class DeliverableEntity {
     @Column(name = "file_name")
     private String fileName;
 
+    // 0039 — 소속 태스크. 프론트 Artifact.taskId 계약에 있었는데 매퍼가 내보내지 않아
+    //   "이 태스크의 산출물 후보"가 항상 비어 보이던 버그(태스크 상세 사용산출물·진척률 판정) 수정.
+    @Column(name = "task_id")
+    private Long taskId;
+
     public Long getDeliverableId() { return deliverableId; }
     public Long getProjectId() { return projectId; }
     public String getDeliverableName() { return deliverableName; }
@@ -65,4 +70,5 @@ public class DeliverableEntity {
     public String getStatus() { return status; }
     public String getDisplayCode() { return displayCode; }
     public String getFileName() { return fileName; }
+    public Long getTaskId() { return taskId; }
 }
