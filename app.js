@@ -9188,11 +9188,23 @@ class AetherPMO {
                 }
             }
         } else if (tabId === 'bidding-tasks') {
-            this.renderBiddingTasksTab(this.activeProjectId);
+            if (typeof this.renderBiddingTasksTab === 'function') {
+                this.renderBiddingTasksTab(this.activeProjectId);
+            } else {
+                this.renderMissingBiddingTabError('detail-tab-content-bidding-tasks', '제안 Task');
+            }
         } else if (tabId === 'bidding-wbs') {
-            this.renderBiddingWbsTab(this.activeProjectId);
+            if (typeof this.renderBiddingWbsTab === 'function') {
+                this.renderBiddingWbsTab(this.activeProjectId);
+            } else {
+                this.renderMissingBiddingTabError('detail-tab-content-bidding-wbs', 'WBS');
+            }
         } else if (tabId === 'bidding-gantt') {
-            this.renderBiddingGanttTab(this.activeProjectId);
+            if (typeof this.renderBiddingGanttTab === 'function') {
+                this.renderBiddingGanttTab(this.activeProjectId);
+            } else {
+                this.renderMissingBiddingTabError('detail-tab-content-bidding-gantt', '간트');
+            }
         } else if (tabId === 'methodology') {
             this.renderProjectDetailMethodology(this.activeProjectId);
         }
@@ -9211,6 +9223,292 @@ class AetherPMO {
     /* ==========================================================================
        AETHER PMO BID READINESS CENTER (입찰 준비센터) CLASS METHODS
        ========================================================================== */
+
+    
+    /* ==========================================================================
+       AETHER PMO BIDDING SCHEDULE (제안 Task, WBS, 간트) SINGLE SOURCE MODULE
+       ========================================================================== */
+
+    renderMissingBiddingTabError(containerId, tabName) {
+        console.error(`[Bidding] ${tabName} renderer is not defined`);
+        const container = document.getElementById(containerId);
+        if (container) {
+            container.innerHTML = `
+                <div class="empty-state error-state" style="padding:40px; text-align:center; color:var(--danger); background:var(--bg-hover-item); border-radius:8px;">
+                    <i data-lucide="alert-circle" style="width:24px; height:24px; margin-bottom:8px;"></i>
+                    <div style="font-weight:700; font-size:14px;">${tabName} 화면을 불러오는 중 오류가 발생했습니다.</div>
+                </div>
+            `;
+        }
+    }
+
+    initializeBiddingTasks(projectId) {
+        const projectKey = String(projectId);
+        const project = this.state.projects?.find(p => String(p.id) === projectKey);
+        const pStart = project?.startDate || '2026-06-01';
+        const pEnd = project?.endDate || '2026-06-30';
+
+        return [
+            { id: 'btask-1', stage: '착수/전략', title: 'RFP 분석 및 제안전략 수립', assignee: '안유경 PM', startDate: pStart, dueDate: '2026-06-05', progress: 100, status: 'COMPLETED', priority: '높음', weight: 20 },
+            { id: 'btask-2', stage: '제안서작성', title: '정성제안서 목차 및 1차 초안 작성', assignee: '김철수 PL', startDate: '2026-06-06', dueDate: '2026-06-15', progress: 100, status: 'COMPLETED', priority: '높음', weight: 25 },
+            { id: 'btask-3', stage: '행정서류', title: '정량/행정서류 및 증빙 발급 점검', assignee: '이영희 PMO', startDate: '2026-06-10', dueDate: '2026-06-20', progress: 80, status: 'IN_PROGRESS', priority: '보통', weight: 20 },
+            { id: 'btask-4', stage: '가격입찰', title: '가격입찰서 작성 및 산출내역 검토', assignee: '영업담당', startDate: '2026-06-16', dueDate: '2026-06-22', progress: 50, status: 'IN_PROGRESS', priority: '높음', weight: 15 },
+            { id: 'btask-5', stage: 'PT발표', title: '발표자료(PPT) 작성 및 리허설', assignee: '안유경 PM', startDate: '2026-06-18', dueDate: '2026-06-25', progress: 20, status: 'UNDER_REVIEW', priority: '높음', weight: 10 },
+            { id: 'btask-6', stage: '최종제출', title: '최종 제안서 법인날인 및 입찰 제출', assignee: '이영희 PMO', startDate: '2026-06-26', dueDate: pEnd, progress: 0, status: 'NOT_STARTED', priority: '긴급', weight: 10 }
+        ];
+    }
+
+    getBiddingTasks(projectId) {
+        const projectKey = String(projectId);
+        if (!this.state.biddingTasksMap) {
+            this.state.biddingTasksMap = {};
+        }
+        if (!Array.isArray(this.state.biddingTasksMap[projectKey])) {
+            this.state.biddingTasksMap[projectKey] = this.initializeBiddingTasks(projectId);
+        }
+        return this.state.biddingTasksMap[projectKey];
+    }
+
+    updateBiddingTaskStatus(projectId, taskId, newStatus, newProgress) {
+        const tasks = this.getBiddingTasks(projectId);
+        const task = tasks.find(t => t.id === taskId);
+        if (task) {
+            if (newStatus !== undefined) task.status = newStatus;
+            if (newProgress !== undefined) task.progress = Number(newProgress);
+            
+            try {
+                localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+            } catch(e) {}
+
+            // Re-render active tab if it's one of schedule tabs
+            if (this.activeDetailTab === 'bidding-tasks') this.renderBiddingTasksTab(projectId);
+            if (this.activeDetailTab === 'bidding-wbs') this.renderBiddingWbsTab(projectId);
+            if (this.activeDetailTab === 'bidding-gantt') this.renderBiddingGanttTab(projectId);
+        }
+    }
+
+    renderBiddingTasksTab(projectId) {
+        const container = document.getElementById('detail-tab-content-bidding-tasks');
+        if (!container) {
+            console.warn('[Bidding Tasks] container not found: detail-tab-content-bidding-tasks');
+            return;
+        }
+
+        const project = this.state.projects?.find(p => String(p.id) === String(projectId));
+        if (!project) {
+            container.innerHTML = '<div class="empty-state">입찰 프로젝트 정보를 찾을 수 없습니다.</div>';
+            return;
+        }
+
+        const tasks = this.getBiddingTasks(projectId);
+
+        container.innerHTML = `
+            <div class="dashboard-card" style="margin-bottom:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--bg-card-border); padding-bottom:12px; margin-bottom:16px;">
+                    <div>
+                        <h3 style="margin:0; font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
+                            <i data-lucide="check-square" style="width:18px; height:18px; color:var(--primary);"></i>
+                            제안 Task 수행 현황 (${tasks.length}건)
+                        </h3>
+                        <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">제안 준비 단계별 상세 수행 과제 및 담당자 관리</div>
+                    </div>
+                    <button class="btn btn-sm btn-primary" onclick="app.openNewTaskModal('${projectId}')">
+                        <i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 신규 Task 등록
+                    </button>
+                </div>
+
+                <div style="overflow-x:auto;">
+                    <table class="table" style="width:100%; font-size:12px;">
+                        <thead>
+                            <tr style="background:var(--bg-hover-item);">
+                                <th style="padding:10px; text-align:left;">단계</th>
+                                <th style="padding:10px; text-align:left;">Task명</th>
+                                <th style="padding:10px; text-align:center;">담당자</th>
+                                <th style="padding:10px; text-align:center;">시작일 ~ 마감일</th>
+                                <th style="padding:10px; text-align:center; width:120px;">진척률</th>
+                                <th style="padding:10px; text-align:center; width:110px;">상태</th>
+                                <th style="padding:10px; text-align:center; width:90px;">우선순위</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tasks.map(t => {
+                                const isDone = t.status === 'COMPLETED';
+                                const badgeClass = isDone ? 'badge-success' : t.status === 'IN_PROGRESS' || t.status === 'UNDER_REVIEW' ? 'badge-warning' : 'badge-secondary';
+                                const statusLabel = isDone ? '🟢 완료' : t.status === 'IN_PROGRESS' ? '🟡 진행중' : t.status === 'UNDER_REVIEW' ? '🟡 검토중' : '🔴 대기';
+
+                                return `
+                                    <tr>
+                                        <td style="padding:8px 10px;"><span class="badge" style="background:var(--primary-light); color:var(--primary); font-weight:700;">${t.stage}</span></td>
+                                        <td style="padding:8px 10px; font-weight:700; color:var(--text-main);">${t.title}</td>
+                                        <td style="padding:8px 10px; text-align:center; color:var(--text-muted);">${t.assignee}</td>
+                                        <td style="padding:8px 10px; text-align:center; font-family:monospace; font-size:11px;">${t.startDate} ~ ${t.dueDate}</td>
+                                        <td style="padding:8px 10px; text-align:center;">
+                                            <div style="display:flex; align-items:center; gap:6px;">
+                                                <input type="range" min="0" max="100" value="${t.progress}" onchange="app.updateBiddingTaskStatus('${projectId}', '${t.id}', this.value == 100 ? 'COMPLETED' : 'IN_PROGRESS', this.value)" style="width:70px; accent-color:var(--primary);">
+                                                <span style="font-weight:800; color:var(--primary); font-size:11px; width:30px;">${t.progress}%</span>
+                                            </div>
+                                        </td>
+                                        <td style="padding:8px 10px; text-align:center;">
+                                            <select onchange="app.updateBiddingTaskStatus('${projectId}', '${t.id}', this.value, this.value === 'COMPLETED' ? 100 : t.progress)" style="height:24px; font-size:11px; border:1px solid var(--bg-card-border); border-radius:4px; background:var(--bg-input);">
+                                                <option value="NOT_STARTED" ${t.status === 'NOT_STARTED' ? 'selected' : ''}>🔴 대기</option>
+                                                <option value="IN_PROGRESS" ${t.status === 'IN_PROGRESS' ? 'selected' : ''}>🟡 진행중</option>
+                                                <option value="UNDER_REVIEW" ${t.status === 'UNDER_REVIEW' ? 'selected' : ''}>🟡 검토중</option>
+                                                <option value="COMPLETED" ${t.status === 'COMPLETED' ? 'selected' : ''}>🟢 완료</option>
+                                            </select>
+                                        </td>
+                                        <td style="padding:8px 10px; text-align:center;">
+                                            <span class="badge ${t.priority === '긴급' ? 'badge-danger' : 'badge-warning'}" style="font-size:10px;">${t.priority}</span>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    renderBiddingWbsTab(projectId) {
+        const container = document.getElementById('detail-tab-content-bidding-wbs');
+        if (!container) {
+            console.warn('[Bidding WBS] container not found: detail-tab-content-bidding-wbs');
+            return;
+        }
+
+        const project = this.state.projects?.find(p => String(p.id) === String(projectId));
+        if (!project) {
+            container.innerHTML = '<div class="empty-state">입찰 프로젝트 정보를 찾을 수 없습니다.</div>';
+            return;
+        }
+
+        const tasks = this.getBiddingTasks(projectId);
+
+        // Group tasks by stage
+        const stageMap = {};
+        tasks.forEach(t => {
+            if (!stageMap[t.stage]) stageMap[t.stage] = [];
+            stageMap[t.stage].push(t);
+        });
+
+        container.innerHTML = `
+            <div class="dashboard-card" style="margin-bottom:20px;">
+                <div style="border-bottom:1px solid var(--bg-card-border); padding-bottom:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h3 style="margin:0; font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
+                            <i data-lucide="git-branch" style="width:18px; height:18px; color:var(--primary);"></i>
+                            제안 WBS 계층 구조 및 가중치 진척 현황
+                        </h3>
+                        <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">단일 제안 Task 원천 기반 WBS 단계별 가중치 통합 현황</div>
+                    </div>
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:16px;">
+                    ${Object.keys(stageMap).map(stageName => {
+                        const sTasks = stageMap[stageName];
+                        const totalProgress = Math.round(sTasks.reduce((acc, curr) => acc + curr.progress, 0) / sTasks.length);
+                        const totalWeight = sTasks.reduce((acc, curr) => acc + (curr.weight || 15), 0);
+
+                        return `
+                            <div style="background:var(--bg-hover-item); border:1px solid var(--bg-card-border); border-radius:8px; padding:14px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                    <div style="display:flex; align-items:center; gap:10px;">
+                                        <span class="badge" style="background:var(--primary); color:#fff; font-weight:800; padding:4px 8px;">${stageName}</span>
+                                        <span style="font-size:14px; font-weight:800; color:var(--text-main);">${stageName} 세부과제 (${sTasks.length}건)</span>
+                                    </div>
+                                    <div style="font-size:12px; font-weight:700; color:var(--primary);">
+                                        단계가중치 ${totalWeight}% | 평균 진척률 <span style="font-size:14px; font-weight:900;">${totalProgress}%</span>
+                                    </div>
+                                </div>
+
+                                <div style="width:100%; height:8px; background:var(--bg-card); border-radius:4px; overflow:hidden; margin-bottom:12px;">
+                                    <div style="width:${totalProgress}%; height:100%; background: linear-gradient(90deg, #3b82f6, #10b981); border-radius:4px;"></div>
+                                </div>
+
+                                <div style="display:flex; flex-direction:column; gap:8px; padding-left:12px; border-left:2px solid var(--primary-light);">
+                                    ${sTasks.map(t => `
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; background:var(--bg-card); padding:8px 12px; border-radius:6px; border:1px solid var(--bg-card-border);">
+                                            <span style="font-weight:700; color:var(--text-main);">${t.title}</span>
+                                            <div style="display:flex; align-items:center; gap:12px;">
+                                                <span style="color:var(--text-muted); font-size:11px;">담당: ${t.assignee}</span>
+                                                <span style="font-family:monospace; font-size:11px; color:var(--text-muted);">${t.startDate} ~ ${t.dueDate}</span>
+                                                <span class="badge ${t.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}" style="font-size:10px;">${t.progress}% 완료</span>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    renderBiddingGanttTab(projectId) {
+        const container = document.getElementById('detail-tab-content-bidding-gantt');
+        if (!container) {
+            console.warn('[Bidding Gantt] container not found: detail-tab-content-bidding-gantt');
+            return;
+        }
+
+        const project = this.state.projects?.find(p => String(p.id) === String(projectId));
+        if (!project) {
+            container.innerHTML = '<div class="empty-state">입찰 프로젝트 정보를 찾을 수 없습니다.</div>';
+            return;
+        }
+
+        const tasks = this.getBiddingTasks(projectId);
+
+        container.innerHTML = `
+            <div class="dashboard-card" style="margin-bottom:20px;">
+                <div style="border-bottom:1px solid var(--bg-card-border); padding-bottom:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h3 style="margin:0; font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
+                            <i data-lucide="bar-chart-3" style="width:18px; height:18px; color:var(--primary);"></i>
+                            제안 타임라인 간트 차트 (Gantt Schedule)
+                        </h3>
+                        <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">동일 제안 Task 원천 기반 타임라인 일정 시각화</div>
+                    </div>
+                    <span style="font-size:12px; font-weight:700; color:var(--primary); background:var(--primary-light); padding:4px 10px; border-radius:6px;">
+                        제안 마감일: ${project.endDate || '2026-06-30'}
+                    </span>
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                    ${tasks.map(t => {
+                        const barColor = t.status === 'COMPLETED' ? '#10b981' : t.status === 'IN_PROGRESS' || t.status === 'UNDER_REVIEW' ? '#f59e0b' : '#94a3b8';
+
+                        return `
+                            <div style="background:var(--bg-hover-item); border:1px solid var(--bg-card-border); border-radius:8px; padding:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:12px;">
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <span class="badge" style="background:var(--bg-card); color:var(--text-main); font-size:10px;">${t.stage}</span>
+                                        <span style="font-weight:800; color:var(--text-main);">${t.title}</span>
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:10px; font-size:11px; color:var(--text-muted);">
+                                        <span>담당: ${t.assignee}</span>
+                                        <span style="font-family:monospace;">${t.startDate} ~ ${t.dueDate}</span>
+                                        <span style="font-weight:800; color:${barColor}">${t.progress}%</span>
+                                    </div>
+                                </div>
+                                <div style="width:100%; height:10px; background:var(--bg-card); border-radius:5px; overflow:hidden;">
+                                    <div style="width:${Math.max(t.progress, 5)}%; height:100%; background:${barColor}; border-radius:5px; transition: width 0.3s ease;"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
 
     getBidReadinessMasterItems() {
         return [
