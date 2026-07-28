@@ -93,8 +93,8 @@ public class WorkflowAdminService {
         Map<String, Object> wf = fetchWorkflow(id);
         int catalogNodes = count("SELECT COUNT(*) FROM pms_catalog_node WHERE workflow_id = ?", id);
         if (catalogNodes > 0) {
-            throw ApiException.conflict("카탈로그 노드 " + catalogNodes
-                    + "개가 이 워크플로를 참조하고 있어 삭제할 수 없습니다. 카탈로그 관리에서 연결을 해제한 뒤 다시 시도하세요.");
+            throw ApiException.conflict("테일러링 노드 " + catalogNodes
+                    + "개가 이 워크플로를 참조하고 있어 삭제할 수 없습니다. 테일러링 관리에서 연결을 해제한 뒤 다시 시도하세요.");
         }
         jdbc.update("DELETE FROM pms_workflow WHERE workflow_id = ?", id);
         audit.write("WORKFLOW", id, null, "DELETE", null, wf, null, actor, "워크플로 삭제 (워크플로 편집기, 카탈로그 참조 0건)");

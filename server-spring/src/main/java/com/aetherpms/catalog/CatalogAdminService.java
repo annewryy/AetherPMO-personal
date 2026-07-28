@@ -20,7 +20,7 @@ import com.aetherpms.common.RowMappers;
 import com.aetherpms.common.WriteSupport;
 
 /**
- * 카탈로그 노드 관리(0009 모듈2) — 구 AdminService의 노드 CRUD 분리.
+ * 테일러링 노드 관리(0009 모듈2) — 구 AdminService의 노드 CRUD 분리.
  * 계층 규칙·code 중복·참조 가드를 그대로 재현.
  */
 @Service
@@ -68,7 +68,7 @@ public class CatalogAdminService {
         Map<String, Object> node = WriteSupport.insertReturning(jdbc, "pms_catalog_node", "node_id",
                 toDbFields(normalized));
         audit.write("CATALOG_NODE", toLong(node.get("node_id")), null, "INSERT",
-                null, null, node, actor, "카탈로그 노드 생성 (관리자)");
+                null, null, node, actor, "테일러링 노드 생성 (관리자)");
         return RowMappers.mapCatalogNode(node);
     }
 
@@ -78,7 +78,7 @@ public class CatalogAdminService {
         Map<String, Object> normalized = validateNodePayload(body, false);
 
         Map<String, Object> before = WriteSupport.findOne(jdbc, "pms_catalog_node", "node_id", id);
-        if (before == null) throw ApiException.notFound("카탈로그 노드를 찾을 수 없습니다.");
+        if (before == null) throw ApiException.notFound("테일러링 노드를 찾을 수 없습니다.");
 
         String effType = str(normalized.containsKey("node_type") ? normalized.get("node_type") : before.get("node_type"));
         Object effParentId = normalized.containsKey("parent_node_id")
@@ -98,7 +98,7 @@ public class CatalogAdminService {
                 toDbFields(normalized), false);
         audit.write("CATALOG_NODE", id, null, "UPDATE", cols,
                 WriteSupport.pick(before, cols), WriteSupport.pick(after, cols),
-                actor, "카탈로그 노드 수정 (관리자)");
+                actor, "테일러링 노드 수정 (관리자)");
         return RowMappers.mapCatalogNode(after);
     }
 
@@ -106,7 +106,7 @@ public class CatalogAdminService {
     public Map<String, Object> deleteNode(long id, Actor actor) {
         WriteSupport.parseId(id);
         Map<String, Object> node = WriteSupport.findOne(jdbc, "pms_catalog_node", "node_id", id);
-        if (node == null) throw ApiException.notFound("카탈로그 노드를 찾을 수 없습니다.");
+        if (node == null) throw ApiException.notFound("테일러링 노드를 찾을 수 없습니다.");
 
         int tailorings = count("SELECT COUNT(*) FROM pms_project_tailoring WHERE catalog_node_id = ?", id);
         int tasks = count("SELECT COUNT(*) FROM pms_task WHERE catalog_node_id = ?", id);
@@ -120,7 +120,7 @@ public class CatalogAdminService {
         }
         jdbc.update("DELETE FROM pms_catalog_node WHERE node_id = ?", id);
         audit.write("CATALOG_NODE", id, null, "DELETE", null, node, null,
-                actor, "카탈로그 노드 삭제 (관리자, 참조 0건)");
+                actor, "테일러링 노드 삭제 (관리자, 참조 0건)");
         return Map.of("deleted", true, "id", id);
     }
 

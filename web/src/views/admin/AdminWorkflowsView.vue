@@ -422,7 +422,7 @@ function transitionLabel(wf: Workflow | null, t: { fromStatusId: number; toStatu
             </div>
           </CollapsibleSection>
 
-          <p class="usage">이 워크플로를 사용하는 카탈로그 노드: {{ usageById.get(selected.id) ?? 0 }}개</p>
+          <p class="usage">이 워크플로를 사용하는 테일러링 노드: {{ usageById.get(selected.id) ?? 0 }}개</p>
         </template>
       </section>
     </div>

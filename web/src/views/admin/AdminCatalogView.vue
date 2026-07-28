@@ -299,9 +299,9 @@ function onTplSelect(t: { id: number }) {
 
 <template>
   <div>
-    <h2 class="module-title">카탈로그 관리</h2>
+    <h2 class="module-title">테일러링 관리</h2>
     <p class="sub">
-      방법론 카탈로그(pms_catalog_node) 편집 — 비활성 노드는 신규 테일러링·조회 화면에서 제외되고,
+      방법론 테일러링 표준(pms_catalog_node) 편집 — 비활성 노드는 신규 테일러링·조회 화면에서 제외되고,
       기존 프로젝트의 전개분은 유지됩니다(소프트 비활성).
     </p>
 
@@ -337,7 +337,7 @@ function onTplSelect(t: { id: number }) {
     <StateNotice
       :loading="loading" :error="loadError"
       :empty="!loading && !loadError && roots.length === 0"
-      empty-text="카탈로그 데이터가 없습니다 — 데이터 소스 연결 후 표시됩니다."
+      empty-text="테일러링 데이터가 없습니다 — 데이터 소스 연결 후 표시됩니다."
     />
 
     <div v-if="!loading && roots.length > 0" class="layout">

@@ -20,7 +20,7 @@ const emit = defineEmits<{
   (e: 'created', project: Project): void;
 }>();
 
-const STEPS = ['기본정보', '카탈로그 선택', '확인 & 생성'] as const;
+const STEPS = ['기본정보', '테일러링 선택', '확인 & 생성'] as const;
 const step = ref(0); // 0-base 스텝 인덱스
 
 // 마감일 원문(입찰마감일시, "YYYY-MM-DD HH:MM:SS" 또는 "-") → <input type="date"> 값(yyyy-MM-dd).
@@ -260,19 +260,19 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
           </form>
         </section>
 
-        <!-- Step 2. 카탈로그 선택 -->
+        <!-- Step 2. 테일러링 선택 -->
         <section v-show="step === 1" class="pane">
           <p class="lead">
             검색·필터로 필요한 단계·활동·태스크·산출물을 찾고, 항목을 클릭해 내용(설명·구분·태그·템플릿)을
             확인한 뒤 선택하세요. 상위 항목을 체크하면 하위가 함께 선택됩니다. 선택하지 않으면 기본 생성됩니다.
           </p>
-          <p v-if="catalogLoading" class="tl-state">카탈로그 불러오는 중…</p>
+          <p v-if="catalogLoading" class="tl-state">테일러링 불러오는 중…</p>
           <p v-else-if="catalogError" class="tl-state err">
-            카탈로그를 불러오지 못했습니다. <span class="detail">({{ catalogError }})</span>
+            테일러링을 불러오지 못했습니다. <span class="detail">({{ catalogError }})</span>
             테일러링 없이도 등록할 수 있습니다.
           </p>
           <p v-else-if="catalogLoaded && catalogTree.length === 0" class="tl-state">
-            선택 가능한 카탈로그 항목이 없습니다 — 테일러링 없이 기본 생성됩니다.
+            선택 가능한 테일러링 항목이 없습니다 — 테일러링 없이 기본 생성됩니다.
           </p>
           <CatalogSelector
             v-else-if="catalogTree.length > 0"
@@ -294,7 +294,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
             <div><dt>공고번호</dt><dd class="mono">{{ dash(form.announcementNo) }}</dd></div>
             <div><dt>제안마감일</dt><dd>{{ dash(form.proposalDeadline) }}</dd></div>
             <div class="wide">
-              <dt>카탈로그 선택</dt>
+              <dt>테일러링 선택</dt>
               <dd>{{ selectedCount > 0 ? `${selectedCount}개 선택(조상 자동 포함)` : '선택 안 함 — 기본 생성' }}</dd>
             </div>
           </dl>
