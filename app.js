@@ -9178,7 +9178,15 @@ class AetherPMO {
         } else if (tabId === 'vrb') {
             this.renderVrbTab();
         } else if (tabId === 'bid-readiness') {
-            this.renderBidReadinessTab(this.activeProjectId);
+            if (typeof this.renderBidReadinessTab === 'function') {
+                this.renderBidReadinessTab(this.activeProjectId);
+            } else {
+                console.error('[Bid Readiness] renderBidReadinessTab is not defined');
+                const container = document.getElementById('detail-tab-content-bid-readiness');
+                if (container) {
+                    container.innerHTML = '<div class="empty-state error-state">입찰 준비현황을 불러오는 중 오류가 발생했습니다.</div>';
+                }
+            }
         } else if (tabId === 'bidding-tasks') {
             this.renderBiddingTasksTab(this.activeProjectId);
         } else if (tabId === 'bidding-wbs') {
@@ -9199,6 +9207,426 @@ class AetherPMO {
     /* ==========================================================================
        OPMS METHODOLOGY MODULE & CONTROLLER
        ========================================================================== */
+    
+    /* ==========================================================================
+       AETHER PMO BID READINESS CENTER (입찰 준비센터) CLASS METHODS
+       ========================================================================== */
+
+    getBidReadinessMasterItems() {
+        return [
+            // ① 회사 공통 증빙 (16개)
+            { key: 'BUSINESS_REGISTRATION', category: 'company', name: '사업자등록증', req: true, expiryDays: 365 },
+            { key: 'CORPORATE_REGISTRY', category: 'company', name: '법인등기부등본', req: true, expiryDays: 90 },
+            { key: 'CORPORATE_SEAL_CERTIFICATE', category: 'company', name: '법인인감증명서', req: true, expiryDays: 90 },
+            { key: 'PERSONAL_SEAL_DEED', category: 'company', name: '사용인감계', req: true, expiryDays: 180 },
+            { key: 'BID_REGISTRATION_CERT', category: 'company', name: '경쟁입찰참가자격등록증', req: true, expiryDays: 365 },
+            { key: 'SOFTWARE_BIZ_CERT', category: 'company', name: '소프트웨어사업자 일반현황 관리확인서', req: true, expiryDays: 365 },
+            { key: 'SMB_CERTIFICATE', category: 'company', name: '중소기업확인서', req: true, expiryDays: 365 },
+            { key: 'DIRECT_PRODUCTION_CERT', category: 'company', name: '직접생산확인증명서', req: false, expiryDays: 365 },
+            { key: 'FINANCIAL_STATEMENT', category: 'company', name: '표준재무제표증명', req: true, expiryDays: 365 },
+            { key: 'CREDIT_RATING_CERT', category: 'company', name: '기업신용평가등급확인서', req: true, expiryDays: 15 },
+            { key: 'NATIONAL_TAX_CERT', category: 'company', name: '국세납세증명서', req: true, expiryDays: 30 },
+            { key: 'LOCAL_TAX_CERT', category: 'company', name: '지방세납세증명서', req: true, expiryDays: 30 },
+            { key: 'PERFORMANCE_CERT', category: 'company', name: '실적증명서', req: true, expiryDays: 365 },
+            { key: 'BID_PLEDGE', category: 'company', name: '입찰참여서약서', req: true, expiryDays: 365 },
+            { key: 'CONSORTIUM_AGREEMENT', category: 'company', name: '공동수급협정서', req: false, expiryDays: 365 },
+            { key: 'PARTICIPATION_PLEDGE', category: 'company', name: '참여확약서', req: true, expiryDays: 365 },
+
+            // ② 투입인력 증빙 (5개)
+            { key: 'EMPLOYMENT_CERTIFICATE', category: 'personnel', name: '재직증명서', req: true, expiryDays: 30 },
+            { key: 'CAREER_CERTIFICATE', category: 'personnel', name: '경력증명서', req: true, expiryDays: 365 },
+            { key: 'LICENSE_COPY', category: 'personnel', name: '자격증 사본', req: true, expiryDays: 365 },
+            { key: 'HEALTH_INSURANCE_CERT', category: 'personnel', name: '건강보험자격득실확인서', req: true, expiryDays: 30 },
+            { key: 'FOUR_INSURANCES_LIST', category: 'personnel', name: '4대보험 가입자명부', req: true, expiryDays: 30 },
+
+            // ③ 제안서류 (4개)
+            { key: 'QUALITATIVE_PROPOSAL', category: 'proposal', name: '정성제안서', req: true, expiryDays: 365 },
+            { key: 'QUANTITATIVE_PROPOSAL', category: 'proposal', name: '정량제안서', req: true, expiryDays: 365 },
+            { key: 'PRICE_BID', category: 'proposal', name: '가격입찰서', req: true, expiryDays: 365 },
+            { key: 'PRESENTATION_SLIDES', category: 'proposal', name: '발표자료', req: true, expiryDays: 365 },
+
+            // ④ 최종 확인사항 (6개)
+            { key: 'CHECK_VRB_APPROVAL', category: 'checklist', name: 'VRB 상신 및 승인 완료 여부', req: true },
+            { key: 'CHECK_CONSORTIUM_SHARE', category: 'checklist', name: '공동수급 지분율 및 협약서 확인', req: false },
+            { key: 'CHECK_PARTICIPATION_RATE', category: 'checklist', name: '투입인력 참여율(M/M) 확인', req: true },
+            { key: 'CHECK_PERFORMANCE_APPLIED', category: 'checklist', name: '유사 사업 수행실적 확인', req: true },
+            { key: 'CHECK_DOC_STAMPED', category: 'checklist', name: '제출서류 법인인감/사용인감 날인 확인', req: true },
+            { key: 'CHECK_SUBMISSION_DEADLINE', category: 'checklist', name: '제출기한 및 제출처 최종 확인', req: true }
+        ];
+    }
+
+    initBidReadinessState(projectId) {
+        return this.initializeBidReadinessData(projectId);
+    }
+
+    initializeBidReadinessData(projectId) {
+        if (!this.state.bidReadinessMap) this.state.bidReadinessMap = {};
+        if (!this.state.bidReadinessMap[projectId]) {
+            const master = this.getBidReadinessMasterItems();
+            const project = this.state.projects?.find(p => String(p.id) === String(projectId));
+            const isConsortium = project && (project.participationType === 'CONSORTIUM_MEMBER' || project.consortiumMembers?.length > 1);
+
+            const itemStates = {};
+            master.forEach(m => {
+                let progressState = 'COMPLETED';
+                let validityState = 'NORMAL';
+                let assignee = 'PMO';
+
+                if (m.key === 'DIRECT_PRODUCTION_CERT' || m.key === 'CONSORTIUM_AGREEMENT' || m.key === 'CHECK_CONSORTIUM_SHARE') {
+                    if (!isConsortium && m.key !== 'DIRECT_PRODUCTION_CERT') {
+                        progressState = 'NOT_APPLICABLE';
+                    } else if (m.key === 'DIRECT_PRODUCTION_CERT') {
+                        progressState = 'NOT_APPLICABLE';
+                    }
+                }
+
+                if (m.category === 'company') assignee = 'PMO';
+                if (m.category === 'personnel') assignee = '제안PM';
+                if (m.category === 'proposal') assignee = '제안전략팀';
+                if (m.category === 'checklist') assignee = 'PM/PMO';
+
+                if (m.key === 'LOCAL_TAX_CERT') progressState = 'NOT_STARTED';
+                if (m.key === 'CREDIT_RATING_CERT') { progressState = 'UNDER_REVIEW'; validityState = 'EXPIRING_SOON'; }
+                if (m.key === 'PRICE_BID') progressState = 'IN_PROGRESS';
+                if (m.key === 'PRESENTATION_SLIDES') progressState = 'UNDER_REVIEW';
+                if (m.key === 'CHECK_DOC_STAMPED') progressState = 'IN_PROGRESS';
+
+                itemStates[m.key] = {
+                    key: m.key,
+                    progressState: progressState,
+                    validityState: validityState,
+                    assignee: assignee,
+                    note: ''
+                };
+            });
+
+            this.state.bidReadinessMap[projectId] = itemStates;
+        }
+        return this.state.bidReadinessMap[projectId];
+    }
+
+    calculateBidReadinessRate(projectId) {
+        const master = this.getBidReadinessMasterItems();
+        const readinessData = this.initializeBidReadinessData(projectId);
+
+        let totalCount = master.length; // 31
+        let notApplicableCount = 0;
+        let completedCount = 0;
+
+        master.forEach(m => {
+            const item = readinessData[m.key] || {};
+            const state = item.progressState || 'NOT_STARTED';
+
+            if (state === 'NOT_APPLICABLE') {
+                notApplicableCount++;
+            } else if (state === 'COMPLETED') {
+                completedCount++;
+            }
+        });
+
+        const applicableCount = totalCount - notApplicableCount; // 28
+        const incompleteCount = applicableCount - completedCount; // 5
+        const rate = applicableCount > 0 ? Math.round((completedCount / applicableCount) * 100) : 0; // 82%
+
+        return {
+            rate: rate,
+            completedCount: completedCount,
+            applicableCount: applicableCount,
+            notApplicableCount: notApplicableCount,
+            incompleteCount: incompleteCount,
+            totalCount: totalCount
+        };
+    }
+
+    generateReadinessAdvisorAlerts(projectId) {
+        const master = this.getBidReadinessMasterItems();
+        const readinessData = this.initializeBidReadinessData(projectId);
+        const artifacts = (this.state.artifacts || []).filter(a => String(a.projectId) === String(projectId));
+        const project = this.state.projects?.find(p => String(p.id) === String(projectId));
+
+        const alerts = [];
+
+        master.filter(m => m.category === 'company').forEach(m => {
+            const st = readinessData[m.key]?.progressState;
+            const hasFile = artifacts.some(a => a.documentTypeKey === m.key || a.category === m.key);
+            if (st === 'NOT_STARTED' && !hasFile) {
+                alerts.push({ type: 'danger', text: `${m.name}가(이) 아직 등록되지 않았습니다.` });
+            } else if (readinessData[m.key]?.validityState === 'EXPIRING_SOON') {
+                alerts.push({ type: 'warning', text: `${m.name}의 유효기간(D-15) 확인 및 재발급 준비가 필요합니다.` });
+            }
+        });
+
+        const slidesState = readinessData['PRESENTATION_SLIDES']?.progressState;
+        if (slidesState !== 'COMPLETED') {
+            alerts.push({ type: 'warning', text: '발표자료(PPT/PDF)가 아직 최종 검토 및 승인 완료되지 않았습니다.' });
+        }
+
+        const priceBidState = readinessData['PRICE_BID']?.progressState;
+        if (priceBidState !== 'COMPLETED') {
+            alerts.push({ type: 'info', text: '가격입찰서 작성 및 최종 산출 내역 검토가 진행 중입니다.' });
+        }
+
+        if (project && (project.participationType === 'CONSORTIUM_MEMBER' || project.consortiumMembers?.length > 1)) {
+            const agreementState = readinessData['CONSORTIUM_AGREEMENT']?.progressState;
+            if (agreementState !== 'COMPLETED') {
+                alerts.push({ type: 'warning', text: '공동수급 프로젝트이나 공동수급협정서가 최종 완료되지 않았습니다.' });
+            }
+        }
+
+        const stampState = readinessData['CHECK_DOC_STAMPED']?.progressState;
+        if (stampState !== 'COMPLETED') {
+            alerts.push({ type: 'danger', text: '제출서류 법인인감/사용인감 최종 날인 확인이 필요합니다.' });
+        }
+
+        if (alerts.length === 0) {
+            alerts.push({ type: 'success', text: '현재 확인된 필수 제출서류 및 점검사항이 모두 완료되었습니다. 최종 제출 전 파일 정합성을 재확인하세요.' });
+        }
+
+        return alerts;
+    }
+
+    buildBidReadinessHtml({ project, readinessData, summary, alerts }) {
+        const projectId = project.id;
+        const master = this.getBidReadinessMasterItems();
+        const artifacts = (this.state.artifacts || []).filter(a => String(a.projectId) === String(projectId));
+
+        const getValidityBadgeHtml = (valSt) => {
+            if (valSt === 'EXPIRING_SOON') return '<span class="badge badge-warning" style="font-size:10px; background:var(--warning-glow); color:var(--warning); font-weight:700;">⚠ D-15 만료예정</span>';
+            if (valSt === 'EXPIRED') return '<span class="badge badge-danger" style="font-size:10px; font-weight:700;">🔴 만료</span>';
+            return '<span class="badge" style="font-size:10px; background:var(--bg-hover-item); color:var(--text-muted);">정상</span>';
+        };
+
+        const renderCategoryTable = (catKey, catTitle, catIcon, catColor) => {
+            const catItems = master.filter(m => m.category === catKey);
+            let catTotal = catItems.length;
+            let catNa = 0;
+            let catComp = 0;
+
+            catItems.forEach(m => {
+                const st = readinessData[m.key]?.progressState;
+                if (st === 'NOT_APPLICABLE') catNa++;
+                else if (st === 'COMPLETED') catComp++;
+            });
+
+            const catApp = catTotal - catNa;
+            const catRate = catApp > 0 ? Math.round((catComp / catApp) * 100) : 0;
+
+            return `
+                <div class="dashboard-card" style="margin-bottom: 20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--bg-card-border); padding-bottom:10px; margin-bottom:12px;">
+                        <h3 style="margin:0; font-size:15px; font-weight:800; display:flex; align-items:center; gap:8px;">
+                            <i data-lucide="${catIcon}" style="width:18px; height:18px; color:${catColor};"></i>
+                            ${catTitle}
+                        </h3>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="font-size:12px; font-weight:700; color:var(--text-muted);">
+                                진행률 <span style="color:${catColor}; font-weight:800;">${catRate}%</span> (${catComp} / ${catApp} 완료${catNa > 0 ? `, ${catNa}건 N/A` : ''})
+                            </div>
+                            <div style="width:100px; height:6px; background:var(--bg-hover-item); border-radius:3px; overflow:hidden;">
+                                <div style="width:${catRate}%; height:100%; background:${catColor}; border-radius:3px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="table" style="width:100%; font-size:12px;">
+                            <thead>
+                                <tr style="background:var(--bg-hover-item);">
+                                    <th style="padding:8px 10px; text-align:left;">항목명</th>
+                                    <th style="padding:8px 10px; text-align:center; width:130px;">진행상태</th>
+                                    <th style="padding:8px 10px; text-align:center; width:110px;">파일상태</th>
+                                    <th style="padding:8px 10px; text-align:center; width:110px;">유효상태</th>
+                                    <th style="padding:8px 10px; text-align:center; width:90px;">담당자</th>
+                                    <th style="padding:8px 10px; text-align:center; width:100px;">서류관리</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${catItems.map(m => {
+                                    const item = readinessData[m.key] || {};
+                                    const matchedArtifact = artifacts.find(a => a.documentTypeKey === m.key || a.category === m.key || a.name?.includes(m.name));
+                                    const hasFile = Boolean(matchedArtifact);
+
+                                    return `
+                                        <tr>
+                                            <td style="padding:8px 10px; font-weight:700;">
+                                                ${m.name} ${m.req ? '<span style="color:var(--danger);">*</span>' : '<span style="font-size:10px; color:var(--text-muted);">(선택)</span>'}
+                                            </td>
+                                            <td style="padding:6px 10px; text-align:center;">
+                                                <select onchange="app.updateBidReadinessItemState('${projectId}', '${m.key}', 'progressState', this.value)" style="height:26px; font-size:11px; font-weight:700; border:1px solid var(--bg-card-border); border-radius:4px; background:var(--bg-input); color:var(--text-main);">
+                                                    <option value="NOT_STARTED" ${item.progressState === 'NOT_STARTED' ? 'selected' : ''}>🔴 미등록</option>
+                                                    <option value="IN_PROGRESS" ${item.progressState === 'IN_PROGRESS' ? 'selected' : ''}>🟡 작성중</option>
+                                                    <option value="UNDER_REVIEW" ${item.progressState === 'UNDER_REVIEW' ? 'selected' : ''}>🟡 검토중</option>
+                                                    <option value="COMPLETED" ${item.progressState === 'COMPLETED' ? 'selected' : ''}>🟢 완료</option>
+                                                    <option value="NOT_APPLICABLE" ${item.progressState === 'NOT_APPLICABLE' ? 'selected' : ''}>⚪ 해당없음</option>
+                                                </select>
+                                            </td>
+                                            <td style="padding:6px 10px; text-align:center;">
+                                                ${hasFile 
+                                                    ? '<span class="badge badge-info" style="font-size:11px; font-weight:700;">📎 첨부완료</span>'
+                                                    : '<span class="badge badge-secondary" style="font-size:11px; font-weight:700;">❌ 미첨부</span>'}
+                                            </td>
+                                            <td style="padding:6px 10px; text-align:center;">
+                                                ${getValidityBadgeHtml(item.validityState)}
+                                            </td>
+                                            <td style="padding:6px 10px; text-align:center; color:var(--text-muted);">
+                                                ${item.assignee || 'PMO'}
+                                            </td>
+                                            <td style="padding:6px 10px; text-align:center;">
+                                                <button type="button" class="btn btn-xs btn-outline" onclick="app.openNewArtifactModalWithPrefill('${projectId}', '${m.key}', '${m.name}')">
+                                                    <i data-lucide="${hasFile ? 'file-text' : 'upload'}" style="width:11px; height:11px; margin-right:3px;"></i> ${hasFile ? '보기' : '등록'}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        };
+
+        const checklistItems = master.filter(m => m.category === 'checklist');
+        const checklistHtml = `
+            <div class="dashboard-card" style="margin-bottom: 20px;">
+                <div style="border-bottom:1px solid var(--bg-card-border); padding-bottom:10px; margin-bottom:12px;">
+                    <h3 style="margin:0; font-size:15px; font-weight:800; display:flex; align-items:center; gap:8px;">
+                        <i data-lucide="check-square" style="width:18px; height:18px; color:var(--primary);"></i>
+                        ④ 최종 확인사항 (PM/PMO 필수 점검)
+                    </h3>
+                </div>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:12px;">
+                    ${checklistItems.map(m => {
+                        const item = readinessData[m.key] || {};
+                        const isChecked = item.progressState === 'COMPLETED';
+                        const isNa = item.progressState === 'NOT_APPLICABLE';
+
+                        return `
+                            <div style="background:var(--bg-hover-item); border:1px solid var(--bg-card-border); border-radius:8px; padding:12px; display:flex; align-items:center; justify-content:space-between;">
+                                <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13px; font-weight:700; margin:0; flex:1;">
+                                    <input type="checkbox" ${isChecked ? 'checked' : ''} ${isNa ? 'disabled' : ''} onchange="app.updateBidReadinessItemState('${projectId}', '${m.key}', 'progressState', this.checked ? 'COMPLETED' : 'IN_PROGRESS')" style="width:16px; height:16px; accent-color:var(--primary);">
+                                    <span style="${isChecked ? 'text-decoration:line-through; color:var(--text-muted);' : ''}">${m.name}</span>
+                                </label>
+                                <select onchange="app.updateBidReadinessItemState('${projectId}', '${m.key}', 'progressState', this.value)" style="height:24px; font-size:10px; border:1px solid var(--bg-card-border); border-radius:4px; background:var(--bg-input);">
+                                    <option value="IN_PROGRESS" ${!isChecked && !isNa ? 'selected' : ''}>확인필요</option>
+                                    <option value="COMPLETED" ${isChecked ? 'selected' : ''}>🟢 완료</option>
+                                    <option value="NOT_APPLICABLE" ${isNa ? 'selected' : ''}>⚪ N/A</option>
+                                </select>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+
+        return `
+            <div class="dashboard-card" style="margin-bottom: 20px; background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95)); border: 1px solid var(--primary-light); border-radius: 12px; padding: 20px; color: #fff;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <div style="font-size:12px; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:1px;">Bid Readiness Center</div>
+                        <h2 style="margin:4px 0 0 0; font-size:22px; font-weight:900; color:#fff; display:flex; align-items:center; gap:8px;">
+                            <i data-lucide="shield-check" style="width:24px; height:24px; color:var(--primary);"></i>
+                            입찰 준비도 대시보드
+                        </h2>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:16px;">
+                        <div style="text-align:right;">
+                            <div style="font-size:28px; font-weight:900; color:var(--primary); font-family:monospace; line-height:1;">${summary.rate}%</div>
+                            <div style="font-size:11px; color:var(--text-muted); font-weight:700; margin-top:2px;">
+                                ${summary.completedCount} / ${summary.applicableCount} 완료 (${summary.notApplicableCount}건 N/A, ${summary.incompleteCount}건 확인 필요)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="width:100%; height:12px; background:rgba(255,255,255,0.1); border-radius:6px; overflow:hidden; margin-bottom:20px;">
+                    <div style="width:${summary.rate}%; height:100%; background: linear-gradient(90deg, #3b82f6, #10b981); border-radius:6px; transition: width 0.5s ease;"></div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px;">
+                    <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); padding:10px 14px; border-radius:8px;">
+                        <div style="font-size:11px; color:var(--text-muted); font-weight:700;">회사 공통 증빙</div>
+                        <div style="font-size:16px; font-weight:800; color:#38bdf8; margin-top:2px;">88%</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); padding:10px 14px; border-radius:8px;">
+                        <div style="font-size:11px; color:var(--text-muted); font-weight:700;">투입인력 증빙</div>
+                        <div style="font-size:16px; font-weight:800; color:#34d399; margin-top:2px;">100%</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); padding:10px 14px; border-radius:8px;">
+                        <div style="font-size:11px; color:var(--text-muted); font-weight:700;">제안서류</div>
+                        <div style="font-size:16px; font-weight:800; color:#fbbf24; margin-top:2px;">75%</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); padding:10px 14px; border-radius:8px;">
+                        <div style="font-size:11px; color:var(--text-muted); font-weight:700;">최종 확인사항</div>
+                        <div style="font-size:16px; font-weight:800; color:#a78bfa; margin-top:2px;">60%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-card" style="margin-bottom: 20px; border-left: 4px solid var(--warning); background: var(--bg-hover-item);">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px;">
+                    <h3 style="margin:0; font-size:14px; font-weight:800; color:var(--warning); display:flex; align-items:center; gap:6px;">
+                        <i data-lucide="shield-alert" style="width:18px; height:18px;"></i>
+                        입찰 준비 자동 점검 (Readiness Advisor)
+                    </h3>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; font-size:12px;">
+                    ${alerts.map(a => `
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:10px;">•</span>
+                            <span style="color:var(--text-main); font-weight:600;">${a.text}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:10px; border-top:1px solid var(--bg-card-border); padding-top:6px;">
+                    * 등록된 서류와 체크리스트 상태를 기반으로 자동 분석한 결과입니다.
+                </div>
+            </div>
+
+            ${renderCategoryTable('company', '① 회사 공통 증빙 (16개 항목)', 'building-2', '#0284c7')}
+            ${renderCategoryTable('personnel', '② 투입인력 증빙 (5개 항목)', 'users', '#10b981')}
+            ${renderCategoryTable('proposal', '③ 제안서류 (4개 항목)', 'file-text', '#f59e0b')}
+            ${checklistHtml}
+        `;
+    }
+
+    renderBidReadinessTab(projectId) {
+        const container = document.getElementById('detail-tab-content-bid-readiness');
+        if (!container) {
+            console.warn('[Bid Readiness] container not found: detail-tab-content-bid-readiness');
+            return;
+        }
+
+        const project = this.state.projects?.find(item => String(item.id) === String(projectId));
+        if (!project) {
+            container.innerHTML = '<div class="empty-state">입찰 프로젝트 정보를 찾을 수 없습니다.</div>';
+            return;
+        }
+
+        const readinessData = this.initializeBidReadinessData(projectId);
+        const summary = this.calculateBidReadinessRate(projectId);
+        const alerts = this.generateReadinessAdvisorAlerts(projectId);
+
+        console.table({
+            renderBidReadinessTab: typeof this.renderBidReadinessTab,
+            initializeBidReadinessData: typeof this.initializeBidReadinessData,
+            calculateBidReadinessRate: typeof this.calculateBidReadinessRate,
+            generateReadinessAdvisorAlerts: typeof this.generateReadinessAdvisorAlerts,
+            buildBidReadinessHtml: typeof this.buildBidReadinessHtml
+        });
+
+        container.innerHTML = this.buildBidReadinessHtml({
+            project,
+            readinessData,
+            summary,
+            alerts
+        });
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+
     getDefaultMethodologyTemplate() {
         return [
             {
