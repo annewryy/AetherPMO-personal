@@ -303,6 +303,10 @@ export interface Task {
   deliverableId?: number | null; // 0038 — 실사용 산출물(후보=이 태스크의 산출물 중 택1)
   // 0010 A-4 표시 코드(T-CT-2 등) — 표시·참조 전용, 정렬 금지(정렬 키는 sortOrder 유지)
   displayCode?: string | null;
+  // 0039 — 관련항목(역방향 — 이 태스크를 참조하는 이슈·액션아이템·회의록). 읽기 전용(편집은 상대편에서).
+  issueIds?: number[];
+  actionItemIds?: number[];
+  meetingIds?: number[];
 }
 
 export interface Artifact {
@@ -320,6 +324,10 @@ export interface Artifact {
   fileName: string | null;
   // 0010 A-4 표시 코드(D-CT-2-30 등) — 표시·참조 전용, 정렬 금지
   displayCode?: string | null;
+  // 0039 — 관련항목(역방향 — 이 산출물을 참조하는 이슈·액션아이템·회의록). 읽기 전용(편집은 상대편에서).
+  issueIds?: number[];
+  actionItemIds?: number[];
+  meetingIds?: number[];
 }
 
 export interface Issue {
@@ -341,8 +349,11 @@ export interface Issue {
   relatedTaskId?: number | null;
   // 0010 A-4 표시 코드(I-3 — 이슈·리스크 공용, type 플립 시 불변)
   displayCode?: string | null;
-  // 0039 — 이 이슈/리스크와 매핑된 WBS 태스크(다중, pms_issue_task_link)
+  // 0039 — 관련항목 매핑(N:M, 전부 다중선택). 태스크·산출물은 정방향, 회의록·액션아이템은 역방향.
   taskIds?: number[];
+  deliverableIds?: number[];
+  meetingIds?: number[];
+  actionItemIds?: number[];
 }
 
 export interface ActionItem {
@@ -354,12 +365,18 @@ export interface ActionItem {
   dueDate: string | null;
   status: string;
   confirmComment: string;
-  // 0008 — 이 액션아이템이 대응하는 리스크/이슈(pms_action_item.related_issue_id). null=독립 조치
+  // 0008 — 이 액션아이템이 대응하는 리스크/이슈(pms_action_item.related_issue_id, 레거시 단일 — 0039 이후
+  //   issueIds가 원본). null=독립 조치
   relatedIssueId?: number | null;
-  // 0039 — 이 액션아이템을 만든 회의(pms_action_item.source_meeting_id). null=독립 조치
+  // 0039 — 이 액션아이템을 만든 회의(pms_action_item.source_meeting_id, 레거시 단일 — meetingIds가 원본)
   sourceMeetingId?: number | null;
   // 0010 A-4 표시 코드(A-12)
   displayCode?: string | null;
+  // 0039 — 관련항목 매핑(N:M, 전부 다중선택)
+  taskIds?: number[];
+  deliverableIds?: number[];
+  issueIds?: number[];
+  meetingIds?: number[];
 }
 
 export interface OfficialDoc {
@@ -690,11 +707,13 @@ export interface IssueCreateInput {
   due_date?: string | null;
   related_task_id?: number | null;
   task_ids?: number[];
+  deliverable_ids?: number[];
   comment?: string | null;
 }
 
 export interface IssueUpdateInput {
   task_ids?: number[];
+  deliverable_ids?: number[];
   [key: string]: unknown;
 }
 
@@ -704,9 +723,19 @@ export interface ActionItemCreateInput {
   assignee_name?: string | null;
   assignee_uid?: string | null;
   due_date?: string | null;
-  related_issue_id?: number | null;
-  source_meeting_id?: number | null;
+  task_ids?: number[];
+  deliverable_ids?: number[];
+  issue_ids?: number[];
+  meeting_ids?: number[];
   comment?: string | null;
+}
+
+export interface ActionItemUpdateInput {
+  task_ids?: number[];
+  deliverable_ids?: number[];
+  issue_ids?: number[];
+  meeting_ids?: number[];
+  [key: string]: unknown;
 }
 
 export interface MeetingMinuteCreateInput {
@@ -719,6 +748,7 @@ export interface MeetingMinuteCreateInput {
   issue_ids?: number[];
   task_ids?: number[];
   deliverable_ids?: number[];
+  action_ids?: number[];
 }
 
 export interface MeetingMinuteUpdateInput {
@@ -730,6 +760,7 @@ export interface MeetingMinuteUpdateInput {
   issue_ids?: number[];
   task_ids?: number[];
   deliverable_ids?: number[];
+  action_ids?: number[];
 }
 
 // ---- 대시보드 신호 (0007 §5 — GET /api/dashboard/signals, API_BASE 전용) --------

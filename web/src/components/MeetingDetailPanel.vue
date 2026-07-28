@@ -6,6 +6,7 @@ import { dataClient } from '../lib/dataClient';
 import type { ActionItem, Artifact, Issue, MeetingMinute, Task } from '../types';
 import CommentThread from './CommentThread.vue';
 import MultiSelectChecklist from './MultiSelectChecklist.vue';
+import CollapsibleSection from './CollapsibleSection.vue';
 
 const props = defineProps<{ meetingId: number; projectId: number; highlightCommentId?: number | null }>();
 const emit = defineEmits<{ (e: 'close'): void; (e: 'changed'): void }>();
@@ -50,7 +51,8 @@ const linkedIssues = computed(() => issues.value.filter((i) => (meeting.value?.i
 const linkedTasks = computed(() => tasks.value.filter((t) => (meeting.value?.taskIds ?? []).includes(t.id)));
 const linkedDeliverables = computed(() =>
   deliverables.value.filter((d) => (meeting.value?.deliverableIds ?? []).includes(d.id)));
-const spawnedActionItems = computed(() =>
+const actionOptions = computed(() => actionItems.value.map((a) => ({ id: a.id, label: a.title })));
+const linkedActionItems = computed(() =>
   actionItems.value.filter((a) => (meeting.value?.actionItemIds ?? []).includes(a.id)));
 
 // ---- 편집 모드 ------------------------------------------------------------
@@ -61,6 +63,7 @@ const eAttendees = ref('');
 const eIssueIds = ref<number[]>([]);
 const eTaskIds = ref<number[]>([]);
 const eDeliverableIds = ref<number[]>([]);
+const eActionIds = ref<number[]>([]);
 const saving = ref(false);
 const saveError = ref<string | null>(null);
 
@@ -76,6 +79,7 @@ function startEdit() {
   eIssueIds.value = [...(meeting.value.issueIds ?? [])];
   eTaskIds.value = [...(meeting.value.taskIds ?? [])];
   eDeliverableIds.value = [...(meeting.value.deliverableIds ?? [])];
+  eActionIds.value = [...(meeting.value.actionItemIds ?? [])];
   saveError.value = null;
   editing.value = true;
 }
@@ -92,6 +96,7 @@ async function saveEdit() {
       issue_ids: eIssueIds.value,
       task_ids: eTaskIds.value,
       deliverable_ids: eDeliverableIds.value,
+      action_ids: eActionIds.value,
     });
     editing.value = false;
     emit('changed');
@@ -132,34 +137,30 @@ function fmtDate(v: string | null | undefined): string {
           <p class="body-text">{{ meeting.remarks }}</p>
         </section>
 
-        <section class="sect">
-          <h3>관련 이슈/리스크 <span class="cnt">{{ linkedIssues.length }}</span></h3>
+        <CollapsibleSection title="관련 이슈/리스크" :count="linkedIssues.length">
           <ul v-if="linkedIssues.length" class="chip-list">
             <li v-for="i in linkedIssues" :key="i.id" class="chip" :class="{ risk: i.type === '리스크' }">{{ i.title }}</li>
           </ul>
           <p v-else class="dim sm">없음</p>
-        </section>
-        <section class="sect">
-          <h3>관련 태스크 <span class="cnt">{{ linkedTasks.length }}</span></h3>
+        </CollapsibleSection>
+        <CollapsibleSection title="관련 태스크" :count="linkedTasks.length">
           <ul v-if="linkedTasks.length" class="chip-list">
             <li v-for="t in linkedTasks" :key="t.id" class="chip">{{ t.name }}</li>
           </ul>
           <p v-else class="dim sm">없음</p>
-        </section>
-        <section class="sect">
-          <h3>관련 산출물 <span class="cnt">{{ linkedDeliverables.length }}</span></h3>
+        </CollapsibleSection>
+        <CollapsibleSection title="관련 산출물" :count="linkedDeliverables.length">
           <ul v-if="linkedDeliverables.length" class="chip-list">
             <li v-for="d in linkedDeliverables" :key="d.id" class="chip">{{ d.name }}</li>
           </ul>
           <p v-else class="dim sm">없음</p>
-        </section>
-        <section class="sect">
-          <h3>이 회의로 만들어진 액션아이템 <span class="cnt">{{ spawnedActionItems.length }}</span></h3>
-          <ul v-if="spawnedActionItems.length" class="chip-list">
-            <li v-for="a in spawnedActionItems" :key="a.id" class="chip action">{{ a.title }} — {{ a.status }}</li>
+        </CollapsibleSection>
+        <CollapsibleSection title="관련 액션아이템" :count="linkedActionItems.length">
+          <ul v-if="linkedActionItems.length" class="chip-list">
+            <li v-for="a in linkedActionItems" :key="a.id" class="chip action">{{ a.title }} — {{ a.status }}</li>
           </ul>
-          <p v-else class="dim sm">없음(액션아이템 등록 시 이 회의를 관련 회의로 지정하면 표시됩니다)</p>
-        </section>
+          <p v-else class="dim sm">없음</p>
+        </CollapsibleSection>
       </template>
 
       <template v-else>
@@ -171,12 +172,18 @@ function fmtDate(v: string | null | undefined): string {
           <label class="label">참석자 <span class="hint">(쉼표로 구분)</span></label>
           <input v-model="eAttendees" class="input" type="text" :disabled="saving" />
 
-          <label class="label">관련 이슈/리스크</label>
-          <MultiSelectChecklist v-model="eIssueIds" :items="issueOptions" :disabled="saving" />
-          <label class="label">관련 태스크</label>
-          <MultiSelectChecklist v-model="eTaskIds" :items="taskOptions" :disabled="saving" />
-          <label class="label">관련 산출물</label>
-          <MultiSelectChecklist v-model="eDeliverableIds" :items="deliverableOptions" :disabled="saving" />
+          <CollapsibleSection title="관련 이슈/리스크" :count="eIssueIds.length" default-open>
+            <MultiSelectChecklist v-model="eIssueIds" :items="issueOptions" :disabled="saving" search-placeholder="이슈/리스크 검색…" />
+          </CollapsibleSection>
+          <CollapsibleSection title="관련 태스크" :count="eTaskIds.length" default-open>
+            <MultiSelectChecklist v-model="eTaskIds" :items="taskOptions" :disabled="saving" search-placeholder="태스크 검색…" />
+          </CollapsibleSection>
+          <CollapsibleSection title="관련 산출물" :count="eDeliverableIds.length" default-open>
+            <MultiSelectChecklist v-model="eDeliverableIds" :items="deliverableOptions" :disabled="saving" search-placeholder="산출물 검색…" />
+          </CollapsibleSection>
+          <CollapsibleSection title="관련 액션아이템" :count="eActionIds.length" default-open>
+            <MultiSelectChecklist v-model="eActionIds" :items="actionOptions" :disabled="saving" search-placeholder="액션아이템 검색…" />
+          </CollapsibleSection>
 
           <div v-if="saveError" class="err">{{ saveError }}</div>
           <div class="edit-actions">

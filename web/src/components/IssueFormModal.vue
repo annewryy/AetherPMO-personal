@@ -2,12 +2,14 @@
 // 0011 B-7 이슈/리스크 신규 등록 폼 (A-3 POST /api/issues).
 //  - type 선택(이슈/리스크) — 리스크로 등록하면 type=리스크, source_rule_id=null(수동).
 //  - 쓰기는 백엔드 전용(dataClient가 API_BASE 게이트). 오류는 서버 {message} 그대로.
+//  - 0039 — 관련항목(태스크·산출물·회의록·액션아이템)은 접힌 섹션 + 검색 가능한 체크리스트.
 import { ref, computed, watch } from 'vue';
 import { dataClient } from '../lib/dataClient';
-import type { IssueCreateInput, Project, Task } from '../types';
+import type { ActionItem, Artifact, IssueCreateInput, MeetingMinute, Project, Task } from '../types';
 import ModalShell from './ModalShell.vue';
 import OrgPersonField from './OrgPersonField.vue';
 import MultiSelectChecklist from './MultiSelectChecklist.vue';
+import CollapsibleSection from './CollapsibleSection.vue';
 
 // projectId 고정(상세 탭) 또는 projects 목록 제공(전역 목록 — 프로젝트 선택 드롭다운) 중 하나.
 const props = defineProps<{ projectId?: number; projects?: Project[] }>();
@@ -20,15 +22,31 @@ const priority = ref('중'); // 백엔드 화이트리스트(상/중/하, chk_pm
 const owner = ref('');
 const dueDate = ref('');
 const taskIds = ref<number[]>([]);
+const deliverableIds = ref<number[]>([]);
+const meetingIds = ref<number[]>([]);
+const actionIds = ref<number[]>([]);
 const submitting = ref(false);
 const error = ref<string | null>(null);
 
-// 0039 — 관련 태스크 매핑(다중선택): 선택된 프로젝트의 WBS 태스크 목록.
+// 0039 — 관련항목 후보(선택된 프로젝트 범위).
 const tasks = ref<Task[]>([]);
+const deliverables = ref<Artifact[]>([]);
+const meetings = ref<MeetingMinute[]>([]);
+const actionItems = ref<ActionItem[]>([]);
 const taskOptions = computed(() => tasks.value.map((t) => ({ id: t.id, label: t.name })));
+const deliverableOptions = computed(() => deliverables.value.map((d) => ({ id: d.id, label: d.name })));
+const meetingOptions = computed(() => meetings.value.map((m) => ({ id: m.id, label: m.title, sub: String(m.meetDate).split('T')[0] })));
+const actionOptions = computed(() => actionItems.value.map((a) => ({ id: a.id, label: a.title })));
+
 watch(pickedProjectId, async (pid) => {
-  taskIds.value = [];
-  tasks.value = pid != null ? await dataClient.tasks.listByProject(pid).catch(() => []) : [];
+  taskIds.value = []; deliverableIds.value = []; meetingIds.value = []; actionIds.value = [];
+  if (pid == null) { tasks.value = []; deliverables.value = []; meetings.value = []; actionItems.value = []; return; }
+  [tasks.value, deliverables.value, meetings.value, actionItems.value] = await Promise.all([
+    dataClient.tasks.listByProject(pid).catch(() => []),
+    dataClient.artifacts.listByProject(pid).catch(() => []),
+    dataClient.meetingMinutes.listByProject(pid).catch(() => []),
+    dataClient.actionItems.listByProject(pid).catch(() => []),
+  ]);
 }, { immediate: true });
 
 async function submit() {
@@ -44,9 +62,14 @@ async function submit() {
     owner_name: owner.value.trim() || null,
     due_date: dueDate.value || null,
     task_ids: taskIds.value,
+    deliverable_ids: deliverableIds.value,
   };
   try {
-    await dataClient.issues.create(input);
+    const created = await dataClient.issues.create(input);
+    // meeting_ids/action_ids는 create 계약 밖(백엔드가 별도 처리) — 등록 직후 PATCH로 반영.
+    if (meetingIds.value.length || actionIds.value.length) {
+      await dataClient.issues.update(created.id, { meeting_ids: meetingIds.value, action_ids: actionIds.value });
+    }
     emit('created');
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e);
@@ -90,11 +113,30 @@ async function submit() {
     <label class="label">담당</label>
     <OrgPersonField v-model="owner" placeholder="담당자명 (선택)" :disabled="submitting" title="담당자 선택" :project-id="pickedProjectId" />
 
-    <label class="label">관련 태스크 <span class="hint">(선택, 여러 개 가능)</span></label>
-    <MultiSelectChecklist
-      v-model="taskIds" :items="taskOptions" :disabled="submitting"
-      empty-text="이 프로젝트에 전개된 태스크가 없습니다."
-    />
+    <CollapsibleSection title="관련 태스크" :count="taskIds.length">
+      <MultiSelectChecklist
+        v-model="taskIds" :items="taskOptions" :disabled="submitting" search-placeholder="태스크 검색…"
+        empty-text="이 프로젝트에 전개된 태스크가 없습니다."
+      />
+    </CollapsibleSection>
+    <CollapsibleSection title="관련 산출물" :count="deliverableIds.length">
+      <MultiSelectChecklist
+        v-model="deliverableIds" :items="deliverableOptions" :disabled="submitting" search-placeholder="산출물 검색…"
+        empty-text="등록된 산출물이 없습니다."
+      />
+    </CollapsibleSection>
+    <CollapsibleSection title="관련 회의록" :count="meetingIds.length">
+      <MultiSelectChecklist
+        v-model="meetingIds" :items="meetingOptions" :disabled="submitting" search-placeholder="회의록 검색…"
+        empty-text="등록된 회의록이 없습니다."
+      />
+    </CollapsibleSection>
+    <CollapsibleSection title="관련 액션아이템" :count="actionIds.length">
+      <MultiSelectChecklist
+        v-model="actionIds" :items="actionOptions" :disabled="submitting" search-placeholder="액션아이템 검색…"
+        empty-text="등록된 액션아이템이 없습니다."
+      />
+    </CollapsibleSection>
 
     <div v-if="error" class="err">{{ error }}</div>
 

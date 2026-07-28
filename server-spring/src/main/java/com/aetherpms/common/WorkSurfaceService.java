@@ -32,21 +32,17 @@ public class WorkSurfaceService {
 
     public WorkSurfaceService(JdbcTemplate jdbc, AuditWriter audit, DisplayCodeService displayCodeService,
                               com.aetherpms.person.MemberAutoService memberAuto,
-                              com.aetherpms.notification.NotificationService notify,
-                              com.aetherpms.issue.IssueService issueService) {
+                              com.aetherpms.notification.NotificationService notify) {
         this.jdbc = jdbc;
         this.audit = audit;
         this.displayCodeService = displayCodeService;
         this.memberAuto = memberAuto;
         this.notify = notify;
-        this.issueService = issueService;
     }
 
     private final com.aetherpms.notification.NotificationService notify;
 
     private final com.aetherpms.person.MemberAutoService memberAuto;
-
-    private final com.aetherpms.issue.IssueService issueService;
 
     // ---- enum vocabulary (Node work-surface.ts) ---------------------------
     private static final List<String> TASK_STATUSES = List.of("TODO", "IN_PROGRESS", "REVIEW", "REJECTED", "DONE");
@@ -82,6 +78,64 @@ public class WorkSurfaceService {
     }
 
     // =====================================================================
+    // 0039 재개정 — 이슈/액션아이템의 관련항목 매핑(N:M). 컬럼이 아니라 링크 테이블이라
+    //   patch()의 일반 컬럼 화이트리스트 밖에서 별도 동기화한다. jsonField는 PATCH/POST
+    //   본문 키, linkTable(fromCol,toCol)은 pms_*_link 테이블, targetTable/targetIdCol은
+    //   같은 프로젝트 소속 검증 대상.
+    // =====================================================================
+    private record LinkFieldSpec(String jsonField, String outKey, String linkTable, String fromCol, String toCol,
+                                 String targetTable, String targetIdCol) {}
+
+    private static final Map<Entity, List<LinkFieldSpec>> LINK_FIELDS = Map.of(
+            Entity.ISSUE, List.of(
+                    new LinkFieldSpec("task_ids", "taskIds", "pms_issue_task_link", "issue_id", "task_id",
+                            "pms_task", "task_id"),
+                    new LinkFieldSpec("deliverable_ids", "deliverableIds", "pms_issue_deliverable_link",
+                            "issue_id", "deliverable_id", "pms_deliverable", "deliverable_id"),
+                    new LinkFieldSpec("meeting_ids", "meetingIds", "pms_meeting_issue_link", "issue_id", "meeting_id",
+                            "pms_meeting_minutes", "meeting_id"),
+                    new LinkFieldSpec("action_ids", "actionItemIds", "pms_action_item_issue_link",
+                            "issue_id", "action_id", "pms_action_item", "action_id")),
+            Entity.ACTION_ITEM, List.of(
+                    new LinkFieldSpec("task_ids", "taskIds", "pms_action_item_task_link", "action_id", "task_id",
+                            "pms_task", "task_id"),
+                    new LinkFieldSpec("deliverable_ids", "deliverableIds", "pms_action_item_deliverable_link",
+                            "action_id", "deliverable_id", "pms_deliverable", "deliverable_id"),
+                    new LinkFieldSpec("issue_ids", "issueIds", "pms_action_item_issue_link", "action_id", "issue_id",
+                            "pms_issue", "issue_id"),
+                    new LinkFieldSpec("meeting_ids", "meetingIds", "pms_meeting_action_link", "action_id", "meeting_id",
+                            "pms_meeting_minutes", "meeting_id")));
+
+    /** raw에서 이 엔티티의 링크 필드들을 떼어내고(있으면), 필드명→원본값 맵으로 반환. */
+    private Map<String, Object> extractLinkFields(Entity cfg, Map<String, Object> raw) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        for (LinkFieldSpec spec : LINK_FIELDS.getOrDefault(cfg, List.of())) {
+            if (raw.containsKey(spec.jsonField())) out.put(spec.jsonField(), raw.remove(spec.jsonField()));
+        }
+        return out;
+    }
+
+    /** 검증 + 동기화(지정된 필드만) 후, outKey(camelCase) → 최종 id 목록(미지정 필드는 현재값)을 반환. */
+    private Map<String, List<Long>> syncLinkFields(Entity cfg, long id, long projectId,
+                                                    Map<String, Object> linkRaw) {
+        Map<String, List<Long>> out = new LinkedHashMap<>();
+        for (LinkFieldSpec spec : LINK_FIELDS.getOrDefault(cfg, List.of())) {
+            if (linkRaw.containsKey(spec.jsonField())) {
+                List<Long> ids = LinkTableSupport.validateIds(jdbc, linkRaw.get(spec.jsonField()), spec.jsonField(),
+                        spec.targetTable(), spec.targetIdCol(), projectId);
+                LinkTableSupport.sync(jdbc, spec.linkTable(), spec.fromCol(), spec.toCol(), id, ids);
+                out.put(spec.outKey(), ids);
+            } else {
+                out.put(spec.outKey(), jdbc.query(
+                        "SELECT " + spec.toCol() + " FROM " + spec.linkTable() + " WHERE " + spec.fromCol() + " = ? "
+                                + "ORDER BY " + spec.toCol(),
+                        (rs, i) -> rs.getLong(1), id));
+            }
+        }
+        return out;
+    }
+
+    // =====================================================================
     // A-1. PATCH /api/{entity}/{id}
     // =====================================================================
 
@@ -94,13 +148,14 @@ public class WorkSurfaceService {
         // comment 분리
         Object rawComment = raw.remove("comment");
         String comment = (rawComment instanceof String s && !s.trim().isEmpty()) ? s.trim() : null;
-        // 0039 — 이슈의 task_ids는 pms_issue 컬럼이 아니라 별도 링크 테이블(N:M). 일반 컬럼
+        // 0039 — 관련항목 매핑(task_ids 등)은 컬럼이 아니라 링크 테이블(N:M)이라 일반 컬럼
         //   업데이트 파이프라인 밖에서 별도 동기화한다(raw에 남아있으면 "허용 필드 아님"으로 거부됨).
-        boolean hasTaskIds = cfg == Entity.ISSUE && raw.containsKey("task_ids");
-        Object taskIdsRaw = raw.remove("task_ids");
+        Map<String, Object> linkRaw = extractLinkFields(cfg, raw);
 
-        if (raw.isEmpty() && !hasTaskIds) {
-            throw ApiException.badRequest("수정할 필드가 없습니다. 허용 필드: " + String.join(", ", cfg.allowed) + ", task_ids");
+        if (raw.isEmpty() && linkRaw.isEmpty()) {
+            List<String> linkNames = LINK_FIELDS.getOrDefault(cfg, List.of()).stream().map(LinkFieldSpec::jsonField).toList();
+            throw ApiException.badRequest("수정할 필드가 없습니다. 허용 필드: "
+                    + String.join(", ", cfg.allowed) + (linkNames.isEmpty() ? "" : ", " + String.join(", ", linkNames)));
         }
         List<String> rejected = raw.keySet().stream().filter(k -> !cfg.allowed.contains(k)).toList();
         if (!rejected.isEmpty()) {
@@ -135,13 +190,11 @@ public class WorkSurfaceService {
                     actor, "작업 화면 필드 수정");
         }
 
-        // 0039 — 이슈 태스크 매핑(N:M) 동기화. task_ids 미지정이면 기존 유지(빈 배열이면 전체 해제).
-        List<Long> issueTaskIds = null;
-        if (hasTaskIds) {
-            issueTaskIds = issueService.validateTaskIds(taskIdsRaw, projectId);
-            issueService.syncTaskLinks(id, issueTaskIds);
-            audit.write(cfg.type, id, projectId, "UPDATE", List.of("task_ids"), null,
-                    Map.of("task_ids", issueTaskIds), actor, "관련 태스크 매핑 수정");
+        // 0039 — 관련항목 매핑(N:M) 동기화. 필드 미지정이면 기존 유지(빈 배열이면 전체 해제).
+        Map<String, List<Long>> linkResult = syncLinkFields(cfg, id, projectId, linkRaw);
+        if (!linkRaw.isEmpty()) {
+            audit.write(cfg.type, id, projectId, "UPDATE", new ArrayList<>(linkRaw.keySet()), null,
+                    linkResult, actor, "관련항목 매핑 수정");
         }
 
         // 0031: 태스크 담당자 지정 → 참여인력 자동 등록(있으면 no-op)
@@ -171,9 +224,7 @@ public class WorkSurfaceService {
             case ISSUE -> RowMappers.mapIssue(after);
             case ACTION_ITEM -> RowMappers.mapActionItem(after);
         };
-        if (cfg == Entity.ISSUE) {
-            result.put("taskIds", issueTaskIds != null ? issueTaskIds : issueService.currentTaskIds(id));
-        }
+        result.putAll(linkResult);
         return result;
     }
 
@@ -263,12 +314,13 @@ public class WorkSurfaceService {
 
     @Transactional
     public Map<String, Object> createActionItem(Map<String, Object> body, Actor actor) {
-        Map<String, Object> b = body == null ? Map.of() : body;
+        Map<String, Object> b = body == null ? Map.of() : new LinkedHashMap<>(body);
         List<String> allowed = List.of("project_id", "title", "assignee_uid", "assignee_name",
-                "due_date", "related_issue_id", "source_meeting_id", "status");
+                "due_date", "status", "task_ids", "deliverable_ids", "issue_ids", "meeting_ids");
         rejectUnknown(b, allowed);
         long projectId = requireProjectId(b);
         String title = requireTitle(b);
+        Map<String, Object> linkRaw = extractLinkFields(Entity.ACTION_ITEM, b);
 
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("project_id", projectId);
@@ -278,46 +330,26 @@ public class WorkSurfaceService {
         if (b.get("assignee_uid") != null) fields.put("assignee_uid", b.get("assignee_uid"));
         if (b.get("assignee_name") != null) fields.put("assignee_name", b.get("assignee_name"));
         if (b.get("due_date") != null) fields.put("due_date", LocalDate.parse(b.get("due_date").toString()));
-        Long relatedIssueId = null;
-        if (b.get("related_issue_id") != null) {
-            int rid = intOf(b.get("related_issue_id"), "related_issue_id는 양의 정수여야 합니다.");
-            if (rid <= 0) throw ApiException.badRequest("related_issue_id는 양의 정수여야 합니다.");
-            relatedIssueId = (long) rid;
-            fields.put("related_issue_id", rid);
-        }
-        // 0039 — 이 액션아이템이 어느 회의의 결과로 만들어졌는지(회의 1건 → 액션아이템 N건).
-        Long sourceMeetingId = null;
-        if (b.get("source_meeting_id") != null) {
-            int mid = intOf(b.get("source_meeting_id"), "source_meeting_id는 양의 정수여야 합니다.");
-            if (mid <= 0) throw ApiException.badRequest("source_meeting_id는 양의 정수여야 합니다.");
-            sourceMeetingId = (long) mid;
-            fields.put("source_meeting_id", mid);
-        }
 
         requireProjectExists(projectId);
-        if (relatedIssueId != null) {
-            Integer c = jdbc.queryForObject("SELECT COUNT(*) FROM pms_issue WHERE issue_id = ?",
-                    Integer.class, relatedIssueId);
-            if (c == null || c == 0) throw ApiException.badRequest("존재하지 않는 related_issue_id입니다.");
-        }
-        if (sourceMeetingId != null) {
-            Integer c = jdbc.queryForObject(
-                    "SELECT COUNT(*) FROM pms_meeting_minutes WHERE meeting_id = ? AND project_id = ?",
-                    Integer.class, sourceMeetingId, projectId);
-            if (c == null || c == 0) throw ApiException.badRequest("이 프로젝트의 회의록이 아닙니다: source_meeting_id=" + sourceMeetingId);
-        }
 
         fields.put("display_code", displayCodeService.nextDisplayCode(projectId, "ACTION_ITEM", null));
         Map<String, Object> created = WriteSupport.insertReturning(jdbc, "pms_action_item", "action_id", fields);
+        long actionId = toLong(created.get("action_id"));
+
+        // 0039 — 관련항목 매핑(N:M): task_ids/deliverable_ids/issue_ids/meeting_ids.
+        Map<String, List<Long>> linkResult = syncLinkFields(Entity.ACTION_ITEM, actionId, projectId, linkRaw);
 
         if (created.get("assignee_name") != null) {
             notify.notifyByName(projectId, created.get("assignee_name").toString(), "ASSIGNED",
-                    "ACTION_ITEM", toLong(created.get("action_id")),
+                    "ACTION_ITEM", actionId,
                     "담당자로 지정되었습니다: " + created.get("title"));  // 0033 ①
         }
-        audit.write("ACTION_ITEM", toLong(created.get("action_id")), projectId, "INSERT",
+        audit.write("ACTION_ITEM", actionId, projectId, "INSERT",
                 null, null, created, actor, "액션아이템 신규 등록");
-        return RowMappers.mapActionItem(created);
+        Map<String, Object> result = RowMappers.mapActionItem(created);
+        result.putAll(linkResult);
+        return result;
     }
 
     // =====================================================================
@@ -329,7 +361,7 @@ public class WorkSurfaceService {
         Map<String, Object> b = body == null ? Map.of() : body;
         List<String> allowed = List.of("project_id", "title", "meet_date", "meeting_date",
                 "location", "attendees", "content", "body", "remarks",
-                "issue_ids", "task_ids", "deliverable_ids");
+                "issue_ids", "task_ids", "deliverable_ids", "action_ids");
         rejectUnknown(b, allowed);
         long projectId = requireProjectId(b);
         String title = requireTitle(b);
@@ -361,6 +393,8 @@ public class WorkSurfaceService {
                 "pms_task", "task_id", projectId);
         List<Long> deliverableIds = LinkTableSupport.validateIds(jdbc, b.get("deliverable_ids"), "deliverable_ids",
                 "pms_deliverable", "deliverable_id", projectId);
+        List<Long> actionIds = LinkTableSupport.validateIds(jdbc, b.get("action_ids"), "action_ids",
+                "pms_action_item", "action_id", projectId);
 
         fields.put("author_uid", actor.userId());
         Map<String, Object> created = WriteSupport.insertReturning(jdbc, "pms_meeting_minutes", "meeting_id", fields);
@@ -368,6 +402,7 @@ public class WorkSurfaceService {
         LinkTableSupport.sync(jdbc, "pms_meeting_issue_link", "meeting_id", "issue_id", meetingId, issueIds);
         LinkTableSupport.sync(jdbc, "pms_meeting_task_link", "meeting_id", "task_id", meetingId, meetingTaskIds);
         LinkTableSupport.sync(jdbc, "pms_meeting_deliverable_link", "meeting_id", "deliverable_id", meetingId, deliverableIds);
+        LinkTableSupport.sync(jdbc, "pms_meeting_action_link", "meeting_id", "action_id", meetingId, actionIds);
 
         audit.write("MEETING_MINUTES", meetingId, projectId, "INSERT",
                 null, null, created, actor, "회의록 신규 등록");
@@ -375,6 +410,7 @@ public class WorkSurfaceService {
         out.put("issueIds", issueIds);
         out.put("taskIds", meetingTaskIds);
         out.put("deliverableIds", deliverableIds);
+        out.put("actionItemIds", actionIds);
         return out;
     }
 
@@ -384,7 +420,7 @@ public class WorkSurfaceService {
 
     private static final List<String> MEETING_ALLOWED = List.of(
             "title", "meet_date", "meeting_date", "location", "attendees", "content", "body", "remarks",
-            "issue_ids", "task_ids", "deliverable_ids");
+            "issue_ids", "task_ids", "deliverable_ids", "action_ids");
 
     @Transactional
     public Map<String, Object> updateMeeting(long id, Map<String, Object> body, Actor actor) {
@@ -399,9 +435,11 @@ public class WorkSurfaceService {
         boolean hasIssueIds = b.containsKey("issue_ids");
         boolean hasTaskIds = b.containsKey("task_ids");
         boolean hasDeliverableIds = b.containsKey("deliverable_ids");
+        boolean hasActionIds = b.containsKey("action_ids");
         Object issueIdsRaw = b.remove("issue_ids");
         Object taskIdsRaw = b.remove("task_ids");
         Object deliverableIdsRaw = b.remove("deliverable_ids");
+        Object actionIdsRaw = b.remove("action_ids");
 
         Map<String, Object> fields = new LinkedHashMap<>();
         if (b.get("title") != null) {
@@ -422,7 +460,7 @@ public class WorkSurfaceService {
         if (content != null) fields.put("content", content);
         if (b.get("remarks") != null) fields.put("remarks", b.get("remarks"));
 
-        if (fields.isEmpty() && !hasIssueIds && !hasTaskIds && !hasDeliverableIds) {
+        if (fields.isEmpty() && !hasIssueIds && !hasTaskIds && !hasDeliverableIds && !hasActionIds) {
             throw ApiException.badRequest("수정할 필드가 없습니다. 허용 필드: " + String.join(", ", MEETING_ALLOWED));
         }
 
@@ -445,16 +483,24 @@ public class WorkSurfaceService {
                 ? LinkTableSupport.validateIds(jdbc, deliverableIdsRaw, "deliverable_ids",
                     "pms_deliverable", "deliverable_id", projectId)
                 : linkedIds("pms_meeting_deliverable_link", "meeting_id", "deliverable_id", id);
+        List<Long> actionIds = hasActionIds
+                ? LinkTableSupport.validateIds(jdbc, actionIdsRaw, "action_ids",
+                    "pms_action_item", "action_id", projectId)
+                : linkedIds("pms_meeting_action_link", "meeting_id", "action_id", id);
         if (hasIssueIds) LinkTableSupport.sync(jdbc, "pms_meeting_issue_link", "meeting_id", "issue_id", id, issueIds);
         if (hasTaskIds) LinkTableSupport.sync(jdbc, "pms_meeting_task_link", "meeting_id", "task_id", id, taskIds);
         if (hasDeliverableIds) {
             LinkTableSupport.sync(jdbc, "pms_meeting_deliverable_link", "meeting_id", "deliverable_id", id, deliverableIds);
+        }
+        if (hasActionIds) {
+            LinkTableSupport.sync(jdbc, "pms_meeting_action_link", "meeting_id", "action_id", id, actionIds);
         }
 
         Map<String, Object> out = RowMappers.mapMeeting(after);
         out.put("issueIds", issueIds);
         out.put("taskIds", taskIds);
         out.put("deliverableIds", deliverableIds);
+        out.put("actionItemIds", actionIds);
         return out;
     }
 

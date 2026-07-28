@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.aetherpms.auth.AuthContext;
 import com.aetherpms.auth.ProjectScopeService;
 import com.aetherpms.common.ApiException;
+import com.aetherpms.common.LinkTableSupport;
 import com.aetherpms.common.ReadSupport;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,6 +19,7 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * 이슈 읽기(구 ReadController 분리). 생성/수정은 IssueController·IssueWriteController.
  * 0034 §0단계 — 참여 스코프(PM/WORKER 등 참여 한정 계정)는 참여 프로젝트 항목만 조회 가능.
+ * 0039 — 관련항목 매핑(태스크·산출물은 정방향, 회의록·액션아이템은 역방향) 부착.
  */
 @RestController
 public class IssueReadController {
@@ -39,7 +41,7 @@ public class IssueReadController {
         scope.assertCanView(AuthContext.of(req), id);
         List<Map<String, Object>> rows = repo.findByProjectIdOrderByIssueIdAsc(id).stream()
                 .map(IssueMapper::mapIssue).toList();
-        attachTaskIds(rows);
+        attachLinks(rows);
         return rows;
     }
 
@@ -49,7 +51,7 @@ public class IssueReadController {
         Map<String, Object> found = repo.findById(id).map(IssueMapper::mapIssue)
                 .orElseThrow(() -> ApiException.notFound("이슈를 찾을 수 없습니다."));
         scope.assertCanView(AuthContext.of(req), ((Number) found.get("projectId")).longValue());
-        attachTaskIds(List.of(found));
+        attachLinks(List.of(found));
         return found;
     }
 
@@ -61,26 +63,15 @@ public class IssueReadController {
         java.util.Set<Long> visible = scope.visibleProjectIdsOrNull(ctx);
         List<Map<String, Object>> out = visible == null ? all
                 : all.stream().filter(m -> visible.contains(((Number) m.get("projectId")).longValue())).toList();
-        attachTaskIds(out);
+        attachLinks(out);
         return out;
     }
 
-    /** 0039 — 이슈별 매핑된 태스크 id를 배치 조회해 "taskIds"로 부착(N+1 방지). */
-    private void attachTaskIds(List<Map<String, Object>> rows) {
-        if (rows.isEmpty()) return;
-        List<Long> ids = rows.stream().map(r -> ((Number) r.get("id")).longValue()).toList();
-        String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
-        List<Map<String, Object>> links = jdbc.queryForList(
-                "SELECT issue_id, task_id FROM pms_issue_task_link WHERE issue_id IN (" + placeholders + ")",
-                ids.toArray());
-        Map<Long, List<Long>> byIssue = new java.util.LinkedHashMap<>();
-        for (Map<String, Object> l : links) {
-            long iid = ((Number) l.get("issue_id")).longValue();
-            byIssue.computeIfAbsent(iid, k -> new java.util.ArrayList<>())
-                    .add(((Number) l.get("task_id")).longValue());
-        }
-        for (Map<String, Object> row : rows) {
-            row.put("taskIds", byIssue.getOrDefault(((Number) row.get("id")).longValue(), List.of()));
-        }
+    private void attachLinks(List<Map<String, Object>> rows) {
+        LinkTableSupport.attach(jdbc, rows, "id", "pms_issue_task_link", "issue_id", "task_id", "taskIds");
+        LinkTableSupport.attach(jdbc, rows, "id", "pms_issue_deliverable_link", "issue_id",
+                "deliverable_id", "deliverableIds");
+        LinkTableSupport.attach(jdbc, rows, "id", "pms_meeting_issue_link", "issue_id", "meeting_id", "meetingIds");
+        LinkTableSupport.attach(jdbc, rows, "id", "pms_action_item_issue_link", "issue_id", "action_id", "actionItemIds");
     }
 }

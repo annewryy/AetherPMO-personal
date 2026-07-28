@@ -39,10 +39,13 @@ public class WbsService {
 
     private final WbsRepository repository;
     private final ProgressRepository progressRepository;
+    private final com.aetherpms.task.TaskProgressResolver taskProgressResolver;
 
-    public WbsService(WbsRepository repository, ProgressRepository progressRepository) {
+    public WbsService(WbsRepository repository, ProgressRepository progressRepository,
+                      com.aetherpms.task.TaskProgressResolver taskProgressResolver) {
         this.repository = repository;
         this.progressRepository = progressRepository;
+        this.taskProgressResolver = taskProgressResolver;
     }
 
     private static int rate(long total, long approved) {
@@ -89,6 +92,10 @@ public class WbsService {
             delivByNode.put(asLong(r.get("task_node_id")),
                     new long[]{asLong(r.get("total")), asLong(r.get("approved"))});
         }
+
+        // 0039 — 태스크 유효 진척률(task_id → 0~100). 태스크 상세와 동일 계산(산출물 있으면
+        //   승인비율, 없으면 수동 progress_rate) → WBS/간트의 태스크 실제%를 이걸로 덮어쓴다.
+        Map<Long, Integer> effectiveProgress = taskProgressResolver.effectiveProgressByProject(projectId);
 
         List<Map<String, Object>> rows = repository.wbsNodes(projectId);
         rows.sort(Comparator
@@ -156,6 +163,15 @@ public class WbsService {
             deliverableCounts.put("total", dc == null ? 0L : dc[0]);
             deliverableCounts.put("approved", dc == null ? 0L : dc[1]);
             node.put("deliverableCounts", deliverableCounts);
+            // 0039 — 태스크 상세와 동일한 유효 진척률로 덮어써 화면 간 수치를 통일한다
+            //   (산출물 있으면 승인비율, 없으면 태스크 수동 progress_rate — TaskProgressResolver).
+            Long taskId = asLongOrNull(r.get("task_id"));
+            if (taskId != null && effectiveProgress.containsKey(taskId)) {
+                int eff = effectiveProgress.get(taskId);
+                node.put("actualRate", eff);
+                Integer target = (Integer) node.get("targetRate");
+                node.put("delta", target == null ? null : eff - target);
+            }
             @SuppressWarnings("unchecked")
             List<Object> tasks = (List<Object>) parent.get("tasks");
             tasks.add(node);

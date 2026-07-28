@@ -51,9 +51,6 @@ public class MeetingReadController {
         long projectId = ((Number) found.get("projectId")).longValue();
         scope.assertCanView(AuthContext.of(req), projectId);
         attachLinks(List.of(found));
-        found.put("actionItemIds", jdbc.query(
-                "SELECT action_id FROM pms_action_item WHERE source_meeting_id = ? ORDER BY action_id",
-                (rs, i) -> rs.getLong(1), id));
         return found;
     }
 
@@ -74,5 +71,7 @@ public class MeetingReadController {
         LinkTableSupport.attach(jdbc, rows, "id", "pms_meeting_task_link", "meeting_id", "task_id", "taskIds");
         LinkTableSupport.attach(jdbc, rows, "id", "pms_meeting_deliverable_link", "meeting_id",
                 "deliverable_id", "deliverableIds");
+        LinkTableSupport.attach(jdbc, rows, "id", "pms_meeting_action_link", "meeting_id",
+                "action_id", "actionItemIds");
     }
 }

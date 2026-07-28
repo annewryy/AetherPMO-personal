@@ -133,9 +133,11 @@ public class SignalEngine {
         SELECT i.*, p.project_name FROM pms_issue i JOIN pms_project p ON p.project_id = i.project_id
          WHERE i.type = '리스크' AND i.status <> '완료' AND p.status <> '완료' ORDER BY i.issue_id
         """;
+    // 0039 — 이슈↔액션아이템은 이제 N:M 링크 테이블(pms_action_item_issue_link)이 원본.
+    //   레거시 related_issue_id 단일 컬럼은 V31에서 이 테이블로 백필됐고 신규 등록은 더 이상 채우지 않는다.
     private static final String RISK_ACTION_COUNTS_SQL =
-            "SELECT related_issue_id, CAST(COUNT(*) AS SIGNED) AS cnt FROM pms_action_item "
-          + "WHERE related_issue_id IS NOT NULL GROUP BY related_issue_id";
+            "SELECT issue_id AS related_issue_id, CAST(COUNT(*) AS SIGNED) AS cnt "
+          + "FROM pms_action_item_issue_link GROUP BY issue_id";
 
     // =====================================================================
     // 지연 신호 (ProjectDelaySignal)
