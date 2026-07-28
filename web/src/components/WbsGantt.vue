@@ -81,6 +81,12 @@ function isLate(node: WbsNode): boolean {
   return node.plannedEndDate < todayStr && node.actualRate < 100;
 }
 
+/** 0039 — 미착수 지연: 계획 시작일이 지났는데 실적 시작일 자체가 없음(WBS/일정 탭 '미착수 Nd'와 동일 판정). */
+function isNotStartedLate(node: WbsNode): boolean {
+  if (node.actualStartDate || !node.plannedStartDate) return false;
+  return node.plannedStartDate < todayStr && node.actualRate < 100;
+}
+
 // 월 눈금
 const monthTicks = computed(() => {
   const r = range.value;
@@ -107,6 +113,7 @@ const todayLeft = computed(() => (range.value ? pct(todayStr) : null));
       <span class="lg"><i class="sw actual" /> 실적</span>
       <span class="lg"><i class="sw actual ongoing" /> 실적(진행 중 — 오늘까지)</span>
       <span class="lg"><i class="sw late" /> 지연</span>
+      <span class="lg"><i class="sw planned not-started-late" /> 미착수 지연</span>
     </div>
     <div class="grid">
       <!-- 좌: 이름 열 -->
@@ -130,8 +137,11 @@ const todayLeft = computed(() => (range.value ? pct(todayStr) : null));
           <span v-if="todayLeft != null" class="today" :style="{ left: todayLeft + '%' }" />
           <template v-if="depth === 2">
             <span v-if="bar(node.plannedStartDate, node.plannedEndDate)" class="bar planned"
+                  :class="{ 'not-started-late': isNotStartedLate(node) }"
                   :style="bar(node.plannedStartDate, node.plannedEndDate)!"
-                  :title="`계획 ${node.plannedStartDate ?? '?'} ~ ${node.plannedEndDate ?? '?'}`" />
+                  :title="isNotStartedLate(node)
+                    ? `계획 ${node.plannedStartDate ?? '?'} ~ ${node.plannedEndDate ?? '?'} · 미착수 지연`
+                    : `계획 ${node.plannedStartDate ?? '?'} ~ ${node.plannedEndDate ?? '?'}`" />
             <span v-if="actualBar(node)" class="bar actual"
                   :class="{ ongoing: actualBar(node)!.ongoing, late: isLate(node) }"
                   :style="{ left: actualBar(node)!.left, width: actualBar(node)!.width }"
@@ -157,6 +167,7 @@ const todayLeft = computed(() => (range.value ? pct(todayStr) : null));
 .sw.actual { background: var(--green); }
 .sw.actual.ongoing { background: repeating-linear-gradient(45deg, var(--green), var(--green) 3px, transparent 3px, transparent 6px); }
 .sw.late { background: var(--red); }
+.sw.planned.not-started-late { border: 1.5px solid var(--red); background: color-mix(in srgb, var(--red) 20%, transparent); }
 
 .grid { display: flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .names { width: 300px; flex-shrink: 0; border-right: 1px solid var(--border); }
@@ -192,6 +203,10 @@ const todayLeft = computed(() => (range.value ? pct(todayStr) : null));
   top: 5px; height: 10px;
   border: 1.5px solid var(--accent);
   background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.bar.planned.not-started-late {
+  border-color: var(--red);
+  background: color-mix(in srgb, var(--red) 20%, transparent);
 }
 .bar.actual { bottom: 5px; height: 10px; background: var(--green); }
 .bar.actual.ongoing {

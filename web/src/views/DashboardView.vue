@@ -69,9 +69,21 @@ const isRiskType = (t: string) => (t || '').includes('리스크') || (t || '').t
 // ---- KPI (0007 재정의 → 0038 개정: 전체 프로젝트 n/n, 유형별 미해결 n/총 N) ----
 const biddingTotal = computed(() => projects.value.filter((p) => p.stage === 'BIDDING').length);
 const execTotal = computed(() => projects.value.filter((p) => p.stage === 'EXECUTION').length);
-// 0038 재개정 — 하단 분해도 상단과 같은 '지연/전체' 기준(지연이 어느 단계에서 왔는지)
-const isDelayedP = (p: Project) => p.status === 'Delay' ||
-  (!!p.endDate && p.endDate < todayStr && p.status !== 'Completed' && p.stage !== 'COMPLETED');
+const signalByProject = computed(() => {
+  const m = new Map<number, { expected: number | null; actual: number | null; delayPct: number | null }>();
+  for (const s of signals.value?.signals ?? []) {
+    m.set(s.projectId, { expected: s.expected, actual: s.actual, delayPct: s.delayPct });
+  }
+  return m;
+});
+// 0039 재개정 — WBS 계산 지연신호(delayPct, 요약 표와 동일 기준) 우선.
+//   신호 미제공(폴백 모드·계산불가)일 때만 계약종료일 초과/수동 status='Delay'로 대체.
+const isDelayedP = (p: Project) => {
+  const sig = signalByProject.value.get(p.id);
+  if (sig && sig.delayPct != null) return sig.delayPct > 0;
+  return p.status === 'Delay' ||
+    (!!p.endDate && p.endDate < todayStr && p.status !== 'Completed' && p.stage !== 'COMPLETED');
+};
 const delayedBidding = computed(() => projects.value.filter((p) => p.stage === 'BIDDING' && isDelayedP(p)).length);
 const delayedExecution = computed(() => projects.value.filter((p) => p.stage === 'EXECUTION' && isDelayedP(p)).length);
 // 리스크/이슈 분리 카운트: 미해결 n / 총 N
@@ -99,14 +111,6 @@ interface SummaryRow {
   issue: Ratio;
   action: Ratio;
 }
-
-const signalByProject = computed(() => {
-  const m = new Map<number, { expected: number | null; actual: number | null; delayPct: number | null }>();
-  for (const s of signals.value?.signals ?? []) {
-    m.set(s.projectId, { expected: s.expected, actual: s.actual, delayPct: s.delayPct });
-  }
-  return m;
-});
 
 const summaryRows = computed<SummaryRow[]>(() => {
   const rows = projects.value.map((p) => {

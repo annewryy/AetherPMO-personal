@@ -42,6 +42,11 @@ public class SignalEngine {
     private static final String ACTIVE_PROJECTS_SQL =
             "SELECT * FROM pms_project WHERE status <> '완료' ORDER BY project_id";
 
+    // 0039 — PHASE 계획일정은 대부분 pms_project_tailoring에 직접 입력되지 않고
+    //   (WBS/일정 탭처럼) 하위 TASK 계획일정의 min/max로만 파생된다. 예전 SQL은 tailoring의
+    //   원본 컬럼만 읽어 거의 항상 NULL → phases 비어 fallbackUsed=true(프로젝트 전체 기간 선형
+    //   기대치)로 새 버려, WBS 표의 단계별 목표%와 동떨어진 값이 나왔다. WbsService와 동일하게
+    //   TASK min(start)/max(end) 파생을 여기서도 적용.
     private static final String PHASE_PLAN_SQL = """
         WITH RECURSIVE deliv AS (
           SELECT t.catalog_node_id AS node_id FROM pms_project_tailoring t
@@ -55,11 +60,25 @@ public class SignalEngine {
             JOIN pms_catalog_node c ON c.node_id = r.node_id
            WHERE c.parent_node_id IS NOT NULL
         ),
-        agg AS (SELECT node_id, CAST(COUNT(*) AS SIGNED) AS total FROM rollup GROUP BY node_id)
-        SELECT t.planned_start_date, t.planned_end_date, COALESCE(a.total, 0) AS weight
+        agg AS (SELECT node_id, CAST(COUNT(*) AS SIGNED) AS total FROM rollup GROUP BY node_id),
+        task_plan AS (
+          SELECT act.parent_node_id AS phase_node_id,
+                 MIN(tk.planned_start_date) AS min_start,
+                 MAX(tk.planned_end_date) AS max_end
+            FROM pms_project_tailoring tt
+            JOIN pms_catalog_node tn ON tn.node_id = tt.catalog_node_id AND tn.node_type = 'TASK'
+            JOIN pms_catalog_node act ON act.node_id = tn.parent_node_id
+            JOIN pms_task tk ON tk.task_id = tt.generated_task_id
+           WHERE tt.project_id = ? AND tt.is_selected = 1
+           GROUP BY act.parent_node_id
+        )
+        SELECT COALESCE(t.planned_start_date, tp.min_start) AS planned_start_date,
+               COALESCE(t.planned_end_date, tp.max_end) AS planned_end_date,
+               COALESCE(a.total, 0) AS weight
           FROM pms_project_tailoring t
           JOIN pms_catalog_node n ON n.node_id = t.catalog_node_id AND n.node_type = 'PHASE'
           LEFT JOIN agg a ON a.node_id = n.node_id
+          LEFT JOIN task_plan tp ON tp.phase_node_id = n.node_id
          WHERE t.project_id = ? AND t.is_selected = 1
         """;
 
@@ -127,7 +146,7 @@ public class SignalEngine {
 
     private Integer[] computeExpected(long projectId, Map<String, Object> projectRow, LocalDate today) {
         // returns [expected, fallbackUsed(0/1)] or null
-        List<Map<String, Object>> rows = jdbc.queryForList(PHASE_PLAN_SQL, projectId, projectId);
+        List<Map<String, Object>> rows = jdbc.queryForList(PHASE_PLAN_SQL, projectId, projectId, projectId);
         List<int[]> planned = new ArrayList<>(); // [expected, weight]
         long totalWeight = 0;
         List<LocalDate[]> phases = new ArrayList<>();

@@ -226,7 +226,7 @@ function rateText(v: number | null): string {
       <div class="col-status">상태</div>
       <div class="col-num">목표%</div>
       <div class="col-num">실제%</div>
-      <div class="col-num">Δ</div>
+      <div class="col-num">지연</div>
       <div class="col-gantt">
         <div v-if="domain" class="axis">
           <span
@@ -313,7 +313,7 @@ function rateText(v: number | null): string {
       <span class="lg"><span class="sw sw-fill" /> 실제 진척(채움)</span>
       <span class="lg"><span class="sw sw-delayed" /> 지연(종료 초과·미착수)</span>
       <span class="lg"><span class="sw sw-today" /> 오늘</span>
-      <span class="lg muted">진척률은 표의 목표%·실제%·Δ 숫자로 표기</span>
+      <span class="lg muted">진척률은 표의 목표%·실제%·지연 숫자로 표기</span>
     </div>
   </div>
 </template>
