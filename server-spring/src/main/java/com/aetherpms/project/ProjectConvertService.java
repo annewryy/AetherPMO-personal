@@ -26,6 +26,8 @@ import com.aetherpms.person.MemberAutoService;
 @Service
 public class ProjectConvertService {
 
+    private final com.aetherpms.access.ExecAutoRegisterService execAuto;
+
     private final JdbcTemplate jdbc;
     private final ProjectCodeService codeService;
     private final ProjectUpdateService updateService; // detailShape 재사용 대신 조회용 아님 — 미사용 시 제거
@@ -35,13 +37,14 @@ public class ProjectConvertService {
 
     public ProjectConvertService(JdbcTemplate jdbc, ProjectCodeService codeService,
                                  ProjectUpdateService updateService, AuditWriter audit,
-                                 MemberAutoService memberAuto, TailoringExpansionService tailoringExpansion) {
+                                 MemberAutoService memberAuto, TailoringExpansionService tailoringExpansion, com.aetherpms.access.ExecAutoRegisterService execAuto) {
         this.jdbc = jdbc;
         this.codeService = codeService;
         this.updateService = updateService;
         this.audit = audit;
         this.memberAuto = memberAuto;
         this.tailoringExpansion = tailoringExpansion;
+        this.execAuto = execAuto;
     }
 
     /** 마법사 오버라이드 화이트리스트(camelCase → 컬럼). 0033 개정: 전환 시 추가 입력. */
@@ -152,6 +155,7 @@ public class ProjectConvertService {
         if (pmName != null) {
             memberAuto.ensureMember(newId, pmName.toString(), true, actor);
         }
+        execAuto.ensureProjectHasExec(newId);  // 0034 §5 결정4 — 경영진 자동 참여 등록
 
         String expansionNote = (expansion.createdTasks() + expansion.createdDeliverables()) > 0
                 ? " · 테일러링 전개(태스크 " + expansion.createdTasks() + "·산출물 " + expansion.createdDeliverables() + ")"

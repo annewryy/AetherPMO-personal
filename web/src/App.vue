@@ -7,7 +7,7 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import {
   Layers, Home, FileSignature, PlayCircle, Search, FileCheck, FileSearch,
-  AlertTriangle, CheckSquare, Mail, Presentation, Users, UserCog, Settings, Sun, Moon,
+  Users, UserCog, Settings, Sun, Moon,
 } from 'lucide-vue-next';
 import { currentProjectStage } from './lib/currentProjectStage';
 import { theme, toggleTheme } from './lib/theme';
@@ -25,14 +25,15 @@ const todayLabel = (() => {
   return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. (${wd})`;
 })();
 
-// 관리자 콘솔은 SYS_ADMIN만 노출(미로그인 dev는 노출 — 점진 적용).
-const showAdmin = computed(() => !isAuthenticated.value || currentUser.value?.role === 'SYS_ADMIN');
-// 0032 §5 — 역할별 메뉴 정합(서버 403이 최종 방어선, 여기는 UX 정리):
-//   입찰(입찰단계·나라장터)=WORKER 제외 / 테일러링·산출물 관리=SYS·EXEC·PM만 / 인력관리=VIEWER 제외
-const menuRole = computed(() => (isAuthenticated.value ? currentUser.value?.role ?? '' : ''));
-const showBidding = computed(() => !menuRole.value || menuRole.value !== 'WORKER');
-const showTailoring = computed(() => !menuRole.value || ['SYS_ADMIN', 'EXEC_ADMIN', 'PM'].includes(menuRole.value));
-const showPersonMgmt = computed(() => !menuRole.value || menuRole.value !== 'VIEWER');
+// 0034 §1단계 — 사이드바는 서버가 판정한 유효 메뉴(③ 접근 규칙, /api/auth/me의 menus)로 렌더.
+//   서버 RbacInterceptor가 최종 방어선(403) — 여기는 UX 정리. 미로그인(폴백 모드)은 전부 노출.
+const menus = computed<string[] | null>(() => (isAuthenticated.value ? (currentUser.value?.menus ?? []) : null));
+const hasMenu = (key: string) => !menus.value || menus.value.includes(key);
+const showBidding = computed(() => hasMenu('bidding'));
+const showExecution = computed(() => hasMenu('execution'));
+const showTailoring = computed(() => hasMenu('tailoring'));
+const showPersonMgmt = computed(() => hasMenu('persons'));
+const showAdmin = computed(() => hasMenu('admin'));
 // 0025→0031 수정: 상세(/projects/:id)는 상세 화면이 로드한 프로젝트의 실제 단계
 // (currentProjectStage)로 입찰/수행 메뉴 활성을 결정한다(로딩 중엔 미활성).
 const isDetail = computed(() => /^\/projects\/\d+/.test(route.path));
@@ -64,17 +65,13 @@ const isLoginPage = computed(() => route.path === '/login');
 
         <div class="group">프로젝트 관리</div>
         <RouterLink v-if="showBidding" to="/projects/bidding" :class="{ active: isBiddingList }" class="sub"><FileSignature :size="15" class="nico" />입찰단계</RouterLink>
-        <RouterLink to="/projects/active" :class="{ active: isExecList }" class="sub"><PlayCircle :size="15" class="nico" />수행단계</RouterLink>
+        <RouterLink v-if="showExecution" to="/projects/active" :class="{ active: isExecList }" class="sub"><PlayCircle :size="15" class="nico" />수행단계</RouterLink>
         <RouterLink v-if="showBidding" to="/bid-notices" :class="{ active: isBidNotices }" class="sub"><Search :size="15" class="nico" />나라장터 공고조회</RouterLink>
-        <RouterLink to="/issues" active-class="active" class="sub"><AlertTriangle :size="15" class="nico" />이슈/리스크</RouterLink>
-        <RouterLink to="/action-items" active-class="active" class="sub"><CheckSquare :size="15" class="nico" />액션아이템</RouterLink>
-        <RouterLink to="/official-docs" active-class="active" class="sub"><Mail :size="15" class="nico" />공문</RouterLink>
-        <RouterLink to="/meeting-minutes" active-class="active" class="sub"><Presentation :size="15" class="nico" />회의록</RouterLink>
 
         <template v-if="showTailoring">
         <div class="group">테일러링</div>
         <RouterLink to="/catalog" exact-active-class="active" class="sub"><FileCheck :size="15" class="nico" />테일러링</RouterLink>
-        <RouterLink to="/catalog/deliverables" active-class="active" class="sub"><FileSearch :size="15" class="nico" />산출물 관리</RouterLink>
+        <RouterLink to="/catalog/deliverables" active-class="active" class="sub"><FileSearch :size="15" class="nico" />템플릿 관리</RouterLink>
         </template>
 
         <template v-if="showPersonMgmt">

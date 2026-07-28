@@ -319,10 +319,7 @@ onMounted(() => { void load(); });
         <!-- 수행 카드 -->
         <template v-else>
           <div class="card-head">
-            <span class="card-code">
-              <span v-if="p.dept" class="dept-tag">{{ p.dept }}</span>
-              {{ p.projectCode || '—' }}
-            </span>
+            <span v-if="p.dept" class="card-code"><span class="dept-tag">{{ p.dept }}</span></span>
             <span class="head-badges">
               <span v-if="isOverdue(p)" class="badge overdue">기간초과</span>
               <span class="badge status">{{ statusKo(p) }}</span>

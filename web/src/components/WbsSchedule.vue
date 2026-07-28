@@ -21,11 +21,17 @@ function openTask(node: WbsNode) {
   router.push(`/tasks/${node.taskId}`);
 }
 
+// 0039 — WBS 산출물 행(4번째 레벨) 클릭 → 산출물 상세(조회·수정·상태 전이·코멘트).
+function openDeliverable(deliverableId: number) {
+  router.push(`/deliverables/${deliverableId}`);
+}
+
 // ---- 트리 평탄화(표·간트 공통 행) ------------------------------------------------
 interface FlatRow {
   node: WbsNode;
-  depth: number;      // 0 PHASE / 1 ACTIVITY / 2 TASK
+  depth: number;      // 0 PHASE / 1 ACTIVITY / 2 TASK / 3 DELIVERABLE(0039)
   health: Health;
+  deliverable?: import('../types').WbsDeliverable;  // depth 3만
 }
 
 const rows = computed<FlatRow[]>(() => {
@@ -36,11 +42,21 @@ const rows = computed<FlatRow[]>(() => {
       out.push({ node: activity, depth: 1, health: health(activity) });
       for (const task of activity.tasks ?? []) {
         out.push({ node: task, depth: 2, health: health(task) });
+        // 0039 — 태스크 하위 산출물까지 노출(트리가 태스크에서 끊기던 것 확장).
+        //   산출물은 자체 일정·진척 개념이 없어 표 숫자/간트 바 없이 상태만 표기한다.
+        for (const d of task.deliverables ?? []) {
+          out.push({ node: task, depth: 3, health: health(task), deliverable: d });
+        }
       }
     }
   }
   return out;
 });
+
+// 산출물 상태 라벨(pms_deliverable.status)
+const DELIV_STATUS_LABELS: Record<string, string> = {
+  DRAFT: '작성중', SUBMITTED: '제출', IN_REVIEW: '검토중', REJECTED: '반려', APPROVED: '승인',
+};
 
 const isEmpty = computed(() => rows.value.length === 0);
 
@@ -226,7 +242,7 @@ function rateText(v: number | null): string {
       <div class="col-status">상태</div>
       <div class="col-num">목표%</div>
       <div class="col-num">실제%</div>
-      <div class="col-num">Δ</div>
+      <div class="col-num">지연</div>
       <div class="col-gantt">
         <div v-if="domain" class="axis">
           <span
@@ -251,6 +267,38 @@ function rateText(v: number | null): string {
         v-for="(row, i) in rows" :key="row.node.nodeId + '-' + i"
         class="wbs-row" :class="'lvl-' + row.depth"
       >
+        <!-- 0039 — 산출물 행(depth 3): 자체 일정·진척 개념이 없어 상태·마감일만 표기 -->
+        <template v-if="row.deliverable">
+          <div class="col-tree" :style="{ paddingLeft: 8 + row.depth * 20 + 'px' }">
+            <span class="type-tag ty-DELIVERABLE">산출물</span>
+            <span
+              class="node-name task-link" :title="row.deliverable.name + ' — 상세 열기'"
+              role="link" tabindex="0"
+              @click="openDeliverable(row.deliverable.deliverableId)"
+              @keydown.enter="openDeliverable(row.deliverable.deliverableId)"
+            >{{ row.deliverable.name }}</span>
+          </div>
+          <div class="col-assignee">{{ row.deliverable.assigneeName || '—' }}</div>
+          <div class="col-range">{{ row.deliverable.dueDate ? shortDate(row.deliverable.dueDate) + ' 마감' : '—' }}</div>
+          <div class="col-status">
+            <span class="status-pill" :class="'dv-' + row.deliverable.status">
+              {{ DELIV_STATUS_LABELS[row.deliverable.status ?? ''] ?? (row.deliverable.status || '—') }}
+            </span>
+          </div>
+          <div class="col-num muted">—</div>
+          <div class="col-num muted">—</div>
+          <div class="col-num muted">—</div>
+          <div class="col-gantt">
+            <div class="lane">
+              <span
+                v-if="todayPct != null && todayPct >= 0 && todayPct <= 100"
+                class="today-line" :style="{ left: todayPct + '%' }"
+              />
+            </div>
+          </div>
+        </template>
+
+        <template v-else>
         <div class="col-tree" :style="{ paddingLeft: 8 + row.depth * 20 + 'px' }">
           <span class="type-tag" :class="'ty-' + row.node.nodeType">{{ typeLabel(row.node.nodeType) }}</span>
           <span
@@ -304,6 +352,7 @@ function rateText(v: number | null): string {
             <span v-else class="no-plan">일정 미정</span>
           </div>
         </div>
+        </template>
       </div>
     </div>
 
@@ -313,7 +362,7 @@ function rateText(v: number | null): string {
       <span class="lg"><span class="sw sw-fill" /> 실제 진척(채움)</span>
       <span class="lg"><span class="sw sw-delayed" /> 지연(종료 초과·미착수)</span>
       <span class="lg"><span class="sw sw-today" /> 오늘</span>
-      <span class="lg muted">진척률은 표의 목표%·실제%·Δ 숫자로 표기</span>
+      <span class="lg muted">진척률은 표의 목표%·실제%·지연 숫자로 표기</span>
     </div>
   </div>
 </template>
@@ -380,6 +429,13 @@ function rateText(v: number | null): string {
 .ty-PHASE { color: var(--accent); background: rgba(99, 102, 241, 0.12); }
 .ty-ACTIVITY { color: var(--blue); background: rgba(59, 130, 246, 0.12); }
 .ty-TASK { color: var(--green); background: rgba(52, 211, 153, 0.12); }
+/* 0039 — 4번째 레벨(산출물) */
+.ty-DELIVERABLE { color: var(--yellow); background: rgba(251, 191, 36, 0.12); }
+.wbs-row.lvl-3 { background: transparent; font-size: 13px; }
+.wbs-row.lvl-3 .node-name:not(.task-link) { color: var(--muted); }
+.dv-APPROVED { color: var(--green); background: rgba(52, 211, 153, 0.12); }
+.dv-SUBMITTED, .dv-IN_REVIEW { color: var(--blue); background: rgba(59, 130, 246, 0.12); }
+.dv-REJECTED { color: var(--red); background: rgba(239, 68, 68, 0.12); }
 
 .col-assignee { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .col-range { font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; font-size: 13px; }

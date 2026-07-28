@@ -1,10 +1,12 @@
 <script setup lang="ts">
 // 0011 B-7 회의록 신규 등록 폼 (A-3 POST /api/meeting-minutes).
 // 참석자는 쉼표 구분 입력 → 문자열 배열로 전송. 쓰기는 백엔드 전용.
-import { ref } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { dataClient } from '../lib/dataClient';
-import type { MeetingMinuteCreateInput, Project } from '../types';
+import type { ActionItem, Artifact, Issue, MeetingMinuteCreateInput, Project, Task } from '../types';
 import ModalShell from './ModalShell.vue';
+import MultiSelectChecklist from './MultiSelectChecklist.vue';
+import CollapsibleSection from './CollapsibleSection.vue';
 
 const props = defineProps<{ projectId?: number; projects?: Project[] }>();
 const emit = defineEmits<{ (e: 'created'): void; (e: 'close'): void }>();
@@ -15,8 +17,32 @@ const meetDate = ref('');
 const attendees = ref('');
 const content = ref('');
 const remarks = ref('');
+const issueIds = ref<number[]>([]);
+const taskIds = ref<number[]>([]);
+const deliverableIds = ref<number[]>([]);
+const actionIds = ref<number[]>([]);
 const submitting = ref(false);
 const error = ref<string | null>(null);
+
+// 0039 — 이 회의와 연관된 태스크·산출물·이슈/리스크·액션아이템(다중선택).
+const issues = ref<Issue[]>([]);
+const tasks = ref<Task[]>([]);
+const deliverables = ref<Artifact[]>([]);
+const actionItems = ref<ActionItem[]>([]);
+const issueOptions = computed(() => issues.value.map((i) => ({ id: i.id, label: i.title, sub: i.type })));
+const taskOptions = computed(() => tasks.value.map((t) => ({ id: t.id, label: t.name })));
+const deliverableOptions = computed(() => deliverables.value.map((d) => ({ id: d.id, label: d.name })));
+const actionOptions = computed(() => actionItems.value.map((a) => ({ id: a.id, label: a.title })));
+watch(pickedProjectId, async (pid) => {
+  issueIds.value = []; taskIds.value = []; deliverableIds.value = []; actionIds.value = [];
+  if (pid == null) { issues.value = []; tasks.value = []; deliverables.value = []; actionItems.value = []; return; }
+  [issues.value, tasks.value, deliverables.value, actionItems.value] = await Promise.all([
+    dataClient.issues.listByProject(pid).catch(() => []),
+    dataClient.tasks.listByProject(pid).catch(() => []),
+    dataClient.artifacts.listByProject(pid).catch(() => []),
+    dataClient.actionItems.listByProject(pid).catch(() => []),
+  ]);
+}, { immediate: true });
 
 async function submit() {
   if (pickedProjectId.value == null) { error.value = '프로젝트를 선택하세요.'; return; }
@@ -30,6 +56,10 @@ async function submit() {
     attendees: attendees.value.split(',').map((s) => s.trim()).filter(Boolean),
     content: content.value.trim() || null,
     remarks: remarks.value.trim() || null,
+    issue_ids: issueIds.value,
+    task_ids: taskIds.value,
+    deliverable_ids: deliverableIds.value,
+    action_ids: actionIds.value,
   };
   try {
     await dataClient.meetingMinutes.create(input);
@@ -65,6 +95,31 @@ async function submit() {
 
     <label class="label">비고</label>
     <input v-model="remarks" class="input" type="text" placeholder="비고 (선택)" :disabled="submitting" />
+
+    <CollapsibleSection title="관련 이슈/리스크" :count="issueIds.length">
+      <MultiSelectChecklist
+        v-model="issueIds" :items="issueOptions" :disabled="submitting" search-placeholder="이슈/리스크 검색…"
+        empty-text="등록된 이슈/리스크가 없습니다."
+      />
+    </CollapsibleSection>
+    <CollapsibleSection title="관련 태스크" :count="taskIds.length">
+      <MultiSelectChecklist
+        v-model="taskIds" :items="taskOptions" :disabled="submitting" search-placeholder="태스크 검색…"
+        empty-text="전개된 태스크가 없습니다."
+      />
+    </CollapsibleSection>
+    <CollapsibleSection title="관련 산출물" :count="deliverableIds.length">
+      <MultiSelectChecklist
+        v-model="deliverableIds" :items="deliverableOptions" :disabled="submitting" search-placeholder="산출물 검색…"
+        empty-text="등록된 산출물이 없습니다."
+      />
+    </CollapsibleSection>
+    <CollapsibleSection title="관련 액션아이템" :count="actionIds.length">
+      <MultiSelectChecklist
+        v-model="actionIds" :items="actionOptions" :disabled="submitting" search-placeholder="액션아이템 검색…"
+        empty-text="등록된 액션아이템이 없습니다."
+      />
+    </CollapsibleSection>
 
     <div v-if="error" class="err">{{ error }}</div>
 

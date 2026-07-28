@@ -106,6 +106,7 @@ public final class ReadMappers {
         out.put("status", a.getStatus());
         out.put("displayCode", a.getDisplayCode());
         out.put("fileName", a.getFileName());
+        out.put("taskId", a.getTaskId());
         return out;
     }
 
@@ -121,6 +122,7 @@ public final class ReadMappers {
         out.put("displayCode", a.getDisplayCode());
         out.put("confirmComment", a.getConfirmComment());
         out.put("relatedIssueId", a.getRelatedIssueId());
+        out.put("sourceMeetingId", a.getSourceMeetingId());
         return out;
     }
 
@@ -184,6 +186,7 @@ public final class ReadMappers {
         out.put("sortOrder", num(t.getSortOrder()));
         out.put("displayCode", t.getDisplayCode());
         out.put("catalogNodeId", t.getCatalogNodeId());
+        out.put("deliverableId", t.getDeliverableId()); // 0038
         out.put("assignee", t.getAssigneeName());   // 담당자명(직접 저장). 조직도 선택으로 채움
         out.put("assigneeId", t.getAssigneeId());
         return out;
@@ -243,6 +246,7 @@ public final class ReadMappers {
         out.put("isInitial", s.getIsInitial());
         out.put("isFinal", s.getIsFinal());
         out.put("sortOrder", s.getSortOrder());
+        out.put("progressWeight", s.getProgressWeight()); // 0039 — 상태별 진척률(%)
         return out;
     }
 

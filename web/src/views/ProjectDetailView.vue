@@ -27,6 +27,9 @@ import DetailPanel, { type DetailKind } from '../components/DetailPanel.vue';
 import IssueFormModal from '../components/IssueFormModal.vue';
 import ActionItemFormModal from '../components/ActionItemFormModal.vue';
 import MeetingMinuteFormModal from '../components/MeetingMinuteFormModal.vue';
+import MeetingDetailPanel from '../components/MeetingDetailPanel.vue';
+import ConsortiumMemberFormModal from '../components/ConsortiumMemberFormModal.vue';
+import VrbFormModal from '../components/VrbFormModal.vue';
 import WbsSchedule from '../components/WbsSchedule.vue';
 import WbsGantt from '../components/WbsGantt.vue';
 import ProjectFormModal from '../components/ProjectFormModal.vue';
@@ -101,6 +104,7 @@ async function loadTab(key: TabKey) {
   if (key === 'overview' || key === 'tasks') loadProgress();
   if (key === 'overview') { void loadOverviewSections(pid); return; }
   // members는 컴포넌트가 자체 로드(GET /members) — 여기서는 지연로드 대상 아님.
+  if (key === 'consortium') void loadConsortium();
   const needsLoad = !['consortium', 'members'].includes(key);
   if (!needsLoad) return;
   tabLoading.value = true;
@@ -184,6 +188,7 @@ const highlightCommentId = computed(() => {
 });
 
 function openPanel(kind: DetailKind, id: number) {
+  openMeetingId.value = null;
   panelTarget.value = { kind, id };
 }
 function closePanel() {
@@ -194,6 +199,19 @@ function closePanel() {
     delete q.panel; delete q.comment;
     router.replace({ query: q });
   }
+}
+
+// 0039 — 회의록 상세 패널(별도 구조라 DetailKind에는 포함하지 않고 독립 상태로 관리).
+const openMeetingId = ref<number | null>(null);
+function openMeeting(id: number) {
+  panelTarget.value = null;
+  openMeetingId.value = id;
+}
+function closeMeetingPanel() {
+  openMeetingId.value = null;
+}
+async function onMeetingChanged() {
+  await reloadMeetings();
 }
 
 // 딥링크(?panel=kind:id) → 패널 열기. 탭도 대상 도메인으로 맞춘다.
@@ -362,6 +380,60 @@ async function loadProgress() {
   }
 }
 
+// 0039 — VRB 심의 정보 수정(프로젝트당 1건, PUT upsert)
+const showVrbForm = ref(false);
+function onVrbSaved(saved: import('../types').VrbInfo) {
+  showVrbForm.value = false;
+  vrb.value = saved;
+}
+
+// 0039 — 컨소시엄 구성원 CRUD. 응답에 목록+합계가 함께 온다.
+const consortiumMembers = ref<import('../types').ConsortiumMember[]>([]);
+const consortiumTotal = ref(0);
+const consortiumBalanced = ref(true);
+const consortiumError = ref<string | null>(null);
+const consortiumForm = ref<{ member: import('../types').ConsortiumMember | null } | null>(null);
+
+function applyConsortium(p: import('../types').ConsortiumPayload) {
+  consortiumMembers.value = p.members;
+  consortiumTotal.value = p.shareTotal;
+  consortiumBalanced.value = p.shareBalanced;
+}
+async function loadConsortium() {
+  if (!apiMode.value) { consortiumMembers.value = project.value?.consortiumMembers ?? []; return; }
+  consortiumError.value = null;
+  try {
+    applyConsortium(await dataClient.consortium.listByProject(projectId.value));
+  } catch (e) {
+    consortiumError.value = e instanceof Error ? e.message : String(e);
+  }
+}
+function openConsortiumForm(member: import('../types').ConsortiumMember | null) {
+  consortiumForm.value = { member };
+}
+function onConsortiumSaved(p: import('../types').ConsortiumPayload) {
+  consortiumForm.value = null;
+  applyConsortium(p);
+}
+async function removeConsortiumMember(c: import('../types').ConsortiumMember) {
+  if (c.id == null) return;
+  if (!window.confirm(`"${c.companyName}"을(를) 컨소시엄에서 삭제할까요?`)) return;
+  consortiumError.value = null;
+  try {
+    applyConsortium(await dataClient.consortium.remove(projectId.value, c.id));
+  } catch (e) {
+    consortiumError.value = e instanceof Error ? e.message : String(e);
+  }
+}
+/** 수정 대상 본인 지분을 제외한 합계(모달의 "저장 후 총 지분율" 계산용) */
+const consortiumOthersTotal = computed(() => {
+  const editing = consortiumForm.value?.member;
+  const others = editing
+    ? consortiumMembers.value.filter((m) => m.id !== editing.id)
+    : consortiumMembers.value;
+  return Math.round(others.reduce((sum, m) => sum + (m.shareRate ?? 0), 0) * 100) / 100;
+});
+
 async function reloadIssues() { issues.value = await dataClient.issues.listByProject(projectId.value); }
 async function reloadActions() { actionItems.value = await dataClient.actionItems.listByProject(projectId.value); }
 async function reloadArtifacts() { artifacts.value = await dataClient.artifacts.listByProject(projectId.value); }
@@ -398,6 +470,11 @@ async function onProjectSaved(updated: Project) {
 const activitiesSorted = computed(() =>
   [...activities.value].sort((a, b) => String(b.date).localeCompare(String(a.date))),
 );
+
+const ACTION_LABELS: Record<string, string> = { INSERT: '등록', UPDATE: '수정', DELETE: '삭제' };
+function actionLabel(t: string): string {
+  return ACTION_LABELS[t] ?? t;
+}
 
 function fmtAmount(v: number): string {
   return v ? v.toLocaleString('ko-KR') + ' 원' : '—';
@@ -711,20 +788,42 @@ watch(() => route.query.panel, applyPanelQuery);
           </ul>
         </template>
 
-        <!-- BIDDING: 컨소시엄 (상세) -->
+        <!-- BIDDING: 컨소시엄 (0039 — 구성원 CRUD + 지분율 합계 검증) -->
         <template v-else-if="activeTab === 'consortium'">
-          <div v-if="project.consortiumMembers.length === 0" class="card-empty">컨소시엄 구성이 없습니다.</div>
-          <table v-else class="grid">
-            <thead><tr><th>회사</th><th>역할</th><th>지분율</th><th>비고</th></tr></thead>
-            <tbody>
-              <tr v-for="(c, i) in project.consortiumMembers" :key="i">
-                <td class="name">{{ c.companyName }}</td>
-                <td>{{ c.role || '—' }}</td>
-                <td>{{ c.shareRate ? c.shareRate + '%' : '—' }}</td>
-                <td class="muted">{{ c.description || '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="tab-toolbar">
+            <button class="btn btn-primary btn-sm" :disabled="!apiMode"
+              :title="apiMode ? '' : '등록은 백엔드 연결 후 활성화'"
+              @click="openConsortiumForm(null)">+ 구성원 추가</button>
+            <span v-if="!apiMode" class="gate-hint">등록은 백엔드(API_BASE) 연결 후 활성화</span>
+          </div>
+          <p v-if="consortiumError" class="err-line">{{ consortiumError }}</p>
+          <div v-if="consortiumMembers.length === 0" class="card-empty">컨소시엄 구성이 없습니다.</div>
+          <template v-else>
+            <table class="grid">
+              <thead>
+                <tr><th>회사명</th><th>역할</th><th class="num">지분율 (%)</th><th>담당자</th><th>연락처</th><th>이메일</th><th>비고</th><th>작업</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="c in consortiumMembers" :key="c.id ?? c.companyName">
+                  <td class="name">{{ c.companyName }}</td>
+                  <td><span class="role-chip" :class="{ lead: c.role === '주사업자' }">{{ c.role || '—' }}</span></td>
+                  <td class="num">{{ c.shareRate }}%</td>
+                  <td>{{ c.contactName || '—' }}</td>
+                  <td class="muted">{{ c.contactPhone || '—' }}</td>
+                  <td class="muted">{{ c.contactEmail || '—' }}</td>
+                  <td class="muted">{{ c.description || '—' }}</td>
+                  <td class="cell-actions">
+                    <button class="btn btn-sm" :disabled="!apiMode" @click="openConsortiumForm(c)">수정</button>
+                    <button class="btn btn-sm danger" :disabled="!apiMode" @click="removeConsortiumMember(c)">삭제</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="share-foot">
+              <span>총 지분율: <b :class="{ bad: !consortiumBalanced }">{{ consortiumTotal }}%</b></span>
+              <span v-if="!consortiumBalanced" class="share-warn">⚠ 총합이 100%가 아닙니다.</span>
+            </div>
+          </template>
         </template>
 
         <!-- 배치21: 참여인력 — 목록(페이징) + 등록 (자체 로드) -->
@@ -828,7 +927,7 @@ watch(() => route.query.panel, applyPanelQuery);
           <table v-else class="grid">
             <thead><tr><th>제목</th><th>회의일</th><th>참석자</th><th>비고</th></tr></thead>
             <tbody>
-              <tr v-for="m in meetings" :key="m.id">
+              <tr v-for="m in meetings" :key="m.id" class="row" @click="openMeeting(m.id)">
                 <td class="name">{{ m.title }}</td>
                 <td>{{ fmtDate(m.meetDate) }}</td>
                 <td class="muted">{{ attendeesText(m.attendees) }}</td>
@@ -838,15 +937,21 @@ watch(() => route.query.panel, applyPanelQuery);
           </table>
         </template>
 
+        <!-- BIDDING: VRB 심의 정보 (0039 — 수정 지원) -->
         <template v-else-if="activeTab === 'vrb'">
-          <div v-if="!vrb" class="card-empty">VRB 정보가 없습니다(미상신).</div>
-          <dl v-else class="meta vrb-meta">
-            <div><dt>상신 상태</dt><dd>{{ vrb.status }}</dd></div>
-            <div><dt>VRB 번호</dt><dd>{{ vrb.vrbNumber || '—' }}</dd></div>
-            <div><dt>상신 예정일</dt><dd>{{ fmtDate(vrb.plannedDate) }}</dd></div>
-            <div><dt>상신일</dt><dd>{{ fmtDate(vrb.submittedDate) }}</dd></div>
-            <div><dt>승인일</dt><dd>{{ fmtDate(vrb.approvedDate) }}</dd></div>
-            <div class="wide"><dt>메모</dt><dd>{{ vrb.memo || '—' }}</dd></div>
+          <div class="tab-toolbar vrb-toolbar">
+            <h3 class="vrb-title">VRB 심의 정보</h3>
+            <button class="btn btn-primary btn-sm" :disabled="!apiMode"
+              :title="apiMode ? '' : '수정은 백엔드 연결 후 활성화'"
+              @click="showVrbForm = true">VRB 정보 수정</button>
+          </div>
+          <dl class="meta vrb-meta">
+            <div><dt>진행 상태</dt><dd class="strong">{{ vrb?.status || '미상신' }}</dd></div>
+            <div><dt>심의번호</dt><dd>{{ vrb?.vrbNumber || '—' }}</dd></div>
+            <div><dt>상신 예정일</dt><dd>{{ fmtDate(vrb?.plannedDate) }}</dd></div>
+            <div><dt>실제 상신일</dt><dd>{{ fmtDate(vrb?.submittedDate) }}</dd></div>
+            <div><dt>승인/반려일</dt><dd>{{ fmtDate(vrb?.approvedDate) }}</dd></div>
+            <div class="wide"><dt>VRB 심의 메모</dt><dd>{{ vrb?.memo || '등록된 메모가 없습니다.' }}</dd></div>
           </dl>
         </template>
 
@@ -876,7 +981,7 @@ watch(() => route.query.panel, applyPanelQuery);
               <tr v-for="a in activitiesSorted" :key="a.id">
                 <td class="code">{{ fmtDate(a.date) }}</td>
                 <td>{{ a.entityType || '—' }}<span v-if="a.entityId != null" class="muted"> #{{ a.entityId }}</span></td>
-                <td>{{ a.type }}</td>
+                <td>{{ actionLabel(a.type) }}</td>
                 <td class="muted">{{ a.text || '—' }}</td>
                 <td>{{ a.userName || '—' }}</td>
               </tr>
@@ -908,6 +1013,24 @@ watch(() => route.query.panel, applyPanelQuery);
           <button class="btn btn-sm" @click="closePanel">닫기</button>
         </div>
       </SideDrawer>
+
+      <SideDrawer v-if="openMeetingId != null" @close="closeMeetingPanel">
+        <MeetingDetailPanel
+          :meeting-id="openMeetingId" :project-id="projectId"
+          :highlight-comment-id="highlightCommentId" @close="closeMeetingPanel" @changed="onMeetingChanged"
+        />
+      </SideDrawer>
+
+      <VrbFormModal
+        v-if="showVrbForm" :project-id="projectId" :vrb="vrb"
+        @saved="onVrbSaved" @close="showVrbForm = false"
+      />
+
+      <ConsortiumMemberFormModal
+        v-if="consortiumForm" :project-id="projectId" :member="consortiumForm.member"
+        :others-total="consortiumOthersTotal"
+        @saved="onConsortiumSaved" @close="consortiumForm = null"
+      />
 
       <!-- ==== 신규 등록 폼 ==== -->
       <IssueFormModal
@@ -1143,6 +1266,27 @@ watch(() => route.query.panel, applyPanelQuery);
   border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; margin-left: 6px;
 }
 .tab-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.vrb-toolbar { justify-content: space-between; }
+.vrb-title { font-size: 14px; margin: 0; }
+.vrb-meta .strong { font-weight: 700; }
+
+/* 0039 — 컨소시엄 탭 */
+.grid .num { text-align: right; font-variant-numeric: tabular-nums; }
+.cell-actions { display: flex; gap: 6px; }
+.btn.danger { border-color: var(--red); color: var(--red); }
+.err-line { color: var(--red); font-size: 13px; margin: 0 0 10px; }
+.role-chip {
+  font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  background: var(--panel-2, var(--panel)); color: var(--muted); border: 1px solid var(--border);
+}
+.role-chip.lead { color: var(--accent); border-color: var(--accent); background: rgba(139, 92, 246, 0.12); }
+.share-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 10px; padding: 10px 12px; border-radius: 8px;
+  background: var(--panel); border: 1px solid var(--border); font-size: 13.5px;
+}
+.share-foot b.bad { color: var(--red); }
+.share-warn { color: var(--red); font-size: 12.5px; font-weight: 600; }
 .gate-hint { font-size: 13px; color: var(--muted); }
 .panel-missing {
   padding: 24px; display: flex; flex-direction: column; gap: 12px;

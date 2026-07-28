@@ -9,18 +9,19 @@
 // 드로어의 닫기(✕) 버튼·aside 래퍼는 이 본문에 없다(호출측 chrome). 필드/상태 변경 후 'changed' emit.
 import { ref, computed, watch } from 'vue';
 import { dataClient } from '../lib/dataClient';
-import { stub } from '../lib/stub';
 import { fullDisplayCode } from '../lib/displayCode';
 import type {
-  Issue, ActionItem, Artifact, Task, CommentEntityType, TransitionEntity, OrgPick,
+  Issue, ActionItem, Artifact, Task, CommentEntityType, TransitionEntity,
   AvailableTransition,
 } from '../types';
 import StatusBadge from './StatusBadge.vue';
 import CommentThread from './CommentThread.vue';
 import CommentModal from './CommentModal.vue';
-import OrgPickerModal from './OrgPickerModal.vue';
+import ProjectMemberPickerModal from './ProjectMemberPickerModal.vue';
 import StatusMenu, { type MenuTarget } from './StatusMenu.vue';
 import WorkflowViewModal, { type WfState, type WfEdge } from './WorkflowViewModal.vue';
+import CollapsibleSection from './CollapsibleSection.vue';
+import MultiSelectChecklist from './MultiSelectChecklist.vue';
 
 // 도메인별 대상(하나만 채워짐). kind로 분기.
 export type DetailKind = 'issue' | 'action' | 'artifact' | 'task';
@@ -115,32 +116,14 @@ function ladderFor(): Record<string, string[]> | null {
   return null;
 }
 
-// ---- 필드 인라인 PATCH -------------------------------------------------------
+// ---- 0039 — 필드 편집을 "수정→검토→저장" 초안(draft) 방식으로 전환 -----------
+//   이전엔 값을 바꾸는 즉시 PATCH됐다(입력 실수·의도치 않은 저장 위험). 이제는 로컬 draft에만
+//   반영하고, 변경분이 있을 때만 하단 저장 바가 나타나 한 번에 저장한다. 상태변경·전이·코멘트·
+//   파일 액션은 그 자체가 독립된 확정 동작이라 기존대로 즉시 실행한다.
 const savingField = ref<string | null>(null);
 const fieldError = ref<string | null>(null);
-
-async function patch(patchBody: Record<string, unknown>, fieldKey: string) {
-  const id = entityId.value;
-  if (id == null) return;
-  savingField.value = fieldKey;
-  fieldError.value = null;
-  try {
-    if (props.kind === 'issue') await dataClient.issues.update(id, patchBody);
-    else if (props.kind === 'action') await dataClient.actionItems.update(id, patchBody);
-    else if (props.kind === 'task') await dataClient.tasks.update(id, patchBody);
-    // 산출물은 상태 외 필드 인라인 편집 대상 없음(현 계약) — 상태는 전이로 처리
-    emit('changed');
-  } catch (e) {
-    fieldError.value = e instanceof Error ? e.message : String(e);
-  } finally {
-    savingField.value = null;
-  }
-}
-
-// ---- 담당자 인라인 편집(조직도 선택) ------------------------------------------
-//   이슈=owner_name · 액션=assignee_name · 태스크=assignee_name · 산출물=author_name.
-//   아마란스 인력은 계정(uuid) 없음 → 이름으로 저장.
 const showAssigneePicker = ref(false);
+
 const currentAssignee = computed(() => {
   switch (props.kind) {
     case 'issue': return props.issue?.owner ?? '';
@@ -150,17 +133,95 @@ const currentAssignee = computed(() => {
   }
   return '';
 });
-async function saveAssignee(name: string | null) {
-  const id = entityId.value;
-  if (id == null) return;
-  savingField.value = 'assignee';
+
+interface Draft {
+  assigneeName: string;
+  dueDate: string;
+  priority: string;
+  progressRate: number;
+  deliverableId: number | null;
+  plannedStartDate: string;
+  plannedEndDate: string;
+  actualStartDate: string;
+  actualEndDate: string;
+  taskIds: number[];
+  deliverableIds: number[];
+  issueIds: number[];
+  meetingIds: number[];
+  actionItemIds: number[];
+}
+
+function buildDraft(): Draft {
+  return {
+    assigneeName: currentAssignee.value,
+    dueDate: dateValue(props.kind === 'issue' ? props.issue?.dueDate : props.kind === 'action' ? props.action?.dueDate : null),
+    priority: props.issue?.priority ?? '',
+    progressRate: props.task?.progress ?? 0,
+    deliverableId: props.task?.deliverableId ?? null,
+    plannedStartDate: props.task?.plannedStartDate ?? '',
+    plannedEndDate: props.task?.plannedEndDate ?? '',
+    actualStartDate: props.task?.actualStartDate ?? '',
+    actualEndDate: props.task?.actualEndDate ?? '',
+    taskIds: [...(props.issue?.taskIds ?? props.action?.taskIds ?? [])],
+    deliverableIds: [...(props.issue?.deliverableIds ?? props.action?.deliverableIds ?? [])],
+    issueIds: [...(props.action?.issueIds ?? [])],
+    meetingIds: [...(props.issue?.meetingIds ?? props.action?.meetingIds ?? [])],
+    actionItemIds: [...(props.issue?.actionItemIds ?? [])],
+  };
+}
+
+const baseline = ref<Draft>(buildDraft());
+const draft = ref<Draft>(buildDraft());
+watch(entityId, () => { baseline.value = buildDraft(); draft.value = buildDraft(); });
+
+const isDirty = computed(() => JSON.stringify(draft.value) !== JSON.stringify(baseline.value));
+
+function discardDraft() {
+  draft.value = { ...baseline.value,
+    taskIds: [...baseline.value.taskIds], deliverableIds: [...baseline.value.deliverableIds],
+    issueIds: [...baseline.value.issueIds], meetingIds: [...baseline.value.meetingIds],
+    actionItemIds: [...baseline.value.actionItemIds] };
   fieldError.value = null;
+}
+
+async function saveDraft() {
+  const id = entityId.value;
+  if (id == null || !isDirty.value) return;
+  savingField.value = 'draft';
+  fieldError.value = null;
+  const d = draft.value, b = baseline.value;
+  const body: Record<string, unknown> = {};
+  const assigneeCol = props.kind === 'issue' ? 'owner_name' : 'assignee_name';
+  if (d.assigneeName !== b.assigneeName && props.kind !== 'artifact') body[assigneeCol] = d.assigneeName || null;
+  if (d.dueDate !== b.dueDate && (props.kind === 'issue' || props.kind === 'action')) body.due_date = d.dueDate || null;
+  if (d.priority !== b.priority && props.kind === 'issue') body.priority = d.priority || null;
+  if (props.kind === 'task') {
+    if (d.progressRate !== b.progressRate) body.progress_rate = d.progressRate;
+    if (d.deliverableId !== b.deliverableId) body.deliverable_id = d.deliverableId;
+    if (d.plannedStartDate !== b.plannedStartDate) body.planned_start_date = d.plannedStartDate || null;
+    if (d.plannedEndDate !== b.plannedEndDate) body.planned_end_date = d.plannedEndDate || null;
+    if (d.actualStartDate !== b.actualStartDate) body.actual_start_date = d.actualStartDate || null;
+    if (d.actualEndDate !== b.actualEndDate) body.actual_end_date = d.actualEndDate || null;
+  }
+  if (props.kind === 'issue' || props.kind === 'action') {
+    if (JSON.stringify(d.taskIds) !== JSON.stringify(b.taskIds)) body.task_ids = d.taskIds;
+    if (JSON.stringify(d.deliverableIds) !== JSON.stringify(b.deliverableIds)) body.deliverable_ids = d.deliverableIds;
+    if (JSON.stringify(d.meetingIds) !== JSON.stringify(b.meetingIds)) body.meeting_ids = d.meetingIds;
+    if (props.kind === 'issue' && JSON.stringify(d.actionItemIds) !== JSON.stringify(b.actionItemIds)) {
+      body.action_ids = d.actionItemIds;
+    }
+    if (props.kind === 'action' && JSON.stringify(d.issueIds) !== JSON.stringify(b.issueIds)) {
+      body.issue_ids = d.issueIds;
+    }
+  }
+  if (Object.keys(body).length === 0) { savingField.value = null; return; }
   try {
-    const v = name && name.trim() ? name.trim() : null;
-    if (props.kind === 'issue') await dataClient.issues.update(id, { owner_name: v });
-    else if (props.kind === 'action') await dataClient.actionItems.update(id, { assignee_name: v });
-    else if (props.kind === 'task') await dataClient.tasks.update(id, { assignee_name: v });
-    else if (props.kind === 'artifact') await dataClient.artifacts.update(id, { authorName: v });
+    if (props.kind === 'artifact') await dataClient.artifacts.update(id, { authorName: d.assigneeName || null });
+    else if (props.kind === 'issue') await dataClient.issues.update(id, body);
+    else if (props.kind === 'action') await dataClient.actionItems.update(id, body);
+    else if (props.kind === 'task') await dataClient.tasks.update(id, body);
+    baseline.value = { ...d, taskIds: [...d.taskIds], deliverableIds: [...d.deliverableIds],
+      issueIds: [...d.issueIds], meetingIds: [...d.meetingIds], actionItemIds: [...d.actionItemIds] };
     emit('changed');
   } catch (e) {
     fieldError.value = e instanceof Error ? e.message : String(e);
@@ -168,23 +229,58 @@ async function saveAssignee(name: string | null) {
     savingField.value = null;
   }
 }
-function onAssigneePick(p: OrgPick) {
+
+// 0038 — 프로젝트 내 담당 지정은 참여인력 중에서 선택(draft에만 반영 — 저장은 별도 버튼)
+function onAssigneePick(name: string) {
   showAssigneePicker.value = false;
-  if (p.source === 'NEW_EXTERNAL') return;
-  void saveAssignee(p.name);
+  draft.value.assigneeName = name || '';
 }
 
-// due_date (이슈=목표해결일 / 액션=마감일)
-function onDueDate(ev: Event) {
-  const v = (ev.target as HTMLInputElement).value || null;
-  patch({ due_date: v }, 'due');
+// ---- 0039 — 관련항목 후보(이슈/액션 kind만 편집 가능) --------------------------
+const relTasks = ref<Task[]>([]);
+const relDeliverables = ref<Artifact[]>([]);
+const relIssues = ref<Issue[]>([]);
+const relMeetings = ref<import('../types').MeetingMinute[]>([]);
+const relActionItems = ref<ActionItem[]>([]);
+const relTaskOptions = computed(() => relTasks.value.map((t) => ({ id: t.id, label: t.name })));
+const relDeliverableOptions = computed(() => relDeliverables.value.map((d) => ({ id: d.id, label: d.name })));
+const relIssueOptions = computed(() => relIssues.value.map((i) => ({ id: i.id, label: i.title, sub: i.type })));
+const relMeetingOptions = computed(() => relMeetings.value.map((m) => ({ id: m.id, label: m.title, sub: String(m.meetDate).split('T')[0] })));
+const relActionOptions = computed(() => relActionItems.value.map((a) => ({ id: a.id, label: a.title })));
+
+async function loadRelatedCandidates() {
+  if (!apiMode.value || (props.kind !== 'issue' && props.kind !== 'action')) return;
+  const pid = props.projectId;
+  const [tasks, deliverables, issues, meetings, actions] = await Promise.all([
+    dataClient.tasks.listByProject(pid).catch(() => []),
+    dataClient.artifacts.listByProject(pid).catch(() => []),
+    dataClient.issues.listByProject(pid).catch(() => []),
+    dataClient.meetingMinutes.listByProject(pid).catch(() => []),
+    dataClient.actionItems.listByProject(pid).catch(() => []),
+  ]);
+  relTasks.value = tasks; relDeliverables.value = deliverables; relIssues.value = issues;
+  relMeetings.value = meetings; relActionItems.value = actions;
 }
-// 이슈 우선순위 — 백엔드 화이트리스트(상/중/하, work-surface.ts ISSUE_PRIORITIES)
-function onPriority(ev: Event) {
-  const v = (ev.target as HTMLSelectElement).value;
-  if (props.kind === 'issue' && v === props.issue?.priority) return;
-  patch({ priority: v || null }, 'priority');
+watch(() => [props.kind, props.projectId] as const, loadRelatedCandidates, { immediate: true });
+
+// 태스크/산출물 상세의 관련항목은 읽기 전용(역방향 — 이 항목을 참조하는 이슈/액션/회의록 이름 표시용).
+const relIssuesById = computed(() => new Map(relIssues.value.map((i) => [i.id, i])));
+const relActionsById = computed(() => new Map(relActionItems.value.map((a) => [a.id, a])));
+const relMeetingsById = computed(() => new Map(relMeetings.value.map((m) => [m.id, m])));
+async function loadReverseNameCandidates() {
+  if (!apiMode.value || (props.kind !== 'task' && props.kind !== 'artifact')) return;
+  const pid = props.projectId;
+  const [issues, actions, meetings] = await Promise.all([
+    dataClient.issues.listByProject(pid).catch(() => []),
+    dataClient.actionItems.listByProject(pid).catch(() => []),
+    dataClient.meetingMinutes.listByProject(pid).catch(() => []),
+  ]);
+  relIssues.value = issues; relActionItems.value = actions; relMeetings.value = meetings;
 }
+watch(() => [props.kind, props.projectId] as const, loadReverseNameCandidates, { immediate: true });
+const reverseIssueIds = computed(() => props.task?.issueIds ?? props.artifact?.issueIds ?? []);
+const reverseActionIds = computed(() => props.task?.actionItemIds ?? props.artifact?.actionItemIds ?? []);
+const reverseMeetingIds = computed(() => props.task?.meetingIds ?? props.artifact?.meetingIds ?? []);
 
 // 상세내용(이슈=검토 코멘트 / 액션=확인 코멘트) — 읽기 전용.
 //  백엔드 PATCH 화이트리스트(work-surface.ts)에 review_comment/confirm_comment가 없어
@@ -375,6 +471,63 @@ const PRIORITIES = ['상', '중', '하'];
 const TASK_STATUS_LABELS: Record<string, string> = {
   TODO: '대기', IN_PROGRESS: '진행중', REVIEW: '검토중', REJECTED: '반려', DONE: '완료',
 };
+
+// ---- 0038 — 태스크 실사용 산출물 후보(이 태스크 소속 산출물) ----
+const taskDeliverables = ref<Artifact[]>([]);
+watch(
+  () => [props.kind, props.task?.id, props.projectId] as const,
+  async ([kind, taskId, projectId]) => {
+    if (kind !== 'task' || taskId == null || !projectId || !apiMode.value) { taskDeliverables.value = []; return; }
+    try {
+      const all = await dataClient.artifacts.listByProject(projectId);
+      taskDeliverables.value = all.filter((a) => a.taskId === taskId);
+    } catch { taskDeliverables.value = []; }
+  },
+  { immediate: true },
+);
+// 0039 — 진척률이 산출물 승인비율로 자동 계산될 때 그 근거(승인 n/전체 N)를 화면에 밝힌다.
+const approvedDeliverableCount = computed(() =>
+  taskDeliverables.value.filter((d) => d.status === 'APPROVED').length);
+
+// ---- 0038 — 산출물 파일 액션(템플릿/수정본) ----
+const fileInput = ref<HTMLInputElement | null>(null);
+const fileBusy = ref(false);
+const fileMsg = ref('');
+const fileErr = ref('');
+async function fileAction(fn: () => Promise<void>, okMsg?: string) {
+  fileBusy.value = true;
+  fileMsg.value = '';
+  fileErr.value = '';
+  try {
+    await fn();
+    if (okMsg) fileMsg.value = okMsg;
+  } catch (e) {
+    fileErr.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    fileBusy.value = false;
+  }
+}
+function downloadTemplate() {
+  const id = props.artifact?.id;
+  if (id == null) return;
+  void fileAction(() => dataClient.files.download(`/api/deliverables/${id}/template-file`));
+}
+function downloadCurrent() {
+  const id = props.artifact?.id;
+  if (id == null) return;
+  void fileAction(() => dataClient.files.download(`/api/deliverables/${id}/file`));
+}
+function onFilePicked(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const f = input.files?.[0];
+  const id = props.artifact?.id;
+  input.value = '';
+  if (!f || id == null) return;
+  void fileAction(async () => {
+    const r = (await dataClient.files.upload(`/api/deliverables/${id}/file`, f)) as { versionNo?: number };
+    fileMsg.value = `업로드 완료 (v${r.versionNo ?? '?'})`;
+  });
+}
 </script>
 
 <template>
@@ -390,30 +543,31 @@ const TASK_STATUS_LABELS: Record<string, string> = {
       <span v-else class="plain-status">{{ status || '—' }}</span>
     </div>
 
+    <!-- 0039 — 카드 1: 항목 정보(필드 + 관련항목 + 저장 바). 코멘트는 별도 카드로 분리해
+         저장 버튼이 이 카드 하단에 자연스럽게 붙도록 한다. -->
+    <div class="card">
     <!-- 필드 (도메인별) -->
     <dl class="fields">
       <template v-if="kind === 'issue'">
         <div><dt>유형</dt><dd>{{ issue?.type || '—' }}</dd></div>
         <div><dt>담당자</dt>
           <dd class="assignee-dd">
-            <span>{{ currentAssignee || '—' }}</span>
-            <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">조직도</button>
+            <span>{{ draft.assigneeName || '—' }}</span>
+            <button v-if="apiMode" class="mini-btn" type="button" @click="showAssigneePicker = true">참여인력</button>
           </dd>
         </div>
         <div><dt>발생일</dt><dd>{{ fmtDate(issue?.reportedDate) }}</dd></div>
         <div>
           <dt>{{ dueLabel }}</dt>
           <dd>
-            <input v-if="apiMode" class="f-input" type="date" :value="dateValue(issue?.dueDate)"
-              :disabled="savingField === 'due'" @change="onDueDate" />
+            <input v-if="apiMode" v-model="draft.dueDate" class="f-input" type="date" />
             <template v-else>{{ fmtDate(issue?.dueDate) }}</template>
           </dd>
         </div>
         <div>
           <dt>우선순위</dt>
           <dd>
-            <select v-if="apiMode" class="f-input" :value="issue?.priority || ''"
-              :disabled="savingField === 'priority'" @change="onPriority">
+            <select v-if="apiMode" v-model="draft.priority" class="f-input">
               <option value="">—</option>
               <option v-for="p in priorityOptions" :key="p" :value="p">{{ p }}</option>
             </select>
@@ -425,15 +579,14 @@ const TASK_STATUS_LABELS: Record<string, string> = {
       <template v-else-if="kind === 'action'">
         <div><dt>담당자</dt>
           <dd class="assignee-dd">
-            <span>{{ currentAssignee || '—' }}</span>
-            <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">조직도</button>
+            <span>{{ draft.assigneeName || '—' }}</span>
+            <button v-if="apiMode" class="mini-btn" type="button" @click="showAssigneePicker = true">참여인력</button>
           </dd>
         </div>
         <div>
           <dt>{{ dueLabel }}</dt>
           <dd>
-            <input v-if="apiMode" class="f-input" type="date" :value="dateValue(action?.dueDate)"
-              :disabled="savingField === 'due'" @change="onDueDate" />
+            <input v-if="apiMode" v-model="draft.dueDate" class="f-input" type="date" />
             <template v-else>{{ fmtDate(action?.dueDate) }}</template>
           </dd>
         </div>
@@ -444,44 +597,74 @@ const TASK_STATUS_LABELS: Record<string, string> = {
         <div><dt>버전</dt><dd>{{ artifact?.version || '—' }}</dd></div>
         <div><dt>담당자</dt>
           <dd class="assignee-dd">
-            <span>{{ currentAssignee || '—' }}</span>
-            <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">조직도</button>
+            <span>{{ draft.assigneeName || '—' }}</span>
+            <button v-if="apiMode" class="mini-btn" type="button" @click="showAssigneePicker = true">참여인력</button>
           </dd>
         </div>
         <div><dt>마감일</dt><dd>{{ fmtDate(artifact?.dueDate) }}</dd></div>
         <div><dt>제출일</dt><dd>{{ artifact?.submitDate || '—' }}</dd></div>
+        <!-- 0038 — 산출물 파일: 템플릿 기반 착수(다운로드) → 수정본 업로드(버전 증가) → 최신본 다운로드 -->
+        <div class="wide"><dt>파일</dt>
+          <dd class="file-actions">
+            <button class="mini-btn" type="button" :disabled="fileBusy" @click="downloadTemplate">템플릿 다운로드</button>
+            <button class="mini-btn" type="button" :disabled="fileBusy" @click="fileInput?.click()">수정본 업로드</button>
+            <button class="mini-btn" type="button" :disabled="fileBusy" @click="downloadCurrent">최신 파일</button>
+            <input ref="fileInput" type="file" class="file-hidden" @change="onFilePicked" />
+            <span v-if="fileMsg" class="file-ok">{{ fileMsg }}</span>
+            <span v-if="fileErr" class="file-err">{{ fileErr }}</span>
+          </dd>
+        </div>
       </template>
 
       <template v-else-if="kind === 'task'">
         <div><dt>상태</dt><dd>{{ TASK_STATUS_LABELS[status] ?? status }}</dd></div>
-        <div><dt>진척률</dt><dd>{{ task?.progress ?? 0 }}%</dd></div>
+        <div><dt>진척률</dt>
+          <dd>
+            <input
+              v-if="apiMode && taskDeliverables.length === 0" v-model.number="draft.progressRate"
+              class="f-input narrow" type="number" min="0" max="100"
+            />
+            <template v-else>
+              <b>{{ task?.progress ?? 0 }}%</b>
+              <span class="hint-inline">
+                산출물 승인 {{ approvedDeliverableCount }}/{{ taskDeliverables.length }} 기준 자동 계산
+                — 직접 입력은 산출물이 없는 태스크에서만 가능합니다
+              </span>
+            </template>
+          </dd>
+        </div>
+        <!-- 0038 — 실사용 산출물: 이 태스크의 후보(pms_deliverable.task_id) 중 택1 → pms_task.deliverable_id -->
+        <div class="wide"><dt>사용 산출물</dt>
+          <dd>
+            <select
+              class="select-in" v-model="draft.deliverableId"
+              :disabled="!apiMode || taskDeliverables.length === 0"
+            >
+              <option :value="null">(선택 안 함)</option>
+              <option v-for="d in taskDeliverables" :key="d.id" :value="d.id">{{ d.name }}</option>
+            </select>
+            <span v-if="taskDeliverables.length === 0" class="hint-inline">이 태스크에 산출물 후보가 없습니다</span>
+          </dd>
+        </div>
         <div><dt>담당자</dt>
           <dd class="assignee-dd">
-            <span>{{ currentAssignee || '—' }}</span>
-            <button v-if="apiMode" class="mini-btn" type="button" :disabled="savingField === 'assignee'" @click="showAssigneePicker = true">조직도</button>
+            <span>{{ draft.assigneeName || '—' }}</span>
+            <button v-if="apiMode" class="mini-btn" type="button" @click="showAssigneePicker = true">참여인력</button>
           </dd>
         </div>
         <!-- 0031: 태스크 일정 지정 — 계획/실적 시작·종료(백엔드 PATCH 화이트리스트 확장) -->
         <div class="wide"><dt>계획 기간</dt>
           <dd class="date-range">
-            <input type="date" class="date-in" :value="task?.plannedStartDate ?? ''"
-                   :disabled="!apiMode || savingField === 'planned'"
-                   @change="patch({ planned_start_date: ($event.target as HTMLInputElement).value || null }, 'planned')" />
+            <input type="date" class="date-in" v-model="draft.plannedStartDate" :disabled="!apiMode" />
             <span class="tilde">~</span>
-            <input type="date" class="date-in" :value="task?.plannedEndDate ?? ''"
-                   :disabled="!apiMode || savingField === 'planned'"
-                   @change="patch({ planned_end_date: ($event.target as HTMLInputElement).value || null }, 'planned')" />
+            <input type="date" class="date-in" v-model="draft.plannedEndDate" :disabled="!apiMode" />
           </dd>
         </div>
         <div class="wide"><dt>실적 기간</dt>
           <dd class="date-range">
-            <input type="date" class="date-in" :value="task?.actualStartDate ?? ''"
-                   :disabled="!apiMode || savingField === 'actual'"
-                   @change="patch({ actual_start_date: ($event.target as HTMLInputElement).value || null }, 'actual')" />
+            <input type="date" class="date-in" v-model="draft.actualStartDate" :disabled="!apiMode" />
             <span class="tilde">~</span>
-            <input type="date" class="date-in" :value="task?.actualEndDate ?? ''"
-                   :disabled="!apiMode || savingField === 'actual'"
-                   @change="patch({ actual_end_date: ($event.target as HTMLInputElement).value || null }, 'actual')" />
+            <input type="date" class="date-in" v-model="draft.actualEndDate" :disabled="!apiMode" />
           </dd>
         </div>
       </template>
@@ -493,9 +676,8 @@ const TASK_STATUS_LABELS: Record<string, string> = {
       <div class="ro-text">{{ detailText || '—' }}</div>
     </div>
 
-    <p v-if="fieldError" class="err">{{ fieldError }}</p>
-
-    <!-- 상태 변경 — 통일 드롭다운(현재 상태 → 전환 가능 상태 + 워크플로 보기) -->
+    <!-- 상태 변경 — 통일 드롭다운(현재 상태 → 전환 가능 상태 + 워크플로 보기).
+         0039 — 관련항목보다 위(요청): 상태가 먼저 눈에 들어와야 한다. -->
     <section class="section">
       <h3 class="section-title">상태 변경</h3>
       <StatusMenu
@@ -513,17 +695,70 @@ const TASK_STATUS_LABELS: Record<string, string> = {
       <p v-if="engineError" class="err">{{ engineError }}</p>
     </section>
 
-    <!-- 첨부파일: 아마란스 위임 stub -->
-    <section class="section">
-      <h3 class="section-title">첨부파일</h3>
-      <div class="attach-row">
-        <span class="pending">아마란스(원챔버) 연계로 제공 예정</span>
-        <button class="btn btn-sm" @click="stub('amaranth', '첨부파일 열기')">아마란스에서 열기</button>
+    <!-- 0039 — 관련항목: 이슈/액션은 매핑 편집(draft), 태스크/산출물은 역방향 읽기전용 표시 -->
+    <section v-if="apiMode && (kind === 'issue' || kind === 'action')" class="section rel-section">
+      <h3 class="section-title">관련항목</h3>
+      <CollapsibleSection title="관련 태스크" :count="draft.taskIds.length">
+        <MultiSelectChecklist v-model="draft.taskIds" :items="relTaskOptions" search-placeholder="태스크 검색…" empty-text="전개된 태스크가 없습니다." />
+      </CollapsibleSection>
+      <CollapsibleSection title="관련 산출물" :count="draft.deliverableIds.length">
+        <MultiSelectChecklist v-model="draft.deliverableIds" :items="relDeliverableOptions" search-placeholder="산출물 검색…" empty-text="등록된 산출물이 없습니다." />
+      </CollapsibleSection>
+      <CollapsibleSection v-if="kind === 'action'" title="관련 이슈/리스크" :count="draft.issueIds.length">
+        <MultiSelectChecklist v-model="draft.issueIds" :items="relIssueOptions" search-placeholder="이슈/리스크 검색…" empty-text="등록된 이슈/리스크가 없습니다." />
+      </CollapsibleSection>
+      <CollapsibleSection title="관련 회의록" :count="draft.meetingIds.length">
+        <MultiSelectChecklist v-model="draft.meetingIds" :items="relMeetingOptions" search-placeholder="회의록 검색…" empty-text="등록된 회의록이 없습니다." />
+      </CollapsibleSection>
+      <CollapsibleSection v-if="kind === 'issue'" title="관련 액션아이템" :count="draft.actionItemIds.length">
+        <MultiSelectChecklist v-model="draft.actionItemIds" :items="relActionOptions" search-placeholder="액션아이템 검색…" empty-text="등록된 액션아이템이 없습니다." />
+      </CollapsibleSection>
+    </section>
+
+    <section v-else-if="kind === 'task' || kind === 'artifact'" class="section rel-section">
+      <h3 class="section-title">관련항목</h3>
+      <div class="rel-ro">
+        <div class="rel-ro-row">
+          <span class="rel-ro-k">이슈/리스크</span>
+          <template v-if="reverseIssueIds.length">
+            <span v-for="rid in reverseIssueIds" :key="rid" class="chip">{{ relIssuesById.get(rid)?.title ?? ('#' + rid) }}</span>
+          </template>
+          <span v-else class="dim">없음</span>
+        </div>
+        <div class="rel-ro-row">
+          <span class="rel-ro-k">액션아이템</span>
+          <template v-if="reverseActionIds.length">
+            <span v-for="rid in reverseActionIds" :key="rid" class="chip">{{ relActionsById.get(rid)?.title ?? ('#' + rid) }}</span>
+          </template>
+          <span v-else class="dim">없음</span>
+        </div>
+        <div class="rel-ro-row">
+          <span class="rel-ro-k">회의록</span>
+          <template v-if="reverseMeetingIds.length">
+            <span v-for="rid in reverseMeetingIds" :key="rid" class="chip">{{ relMeetingsById.get(rid)?.title ?? ('#' + rid) }}</span>
+          </template>
+          <span v-else class="dim">없음</span>
+        </div>
       </div>
     </section>
 
-    <!-- 코멘트 스레드 -->
-    <section class="section">
+    <p v-if="fieldError" class="err">{{ fieldError }}</p>
+
+    <!-- 0039 — 변경분이 있을 때만 나타나는 저장 바(수정→검토→저장) -->
+    <div v-if="apiMode && isDirty" class="save-bar">
+      <span class="save-hint">저장하지 않은 변경사항이 있습니다.</span>
+      <button class="btn btn-sm" type="button" :disabled="savingField === 'draft'" @click="discardDraft">취소</button>
+      <button class="btn btn-primary btn-sm" type="button" :disabled="savingField === 'draft'" @click="saveDraft">
+        {{ savingField === 'draft' ? '저장 중…' : '저장' }}
+      </button>
+    </div>
+    </div><!-- /카드 1 -->
+
+    <!-- 첨부파일: 구 아마란스(원챔버) stub 제거(2026-07-09 자체완결 전환).
+         산출물 파일은 위 '파일' 행(0038 FilePort)로 대체 — 그 외 엔티티 첨부는 후속(0018). -->
+
+    <!-- 0039 — 카드 2: 코멘트(항목 정보 저장과 무관한 독립 영역) -->
+    <section class="card section comment-card">
       <h3 class="section-title">코멘트</h3>
       <CommentThread
         v-if="entityId != null"
@@ -552,10 +787,12 @@ const TASK_STATUS_LABELS: Record<string, string> = {
     />
 
     <!-- 담당자 조직도 선택 -->
-    <OrgPickerModal
+    <ProjectMemberPickerModal
       v-if="showAssigneePicker"
-      title="담당자 선택"
-      @select="onAssigneePick" @close="showAssigneePicker = false"
+      :project-id="projectId" :current="currentAssignee || null"
+      @select="onAssigneePick"
+      @clear="onAssigneePick('')"
+      @close="showAssigneePicker = false"
     />
 
     <!-- 태스크/산출물 워크플로 전이 실행(사유 코멘트) -->
@@ -581,6 +818,15 @@ const TASK_STATUS_LABELS: Record<string, string> = {
 
 <style scoped>
 .item-body { display: flex; flex-direction: column; gap: 12px; }
+
+/* 0039 — 항목 정보 / 코멘트를 카드로 분리(저장 버튼이 정보 카드 하단에 붙도록) */
+.card {
+  display: flex; flex-direction: column; gap: 12px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 16px;
+}
+.card > .section:first-child { border-top: 0; padding-top: 0; }
+.comment-card { gap: 8px; }
 .assignee-dd { display: flex; align-items: center; gap: 8px; }
 .mini-btn {
   border: 1px solid var(--accent); background: transparent; color: var(--accent);
@@ -639,4 +885,38 @@ const TASK_STATUS_LABELS: Record<string, string> = {
 }
 .date-in:focus { border-color: var(--accent); }
 .tilde { color: var(--muted); }
+
+/* 0038 — 산출물 파일 액션 */
+.file-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.file-hidden { display: none; }
+.file-ok { font-size: 12px; color: var(--green); }
+.file-err { font-size: 12px; color: var(--red); }
+
+.select-in {
+  background: var(--panel-2, var(--panel)); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 13px; padding: 5px 8px; font-family: inherit; max-width: 100%;
+}
+.hint-inline { font-size: 12px; color: var(--muted); margin-left: 6px; }
+.f-input.narrow { max-width: 90px; }
+
+/* 0039 — 관련항목 */
+.rel-section { gap: 8px; }
+.rel-ro { display: flex; flex-direction: column; gap: 8px; }
+.rel-ro-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; }
+.rel-ro-k { color: var(--muted); font-size: 12px; flex-shrink: 0; min-width: 70px; }
+.chip {
+  font-size: 12px; padding: 2px 8px; border-radius: 999px;
+  background: var(--panel); border: 1px solid var(--border); color: var(--text);
+}
+.dim { color: var(--muted); font-size: 12.5px; }
+
+/* 0039 — 변경분 저장 바 */
+.save-bar {
+  position: sticky; bottom: 0; z-index: 5;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--panel); border: 1px solid var(--accent); border-radius: 8px;
+  padding: 8px 10px; margin-top: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+.save-hint { flex: 1; font-size: 12.5px; color: var(--muted); }
 </style>

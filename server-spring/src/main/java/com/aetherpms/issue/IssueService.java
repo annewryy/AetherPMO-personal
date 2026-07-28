@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.aetherpms.common.ApiException;
+import com.aetherpms.common.LinkTableSupport;
 
 /**
  * POST /api/issues — 트랜잭션 쓰기 + display_code 발번.
@@ -25,7 +26,8 @@ public class IssueService {
 
     private static final Set<String> ALLOWED = Set.of(
             "project_id", "title", "type", "priority",
-            "owner_uid", "owner_name", "due_date", "reported_date");
+            "owner_uid", "owner_name", "due_date", "reported_date",
+            "task_ids", "deliverable_ids", "meeting_ids", "action_ids");
     private static final Set<String> PRIORITIES = Set.of("상", "중", "하");
     private static final Set<String> TYPES = Set.of("리스크", "이슈");
 
@@ -53,6 +55,15 @@ public class IssueService {
             throw ApiException.notFound("프로젝트를 찾을 수 없습니다.");
         }
 
+        List<Long> taskIds = LinkTableSupport.validateIds(jdbc, body.get("task_ids"), "task_ids",
+                "pms_task", "task_id", projectId);
+        List<Long> deliverableIds = LinkTableSupport.validateIds(jdbc, body.get("deliverable_ids"), "deliverable_ids",
+                "pms_deliverable", "deliverable_id", projectId);
+        List<Long> meetingIds = LinkTableSupport.validateIds(jdbc, body.get("meeting_ids"), "meeting_ids",
+                "pms_meeting_minutes", "meeting_id", projectId);
+        List<Long> actionIds = LinkTableSupport.validateIds(jdbc, body.get("action_ids"), "action_ids",
+                "pms_action_item", "action_id", projectId);
+
         String displayCode = displayCodeService.nextIssueDisplayCode(projectId);
         issue.setSourceRuleId(null); // 수동 등록 마커
         issue.setDisplayCode(displayCode);
@@ -61,11 +72,36 @@ public class IssueService {
         if (issue.getStatus() == null) issue.setStatus("발생");
 
         IssueEntity saved = issueRepository.saveAndFlush(issue);
+        LinkTableSupport.sync(jdbc, "pms_issue_task_link", "issue_id", "task_id", saved.getIssueId(), taskIds);
+        LinkTableSupport.sync(jdbc, "pms_issue_deliverable_link", "issue_id", "deliverable_id",
+                saved.getIssueId(), deliverableIds);
+        LinkTableSupport.sync(jdbc, "pms_meeting_issue_link", "issue_id", "meeting_id", saved.getIssueId(), meetingIds);
+        LinkTableSupport.sync(jdbc, "pms_action_item_issue_link", "issue_id", "action_id", saved.getIssueId(), actionIds);
         if (saved.getOwnerName() != null) {
             notify.notifyByName(projectId, saved.getOwnerName(), "ASSIGNED", "ISSUE",
                     saved.getIssueId(), "담당자로 지정되었습니다: " + saved.getTitle());  // 0033 ①
         }
-        return IssueMapper.mapIssue(saved);
+        Map<String, Object> out = IssueMapper.mapIssue(saved);
+        out.put("taskIds", taskIds);
+        out.put("deliverableIds", deliverableIds);
+        out.put("meetingIds", meetingIds);
+        out.put("actionItemIds", actionIds);
+        return out;
+    }
+
+    /** 이슈에 현재 매핑된 태스크 id 목록(태스크 매핑을 건드리지 않은 PATCH 응답에 그대로 반영하기 위함). */
+    public List<Long> currentTaskIds(long issueId) {
+        return jdbc.query("SELECT task_id FROM pms_issue_task_link WHERE issue_id = ? ORDER BY task_id",
+                (rs, i) -> rs.getLong(1), issueId);
+    }
+
+    /** task_ids 페이로드 검증 — 같은 프로젝트의 태스크만 허용. null이면 빈 목록(변경 없음 아님, 전체 해제). */
+    public List<Long> validateTaskIds(Object raw, long projectId) {
+        return LinkTableSupport.validateIds(jdbc, raw, "task_ids", "pms_task", "task_id", projectId);
+    }
+
+    public void syncTaskLinks(long issueId, List<Long> taskIds) {
+        LinkTableSupport.sync(jdbc, "pms_issue_task_link", "issue_id", "task_id", issueId, taskIds);
     }
 
     /** validateIssuePayload 이식 — 화이트리스트·필수·enum 검증. */

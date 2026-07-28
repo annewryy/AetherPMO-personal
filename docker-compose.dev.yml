@@ -33,6 +33,9 @@ services:
       dockerfile: Dockerfile
     container_name: aetherpms-dev-app
     restart: unless-stopped
+    volumes:
+      # 0018/0038 — 파일 저장(양식·산출물 수정본). NAS 확정 시 마운트/어댑터 교체.
+      - aetherpms_files:/data/files
     environment:
       DATABASE_URL: jdbc:mariadb://db:3306/aetherpms
       DATABASE_USER: aetherpms
@@ -66,3 +69,4 @@ services:
 
 volumes:
   aetherpms_db:
+  aetherpms_files:

@@ -41,6 +41,10 @@ public class WorkflowStatusEntity {
     @Column(name = "sort_order")
     private Integer sortOrder;
 
+    // 0039 — 이 상태의 진척률(%) 0~100. 산출물 기반 태스크 진척 산정에 사용(미지정=null).
+    @Column(name = "progress_weight")
+    private Integer progressWeight;
+
     public Long getStatusId() { return statusId; }
     public Long getWorkflowId() { return workflowId; }
     public String getCode() { return code; }
@@ -50,4 +54,5 @@ public class WorkflowStatusEntity {
     public Boolean getIsInitial() { return isInitial; }
     public Boolean getIsFinal() { return isFinal; }
     public Integer getSortOrder() { return sortOrder; }
+    public Integer getProgressWeight() { return progressWeight; }
 }

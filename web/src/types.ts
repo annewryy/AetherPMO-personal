@@ -269,10 +269,34 @@ export interface AppNotification {
 }
 
 export interface ConsortiumMember {
+  /** 0039 — 컨소시엄 CRUD 도입 후 부여(구 프로젝트 임베드 응답에는 없을 수 있음). */
+  id?: number;
+  projectId?: number;
+  companyName: string;
+  role: string;              // 주사업자 | 부사업자 | 협력사
+  shareRate: number;
+  description: string;
+  contactName?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+}
+
+/** 0039 — GET/POST/PATCH/DELETE /api/projects/{id}/consortium 응답(목록 + 지분율 합계). */
+export interface ConsortiumPayload {
+  projectId: number;
+  members: ConsortiumMember[];
+  shareTotal: number;
+  shareBalanced: boolean;
+}
+
+export interface ConsortiumMemberInput {
   companyName: string;
   role: string;
   shareRate: number;
-  description: string;
+  description?: string | null;
+  contactName?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
 }
 
 export interface VrbInfo {
@@ -283,6 +307,16 @@ export interface VrbInfo {
   approvedDate: string | null;
   vrbNumber: string | null;
   memo: string;
+}
+
+/** 0039 — PUT /api/projects/{id}/vrb 본문(전 필드 선택, upsert). */
+export interface VrbInfoInput {
+  status?: string;
+  vrbNumber?: string | null;
+  plannedDate?: string | null;
+  submittedDate?: string | null;
+  approvedDate?: string | null;
+  memo?: string | null;
 }
 
 // 프로젝트 태스크 (pms_task — 테일러링 전개분. P1-2 제안 태스크 탭)
@@ -300,8 +334,16 @@ export interface Task {
   depth: number;
   sortOrder: number;
   catalogNodeId: number | null;
+  deliverableId?: number | null; // 0038 — 실사용 산출물(후보=이 태스크의 산출물 중 택1)
+  // 담당자(mapTask가 assignee/assigneeId를 내보내는데 타입에 없어 상세패널에서 항상 비어 보이던 것 수정)
+  assignee?: string | null;
+  assigneeId?: string | null;
   // 0010 A-4 표시 코드(T-CT-2 등) — 표시·참조 전용, 정렬 금지(정렬 키는 sortOrder 유지)
   displayCode?: string | null;
+  // 0039 — 관련항목(역방향 — 이 태스크를 참조하는 이슈·액션아이템·회의록). 읽기 전용(편집은 상대편에서).
+  issueIds?: number[];
+  actionItemIds?: number[];
+  meetingIds?: number[];
 }
 
 export interface Artifact {
@@ -319,6 +361,10 @@ export interface Artifact {
   fileName: string | null;
   // 0010 A-4 표시 코드(D-CT-2-30 등) — 표시·참조 전용, 정렬 금지
   displayCode?: string | null;
+  // 0039 — 관련항목(역방향 — 이 산출물을 참조하는 이슈·액션아이템·회의록). 읽기 전용(편집은 상대편에서).
+  issueIds?: number[];
+  actionItemIds?: number[];
+  meetingIds?: number[];
 }
 
 export interface Issue {
@@ -340,6 +386,11 @@ export interface Issue {
   relatedTaskId?: number | null;
   // 0010 A-4 표시 코드(I-3 — 이슈·리스크 공용, type 플립 시 불변)
   displayCode?: string | null;
+  // 0039 — 관련항목 매핑(N:M, 전부 다중선택). 태스크·산출물은 정방향, 회의록·액션아이템은 역방향.
+  taskIds?: number[];
+  deliverableIds?: number[];
+  meetingIds?: number[];
+  actionItemIds?: number[];
 }
 
 export interface ActionItem {
@@ -351,10 +402,18 @@ export interface ActionItem {
   dueDate: string | null;
   status: string;
   confirmComment: string;
-  // 0008 — 이 액션아이템이 대응하는 리스크/이슈(pms_action_item.related_issue_id). null=독립 조치
+  // 0008 — 이 액션아이템이 대응하는 리스크/이슈(pms_action_item.related_issue_id, 레거시 단일 — 0039 이후
+  //   issueIds가 원본). null=독립 조치
   relatedIssueId?: number | null;
+  // 0039 — 이 액션아이템을 만든 회의(pms_action_item.source_meeting_id, 레거시 단일 — meetingIds가 원본)
+  sourceMeetingId?: number | null;
   // 0010 A-4 표시 코드(A-12)
   displayCode?: string | null;
+  // 0039 — 관련항목 매핑(N:M, 전부 다중선택)
+  taskIds?: number[];
+  deliverableIds?: number[];
+  issueIds?: number[];
+  meetingIds?: number[];
 }
 
 export interface OfficialDoc {
@@ -381,6 +440,11 @@ export interface MeetingMinute {
   content: string;
   remarks: string;
   authorId: string | null;
+  // 0039 — 회의 ↔ 이슈/리스크·WBS 태스크·산출물 매핑(N:M) + 이 회의 결과로 만들어진 액션아이템(1:N, 상세 전용)
+  issueIds?: number[];
+  taskIds?: number[];
+  deliverableIds?: number[];
+  actionItemIds?: number[];
 }
 
 export interface Activity {
@@ -486,6 +550,8 @@ export interface WorkflowStatus {
   isInitial: boolean;
   isFinal: boolean;
   sortOrder: number;
+  /** 0039 — 이 상태의 진척률(%) 0~100. 산출물 기반 태스크 진척 산정에 사용(미지정=null). */
+  progressWeight?: number | null;
 }
 
 export interface WorkflowTransitionCondition {
@@ -537,6 +603,7 @@ export interface WorkflowStatusInput {
   isInitial?: boolean;
   isFinal?: boolean;
   sortOrder?: number;
+  progressWeight?: number | null;
 }
 
 export interface WorkflowTransitionInput {
@@ -557,7 +624,7 @@ export interface TransitionConditionInput {
 
 // ---- 범용 코멘트 (0010 A-3 — pms_comment, 상태관리 엔티티 공통) -----------------
 
-export type CommentEntityType = 'TASK' | 'DELIVERABLE' | 'ISSUE' | 'ACTION_ITEM' | 'PROJECT';
+export type CommentEntityType = 'TASK' | 'DELIVERABLE' | 'ISSUE' | 'ACTION_ITEM' | 'PROJECT' | 'MEETING_MINUTES';
 
 export interface EntityComment {
   id: number;                    // comment_id
@@ -638,6 +705,18 @@ export interface WbsDeliverableCounts {
   approved: number;
 }
 
+// 0039 — WBS 4번째 레벨(태스크 하위 산출물). 트리가 태스크까지만 보이던 것을 확장.
+export interface WbsDeliverable {
+  deliverableId: number;
+  name: string;
+  code: string | null;
+  status: string | null;
+  assigneeName: string | null;
+  version: string | null;
+  dueDate: string | null;
+  submittedAt: string | null;
+}
+
 export interface WbsNode {
   nodeId: number;
   /** TASK만: 실제 pms_task.task_id(상세 이동용). nodeId는 카탈로그 노드 id — 혼용 금지(0031 수정). */
@@ -659,6 +738,7 @@ export interface WbsNode {
   // 트리 자식(노드 타입별로 하나만 존재)
   activities?: WbsNode[];                   // PHASE
   tasks?: WbsNode[];                        // ACTIVITY
+  deliverables?: WbsDeliverable[];          // TASK (0039 — 4번째 레벨)
 }
 
 export interface ProjectWbs {
@@ -679,7 +759,15 @@ export interface IssueCreateInput {
   reported_date?: string | null;
   due_date?: string | null;
   related_task_id?: number | null;
+  task_ids?: number[];
+  deliverable_ids?: number[];
   comment?: string | null;
+}
+
+export interface IssueUpdateInput {
+  task_ids?: number[];
+  deliverable_ids?: number[];
+  [key: string]: unknown;
 }
 
 export interface ActionItemCreateInput {
@@ -688,8 +776,19 @@ export interface ActionItemCreateInput {
   assignee_name?: string | null;
   assignee_uid?: string | null;
   due_date?: string | null;
-  related_issue_id?: number | null;
+  task_ids?: number[];
+  deliverable_ids?: number[];
+  issue_ids?: number[];
+  meeting_ids?: number[];
   comment?: string | null;
+}
+
+export interface ActionItemUpdateInput {
+  task_ids?: number[];
+  deliverable_ids?: number[];
+  issue_ids?: number[];
+  meeting_ids?: number[];
+  [key: string]: unknown;
 }
 
 export interface MeetingMinuteCreateInput {
@@ -699,6 +798,22 @@ export interface MeetingMinuteCreateInput {
   attendees?: unknown[];
   content?: string | null;
   remarks?: string | null;
+  issue_ids?: number[];
+  task_ids?: number[];
+  deliverable_ids?: number[];
+  action_ids?: number[];
+}
+
+export interface MeetingMinuteUpdateInput {
+  title?: string;
+  meet_date?: string | null;
+  attendees?: unknown[];
+  content?: string | null;
+  remarks?: string | null;
+  issue_ids?: number[];
+  task_ids?: number[];
+  deliverable_ids?: number[];
+  action_ids?: number[];
 }
 
 // ---- 대시보드 신호 (0007 §5 — GET /api/dashboard/signals, API_BASE 전용) --------
@@ -849,6 +964,7 @@ export interface Person {
   phone: string | null;
   email: string | null;
   status: string | null;             // 재직상태
+  loginId?: string | null;           // 0038 — 연결 계정 아이디(관리자 확인용, 목록에만)
   // 목록에만 존재(GET /api/persons). 상세(GET /api/persons/{id})에는 없을 수 있음.
   activeProjectCount?: number;
 }
@@ -944,6 +1060,8 @@ export interface PersonProjectHistory {
 
 // GET /api/persons 서버측 필터(0014 A — 클라이언트 필터링 금지, 서버 쿼리로 전달).
 export interface PersonFilters {
+  departments?: string[];        // 0038 — 조직도 트리 선택(하위 포함 부서명)
+  includeInactive?: boolean;     // 0038 — 재직 외(종료 등) 포함 여부(기본 false=재직만)
   employmentTypes?: string[];        // 복수선택 → 콤마 조립
   match?: 'or' | 'and';              // 기본 or
   name?: string;
@@ -1096,4 +1214,54 @@ export interface AppState {
   officialDocs: OfficialDoc[];
   meetingMinutes: MeetingMinute[];
   activities: Activity[];
+}
+
+// 0038 — 실무진용 대시보드(내 업무, GET /api/dashboard/my)
+export interface MyDashboardItem {
+  id: number; title: string; dueDate: string | null; progress: number | null;
+  projectId: number; projectName: string; overdue: boolean; dueToday: boolean;
+}
+export interface MyDashboard {
+  needsPersonLink: boolean;
+  personName?: string;
+  projects?: { projectId: number; projectName: string; stage: string; status: string; isPm: boolean; progress: number | null }[];
+  tasks?: MyDashboardItem[];
+  actionItems?: MyDashboardItem[];
+  issues?: MyDashboardItem[];
+  deliverables?: MyDashboardItem[];
+  counts?: Record<'tasks' | 'actionItems' | 'issues' | 'deliverables', { total: number; open: number }>;
+}
+
+// 0034 §1단계 — 접근 규칙(③ 부서×직책×인력구분)
+export interface AccessRule {
+  ruleId: number;
+  name: string | null;
+  deptCode: string | null;
+  includeSub: boolean;
+  positionCode: string | null;
+  employmentType: string | null;
+  menuKeys: string[];
+  projectScope: 'ALL' | 'DEPT' | 'PARTICIPATING';
+  capabilities: Record<string, unknown> | null;
+  priority: number;
+  enabled: boolean;
+}
+export interface AccessRuleInput {
+  name: string | null;
+  deptCode: string | null;
+  includeSub: boolean;
+  positionCode: string | null;
+  employmentType: string | null;
+  menuKeys: string[];
+  projectScope: 'ALL' | 'DEPT' | 'PARTICIPATING';
+  priority: number;
+  enabled: boolean;
+}
+export interface AccessRuleSimulation {
+  person: {
+    personId: number; name: string; department: string | null;
+    position: string | null; positionCode: string; employmentType: string | null;
+  };
+  matchedRules: AccessRule[];
+  effectiveMenus: string[];
 }

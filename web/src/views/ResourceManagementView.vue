@@ -11,6 +11,8 @@ import {
 } from '../lib/personLabels';
 import type { Person, PersonFilters, InsourcingTransition } from '../types';
 import PersonDetailPanel from '../components/PersonDetailPanel.vue';
+import OrgDeptTree from '../components/OrgDeptTree.vue';
+import { currentUser } from '../lib/auth';
 import PageSizeSelect from '../components/PageSizeSelect.vue';
 import Pager from '../components/Pager.vue';
 import { DEFAULT_PAGE_SIZE, usePagination } from '../lib/pagination';
@@ -30,6 +32,16 @@ const company = ref('');
 const project = ref('');   // 투입 프로젝트명(백엔드 projectId는 숫자라 별도 처리)
 const location = ref('');
 const customer = ref('');
+// 0038 — 좌측 조직도 트리 선택(하위 포함 부서명 목록, 서버 IN 필터)
+const deptFilter = ref<string[]>([]);
+// 0038 — 기본은 재직 인력만, 체크 시 재직 외(종료 등) 포함
+const includeInactive = ref(false);
+// 0038 — 로그인 ID 컬럼은 시스템 관리자에게만
+const isAdmin = computed(() => currentUser.value?.role === 'SYS_ADMIN');
+function onDeptSelect(v: { deptCode: string | null; deptNames: string[] }) {
+  deptFilter.value = v.deptNames;
+  void search();
+}
 
 // 선택 상세
 const selected = ref<Person | null>(null);
@@ -58,6 +70,8 @@ function buildFilters(): PersonFilters {
   if (customer.value.trim()) f.customer = customer.value.trim();
   const pv = project.value.trim();
   if (pv && /^\d+$/.test(pv)) f.projectId = Number(pv);
+  if (deptFilter.value.length) f.departments = [...deptFilter.value];
+  if (includeInactive.value) f.includeInactive = true;
   return f;
 }
 
@@ -77,6 +91,7 @@ async function search() {
 }
 
 function reset() {
+  includeInactive.value = false;
   selectedTypes.value = [];
   matchMode.value = 'or';
   name.value = company.value = project.value = location.value = customer.value = '';
@@ -150,6 +165,13 @@ onMounted(() => {
       </table>
     </div>
 
+    <div class="body-cols">
+      <!-- 0038 — 좌측 조직도 트리(기존 조직도 재사용): 부서 선택 → 하위 포함 인력 조회 -->
+      <aside class="org-side">
+        <div class="org-side-title">조직도</div>
+        <OrgDeptTree @select="onDeptSelect" />
+      </aside>
+      <div class="body-main">
     <!-- 인력구분 필터 (복수선택 + AND/OR) -->
     <div class="filters">
       <div class="frow">
@@ -177,6 +199,9 @@ onMounted(() => {
         <input v-model="project" class="in" type="search" placeholder="투입 프로젝트 ID" @keyup.enter="search" />
         <input v-model="location" class="in" type="search" placeholder="수행장소" @keyup.enter="search" />
         <input v-model="customer" class="in" type="search" placeholder="고객사" @keyup.enter="search" />
+        <label class="chk inactive-chk" title="기본은 재직 인력만 조회합니다">
+          <input v-model="includeInactive" type="checkbox" @change="search" /> 재직 외 포함
+        </label>
         <button class="btn btn-primary" :disabled="!apiMode" @click="search">조회</button>
         <button class="btn" :disabled="!apiMode" @click="reset">초기화</button>
       </div>
@@ -202,7 +227,9 @@ onMounted(() => {
       <table class="grid">
         <thead>
           <tr>
-            <th class="no">No.</th><th>성명</th><th>인력구분</th><th>소속회사</th><th>부서</th>
+            <th class="no">No.</th><th>성명</th>
+            <th v-if="isAdmin">로그인 ID</th>
+            <th>인력구분</th><th>소속회사</th><th>부서</th>
             <th>직책</th><th>재직상태</th><th class="num">활성 프로젝트</th>
           </tr>
         </thead>
@@ -213,6 +240,7 @@ onMounted(() => {
               {{ p.name }}
               <span class="src-tag" :title="`원천: ${sourceLabel(p.source)}`">{{ sourceLabel(p.source) }}</span>
             </td>
+            <td v-if="isAdmin" class="mono">{{ p.loginId || '—' }}</td>
             <td>{{ employmentTypeLabel(p.employmentType) }}</td>
             <td>{{ p.companyName || '—' }}</td>
             <td>{{ p.department || '—' }}</td>
@@ -225,6 +253,8 @@ onMounted(() => {
       <Pager :page="page" :total-pages="totalPages" :total="total" @update:page="goPage" />
       </template>
     </template>
+      </div>
+    </div>
 
     <PersonDetailPanel
       v-if="selected"
@@ -303,4 +333,15 @@ onMounted(() => {
   font-size: 11px; font-weight: 500; color: var(--muted);
   border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; margin-left: 6px;
 }
+
+/* 0038 — 좌측 조직도 트리 레이아웃 */
+.body-cols { display: flex; gap: 14px; align-items: flex-start; }
+.org-side {
+  width: 230px; flex-shrink: 0; position: sticky; top: 12px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--panel);
+  padding: 10px; max-height: calc(100vh - 140px); overflow-y: auto;
+}
+.org-side-title { font-size: 12.5px; font-weight: 700; color: var(--muted); margin: 0 0 8px 4px; }
+.body-main { flex: 1; min-width: 0; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
 </style>

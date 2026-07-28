@@ -59,6 +59,20 @@ function onKey(ev: KeyboardEvent) { if (ev.key === 'Escape') emit('close'); }
 const rootDepts = computed(() => deptChildren.get('__ROOT__') ?? []);
 function childrenOf(code: string): OrgDept[] { return deptChildren.get(code) ?? []; }
 
+// 0038 — 부서 인원 표시는 하위 부서 전체 합산(직속만이 아니라)
+const cumCounts = computed<Map<string, number>>(() => {
+  const map = new Map<string, number>();
+  const total = (d: OrgDept): number => {
+    if (map.has(d.deptCode)) return map.get(d.deptCode)!;
+    let n = d.memberCount;
+    for (const c of childrenOf(d.deptCode)) n += total(c);
+    map.set(d.deptCode, n);
+    return n;
+  };
+  for (const d of depts.value) total(d);
+  return map;
+});
+
 // ---- 외부 그룹(회사별) ----
 const externalGroups = computed(() => {
   const list = Array.isArray(externalMembers.value) ? externalMembers.value : [];
@@ -145,9 +159,10 @@ function walkDept(d: OrgDept, level: number, out: Row[], isOpen: (id: string) =>
   const kids = childrenOf(d.deptCode);
   const expandable = d.memberCount > 0 || kids.length > 0;
   const id = 'dept:' + d.deptCode;
+  const cum = cumCounts.value.get(d.deptCode) ?? d.memberCount;
   out.push({
     id, level, type: 'dept', label: d.deptNm,
-    sub: d.memberCount > 0 ? `${d.memberCount}명` : undefined,
+    sub: cum > 0 ? `${cum}명` : undefined,
     expandable, deptCode: d.deptCode,
   });
   if (isOpen(id)) {

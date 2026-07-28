@@ -109,6 +109,7 @@ public final class RowMappers {
         o.put("displayCode", v(a, "display_code"));
         o.put("confirmComment", v(a, "confirm_comment"));
         o.put("relatedIssueId", asLong(v(a, "related_issue_id")));
+        o.put("sourceMeetingId", asLong(v(a, "source_meeting_id")));
         return o;
     }
 
@@ -128,6 +129,7 @@ public final class RowMappers {
         o.put("sortOrder", num(v(t, "sort_order")));
         o.put("displayCode", v(t, "display_code"));
         o.put("catalogNodeId", asLong(v(t, "catalog_node_id")));
+        o.put("deliverableId", asLong(v(t, "deliverable_id"))); // 0038 — 실사용 산출물
         o.put("assignee", v(t, "assignee_name"));
         o.put("assigneeId", v(t, "assignee_id"));
         return o;
@@ -181,6 +183,7 @@ public final class RowMappers {
         o.put("name", v(c, "company_name"));
         o.put("type", v(c, "company_type"));
         o.put("isActive", activeDefault(v(c, "is_active")));
+        o.put("agencyCode", v(c, "agency_code"));
         return o;
     }
 
@@ -195,6 +198,7 @@ public final class RowMappers {
         o.put("isInitial", boolOrNull(v(s, "is_initial")));
         o.put("isFinal", boolOrNull(v(s, "is_final")));
         o.put("sortOrder", asInt(v(s, "sort_order")));
+        o.put("progressWeight", v(s, "progress_weight")); // 0039 — 상태별 진척률(%)
         return o;
     }
 

@@ -12,6 +12,29 @@ const password = ref('');
 const submitting = ref(false);
 // 0034 — 이원 로그인: 비밀번호(동작) / 아마란스 연동(연동 스펙 확보 시 활성 — 설계 0005 §H)
 const method = ref<'password' | 'amaranth'>('password');
+
+// 0038 — dev 시연용 빠른 입력(전 계정 초기 비번 pms1234!): 클릭 시 아이디·비번 채움.
+//   역할 계정 5종 + 시연 데이터 주요 인물(사업책임자·실무 담당). 운영 전환 시 이 블록 제거.
+const DEMO_PASSWORD = 'pms1234!';
+const DEMO_ROLES = [
+  { id: 'admin', label: 'admin', desc: '시스템 관리자' },
+  { id: 'exec', label: 'exec', desc: '경영진' },
+  { id: 'pm', label: 'pm', desc: 'PM' },
+  { id: 'worker', label: 'worker', desc: '실무' },
+  { id: 'viewer', label: 'viewer', desc: '조회 전용' },
+];
+const DEMO_USERS = [
+  { id: 'ar.cho', label: '조아라2', desc: '사업책임자(PM)' },
+  { id: 'ar.jeong', label: '정아론', desc: '사업책임자(PM)' },
+  { id: 'bk.oh', label: '오병구', desc: '실무(태스크 다수)' },
+  { id: 'bm.jang', label: '장병만', desc: '실무' },
+];
+function fillDemo(id: string) {
+  method.value = 'password';
+  loginId.value = id;
+  password.value = DEMO_PASSWORD;
+  error.value = null;
+}
 const error = ref<string | null>(null);
 
 async function submit() {
@@ -68,7 +91,23 @@ async function submit() {
           {{ submitting ? '로그인 중…' : '로그인' }}
         </button>
       </form>
-      <p class="hint">dev 계정: admin / exec / pm / worker / viewer · 비번 <code>pms1234!</code></p>
+      <!-- 0038 — 시연 계정 빠른 입력: 클릭하면 아이디·비밀번호가 채워진다(초기 비번 공통 pms1234!) -->
+      <div class="demo">
+        <div class="demo-title">시연 계정 빠른 입력 <span class="demo-sub">클릭하면 입력칸이 채워집니다</span></div>
+        <div class="demo-row">
+          <button
+            v-for="d in DEMO_ROLES" :key="d.id" type="button" class="demo-btn"
+            :title="d.desc" :disabled="submitting" @click="fillDemo(d.id)"
+          >{{ d.label }}</button>
+        </div>
+        <div class="demo-row">
+          <button
+            v-for="d in DEMO_USERS" :key="d.id" type="button" class="demo-btn demo-user"
+            :title="`${d.id} — ${d.desc}`" :disabled="submitting" @click="fillDemo(d.id)"
+          >{{ d.label }} <span class="demo-desc">{{ d.desc }}</span></button>
+        </div>
+        <p class="hint">초기 비밀번호 공통 <code>pms1234!</code> — 조직 계정 전체 사용 가능</p>
+      </div>
     </div>
   </div>
 </template>
@@ -117,4 +156,17 @@ async function submit() {
   font-size: 13px; line-height: 1.6; color: var(--text); display: flex; flex-direction: column; gap: 8px;
 }
 .amaranth-note .sub-note { color: var(--muted); font-size: 12.5px; }
+
+/* 0038 — 시연 계정 빠른 입력 */
+.demo { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; }
+.demo-title { font-size: 12.5px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.demo-sub { font-weight: 500; color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+.demo-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.demo-btn {
+  border: 1px solid var(--border); background: var(--panel-2, var(--panel)); color: var(--text);
+  font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+  cursor: pointer; font-family: inherit;
+}
+.demo-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.demo-desc { font-weight: 400; color: var(--muted); font-size: 11px; margin-left: 2px; }
 </style>

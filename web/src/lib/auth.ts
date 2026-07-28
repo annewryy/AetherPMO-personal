@@ -10,6 +10,7 @@ export interface AuthUser {
   role: 'SYS_ADMIN' | 'EXEC_ADMIN' | 'PM' | 'WORKER' | 'VIEWER' | string;
   personId: number | null;
   name: string;
+  menus?: string[];  // 0034 §1단계 — 유효 메뉴 키(③ 접근 규칙 판정 결과, SYS_ADMIN/VIEWER는 특수값)
 }
 
 const TOKEN_KEY = 'aether.authToken';
@@ -61,7 +62,7 @@ export async function login(loginId: string, password: string): Promise<void> {
   const r = await call('/api/auth/login', 'POST', { loginId, password });
   token.value = r.token;
   writeToken(r.token);
-  currentUser.value = { id: r.id, username: r.username, email: r.email, role: r.role, personId: r.personId, name: r.name };
+  currentUser.value = { id: r.id, username: r.username, email: r.email, role: r.role, personId: r.personId, name: r.name, menus: r.menus };
 }
 
 export async function logout(): Promise<void> {
@@ -71,12 +72,19 @@ export async function logout(): Promise<void> {
   currentUser.value = null;
 }
 
+/** 0033 — 서버 호출 없이 로컬 세션만 정리(만료 401 전역 처리용). */
+export function clearSession(): void {
+  token.value = null;
+  currentUser.value = null;
+  try { localStorage.removeItem(TOKEN_KEY); } catch { /* 무시 */ }
+}
+
 /** 앱 부팅 시 저장 토큰으로 세션 복원. 실패(만료 등)면 정리. */
 export async function restoreSession(): Promise<void> {
   if (!token.value || !apiBase()) return;
   try {
     const r = await call('/api/auth/me', 'GET');
-    currentUser.value = { id: r.id, username: r.username, email: r.email, role: r.role, personId: r.personId, name: r.name };
+    currentUser.value = { id: r.id, username: r.username, email: r.email, role: r.role, personId: r.personId, name: r.name, menus: r.menus };
   } catch {
     token.value = null;
     writeToken(null);

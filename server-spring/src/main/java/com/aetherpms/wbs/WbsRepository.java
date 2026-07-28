@@ -86,4 +86,20 @@ public class WbsRepository {
     public List<Map<String, Object>> taskDeliverableCounts(long projectId) {
         return jdbc.queryForList(TASK_DELIVERABLE_COUNTS_SQL, projectId);
     }
+
+    /**
+     * 0039 — WBS 4번째 레벨(태스크 하위 산출물). 트리에서 태스크까지만 보이던 것을 확장.
+     * pms_deliverable.task_id로 태스크에 직접 매달린 산출물만(카탈로그 전개분 포함).
+     */
+    private static final String TASK_DELIVERABLES_SQL = """
+        SELECT d.deliverable_id, d.task_id, d.deliverable_name, d.status, d.display_code,
+               d.due_date, d.submitted_at, d.author_name, d.version_no
+          FROM pms_deliverable d
+         WHERE d.project_id = ? AND d.task_id IS NOT NULL
+         ORDER BY d.task_id, d.deliverable_id
+        """;
+
+    public List<Map<String, Object>> taskDeliverables(long projectId) {
+        return jdbc.queryForList(TASK_DELIVERABLES_SQL, projectId);
+    }
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 산출물 관리 (/app/catalog/deliverables) — 0030 개편.
+// 템플릿 관리 (/app/catalog/deliverables) — 0030 개편.
 //   양식(pms_doc_template) 마스터를 유경님 UI처럼 좌측 "분류 네비 + 우측 리스트"로 관리한다.
 //   테일러링 노드와 양식은 1:N — 특정 양식 연결(기본 양식)은 관리자 테일러링 노드 폼에서.
 //   리스트형만 제공(트리·카탈로그 딥링크 폐기 — 1:1 오해 방지, 너울님 2026-07-24).
@@ -115,14 +115,39 @@ onMounted(() => {
   if (apiMode.value) void load();
   else loading.value = false;
 });
+
+// ---- 0038 — 양식 파일 업로드/다운로드(실파일: FilePort — 태스크의 '템플릿 다운로드' 원천) ----
+const tplFileInput = ref<HTMLInputElement | null>(null);
+const tplTarget = ref<DocTemplate | null>(null);
+function pickFile(t: DocTemplate) {
+  tplTarget.value = t;
+  tplFileInput.value?.click();
+}
+async function onTplFile(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const f = input.files?.[0];
+  const t = tplTarget.value;
+  input.value = '';
+  if (!f || !t) return;
+  try {
+    await dataClient.files.upload(`/api/doc-templates/${t.id}/file`, f);
+    await load();
+  } catch (err) {
+    loadError.value = err instanceof Error ? err.message : String(err);
+  }
+}
+function downloadFile(t: DocTemplate) {
+  void dataClient.files.download(`/api/doc-templates/${t.id}/file`)
+    .catch((err) => { loadError.value = err instanceof Error ? err.message : String(err); });
+}
 </script>
 
 <template>
   <div>
-    <h1 class="title">산출물 관리</h1>
+    <h1 class="title">템플릿 관리</h1>
     <p class="sub">산출물 양식(문서 템플릿) 목록 — 테일러링 산출물과 양식은 1:N이며, 테일러링 설정에서 특정 양식을 선택해 연결합니다.</p>
 
-    <div v-if="!apiMode" class="notice">산출물 관리는 백엔드(API_BASE) 연결 후 사용할 수 있습니다.</div>
+    <div v-if="!apiMode" class="notice">템플릿 관리는 백엔드(API_BASE) 연결 후 사용할 수 있습니다.</div>
     <template v-else>
       <StateNotice :loading="loading" :error="loadError" :empty="false" empty-text="" />
 
@@ -160,13 +185,14 @@ onMounted(() => {
             <table class="grid">
               <thead>
                 <tr>
-                  <th class="no">No.</th><th>양식명</th><th>분류</th><th>형식</th>
+                  <th class="no">No.</th><th class="code">양식 ID</th><th>양식명</th><th>분류</th><th>형식</th>
                   <th>파일 참조</th><th>설명</th><th class="num">사용 노드</th><th>관리</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(t, idx) in paged" :key="t.id">
                   <td class="no">{{ rowNo(idx) }}</td>
+                  <td class="code">T-{{ t.id }}</td>
                   <td class="name">{{ t.name }}<span v-if="!t.isActive" class="off-tag">비활성</span></td>
                   <td>{{ t.category || '—' }}</td>
                   <td class="code">{{ t.docFormat || '—' }}</td>
@@ -174,6 +200,9 @@ onMounted(() => {
                   <td class="muted ellip" :title="t.description ?? ''">{{ t.description || '—' }}</td>
                   <td class="num">{{ t.nodeCount }}</td>
                   <td class="actions">
+                    <button class="btn btn-sm" :title="t.fileRef ? '양식 파일 다운로드' : '등록된 파일 없음'"
+                            :disabled="!t.fileRef" @click="downloadFile(t)">받기</button>
+                    <button class="btn btn-sm" title="양식 파일 업로드(교체)" @click="pickFile(t)">파일</button>
                     <button class="btn btn-sm" @click="openEdit(t)">수정</button>
                     <button class="btn btn-sm btn-danger" @click="remove(t)">삭제</button>
                   </td>
@@ -181,6 +210,7 @@ onMounted(() => {
               </tbody>
             </table>
             <Pager :page="page" :total-pages="totalPages" :total="total" @update:page="goPage" />
+            <input ref="tplFileInput" type="file" style="display:none" @change="onTplFile" />
           </template>
         </section>
       </div>

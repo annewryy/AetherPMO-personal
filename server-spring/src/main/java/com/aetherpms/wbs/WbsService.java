@@ -39,10 +39,13 @@ public class WbsService {
 
     private final WbsRepository repository;
     private final ProgressRepository progressRepository;
+    private final com.aetherpms.task.TaskProgressResolver taskProgressResolver;
 
-    public WbsService(WbsRepository repository, ProgressRepository progressRepository) {
+    public WbsService(WbsRepository repository, ProgressRepository progressRepository,
+                      com.aetherpms.task.TaskProgressResolver taskProgressResolver) {
         this.repository = repository;
         this.progressRepository = progressRepository;
+        this.taskProgressResolver = taskProgressResolver;
     }
 
     private static int rate(long total, long approved) {
@@ -88,6 +91,25 @@ public class WbsService {
         for (Map<String, Object> r : repository.taskDeliverableCounts(projectId)) {
             delivByNode.put(asLong(r.get("task_node_id")),
                     new long[]{asLong(r.get("total")), asLong(r.get("approved"))});
+        }
+
+        // 0039 — 태스크 유효 진척률(task_id → 0~100). 태스크 상세와 동일 계산(직접 입력값 우선,
+        //   없으면 산출물 승인비율) → WBS/간트의 태스크 실제%를 이걸로 덮어쓴다.
+        Map<Long, Integer> effectiveProgress = taskProgressResolver.effectiveProgressByProject(projectId);
+
+        // 0039 — WBS 4번째 레벨: 태스크 하위 산출물(task_id → 산출물 목록).
+        Map<Long, List<Map<String, Object>>> delivByTaskId = new LinkedHashMap<>();
+        for (Map<String, Object> r : repository.taskDeliverables(projectId)) {
+            Map<String, Object> d = new LinkedHashMap<>();
+            d.put("deliverableId", asLongOrNull(r.get("deliverable_id")));
+            d.put("name", str(r.get("deliverable_name")));
+            d.put("code", str(r.get("display_code")));
+            d.put("status", str(r.get("status")));
+            d.put("assigneeName", str(r.get("author_name")));
+            d.put("version", str(r.get("version_no")));
+            d.put("dueDate", dateStr(r.get("due_date")));
+            d.put("submittedAt", dateStr(r.get("submitted_at")));
+            delivByTaskId.computeIfAbsent(asLong(r.get("task_id")), k -> new ArrayList<>()).add(d);
         }
 
         List<Map<String, Object>> rows = repository.wbsNodes(projectId);
@@ -156,20 +178,38 @@ public class WbsService {
             deliverableCounts.put("total", dc == null ? 0L : dc[0]);
             deliverableCounts.put("approved", dc == null ? 0L : dc[1]);
             node.put("deliverableCounts", deliverableCounts);
+            // 0039 — 태스크 상세와 동일한 유효 진척률로 덮어써 화면 간 수치를 통일한다
+            //   (산출물 있으면 승인비율, 없으면 태스크 수동 progress_rate — TaskProgressResolver).
+            Long taskId = asLongOrNull(r.get("task_id"));
+            if (taskId != null && effectiveProgress.containsKey(taskId)) {
+                int eff = effectiveProgress.get(taskId);
+                node.put("actualRate", eff);
+                Integer target = (Integer) node.get("targetRate");
+                node.put("delta", target == null ? null : eff - target);
+            }
+            // 0039 — 태스크 하위 산출물(트리 4번째 레벨)
+            node.put("deliverables", taskId == null ? List.of()
+                    : delivByTaskId.getOrDefault(taskId, List.of()));
             @SuppressWarnings("unchecked")
             List<Object> tasks = (List<Object>) parent.get("tasks");
             tasks.add(node);
         }
 
-        // ---- 상위 노드 계획일정 파생(min start / max end) + targetRate 재계산 ----
+        // ---- 상위 노드 계획일정 파생(min start / max end) + 실제%/targetRate 재계산 ----
+        //   0039 — 상위 실제%도 하위 태스크의 유효 진척률 평균으로 다시 굴린다. 예전엔 산출물
+        //   승인 롤업만 써서 "단계 100% / 하위 태스크 70·90·40%"처럼 부모·자식이 어긋났다.
         for (Map<String, Object> phase : phases) {
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> activities = (List<Map<String, Object>>) phase.get("activities");
+            List<Map<String, Object>> phaseTasks = new ArrayList<>();
             for (Map<String, Object> activity : activities) {
                 @SuppressWarnings("unchecked")
                 List<Map<String, Object>> tasks = (List<Map<String, Object>>) activity.get("tasks");
+                phaseTasks.addAll(tasks);
+                rollUpActual(activity, tasks);
                 deriveDatesAndTarget(activity, tasks, today);
             }
+            rollUpActual(phase, phaseTasks);
             deriveDatesAndTarget(phase, activities, today);
         }
 
@@ -198,6 +238,17 @@ public class WbsService {
         node.put("actualStartDate", actualStart);
         node.put("actualEndDate", actualEnd);
         return node;
+    }
+
+    /**
+     * 0039 — 상위 노드(단계/활동) 실제% = 하위 태스크 유효 진척률의 단순 평균.
+     * 하위 태스크가 하나도 없으면 기존 산출물 롤업 값을 그대로 둔다.
+     */
+    private static void rollUpActual(Map<String, Object> parent, List<Map<String, Object>> tasks) {
+        if (tasks.isEmpty()) return;
+        int sum = 0;
+        for (Map<String, Object> t : tasks) sum += (Integer) t.get("actualRate");
+        parent.put("actualRate", (int) Math.round((double) sum / tasks.size()));
     }
 
     /** 계획 시작·종료가 모두 있으면 0007 §1 선형 기대치, 아니면 null(판정불가). */

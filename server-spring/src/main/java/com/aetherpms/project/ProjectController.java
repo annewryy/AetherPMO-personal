@@ -120,11 +120,11 @@ public class ProjectController {
                     .filter(p -> stageFilter.contains(p.getProjectStage()))
                     .toList();
         }
-        // 0035 — 참여 스코프(PM/WORKER, rbac.enforce 시): 참여인력 등록 프로젝트만
+        // 0034 §2단계 — ③ 규칙(ALL/DEPT/PARTICIPATING) + 참여 스코프 결합
         AuthContext ctx = AuthContext.of(req);
-        if (scope.isScoped(ctx)) {
-            java.util.Set<Long> mine = scope.memberProjectIds(ctx);
-            projects = projects.stream().filter(p -> mine.contains(p.getProjectId())).toList();
+        java.util.Set<Long> visible = scope.visibleProjectIdsOrNull(ctx);
+        if (visible != null) {
+            projects = projects.stream().filter(p -> visible.contains(p.getProjectId())).toList();
         }
         List<ProjectCompanyEntity> companies = companyRepository.findAllByOrderByProjectCompanyIdAsc();
 

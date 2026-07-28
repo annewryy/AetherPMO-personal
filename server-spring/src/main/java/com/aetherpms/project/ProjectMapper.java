@@ -85,10 +85,15 @@ public final class ProjectMapper {
 
     public static Map<String, Object> mapConsortium(ProjectCompanyEntity c) {
         Map<String, Object> out = new LinkedHashMap<>();
+        out.put("id", c.getProjectCompanyId());
+        out.put("projectId", c.getProjectId());
         out.put("companyName", c.getCompanyName());
         out.put("role", c.getRole());
         out.put("shareRate", num(c.getShareRate()));
         out.put("description", c.getDescription());
+        out.put("contactName", c.getContactName());
+        out.put("contactPhone", c.getContactPhone());
+        out.put("contactEmail", c.getContactEmail());
         return out;
     }
 }

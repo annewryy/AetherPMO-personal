@@ -26,6 +26,9 @@ public class NotificationService {
             "ASSIGNED", "PROJECT_ASSIGNED", "MENTION", "REPLY", "COMMENT_ON_MINE",
             "STATUS_CHANGED", "DUE_SOON", "OVERDUE", "RULE_RISK");
 
+    /** 입찰 상태 진행 순서(0033 §6 — 입찰 억제 임계 판정). 실패는 항상 임계 미만 취급. */
+    public static final List<String> BID_ORDER = List.of("제안준비중", "제안제출", "결과대기", "수주");
+
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(NotificationService.class);
 
     private final JdbcTemplate jdbc;
@@ -73,6 +76,7 @@ public class NotificationService {
             Long actorPersonId = ctx == null ? null : ctx.personId();
             String actorName = ctx == null ? null : ctx.name();
             if (actorPersonId != null && actorPersonId.equals(recipientPersonId)) return; // 본인 행위
+            if (!policyAllows(type, projectId)) return;  // 0033 §6 — 관리자 전역 기준(개인 설정보다 우선)
             if (!prefEnabled(recipientPersonId, type)) return;
 
             // 미읽음 중복 억제 — 같은 (수신자, 유형, 엔티티)는 최신 내용으로 갱신
@@ -100,6 +104,40 @@ public class NotificationService {
                              String entityType, Long entityId, String preview) {
         notifyPerson(resolvePersonByName(projectId, recipientName), type, projectId,
                 entityType, entityId, null, preview);
+    }
+
+    /** 관리자 전역 기준(pms_app_setting 'notification.policy') — 유형 전역 차단 + 입찰 단계 억제. */
+    private boolean policyAllows(String type, Long projectId) {
+        Map<?, ?> policy;
+        try {
+            List<String> rows = jdbc.query(
+                    "SELECT setting_value FROM pms_app_setting WHERE setting_key = 'notification.policy'",
+                    (rs, i) -> rs.getString(1));
+            if (rows.isEmpty() || rows.get(0) == null || rows.get(0).isBlank()) return true;
+            Object parsed = Json.readObject(rows.get(0));
+            if (!(parsed instanceof Map<?, ?> m)) return true;
+            policy = m;
+        } catch (RuntimeException e) {
+            return true; // 정책 파싱 실패 → 발송(fail-open)
+        }
+        if (policy.get("disabledTypes") instanceof List<?> disabled
+                && disabled.stream().anyMatch(t -> type.equals(String.valueOf(t)))) {
+            return false;
+        }
+        // 입찰 단계 억제: 지정 상태 도달 전에는 멘션·답글 외 알림을 보내지 않는다
+        Object min = policy.get("biddingMinStatus");
+        if (min != null && projectId != null && !"MENTION".equals(type) && !"REPLY".equals(type)) {
+            try {
+                List<Map<String, Object>> pr = jdbc.queryForList(
+                        "SELECT project_stage, bid_status FROM pms_project WHERE project_id = ?", projectId);
+                if (!pr.isEmpty() && "BIDDING".equals(String.valueOf(pr.get(0).get("project_stage")))) {
+                    int cur = BID_ORDER.indexOf(String.valueOf(pr.get(0).get("bid_status"))); // 실패·미지정 = -1
+                    int need = BID_ORDER.indexOf(String.valueOf(min));
+                    if (cur < need) return false;
+                }
+            } catch (RuntimeException ignored) { /* 프로젝트 조회 실패 → 발송 */ }
+        }
+        return true;
     }
 
     /** 개인 알림 설정 — pms_user.notification_prefs JSON {"TYPE":false}. 계정 없음·미설정=on. */

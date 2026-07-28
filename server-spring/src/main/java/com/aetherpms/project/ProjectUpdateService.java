@@ -129,7 +129,8 @@ public class ProjectUpdateService {
         Map<String, Object> after = WriteSupport.updateReturning(
                 jdbc, "pms_project", "project_id", id, fields, false);
 
-        // 0031: 책임자(pm_name)·담당조직 지정 → 참여인력 자동 등록(책임자만 PM 플래그)
+        // 0039 재개정 — 프로젝트 폼에 입력한 인물은 모두 참여인력에 등록한다(사용자 요청).
+        //   PM은 PM 플래그까지 부여. 투입 M/M·지분 등 세부는 참여인력 화면에서 별도 관리.
         if (fields.containsKey("pm_name") && after.get("pm_name") != null) {
             memberAuto.ensureMember(id, after.get("pm_name").toString(), true, actor);
         }

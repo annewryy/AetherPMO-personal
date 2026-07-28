@@ -12,7 +12,7 @@
 //  - 새 조회가 필요하면 여기에 메서드를 추가한다.
 
 import { getCurrentUserId } from './currentUser';
-import { getAuthToken } from './auth';
+import { getAuthToken, clearSession } from './auth';
 import type {
   Project, ProjectMember, ConsortiumMember, Artifact, Issue, ActionItem,
   OfficialDoc, MeetingMinute, Activity, AppState, VrbInfo, DashboardSignals, DashboardWidgets, Task,
@@ -21,7 +21,8 @@ import type {
   WorkflowInput, WorkflowStatusInput, WorkflowTransitionInput, TransitionConditionInput,
   CommentEntityType, EntityComment, CommentCreateInput,
   AvailableTransition, TransitionEntity, ProjectProgress, ProjectWbs,
-  IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput,
+  IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput, MeetingMinuteUpdateInput,
+  ConsortiumPayload, ConsortiumMemberInput, VrbInfoInput,
   ProjectMemberRef, ProjectMemberDetail, ProjectMemberInput, ProjectMemberAssignment, AppNotification, AppSetting,
   Person, PersonProjectHistory, PersonFilters, InsourcingTransition, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput, ProjectConvertInput,
   BidAgency, BidNoticeFilters, BidNoticeResult, BidNoticeDetail,
@@ -55,10 +56,21 @@ function userHeader(): Record<string, string> {
   return h;
 }
 
+// 0033 — 세션 만료(로그인했던 토큰이 401) 전역 처리: 로컬 세션 정리 후 로그인 페이지로.
+//   로그인 화면에서 재로그인하면 redirect로 원래 화면 복귀. auth API 자체(로그인 시도 등)는 제외.
+function handleExpiredSession(status: number, path: string): void {
+  if (status !== 401 || !getAuthToken() || path.startsWith('/api/auth/')) return;
+  clearSession();
+  const base = import.meta.env.BASE_URL || '/';
+  const current = window.location.pathname.replace(base, '/') + window.location.search;
+  window.location.href = `${base}login?redirect=${encodeURIComponent(current)}`;
+}
+
 // 0003 계약: 응답은 도메인 모델(camelCase, types.ts와 동일 형태) — 무매핑.
 async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${apiBase()}${path}`, { headers: userHeader() });
   if (!res.ok) {
+    handleExpiredSession(res.status, path);
     // 백엔드가 {message}를 주면(예: 나라장터 502 — serviceKey 미설정·기간 가드) 그대로 노출.
     let msg = `[dataClient] API ${path} 실패: ${res.status}`;
     try {
@@ -84,6 +96,7 @@ async function apiSend<T>(method: 'POST' | 'PATCH' | 'PUT' | 'DELETE', path: str
     body: body != null ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
+    handleExpiredSession(res.status, path);
     // 0009: 백엔드 가드 응답(409 참조 수·400 계층 규칙 등)의 message를 그대로 사용자에게 노출
     let msg = `API ${method} ${path} 실패: ${res.status}`;
     try {
@@ -138,6 +151,7 @@ const COMMENT_ENTITY_PATHS: Record<CommentEntityType, string> = {
   ISSUE: 'issues',
   ACTION_ITEM: 'action-items',
   PROJECT: 'projects',
+  MEETING_MINUTES: 'meeting-minutes',
 };
 
 // ---- 공개 API -------------------------------------------------------------
@@ -323,6 +337,30 @@ export const dataClient = {
     create(input: MeetingMinuteCreateInput): Promise<MeetingMinute> {
       return apiSend<MeetingMinute>('POST', '/api/meeting-minutes', input);
     },
+    // 0039: 단건 조회(상세 패널 — issueIds/taskIds/deliverableIds/actionItemIds 포함).
+    async get(id: number): Promise<MeetingMinute> {
+      return apiGet<MeetingMinute>(`/api/meeting-minutes/${id}`);
+    },
+    // 0039: 내용·매핑 수정. snake_case 본문.
+    update(id: number, input: MeetingMinuteUpdateInput): Promise<MeetingMinute> {
+      return apiSend<MeetingMinute>('PATCH', `/api/meeting-minutes/${id}`, input);
+    },
+  },
+
+  // 0039 — 컨소시엄 구성원 CRUD. 응답은 항상 {members, shareTotal, shareBalanced} 전체 목록.
+  consortium: {
+    async listByProject(projectId: number): Promise<ConsortiumPayload> {
+      return apiGet<ConsortiumPayload>(`/api/projects/${projectId}/consortium`);
+    },
+    create(projectId: number, input: ConsortiumMemberInput): Promise<ConsortiumPayload> {
+      return apiSend<ConsortiumPayload>('POST', `/api/projects/${projectId}/consortium`, input);
+    },
+    update(projectId: number, memberId: number, patch: Partial<ConsortiumMemberInput>): Promise<ConsortiumPayload> {
+      return apiSend<ConsortiumPayload>('PATCH', `/api/projects/${projectId}/consortium/${memberId}`, patch);
+    },
+    remove(projectId: number, memberId: number): Promise<ConsortiumPayload> {
+      return apiSend<ConsortiumPayload>('DELETE', `/api/projects/${projectId}/consortium/${memberId}`);
+    },
   },
 
   activities: {
@@ -337,6 +375,10 @@ export const dataClient = {
     async getByProject(projectId: number): Promise<VrbInfo | null> {
       if (!apiBase()) return null;
       return apiGet<VrbInfo | null>(`/api/projects/${projectId}/vrb`);
+    },
+    // 0039 — 프로젝트당 1건이라 PUT upsert(행 없으면 생성).
+    save(projectId: number, input: VrbInfoInput): Promise<VrbInfo> {
+      return apiSend<VrbInfo>('PUT', `/api/projects/${projectId}/vrb`, input);
     },
   },
 
@@ -582,6 +624,77 @@ export const dataClient = {
     },
   },
 
+  // 0018/0038 — 파일 업로드/다운로드(인증 헤더 필요 → fetch+blob)
+  files: {
+    async download(path: string): Promise<void> {
+      const res = await fetch(`${apiBase()}${path}`, { headers: userHeader() });
+      if (!res.ok) {
+        let msg = `다운로드 실패: ${res.status}`;
+        try {
+          const b = await res.json();
+          if (b?.message) msg = b.message;
+        } catch { /* 본문 없음 */ }
+        throw new Error(msg);
+      }
+      const dispo = res.headers.get('Content-Disposition') || '';
+      const m = /filename\*=UTF-8''([^;]+)/.exec(dispo);
+      const fileName = m ? decodeURIComponent(m[1]) : 'download';
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    async upload(path: string, file: File): Promise<unknown> {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`${apiBase()}${path}`, { method: 'POST', headers: userHeader(), body: fd });
+      if (!res.ok) {
+        let msg = `업로드 실패: ${res.status}`;
+        try {
+          const b = await res.json();
+          if (b?.message) msg = b.message;
+        } catch { /* 본문 없음 */ }
+        throw new Error(msg);
+      }
+      return res.json();
+    },
+  },
+
+  // 0034 §1단계 — 접근 규칙(③ 부서×직책×인력구분): 관리자 콘솔 > 접근 규칙
+  accessRules: {
+    list(): Promise<import('../types').AccessRule[]> {
+      return apiGet('/api/admin/access-rules');
+    },
+    menuKeys(): Promise<{ keys: string[]; labels: Record<string, string>; positionCodes: string[] }> {
+      return apiGet('/api/admin/access-rules/menu-keys');
+    },
+    create(body: Partial<import('../types').AccessRuleInput>) {
+      return apiSend<import('../types').AccessRule>('POST', '/api/admin/access-rules', body);
+    },
+    update(id: number, body: Partial<import('../types').AccessRuleInput>) {
+      return apiSend<import('../types').AccessRule>('PATCH', `/api/admin/access-rules/${id}`, body);
+    },
+    remove(id: number) {
+      return apiSend<{ ok: boolean }>('DELETE', `/api/admin/access-rules/${id}`);
+    },
+    simulate(personId: number): Promise<import('../types').AccessRuleSimulation> {
+      return apiGet(`/api/admin/access-rules/simulate?personId=${personId}`);
+    },
+  },
+
+  // 0034 §2단계 — 프로젝트 역할(④) 전역 관리포인트 권한
+  roleCapabilities: {
+    list(): Promise<{ roles: { roleCode: string; capabilities: Record<string, unknown> }[]; capabilityKeys: string[]; tristateKeys: string[] }> {
+      return apiGet('/api/admin/role-capabilities');
+    },
+    update(roleCode: string, body: Record<string, unknown>) {
+      return apiSend('PATCH', `/api/admin/role-capabilities/${roleCode}`, body);
+    },
+  },
+
   // 0033 3차 — 개인 알림 설정(유형별 on/off)
   notificationPrefs: {
     get(): Promise<{ prefs: Record<string, boolean>; types: string[] }> {
@@ -614,6 +727,10 @@ export const dataClient = {
   // 대시보드 신호 (0007 §5) — API_BASE 전용, 읽기(계산 결과만).
   // Supabase 폴백에선 null 반환 → 위젯 숨김 + 안내(요약 테이블 목표/Δ는 '—').
   dashboard: {
+    // 0038 — 실무진용(내 업무): 세션 person 기준
+    my(): Promise<import('../types').MyDashboard> {
+      return apiGet('/api/dashboard/my');
+    },
     async signals(): Promise<DashboardSignals | null> {
       if (!apiBase()) return null;
       return apiGet<DashboardSignals>('/api/dashboard/signals');
@@ -641,6 +758,8 @@ export const dataClient = {
       if (filters.projectId != null) qs.set('projectId', String(filters.projectId));
       if (filters.location && filters.location.trim()) qs.set('location', filters.location.trim());
       if (filters.customer && filters.customer.trim()) qs.set('customer', filters.customer.trim());
+      if (filters.departments && filters.departments.length) qs.set('departments', filters.departments.join(','));
+      if (filters.includeInactive) qs.set('includeInactive', 'true');
       const q = qs.toString();
       return apiGet<Person[]>(`/api/persons${q ? `?${q}` : ''}`);
     },

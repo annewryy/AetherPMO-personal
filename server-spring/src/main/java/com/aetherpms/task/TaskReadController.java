@@ -9,32 +9,62 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.aetherpms.common.ApiException;
+import com.aetherpms.common.LinkTableSupport;
 import com.aetherpms.common.ReadMappers;
 import com.aetherpms.common.ReadSupport;
 
-/** task 읽기(구 ReadController 분리). */
+/**
+ * task 읽기(구 ReadController 분리).
+ * 0039 — progress는 TaskProgressResolver로 덮어써 WBS/간트차트와 동일 수치를 보장한다
+ *   (산출물 있으면 승인비율, 없으면 태스크 수동 progress_rate). 관련항목(이슈·액션아이템·회의록)은
+ *   전부 역방향 링크(이 태스크를 참조하는 쪽)로 부착한다.
+ */
 @RestController
 public class TaskReadController {
 
     private final JdbcTemplate jdbc;
     private final TaskReadRepository repo;
+    private final TaskProgressResolver progressResolver;
 
-    public TaskReadController(JdbcTemplate jdbc, TaskReadRepository repo) {
+    public TaskReadController(JdbcTemplate jdbc, TaskReadRepository repo, TaskProgressResolver progressResolver) {
         this.jdbc = jdbc;
         this.repo = repo;
+        this.progressResolver = progressResolver;
     }
 
     @GetMapping("/api/projects/{id}/tasks")
     public List<Map<String, Object>> list(@PathVariable("id") long rawId) {
         long id = ReadSupport.parseId(rawId);
         ReadSupport.requireProject(jdbc, id);
-        return repo.findByProjectIdOrderBySortOrderAscTaskIdAsc(id).stream().map(ReadMappers::mapTask).toList();
+        List<Map<String, Object>> rows = repo.findByProjectIdOrderBySortOrderAscTaskIdAsc(id).stream()
+                .map(ReadMappers::mapTask).toList();
+        applyEffectiveProgress(rows, id);
+        attachLinks(rows);
+        return rows;
     }
 
     @GetMapping("/api/tasks/{id}")
     public Map<String, Object> detail(@PathVariable("id") long rawId) {
         long id = ReadSupport.parseId(rawId);
-        return repo.findById(id).map(ReadMappers::mapTask)
+        Map<String, Object> found = repo.findById(id).map(ReadMappers::mapTask)
                 .orElseThrow(() -> ApiException.notFound("태스크를 찾을 수 없습니다."));
+        long projectId = ((Number) found.get("projectId")).longValue();
+        applyEffectiveProgress(List.of(found), projectId);
+        attachLinks(List.of(found));
+        return found;
+    }
+
+    private void applyEffectiveProgress(List<Map<String, Object>> rows, long projectId) {
+        Map<Long, Integer> effective = progressResolver.effectiveProgressByProject(projectId);
+        for (Map<String, Object> row : rows) {
+            Integer eff = effective.get(((Number) row.get("id")).longValue());
+            if (eff != null) row.put("progress", eff);
+        }
+    }
+
+    private void attachLinks(List<Map<String, Object>> rows) {
+        LinkTableSupport.attach(jdbc, rows, "id", "pms_issue_task_link", "task_id", "issue_id", "issueIds");
+        LinkTableSupport.attach(jdbc, rows, "id", "pms_action_item_task_link", "task_id", "action_id", "actionItemIds");
+        LinkTableSupport.attach(jdbc, rows, "id", "pms_meeting_task_link", "task_id", "meeting_id", "meetingIds");
     }
 }

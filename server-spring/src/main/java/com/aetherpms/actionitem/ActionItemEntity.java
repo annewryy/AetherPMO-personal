@@ -46,6 +46,9 @@ public class ActionItemEntity {
     @Column(name = "related_issue_id")
     private Long relatedIssueId;
 
+    @Column(name = "source_meeting_id")
+    private Long sourceMeetingId;
+
     public Long getActionId() { return actionId; }
     public Long getProjectId() { return projectId; }
     public String getTitle() { return title; }
@@ -56,4 +59,5 @@ public class ActionItemEntity {
     public String getDisplayCode() { return displayCode; }
     public String getConfirmComment() { return confirmComment; }
     public Long getRelatedIssueId() { return relatedIssueId; }
+    public Long getSourceMeetingId() { return sourceMeetingId; }
 }
