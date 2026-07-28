@@ -8,7 +8,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * 0039 — 태스크 유효 진척률(태스크 상세·WBS·간트차트가 동일 수치를 보여야 함).
- *   산출물(pms_deliverable.task_id)이 하나라도 있으면 승인비율, 없으면 태스크 수동 progress_rate.
+ *   담당자가 직접 입력한 progress_rate가 있으면(>0) 그 값이 우선이고,
+ *   입력값이 없을 때만 산출물(pms_deliverable.task_id) 승인비율으로 자동 계산한다.
+ *   (사용자 결정 2026-07-28: 산출물이 다 승인돼도 실제 작업 진도는 담당자 판단이 우선)
  * WbsService(WBS/간트 목표·실제% 산정)와 TaskReadController(태스크 상세 "진척률") 양쪽이
  * 이 클래스 하나로 계산해 두 화면이 어긋나지 않게 한다.
  */
@@ -50,6 +52,7 @@ public class TaskProgressResolver {
         long total = ((Number) r.get("deliv_total")).longValue();
         long approved = ((Number) r.get("deliv_approved")).longValue();
         int manual = ((Number) r.get("manual_progress")).intValue();
-        return total > 0 ? (int) Math.round(approved * 100.0 / total) : manual;
+        if (manual > 0) return manual;                 // 담당자 직접 입력값 우선
+        return total > 0 ? (int) Math.round(approved * 100.0 / total) : 0;
     }
 }

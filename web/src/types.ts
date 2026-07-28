@@ -668,6 +668,18 @@ export interface WbsDeliverableCounts {
   approved: number;
 }
 
+// 0039 — WBS 4번째 레벨(태스크 하위 산출물). 트리가 태스크까지만 보이던 것을 확장.
+export interface WbsDeliverable {
+  deliverableId: number;
+  name: string;
+  code: string | null;
+  status: string | null;
+  assigneeName: string | null;
+  version: string | null;
+  dueDate: string | null;
+  submittedAt: string | null;
+}
+
 export interface WbsNode {
   nodeId: number;
   /** TASK만: 실제 pms_task.task_id(상세 이동용). nodeId는 카탈로그 노드 id — 혼용 금지(0031 수정). */
@@ -689,6 +701,7 @@ export interface WbsNode {
   // 트리 자식(노드 타입별로 하나만 존재)
   activities?: WbsNode[];                   // PHASE
   tasks?: WbsNode[];                        // ACTIVITY
+  deliverables?: WbsDeliverable[];          // TASK (0039 — 4번째 레벨)
 }
 
 export interface ProjectWbs {

@@ -129,9 +129,11 @@ public class ProjectUpdateService {
         Map<String, Object> after = WriteSupport.updateReturning(
                 jdbc, "pms_project", "project_id", id, fields, false);
 
-        // 0039 — 책임자(pm_name) 수정 시 참여인력 자동 등록/PM플래그 동기화를 제거했다(요청 4):
-        //   각사 지분금액에 맞는 M/M 투입이 필요해 참여인력은 이 필드와 무관하게 별도 관리해야 함.
-        //   담당조직(6종)은 기존과 동일하게 참여인력 자동 등록 유지(0031, 사용자가 범위 지정 안 함).
+        // 0039 재개정 — 프로젝트 폼에 입력한 인물은 모두 참여인력에 등록한다(사용자 요청).
+        //   PM은 PM 플래그까지 부여. 투입 M/M·지분 등 세부는 참여인력 화면에서 별도 관리.
+        if (fields.containsKey("pm_name") && after.get("pm_name") != null) {
+            memberAuto.ensureMember(id, after.get("pm_name").toString(), true, actor);
+        }
         for (String ownerCol : List.of("sales_owner", "proposal_owner", "proposal_pm", "business_manager", "contract_owner", "legal_owner")) {
             if (fields.containsKey(ownerCol) && after.get(ownerCol) != null) {
                 memberAuto.ensureMember(id, after.get(ownerCol).toString(), false, actor);
