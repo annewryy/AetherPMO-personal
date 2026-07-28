@@ -22,6 +22,7 @@ import type {
   CommentEntityType, EntityComment, CommentCreateInput,
   AvailableTransition, TransitionEntity, ProjectProgress, ProjectWbs,
   IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput, MeetingMinuteUpdateInput,
+  ConsortiumPayload, ConsortiumMemberInput,
   ProjectMemberRef, ProjectMemberDetail, ProjectMemberInput, ProjectMemberAssignment, AppNotification, AppSetting,
   Person, PersonProjectHistory, PersonFilters, InsourcingTransition, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput, ProjectConvertInput,
   BidAgency, BidNoticeFilters, BidNoticeResult, BidNoticeDetail,
@@ -343,6 +344,22 @@ export const dataClient = {
     // 0039: 내용·매핑 수정. snake_case 본문.
     update(id: number, input: MeetingMinuteUpdateInput): Promise<MeetingMinute> {
       return apiSend<MeetingMinute>('PATCH', `/api/meeting-minutes/${id}`, input);
+    },
+  },
+
+  // 0039 — 컨소시엄 구성원 CRUD. 응답은 항상 {members, shareTotal, shareBalanced} 전체 목록.
+  consortium: {
+    async listByProject(projectId: number): Promise<ConsortiumPayload> {
+      return apiGet<ConsortiumPayload>(`/api/projects/${projectId}/consortium`);
+    },
+    create(projectId: number, input: ConsortiumMemberInput): Promise<ConsortiumPayload> {
+      return apiSend<ConsortiumPayload>('POST', `/api/projects/${projectId}/consortium`, input);
+    },
+    update(projectId: number, memberId: number, patch: Partial<ConsortiumMemberInput>): Promise<ConsortiumPayload> {
+      return apiSend<ConsortiumPayload>('PATCH', `/api/projects/${projectId}/consortium/${memberId}`, patch);
+    },
+    remove(projectId: number, memberId: number): Promise<ConsortiumPayload> {
+      return apiSend<ConsortiumPayload>('DELETE', `/api/projects/${projectId}/consortium/${memberId}`);
     },
   },
 

@@ -269,10 +269,34 @@ export interface AppNotification {
 }
 
 export interface ConsortiumMember {
+  /** 0039 — 컨소시엄 CRUD 도입 후 부여(구 프로젝트 임베드 응답에는 없을 수 있음). */
+  id?: number;
+  projectId?: number;
+  companyName: string;
+  role: string;              // 주사업자 | 부사업자 | 협력사
+  shareRate: number;
+  description: string;
+  contactName?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+}
+
+/** 0039 — GET/POST/PATCH/DELETE /api/projects/{id}/consortium 응답(목록 + 지분율 합계). */
+export interface ConsortiumPayload {
+  projectId: number;
+  members: ConsortiumMember[];
+  shareTotal: number;
+  shareBalanced: boolean;
+}
+
+export interface ConsortiumMemberInput {
   companyName: string;
   role: string;
   shareRate: number;
-  description: string;
+  description?: string | null;
+  contactName?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
 }
 
 export interface VrbInfo {

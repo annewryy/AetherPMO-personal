@@ -28,6 +28,7 @@ import IssueFormModal from '../components/IssueFormModal.vue';
 import ActionItemFormModal from '../components/ActionItemFormModal.vue';
 import MeetingMinuteFormModal from '../components/MeetingMinuteFormModal.vue';
 import MeetingDetailPanel from '../components/MeetingDetailPanel.vue';
+import ConsortiumMemberFormModal from '../components/ConsortiumMemberFormModal.vue';
 import WbsSchedule from '../components/WbsSchedule.vue';
 import WbsGantt from '../components/WbsGantt.vue';
 import ProjectFormModal from '../components/ProjectFormModal.vue';
@@ -102,6 +103,7 @@ async function loadTab(key: TabKey) {
   if (key === 'overview' || key === 'tasks') loadProgress();
   if (key === 'overview') { void loadOverviewSections(pid); return; }
   // members는 컴포넌트가 자체 로드(GET /members) — 여기서는 지연로드 대상 아님.
+  if (key === 'consortium') void loadConsortium();
   const needsLoad = !['consortium', 'members'].includes(key);
   if (!needsLoad) return;
   tabLoading.value = true;
@@ -376,6 +378,53 @@ async function loadProgress() {
     progress.value = null;
   }
 }
+
+// 0039 — 컨소시엄 구성원 CRUD. 응답에 목록+합계가 함께 온다.
+const consortiumMembers = ref<import('../types').ConsortiumMember[]>([]);
+const consortiumTotal = ref(0);
+const consortiumBalanced = ref(true);
+const consortiumError = ref<string | null>(null);
+const consortiumForm = ref<{ member: import('../types').ConsortiumMember | null } | null>(null);
+
+function applyConsortium(p: import('../types').ConsortiumPayload) {
+  consortiumMembers.value = p.members;
+  consortiumTotal.value = p.shareTotal;
+  consortiumBalanced.value = p.shareBalanced;
+}
+async function loadConsortium() {
+  if (!apiMode.value) { consortiumMembers.value = project.value?.consortiumMembers ?? []; return; }
+  consortiumError.value = null;
+  try {
+    applyConsortium(await dataClient.consortium.listByProject(projectId.value));
+  } catch (e) {
+    consortiumError.value = e instanceof Error ? e.message : String(e);
+  }
+}
+function openConsortiumForm(member: import('../types').ConsortiumMember | null) {
+  consortiumForm.value = { member };
+}
+function onConsortiumSaved(p: import('../types').ConsortiumPayload) {
+  consortiumForm.value = null;
+  applyConsortium(p);
+}
+async function removeConsortiumMember(c: import('../types').ConsortiumMember) {
+  if (c.id == null) return;
+  if (!window.confirm(`"${c.companyName}"을(를) 컨소시엄에서 삭제할까요?`)) return;
+  consortiumError.value = null;
+  try {
+    applyConsortium(await dataClient.consortium.remove(projectId.value, c.id));
+  } catch (e) {
+    consortiumError.value = e instanceof Error ? e.message : String(e);
+  }
+}
+/** 수정 대상 본인 지분을 제외한 합계(모달의 "저장 후 총 지분율" 계산용) */
+const consortiumOthersTotal = computed(() => {
+  const editing = consortiumForm.value?.member;
+  const others = editing
+    ? consortiumMembers.value.filter((m) => m.id !== editing.id)
+    : consortiumMembers.value;
+  return Math.round(others.reduce((sum, m) => sum + (m.shareRate ?? 0), 0) * 100) / 100;
+});
 
 async function reloadIssues() { issues.value = await dataClient.issues.listByProject(projectId.value); }
 async function reloadActions() { actionItems.value = await dataClient.actionItems.listByProject(projectId.value); }
@@ -731,20 +780,42 @@ watch(() => route.query.panel, applyPanelQuery);
           </ul>
         </template>
 
-        <!-- BIDDING: 컨소시엄 (상세) -->
+        <!-- BIDDING: 컨소시엄 (0039 — 구성원 CRUD + 지분율 합계 검증) -->
         <template v-else-if="activeTab === 'consortium'">
-          <div v-if="project.consortiumMembers.length === 0" class="card-empty">컨소시엄 구성이 없습니다.</div>
-          <table v-else class="grid">
-            <thead><tr><th>회사</th><th>역할</th><th>지분율</th><th>비고</th></tr></thead>
-            <tbody>
-              <tr v-for="(c, i) in project.consortiumMembers" :key="i">
-                <td class="name">{{ c.companyName }}</td>
-                <td>{{ c.role || '—' }}</td>
-                <td>{{ c.shareRate ? c.shareRate + '%' : '—' }}</td>
-                <td class="muted">{{ c.description || '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="tab-toolbar">
+            <button class="btn btn-primary btn-sm" :disabled="!apiMode"
+              :title="apiMode ? '' : '등록은 백엔드 연결 후 활성화'"
+              @click="openConsortiumForm(null)">+ 구성원 추가</button>
+            <span v-if="!apiMode" class="gate-hint">등록은 백엔드(API_BASE) 연결 후 활성화</span>
+          </div>
+          <p v-if="consortiumError" class="err-line">{{ consortiumError }}</p>
+          <div v-if="consortiumMembers.length === 0" class="card-empty">컨소시엄 구성이 없습니다.</div>
+          <template v-else>
+            <table class="grid">
+              <thead>
+                <tr><th>회사명</th><th>역할</th><th class="num">지분율 (%)</th><th>담당자</th><th>연락처</th><th>이메일</th><th>비고</th><th>작업</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="c in consortiumMembers" :key="c.id ?? c.companyName">
+                  <td class="name">{{ c.companyName }}</td>
+                  <td><span class="role-chip" :class="{ lead: c.role === '주사업자' }">{{ c.role || '—' }}</span></td>
+                  <td class="num">{{ c.shareRate }}%</td>
+                  <td>{{ c.contactName || '—' }}</td>
+                  <td class="muted">{{ c.contactPhone || '—' }}</td>
+                  <td class="muted">{{ c.contactEmail || '—' }}</td>
+                  <td class="muted">{{ c.description || '—' }}</td>
+                  <td class="cell-actions">
+                    <button class="btn btn-sm" :disabled="!apiMode" @click="openConsortiumForm(c)">수정</button>
+                    <button class="btn btn-sm danger" :disabled="!apiMode" @click="removeConsortiumMember(c)">삭제</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="share-foot">
+              <span>총 지분율: <b :class="{ bad: !consortiumBalanced }">{{ consortiumTotal }}%</b></span>
+              <span v-if="!consortiumBalanced" class="share-warn">⚠ 총합이 100%가 아닙니다.</span>
+            </div>
+          </template>
         </template>
 
         <!-- 배치21: 참여인력 — 목록(페이징) + 등록 (자체 로드) -->
@@ -935,6 +1006,12 @@ watch(() => route.query.panel, applyPanelQuery);
           :highlight-comment-id="highlightCommentId" @close="closeMeetingPanel" @changed="onMeetingChanged"
         />
       </SideDrawer>
+
+      <ConsortiumMemberFormModal
+        v-if="consortiumForm" :project-id="projectId" :member="consortiumForm.member"
+        :others-total="consortiumOthersTotal"
+        @saved="onConsortiumSaved" @close="consortiumForm = null"
+      />
 
       <!-- ==== 신규 등록 폼 ==== -->
       <IssueFormModal
@@ -1170,6 +1247,24 @@ watch(() => route.query.panel, applyPanelQuery);
   border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; margin-left: 6px;
 }
 .tab-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+
+/* 0039 — 컨소시엄 탭 */
+.grid .num { text-align: right; font-variant-numeric: tabular-nums; }
+.cell-actions { display: flex; gap: 6px; }
+.btn.danger { border-color: var(--red); color: var(--red); }
+.err-line { color: var(--red); font-size: 13px; margin: 0 0 10px; }
+.role-chip {
+  font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  background: var(--panel-2, var(--panel)); color: var(--muted); border: 1px solid var(--border);
+}
+.role-chip.lead { color: var(--accent); border-color: var(--accent); background: rgba(139, 92, 246, 0.12); }
+.share-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 10px; padding: 10px 12px; border-radius: 8px;
+  background: var(--panel); border: 1px solid var(--border); font-size: 13.5px;
+}
+.share-foot b.bad { color: var(--red); }
+.share-warn { color: var(--red); font-size: 12.5px; font-weight: 600; }
 .gate-hint { font-size: 13px; color: var(--muted); }
 .panel-missing {
   padding: 24px; display: flex; flex-direction: column; gap: 12px;

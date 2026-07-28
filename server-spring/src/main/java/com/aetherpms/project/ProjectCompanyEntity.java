@@ -34,10 +34,23 @@ public class ProjectCompanyEntity {
     @Column(name = "description")
     private String description;
 
+    // 0039 — 구성원 담당자 정보(등록 폼)
+    @Column(name = "contact_name")
+    private String contactName;
+
+    @Column(name = "contact_phone")
+    private String contactPhone;
+
+    @Column(name = "contact_email")
+    private String contactEmail;
+
     public Long getProjectCompanyId() { return projectCompanyId; }
     public Long getProjectId() { return projectId; }
     public String getCompanyName() { return companyName; }
     public String getRole() { return role; }
     public BigDecimal getShareRate() { return shareRate; }
     public String getDescription() { return description; }
+    public String getContactName() { return contactName; }
+    public String getContactPhone() { return contactPhone; }
+    public String getContactEmail() { return contactEmail; }
 }
