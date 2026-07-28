@@ -6,7 +6,7 @@
 //    불변 필드(projectCode·sourceProjectId·clientCompanyId 등)는 폼에 없음(백엔드가 400).
 //  - 쓰기는 백엔드 전용(dataClient가 API_BASE 게이트). 오류는 서버 {message} 그대로.
 //  - status는 응답이 영문(In Progress 등) → 편집 프리필 시 한글로 역매핑(백엔드는 한글 저장).
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import type { Project, ProjectCreateInput, ProjectUpdateInput } from '../types';
 import ModalShell from './ModalShell.vue';
@@ -29,6 +29,20 @@ const STAGES: { value: 'BIDDING' | 'EXECUTION' | 'COMPLETED'; label: string }[] 
   { value: 'EXECUTION', label: '수행' },
   { value: 'COMPLETED', label: '완료' },
 ];
+
+// 0039 요청 2 — 수행단계 프로젝트 편집 시: 단계는 수행/완료만(입찰로 되돌릴 수 없음),
+//   상태는 진행중/종료(=완료)만, 입찰상태 필드는 숨김. 기존 데이터가 이 범위 밖(지연·보류 등)
+//   이면 목록 밖 값도 그대로 노출해 무음 변경을 막는다.
+const isExecutionEdit = computed(() => props.mode === 'edit' && props.project?.stage === 'EXECUTION');
+const EXEC_STAGES = STAGES.filter((s) => s.value !== 'BIDDING');
+const EXEC_STATUS_OPTIONS = [{ value: '진행중', label: '진행중' }, { value: '완료', label: '종료' }];
+const stageOptions = computed(() => (isExecutionEdit.value ? EXEC_STAGES : STAGES));
+const statusOptions = computed<{ value: string; label: string }[]>(() => {
+  if (!isExecutionEdit.value) return STATUSES.map((s) => ({ value: s, label: s }));
+  const base = [...EXEC_STATUS_OPTIONS];
+  if (status.value && !base.some((o) => o.value === status.value)) base.push({ value: status.value, label: status.value });
+  return base;
+});
 
 // 응답 status(영문) → 저장 한글값 역매핑(ProjectMapper.STATUS_KO2EN 역). 알 수 없으면 그대로.
 const STATUS_EN2KO: Record<string, string> = {
@@ -67,6 +81,23 @@ const remarks = ref(p?.remarks ?? '');
 
 const submitting = ref(false);
 const error = ref<string | null>(null);
+
+// 0039 요청 1 — 금액 입력 천단위 구분기호. 표시는 콤마 포함 문자열, 내부값은 숫자로 유지.
+function fmtMoney(v: number | null): string {
+  return v == null ? '' : v.toLocaleString('ko-KR');
+}
+function parseMoney(s: string): number | null {
+  const digits = s.replace(/[^0-9]/g, '');
+  return digits ? Number(digits) : null;
+}
+const budgetText = computed({
+  get: () => fmtMoney(budget.value),
+  set: (v: string) => { budget.value = parseMoney(v); },
+});
+const contractAmountText = computed({
+  get: () => fmtMoney(contractAmount.value),
+  set: (v: string) => { contractAmount.value = parseMoney(v); },
+});
 
 // create: 채워진 필드만 실어 보낸다(빈 문자열/미지정은 백엔드 기본값에 위임).
 function buildCreate(): ProjectCreateInput {
@@ -185,11 +216,11 @@ async function submit() {
     <div class="row2">
       <div>
         <label class="label">예산(원)</label>
-        <input v-model.number="budget" class="input" type="number" min="0" placeholder="0" :disabled="submitting" />
+        <input v-model="budgetText" class="input" type="text" inputmode="numeric" placeholder="0" :disabled="submitting" />
       </div>
       <div>
         <label class="label">계약금액(원)</label>
-        <input v-model.number="contractAmount" class="input" type="number" min="0" placeholder="0" :disabled="submitting" />
+        <input v-model="contractAmountText" class="input" type="text" inputmode="numeric" placeholder="0" :disabled="submitting" />
       </div>
     </div>
 
@@ -198,23 +229,25 @@ async function submit() {
         <label class="label">단계</label>
         <select v-model="stage" class="input" :disabled="submitting">
           <option value="">{{ mode === 'create' ? '기본(입찰)' : '변경 안 함' }}</option>
-          <option v-for="s in STAGES" :key="s.value" :value="s.value">{{ s.label }}</option>
+          <option v-for="s in stageOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
         </select>
       </div>
       <div>
         <label class="label">상태</label>
         <select v-model="status" class="input" :disabled="submitting">
           <option value="">{{ mode === 'create' ? '기본(입찰)' : '변경 안 함' }}</option>
-          <option v-for="s in STATUSES" :key="s" :value="s">{{ s }}</option>
+          <option v-for="s in statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
         </select>
       </div>
     </div>
 
-    <label class="label">입찰상태</label>
-    <select v-model="bidStatus" class="input" :disabled="submitting">
-      <option value="">{{ mode === 'create' ? '기본(제안준비중)' : '변경 안 함' }}</option>
-      <option v-for="s in BID_STATUSES" :key="s" :value="s">{{ s }}</option>
-    </select>
+    <template v-if="!isExecutionEdit">
+      <label class="label">입찰상태</label>
+      <select v-model="bidStatus" class="input" :disabled="submitting">
+        <option value="">{{ mode === 'create' ? '기본(제안준비중)' : '변경 안 함' }}</option>
+        <option v-for="s in BID_STATUSES" :key="s" :value="s">{{ s }}</option>
+      </select>
+    </template>
 
     <div class="row2">
       <div>

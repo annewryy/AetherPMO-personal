@@ -183,6 +183,7 @@ public final class RowMappers {
         o.put("name", v(c, "company_name"));
         o.put("type", v(c, "company_type"));
         o.put("isActive", activeDefault(v(c, "is_active")));
+        o.put("agencyCode", v(c, "agency_code"));
         return o;
     }
 

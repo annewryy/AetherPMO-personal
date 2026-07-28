@@ -33,9 +33,11 @@ public class CompanyAdminService {
     }
 
     private static final List<String> COMPANY_TYPES = List.of("OWN", "PARTNER", "CLIENT");
-    private static final Set<String> COMPANY_FIELDS = Set.of("company_name", "company_type", "is_active");
+    // 0039 — agency_code(V10, 나라장터 수요기관코드) 누락돼 프론트가 보내는 agencyCode가
+    //   "허용되지 않는 필드"로 거부되어 신규 회사 등록이 항상 실패하던 버그 수정.
+    private static final Set<String> COMPANY_FIELDS = Set.of("company_name", "company_type", "is_active", "agency_code");
     private static final Map<String, String> COMPANY_ALIASES = Map.of(
-            "name", "company_name", "type", "company_type", "isActive", "is_active");
+            "name", "company_name", "type", "company_type", "isActive", "is_active", "agencyCode", "agency_code");
 
     @Transactional
     public Map<String, Object> createCompany(Map<String, Object> body, Actor actor) {
@@ -108,6 +110,16 @@ public class CompanyAdminService {
                 throw ApiException.badRequest("is_active는 boolean이어야 합니다.");
             }
             out.put("is_active", bv);
+        }
+        if (body.containsKey("agency_code")) {
+            Object a = body.get("agency_code");
+            if (a == null) {
+                out.put("agency_code", null);
+            } else if (!(a instanceof String s) || s.trim().isEmpty()) {
+                out.put("agency_code", null);
+            } else {
+                out.put("agency_code", s.trim());
+            }
         }
         return out;
     }
