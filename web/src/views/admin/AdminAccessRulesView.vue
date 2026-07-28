@@ -45,6 +45,7 @@ function blankForm(): AccessRuleInput {
   return {
     name: '', deptCode: null, includeSub: true, positionCode: null, employmentType: null,
     menuKeys: ['dashboard'], projectScope: 'PARTICIPATING', priority: 100, enabled: true,
+    personIds: [],
   };
 }
 const selectedDeptName = ref('');
@@ -52,15 +53,45 @@ function openCreate() {
   editingId.value = null;
   form.value = blankForm();
   selectedDeptName.value = '';
+  personQuery.value = '';
 }
 function openEdit(r: AccessRule) {
   editingId.value = r.ruleId;
   form.value = {
     name: r.name ?? '', deptCode: r.deptCode, includeSub: r.includeSub, positionCode: r.positionCode,
     employmentType: r.employmentType, menuKeys: [...r.menuKeys], projectScope: r.projectScope,
-    priority: r.priority, enabled: r.enabled,
+    priority: r.priority, enabled: r.enabled, personIds: [...(r.personIds ?? [])],
   };
   selectedDeptName.value = '';
+  personQuery.value = '';
+}
+
+// ---- 인력 지정 축 ----
+//   부서·직책으로 묶이지 않는 집단(여러 부서에 흩어진 무직책 영업 인력 등)을 이름으로 골라 배정한다.
+//   비워두면 이 축은 판정하지 않는다 = 조직 축(부서·직책·인력구분)만으로 결정되는 기존 규칙.
+const personQuery = ref('');
+const personById = computed(() => new Map(persons.value.map((p) => [p.personId, p])));
+const selectedPersons = computed(() =>
+  form.value.personIds.map((id) => {
+    const p = personById.value.get(id);
+    // 인력 목록이 아직 안 왔거나 삭제된 인력이면 id라도 보여준다(무음 소실 방지).
+    return { personId: id, name: p?.name ?? `#${id}`, dept: p?.department ?? null };
+  }),
+);
+const personCandidates = computed(() => {
+  const q = personQuery.value.trim();
+  if (!q) return [];
+  return persons.value
+    .filter((p) => p.name.includes(q) && !form.value.personIds.includes(p.personId))
+    .slice(0, 8);
+});
+function addPerson(id: number) {
+  if (!form.value.personIds.includes(id)) form.value.personIds.push(id);
+  personQuery.value = '';
+}
+function removePerson(id: number) {
+  const i = form.value.personIds.indexOf(id);
+  if (i >= 0) form.value.personIds.splice(i, 1);
 }
 function onDeptPick(v: { deptCode: string | null; deptNames: string[] }) {
   form.value.deptCode = v.deptCode;
@@ -160,7 +191,7 @@ onMounted(async () => {
             <thead>
               <tr>
                 <th class="num">순위</th><th>이름</th><th>부서</th><th>직책</th><th>인력구분</th>
-                <th>메뉴</th><th>범위</th><th>활성</th><th></th>
+                <th>인력 지정</th><th>메뉴</th><th>범위</th><th>활성</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -170,6 +201,13 @@ onMounted(async () => {
                 <td>{{ r.deptCode ? (r.deptCode + (r.includeSub ? ' (하위 포함)' : '')) : '전체' }}</td>
                 <td>{{ r.positionCode ? (POSITION_LABELS[r.positionCode] ?? r.positionCode) : '전체' }}</td>
                 <td>{{ r.employmentType || '전체' }}</td>
+                <td class="person-cell">
+                  <template v-if="(r.persons ?? []).length">
+                    {{ r.persons.slice(0, 3).map((p) => p.name).join(', ')
+                    }}<span v-if="r.persons.length > 3" class="muted"> 외 {{ r.persons.length - 3 }}명</span>
+                  </template>
+                  <span v-else class="muted">전체</span>
+                </td>
                 <td class="menu-cell">{{ r.menuKeys.map((k) => menuLabels[k] ?? k).join(', ') }}</td>
                 <td>{{ r.projectScope }}</td>
                 <td><input type="checkbox" :checked="r.enabled" @change="toggleEnabled(r)" /></td>
@@ -178,7 +216,7 @@ onMounted(async () => {
                   <button class="btn btn-sm btn-danger" @click="remove(r)">삭제</button>
                 </td>
               </tr>
-              <tr v-if="rules.length === 0"><td colspan="9" class="empty">등록된 규칙이 없습니다.</td></tr>
+              <tr v-if="rules.length === 0"><td colspan="10" class="empty">등록된 규칙이 없습니다.</td></tr>
             </tbody>
           </table>
         </section>
@@ -218,6 +256,36 @@ onMounted(async () => {
                 <option v-for="t in EMPLOYMENT_TYPES" :key="t.code" :value="t.code">{{ t.label }}</option>
               </select>
             </label>
+            <div class="field wide">
+              <span class="label">
+                인력 지정
+                <span class="hint">(비우면 안 따짐 — 부서·직책으로 안 묶이는 사람을 직접 지정)</span>
+              </span>
+              <div class="person-pick">
+                <input
+                  v-model="personQuery" class="input" type="text"
+                  placeholder="이름으로 검색해 추가…"
+                />
+                <ul v-if="personCandidates.length" class="cand">
+                  <li v-for="p in personCandidates" :key="p.personId">
+                    <button type="button" class="cand-btn" @click="addPerson(p.personId)">
+                      {{ p.name }}
+                      <span class="muted">{{ p.department || '부서 없음' }} · {{ p.position || '직책 없음' }}</span>
+                    </button>
+                  </li>
+                </ul>
+                <p v-else-if="personQuery.trim()" class="hint">일치하는 인력이 없습니다.</p>
+                <div v-if="selectedPersons.length" class="chips">
+                  <span v-for="p in selectedPersons" :key="p.personId" class="person-chip">
+                    {{ p.name }}
+                    <span v-if="p.dept" class="muted">{{ p.dept }}</span>
+                    <button type="button" class="chip-x" :aria-label="`${p.name} 제외`" @click="removePerson(p.personId)">✕</button>
+                  </span>
+                  <button type="button" class="chip-clear" @click="form.personIds = []">전체 해제</button>
+                </div>
+                <p v-else class="hint">지정된 인력 없음 — 부서·직책·인력구분 조건만으로 판정합니다.</p>
+              </div>
+            </div>
             <label class="field">
               <span class="label">관리포인트 조회 범위 <span class="hint">(2단계에서 적용)</span></span>
               <select v-model="form.projectScope" class="input">
@@ -320,4 +388,25 @@ onMounted(async () => {
 .msg { font-size: 12.5px; }
 .msg.err { color: var(--red); }
 .muted { color: var(--muted); }
+
+/* 인력 지정 축 */
+.person-pick { display: flex; flex-direction: column; gap: 2px; }
+.person-cell { max-width: 200px; }
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.person-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; padding: 3px 6px 3px 10px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+}
+.person-chip .muted { font-size: 11px; }
+.chip-x {
+  border: 0; background: none; color: var(--muted); cursor: pointer;
+  font-size: 11px; line-height: 1; padding: 2px 3px; font-family: inherit;
+}
+.chip-x:hover { color: var(--red); }
+.chip-clear {
+  border: 1px solid var(--border); background: none; color: var(--muted);
+  font-size: 11.5px; padding: 2px 8px; border-radius: 999px; cursor: pointer; font-family: inherit;
+}
+.chip-clear:hover { color: var(--text); }
 </style>

@@ -34,7 +34,75 @@ public class AccessRuleService {
     public List<Map<String, Object>> list() {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT * FROM pms_access_rule ORDER BY priority, rule_id");
-        return rows.stream().map(AccessRuleService::shape).toList();
+        Map<Long, List<Map<String, Object>>> personsByRule = personsByRule(null);  // 1회 조회(N+1 방지)
+        return rows.stream().map(r -> shape(r, personsByRule)).toList();
+    }
+
+    // ================= 인력 지정 축(0034 보완) =================
+    //   부서·직책으로 표현되지 않는 집단(예: 여러 부서에 흩어진 무직책 영업 인력)을 위해
+    //   규칙 1건에 인력 N명을 배정한다. 배정이 없으면 이 축은 따지지 않는다(기존 규칙 동작 불변).
+
+    /** ruleId → [{personId, name}]. ruleId=null이면 전 규칙(목록용 1회 조회). */
+    private Map<Long, List<Map<String, Object>>> personsByRule(Long ruleId) {
+        String sql = """
+                SELECT rp.rule_id, rp.person_id, p.name
+                  FROM pms_access_rule_person rp
+                  JOIN pms_person p ON p.person_id = rp.person_id""";
+        List<Map<String, Object>> rows = ruleId == null
+                ? jdbc.queryForList(sql + " ORDER BY p.name")
+                : jdbc.queryForList(sql + " WHERE rp.rule_id = ? ORDER BY p.name", ruleId);
+        Map<Long, List<Map<String, Object>>> out = new LinkedHashMap<>();
+        for (Map<String, Object> r : rows) {
+            Map<String, Object> one = new LinkedHashMap<>();
+            one.put("personId", ((Number) r.get("person_id")).longValue());
+            one.put("name", r.get("name"));
+            out.computeIfAbsent(((Number) r.get("rule_id")).longValue(), k -> new ArrayList<>()).add(one);
+        }
+        return out;
+    }
+
+    /** ruleId → 배정 person_id 집합(판정용, 이름 불필요). */
+    private Map<Long, Set<Long>> personIdsByRule() {
+        Map<Long, Set<Long>> out = new LinkedHashMap<>();
+        for (Map<String, Object> r : jdbc.queryForList("SELECT rule_id, person_id FROM pms_access_rule_person")) {
+            out.computeIfAbsent(((Number) r.get("rule_id")).longValue(), k -> new HashSet<>())
+               .add(((Number) r.get("person_id")).longValue());
+        }
+        return out;
+    }
+
+    /** personIds가 본문에 있을 때만 전량 치환(delete-then-insert). 없으면 손대지 않는다. */
+    private void syncPersons(long ruleId, Map<String, Object> body) {
+        if (!body.containsKey("personIds")) return;
+        Object raw = body.get("personIds");
+        List<Long> ids = new ArrayList<>();
+        if (raw instanceof List<?> list) {
+            for (Object o : list) {
+                long v;
+                try {
+                    v = o instanceof Number n ? n.longValue() : Long.parseLong(String.valueOf(o));
+                } catch (NumberFormatException e) {
+                    throw ApiException.badRequest("personIds에 유효하지 않은 값이 있습니다: " + o);
+                }
+                if (v <= 0) throw ApiException.badRequest("personIds에 유효하지 않은 값이 있습니다: " + o);
+                if (!ids.contains(v)) ids.add(v);
+            }
+        } else if (raw != null) {
+            throw ApiException.badRequest("personIds는 배열이어야 합니다.");
+        }
+        if (!ids.isEmpty()) {
+            String ph = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+            Integer found = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM pms_person WHERE person_id IN (" + ph + ")",
+                    Integer.class, ids.toArray());
+            if (found == null || found != ids.size()) {
+                throw ApiException.badRequest("personIds에 존재하지 않는 인력이 있습니다.");
+            }
+        }
+        jdbc.update("DELETE FROM pms_access_rule_person WHERE rule_id = ?", ruleId);
+        for (Long pid : ids) {
+            jdbc.update("INSERT INTO pms_access_rule_person (rule_id, person_id) VALUES (?, ?)", ruleId, pid);
+        }
     }
 
     public Map<String, Object> create(Map<String, Object> body) {
@@ -48,19 +116,30 @@ public class AccessRuleService {
                 f.get("menu_keys"), f.get("project_scope"), f.get("capabilities"), f.get("priority"),
                 f.get("enabled"), f.get("name"));
         Long id = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+        syncPersons(id, body);
         return get(id);
     }
 
     public Map<String, Object> update(long id, Map<String, Object> body) {
         Map<String, Object> f = normalize(body, false);
         List<String> cols = new ArrayList<>(f.keySet());
-        if (cols.isEmpty()) throw ApiException.badRequest("수정할 필드가 없습니다.");
-        String assign = String.join(", ", cols.stream().map(c -> c + " = ?").toList());
-        Object[] vals = new Object[cols.size() + 1];
-        for (int i = 0; i < cols.size(); i++) vals[i] = f.get(cols.get(i));
-        vals[cols.size()] = id;
-        int n = jdbc.update("UPDATE pms_access_rule SET " + assign + " WHERE rule_id = ?", vals);
-        if (n == 0) throw ApiException.notFound("규칙을 찾을 수 없습니다: " + id);
+        // personIds만 보낸 수정도 유효하다(인력 배정만 변경).
+        if (cols.isEmpty() && !body.containsKey("personIds")) {
+            throw ApiException.badRequest("수정할 필드가 없습니다.");
+        }
+        if (!cols.isEmpty()) {
+            String assign = String.join(", ", cols.stream().map(c -> c + " = ?").toList());
+            Object[] vals = new Object[cols.size() + 1];
+            for (int i = 0; i < cols.size(); i++) vals[i] = f.get(cols.get(i));
+            vals[cols.size()] = id;
+            int n = jdbc.update("UPDATE pms_access_rule SET " + assign + " WHERE rule_id = ?", vals);
+            if (n == 0) throw ApiException.notFound("규칙을 찾을 수 없습니다: " + id);
+        } else {
+            Integer exists = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM pms_access_rule WHERE rule_id = ?", Integer.class, id);
+            if (exists == null || exists == 0) throw ApiException.notFound("규칙을 찾을 수 없습니다: " + id);
+        }
+        syncPersons(id, body);
         return get(id);
     }
 
@@ -72,7 +151,7 @@ public class AccessRuleService {
     private Map<String, Object> get(long id) {
         List<Map<String, Object>> rows = jdbc.queryForList("SELECT * FROM pms_access_rule WHERE rule_id = ?", id);
         if (rows.isEmpty()) throw ApiException.notFound("규칙을 찾을 수 없습니다: " + id);
-        return shape(rows.get(0));
+        return shape(rows.get(0), personsByRule(id));
     }
 
     @SuppressWarnings("unchecked")
@@ -133,9 +212,10 @@ public class AccessRuleService {
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<String, Object> shape(Map<String, Object> r) {
+    private static Map<String, Object> shape(Map<String, Object> r, Map<Long, List<Map<String, Object>>> personsByRule) {
         Map<String, Object> o = new LinkedHashMap<>();
-        o.put("ruleId", ((Number) r.get("rule_id")).longValue());
+        long ruleId = ((Number) r.get("rule_id")).longValue();
+        o.put("ruleId", ruleId);
         o.put("name", r.get("name"));
         o.put("deptCode", r.get("dept_code"));
         o.put("includeSub", toBool(r.get("include_sub")));
@@ -147,6 +227,10 @@ public class AccessRuleService {
         o.put("capabilities", cap == null ? null : Json.readObject(String.valueOf(cap)));
         o.put("priority", ((Number) r.get("priority")).intValue());
         o.put("enabled", toBool(r.get("enabled")));
+        // 인력 지정 축 — persons는 화면 표시용(이름 포함), personIds는 폼 왕복용.
+        List<Map<String, Object>> persons = personsByRule.getOrDefault(ruleId, List.of());
+        o.put("persons", persons);
+        o.put("personIds", persons.stream().map(p -> p.get("personId")).toList());
         return o;
     }
     private static boolean toBool(Object v) {
@@ -182,7 +266,15 @@ public class AccessRuleService {
         return out;
     }
 
-    private boolean ruleMatches(Map<String, Object> rule, Map<String, Object> person) {
+    /**
+     * @param assigned 이 규칙에 배정된 person_id 집합(없으면 빈 집합). 비어 있으면 인력 축은
+     *                 따지지 않는다 — 기존 규칙(조직 축만 쓰는 규칙)의 동작이 바뀌지 않는다.
+     */
+    private boolean ruleMatches(Map<String, Object> rule, Map<String, Object> person, Set<Long> assigned) {
+        if (assigned != null && !assigned.isEmpty()) {
+            Object pid = person.get("person_id");
+            if (pid == null || !assigned.contains(((Number) pid).longValue())) return false;
+        }
         String deptCode = (String) rule.get("dept_code");
         if (deptCode != null) {
             Set<String> names = expandDeptNames(deptCode, toBool(rule.get("include_sub")));
@@ -215,15 +307,17 @@ public class AccessRuleService {
     public List<Map<String, Object>> matchedRulesFor(Long personId) {
         if (personId == null) return List.of();
         List<Map<String, Object>> people = jdbc.queryForList(
-                "SELECT department, position, employment_type FROM pms_person WHERE person_id = ?", personId);
+                "SELECT person_id, department, position, employment_type FROM pms_person WHERE person_id = ?", personId);
         if (people.isEmpty()) return List.of();
         Map<String, Object> person = people.get(0);
 
         List<Map<String, Object>> out = new ArrayList<>();
+        Map<Long, Set<Long>> assignedByRule = personIdsByRule();
         List<Map<String, Object>> rules = jdbc.queryForList("SELECT * FROM pms_access_rule WHERE enabled = 1");
         for (Map<String, Object> rule : rules) {
             try {
-                if (ruleMatches(rule, person)) out.add(rule);
+                Set<Long> assigned = assignedByRule.get(((Number) rule.get("rule_id")).longValue());
+                if (ruleMatches(rule, person, assigned)) out.add(rule);
             } catch (RuntimeException e) {
                 log.warn("접근 규칙 판정 실패(rule_id={}) — 이 규칙 건너뜀: {}", rule.get("rule_id"), e.getMessage());
             }
@@ -255,9 +349,12 @@ public class AccessRuleService {
         Map<String, Object> person = people.get(0);
 
         List<Map<String, Object>> matched = new ArrayList<>();
+        Map<Long, Set<Long>> assignedByRule = personIdsByRule();
+        Map<Long, List<Map<String, Object>>> personsByRule = personsByRule(null);
         List<Map<String, Object>> rules = jdbc.queryForList("SELECT * FROM pms_access_rule WHERE enabled = 1 ORDER BY priority");
         for (Map<String, Object> rule : rules) {
-            if (ruleMatches(rule, person)) matched.add(shape(rule));
+            Set<Long> assigned = assignedByRule.get(((Number) rule.get("rule_id")).longValue());
+            if (ruleMatches(rule, person, assigned)) matched.add(shape(rule, personsByRule));
         }
         Map<String, Object> out = new LinkedHashMap<>();
         // Map.of는 null 값을 허용하지 않음(부서·직책 미기재 인력이 흔함) — LinkedHashMap으로 구성.

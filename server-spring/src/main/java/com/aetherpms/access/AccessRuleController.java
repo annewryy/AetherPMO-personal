@@ -22,18 +22,16 @@ import com.aetherpms.common.ApiException;
 public class AccessRuleController {
 
     private final AccessRuleService service;
-    private final ExecAutoRegisterService execAuto;
 
-    public AccessRuleController(AccessRuleService service, ExecAutoRegisterService execAuto) {
+    public AccessRuleController(AccessRuleService service) {
         this.service = service;
-        this.execAuto = execAuto;
     }
 
-    /** 0034 §5 결정4(A) — 경영진 전 프로젝트 참여 등록 일괄 백필(모델 최초 적용 시 1회 실행). */
-    @PostMapping("/api/admin/access-rules/sync-exec")
-    public Map<String, Object> syncExec() {
-        return execAuto.syncAllProjects();
-    }
+    // 0034 §5 결정4(A) 철회 — 경영진을 전 프로젝트에 '참여인력'으로 자동 등록하던
+    //   ExecAutoRegisterService와 POST /api/admin/access-rules/sync-exec 엔드포인트를 제거했다.
+    //   참여인력은 실제 투입 인력을 담는 업무 데이터라 권한 목적으로 쓰면 오염된다(dev 기준
+    //   288행 중 199행이 자동 등록분이었다). 같은 결과는 접근 규칙으로 표현한다:
+    //   position_code='EXEC' + project_scope='ALL' (V37 시드 '임원 — 전사 프로젝트 조회').
 
     @GetMapping("/api/admin/access-rules")
     public List<Map<String, Object>> list() {

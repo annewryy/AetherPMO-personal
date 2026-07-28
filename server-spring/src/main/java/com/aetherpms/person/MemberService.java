@@ -37,7 +37,7 @@ public class MemberService {
     private static final List<String> MEMBER_TYPES = List.of("INTERNAL", "EXTERNAL");
     private static final List<String> PARTICIPATION_ROLES = List.of(
             "PM", "PL", "PMO", "TA", "AA", "DA", "DBA", "SE", "DEV", "QA", "CT", "ETC",
-            "EXEC"); // 0034 §5 결정4 — 경영진 참여역할(전 프로젝트 자동 등록, ExecAutoRegisterService)
+            "EXEC"); // 0034 §5 결정4 철회 — 자동 등록은 제거(접근 규칙 EXEC+ALL로 대체). 과거 데이터 호환으로 코드만 유지
 
     @Transactional
     public Map<String, Object> createMember(long projectId, Map<String, Object> body, Actor actor) {

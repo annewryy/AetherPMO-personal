@@ -1247,6 +1247,9 @@ export interface AccessRule {
   capabilities: Record<string, unknown> | null;
   priority: number;
   enabled: boolean;
+  // 인력 지정 축 — 배정이 비어 있으면 이 축은 판정하지 않는다(조직 축만 쓰는 기존 규칙).
+  persons: { personId: number; name: string }[];
+  personIds: number[];
 }
 export interface AccessRuleInput {
   name: string | null;
@@ -1258,6 +1261,7 @@ export interface AccessRuleInput {
   projectScope: 'ALL' | 'DEPT' | 'PARTICIPATING';
   priority: number;
   enabled: boolean;
+  personIds: number[];
 }
 export interface AccessRuleSimulation {
   person: {
