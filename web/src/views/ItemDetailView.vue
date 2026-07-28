@@ -119,7 +119,8 @@ const loaded = computed(() =>
 </template>
 
 <style scoped>
-.detail-page { display: flex; flex-direction: column; gap: 14px; max-width: 860px; }
+/* 0039 — 860px는 너무 좁아 필드가 눌렸다. 폼 가독성은 유지하되 여유 있게(1280px). */
+.detail-page { display: flex; flex-direction: column; gap: 14px; max-width: 1280px; }
 .back {
   align-self: flex-start; border: 1px solid var(--border); background: var(--panel);
   color: var(--text); font-size: 14px; padding: 5px 12px; border-radius: 8px; cursor: pointer;

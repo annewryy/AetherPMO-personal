@@ -162,7 +162,9 @@ const isLoginPage = computed(() => route.path === '/login');
   padding: 10px 28px; border-bottom: 1px solid var(--border); background: var(--panel);
 }
 .today { font-size: 13px; color: var(--muted); margin-right: auto; }
-.content { flex: 1; min-width: 0; padding: 24px 32px; max-width: 1440px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+/* 0039 — 본문 영역 폭 제한(max-width 1440px + 가운데 정렬) 제거.
+   와이드 모니터에서 좌우에 큰 빈 여백이 생기고 표(WBS·간트·목록)가 불필요하게 눌렸다. */
+.content { flex: 1; min-width: 0; padding: 24px 32px; width: 100%; box-sizing: border-box; }
 .side-foot { margin-top: auto; padding: 8px 4px 0; border-top: 1px solid var(--border); }
 .theme-toggle {
   display: flex; align-items: center; gap: 8px; width: 100%;
