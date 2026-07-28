@@ -50,6 +50,21 @@ const filteredPhases = computed(() =>
   phases.value.filter((p) =>
     methodologyTab.value === '__custom__' ? !p.methodology : p.methodology === methodologyTab.value));
 
+// 0039 — 단계(PHASE) 위에 입찰/수행 구분을 둔다. 사업준비(PRR)만 입찰, 나머지는 수행.
+//   stage가 비어 있는 과도기 데이터는 '수행'으로 묶어 목록에서 사라지지 않게 한다.
+const STAGE_GROUPS: { key: string; label: string }[] = [
+  { key: 'BIDDING', label: '입찰' },
+  { key: 'EXECUTION', label: '수행' },
+];
+const phaseGroups = computed(() =>
+  STAGE_GROUPS
+    .map((g) => ({
+      ...g,
+      phases: filteredPhases.value.filter((p) =>
+        (p.stage ?? 'EXECUTION') === g.key),
+    }))
+    .filter((g) => g.phases.length > 0));
+
 function selectMethodology(key: string) {
   methodologyTab.value = key;
   const list = filteredPhases.value;
@@ -178,16 +193,21 @@ watch(() => route.query.node, applyDeepLink);
     <div v-if="!loading && !loadError && phases.length > 0" class="layout">
       <!-- 1열: 분류(PHASE) -->
       <aside class="phase-list">
-        <button
-          v-for="p in filteredPhases" :key="p.id"
-          class="phase" :class="{ on: p.id === selectedPhaseId }"
-          @click="selectPhase(p.id)"
-        >
-          <span class="phase-name">{{ p.name }}</span>
-          <span class="phase-counts">
-            태스크 {{ countByType(p, 'TASK') }} · 산출물 {{ countByType(p, 'DELIVERABLE') }}
-          </span>
-        </button>
+        <template v-for="g in phaseGroups" :key="g.key">
+          <div class="stage-head" :class="'stage-' + g.key">
+            {{ g.label }} <span class="stage-count">{{ g.phases.length }}</span>
+          </div>
+          <button
+            v-for="p in g.phases" :key="p.id"
+            class="phase" :class="{ on: p.id === selectedPhaseId }"
+            @click="selectPhase(p.id)"
+          >
+            <span class="phase-name">{{ p.name }}</span>
+            <span class="phase-counts">
+              태스크 {{ countByType(p, 'TASK') }} · 산출물 {{ countByType(p, 'DELIVERABLE') }}
+            </span>
+          </button>
+        </template>
       </aside>
 
       <!-- 2열: 프로세스 트리(구조만) -->
@@ -245,6 +265,19 @@ watch(() => route.query.node, applyDeepLink);
 
 .layout { display: flex; gap: 14px; align-items: flex-start; }
 .phase-list { width: 190px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
+/* 0039 — 단계 위의 입찰/수행 구분 헤더 */
+.stage-head {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em;
+  color: var(--muted); text-transform: none;
+  padding: 8px 2px 2px; border-bottom: 1px solid var(--border); margin-bottom: 2px;
+}
+.stage-head.stage-BIDDING { color: var(--yellow); }
+.stage-head.stage-EXECUTION { color: var(--blue); }
+.stage-count {
+  font-size: 10.5px; font-weight: 700; color: var(--muted);
+  background: var(--panel-2, var(--panel)); border-radius: 999px; padding: 0 6px;
+}
 .phase {
   text-align: left; border: 1px solid var(--border); background: var(--panel);
   border-radius: 8px; padding: 10px 12px; cursor: pointer; color: var(--text);

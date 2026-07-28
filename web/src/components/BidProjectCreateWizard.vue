@@ -10,8 +10,9 @@
 //  더미데이터 금지([[no-dummy-data]]): 프리필은 공고 실제 값만, 없으면 빈 값.
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue';
 import { dataClient } from '../lib/dataClient';
-import type { BidNoticeDetail, Project, ProjectCreateInput, CatalogNode, TailoringEntry } from '../types';
-import CatalogSelector from './CatalogSelector.vue';
+import type { BidNoticeDetail, Project, ProjectCreateInput, CatalogNode } from '../types';
+import { subtreeIds, toTailoringEntries } from '../lib/tailoring';
+import TailoringPicker from './TailoringPicker.vue';
 import OrgPersonField from './OrgPersonField.vue';
 
 const props = defineProps<{ notice: BidNoticeDetail }>();
@@ -68,40 +69,15 @@ const saveError = ref<string | null>(null);
 const canSubmit = computed(() => form.name.trim().length > 0 && !saving.value);
 const step1Valid = computed(() => form.name.trim().length > 0);
 
-// 노드 서브트리 id 전부 수집(cascade down용).
-function subtreeIds(n: CatalogNode, acc: number[] = []): number[] {
-  acc.push(n.id);
-  for (const c of n.children) subtreeIds(c, acc);
-  return acc;
-}
-
-// 선택 집합 → 조상(cascade up) 포함 전개 id 집합.
-//   진척 롤업이 PHASE→ACTIVITY 계층을 만들려면 tailoring에 조상 노드도 있어야 한다(0017 P3a).
-function expandWithAncestors(selected: Set<number>, tree: CatalogNode[]): Set<number> {
-  const parentOf = new Map<number, number | null>();
-  const walk = (n: CatalogNode, parentId: number | null) => {
-    parentOf.set(n.id, parentId);
-    for (const c of n.children) walk(c, n.id);
-  };
-  for (const root of tree) walk(root, null);
-
-  const out = new Set<number>();
-  for (const id of selected) {
-    let cur: number | null | undefined = id;
-    while (cur != null && !out.has(cur)) {
-      out.add(cur);
-      cur = parentOf.get(cur) ?? null;
-    }
-  }
-  return out;
-}
-
 // cascade 토글: 이 노드 + 하위 전체를 선택/해제.
 function toggleNode(node: CatalogNode, checked: boolean) {
   const ids = subtreeIds(node);
   if (checked) ids.forEach((id) => selectedNodeIds.add(id));
   else ids.forEach((id) => selectedNodeIds.delete(id));
 }
+// TailoringPicker의 자동 선택·모두 선택(add) / 유형 필터 밖 정리(remove).
+function addNodes(ids: number[]) { ids.forEach((id) => selectedNodeIds.add(id)); }
+function removeNodes(ids: number[]) { ids.forEach((id) => selectedNodeIds.delete(id)); }
 function clearSelection() {
   selectedNodeIds.clear();
 }
@@ -163,12 +139,8 @@ async function submit() {
     // 0017 §C 테일러링: 선택 노드 → 조상 포함(cascade up) tailoring 엔트리(isSelected:true).
     //   선택이 없으면 tailoring 생략 → 백엔드 기본 생성(회귀 없음).
     if (selectedNodeIds.size > 0) {
-      const expanded = expandWithAncestors(selectedNodeIds, catalogTree.value);
-      const tailoring: TailoringEntry[] = [...expanded].map((catalogNodeId) => ({
-        catalogNodeId,
-        isSelected: true,
-      }));
-      input.tailoring = tailoring;
+      // 조상 전개는 **필터 전 전체 트리** 기준(유형 필터로 조상이 끊기지 않게).
+      input.tailoring = toTailoringEntries(selectedNodeIds, catalogTree.value);
     }
 
     const project = await dataClient.projects.create(input);
@@ -263,8 +235,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
         <!-- Step 2. 테일러링 선택 -->
         <section v-show="step === 1" class="pane">
           <p class="lead">
-            검색·필터로 필요한 단계·활동·태스크·산출물을 찾고, 항목을 클릭해 내용(설명·구분·태그·템플릿)을
-            확인한 뒤 선택하세요. 상위 항목을 체크하면 하위가 함께 선택됩니다. 선택하지 않으면 기본 생성됩니다.
+            사업 유형을 고르면 해당 방법론만 남고, 1단계의 계약금액으로 규모(소/중/대)를 판정해
+            <b>규모별 필수 산출물을 자동 선택</b>할 수 있습니다. 상위 항목을 체크하면 하위가 함께 선택됩니다.
+            선택하지 않으면 기본 생성됩니다.
           </p>
           <p v-if="catalogLoading" class="tl-state">테일러링 불러오는 중…</p>
           <p v-else-if="catalogError" class="tl-state err">
@@ -274,12 +247,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
           <p v-else-if="catalogLoaded && catalogTree.length === 0" class="tl-state">
             선택 가능한 테일러링 항목이 없습니다 — 테일러링 없이 기본 생성됩니다.
           </p>
-          <CatalogSelector
+          <TailoringPicker
             v-else-if="catalogTree.length > 0"
             :tree="catalogTree"
             :selected="selectedNodeIds"
+            :contract-amount="form.contractAmount"
             :disabled="saving"
             @toggle="toggleNode"
+            @add="addNodes"
+            @remove="removeNodes"
             @clear="clearSelection"
           />
         </section>

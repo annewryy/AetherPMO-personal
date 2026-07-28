@@ -6,11 +6,13 @@
 //    불변 필드(projectCode·sourceProjectId·clientCompanyId 등)는 폼에 없음(백엔드가 400).
 //  - 쓰기는 백엔드 전용(dataClient가 API_BASE 게이트). 오류는 서버 {message} 그대로.
 //  - status는 응답이 영문(In Progress 등) → 편집 프리필 시 한글로 역매핑(백엔드는 한글 저장).
-import { ref, computed } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { dataClient } from '../lib/dataClient';
-import type { Project, ProjectCreateInput, ProjectUpdateInput } from '../types';
+import type { Project, ProjectCreateInput, ProjectUpdateInput, CatalogNode } from '../types';
+import { subtreeIds, toTailoringEntries } from '../lib/tailoring';
 import ModalShell from './ModalShell.vue';
 import OrgPersonField from './OrgPersonField.vue';
+import TailoringPicker from './TailoringPicker.vue';
 
 const props = defineProps<{
   mode: 'create' | 'edit';
@@ -82,6 +84,44 @@ const remarks = ref(p?.remarks ?? '');
 const submitting = ref(false);
 const error = ref<string | null>(null);
 
+// --- 테일러링 선택(생성 모드 전용) ---
+//   나라장터 마법사·수행 전환 마법사와 동일한 TailoringPicker를 쓴다 — 유형 필터 + 계약금액
+//   규모 판정 + 규모별 필수 자동 선택. 수정 모드에는 노출하지 않는다(전개는 생성 시 1회).
+//   기본은 접힘: 테일러링 없이 만드는 게 여전히 유효한 흐름이라 폼을 무겁게 만들지 않는다.
+const tailoringOpen = ref(false);
+const catalogTree = ref<CatalogNode[]>([]);
+const catalogLoading = ref(false);
+const catalogError = ref<string | null>(null);
+const catalogLoaded = ref(false);
+const selectedNodeIds = reactive(new Set<number>());
+const selectedCount = computed(() => selectedNodeIds.size);
+
+async function loadCatalog() {
+  if (catalogLoaded.value || catalogLoading.value) return;
+  catalogLoading.value = true;
+  catalogError.value = null;
+  try {
+    catalogTree.value = await dataClient.catalog.tree();
+    catalogLoaded.value = true;
+  } catch (e) {
+    catalogError.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    catalogLoading.value = false;
+  }
+}
+function toggleTailoring() {
+  tailoringOpen.value = !tailoringOpen.value;
+  if (tailoringOpen.value) loadCatalog();
+}
+function toggleNode(node: CatalogNode, checked: boolean) {
+  const ids = subtreeIds(node);
+  if (checked) ids.forEach((id) => selectedNodeIds.add(id));
+  else ids.forEach((id) => selectedNodeIds.delete(id));
+}
+function addNodes(ids: number[]) { ids.forEach((id) => selectedNodeIds.add(id)); }
+function removeNodes(ids: number[]) { ids.forEach((id) => selectedNodeIds.delete(id)); }
+function clearSelection() { selectedNodeIds.clear(); }
+
 // 0039 요청 1 — 금액 입력 천단위 구분기호. 표시는 콤마 포함 문자열, 내부값은 숫자로 유지.
 function fmtMoney(v: number | null): string {
   return v == null ? '' : v.toLocaleString('ko-KR');
@@ -124,6 +164,10 @@ function buildCreate(): ProjectCreateInput {
   if (s(legalOwner.value)) input.legalOwner = s(legalOwner.value);
   if (s(description.value)) input.description = s(description.value);
   if (s(remarks.value)) input.remarks = s(remarks.value);
+  // 테일러링: 선택분 + 조상(cascade up)을 함께 전송. 선택이 없으면 생략 → 백엔드 기본 생성.
+  if (selectedNodeIds.size > 0) {
+    input.tailoring = toTailoringEntries(selectedNodeIds, catalogTree.value);
+  }
   return input;
 }
 
@@ -296,6 +340,40 @@ async function submit() {
     <label class="label">공고번호</label>
     <input v-model="announcementNo" class="input" type="text" placeholder="나라장터 공고번호 (선택)" :disabled="submitting" />
 
+    <!-- 테일러링 — 생성 모드 전용(전개는 생성 시 1회). 기본 접힘, 펼칠 때 트리 로드. -->
+    <template v-if="mode === 'create'">
+      <div class="owners-head tl-head">
+        <span>테일러링 <span class="owners-sub">(선택 — 단계·활동·태스크·산출물 전개)</span></span>
+        <span class="tl-actions">
+          <span v-if="selectedCount > 0" class="tl-count">{{ selectedCount }}개 선택</span>
+          <button class="tl-toggle" type="button" :disabled="submitting" @click="toggleTailoring">
+            {{ tailoringOpen ? '접기 ▴' : '펼치기 ▾' }}
+          </button>
+        </span>
+      </div>
+      <template v-if="tailoringOpen">
+        <p v-if="catalogLoading" class="tl-state">테일러링 불러오는 중…</p>
+        <p v-else-if="catalogError" class="tl-state err">
+          테일러링을 불러오지 못했습니다. <span class="tl-detail">({{ catalogError }})</span>
+          테일러링 없이도 생성할 수 있습니다.
+        </p>
+        <p v-else-if="catalogLoaded && catalogTree.length === 0" class="tl-state">
+          선택 가능한 테일러링 항목이 없습니다 — 테일러링 없이 생성됩니다.
+        </p>
+        <TailoringPicker
+          v-else-if="catalogTree.length > 0"
+          :tree="catalogTree"
+          :selected="selectedNodeIds"
+          :contract-amount="contractAmount"
+          :disabled="submitting"
+          @toggle="toggleNode"
+          @add="addNodes"
+          @remove="removeNodes"
+          @clear="clearSelection"
+        />
+      </template>
+    </template>
+
     <label class="label">설명</label>
     <textarea v-model="description" class="input" rows="2" placeholder="사업 설명 (선택)" :disabled="submitting" />
 
@@ -330,4 +408,19 @@ async function submit() {
 .err { color: var(--red); font-size: 13px; }
 .owners-head { font-size: 13px; font-weight: 700; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
 .owners-sub { font-weight: 400; color: var(--muted); font-size: 11.5px; }
+
+/* 테일러링 섹션(생성 모드) */
+.tl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tl-actions { display: flex; align-items: center; gap: 8px; }
+.tl-count { font-size: 12px; font-weight: 600; color: var(--accent); }
+.tl-toggle {
+  border: 1px solid var(--border); background: var(--panel-2); color: var(--muted);
+  font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 6px;
+  cursor: pointer; font-family: inherit;
+}
+.tl-toggle:hover:not(:disabled) { color: var(--text); }
+.tl-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
+.tl-state { margin: 0; font-size: 12.5px; color: var(--muted); }
+.tl-state.err { color: var(--red); }
+.tl-detail { opacity: 0.8; }
 </style>

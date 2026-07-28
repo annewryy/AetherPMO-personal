@@ -21,6 +21,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'toggle', node: CatalogNode, checked: boolean): void;
+  (e: 'select-all', ids: number[]): void;
   (e: 'clear'): void;
 }>();
 
@@ -59,6 +60,18 @@ const parentOf = computed(() => {
 });
 
 // --- 필터 옵션(실제 값만; 없으면 축 숨김) ---
+// 0039 — 최상위(PHASE)를 입찰/수행으로 묶어 보여준다. stage 미지정 과도기 데이터는 '수행'으로.
+const rootGroups = computed(() => {
+  const order = ['BIDDING', 'EXECUTION'];
+  return order
+    .map((key) => ({
+      key,
+      label: STAGE_LABEL[key] ?? key,
+      nodes: props.tree.filter((n) => (n.stage ?? 'EXECUTION') === key),
+    }))
+    .filter((g) => g.nodes.length > 0);
+});
+
 const stageOptions = computed(() =>
   [...new Set(flat.value.map((n) => n.stage).filter((s): s is string => !!s))].sort(),
 );
@@ -137,6 +150,16 @@ const focusedTags = computed(() => (focused.value ? parseTags(focused.value.temp
 const stageText = (s: string | null) => (s ? STAGE_LABEL[s] ?? s : '—');
 
 const selectedCount = computed(() => props.selected.size);
+
+// "모두 선택" — 검색·필터가 걸려 있으면 **표시 중인 노드만** 대상으로 한다(안 보이는 걸 몰래 선택하지 않음).
+const selectableIds = computed<number[]>(() => {
+  const vis = visibleIds.value;
+  return flat.value.filter((n) => !vis || vis.has(n.id)).map((n) => n.id);
+});
+const allSelected = computed(
+  () => selectableIds.value.length > 0 && selectableIds.value.every((id) => props.selected.has(id)),
+);
+const selectAllLabel = computed(() => (hasFilters.value ? '표시 항목 모두 선택' : '모두 선택'));
 </script>
 
 <template>
@@ -157,6 +180,13 @@ const selectedCount = computed(() => props.selected.size);
       </div>
       <div class="count">
         <span>{{ selectedCount > 0 ? `${selectedCount}개 선택` : '선택 안 함' }}</span>
+        <button
+          v-if="selectableIds.length > 0"
+          type="button"
+          class="clear"
+          :disabled="disabled || allSelected"
+          @click="emit('select-all', selectableIds)"
+        >{{ selectAllLabel }}</button>
         <button
           v-if="selectedCount > 0"
           type="button"
@@ -199,19 +229,26 @@ const selectedCount = computed(() => props.selected.size);
     <p v-if="hasFilters" class="match-note">
       {{ noMatches ? '검색·필터에 맞는 항목이 없습니다.' : `매칭 ${matchCount}개(조상 경로 포함 표시)` }}
     </p>
-    <ul v-if="tree.length && !noMatches" class="tree">
-      <TailoringNodeItem
-        v-for="n in tree"
-        :key="n.id"
-        :node="n"
-        :selected="selected"
-        :depth="0"
-        :visible-ids="visibleIds"
-        :focused-id="focused?.id ?? null"
-        @toggle="(node, ck) => emit('toggle', node, ck)"
-        @select="selectNode"
-      />
-    </ul>
+    <template v-if="tree.length && !noMatches">
+      <div v-for="g in rootGroups" :key="g.key" class="stage-group">
+        <div class="stage-head" :class="'stage-' + g.key">
+          {{ g.label }} <span class="stage-count">{{ g.nodes.length }}</span>
+        </div>
+        <ul class="tree">
+          <TailoringNodeItem
+            v-for="n in g.nodes"
+            :key="n.id"
+            :node="n"
+            :selected="selected"
+            :depth="0"
+            :visible-ids="visibleIds"
+            :focused-id="focused?.id ?? null"
+            @toggle="(node, ck) => emit('toggle', node, ck)"
+            @select="selectNode"
+          />
+        </ul>
+      </div>
+    </template>
 
     <!-- 4) 미리보기(접이식 하단 패널) -->
     <div v-if="focused" class="preview" :class="{ collapsed: !previewOpen }">
@@ -289,6 +326,20 @@ const selectedCount = computed(() => props.selected.size);
 
 /* 3) 트리 */
 .match-note { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+/* 0039 — 단계 위의 입찰/수행 구분 헤더 */
+.stage-group { display: flex; flex-direction: column; }
+.stage-head {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; font-weight: 700; color: var(--muted);
+  padding: 8px 2px 3px; border-bottom: 1px solid var(--border);
+}
+.stage-head.stage-BIDDING { color: var(--yellow); }
+.stage-head.stage-EXECUTION { color: var(--blue); }
+.stage-count {
+  font-size: 10.5px; font-weight: 700; color: var(--muted);
+  background: var(--panel-2, var(--panel)); border-radius: 999px; padding: 0 6px;
+}
+
 .tree {
   margin: 2px 0 0; padding: 8px; list-style: none;
   border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2, var(--panel));
