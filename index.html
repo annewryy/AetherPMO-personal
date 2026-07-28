@@ -99,9 +99,7 @@
                         <span class="brand-name">Aether<span>PMO</span><span style="font-size: 9px; font-weight: 800; color: var(--primary); vertical-align: middle; margin-left: 6px; background: rgba(99, 102, 241, 0.15); padding: 1px 5px; border-radius: 4px; border: 1px solid rgba(99, 102, 241, 0.3); text-transform: uppercase; letter-spacing: 0.5px;">Home</span></span>
                         <span class="brand-sub">사업관리 플랫폼</span>
                     </div>
-                    <button id="sidebar-mode-btn" class="sidebar-pin-btn" aria-label="사이드바 모드 선택">
-                        <i data-lucide="panel-left" style="width: 16px; height: 16px;"></i>
-                    </button>
+                    
                 </div>
             </div>
 
@@ -264,9 +262,7 @@
             <!-- Header bar -->
             <header class="main-header">
                 <div class="header-left">
-                    <button class="menu-toggle-btn" id="sidebar-toggle" aria-label="메뉴 토글">
-                        <i data-lucide="menu"></i>
-                    </button>
+                    
                     <div class="header-search">
                         <i data-lucide="search" class="search-icon"></i>
                         <input type="text" id="global-search" placeholder="프로젝트, 산출물, 작성자 검색...">
@@ -333,10 +329,7 @@
                     </button>
 
                     <!-- Demo Mode Switch -->
-                    <div class="demo-mode-toggle-wrapper" id="demo-mode-toggle-btn" style="display:flex; align-items:center; gap:8px; margin-right:12px; background:var(--bg-hover-item); padding:4px 12px; border-radius:20px; border:1px solid var(--bg-card-border); cursor:pointer;" onclick="app.toggleDemoMode()">
-                        <i data-lucide="play" id="demo-mode-icon" style="width:14px; height:14px; color:var(--text-muted);"></i>
-                        <span style="font-size:11px; font-weight:700; color:var(--text-muted);" id="demo-mode-label">Demo Mode Off</span>
-                    </div>
+                    
 
                     <div class="current-date-badge">
                         <i data-lucide="calendar"></i>
@@ -352,13 +345,11 @@
                 <section id="view-dashboard" class="content-view active">
                     <div class="view-header">
                         <div>
-                            <h1 id="dashboard-title-text"><i data-lucide="sparkles" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> Aether AI First Portal</h1>
-                            <p class="subtitle" id="dashboard-subtitle-text">AI 에이전트가 주도하는 지능형 사업관리 커맨드 센터</p>
+                            <h1 id="dashboard-title-text"><i data-lucide="layout-dashboard" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> AetherPMO 커맨드 센터</h1>
+                            <p class="subtitle" id="dashboard-subtitle-text">전사 사업 수행 및 입찰 수주 현황 통합 모니터링 센터</p>
                         </div>
                         <div style="display:flex; gap:10px; align-items:center;">
-                            <button class="btn btn-outline btn-sm" id="btn-toggle-dashboard-mode" onclick="app.toggleDashboardMode()">
-                                <i data-lucide="layout-dashboard" style="width:14px; height:14px; margin-right:4px;"></i> 기존 대시보드 보기
-                            </button>
+                            
                             <button class="btn btn-primary btn-sm" onclick="app.openNewProjectModal()">
                                 <i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 새 프로젝트 등록
                             </button>
