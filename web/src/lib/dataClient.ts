@@ -647,6 +647,31 @@ export const dataClient = {
       a.click();
       URL.revokeObjectURL(url);
     },
+    /**
+     * 미리보기용 blob 로드 — 인증 헤더가 필요해 <iframe src>로 바로 못 걸기 때문에
+     * 받아서 object URL로 만든다. 호출부가 다 쓰면 URL.revokeObjectURL로 해제할 것.
+     * 브라우저가 렌더 못 하는 형식(.hwpx 등)은 호출부가 contentType/파일명으로 판단해 안내한다.
+     */
+    async blob(path: string): Promise<{ url: string; fileName: string; contentType: string }> {
+      const res = await fetch(`${apiBase()}${path}`, { headers: userHeader() });
+      if (!res.ok) {
+        let msg = `불러오기 실패: ${res.status}`;
+        try {
+          const b = await res.json();
+          if (b?.message) msg = b.message;
+        } catch { /* 본문 없음 */ }
+        throw new Error(msg);
+      }
+      const dispo = res.headers.get('Content-Disposition') || '';
+      const m = /filename\*=UTF-8''([^;]+)/.exec(dispo);
+      const fileName = m ? decodeURIComponent(m[1]) : 'file';
+      const body = await res.blob();
+      return {
+        url: URL.createObjectURL(body),
+        fileName,
+        contentType: body.type || res.headers.get('Content-Type') || '',
+      };
+    },
     async upload(path: string, file: File): Promise<unknown> {
       const fd = new FormData();
       fd.append('file', file);
