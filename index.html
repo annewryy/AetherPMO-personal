@@ -100,7 +100,7 @@
                         <span class="brand-sub">사업관리 플랫폼</span>
                     </div>
                     <button id="sidebar-mode-btn" class="sidebar-pin-btn" aria-label="사이드바 모드 선택">
-                        <i data-lucide="layout-sidebar" style="width: 16px; height: 16px;"></i>
+                        <i data-lucide="panel-left" style="width: 16px; height: 16px;"></i>
                     </button>
                 </div>
             </div>
@@ -2659,7 +2659,7 @@
                         </div>
                         <div class="form-group">
                             <label for="project-budget">사업금액 (원) <span class="required">*</span></label>
-                            <input type="number" id="project-budget" required placeholder="예: 2450000000">
+                            <input type="text" inputmode="numeric" id="project-budget" required placeholder="예: 2,450,000,000" oninput="app.formatInputWithCommas(this)">
                         </div>
                         <div class="form-group">
                             <label for="project-start-date">시작일 <span class="required">*</span></label>
@@ -2707,7 +2707,7 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="project-budget-bidding">사업예산(projectBudget)</label>
-                                    <input type="number" id="project-budget-bidding" placeholder="예: 1500000000">
+                                    <input type="text" inputmode="numeric" id="project-budget-bidding" placeholder="예: 1,500,000,000" oninput="app.formatInputWithCommas(this)">
                                 </div>
                                 <div class="form-group">
                                     <label for="project-business-type">사업유형(businessType)</label>
@@ -4636,7 +4636,7 @@
         <div class="sidebar-mode-menu-header">Sidebar 표시 방식</div>
         <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-expanded" data-mode="expanded">
             <i data-lucide="check" class="smi-check"></i>
-            <i data-lucide="layout-sidebar" style="width: 14px; height: 14px;"></i>
+            <i data-lucide="panel-left" style="width: 14px; height: 14px;"></i>
             <span>일반 고정 (Expanded)</span>
         </a>
         <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-compact" data-mode="compact">

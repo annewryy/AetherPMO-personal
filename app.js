@@ -908,7 +908,7 @@ class AetherPMO {
                     }
 
                     const ALLOWED_BID_STATUSES = ['proposal_preparing', 'proposal_submitted', 'waiting_result', 'won', 'lost'];
-                    let cleanBidStatus = p.bid_status || p.bidding_status || p.bidStatus || null;
+                    let cleanBidStatus = p.bid_status ?? p.bidding_status ?? p.biddingStatus ?? p.bidStatus ?? null;
                     if (cleanBidStatus) {
                         cleanBidStatus = String(cleanBidStatus).trim().toLowerCase();
                         if (cleanBidStatus === 'in progress' || cleanBidStatus === 'in_progress' || cleanBidStatus === 'execution') {
@@ -918,7 +918,8 @@ class AetherPMO {
                         }
                     }
 
-                    const projData = {
+                    // Strict Whitelist DB Payload matching actual Supabase `projects` table columns
+                    const dbPayload = {
                         id: p.id,
                         project_code: p.projectCode || p.id,
                         project_name: p.name,
@@ -935,7 +936,6 @@ class AetherPMO {
                         status: p.status,
                         lifecycle_status: p.status,
                         bid_status: cleanBidStatus,
-                        bidding_status: cleanBidStatus,
                         progress: p.progress,
                         resources: p.resources,
                         bid_number: p.bidNumber || null,
@@ -944,6 +944,9 @@ class AetherPMO {
                         project_budget: p.projectBudget || 0,
                         business_type: p.businessType || p.bizType || null,
                         biz_type: p.bizType || p.businessType || null,
+                        risk_level: p.riskLevel || '보통',
+                        contract_date: p.contractDate || p.startDate || null,
+                        related_biz: p.relatedBiz || '',
                         sales_owner: p.salesOwner,
                         proposal_owner: p.proposalOwner,
                         proposal_pm: p.proposalPm,
@@ -956,15 +959,13 @@ class AetherPMO {
                         member_ids: p.memberIds || []
                     };
 
-                    console.log('[Project Save Payload]', {
-                        id: projData.id,
-                        business_type: projData.business_type,
-                        status: projData.status,
-                        lifecycle_status: projData.lifecycle_status,
-                        bid_status: projData.bid_status
-                    });
+                    // Absolute Safeguard: Delete any legacy or accidental bidding_status / biddingStatus keys
+                    delete dbPayload.bidding_status;
+                    delete dbPayload.biddingStatus;
 
-                    const { error } = await this.supabase.from('projects').upsert(projData);
+                    console.log('[Project Upsert Final DB Payload]', JSON.parse(JSON.stringify(dbPayload)));
+
+                    const { error } = await this.supabase.from('projects').upsert(dbPayload);
                     if (error) {
                         console.error('[Supabase Sync] project_upsert error details:', {
                             code: error.code,
@@ -1766,7 +1767,8 @@ class AetherPMO {
                 bidNumber: p.bid_number || p.project_code,
                 customerName: p.customer_name || p.customer || '',
                 projectBudget: Number(p.project_budget || 0),
-                businessType: p.business_type || p.businessType || (
+                bizType: p.biz_type || p.business_type || p.businessType || '공공 SI',
+                businessType: p.business_type || p.biz_type || p.businessType || (
                     p.name?.includes('상담') ? 'AI/기타' :
                     p.name?.includes('IoT') ? '공공 SI' :
                     p.name?.includes('클라우드') ? '유지관리' :
@@ -1774,6 +1776,9 @@ class AetherPMO {
                     p.name?.includes('빅데이터') ? 'ISP' :
                     p.name?.includes('통합') ? '컨설팅' : '공공 SI'
                 ),
+                riskLevel: p.risk_level || p.riskLevel || '보통',
+                contractDate: p.contract_date || p.contractDate || p.start_date,
+                relatedBiz: p.related_biz || p.relatedBiz || '',
                 salesOwner: p.sales_owner,
                 proposalOwner: p.proposal_owner,
                 proposalPm: p.proposal_pm,
@@ -11142,6 +11147,37 @@ class AetherPMO {
         if (window.lucide) window.lucide.createIcons();
     }
 
+    formatInputWithCommas(input) {
+        if (!input) return;
+        const cursor = input.selectionStart || 0;
+        const oldLen = input.value.length;
+        const raw = input.value.replace(/[^0-9]/g, '');
+        if (!raw) {
+            input.value = '';
+            return;
+        }
+        const formatted = Number(raw).toLocaleString('ko-KR');
+        input.value = formatted;
+        const newLen = formatted.length;
+        const diff = newLen - oldLen;
+        const newPos = Math.max(0, cursor + diff);
+        try {
+            input.setSelectionRange(newPos, newPos);
+        } catch (e) {}
+    }
+
+    formatNumberWithCommas(val) {
+        if (val === null || val === undefined || val === '') return '';
+        const raw = String(val).replace(/[^0-9]/g, '');
+        return raw ? Number(raw).toLocaleString('ko-KR') : '';
+    }
+
+    parseNumberFromCommas(val) {
+        if (val === null || val === undefined) return 0;
+        const raw = String(val).replace(/[^0-9]/g, '');
+        return raw ? Number(raw) : 0;
+    }
+
     /* ==========================================================================
        CRUD OPERATIONS: PROJECTS
        ========================================================================== */
@@ -11237,7 +11273,7 @@ class AetherPMO {
         
         this.populateProjectManagerSelect(project.managerId || project.manager);
         document.getElementById('project-customer').value = project.customer || '';
-        document.getElementById('project-budget').value = project.budget || '';
+        document.getElementById('project-budget').value = project.budget ? this.formatNumberWithCommas(project.budget) : '';
         document.getElementById('project-start-date').value = project.startDate;
         document.getElementById('project-end-date').value = project.endDate;
         document.getElementById('project-inspection-date').value = project.inspectionDate || '';
@@ -11285,7 +11321,7 @@ class AetherPMO {
         }
         document.getElementById('project-bid-number').value = project.bidNumber || '';
         document.getElementById('project-customer-name').value = project.customerName || '';
-        document.getElementById('project-budget-bidding').value = project.projectBudget || '';
+        document.getElementById('project-budget-bidding').value = project.projectBudget ? this.formatNumberWithCommas(project.projectBudget) : '';
         
         const biddingSelect = document.getElementById('project-business-type');
         const biddingCustom = document.getElementById('project-business-type-custom');
@@ -11418,7 +11454,7 @@ class AetherPMO {
             }
         }
         const customer = document.getElementById('project-customer')?.value?.trim() || '';
-        const budget = Number(document.getElementById('project-budget')?.value || 0);
+        const budget = this.parseNumberFromCommas(document.getElementById('project-budget')?.value);
         const startDate = document.getElementById('project-start-date')?.value || '';
         const endDate = document.getElementById('project-end-date')?.value || '';
         const inspectionDate = document.getElementById('project-inspection-date')?.value || '';
@@ -11453,7 +11489,7 @@ class AetherPMO {
         // Bidding stage fields
         const bidNumber = document.getElementById('project-bid-number')?.value?.trim() || '';
         const customerName = document.getElementById('project-customer-name')?.value?.trim() || '';
-        const projectBudget = Number(document.getElementById('project-budget-bidding')?.value || 0);
+        const projectBudget = this.parseNumberFromCommas(document.getElementById('project-budget-bidding')?.value);
         const salesOwner = document.getElementById('project-sales-owner')?.value?.trim() || '';
         const proposalOwner = document.getElementById('project-proposal-owner')?.value?.trim() || '';
         const proposalPm = document.getElementById('project-proposal-pm')?.value?.trim() || '';
@@ -11553,17 +11589,18 @@ class AetherPMO {
                     name, desc, dept, manager, managerId, startDate, endDate,
                     status: targetStatus,
                     project_status: targetStatus,
-                    bidding_status: targetBiddingStatus,
-                    biddingStatus: targetBiddingStatus,
+                    bid_status: targetBiddingStatus || normBidStatus || null,
                     bid_result: targetBidResult,
                     bidResult: targetBidResult,
-                    bidStatus: normBidStatus,
+                    bidStatus: normBidStatus || null,
                     is_bidding_project: Boolean(old.is_bidding_project || old.status === 'Bidding'),
                     progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
                     projectCode, bizType, contractDate, location, relatedBiz, riskLevel, wbs,
                     bidNumber, customerName, projectBudget, businessType,
                     salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner
                 };
+                delete updatedProject.bidding_status;
+                delete updatedProject.biddingStatus;
                 savedProject = updatedProject;
 
                 // Supabase Sync
@@ -11728,19 +11765,34 @@ class AetherPMO {
                 this.addActivityLog(newId, name, 'project', `신규 사업 등록: "${name}"`);
             }
 
-            // Sync the entire state representation to LocalStorage in local fallback mode
-            if (!this.useSupabase && !this.demoMode) {
-                localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
-            }
-
             // Reload state from Supabase to sync DB schema structures and show real-time changes
             if (this.useSupabase) {
                 await this.loadStateFromSupabase();
             }
 
+            // Guarantee that savedProject updates are preserved in state
+            if (savedProject && savedProject.id) {
+                const targetIdx = (this.state.projects || []).findIndex(p => p.id === savedProject.id);
+                if (targetIdx !== -1) {
+                    this.state.projects[targetIdx] = { ...this.state.projects[targetIdx], ...savedProject };
+                } else {
+                    this.state.projects.push(savedProject);
+                }
+            }
+
+            // Sync updated state to LocalStorage
+            if (!this.demoMode) {
+                try {
+                    localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+                } catch (e) {
+                    console.warn('[LocalStorage Save Error]', e);
+                }
+            }
+
             this.updateProjectsOverdueStatus();
             this.closeProjectModal();
 
+            const targetProjectId = id || (savedProject ? savedProject.id : null);
             const rawBidStatus = document.getElementById('project-bid-status')?.value || '';
             const normBidStatus = savedProject ? this.normalizeBiddingStatus(savedProject) : (rawBidStatus ? this.normalizeBiddingStatus(rawBidStatus) : 'proposal_preparing');
             const isBiddingProject = Boolean(
@@ -11750,7 +11802,6 @@ class AetherPMO {
 
             if (isBiddingProject && normBidStatus) {
                 const targetTab = normBidStatus;
-                const targetProjectId = id || (savedProject ? savedProject.id : null);
                 console.log('[saveProjectForm Post-Save Bidding Navigation]', {
                     projectId: targetProjectId,
                     normBidStatus: targetTab,
@@ -11777,16 +11828,22 @@ class AetherPMO {
                     this.setActiveSidebarMenu('projects/bidding');
                 }
             } else {
-                this.handleRouting();
+                if (targetProjectId && (this.activeView === 'project-detail' || (window.location.hash && window.location.hash.includes('project-detail')))) {
+                    this.renderProjectDetail(targetProjectId);
+                } else {
+                    this.handleRouting();
+                }
+                this.renderProjects();
             }
             
             // Show Success Notification
             this.showToast(id ? '사업 정보가 성공적으로 수정되었습니다.' : '신규 사업이 성공적으로 등록되었습니다.', 'success');
 
         } catch (dbError) {
-            console.error('[Supabase Save Error]', dbError);
-            const errMsg = dbError.message || dbError.details || '데이터베이스 저장 중 오류가 발생했습니다.';
-            alert(`저장 실패: ${errMsg}\n(입력 데이터를 확인하시고 다시 시도해주세요.)`);
+            console.error('[Project Save Failed]', dbError);
+            const errMsg = dbError?.message || dbError?.details || '데이터베이스 저장 중 오류가 발생했습니다.';
+            alert(`프로젝트 저장 실패: ${errMsg}\n(입력 데이터를 확인하시고 다시 시도해주세요.)`);
+            return;
         }
     }
 
@@ -20005,7 +20062,7 @@ class AetherPMO {
                             </select>
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">
-                            <input type="number" id="edit-con-amount" value="${c.amount || 0}" placeholder="계약금액" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; padding:0 8px; text-align: right;">
+                            <input type="text" inputmode="numeric" id="edit-con-amount" value="${c.amount ? c.amount.toLocaleString('ko-KR') : ''}" placeholder="계약금액" oninput="app.formatInputWithCommas(this)" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; padding:0 8px; text-align: right;">
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
                             <input type="date" id="edit-con-date" value="${c.contractDate || ''}" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; text-align: center;">
@@ -20123,7 +20180,7 @@ class AetherPMO {
             projectId: document.getElementById('edit-con-project-id')?.value || '',
             employmentType: document.getElementById('edit-con-emp-type')?.value || 'outsourcing',
             contractor: document.getElementById('edit-con-contractor')?.value || '',
-            amount: parseInt(document.getElementById('edit-con-amount')?.value || '0', 10),
+            amount: this.parseNumberFromCommas(document.getElementById('edit-con-amount')?.value),
             contractDate: document.getElementById('edit-con-date')?.value || '',
             startDate: document.getElementById('edit-con-start')?.value || '',
             endDate: document.getElementById('edit-con-end')?.value || '',
@@ -20221,13 +20278,13 @@ class AetherPMO {
                             <input type="text" id="edit-sal-dept" value="${s.department || ''}" placeholder="소속부서" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: center;">
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">
-                            <input type="number" id="edit-sal-base" value="${s.baseSalary || 0}" placeholder="기본급" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: right;">
+                            <input type="text" inputmode="numeric" id="edit-sal-base" value="${s.baseSalary ? s.baseSalary.toLocaleString('ko-KR') : ''}" placeholder="기본급" oninput="app.formatInputWithCommas(this)" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: right;">
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">
-                            <input type="number" id="edit-sal-meal" value="${s.mealAllowance || 0}" placeholder="식대" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: right;">
+                            <input type="text" inputmode="numeric" id="edit-sal-meal" value="${s.mealAllowance ? s.mealAllowance.toLocaleString('ko-KR') : ''}" placeholder="식대" oninput="app.formatInputWithCommas(this)" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: right;">
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">
-                            <input type="number" id="edit-sal-car" value="${s.carAllowance || 0}" placeholder="차량유지비" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: right;">
+                            <input type="text" inputmode="numeric" id="edit-sal-car" value="${s.carAllowance ? s.carAllowance.toLocaleString('ko-KR') : ''}" placeholder="차량유지비" oninput="app.formatInputWithCommas(this)" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: right;">
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: right; color: var(--text-muted); font-size:13px; font-weight:700; background:rgba(0,0,0,0.05); padding-right:16px;">
                             Auto (기본+식대+차량)
@@ -20322,9 +20379,9 @@ class AetherPMO {
         const salIdx = this.state.salaries.findIndex(s => s.id === id);
         if (salIdx === -1) return;
 
-        const base = parseInt(document.getElementById('edit-sal-base')?.value || '0', 10);
-        const meal = parseInt(document.getElementById('edit-sal-meal')?.value || '0', 10);
-        const car = parseInt(document.getElementById('edit-sal-car')?.value || '0', 10);
+        const base = this.parseNumberFromCommas(document.getElementById('edit-sal-base')?.value);
+        const meal = this.parseNumberFromCommas(document.getElementById('edit-sal-meal')?.value);
+        const car = this.parseNumberFromCommas(document.getElementById('edit-sal-car')?.value);
         const net = base + meal + car;
 
         const updated = {
