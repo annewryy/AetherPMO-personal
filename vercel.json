@@ -4,6 +4,9 @@
   "rewrites": [
     { "source": "/api/g2b/bid", "destination": "/api/g2b?serviceType=bid" },
     { "source": "/api/g2b/pre", "destination": "/api/g2b?serviceType=pre" },
-    { "source": "/app/(.*)", "destination": "/app/index.html" }
+    { "source": "/projects/(.*)", "destination": "/index.html" },
+    { "source": "/project-detail/(.*)", "destination": "/index.html" },
+    { "source": "/active/(.*)", "destination": "/index.html" },
+    { "source": "/((?!api/|.*\\..*).*)", "destination": "/index.html" }
   ]
 }

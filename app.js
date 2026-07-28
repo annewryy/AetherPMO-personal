@@ -45,6 +45,61 @@ const OPMS_STATUS_PROGRESS = {
 };
 
 class AetherPMO {
+    isAdminRole(role) {
+        return role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
+    }
+
+    getAccessibleProjects() {
+        const projects = Array.isArray(this.state?.projects) ? this.state.projects : [];
+        const role = this.currentUser?.role;
+
+        if (this.isAdminRole(role)) {
+            return projects;
+        }
+
+        const userId = this.currentUser?.id;
+        const userEmail = this.currentUser?.email;
+        const userName = this.currentUser?.name;
+
+        return projects.filter(project => {
+            const isManager = (
+                (userId && (project.managerId === userId || project.pm_id === userId || project.project_manager_id === userId || project.manager_id === userId)) ||
+                (userEmail && (project.managerId === userEmail || project.manager_email === userEmail)) ||
+                (userName && (project.manager === userName || project.pmName === userName))
+            );
+
+            const isDirectMember = Array.isArray(project.members) && project.members.some(member =>
+                (userId && (member.user_id === userId || member.profile_id === userId || member.resourceId === userId)) ||
+                (userEmail && (member.email === userEmail || member.memberId === userEmail))
+            );
+
+            const isStateMember = (this.state?.projectMembers || []).some(pm =>
+                (pm.projectId === project.id || pm.project_id === project.id) &&
+                ((userId && (pm.resourceId === userId || pm.user_id === userId)) ||
+                 (userEmail && (pm.resourceId === userEmail || pm.email === userEmail)))
+            );
+
+            const isMemberIds = Array.isArray(project.memberIds) && (
+                (userId && project.memberIds.includes(userId)) ||
+                (userEmail && project.memberIds.includes(userEmail))
+            );
+
+            return isManager || isDirectMember || isStateMember || isMemberIds;
+        });
+    }
+
+    get currentProjectId() {
+        if (this.activeProjectId) return this.activeProjectId;
+        const accessible = this.getAccessibleProjects();
+        if (accessible && accessible.length > 0) {
+            return accessible[0].id || accessible[0].project_id;
+        }
+        return null;
+    }
+    set currentProjectId(val) {
+        this.activeProjectId = val;
+    }
+
     constructor() {
         this.state = {
             projects: [],
@@ -558,7 +613,7 @@ class AetherPMO {
 
         const officialDocsMenu = document.querySelector('.sidebar-nav .nav-item[data-view="official-docs"]');
         if (officialDocsMenu) {
-            officialDocsMenu.style.display = (role === 'WORKER') ? 'none' : 'flex';
+            officialDocsMenu.style.display = 'none';
         }
 
         // Helper checks for PM and Worker scoping
@@ -851,7 +906,20 @@ class AetherPMO {
                         console.warn(`[Supabase Sync] Skipping project_upsert for legacy non-UUID id: ${p.id}`);
                         break;
                     }
-                    const projData = {
+
+                    const ALLOWED_BID_STATUSES = ['proposal_preparing', 'proposal_submitted', 'waiting_result', 'won', 'lost'];
+                    let cleanBidStatus = p.bid_status ?? p.bidding_status ?? p.biddingStatus ?? p.bidStatus ?? null;
+                    if (cleanBidStatus) {
+                        cleanBidStatus = String(cleanBidStatus).trim().toLowerCase();
+                        if (cleanBidStatus === 'in progress' || cleanBidStatus === 'in_progress' || cleanBidStatus === 'execution') {
+                            cleanBidStatus = (p.bid_result === 'WON' || p.bidResult === 'WON') ? 'won' : null;
+                        } else if (!ALLOWED_BID_STATUSES.includes(cleanBidStatus)) {
+                            cleanBidStatus = null;
+                        }
+                    }
+
+                    // Strict Whitelist DB Payload matching actual Supabase `projects` table columns
+                    const dbPayload = {
                         id: p.id,
                         project_code: p.projectCode || p.id,
                         project_name: p.name,
@@ -866,14 +934,29 @@ class AetherPMO {
                         inspection_date: p.inspectionDate || null,
                         remarks: p.remarks,
                         status: p.status,
-                        bid_status: p.bidStatus || null,
+                        lifecycle_status: p.status,
+                        bid_status: cleanBidStatus,
                         progress: p.progress,
                         resources: p.resources,
                         bid_number: p.bidNumber || null,
                         customer: p.customer || p.customerName || '',
                         customer_name: p.customer || p.customerName || '',
                         project_budget: p.projectBudget || 0,
-                        business_type: p.businessType,
+                        business_type: p.businessType || p.bizType || null,
+                        biz_type: p.bizType || p.businessType || null,
+                        risk_level: p.riskLevel || '보통',
+                        contract_date: p.contractDate || p.startDate || null,
+                        related_biz: p.relatedBiz || '',
+                        participation_type: p.participationType || p.participation_type || 'PRIME_CONTRACTOR',
+                        total_contract_amount: p.totalContractAmount || null,
+                        company_share_rate: p.companyShareRate !== undefined ? p.companyShareRate : null,
+                        company_contract_amount: p.companyContractAmount || p.company_contract_amount || p.contract_amount || p.budget || 0,
+                        prime_contractor_name: p.primeContractorName || p.subcontractPrimeContractor || null,
+                        original_project_name: p.originalProjectName || null,
+                        subcontract_project_name: p.subcontractProjectName || null,
+                        subcontract_client_name: p.subcontractClientName || null,
+                        original_contract_amount: p.originalContractAmount || null,
+                        original_project_code: p.originalProjectCode || null,
                         sales_owner: p.salesOwner,
                         proposal_owner: p.proposalOwner,
                         proposal_pm: p.proposalPm,
@@ -885,7 +968,14 @@ class AetherPMO {
                         resources_list: p.resourcesList || [],
                         member_ids: p.memberIds || []
                     };
-                    const { error } = await this.supabase.from('projects').upsert(projData);
+
+                    // Absolute Safeguard: Delete any legacy or accidental bidding_status / biddingStatus keys
+                    delete dbPayload.bidding_status;
+                    delete dbPayload.biddingStatus;
+
+                    console.log('[Project Upsert Final DB Payload]', JSON.parse(JSON.stringify(dbPayload)));
+
+                    const { error } = await this.supabase.from('projects').upsert(dbPayload);
                     if (error) {
                         console.error('[Supabase Sync] project_upsert error details:', {
                             code: error.code,
@@ -1042,6 +1132,30 @@ class AetherPMO {
                     };
                     const { error } = await this.supabase.from('artifacts').upsert(artData);
                     if (error) console.error('[Supabase Sync] artifact_upsert error:', error);
+                    break;
+                }
+                case 'project_artifact_upsert': {
+                    const pa = data;
+                    if (!pa || !this.isUuid(pa.projectId || pa.project_id)) {
+                        console.warn(`[Supabase Sync] Skipping project_artifact_upsert: invalid projectId`);
+                        break;
+                    }
+                    const paData = {
+                        project_id: pa.projectId || pa.project_id,
+                        artifact_template_id: pa.id || pa.artifactId,
+                        stage_code: pa.stageCode || pa.stage_code || 'PRP',
+                        activity_id: pa.activityId || pa.activity_id || '',
+                        name: pa.name,
+                        status: pa.status || 'NOT_STARTED',
+                        assignee_name: pa.assigneeName || pa.author || '미지정',
+                        is_selected: pa.is_selected === true,
+                        is_active: pa.is_active === true,
+                        updated_at: new Date().toISOString()
+                    };
+                    if (pa.dbId && this.isUuid(pa.dbId)) paData.id = pa.dbId;
+                    
+                    const { error } = await this.supabase.from('project_artifacts').upsert(paData, { onConflict: 'project_id, name' });
+                    if (error) console.error('[Supabase Sync] project_artifact_upsert error:', error, 'payload:', paData);
                     break;
                 }
                 case 'artifact_delete': {
@@ -1489,6 +1603,7 @@ class AetherPMO {
             }
         }
 
+        this.mergeStandardTemplateSeeds();
         this.updateProjectsOverdueStatus();
         this.applyTheme(this.state.theme);
     }
@@ -1545,11 +1660,14 @@ class AetherPMO {
                 } catch (e) {
                     console.warn('[Supabase] board_posts table fetch failed. Using defaults.', e);
                 }
+            }
+            let projectArtifactsDb = [];
+            if (this.useSupabase) {
                 try {
-                    const { data: dbReplies, error: errRep } = await this.supabase.from('board_replies').select('*');
-                    if (!errRep && dbReplies) boardReplies = dbReplies;
+                    const { data: dbPa, error: errPa } = await this.supabase.from('project_artifacts').select('*');
+                    if (!errPa && dbPa) projectArtifactsDb = dbPa;
                 } catch (e) {
-                    console.warn('[Supabase] board_replies table fetch failed. Using defaults.', e);
+                    console.warn('[Supabase] project_artifacts table fetch failed.', e);
                 }
             }
 
@@ -1582,6 +1700,31 @@ class AetherPMO {
                     participationRate: m.participation_rate || 100
                 };
             });
+
+            if (projectArtifactsDb && projectArtifactsDb.length > 0) {
+                if (!this.state.projectMethodologies) this.state.projectMethodologies = {};
+                projectArtifactsDb.forEach(pa => {
+                    const pid = pa.project_id;
+                    if (!this.state.projectMethodologies[pid]) {
+                        this.state.projectMethodologies[pid] = this.getDefaultMethodologyTemplate();
+                    }
+                    const meth = this.state.projectMethodologies[pid];
+                    (meth.stages || []).forEach(stg => {
+                        (stg.activities || []).forEach(act => {
+                            (act.artifacts || []).forEach(art => {
+                                if (art.id === pa.artifact_template_id || art.name === pa.name) {
+                                    art.dbId = pa.id;
+                                    art.is_selected = pa.is_selected === true;
+                                    art.is_active = pa.is_active === true;
+                                    if (pa.status) art.status = pa.status;
+                                    if (pa.assignee_name) art.assigneeName = pa.assignee_name;
+                                    if (pa.updated_at) art.updatedAt = pa.updated_at.split('T')[0];
+                                }
+                            });
+                        });
+                    });
+                });
+            }
 
             this.state.resources = (resources || []).map(r => ({
                 id: r.id,
@@ -1635,7 +1778,28 @@ class AetherPMO {
                 bidNumber: p.bid_number || p.project_code,
                 customerName: p.customer_name || p.customer || '',
                 projectBudget: Number(p.project_budget || 0),
-                businessType: p.business_type,
+                bizType: p.biz_type || p.business_type || p.businessType || '공공 SI',
+                businessType: p.business_type || p.biz_type || p.businessType || (
+                    p.name?.includes('상담') ? 'AI/기타' :
+                    p.name?.includes('IoT') ? '공공 SI' :
+                    p.name?.includes('클라우드') ? '유지관리' :
+                    p.name?.includes('플랫폼') ? '공공 SI' :
+                    p.name?.includes('빅데이터') ? 'ISP' :
+                    p.name?.includes('통합') ? '컨설팅' : '공공 SI'
+                ),
+                riskLevel: p.risk_level || p.riskLevel || '보통',
+                contractDate: p.contract_date || p.contractDate || p.start_date,
+                relatedBiz: p.related_biz || p.relatedBiz || '',
+                participationType: p.participation_type || p.participationType || 'PRIME_CONTRACTOR',
+                totalContractAmount: p.total_contract_amount ? Number(p.total_contract_amount) : null,
+                companyShareRate: p.company_share_rate !== null && p.company_share_rate !== undefined ? Number(p.company_share_rate) : null,
+                companyContractAmount: Number(p.company_contract_amount || p.contract_amount || p.budget || 0),
+                primeContractorName: p.prime_contractor_name || '',
+                originalProjectName: p.original_project_name || '',
+                subcontractProjectName: p.subcontract_project_name || '',
+                subcontractClientName: p.subcontract_client_name || '',
+                originalContractAmount: p.original_contract_amount ? Number(p.original_contract_amount) : null,
+                originalProjectCode: p.original_project_code || '',
                 salesOwner: p.sales_owner,
                 proposalOwner: p.proposal_owner,
                 proposalPm: p.proposal_pm,
@@ -2210,7 +2374,6 @@ class AetherPMO {
                     await this.loadStateFromSupabase();
                 }
             }
-
         } catch (e) {
             console.error('[Supabase] Failed loading state from database. Falling back to LocalStorage.', e);
             const stored = localStorage.getItem('aether_pms_state');
@@ -3764,10 +3927,9 @@ class AetherPMO {
             }
         });
 
-        // Main view tabs click handler
+        // Main view tabs click handler (.nav-item)
         document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
-                e.preventDefault();
                 const view = item.getAttribute('data-view');
                 const wrapper = item.closest('.nav-item-wrapper');
 
@@ -3775,13 +3937,37 @@ class AetherPMO {
                     wrapper.classList.toggle('collapsed');
                 }
 
-                if (view === 'projects') {
-                    window.location.hash = `projects/${this.activeProjectStageFilter.toLowerCase()}`;
-                } else {
-                    window.location.hash = view;
+                if (view) {
+                    e.preventDefault();
+                    if (view === 'projects') {
+                        const stage = (this.activeProjectStageFilter || 'Bidding').toLowerCase();
+                        window.location.hash = `projects/${stage}`;
+                    } else {
+                        window.location.hash = view;
+                    }
                 }
                 // Close sidebar on mobile after clicking
-                document.querySelector('.sidebar').classList.remove('open');
+                document.querySelector('.sidebar')?.classList.remove('open');
+            });
+        });
+
+        // Submenu items click handler (.submenu-item)
+        document.querySelectorAll('.sidebar-nav .submenu-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation(); // Stop bubbling up to parent .nav-item
+                const href = item.getAttribute('href');
+                if (href && href.startsWith('#')) {
+                    e.preventDefault();
+                    const hashPath = href.substring(1);
+                    if (hashPath.startsWith('projects/')) {
+                        const subStage = hashPath.split('/')[1];
+                        if (subStage === 'bidding') this.activeProjectStageFilter = 'Bidding';
+                        else if (subStage === 'active') this.activeProjectStageFilter = 'Active';
+                        else if (subStage === 'completed') this.activeProjectStageFilter = 'Completed';
+                    }
+                    window.location.hash = hashPath;
+                }
+                document.querySelector('.sidebar')?.classList.remove('open');
             });
         });
 
@@ -4010,6 +4196,12 @@ class AetherPMO {
     }
 
     async handleRouting() {
+        console.log('[handleRouting:start]', {
+            href: location.href,
+            hash: location.hash,
+            pathname: location.pathname
+        });
+
         // First check authentication
         const isAuthenticated = await this.checkAuth();
         if (!isAuthenticated) {
@@ -4109,6 +4301,11 @@ class AetherPMO {
      * Switch view display block/none
      */
     async switchView(viewName, params = null) {
+        console.log('[switchView:start]', {
+            requestedView: viewName,
+            targetElement: document.getElementById(`view-${viewName}`)
+        });
+
         document.querySelectorAll('.content-view').forEach(view => {
             view.classList.remove('active');
         });
@@ -4255,6 +4452,12 @@ class AetherPMO {
             if (this.useSupabase) {
                 await this.loadStateFromSupabase();
             }
+            console.log('[Active Stage Debug]', {
+                currentProjectId: this.currentProjectId,
+                selectedProject: this.state?.projects?.find(
+                    p => p.id === this.currentProjectId
+                )
+            });
             this.renderProjects();
         } else if (viewName === 'projects-g2b') {
             this.initG2BSearchView();
@@ -4581,16 +4784,17 @@ class AetherPMO {
 
             const titleText = document.getElementById('dashboard-title-text');
             const subtitleText = document.getElementById('dashboard-subtitle-text');
+            const role = this.currentUser?.role;
+            const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
             if (titleText) {
-                titleText.innerHTML = '<i data-lucide="layout-dashboard" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> 통합 PMO 대시보드';
+                titleText.innerHTML = isAdmin
+                    ? '<i data-lucide="layout-dashboard" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> Executive Dashboard'
+                    : '<i data-lucide="layout-dashboard" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> 통합 PMO 대시보드';
             }
             if (subtitleText) {
-                subtitleText.textContent = '전체 프로젝트 진행 상태 및 사업 관리 요약';
-            }
-
-            const toggleBtn = document.getElementById('btn-toggle-dashboard-mode');
-            if (toggleBtn) {
-                toggleBtn.innerHTML = '<i data-lucide="sparkles" style="width:14px; height:14px; margin-right:4px;"></i> AI First 포털 보기';
+                subtitleText.textContent = isAdmin
+                    ? '포트폴리오 전체 현황 및 관리자 Action Center'
+                    : '전체 프로젝트 진행 상태 및 사업 관리 요약';
             }
 
             this.renderClassicDashboard();
@@ -4621,7 +4825,7 @@ class AetherPMO {
 
         const totalProjects = this.state.projects.length;
         const activeProjects = this.state.projects.filter(p => p.status === 'In Progress').length;
-        const biddingProjects = this.state.projects.filter(p => p.status === 'Bidding').length;
+        const biddingProjects = this.state.projects.filter(p => p.status === 'Bidding' || p.is_bidding_project || p.isBiddingProject).length;
         const delayedProjects = this.state.projects.filter(p => p.status === 'Delay' || (p.isOverdue && p.status !== 'Completed')).length;
         const todayDueProjects = this.state.projects.filter(p => p.endDate === todayStr && p.status !== 'Completed').length;
         const uncompletedActions = (this.state.actionItems || []).filter(a => a.status !== '완료' && a.status !== 'Completed').length;
@@ -4641,9 +4845,213 @@ class AetherPMO {
             if (el) el.textContent = val;
         }
 
+        // Bidding KPI Card visibility: only for SYS_ADMIN and EXEC_ADMIN
+        const biddingKpiCard = document.getElementById('kpi-bidding-projects');
+        if (biddingKpiCard) {
+            const role = this.currentUser?.role;
+            const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
+            biddingKpiCard.style.display = isAdmin ? 'flex' : 'none';
+        }
+
         this.renderDashboardProgressChart();
         this.renderBusinessTypeDonutChart();
-        this.renderTodayTasks(todayStr);
+        this.renderAdminActionCenter(todayStr);
+        this.renderTodayTasksRoleBased(todayStr);
+        this.renderExecBottomRow();
+    }
+
+    // ── Executive Dashboard: Admin Action Center (Row 3) ──────────────────────
+    renderAdminActionCenter(todayStr) {
+        const adminCenter = document.getElementById('admin-action-center');
+        if (!adminCenter) return;
+
+        const role = this.currentUser?.role;
+
+        // --- 1. 승인 대기 문서 ---
+        const pendingDocs = (this.state.officialDocs || [])
+            .filter(d => d.currentStatus === '검토중' || d.currentStatus === '기안' || d.currentStatus === '결재대기');
+        const pendingDocsCount = pendingDocs.length;
+
+        // --- 2. 확인 필요 Risk (Critical/High, 미조치) ---
+        const criticalRisks = (this.state.issues || [])
+            .filter(i => (i.priority === 'Critical' || i.priority === 'High') && (i.status === '발생' || i.status === '조치중'));
+        const criticalRisksCount = criticalRisks.length;
+
+        // --- 3. 미조치/지연 Action Item ---
+        const today = new Date();
+        const overdueActions = (this.state.actionItems || [])
+            .filter(a => a.status !== '완료' && a.status !== 'Completed' && a.dueDate && a.dueDate <= todayStr);
+        const overdueActionsCount = overdueActions.length;
+
+        // --- 4. 오늘 종료 예정 프로젝트 ---
+        const endingTodayProjects = this.state.projects
+            .filter(p => p.endDate === todayStr && p.status !== 'Completed');
+        const endingTodayCount = endingTodayProjects.length;
+
+        const totalActionItems = criticalRisksCount + overdueActionsCount;
+
+        // Update Total Badge
+        const totalBadge = document.getElementById('exec-action-total-badge');
+        if (totalBadge) totalBadge.textContent = `${totalActionItems}건 조치 필요`;
+
+        // Render each card content
+        const renderExecList = (listId, items, templateFn, emptyText) => {
+            const el = document.getElementById(listId);
+            if (!el) return;
+            if (!items || items.length === 0) {
+                el.innerHTML = `<div class="exec-action-empty">${emptyText}</div>`;
+                return;
+            }
+            el.innerHTML = items.slice(0, 4).map(templateFn).join('');
+        };
+
+        const countEl = (id, val, isDanger) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.textContent = val;
+                if (isDanger && val > 0) el.style.background = 'rgba(239,68,68,0.15)';
+                else if (val > 0) el.style.background = 'rgba(245,158,11,0.15)';
+            }
+        };
+
+        // Update counts
+        countEl('exec-pending-docs-count', pendingDocsCount, false);
+        countEl('exec-critical-risk-count', criticalRisksCount, true);
+        countEl('exec-overdue-actions-count', overdueActionsCount, overdueActionsCount > 0);
+        countEl('exec-ending-today-count', endingTodayCount, false);
+
+        // Render pending docs
+        renderExecList('exec-pending-docs-list', pendingDocs,
+            d => `<div class="exec-action-item">
+                    <div class="exec-action-item-title">${this.escapeHtml(d.title || '제목 없음')}</div>
+                    <div class="exec-action-item-meta"><span>${d.drafter || '-'}</span><span class="badge badge-warning" style="font-size:9px;">${d.currentStatus}</span></div>
+                  </div>`,
+            '✅ 승인 대기 문서 없음'
+        );
+
+        // Render critical risks
+        renderExecList('exec-critical-risk-list', criticalRisks,
+            i => {
+                const proj = this.state.projects.find(p => p.id === i.projectId);
+                const projName = proj ? proj.name.substring(0, 14) : '알 수 없음';
+                const prioColor = i.priority === 'Critical' ? '#ef4444' : '#f59e0b';
+                return `<div class="exec-action-item">
+                    <div class="exec-action-item-title"><span style="color:${prioColor}; font-weight:700; margin-right:4px;">[${i.priority}]</span>${this.escapeHtml(i.title || '제목 없음')}</div>
+                    <div class="exec-action-item-meta"><span>${projName}</span><span class="badge badge-error" style="font-size:9px;">${i.status}</span></div>
+                </div>`;
+            },
+            '✅ 확인 필요 Risk 없음'
+        );
+
+        // Render overdue actions
+        renderExecList('exec-overdue-actions-list', overdueActions,
+            a => {
+                const proj = this.state.projects.find(p => p.id === a.projectId);
+                const projName = proj ? proj.name.substring(0, 14) : '알 수 없음';
+                const isOverdue = a.dueDate < todayStr;
+                return `<div class="exec-action-item">
+                    <div class="exec-action-item-title">${this.escapeHtml(a.title || '제목 없음')}</div>
+                    <div class="exec-action-item-meta"><span>${projName}</span><span class="badge ${isOverdue ? 'badge-error' : 'badge-warning'}" style="font-size:9px;">기한: ${a.dueDate}</span></div>
+                </div>`;
+            },
+            '✅ 미조치 Action 없음'
+        );
+
+        // Render ending today projects
+        renderExecList('exec-ending-today-list', endingTodayProjects,
+            p => `<div class="exec-action-item">
+                    <div class="exec-action-item-title">${this.escapeHtml(p.name)}</div>
+                    <div class="exec-action-item-meta"><span>${p.manager || '-'}</span><span class="badge badge-info" style="font-size:9px;">${p.endDate}</span></div>
+                </div>`,
+            '오늘 종료 예정 프로젝트 없음'
+        );
+
+        // Admin Action Center: only visible for SYS_ADMIN / EXEC_ADMIN
+        const acSection = adminCenter.closest('.dashboard-section-card');
+        if (acSection) {
+            const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
+            acSection.style.display = isAdmin ? '' : 'none';
+        }
+    }
+
+
+
+    // ── Executive Bottom Row (Row 5): 최근 프로젝트 / 최근 활동 / 최근 공지 ──
+    renderExecBottomRow() {
+        // 1. 최근 프로젝트 (최근 수정순)
+        const recentProjects = [...this.state.projects]
+            .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))
+            .slice(0, 6);
+        this.renderSubCardList('exec-recent-projects-list', recentProjects, p => {
+            const statusColors = {
+                'In Progress': 'var(--info)',
+                'Bidding': 'var(--warning)',
+                'Delay': 'var(--danger)',
+                'Completed': 'var(--success)',
+                'On Hold': 'var(--text-muted)'
+            };
+            const color = statusColors[p.status] || 'var(--text-muted)';
+            return `<div class="sub-card-item" onclick="window.location.hash = 'project-detail/${p.id}'; event.stopPropagation();">
+                <div class="item-header">
+                    <span class="item-title">${this.escapeHtml(p.name)}</span>
+                    <span class="badge" style="font-size:9px; background:${color}20; color:${color}; border:1px solid ${color}50;">${this.translateStatus(p.status)}</span>
+                </div>
+                <div class="item-desc">${this.escapeHtml(p.customer || '-')} · PM: ${this.escapeHtml(p.manager || '-')}</div>
+                <div class="item-meta"><span>진행률 ${p.progress || 0}%</span><span>${p.endDate || '-'}</span></div>
+            </div>`;
+        }, '등록된 프로젝트가 없습니다.');
+
+        // 2. 최근 활동 (회의록 + 산출물 통합, 최근 5건)
+        const meetings = (this.state.meetingMinutes || []).map(m => ({
+            type: 'meeting', icon: '📋', title: m.title, date: m.meetDate || m.createdAt || '', sub: m.location || ''
+        }));
+        const arts = (this.state.artifacts || []).filter(a => a.submitDate).map(a => ({
+            type: 'artifact', icon: '📁', title: a.name, date: a.submitDate, sub: a.author || ''
+        }));
+        const activities = [...meetings, ...arts]
+            .sort((a, b) => new Date(b.date) - new Date(a.date))
+            .slice(0, 6);
+
+        this.renderSubCardList('exec-recent-activities-list', activities, item =>
+            `<div class="sub-card-item">
+                <div class="item-header">
+                    <span class="item-title">${item.icon} ${this.escapeHtml(item.title)}</span>
+                </div>
+                <div class="item-meta"><span>${item.sub}</span><span>${item.date}</span></div>
+            </div>`,
+        '최근 활동이 없습니다.');
+
+        // 3. 최근 공지 (활동 로그에서 system 타입만 + 최근 순)
+        const notices = (this.state.activities || [])
+            .filter(a => a.type === 'system' || a.action === '시스템')
+            .sort((a, b) => new Date(b.timestamp || b.date || 0) - new Date(a.timestamp || a.date || 0))
+            .slice(0, 6);
+
+        if (notices.length > 0) {
+            this.renderSubCardList('exec-recent-notices-list', notices, n =>
+                `<div class="sub-card-item">
+                    <div class="item-header">
+                        <span class="item-title">📢 ${this.escapeHtml(n.description || n.message || '공지 없음')}</span>
+                    </div>
+                    <div class="item-meta"><span>${n.userName || 'system'}</span><span>${(n.timestamp || n.date || '').substring(0, 10)}</span></div>
+                </div>`,
+            '등록된 공지가 없습니다.');
+        } else {
+            // Fallback: 최근 활동 로그 전체에서 최신 6건
+            const recentLogs = (this.state.activities || [])
+                .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
+                .slice(0, 6);
+            this.renderSubCardList('exec-recent-notices-list', recentLogs, n =>
+                `<div class="sub-card-item">
+                    <div class="item-header">
+                        <span class="item-title">🔔 ${this.escapeHtml(n.description || '')}</span>
+                    </div>
+                    <div class="item-meta"><span>${n.userName || '-'}</span><span>${(n.timestamp || '').substring(0, 10)}</span></div>
+                </div>`,
+            '공지 / 활동 로그가 없습니다.');
+        }
+
+        // Also keep backward-compat (hidden spans)
         this.renderRecentRedesignedActivities();
     }
 
@@ -5443,20 +5851,74 @@ class AetherPMO {
         const container = document.getElementById('dashboard-progress-chart-container');
         if (!container) return;
 
-        // 진행중이거나 완료되지 않은 프로젝트들 필터링
-        const activeProjs = this.state.projects.filter(p => p.status !== 'Completed');
+        const role = this.currentUser?.role;
+        const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
+        const currentUserId = this.currentUser?.id;
+        const currentUserName = this.currentUser?.name || this.currentUser?.full_name || '';
+        const currentUserEmail = this.currentUser?.email || '';
 
-        if (activeProjs.length === 0) {
-            container.innerHTML = '<div class="empty-state" style="padding:40px 0; text-align:center; color:var(--text-muted); font-size:12px;">진행 중인 프로젝트가 없습니다.</div>';
+        // Filter active non-completed projects
+        let targetProjects = this.state.projects.filter(p => p.status !== 'Completed');
+
+        if (!isAdmin) {
+            targetProjects = targetProjects.filter(p => {
+                // 1. Is PM of the project
+                if (p.managerId && p.managerId === currentUserId) return true;
+                if (p.manager && currentUserName && p.manager === currentUserName) return true;
+
+                // 2. Is member in projectMembers
+                const isMember = (this.state.projectMembers || []).some(m => 
+                    m.projectId === p.id && 
+                    m.isActive !== false &&
+                    (
+                        (m.userId && m.userId === currentUserId) ||
+                        (m.name && currentUserName && m.name === currentUserName) ||
+                        (m.email && currentUserEmail && m.email === currentUserEmail)
+                    )
+                );
+                if (isMember) return true;
+
+                // 3. Included in project.memberIds
+                if (p.memberIds && Array.isArray(p.memberIds) && p.memberIds.includes(currentUserId)) return true;
+
+                return false;
+            });
+        }
+
+        if (targetProjects.length === 0) {
+            const emptyMsg = isAdmin 
+                ? '진행 중인 프로젝트가 없습니다.' 
+                : '할당된 진행 중인 프로젝트가 없습니다.';
+            container.innerHTML = `<div class="empty-state" style="padding:40px 0; text-align:center; color:var(--text-muted); font-size:12px;">${emptyMsg}</div>`;
             return;
         }
 
         let html = '<div class="bar-chart-container">';
-        activeProjs.forEach(p => {
+        targetProjects.forEach(p => {
+            let statusBadge = '<span class="badge badge-success" style="font-size:10px; padding:2px 6px; font-weight:700;">🟢 정상</span>';
+            if (p.status === 'Delay' || p.isOverdue) {
+                statusBadge = '<span class="badge badge-danger" style="font-size:10px; padding:2px 6px; font-weight:700;">🔴 지연</span>';
+            } else {
+                const startDate = new Date(p.startDate);
+                const endDate = new Date(p.endDate);
+                const today = new Date();
+                let elapsedRatio = 0;
+                if (endDate > startDate) {
+                    elapsedRatio = Math.min(1, Math.max(0, (today - startDate) / (endDate - startDate)));
+                }
+                const progress = p.progress || 0;
+                if (progress < (elapsedRatio * 100 - 15)) {
+                    statusBadge = '<span class="badge badge-warning" style="font-size:10px; padding:2px 6px; font-weight:700;">🟡 주의</span>';
+                }
+            }
+
             html += `
                 <div class="bar-chart-item" onclick="window.location.hash = 'project-detail/${p.id}'; event.stopPropagation();" style="cursor:pointer;">
-                    <div class="bar-chart-label">
-                        <span class="proj-name" style="font-weight:700;">${p.name}</span>
+                    <div class="bar-chart-label" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            ${statusBadge}
+                            <span class="proj-name" style="font-weight:700;">${this.escapeHtml(p.name)}</span>
+                        </div>
                         <span class="proj-val" style="color:var(--primary); font-weight:700;">${p.progress}%</span>
                     </div>
                     <div class="bar-chart-track">
@@ -5479,55 +5941,71 @@ class AetherPMO {
 
         centerValue.textContent = total;
 
-        const counts = {
-            '구축': 0,
-            '운영': 0,
-            'ISP': 0,
-            'AI': 0,
-            '유지관리': 0,
-            '미지정': 0
-        };
+        const counts = {};
+        let knownCount = 0;
 
         this.state.projects.forEach(p => {
-            const bt = p.businessType ? p.businessType.trim() : '';
-            if (bt && counts.hasOwnProperty(bt)) {
-                counts[bt]++;
-            } else {
-                counts['미지정']++;
+            let bt = (p.businessType || p.business_type || p.bizType || '').trim();
+            if (!bt) {
+                bt = '미분류';
+            } else if (bt.includes('SI') || bt.includes('구축')) {
+                bt = '공공 SI';
+            } else if (bt.includes('유지') || bt.includes('운영')) {
+                bt = '유지관리';
+            } else if (bt.includes('ISP')) {
+                bt = 'ISP';
+            } else if (bt.includes('컨설팅') || bt.includes('BPR')) {
+                bt = '컨설팅';
+            } else if (bt === 'AI' || bt.includes('AI') || bt.includes('인공지능')) {
+                bt = 'AI';
             }
+            
+            counts[bt] = (counts[bt] || 0) + 1;
+            if (bt !== '미분류') knownCount++;
         });
 
-        if (total === 0) {
+        if (total === 0 || Object.keys(counts).length === 0) {
             group.innerHTML = `
                 <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" 
                         stroke="var(--bg-card-border)" stroke-width="4" stroke-dasharray="100 0" stroke-dashoffset="0"></circle>
             `;
             legendContainer.innerHTML = `
-                <div class="legend-item"><span class="legend-color" style="background:var(--bg-card-border);"></span>등록 사업 없음 <span class="legend-val">0</span></div>
+                <div style="font-size:12px; color:var(--text-muted); text-align:center; padding:12px 0;">
+                    <i data-lucide="info" style="width:16px; height:16px; margin-bottom:4px; display:inline-block;"></i>
+                    <div style="font-weight:700; color:var(--text-main);">사업유형 미분류 (${total}개)</div>
+                    <div style="font-size:11px; margin-top:2px;">사업유형을 등록하면 자동 통계가 생성됩니다.</div>
+                </div>
             `;
+            if (typeof lucide !== 'undefined') { try { lucide.createIcons(); } catch(e){} }
             return;
         }
 
-        const colors = {
-            '구축': 'var(--primary)',
-            '운영': 'var(--info)',
+        const presetColors = {
+            '공공 SI': 'var(--primary)',
+            '유지관리': 'var(--info)',
             'ISP': '#ec4899',
-            'AI': '#a855f7',
-            '유지관리': 'var(--success)',
-            '미지정': '#64748b'
+            '컨설팅': '#a855f7',
+            'AI': 'var(--success)',
+            '미분류': '#64748b'
         };
+
+        const fallbackColors = ['#f59e0b', '#06b6d4', '#10b981', '#6366f1', '#8b5cf6', '#e11d48'];
+        let colorIdx = 0;
 
         const segments = [];
         for (const [key, count] of Object.entries(counts)) {
             if (count > 0) {
+                const color = presetColors[key] || fallbackColors[(colorIdx++) % fallbackColors.length];
                 segments.push({
                     label: key,
                     count: count,
-                    color: colors[key],
+                    color: color,
                     pct: (count / total) * 100
                 });
             }
         }
+
+        segments.sort((a, b) => b.count - a.count);
 
         let accumulatedOffset = 0;
         let svgHtml = '';
@@ -5548,10 +6026,12 @@ class AetherPMO {
             accumulatedOffset += seg.pct;
 
             legendHtml += `
-                <div class="legend-item">
-                    <span class="legend-color" style="background:${seg.color};"></span>
-                    <span>${seg.label}</span>
-                    <span class="legend-val font-bold">${seg.count}</span>
+                <div class="legend-item" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; font-size:12px;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span class="legend-color" style="background:${seg.color}; width:10px; height:10px; border-radius:50%; display:inline-block;"></span>
+                        <span style="font-weight:600; color:var(--text-main);">${seg.label}</span>
+                    </div>
+                    <span class="legend-val font-bold" style="color:var(--primary); font-size:12px;">${seg.count}건 (${Math.round(seg.pct)}%)</span>
                 </div>
             `;
         });
@@ -5560,7 +6040,20 @@ class AetherPMO {
         legendContainer.innerHTML = legendHtml;
     }
 
-    renderTodayTasks(todayStr) {
+    renderTodayTasksRoleBased(todayStr) {
+        const titleEl = document.getElementById('today-tasks-section-title');
+        const roleTag = document.getElementById('today-tasks-role-tag');
+        const role = this.currentUser?.role;
+        const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
+
+        if (titleEl) {
+            titleEl.textContent = isAdmin ? '오늘 관리자가 확인해야 할 업무' : '오늘 내가 수행해야 할 업무';
+        }
+        if (roleTag) {
+            const labels = { SYS_ADMIN: '전사 관리', EXEC_ADMIN: '총괄 관리자', PM: '내 프로젝트', WORKER: '내 담당' };
+            roleTag.textContent = labels[role] ? `(${labels[role]})` : '';
+        }
+
         // 1. WBS 일정 수집 (오늘 + 지연)
         const wbsList = [];
         this.state.projects.forEach(p => {
@@ -5982,330 +6475,396 @@ class AetherPMO {
         this.updateProjectStageCounts();
     }
 
-    renderProjects() {
-        this.updateProjectsOverdueStatus();
-        this.updateProjectStageCounts();
+    createProjectCardElement(p) {
+        const pArtifacts = (this.state.artifacts || []).filter(a => a.projectId === p.id || a.project_id === p.id);
+        const approved = pArtifacts.filter(a => a.status === 'Approved').length;
+        const review = pArtifacts.filter(a => a.status === 'Under Review').length;
+        
+        // 실시간 투입인력 수 계산 (isActive !== false인 멤버들의 개수)
+        const activeMembersCount = (this.state.projectMembers || []).filter(
+            m => (m.projectId === p.id || m.project_id === p.id) && m.isActive !== false
+        ).length;
 
-        document.querySelectorAll('.project-stage-tab').forEach(tab => {
-            tab.classList.remove('active');
-            if (tab.getAttribute('data-stage') === this.activeProjectStageFilter) {
-                tab.classList.add('active');
-            }
-        });
-
-        const biddingContainer = document.getElementById('bidding-split-container');
-        const standardContainer = document.getElementById('standard-projects-container');
-
-        if (this.activeProjectStageFilter === 'Bidding') {
-            if (biddingContainer) biddingContainer.style.display = 'grid';
-            if (standardContainer) standardContainer.style.display = 'none';
-            this.renderBiddingSplitPane();
-            return;
-        }
-
-        if (biddingContainer) biddingContainer.style.display = 'none';
-        if (standardContainer) standardContainer.style.display = 'block';
-
-        const grid = document.getElementById('projects-grid-list');
-        if (!grid) return;
-
-        if (this.projectListViewMode === 'list') {
-            grid.style.display = 'flex';
-            grid.style.flexDirection = 'column';
-            grid.style.gap = '12px';
-        } else {
-            grid.style.display = 'grid';
-            grid.removeAttribute('style');
-        }
-
-        // 1. Read Inputs
-        const fKeyword = this.safeText(document.getElementById('project-search-input')?.value || '').trim().toLowerCase();
-
-        const advLoc = document.getElementById('adv-search-location')?.value || 'all';
-        const advStartDate = document.getElementById('adv-search-start-date')?.value || '';
-        const advEndDate = document.getElementById('adv-search-end-date')?.value || '';
-        const advPm = this.safeText(document.getElementById('adv-search-pm')?.value || '').trim().toLowerCase();
-        const advCustomer = this.safeText(document.getElementById('adv-search-customer')?.value || '').trim().toLowerCase();
-        const advName = this.safeText(document.getElementById('adv-search-name')?.value || '').trim().toLowerCase();
-        const advCode = this.safeText(document.getElementById('adv-search-code')?.value || '').trim().toLowerCase();
-
-        const stage = this.activeProjectStageFilter || 'Active';
-
-        // 2. Filter Projects
-        const filtered = (this.state.projects || []).filter(p => {
-            const pStatusClean = (p.status || '').trim();
-
-            // A. Stage Filtering
-            let matchStage = false;
-            if (stage === 'Bidding') {
-                matchStage = pStatusClean === 'Bidding' || p.is_bidding_project || p.isBiddingProject;
-            } else if (stage === 'Active') {
-                matchStage = ['In Progress', 'On Hold', 'Delay', '수행중', '보류', '지연'].includes(pStatusClean);
-            } else if (stage === 'Completed') {
-                matchStage = ['Completed', '종료'].includes(pStatusClean);
-            }
-            if (!matchStage) return false;
-
-            // B. Primary Integrated Keyword Search (5 fields: name, projectCode, customer, manager, desc/remarks)
-            if (fKeyword) {
-                const nameMatch = this.safeText(p.name).toLowerCase().includes(fKeyword);
-                const codeMatch = this.safeText(p.projectCode || p.id).toLowerCase().includes(fKeyword);
-                const customerMatch = this.safeText(p.customer || p.customerName).toLowerCase().includes(fKeyword);
-                const managerMatch = this.safeText(p.manager || p.pmName || p.proposalPm).toLowerCase().includes(fKeyword);
-                const descMatch = (this.safeText(p.desc) + ' ' + this.safeText(p.remarks)).toLowerCase().includes(fKeyword);
-
-                if (!nameMatch && !codeMatch && !customerMatch && !managerMatch && !descMatch) {
-                    return false;
-                }
-            }
-
-            // C. Advanced Search - Location
-            if (advLoc !== 'all') {
-                const pLoc = p.location || '정부서울청사';
-                const normLoc = pLoc.includes('서울') ? '서울' :
-                                pLoc.includes('대전') ? '대전' :
-                                pLoc.includes('대구') ? '대구' :
-                                pLoc.includes('광주') ? '광주' : '기타';
-                if (normLoc !== advLoc) return false;
-            }
-
-            // D. Advanced Search - Date Overlap Range (project.startDate <= advEndDate AND project.endDate >= advStartDate)
-            if (advStartDate && p.endDate && p.endDate < advStartDate) {
-                return false;
-            }
-            if (advEndDate && p.startDate && p.startDate > advEndDate) {
-                return false;
-            }
-
-            // E. Advanced Search - PM
-            if (advPm && !this.safeText(p.manager || p.pmName).toLowerCase().includes(advPm)) {
-                return false;
-            }
-
-            // F. Advanced Search - Customer
-            if (advCustomer && !this.safeText(p.customer || p.customerName).toLowerCase().includes(advCustomer)) {
-                return false;
-            }
-
-            // G. Advanced Search - Name
-            if (advName && !this.safeText(p.name).toLowerCase().includes(advName)) {
-                return false;
-            }
-
-            // H. Advanced Search - Code
-            if (advCode && !this.safeText(p.projectCode || p.id).toLowerCase().includes(advCode)) {
-                return false;
-            }
-
-            return true;
-        });
-
-        // 3. Sort Projects (Default: updatedAt DESC -> fallback createdAt DESC -> fallback startDate DESC)
-        const sortOption = document.getElementById('project-sort-select')?.value || 'updatedAt';
-        filtered.sort((a, b) => {
-            if (sortOption === 'name') {
-                return (a.name || '').localeCompare(b.name || '', 'ko');
-            } else if (sortOption === 'startDate') {
-                return (b.startDate || '').localeCompare(a.startDate || '');
-            } else if (sortOption === 'endDate') {
-                return (a.endDate || '').localeCompare(b.endDate || '');
-            } else if (sortOption === 'manager') {
-                return (a.manager || '').localeCompare(b.manager || '', 'ko');
-            } else {
-                const timeA = new Date(a.updatedAt || a.updated_at || a.createdAt || a.created_at || a.startDate || 0).getTime();
-                const timeB = new Date(b.updatedAt || b.updated_at || b.createdAt || b.created_at || b.startDate || 0).getTime();
-                return timeB - timeA;
-            }
-        });
-
-        // 4. Update Search Results Count Badge
-        const countBadgeEl = document.getElementById('search-result-count');
-        if (countBadgeEl) {
-            countBadgeEl.innerHTML = `검색 결과 <b>${filtered.length}</b>건`;
-        }
-
-        grid.innerHTML = '';
-
-        if (filtered.length === 0) {
-            let emptyIcon = 'folder-open';
-            let emptyMsg = '조회 조건에 부합하는 프로젝트가 존재하지 않습니다.';
-            if (this.activeProjectStageFilter === 'Bidding') {
-                emptyMsg = '등록된 입찰 단계 제안 사업이 없습니다.';
-                emptyIcon = 'landmark';
-            } else if (this.activeProjectStageFilter === 'Completed') {
-                emptyMsg = '종료 및 검수가 완료된 프로젝트가 존재하지 않습니다.';
-                emptyIcon = 'archive';
-            }
-
-            grid.innerHTML = `
-                <div class="span-2 text-center text-muted py-5" style="grid-column: 1 / -1; padding: 48px 0;">
-                    <i data-lucide="${emptyIcon}" style="width:48px; height:48px; margin-bottom:12px; opacity:0.5; display:inline-block;"></i>
-                    <p>${emptyMsg}</p>
-                </div>
-            `;
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-            return;
-        }
-
-        filtered.forEach(p => {
-            const pArtifacts = this.state.artifacts.filter(a => a.projectId === p.id);
-            const approved = pArtifacts.filter(a => a.status === 'Approved').length;
-            const review = pArtifacts.filter(a => a.status === 'Under Review').length;
+        const isList = this.projectListViewMode === 'list';
+        const element = document.createElement('div');
+        
+        if (isList) {
+            element.className = 'project-list-row';
+            element.setAttribute('style', `
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 16px 20px;
+                background: var(--bg-card);
+                border: 1px solid var(--bg-card-border);
+                border-radius: 12px;
+                cursor: pointer;
+                transition: all 0.2s ease-in-out;
+                gap: 16px;
+                flex-wrap: wrap;
+            `);
             
-            // 실시간 투입인력 수 계산 (isActive !== false인 멤버들의 개수)
-            const activeMembersCount = (this.state.projectMembers || []).filter(
-                m => m.projectId === p.id && m.isActive !== false
-            ).length;
-
-            const isList = this.projectListViewMode === 'list';
-            const element = document.createElement('div');
-            
-            if (isList) {
-                element.className = 'project-list-row';
-                element.setAttribute('style', `
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    padding: 16px 20px;
-                    background: var(--bg-card);
-                    border: 1px solid var(--bg-card-border);
-                    border-radius: 12px;
-                    cursor: pointer;
-                    transition: all 0.2s ease-in-out;
-                    gap: 16px;
-                    flex-wrap: wrap;
-                `);
-                
-                element.addEventListener('mouseenter', () => {
-                    element.style.borderColor = 'var(--primary)';
-                    element.style.background = 'var(--bg-hover-item)';
-                    element.style.transform = 'translateY(-2px)';
-                    element.style.boxShadow = 'var(--shadow-md)';
-                });
-                element.addEventListener('mouseleave', () => {
-                    element.style.borderColor = 'var(--bg-card-border)';
-                    element.style.background = 'var(--bg-card)';
-                    element.style.transform = 'none';
-                    element.style.boxShadow = 'none';
-                });
-
-                element.innerHTML = `
-                    <div style="flex: 2; min-width: 250px; display: flex; flex-direction: column; gap: 6px;">
-                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                            <span class="project-dept-tag" style="margin: 0; padding: 2px 8px; font-size: 10px;">${p.dept}</span>
-                            <span style="font-family: monospace; font-size: 10px; font-weight: 700; color: var(--text-muted); background: var(--bg-hover-item); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--bg-card-border);">${p.projectCode || p.id}</span>
-                            <span class="status-badge status-${(p.status || '').toLowerCase().replace(' ', '')}" style="font-size: 10px; padding: 2px 8px;">${this.translateStatus(p.status || 'In Progress')}</span>
-                            ${p.isOverdue && p.status !== 'Completed' ? `<span class="status-badge status-overdue" style="font-size: 10px; padding: 2px 8px;">기간초과</span>` : ''}
-                        </div>
-                        <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 4px 0 0 0; letter-spacing: -0.3px;">${p.name}</h3>
-                        <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; line-height: 1.4;">${p.desc || '설명이 없습니다.'}</p>
-                    </div>
-                    
-                    <div style="flex: 1.2; min-width: 180px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted);">
-                        <div style="display:flex; justify-content:space-between;">
-                            <span>PM: <strong style="color: var(--text-main);">${p.manager}</strong></span>
-                            <span>인원: <strong style="color: var(--text-main);">${activeMembersCount}명</strong></span>
-                        </div>
-                        <div style="font-size: 11px;">
-                            <i data-lucide="calendar" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 4px; margin-top:-2px;"></i>
-                            <span>${p.startDate} ~ ${p.endDate}</span>
-                        </div>
-                    </div>
-
-                    <div style="flex: 1.2; min-width: 150px; display: flex; flex-direction: column; gap: 4px;">
-                        <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700;">
-                            <span style="color: var(--text-muted);">진척률</span>
-                            <span style="color: var(--primary);">${p.progress}%</span>
-                        </div>
-                        <div class="progress-bar-container" style="height: 6px; margin: 0; background: var(--bg-hover-item);">
-                            <div class="progress-bar-fill" style="width: ${p.progress}%; background: var(--primary);"></div>
-                        </div>
-                    </div>
-
-                    <div style="flex: 1; min-width: 130px; display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
-                        <span class="artifacts-count-badge" style="font-size: 12px; display: flex; align-items: center; gap: 4px; margin: 0;">
-                            <i data-lucide="file-check" style="width: 14px; height: 14px;"></i>
-                            <span><b>${approved}</b> / ${pArtifacts.length}</span>
-                            ${review > 0 ? `<span class="text-warning font-bold" style="font-size: 10px;">(검토 ${review})</span>` : ''}
-                        </span>
-                        <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.openEditProjectModal('${p.id}')" style="height: 28px; padding: 0 10px; display: flex; align-items: center; gap: 4px;">
-                            <i data-lucide="edit-3" style="width: 12px; height: 12px;"></i>
-                            <span>수정</span>
-                        </button>
-                    </div>
-                `;
-            } else {
-                element.className = 'project-card';
-                element.innerHTML = `
-                    <div class="project-card-header">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span class="project-dept-tag">${p.dept}</span>
-                            <span style="font-family: monospace; font-size: 11px; font-weight: 600; color: var(--text-muted); background: var(--bg-hover-item); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--bg-card-border);">${p.projectCode || p.id}</span>
-                        </div>
-                        <div style="display:flex; gap:6px; align-items:center;">
-                            <span class="status-badge status-${(p.status || '').toLowerCase().replace(' ', '')}">${this.translateStatus(p.status || 'In Progress')}</span>
-                            ${p.isOverdue && p.status !== 'Completed' ? `<span class="status-badge status-overdue">기간초과</span>` : ''}
-                        </div>
-                    </div>
-                    <h3 class="project-card-title">${p.name}</h3>
-                    <p class="project-card-desc">${p.desc || '설명이 없습니다.'}</p>
-                    
-                    <div class="project-card-details">
-                        <div class="detail-row">
-                            <span>매니저 (PM)</span>
-                            <span>${p.manager}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span>프로젝트 기간</span>
-                            <span>${p.startDate} ~ ${p.endDate}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span>투입 인력</span>
-                            <span>${activeMembersCount} 명</span>
-                        </div>
-                    </div>
-
-                    <div class="progress-bar-container">
-                        <div class="progress-bar-fill" style="width: ${p.progress}%"></div>
-                    </div>
-
-                    <div class="project-card-footer">
-                        <span class="artifacts-count-badge">
-                            <i data-lucide="file-check"></i>
-                            산출물 <b>${approved}</b> / ${pArtifacts.length}
-                            ${review > 0 ? `<span class="text-warning ml-2 font-bold">(검토 ${review})</span>` : ''}
-                        </span>
-                        <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.openEditProjectModal('${p.id}')">
-                            <i data-lucide="edit-3" style="width:12px; height:12px;"></i> 수정
-                        </button>
-                    </div>
-                `;
-            }
-
-            const badge = element.querySelector('.artifacts-count-badge');
-            if (badge) {
-                badge.style.cursor = 'pointer';
-                badge.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.initialArtifactFilterProjectId = p.id;
-                    window.location.hash = 'artifacts';
-                });
-            }
-
-            element.addEventListener('click', () => {
-                this.state.projectDetailSourceView = this.activeProjectStageFilter === 'Bidding' ? 'projects/bidding' : (this.activeProjectStageFilter === 'Active' ? 'projects/active' : 'projects');
-                window.location.hash = `project-detail/${p.id}`;
+            element.addEventListener('mouseenter', () => {
+                element.style.borderColor = 'var(--primary)';
+                element.style.background = 'var(--bg-hover-item)';
+                element.style.transform = 'translateY(-2px)';
+                element.style.boxShadow = 'var(--shadow-md)';
+            });
+            element.addEventListener('mouseleave', () => {
+                element.style.borderColor = 'var(--bg-card-border)';
+                element.style.background = 'var(--bg-card)';
+                element.style.transform = 'none';
+                element.style.boxShadow = 'none';
             });
 
-            grid.appendChild(element);
+            element.innerHTML = `
+                <div style="flex: 2; min-width: 250px; display: flex; flex-direction: column; gap: 6px;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span class="project-dept-tag" style="margin: 0; padding: 2px 8px; font-size: 10px;">${p.dept || 'PMO사업부'}</span>
+                        <span style="font-family: monospace; font-size: 10px; font-weight: 700; color: var(--text-muted); background: var(--bg-hover-item); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--bg-card-border);">${p.projectCode || p.project_code || p.id}</span>
+                        <span class="status-badge status-${(p.status || '').toLowerCase().replace(' ', '')}" style="font-size: 10px; padding: 2px 8px;">${this.translateStatus(p.status || 'In Progress')}</span>
+                        ${p.isOverdue && p.status !== 'Completed' ? `<span class="status-badge status-overdue" style="font-size: 10px; padding: 2px 8px;">기간초과</span>` : ''}
+                    </div>
+                    <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 4px 0 0 0; letter-spacing: -0.3px;">${p.name || '무제 프로젝트'}</h3>
+                    <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; line-height: 1.4;">${p.desc || p.remarks || '설명이 없습니다.'}</p>
+                </div>
+                
+                <div style="flex: 1.2; min-width: 180px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted);">
+                    <div style="display:flex; justify-content:space-between;">
+                        <span>PM: <strong style="color: var(--text-main);">${p.manager || p.pmName || '미정'}</strong></span>
+                        <span>인원: <strong style="color: var(--text-main);">${activeMembersCount}명</strong></span>
+                    </div>
+                    <div style="font-size: 11px;">
+                        <i data-lucide="calendar" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 4px; margin-top:-2px;"></i>
+                        <span>${p.startDate || '-'} ~ ${p.endDate || '-'}</span>
+                    </div>
+                </div>
+
+                <div style="flex: 1.2; min-width: 150px; display: flex; flex-direction: column; gap: 4px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700;">
+                        <span style="color: var(--text-muted);">진척률</span>
+                        <span style="color: var(--primary);">${p.progress || 0}%</span>
+                    </div>
+                    <div class="progress-bar-container" style="height: 6px; margin: 0; background: var(--bg-hover-item);">
+                        <div class="progress-bar-fill" style="width: ${p.progress || 0}%; background: var(--primary);"></div>
+                    </div>
+                </div>
+
+                <div style="flex: 1; min-width: 130px; display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
+                    <span class="artifacts-count-badge" style="font-size: 12px; display: flex; align-items: center; gap: 4px; margin: 0;">
+                        <i data-lucide="file-check" style="width: 14px; height: 14px;"></i>
+                        <span><b>${approved}</b> / ${pArtifacts.length}</span>
+                        ${review > 0 ? `<span class="text-warning font-bold" style="font-size: 10px;">(검토 ${review})</span>` : ''}
+                    </span>
+                    <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.openEditProjectModal('${p.id}')" style="height: 28px; padding: 0 10px; display: flex; align-items: center; gap: 4px;">
+                        <i data-lucide="edit-3" style="width: 12px; height: 12px;"></i>
+                        <span>수정</span>
+                    </button>
+                </div>
+            `;
+        } else {
+            element.className = 'project-card';
+            element.innerHTML = `
+                <div class="project-card-header">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="project-dept-tag">${p.dept || 'PMO사업부'}</span>
+                        <span style="font-family: monospace; font-size: 11px; font-weight: 600; color: var(--text-muted); background: var(--bg-hover-item); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--bg-card-border);">${p.projectCode || p.project_code || p.id}</span>
+                    </div>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <span class="status-badge status-${(p.status || '').toLowerCase().replace(' ', '')}">${this.translateStatus(p.status || 'In Progress')}</span>
+                        ${p.isOverdue && p.status !== 'Completed' ? `<span class="status-badge status-overdue">기간초과</span>` : ''}
+                    </div>
+                </div>
+                <h3 class="project-card-title">${p.name || '무제 프로젝트'}</h3>
+                <p class="project-card-desc">${p.desc || p.remarks || '설명이 없습니다.'}</p>
+                
+                <div class="project-card-details">
+                    <div class="detail-row">
+                        <span>매니저 (PM)</span>
+                        <span>${p.manager || p.pmName || '미정'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>프로젝트 기간</span>
+                        <span>${p.startDate || '-'} ~ ${p.endDate || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>투입 인력</span>
+                        <span>${activeMembersCount} 명</span>
+                    </div>
+                </div>
+
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" style="width: ${p.progress || 0}%"></div>
+                </div>
+
+                <div class="project-card-footer">
+                    <span class="artifacts-count-badge">
+                        <i data-lucide="file-check"></i>
+                        산출물 <b>${approved}</b> / ${pArtifacts.length}
+                        ${review > 0 ? `<span class="text-warning ml-2 font-bold">(검토 ${review})</span>` : ''}
+                    </span>
+                    <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.openEditProjectModal('${p.id}')">
+                        <i data-lucide="edit-3" style="width:12px; height:12px;"></i> 수정
+                    </button>
+                </div>
+            `;
+        }
+
+        const badge = element.querySelector('.artifacts-count-badge');
+        if (badge) {
+            badge.style.cursor = 'pointer';
+            badge.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.initialArtifactFilterProjectId = p.id;
+                window.location.hash = 'artifacts';
+            });
+        }
+
+        element.addEventListener('click', () => {
+            this.state.projectDetailSourceView = this.activeProjectStageFilter === 'Bidding' ? 'projects/bidding' : (this.activeProjectStageFilter === 'Active' ? 'projects/active' : 'projects');
+            window.location.hash = `project-detail/${p.id}`;
         });
 
-        this.applyRolePermissions();
+        return element;
+    }
 
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
+    renderProjects() {
+        console.log('[renderProjects:start]', {
+            activeProjectStageFilter: this.activeProjectStageFilter,
+            totalProjects: this.state?.projects?.length
+        });
+
+        try {
+            console.log('[renderProjects:submethods:start]');
+            this.updateProjectsOverdueStatus();
+            this.updateProjectStageCounts();
+            console.log('[renderProjects:submethods:end]');
+
+            document.querySelectorAll('.project-stage-tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.getAttribute('data-stage') === this.activeProjectStageFilter) {
+                    tab.classList.add('active');
+                }
+            });
+
+            const biddingContainer = document.getElementById('bidding-split-container');
+            const standardContainer = document.getElementById('standard-projects-container');
+
+            if (this.activeProjectStageFilter === 'Bidding') {
+                if (biddingContainer) biddingContainer.style.display = 'grid';
+                if (standardContainer) standardContainer.style.display = 'none';
+                console.log('[renderProjects:biddingSplitPane:start]');
+                this.renderBiddingSplitPane();
+                console.log('[renderProjects:biddingSplitPane:end]');
+                return;
+            }
+
+            if (biddingContainer) biddingContainer.style.display = 'none';
+            if (standardContainer) standardContainer.style.display = 'block';
+
+            const grid = document.getElementById('projects-grid-list');
+            console.log('[PROJECT CONTAINER DEBUG]', {
+                selector: '#projects-grid-list',
+                exists: !!grid,
+                id: grid?.id,
+                className: grid?.className,
+                beforeChildCount: grid?.children?.length
+            });
+
+            if (!grid) return;
+
+            if (this.projectListViewMode === 'list') {
+                grid.style.display = 'flex';
+                grid.style.flexDirection = 'column';
+                grid.style.gap = '12px';
+            } else {
+                grid.style.display = 'grid';
+                grid.removeAttribute('style');
+            }
+
+            // 1. Read Inputs
+            const fKeyword = this.safeText(document.getElementById('project-search-input')?.value || '').trim().toLowerCase();
+            const advLoc = document.getElementById('adv-search-location')?.value || 'all';
+            const advStartDate = document.getElementById('adv-search-start-date')?.value || '';
+            const advEndDate = document.getElementById('adv-search-end-date')?.value || '';
+            const advPm = this.safeText(document.getElementById('adv-search-pm')?.value || '').trim().toLowerCase();
+            const advCustomer = this.safeText(document.getElementById('adv-search-customer')?.value || '').trim().toLowerCase();
+            const advName = this.safeText(document.getElementById('adv-search-name')?.value || '').trim().toLowerCase();
+            const advCode = this.safeText(document.getElementById('adv-search-code')?.value || '').trim().toLowerCase();
+
+            const stage = this.activeProjectStageFilter || 'Active';
+            const accessibleProjects = this.getAccessibleProjects();
+
+            console.log('[PROJECT FILTER DEBUG]', {
+                total: (this.state.projects || []).length,
+                accessible: accessibleProjects.length,
+                activeFilter: this.activeProjectStageFilter,
+                statusValues: [...new Set(accessibleProjects.map(project => project.status))]
+            });
+
+            // 2. Filter Accessible Projects
+            const filtered = accessibleProjects.filter(p => {
+                const pStatusClean = (p.status || '').trim();
+
+                let matchStage = false;
+                if (stage === 'Bidding') {
+                    matchStage = pStatusClean === 'Bidding' || p.is_bidding_project || p.isBiddingProject;
+                } else if (stage === 'Active') {
+                    matchStage = ['In Progress', 'On Hold', 'Delay', '수행중', '보류', '지연', 'Active'].includes(pStatusClean);
+                } else if (stage === 'Completed') {
+                    matchStage = ['Completed', '종료', '완료'].includes(pStatusClean);
+                }
+                if (!matchStage) return false;
+
+                if (fKeyword) {
+                    const nameMatch = this.safeText(p.name).toLowerCase().includes(fKeyword);
+                    const codeMatch = this.safeText(p.projectCode || p.id).toLowerCase().includes(fKeyword);
+                    const customerMatch = this.safeText(p.customer || p.customerName).toLowerCase().includes(fKeyword);
+                    const managerMatch = this.safeText(p.manager || p.pmName || p.proposalPm).toLowerCase().includes(fKeyword);
+                    const descMatch = (this.safeText(p.desc) + ' ' + this.safeText(p.remarks)).toLowerCase().includes(fKeyword);
+
+                    if (!nameMatch && !codeMatch && !customerMatch && !managerMatch && !descMatch) {
+                        return false;
+                    }
+                }
+
+                if (advLoc !== 'all') {
+                    const pLoc = p.location || '정부서울청사';
+                    const normLoc = pLoc.includes('서울') ? '서울' :
+                                    pLoc.includes('대전') ? '대전' :
+                                    pLoc.includes('대구') ? '대구' :
+                                    pLoc.includes('광주') ? '광주' : '기타';
+                    if (normLoc !== advLoc) return false;
+                }
+
+                if (advStartDate && p.endDate && p.endDate < advStartDate) return false;
+                if (advEndDate && p.startDate && p.startDate > advEndDate) return false;
+                if (advPm && !this.safeText(p.manager || p.pmName).toLowerCase().includes(advPm)) return false;
+                if (advCustomer && !this.safeText(p.customer || p.customerName).toLowerCase().includes(advCustomer)) return false;
+                if (advName && !this.safeText(p.name).toLowerCase().includes(advName)) return false;
+                if (advCode && !this.safeText(p.projectCode || p.id).toLowerCase().includes(advCode)) return false;
+
+                return true;
+            });
+
+            console.log('[PROJECT STAGE RESULT]', {
+                requestedStage: this.activeProjectStageFilter,
+                filteredCount: filtered.length,
+                filteredProjects: filtered.map(project => ({
+                    id: project.id,
+                    code: project.projectCode || project.project_code || project.id,
+                    status: project.status,
+                    stage: project.stage
+                }))
+            });
+
+            // 3. Sort Projects
+            const sortOption = document.getElementById('project-sort-select')?.value || 'updatedAt';
+            filtered.sort((a, b) => {
+                if (sortOption === 'name') {
+                    return (a.name || '').localeCompare(b.name || '', 'ko');
+                } else if (sortOption === 'startDate') {
+                    return (b.startDate || '').localeCompare(a.startDate || '');
+                } else if (sortOption === 'endDate') {
+                    return (a.endDate || '').localeCompare(b.endDate || '');
+                } else if (sortOption === 'manager') {
+                    return (a.manager || '').localeCompare(b.manager || '', 'ko');
+                } else {
+                    const timeA = new Date(a.updatedAt || a.updated_at || a.createdAt || a.created_at || a.startDate || 0).getTime();
+                    const timeB = new Date(b.updatedAt || b.updated_at || b.createdAt || b.created_at || b.startDate || 0).getTime();
+                    return timeB - timeA;
+                }
+            });
+
+            // 4. Update Search Results Count Badge
+            const countBadgeEl = document.getElementById('search-result-count');
+            if (countBadgeEl) {
+                countBadgeEl.innerHTML = `검색 결과 <b>${filtered.length}</b>건`;
+            }
+
+            grid.innerHTML = '';
+
+            if (filtered.length === 0) {
+                let emptyIcon = 'folder-open';
+                let emptyMsg = '조회 조건에 부합하는 프로젝트가 존재하지 않습니다.';
+                if (this.activeProjectStageFilter === 'Bidding') {
+                    emptyMsg = '등록된 입찰 단계 제안 사업이 없습니다.';
+                    emptyIcon = 'landmark';
+                } else if (this.activeProjectStageFilter === 'Completed') {
+                    emptyMsg = '종료 및 검수가 완료된 프로젝트가 존재하지 않습니다.';
+                    emptyIcon = 'archive';
+                } else if (!this.isAdminRole(this.currentUser?.role)) {
+                    emptyMsg = '현재 로그인 계정에 할당된 수행단계 프로젝트가 없습니다.';
+                }
+
+                grid.innerHTML = `
+                    <div class="span-2 text-center text-muted py-5" style="grid-column: 1 / -1; padding: 48px 0;">
+                        <i data-lucide="${emptyIcon}" style="width:48px; height:48px; margin-bottom:12px; opacity:0.5; display:inline-block;"></i>
+                        <p>${emptyMsg}</p>
+                    </div>
+                `;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                return;
+            }
+
+            // 5. Render Project Cards
+            filtered.forEach(p => {
+                const card = this.createProjectCardElement(p);
+                grid.appendChild(card);
+            });
+
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+
+            console.log('[PROJECT CONTAINER AFTER]', {
+                htmlLength: grid?.innerHTML?.length,
+                childCount: grid?.children?.length,
+                textPreview: grid?.innerText?.slice(0, 200)
+            });
+
+        } catch (error) {
+            console.error('[renderProjects:error]', {
+                message: error?.message,
+                stack: error?.stack,
+                error
+            });
+            throw error;
+        } finally {
+            console.log('[renderProjects:end]', {
+                projectViewActive: document.getElementById('view-projects')?.classList.contains('active'),
+                projectViewDisplay: getComputedStyle(document.getElementById('view-projects')).display
+            });
+
+            [
+                '#view-dashboard',
+                '#view-projects',
+                '#view-projects-g2b',
+                '#view-tailoring',
+                '#view-artifacts',
+                '#view-resources',
+                '#view-backup'
+            ].forEach(selector => {
+                const el = document.querySelector(selector);
+                const rect = el?.getBoundingClientRect();
+
+                console.log('[DOM PARENT HIERARCHY CHECK]', selector, {
+                    parentTag: el?.parentElement?.tagName,
+                    parentId: el?.parentElement?.id,
+                    parentClass: el?.parentElement?.className,
+                    grandParentTag: el?.parentElement?.parentElement?.tagName,
+                    grandParentId: el?.parentElement?.parentElement?.id,
+                    grandParentClass: el?.parentElement?.parentElement?.className,
+                    left: rect?.left,
+                    top: rect?.top,
+                    width: rect?.width,
+                    height: rect?.height
+                });
+            });
         }
     }
+
+
 
     async registerBiddingProjectFromG2B(announcementNo) {
         const ann = this.g2bAnnouncementsMap[announcementNo] || 
@@ -7023,6 +7582,7 @@ class AetherPMO {
             ...updateData
         };
 
+        this.syncBiddingTasksByBidStatus(targetId, updateData.bidding_status || nextStatus);
         await this.saveState('project_upsert', updatedProject);
         return updatedProject;
     }
@@ -8341,6 +8901,84 @@ class AetherPMO {
         }
     }
 
+    
+    /* ==========================================================================
+       STANDARD TEMPLATES SINGLE SOURCE FILTERING & SEED MERGE MODULE
+       ========================================================================== */
+
+    getFilteredTemplates(businessType, lifecycleStage) {
+        const normType = String(businessType || 'OPERATION').toUpperCase();
+        const normStage = String(lifecycleStage || 'INITIATION').toUpperCase();
+
+        const typeKeyMap = {
+            'OPERATION': ['operation', 'OPERATION'],
+            'CONSTRUCTION': ['construction', 'CONSTRUCTION'],
+            'SW_SEPARATE': ['sw-separate', 'SW_SEPARATE']
+        };
+
+        const stageKeyMap = {
+            'INITIATION': ['initiation', 'INITIATION'],
+            'EXECUTION': ['execution', 'EXECUTION'],
+            'CLOSING': ['closing', 'CLOSING']
+        };
+
+        const validTypes = typeKeyMap[normType] || [String(businessType).toLowerCase()];
+        const validStages = stageKeyMap[normStage] || [String(lifecycleStage).toLowerCase()];
+
+        return (this.state.globalTemplates || []).filter(template => {
+            const tType = String(template.businessType || template.projectType || 'operation');
+            const tStage = String(template.lifecycleStage || template.stage || 'initiation');
+
+            const typeMatch = validTypes.includes(tType) || (validTypes.includes('operation') && (!template.projectType && !template.businessType));
+            const stageMatch = validStages.includes(tStage);
+
+            return typeMatch && stageMatch;
+        });
+    }
+
+    mergeStandardTemplateSeeds() {
+        const seeds = this.getDefaultGlobalTemplates();
+
+        if (!Array.isArray(this.state.globalTemplates)) {
+            this.state.globalTemplates = [];
+        }
+
+        const existingKeys = new Set(
+            this.state.globalTemplates.map(t =>
+                `${(t.businessType || t.projectType || 'OPERATION').toUpperCase()}:${(t.lifecycleStage || t.stage || 'INITIATION').toUpperCase()}:${t.templateKey || t.name}`
+            )
+        );
+
+        let addedCount = 0;
+        seeds.forEach(seed => {
+            const key = `${(seed.businessType || seed.projectType || 'OPERATION').toUpperCase()}:${(seed.lifecycleStage || seed.stage || 'INITIATION').toUpperCase()}:${seed.templateKey || seed.name}`;
+
+            if (!existingKeys.has(key)) {
+                this.state.globalTemplates.push(seed);
+                existingKeys.add(key);
+                addedCount++;
+            }
+        });
+
+        console.log(`[mergeStandardTemplateSeeds] Merged ${addedCount} new template seeds. Total: ${this.state.globalTemplates.length}`);
+        
+        console.table({
+            total: (this.state.globalTemplates || []).length,
+            operationInitiation: this.getFilteredTemplates('OPERATION', 'INITIATION').length,
+            operationExecution: this.getFilteredTemplates('OPERATION', 'EXECUTION').length,
+            operationClosing: this.getFilteredTemplates('OPERATION', 'CLOSING').length,
+            constructionInitiation: this.getFilteredTemplates('CONSTRUCTION', 'INITIATION').length,
+            constructionExecution: this.getFilteredTemplates('CONSTRUCTION', 'EXECUTION').length,
+            constructionClosing: this.getFilteredTemplates('CONSTRUCTION', 'CLOSING').length
+        });
+
+        try {
+            localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+            localStorage.setItem('templateSeedVersion', '2');
+        } catch(e) {}
+    }
+
+
     renderArtifacts() {
         const type  = this.activeGlobalTemplateType  || 'operation';
         const stage = this.activeGlobalTemplateStage || 'initiation';
@@ -8378,13 +9016,16 @@ class AetherPMO {
                     { key: 'initiation', label: '착수단계 템플릿', icon: 'file-text' },
                     { key: 'execution', label: '수행단계 템플릿', icon: 'play-circle' },
                     { key: 'closing', label: '종료단계 템플릿', icon: 'check-circle2' }
-                ];
+                ].map(s => {
+                    const count = this.getFilteredTemplates(pt.key, s.key).length;
+                    return { ...s, displayCount: count };
+                });
                 
                 stagesDef.forEach(s => {
                     const stageItem = document.createElement('div');
                     const isActive = (pt.key === type && s.key === stage);
                     stageItem.className = `tree-node-stage-item${isActive ? ' active' : ''}`;
-                    stageItem.innerHTML = `<i data-lucide="${s.icon}" style="width:13px; height:13px;"></i> ${s.label}`;
+                    stageItem.innerHTML = `<i data-lucide="${s.icon}" style="width:13px; height:13px;"></i> ${s.label} (${s.displayCount})`;
                     stageItem.onclick = () => {
                         window.location.hash = `#artifacts/${pt.key}/${s.key}`;
                     };
@@ -8420,9 +9061,7 @@ class AetherPMO {
         const tbody = document.getElementById('global-templates-tbody');
         if (!tbody) return;
 
-        const templates = (this.state.globalTemplates || []).filter(t =>
-            t.stage === stage && (t.projectType === type || (!t.projectType && type === 'operation'))
-        );
+        const templates = this.getFilteredTemplates(type, stage);
 
         if (templates.length === 0) {
             const typeLabel = typeInfo ? typeInfo.label : type;
@@ -8596,7 +9235,7 @@ class AetherPMO {
             const project = this.state.projects.find(p => p.id === this.activeProjectId);
             if (project) this.renderProjectDetailOverview(project);
         } else if (tabId === 'artifacts') {
-            const projectArtifacts = this.state.artifacts.filter(art => art.projectId === this.activeProjectId);
+            const projectArtifacts = this.getProjectSelectedArtifacts(this.activeProjectId);
             this.renderProjectDetailArtifactsTable(projectArtifacts);
         } else if (tabId === 'meeting-minutes') {
             const projectMinutes = this.state.meetingMinutes.filter(m => m.projectId === this.activeProjectId);
@@ -8619,6 +9258,34 @@ class AetherPMO {
             this.renderConsortiumTab();
         } else if (tabId === 'vrb') {
             this.renderVrbTab();
+        } else if (tabId === 'bid-readiness') {
+            if (typeof this.renderBidReadinessTab === 'function') {
+                this.renderBidReadinessTab(this.activeProjectId);
+            } else {
+                console.error('[Bid Readiness] renderBidReadinessTab is not defined');
+                const container = document.getElementById('detail-tab-content-bid-readiness');
+                if (container) {
+                    container.innerHTML = '<div class="empty-state error-state">입찰 준비현황을 불러오는 중 오류가 발생했습니다.</div>';
+                }
+            }
+        } else if (tabId === 'bidding-tasks') {
+            if (typeof this.renderBiddingTasksTab === 'function') {
+                this.renderBiddingTasksTab(this.activeProjectId);
+            } else {
+                this.renderMissingBiddingTabError('detail-tab-content-bidding-tasks', '제안 Task');
+            }
+        } else if (tabId === 'bidding-wbs') {
+            if (typeof this.renderBiddingWbsTab === 'function') {
+                this.renderBiddingWbsTab(this.activeProjectId);
+            } else {
+                this.renderMissingBiddingTabError('detail-tab-content-bidding-wbs', 'WBS');
+            }
+        } else if (tabId === 'bidding-gantt') {
+            if (typeof this.renderBiddingGanttTab === 'function') {
+                this.renderBiddingGanttTab(this.activeProjectId);
+            } else {
+                this.renderMissingBiddingTabError('detail-tab-content-bidding-gantt', '간트');
+            }
         } else if (tabId === 'methodology') {
             this.renderProjectDetailMethodology(this.activeProjectId);
         }
@@ -8633,6 +9300,774 @@ class AetherPMO {
     /* ==========================================================================
        OPMS METHODOLOGY MODULE & CONTROLLER
        ========================================================================== */
+    
+    /* ==========================================================================
+       AETHER PMO BID READINESS CENTER (입찰 준비센터) CLASS METHODS
+       ========================================================================== */
+
+    
+    /* ==========================================================================
+       AETHER PMO BIDDING SCHEDULE (제안 Task, WBS, 간트) SINGLE SOURCE MODULE
+       ========================================================================== */
+
+    
+    /* ==========================================================================
+       BIDDING TASKS STATUS AUTO-SYNC ON PROPOSAL SUBMISSION MODULE
+       ========================================================================== */
+
+    recalculateBiddingWbsProgress(tasks) {
+        if (!Array.isArray(tasks)) return;
+        const parentTasks = tasks.filter(t => t.type === 'GROUP' || t.isParent);
+        parentTasks.forEach(parent => {
+            const children = tasks.filter(child => String(child.parentId) === String(parent.id));
+            if (!children.length) return;
+
+            const totalProg = children.reduce((sum, child) => sum + Number(child.progress || 0), 0);
+            parent.progress = Math.round(totalProg / children.length);
+            parent.status = parent.progress === 100 ? 'COMPLETED' : 'IN_PROGRESS';
+        });
+    }
+
+    syncBiddingTasksByBidStatus(projectId, bidStatus) {
+        const projectKey = String(projectId);
+        const normStatus = this.normalizeBiddingStatus(bidStatus);
+
+        console.log('[syncBiddingTasksByBidStatus]', { projectId: projectKey, rawStatus: bidStatus, normStatus: normStatus });
+
+        if (normStatus === 'proposal_submitted' || normStatus === 'won') {
+            const tasks = this.getBiddingTasks(projectKey);
+
+            if (Array.isArray(tasks)) {
+                tasks.forEach(task => {
+                    if (task.status === 'NOT_APPLICABLE' || task.progressState === 'NOT_APPLICABLE') {
+                        return; // Exclude N/A tasks
+                    }
+                    task.status = 'COMPLETED';
+                    task.progress = 100;
+                    task.completedAt = task.completedAt || new Date().toISOString();
+                });
+
+                this.recalculateBiddingWbsProgress(tasks);
+
+                // Persist state to LocalStorage
+                try {
+                    localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+                } catch(e) {}
+
+                // Refresh active schedule view
+                this.refreshBiddingScheduleViews(projectKey);
+            }
+        }
+    }
+
+    refreshBiddingScheduleViews(projectId) {
+        const activeTab = this.activeDetailTab;
+        if (activeTab === 'bidding-tasks' && typeof this.renderBiddingTasksTab === 'function') {
+            this.renderBiddingTasksTab(projectId);
+        } else if (activeTab === 'bidding-wbs' && typeof this.renderBiddingWbsTab === 'function') {
+            this.renderBiddingWbsTab(projectId);
+        } else if (activeTab === 'bidding-gantt' && typeof this.renderBiddingGanttTab === 'function') {
+            this.renderBiddingGanttTab(projectId);
+        }
+    }
+
+
+    renderMissingBiddingTabError(containerId, tabName) {
+        console.error(`[Bidding] ${tabName} renderer is not defined`);
+        const container = document.getElementById(containerId);
+        if (container) {
+            container.innerHTML = `
+                <div class="empty-state error-state" style="padding:40px; text-align:center; color:var(--danger); background:var(--bg-hover-item); border-radius:8px;">
+                    <i data-lucide="alert-circle" style="width:24px; height:24px; margin-bottom:8px;"></i>
+                    <div style="font-weight:700; font-size:14px;">${tabName} 화면을 불러오는 중 오류가 발생했습니다.</div>
+                </div>
+            `;
+        }
+    }
+
+    initializeBiddingTasks(projectId) {
+        const projectKey = String(projectId);
+        const project = this.state.projects?.find(p => String(p.id) === projectKey);
+        const pStart = project?.startDate || '2026-06-01';
+        const pEnd = project?.endDate || '2026-06-30';
+
+        return [
+            { id: 'btask-1', stage: '착수/전략', title: 'RFP 분석 및 제안전략 수립', assignee: '안유경 PM', startDate: pStart, dueDate: '2026-06-05', progress: 100, status: 'COMPLETED', priority: '높음', weight: 20 },
+            { id: 'btask-2', stage: '제안서작성', title: '정성제안서 목차 및 1차 초안 작성', assignee: '김철수 PL', startDate: '2026-06-06', dueDate: '2026-06-15', progress: 100, status: 'COMPLETED', priority: '높음', weight: 25 },
+            { id: 'btask-3', stage: '행정서류', title: '정량/행정서류 및 증빙 발급 점검', assignee: '이영희 PMO', startDate: '2026-06-10', dueDate: '2026-06-20', progress: 80, status: 'IN_PROGRESS', priority: '보통', weight: 20 },
+            { id: 'btask-4', stage: '가격입찰', title: '가격입찰서 작성 및 산출내역 검토', assignee: '영업담당', startDate: '2026-06-16', dueDate: '2026-06-22', progress: 50, status: 'IN_PROGRESS', priority: '높음', weight: 15 },
+            { id: 'btask-5', stage: 'PT발표', title: '발표자료(PPT) 작성 및 리허설', assignee: '안유경 PM', startDate: '2026-06-18', dueDate: '2026-06-25', progress: 20, status: 'UNDER_REVIEW', priority: '높음', weight: 10 },
+            { id: 'btask-6', stage: '최종제출', title: '최종 제안서 법인날인 및 입찰 제출', assignee: '이영희 PMO', startDate: '2026-06-26', dueDate: pEnd, progress: 0, status: 'NOT_STARTED', priority: '긴급', weight: 10 }
+        ];
+    }
+
+    getBiddingTasks(projectId) {
+        const projectKey = String(projectId);
+        if (!this.state.biddingTasksMap) {
+            this.state.biddingTasksMap = {};
+        }
+        if (!Array.isArray(this.state.biddingTasksMap[projectKey])) {
+            this.state.biddingTasksMap[projectKey] = this.initializeBiddingTasks(projectId);
+        }
+        return this.state.biddingTasksMap[projectKey];
+    }
+
+    updateBiddingTaskStatus(projectId, taskId, newStatus, newProgress) {
+        const tasks = this.getBiddingTasks(projectId);
+        const task = tasks.find(t => t.id === taskId);
+        if (task) {
+            if (newStatus !== undefined) task.status = newStatus;
+            if (newProgress !== undefined) task.progress = Number(newProgress);
+            
+            try {
+                localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+            } catch(e) {}
+
+            // Re-render active tab if it's one of schedule tabs
+            if (this.activeDetailTab === 'bidding-tasks') this.renderBiddingTasksTab(projectId);
+            if (this.activeDetailTab === 'bidding-wbs') this.renderBiddingWbsTab(projectId);
+            if (this.activeDetailTab === 'bidding-gantt') this.renderBiddingGanttTab(projectId);
+        }
+    }
+
+    renderBiddingTasksTab(projectId) {
+        const container = document.getElementById('detail-tab-content-bidding-tasks');
+        if (!container) {
+            console.warn('[Bidding Tasks] container not found: detail-tab-content-bidding-tasks');
+            return;
+        }
+
+        const project = this.state.projects?.find(p => String(p.id) === String(projectId));
+        if (!project) {
+            container.innerHTML = '<div class="empty-state">입찰 프로젝트 정보를 찾을 수 없습니다.</div>';
+            return;
+        }
+
+        const tasks = this.getBiddingTasks(projectId);
+
+        container.innerHTML = `
+            <div class="dashboard-card" style="margin-bottom:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--bg-card-border); padding-bottom:12px; margin-bottom:16px;">
+                    <div>
+                        <h3 style="margin:0; font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
+                            <i data-lucide="check-square" style="width:18px; height:18px; color:var(--primary);"></i>
+                            제안 Task 수행 현황 (${tasks.length}건)
+                        </h3>
+                        <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">제안 준비 단계별 상세 수행 과제 및 담당자 관리</div>
+                    </div>
+                    <button class="btn btn-sm btn-primary" onclick="app.openNewTaskModal('${projectId}')">
+                        <i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 신규 Task 등록
+                    </button>
+                </div>
+
+                <div style="overflow-x:auto;">
+                    <table class="table" style="width:100%; font-size:12px;">
+                        <thead>
+                            <tr style="background:var(--bg-hover-item);">
+                                <th style="padding:10px; text-align:left;">단계</th>
+                                <th style="padding:10px; text-align:left;">Task명</th>
+                                <th style="padding:10px; text-align:center;">담당자</th>
+                                <th style="padding:10px; text-align:center;">시작일 ~ 마감일</th>
+                                <th style="padding:10px; text-align:center; width:120px;">진척률</th>
+                                <th style="padding:10px; text-align:center; width:110px;">상태</th>
+                                <th style="padding:10px; text-align:center; width:90px;">우선순위</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tasks.map(t => {
+                                const isDone = t.status === 'COMPLETED';
+                                const badgeClass = isDone ? 'badge-success' : t.status === 'IN_PROGRESS' || t.status === 'UNDER_REVIEW' ? 'badge-warning' : 'badge-secondary';
+                                const statusLabel = isDone ? '🟢 완료' : t.status === 'IN_PROGRESS' ? '🟡 진행중' : t.status === 'UNDER_REVIEW' ? '🟡 검토중' : '🔴 대기';
+
+                                return `
+                                    <tr>
+                                        <td style="padding:8px 10px;"><span class="badge" style="background:var(--primary-light); color:var(--primary); font-weight:700;">${t.stage}</span></td>
+                                        <td style="padding:8px 10px; font-weight:700; color:var(--text-main);">${t.title}</td>
+                                        <td style="padding:8px 10px; text-align:center; color:var(--text-muted);">${t.assignee}</td>
+                                        <td style="padding:8px 10px; text-align:center; font-family:monospace; font-size:11px;">${t.startDate} ~ ${t.dueDate}</td>
+                                        <td style="padding:8px 10px; text-align:center;">
+                                            <div style="display:flex; align-items:center; gap:6px;">
+                                                <input type="range" min="0" max="100" value="${t.progress}" onchange="app.updateBiddingTaskStatus('${projectId}', '${t.id}', this.value == 100 ? 'COMPLETED' : 'IN_PROGRESS', this.value)" style="width:70px; accent-color:var(--primary);">
+                                                <span style="font-weight:800; color:var(--primary); font-size:11px; width:30px;">${t.progress}%</span>
+                                            </div>
+                                        </td>
+                                        <td style="padding:8px 10px; text-align:center;">
+                                            <select onchange="app.updateBiddingTaskStatus('${projectId}', '${t.id}', this.value, this.value === 'COMPLETED' ? 100 : t.progress)" style="height:24px; font-size:11px; border:1px solid var(--bg-card-border); border-radius:4px; background:var(--bg-input);">
+                                                <option value="NOT_STARTED" ${t.status === 'NOT_STARTED' ? 'selected' : ''}>🔴 대기</option>
+                                                <option value="IN_PROGRESS" ${t.status === 'IN_PROGRESS' ? 'selected' : ''}>🟡 진행중</option>
+                                                <option value="UNDER_REVIEW" ${t.status === 'UNDER_REVIEW' ? 'selected' : ''}>🟡 검토중</option>
+                                                <option value="COMPLETED" ${t.status === 'COMPLETED' ? 'selected' : ''}>🟢 완료</option>
+                                            </select>
+                                        </td>
+                                        <td style="padding:8px 10px; text-align:center;">
+                                            <span class="badge ${t.priority === '긴급' ? 'badge-danger' : 'badge-warning'}" style="font-size:10px;">${t.priority}</span>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    renderBiddingWbsTab(projectId) {
+        const container = document.getElementById('detail-tab-content-bidding-wbs');
+        if (!container) {
+            console.warn('[Bidding WBS] container not found: detail-tab-content-bidding-wbs');
+            return;
+        }
+
+        const project = this.state.projects?.find(p => String(p.id) === String(projectId));
+        if (!project) {
+            container.innerHTML = '<div class="empty-state">입찰 프로젝트 정보를 찾을 수 없습니다.</div>';
+            return;
+        }
+
+        const tasks = this.getBiddingTasks(projectId);
+
+        // Group tasks by stage
+        const stageMap = {};
+        tasks.forEach(t => {
+            if (!stageMap[t.stage]) stageMap[t.stage] = [];
+            stageMap[t.stage].push(t);
+        });
+
+        container.innerHTML = `
+            <div class="dashboard-card" style="margin-bottom:20px;">
+                <div style="border-bottom:1px solid var(--bg-card-border); padding-bottom:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h3 style="margin:0; font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
+                            <i data-lucide="git-branch" style="width:18px; height:18px; color:var(--primary);"></i>
+                            제안 WBS 계층 구조 및 가중치 진척 현황
+                        </h3>
+                        <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">단일 제안 Task 원천 기반 WBS 단계별 가중치 통합 현황</div>
+                    </div>
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:16px;">
+                    ${Object.keys(stageMap).map(stageName => {
+                        const sTasks = stageMap[stageName];
+                        const totalProgress = Math.round(sTasks.reduce((acc, curr) => acc + curr.progress, 0) / sTasks.length);
+                        const totalWeight = sTasks.reduce((acc, curr) => acc + (curr.weight || 15), 0);
+
+                        return `
+                            <div style="background:var(--bg-hover-item); border:1px solid var(--bg-card-border); border-radius:8px; padding:14px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                    <div style="display:flex; align-items:center; gap:10px;">
+                                        <span class="badge" style="background:var(--primary); color:#fff; font-weight:800; padding:4px 8px;">${stageName}</span>
+                                        <span style="font-size:14px; font-weight:800; color:var(--text-main);">${stageName} 세부과제 (${sTasks.length}건)</span>
+                                    </div>
+                                    <div style="font-size:12px; font-weight:700; color:var(--primary);">
+                                        단계가중치 ${totalWeight}% | 평균 진척률 <span style="font-size:14px; font-weight:900;">${totalProgress}%</span>
+                                    </div>
+                                </div>
+
+                                <div style="width:100%; height:8px; background:var(--bg-card); border-radius:4px; overflow:hidden; margin-bottom:12px;">
+                                    <div style="width:${totalProgress}%; height:100%; background: linear-gradient(90deg, #3b82f6, #10b981); border-radius:4px;"></div>
+                                </div>
+
+                                <div style="display:flex; flex-direction:column; gap:8px; padding-left:12px; border-left:2px solid var(--primary-light);">
+                                    ${sTasks.map(t => `
+                                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; background:var(--bg-card); padding:8px 12px; border-radius:6px; border:1px solid var(--bg-card-border);">
+                                            <span style="font-weight:700; color:var(--text-main);">${t.title}</span>
+                                            <div style="display:flex; align-items:center; gap:12px;">
+                                                <span style="color:var(--text-muted); font-size:11px;">담당: ${t.assignee}</span>
+                                                <span style="font-family:monospace; font-size:11px; color:var(--text-muted);">${t.startDate} ~ ${t.dueDate}</span>
+                                                <span class="badge ${t.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}" style="font-size:10px;">${t.progress}% 완료</span>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    renderBiddingGanttTab(projectId) {
+        const container = document.getElementById('detail-tab-content-bidding-gantt');
+        if (!container) {
+            console.warn('[Bidding Gantt] container not found: detail-tab-content-bidding-gantt');
+            return;
+        }
+
+        const project = this.state.projects?.find(p => String(p.id) === String(projectId));
+        if (!project) {
+            container.innerHTML = '<div class="empty-state">입찰 프로젝트 정보를 찾을 수 없습니다.</div>';
+            return;
+        }
+
+        const tasks = this.getBiddingTasks(projectId);
+
+        container.innerHTML = `
+            <div class="dashboard-card" style="margin-bottom:20px;">
+                <div style="border-bottom:1px solid var(--bg-card-border); padding-bottom:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h3 style="margin:0; font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
+                            <i data-lucide="bar-chart-3" style="width:18px; height:18px; color:var(--primary);"></i>
+                            제안 타임라인 간트 차트 (Gantt Schedule)
+                        </h3>
+                        <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">동일 제안 Task 원천 기반 타임라인 일정 시각화</div>
+                    </div>
+                    <span style="font-size:12px; font-weight:700; color:var(--primary); background:var(--primary-light); padding:4px 10px; border-radius:6px;">
+                        제안 마감일: ${project.endDate || '2026-06-30'}
+                    </span>
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                    ${tasks.map(t => {
+                        const barColor = t.status === 'COMPLETED' ? '#10b981' : t.status === 'IN_PROGRESS' || t.status === 'UNDER_REVIEW' ? '#f59e0b' : '#94a3b8';
+
+                        return `
+                            <div style="background:var(--bg-hover-item); border:1px solid var(--bg-card-border); border-radius:8px; padding:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:12px;">
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <span class="badge" style="background:var(--bg-card); color:var(--text-main); font-size:10px;">${t.stage}</span>
+                                        <span style="font-weight:800; color:var(--text-main);">${t.title}</span>
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:10px; font-size:11px; color:var(--text-muted);">
+                                        <span>담당: ${t.assignee}</span>
+                                        <span style="font-family:monospace;">${t.startDate} ~ ${t.dueDate}</span>
+                                        <span style="font-weight:800; color:${barColor}">${t.progress}%</span>
+                                    </div>
+                                </div>
+                                <div style="width:100%; height:10px; background:var(--bg-card); border-radius:5px; overflow:hidden;">
+                                    <div style="width:${Math.max(t.progress, 5)}%; height:100%; background:${barColor}; border-radius:5px; transition: width 0.3s ease;"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+
+    getBidReadinessMasterItems() {
+        return [
+            // ① 회사 공통 증빙 (16개)
+            { key: 'BUSINESS_REGISTRATION', category: 'company', name: '사업자등록증', req: true, expiryDays: 365 },
+            { key: 'CORPORATE_REGISTRY', category: 'company', name: '법인등기부등본', req: true, expiryDays: 90 },
+            { key: 'CORPORATE_SEAL_CERTIFICATE', category: 'company', name: '법인인감증명서', req: true, expiryDays: 90 },
+            { key: 'PERSONAL_SEAL_DEED', category: 'company', name: '사용인감계', req: true, expiryDays: 180 },
+            { key: 'BID_REGISTRATION_CERT', category: 'company', name: '경쟁입찰참가자격등록증', req: true, expiryDays: 365 },
+            { key: 'SOFTWARE_BIZ_CERT', category: 'company', name: '소프트웨어사업자 일반현황 관리확인서', req: true, expiryDays: 365 },
+            { key: 'SMB_CERTIFICATE', category: 'company', name: '중소기업확인서', req: true, expiryDays: 365 },
+            { key: 'DIRECT_PRODUCTION_CERT', category: 'company', name: '직접생산확인증명서', req: false, expiryDays: 365 },
+            { key: 'FINANCIAL_STATEMENT', category: 'company', name: '표준재무제표증명', req: true, expiryDays: 365 },
+            { key: 'CREDIT_RATING_CERT', category: 'company', name: '기업신용평가등급확인서', req: true, expiryDays: 15 },
+            { key: 'NATIONAL_TAX_CERT', category: 'company', name: '국세납세증명서', req: true, expiryDays: 30 },
+            { key: 'LOCAL_TAX_CERT', category: 'company', name: '지방세납세증명서', req: true, expiryDays: 30 },
+            { key: 'PERFORMANCE_CERT', category: 'company', name: '실적증명서', req: true, expiryDays: 365 },
+            { key: 'BID_PLEDGE', category: 'company', name: '입찰참여서약서', req: true, expiryDays: 365 },
+            { key: 'CONSORTIUM_AGREEMENT', category: 'company', name: '공동수급협정서', req: false, expiryDays: 365 },
+            { key: 'PARTICIPATION_PLEDGE', category: 'company', name: '참여확약서', req: true, expiryDays: 365 },
+
+            // ② 투입인력 증빙 (5개)
+            { key: 'EMPLOYMENT_CERTIFICATE', category: 'personnel', name: '재직증명서', req: true, expiryDays: 30 },
+            { key: 'CAREER_CERTIFICATE', category: 'personnel', name: '경력증명서', req: true, expiryDays: 365 },
+            { key: 'LICENSE_COPY', category: 'personnel', name: '자격증 사본', req: true, expiryDays: 365 },
+            { key: 'HEALTH_INSURANCE_CERT', category: 'personnel', name: '건강보험자격득실확인서', req: true, expiryDays: 30 },
+            { key: 'FOUR_INSURANCES_LIST', category: 'personnel', name: '4대보험 가입자명부', req: true, expiryDays: 30 },
+
+            // ③ 제안서류 (4개)
+            { key: 'QUALITATIVE_PROPOSAL', category: 'proposal', name: '정성제안서', req: true, expiryDays: 365 },
+            { key: 'QUANTITATIVE_PROPOSAL', category: 'proposal', name: '정량제안서', req: true, expiryDays: 365 },
+            { key: 'PRICE_BID', category: 'proposal', name: '가격입찰서', req: true, expiryDays: 365 },
+            { key: 'PRESENTATION_SLIDES', category: 'proposal', name: '발표자료', req: true, expiryDays: 365 },
+
+            // ④ 최종 확인사항 (6개)
+            { key: 'CHECK_VRB_APPROVAL', category: 'checklist', name: 'VRB 상신 및 승인 완료 여부', req: true },
+            { key: 'CHECK_CONSORTIUM_SHARE', category: 'checklist', name: '공동수급 지분율 및 협약서 확인', req: false },
+            { key: 'CHECK_PARTICIPATION_RATE', category: 'checklist', name: '투입인력 참여율(M/M) 확인', req: true },
+            { key: 'CHECK_PERFORMANCE_APPLIED', category: 'checklist', name: '유사 사업 수행실적 확인', req: true },
+            { key: 'CHECK_DOC_STAMPED', category: 'checklist', name: '제출서류 법인인감/사용인감 날인 확인', req: true },
+            { key: 'CHECK_SUBMISSION_DEADLINE', category: 'checklist', name: '제출기한 및 제출처 최종 확인', req: true }
+        ];
+    }
+
+    initBidReadinessState(projectId) {
+        return this.initializeBidReadinessData(projectId);
+    }
+
+    initializeBidReadinessData(projectId) {
+        if (!this.state.bidReadinessMap) this.state.bidReadinessMap = {};
+        if (!this.state.bidReadinessMap[projectId]) {
+            const master = this.getBidReadinessMasterItems();
+            const project = this.state.projects?.find(p => String(p.id) === String(projectId));
+            const isConsortium = project && (project.participationType === 'CONSORTIUM_MEMBER' || project.consortiumMembers?.length > 1);
+
+            const itemStates = {};
+            master.forEach(m => {
+                let progressState = 'COMPLETED';
+                let validityState = 'NORMAL';
+                let assignee = 'PMO';
+
+                if (m.key === 'DIRECT_PRODUCTION_CERT' || m.key === 'CONSORTIUM_AGREEMENT' || m.key === 'CHECK_CONSORTIUM_SHARE') {
+                    if (!isConsortium && m.key !== 'DIRECT_PRODUCTION_CERT') {
+                        progressState = 'NOT_APPLICABLE';
+                    } else if (m.key === 'DIRECT_PRODUCTION_CERT') {
+                        progressState = 'NOT_APPLICABLE';
+                    }
+                }
+
+                if (m.category === 'company') assignee = 'PMO';
+                if (m.category === 'personnel') assignee = '제안PM';
+                if (m.category === 'proposal') assignee = '제안전략팀';
+                if (m.category === 'checklist') assignee = 'PM/PMO';
+
+                if (m.key === 'LOCAL_TAX_CERT') progressState = 'NOT_STARTED';
+                if (m.key === 'CREDIT_RATING_CERT') { progressState = 'UNDER_REVIEW'; validityState = 'EXPIRING_SOON'; }
+                if (m.key === 'PRICE_BID') progressState = 'IN_PROGRESS';
+                if (m.key === 'PRESENTATION_SLIDES') progressState = 'UNDER_REVIEW';
+                if (m.key === 'CHECK_DOC_STAMPED') progressState = 'IN_PROGRESS';
+
+                itemStates[m.key] = {
+                    key: m.key,
+                    progressState: progressState,
+                    validityState: validityState,
+                    assignee: assignee,
+                    note: ''
+                };
+            });
+
+            this.state.bidReadinessMap[projectId] = itemStates;
+        }
+        return this.state.bidReadinessMap[projectId];
+    }
+
+    calculateBidReadinessRate(projectId) {
+        const master = this.getBidReadinessMasterItems();
+        const readinessData = this.initializeBidReadinessData(projectId);
+
+        let totalCount = master.length; // 31
+        let notApplicableCount = 0;
+        let completedCount = 0;
+
+        master.forEach(m => {
+            const item = readinessData[m.key] || {};
+            const state = item.progressState || 'NOT_STARTED';
+
+            if (state === 'NOT_APPLICABLE') {
+                notApplicableCount++;
+            } else if (state === 'COMPLETED') {
+                completedCount++;
+            }
+        });
+
+        const applicableCount = totalCount - notApplicableCount; // 28
+        const incompleteCount = applicableCount - completedCount; // 5
+        const rate = applicableCount > 0 ? Math.round((completedCount / applicableCount) * 100) : 0; // 82%
+
+        return {
+            rate: rate,
+            completedCount: completedCount,
+            applicableCount: applicableCount,
+            notApplicableCount: notApplicableCount,
+            incompleteCount: incompleteCount,
+            totalCount: totalCount
+        };
+    }
+
+    generateReadinessAdvisorAlerts(projectId) {
+        const master = this.getBidReadinessMasterItems();
+        const readinessData = this.initializeBidReadinessData(projectId);
+        const artifacts = (this.state.artifacts || []).filter(a => String(a.projectId) === String(projectId));
+        const project = this.state.projects?.find(p => String(p.id) === String(projectId));
+
+        const alerts = [];
+
+        master.filter(m => m.category === 'company').forEach(m => {
+            const st = readinessData[m.key]?.progressState;
+            const hasFile = artifacts.some(a => a.documentTypeKey === m.key || a.category === m.key);
+            if (st === 'NOT_STARTED' && !hasFile) {
+                alerts.push({ type: 'danger', text: `${m.name}가(이) 아직 등록되지 않았습니다.` });
+            } else if (readinessData[m.key]?.validityState === 'EXPIRING_SOON') {
+                alerts.push({ type: 'warning', text: `${m.name}의 유효기간(D-15) 확인 및 재발급 준비가 필요합니다.` });
+            }
+        });
+
+        const slidesState = readinessData['PRESENTATION_SLIDES']?.progressState;
+        if (slidesState !== 'COMPLETED') {
+            alerts.push({ type: 'warning', text: '발표자료(PPT/PDF)가 아직 최종 검토 및 승인 완료되지 않았습니다.' });
+        }
+
+        const priceBidState = readinessData['PRICE_BID']?.progressState;
+        if (priceBidState !== 'COMPLETED') {
+            alerts.push({ type: 'info', text: '가격입찰서 작성 및 최종 산출 내역 검토가 진행 중입니다.' });
+        }
+
+        if (project && (project.participationType === 'CONSORTIUM_MEMBER' || project.consortiumMembers?.length > 1)) {
+            const agreementState = readinessData['CONSORTIUM_AGREEMENT']?.progressState;
+            if (agreementState !== 'COMPLETED') {
+                alerts.push({ type: 'warning', text: '공동수급 프로젝트이나 공동수급협정서가 최종 완료되지 않았습니다.' });
+            }
+        }
+
+        const stampState = readinessData['CHECK_DOC_STAMPED']?.progressState;
+        if (stampState !== 'COMPLETED') {
+            alerts.push({ type: 'danger', text: '제출서류 법인인감/사용인감 최종 날인 확인이 필요합니다.' });
+        }
+
+        if (alerts.length === 0) {
+            alerts.push({ type: 'success', text: '현재 확인된 필수 제출서류 및 점검사항이 모두 완료되었습니다. 최종 제출 전 파일 정합성을 재확인하세요.' });
+        }
+
+        return alerts;
+    }
+
+    buildBidReadinessHtml({ project, readinessData, summary, alerts }) {
+        const projectId = project.id;
+        const master = this.getBidReadinessMasterItems();
+        const artifacts = (this.state.artifacts || []).filter(a => String(a.projectId) === String(projectId));
+
+        const getValidityBadgeHtml = (valSt) => {
+            if (valSt === 'EXPIRING_SOON') return '<span class="badge badge-warning" style="font-size:10px; background:var(--warning-glow); color:var(--warning); font-weight:700;">⚠ D-15 만료예정</span>';
+            if (valSt === 'EXPIRED') return '<span class="badge badge-danger" style="font-size:10px; font-weight:700;">🔴 만료</span>';
+            return '<span class="badge" style="font-size:10px; background:var(--bg-hover-item); color:var(--text-muted);">정상</span>';
+        };
+
+        const renderCategoryTable = (catKey, catTitle, catIcon, catColor) => {
+            const catItems = master.filter(m => m.category === catKey);
+            let catTotal = catItems.length;
+            let catNa = 0;
+            let catComp = 0;
+
+            catItems.forEach(m => {
+                const st = readinessData[m.key]?.progressState;
+                if (st === 'NOT_APPLICABLE') catNa++;
+                else if (st === 'COMPLETED') catComp++;
+            });
+
+            const catApp = catTotal - catNa;
+            const catRate = catApp > 0 ? Math.round((catComp / catApp) * 100) : 0;
+
+            return `
+                <div class="dashboard-card" style="margin-bottom: 20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--bg-card-border); padding-bottom:10px; margin-bottom:12px;">
+                        <h3 style="margin:0; font-size:15px; font-weight:800; display:flex; align-items:center; gap:8px;">
+                            <i data-lucide="${catIcon}" style="width:18px; height:18px; color:${catColor};"></i>
+                            ${catTitle}
+                        </h3>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="font-size:12px; font-weight:700; color:var(--text-muted);">
+                                진행률 <span style="color:${catColor}; font-weight:800;">${catRate}%</span> (${catComp} / ${catApp} 완료${catNa > 0 ? `, ${catNa}건 N/A` : ''})
+                            </div>
+                            <div style="width:100px; height:6px; background:var(--bg-hover-item); border-radius:3px; overflow:hidden;">
+                                <div style="width:${catRate}%; height:100%; background:${catColor}; border-radius:3px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="table" style="width:100%; font-size:12px;">
+                            <thead>
+                                <tr style="background:var(--bg-hover-item);">
+                                    <th style="padding:8px 10px; text-align:left;">항목명</th>
+                                    <th style="padding:8px 10px; text-align:center; width:130px;">진행상태</th>
+                                    <th style="padding:8px 10px; text-align:center; width:110px;">파일상태</th>
+                                    <th style="padding:8px 10px; text-align:center; width:110px;">유효상태</th>
+                                    <th style="padding:8px 10px; text-align:center; width:90px;">담당자</th>
+                                    <th style="padding:8px 10px; text-align:center; width:100px;">서류관리</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${catItems.map(m => {
+                                    const item = readinessData[m.key] || {};
+                                    const matchedArtifact = artifacts.find(a => a.documentTypeKey === m.key || a.category === m.key || a.name?.includes(m.name));
+                                    const hasFile = Boolean(matchedArtifact);
+
+                                    return `
+                                        <tr>
+                                            <td style="padding:8px 10px; font-weight:700;">
+                                                ${m.name} ${m.req ? '<span style="color:var(--danger);">*</span>' : '<span style="font-size:10px; color:var(--text-muted);">(선택)</span>'}
+                                            </td>
+                                            <td style="padding:6px 10px; text-align:center;">
+                                                <select onchange="app.updateBidReadinessItemState('${projectId}', '${m.key}', 'progressState', this.value)" style="height:26px; font-size:11px; font-weight:700; border:1px solid var(--bg-card-border); border-radius:4px; background:var(--bg-input); color:var(--text-main);">
+                                                    <option value="NOT_STARTED" ${item.progressState === 'NOT_STARTED' ? 'selected' : ''}>🔴 미등록</option>
+                                                    <option value="IN_PROGRESS" ${item.progressState === 'IN_PROGRESS' ? 'selected' : ''}>🟡 작성중</option>
+                                                    <option value="UNDER_REVIEW" ${item.progressState === 'UNDER_REVIEW' ? 'selected' : ''}>🟡 검토중</option>
+                                                    <option value="COMPLETED" ${item.progressState === 'COMPLETED' ? 'selected' : ''}>🟢 완료</option>
+                                                    <option value="NOT_APPLICABLE" ${item.progressState === 'NOT_APPLICABLE' ? 'selected' : ''}>⚪ 해당없음</option>
+                                                </select>
+                                            </td>
+                                            <td style="padding:6px 10px; text-align:center;">
+                                                ${hasFile 
+                                                    ? '<span class="badge badge-info" style="font-size:11px; font-weight:700;">📎 첨부완료</span>'
+                                                    : '<span class="badge badge-secondary" style="font-size:11px; font-weight:700;">❌ 미첨부</span>'}
+                                            </td>
+                                            <td style="padding:6px 10px; text-align:center;">
+                                                ${getValidityBadgeHtml(item.validityState)}
+                                            </td>
+                                            <td style="padding:6px 10px; text-align:center; color:var(--text-muted);">
+                                                ${item.assignee || 'PMO'}
+                                            </td>
+                                            <td style="padding:6px 10px; text-align:center;">
+                                                <button type="button" class="btn btn-xs btn-outline" onclick="app.openNewArtifactModalWithPrefill('${projectId}', '${m.key}', '${m.name}')">
+                                                    <i data-lucide="${hasFile ? 'file-text' : 'upload'}" style="width:11px; height:11px; margin-right:3px;"></i> ${hasFile ? '보기' : '등록'}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        };
+
+        const checklistItems = master.filter(m => m.category === 'checklist');
+        const checklistHtml = `
+            <div class="dashboard-card" style="margin-bottom: 20px;">
+                <div style="border-bottom:1px solid var(--bg-card-border); padding-bottom:10px; margin-bottom:12px;">
+                    <h3 style="margin:0; font-size:15px; font-weight:800; display:flex; align-items:center; gap:8px;">
+                        <i data-lucide="check-square" style="width:18px; height:18px; color:var(--primary);"></i>
+                        ④ 최종 확인사항 (PM/PMO 필수 점검)
+                    </h3>
+                </div>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:12px;">
+                    ${checklistItems.map(m => {
+                        const item = readinessData[m.key] || {};
+                        const isChecked = item.progressState === 'COMPLETED';
+                        const isNa = item.progressState === 'NOT_APPLICABLE';
+
+                        return `
+                            <div style="background:var(--bg-hover-item); border:1px solid var(--bg-card-border); border-radius:8px; padding:12px; display:flex; align-items:center; justify-content:space-between;">
+                                <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13px; font-weight:700; margin:0; flex:1;">
+                                    <input type="checkbox" ${isChecked ? 'checked' : ''} ${isNa ? 'disabled' : ''} onchange="app.updateBidReadinessItemState('${projectId}', '${m.key}', 'progressState', this.checked ? 'COMPLETED' : 'IN_PROGRESS')" style="width:16px; height:16px; accent-color:var(--primary);">
+                                    <span style="${isChecked ? 'text-decoration:line-through; color:var(--text-muted);' : ''}">${m.name}</span>
+                                </label>
+                                <select onchange="app.updateBidReadinessItemState('${projectId}', '${m.key}', 'progressState', this.value)" style="height:24px; font-size:10px; border:1px solid var(--bg-card-border); border-radius:4px; background:var(--bg-input);">
+                                    <option value="IN_PROGRESS" ${!isChecked && !isNa ? 'selected' : ''}>확인필요</option>
+                                    <option value="COMPLETED" ${isChecked ? 'selected' : ''}>🟢 완료</option>
+                                    <option value="NOT_APPLICABLE" ${isNa ? 'selected' : ''}>⚪ N/A</option>
+                                </select>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+
+        return `
+            <div class="dashboard-card" style="margin-bottom: 20px; background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95)); border: 1px solid var(--primary-light); border-radius: 12px; padding: 20px; color: #fff;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <div style="font-size:12px; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:1px;">Bid Readiness Center</div>
+                        <h2 style="margin:4px 0 0 0; font-size:22px; font-weight:900; color:#fff; display:flex; align-items:center; gap:8px;">
+                            <i data-lucide="shield-check" style="width:24px; height:24px; color:var(--primary);"></i>
+                            입찰 준비도 대시보드
+                        </h2>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:16px;">
+                        <div style="text-align:right;">
+                            <div style="font-size:28px; font-weight:900; color:var(--primary); font-family:monospace; line-height:1;">${summary.rate}%</div>
+                            <div style="font-size:11px; color:var(--text-muted); font-weight:700; margin-top:2px;">
+                                ${summary.completedCount} / ${summary.applicableCount} 완료 (${summary.notApplicableCount}건 N/A, ${summary.incompleteCount}건 확인 필요)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="width:100%; height:12px; background:rgba(255,255,255,0.1); border-radius:6px; overflow:hidden; margin-bottom:20px;">
+                    <div style="width:${summary.rate}%; height:100%; background: linear-gradient(90deg, #3b82f6, #10b981); border-radius:6px; transition: width 0.5s ease;"></div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px;">
+                    <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); padding:10px 14px; border-radius:8px;">
+                        <div style="font-size:11px; color:var(--text-muted); font-weight:700;">회사 공통 증빙</div>
+                        <div style="font-size:16px; font-weight:800; color:#38bdf8; margin-top:2px;">88%</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); padding:10px 14px; border-radius:8px;">
+                        <div style="font-size:11px; color:var(--text-muted); font-weight:700;">투입인력 증빙</div>
+                        <div style="font-size:16px; font-weight:800; color:#34d399; margin-top:2px;">100%</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); padding:10px 14px; border-radius:8px;">
+                        <div style="font-size:11px; color:var(--text-muted); font-weight:700;">제안서류</div>
+                        <div style="font-size:16px; font-weight:800; color:#fbbf24; margin-top:2px;">75%</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); padding:10px 14px; border-radius:8px;">
+                        <div style="font-size:11px; color:var(--text-muted); font-weight:700;">최종 확인사항</div>
+                        <div style="font-size:16px; font-weight:800; color:#a78bfa; margin-top:2px;">60%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-card" style="margin-bottom: 20px; border-left: 4px solid var(--warning); background: var(--bg-hover-item);">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px;">
+                    <h3 style="margin:0; font-size:14px; font-weight:800; color:var(--warning); display:flex; align-items:center; gap:6px;">
+                        <i data-lucide="shield-alert" style="width:18px; height:18px;"></i>
+                        입찰 준비 자동 점검 (Readiness Advisor)
+                    </h3>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; font-size:12px;">
+                    ${alerts.map(a => `
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:10px;">•</span>
+                            <span style="color:var(--text-main); font-weight:600;">${a.text}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:10px; border-top:1px solid var(--bg-card-border); padding-top:6px;">
+                    * 등록된 서류와 체크리스트 상태를 기반으로 자동 분석한 결과입니다.
+                </div>
+            </div>
+
+            ${renderCategoryTable('company', '① 회사 공통 증빙 (16개 항목)', 'building-2', '#0284c7')}
+            ${renderCategoryTable('personnel', '② 투입인력 증빙 (5개 항목)', 'users', '#10b981')}
+            ${renderCategoryTable('proposal', '③ 제안서류 (4개 항목)', 'file-text', '#f59e0b')}
+            ${checklistHtml}
+        `;
+    }
+
+    renderBidReadinessTab(projectId) {
+        const container = document.getElementById('detail-tab-content-bid-readiness');
+        if (!container) {
+            console.warn('[Bid Readiness] container not found: detail-tab-content-bid-readiness');
+            return;
+        }
+
+        const project = this.state.projects?.find(item => String(item.id) === String(projectId));
+        if (!project) {
+            container.innerHTML = '<div class="empty-state">입찰 프로젝트 정보를 찾을 수 없습니다.</div>';
+            return;
+        }
+
+        const readinessData = this.initializeBidReadinessData(projectId);
+        const summary = this.calculateBidReadinessRate(projectId);
+        const alerts = this.generateReadinessAdvisorAlerts(projectId);
+
+        console.table({
+            renderBidReadinessTab: typeof this.renderBidReadinessTab,
+            initializeBidReadinessData: typeof this.initializeBidReadinessData,
+            calculateBidReadinessRate: typeof this.calculateBidReadinessRate,
+            generateReadinessAdvisorAlerts: typeof this.generateReadinessAdvisorAlerts,
+            buildBidReadinessHtml: typeof this.buildBidReadinessHtml
+        });
+
+        container.innerHTML = this.buildBidReadinessHtml({
+            project,
+            readinessData,
+            summary,
+            alerts
+        });
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+
     getDefaultMethodologyTemplate() {
         return [
             {
@@ -9104,7 +10539,8 @@ class AetherPMO {
                             <table class="opms-artifact-table">
                                 <thead>
                                     <tr>
-                                        <th style="min-width: 240px;">산출물명</th>
+                                        <th style="width: 44px; text-align: center;">적용</th>
+                                        <th style="min-width: 220px;">산출물명</th>
                                         <th style="width: 100px;">상태</th>
                                         <th style="width: 120px;">진행률</th>
                                         <th style="width: 110px;">담당자</th>
@@ -9117,13 +10553,17 @@ class AetherPMO {
 
                 (act.artifacts || []).forEach(art => {
                     const isSelected = selectedArtifact && selectedArtifact.id === art.id;
+                    const isApplied = art.is_selected !== false && art.is_active !== false;
                     const stLabel = OPMS_STATUS_LABELS[art.status] || '미작성';
                     const artProg = OPMS_STATUS_PROGRESS[art.status] !== undefined ? OPMS_STATUS_PROGRESS[art.status] : 0;
 
                     html += `
-                        <tr class="opms-artifact-row ${isSelected ? 'selected' : ''}" onclick="app.openArtifactSummary('${projectId}', '${act.activityId}', '${art.id}')">
+                        <tr class="opms-artifact-row ${isSelected ? 'selected' : ''}" onclick="app.openArtifactSummary('${projectId}', '${act.activityId}', '${art.id}')" style="${isApplied ? '' : 'opacity: 0.5; background: rgba(0,0,0,0.1);'}">
+                            <td style="text-align: center;" onclick="event.stopPropagation();">
+                                <input type="checkbox" ${isApplied ? 'checked' : ''} onchange="app.toggleMethodologyArtifactSelection('${projectId}', '${art.id}', this.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary);" title="수행단계 산출물 적용 여부 선택">
+                            </td>
                             <td class="col-name" style="font-weight: 700; font-size: 14px;">
-                                <i data-lucide="file-text" style="width: 16px; height: 16px; display: inline-block; vertical-align: middle; margin-right: 8px; color: var(--primary);"></i>
+                                <i data-lucide="file-text" style="width: 16px; height: 16px; display: inline-block; vertical-align: middle; margin-right: 8px; color: ${isApplied ? 'var(--primary)' : 'var(--text-muted)'};"></i>
                                 ${this.escapeHtml(art.name || '미지정 산출물')}
                             </td>
                             <td class="col-status">
@@ -9418,6 +10858,85 @@ class AetherPMO {
         this.renderProjectDetailMethodology(projectId);
     }
 
+    toggleMethodologyArtifactSelection(projectId, artifactId, isChecked) {
+        const methodologyObj = this.getProjectMethodology(projectId);
+        let targetArt = null;
+        let targetStage = null;
+        let targetAct = null;
+
+        methodologyObj.stages.forEach(stg => {
+            (stg.activities || []).forEach(act => {
+                (act.artifacts || []).forEach(art => {
+                    if (art.id === artifactId) {
+                        targetArt = art;
+                        targetStage = stg;
+                        targetAct = act;
+                        art.is_selected = isChecked;
+                        art.is_active = isChecked;
+                    }
+                });
+            });
+        });
+
+        if (targetArt) {
+            this.saveState('project_artifact_upsert', {
+                projectId,
+                stageCode: targetStage ? targetStage.stageCode : 'PRP',
+                activityId: targetAct ? targetAct.activityId : '',
+                ...targetArt
+            });
+        }
+
+        this.renderProjectDetailMethodology(projectId);
+
+        if (this.activeProjectId === projectId) {
+            const selectedArtifacts = this.getProjectSelectedArtifacts(projectId);
+            this.renderProjectDetailArtifactsTable(selectedArtifacts);
+        }
+    }
+
+    getProjectSelectedArtifacts(projectId) {
+        const methodologyObj = this.getProjectMethodology(projectId);
+        const selectedList = [];
+        const stageOrder = ['PRR', 'PRP', 'RAD', 'AAD', 'DTD', 'PED'];
+
+        stageOrder.forEach(stgCode => {
+            const stage = (methodologyObj.stages || []).find(s => s.stageCode === stgCode);
+            if (!stage) return;
+
+            (stage.activities || []).forEach(act => {
+                (act.artifacts || []).forEach(art => {
+                    if (art.is_selected === true && art.is_active === true) {
+                        const regArt = (this.state.artifacts || []).find(a => a.id === art.id || (a.projectId === projectId && a.name === art.name));
+
+                        selectedList.push({
+                            id: art.id,
+                            projectId: projectId,
+                            stageCode: stage.stageCode,
+                            stageName: stage.stageName || stgCode,
+                            activityId: act.activityId,
+                            activityName: act.activityName || '',
+                            name: art.name,
+                            status: regArt ? regArt.status : (art.status || 'NOT_STARTED'),
+                            assigneeName: regArt ? (regArt.author || regArt.assigneeName) : (art.assigneeName || '미지정'),
+                            updatedAt: regArt ? (regArt.submitDate || regArt.createdDate || regArt.dueDate) : (art.updatedAt || '2026-06-01'),
+                            fileName: regArt ? regArt.fileName : null,
+                            regArtId: regArt ? regArt.id : null
+                        });
+                    }
+                });
+            });
+        });
+
+        return selectedList;
+    }
+
+    openProjectDetail(projectId) {
+        if (!projectId) return;
+        this.activeProjectId = projectId;
+        window.location.hash = `project-detail/${projectId}`;
+    }
+
     renderProjectDetail(projectId) {
         this.updateProjectsOverdueStatus();
         this.activeProjectId = projectId;
@@ -9527,43 +11046,48 @@ class AetherPMO {
                         </div>
                     </div>
                     
-                    <!-- KPI Row (Exact 6 cards displaying the 7 required fields) -->
-                    <div class="detail-kpi-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; border-top:1px solid var(--bg-card-border); padding-top:16px;">
-                        <!-- 1. 고객사 -->
+                    <!-- Top KPI Summary Cards -->
+                    <div class="detail-kpi-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 16px; border-top:1px solid var(--bg-card-border); padding-top:16px;">
+                        <!-- 1. 발주기관 -->
                         <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px;">
-                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">고객사</span>
-                            <span style="font-size:14px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${project.customer || '-'}">${project.customer || '-'}</span>
+                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">발주기관</span>
+                            <span style="font-size:14px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${project.customer || project.customerName || '-'}">${project.customer || project.customerName || '-'}</span>
                         </div>
                         <!-- 2. 사업책임자 (PM) -->
                         <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px;">
                             <span style="font-size:11px; color:var(--text-muted); font-weight:700;">사업책임자 (PM)</span>
-                            <span style="font-size:14px; font-weight:800; color:var(--primary);">${project.manager}</span>
+                            <span style="font-size:14px; font-weight:800; color:var(--primary);">${project.manager || '-'}</span>
                         </div>
                         <!-- 3. 사업기간 -->
-                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px; min-width: 170px;">
+                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px; min-width: 160px;">
                             <span style="font-size:11px; color:var(--text-muted); font-weight:700;">사업기간</span>
-                            <span style="font-size:13px; font-weight:800; color:var(--text-main);">${project.startDate} ~ ${project.endDate}</span>
+                            <span style="font-size:12px; font-weight:800; color:var(--text-main);">${project.startDate || '-'} ~ ${project.endDate || '-'}</span>
                         </div>
-                        <!-- 4. 계약금액 -->
+                        <!-- 4. 당사 계약금액 -->
                         <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px;">
-                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">계약금액</span>
-                            <span style="font-size:14px; font-weight:800; color:var(--success);">${project.budget ? Number(project.budget).toLocaleString() + ' 원' : '-'}</span>
+                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">당사 계약금액</span>
+                            <span style="font-size:14px; font-weight:800; color:var(--success);">${(project.companyContractAmount || project.company_contract_amount || project.contract_amount || project.budget) ? Number(project.companyContractAmount || project.company_contract_amount || project.contract_amount || project.budget).toLocaleString() + ' 원' : '-'}</span>
                         </div>
-                        <!-- 5. 사업상태 -->
+                        <!-- 5. 사업 참여 형태 -->
+                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px;">
+                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">사업 참여 형태</span>
+                            <span style="font-size:13px; font-weight:800; color:var(--primary);">${this.translateParticipationType(project.participationType || project.participation_type)}</span>
+                        </div>
+                        <!-- 6. 사업상태 -->
                         <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px;">
                             <span style="font-size:11px; color:var(--text-muted); font-weight:700;">사업상태</span>
                             <span style="font-size:14px; font-weight:800;">
-                                <span class="status-badge status-${project.status.toLowerCase().replace(' ', '')}" style="font-size:10px; font-weight:700; padding:2px 8px; display:inline-block; text-align:center;">${this.translateStatus(project.status)}</span>
+                                <span class="status-badge status-${(project.status||'').toLowerCase().replace(' ', '')}" style="font-size:10px; font-weight:700; padding:2px 8px; display:inline-block; text-align:center;">${this.translateStatus(project.status)}</span>
                             </span>
                         </div>
-                        <!-- 6. 진척률 -->
-                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px; min-width: 180px;">
+                        <!-- 7. 진척률 -->
+                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px; min-width: 150px;">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <span style="font-size:11px; color:var(--text-muted); font-weight:700;">진척률</span>
-                                <span style="font-size:12px; font-weight:800; color:var(--primary);">${project.progress}%</span>
+                                <span style="font-size:12px; font-weight:800; color:var(--primary);">${project.progress || 0}%</span>
                             </div>
                             <div class="progress-bar-container" style="margin-top: 6px; height:6px;">
-                                <div class="progress-bar-fill" style="width: ${project.progress}%; background:var(--primary);"></div>
+                                <div class="progress-bar-fill" style="width: ${project.progress || 0}%; background:var(--primary);"></div>
                             </div>
                         </div>
                     </div>
@@ -9596,13 +11120,13 @@ class AetherPMO {
         document.querySelectorAll('.detail-tab-btn').forEach(btn => {
             const tab = btn.getAttribute('data-tab');
             if (isBidding) {
-                if (tab === 'overview' || tab === 'artifacts' || tab === 'consortium' || tab === 'vrb') {
+                if (tab === 'overview' || tab === 'bidding-tasks' || tab === 'artifacts' || tab === 'bid-readiness' || tab === 'bidding-wbs' || tab === 'bidding-gantt' || tab === 'consortium' || tab === 'vrb') {
                     btn.style.display = 'inline-block';
                 } else {
                     btn.style.display = 'none';
                 }
             } else {
-                if (tab === 'consortium' || tab === 'vrb') {
+                if (tab === 'consortium' || tab === 'vrb' || tab === 'bid-readiness' || tab === 'bidding-tasks' || tab === 'bidding-wbs' || tab === 'bidding-gantt') {
                     btn.style.display = 'none';
                 } else {
                     btn.style.display = 'inline-block';
@@ -9660,6 +11184,11 @@ class AetherPMO {
                     </div>
                 `;
             } else {
+                const partLabel = this.translateParticipationType(project.participationType || project.participation_type);
+                const compAmt = project.companyContractAmount || project.company_contract_amount || project.contract_amount || project.budget || 0;
+                const totAmt = project.totalContractAmount || project.total_contract_amount || null;
+                const shareRate = (project.companyShareRate !== undefined && project.companyShareRate !== null) ? project.companyShareRate : (project.company_share_rate !== undefined ? project.company_share_rate : null);
+
                 basicFields.innerHTML = `
                     <div style="display:flex; flex-direction:column; gap:10px; font-size:12px; margin-top:8px;">
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
@@ -9667,31 +11196,50 @@ class AetherPMO {
                             <span style="font-weight:700; text-align:right; max-width: 160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${project.name}">${project.name}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
-                            <span style="color:var(--text-muted); font-weight:700;">발주기관 (고객사)</span>
-                            <span style="font-weight:700; text-align:right;">${project.customer || '-'}</span>
+                            <span style="color:var(--text-muted); font-weight:700;">발주기관</span>
+                            <span style="font-weight:700; text-align:right;">${project.customer || project.customerName || '-'}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
                             <span style="color:var(--text-muted); font-weight:700;">사업책임자 (PM)</span>
-                            <span style="font-weight:700; text-align:right; color:var(--primary);">${project.manager}</span>
+                            <span style="font-weight:700; text-align:right; color:var(--primary);">${project.manager || '-'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">사업 참여 형태</span>
+                            <span style="font-weight:700; text-align:right; color:var(--primary);">${partLabel}</span>
+                        </div>
+                        ${(project.participationType === 'CONSORTIUM_MEMBER' || project.primeContractorName || project.prime_contractor_name) ? `
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">주사업자</span>
+                            <span style="font-weight:700; text-align:right;">${project.primeContractorName || project.prime_contractor_name || '-'}</span>
+                        </div>` : ''}
+                        ${totAmt ? `
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">전체 사업금액</span>
+                            <span style="font-weight:700; text-align:right; color:var(--text-main);">${Number(totAmt).toLocaleString()} 원</span>
+                        </div>` : ''}
+                        ${shareRate !== null ? `
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">당사 지분율</span>
+                            <span style="font-weight:700; text-align:right;">${shareRate}%</span>
+                        </div>` : ''}
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">당사 계약금액</span>
+                            <span style="font-weight:700; text-align:right; color:var(--success);">${compAmt ? Number(compAmt).toLocaleString() + ' 원' : '-'}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
                             <span style="color:var(--text-muted); font-weight:700;">사업유형</span>
-                            <span style="font-weight:700; text-align:right;">${project.bizType || 'SI 구축'}</span>
-                        </div>
-                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
-                            <span style="color:var(--text-muted); font-weight:700;">계약금액</span>
-                            <span style="font-weight:700; text-align:right; color:var(--success);">${project.budget ? Number(project.budget).toLocaleString() + ' 원' : '-'}</span>
+                            <span style="font-weight:700; text-align:right;">${project.bizType || project.businessType || 'SI 구축'}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
                             <span style="color:var(--text-muted); font-weight:700;">계약일</span>
-                            <span style="font-weight:700; text-align:right;">${project.contractDate || project.startDate}</span>
+                            <span style="font-weight:700; text-align:right;">${project.contractDate || project.startDate || '-'}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
                             <span style="color:var(--text-muted); font-weight:700;">사업기간</span>
-                            <span style="font-weight:700; text-align:right;">${project.startDate} ~ ${project.endDate}</span>
+                            <span style="font-weight:700; text-align:right;">${project.startDate || '-'} ~ ${project.endDate || '-'}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
-                            <span style="color:var(--text-muted); font-weight:700;">사업장소</span>
+                            <span style="color:var(--text-muted); font-weight:700;">수행장소</span>
                             <span style="font-weight:700; text-align:right;">${project.location || '정부서울청사'}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
@@ -10014,7 +11562,7 @@ class AetherPMO {
 
         const members = (this.state.projectMembers || []).filter(m => m.projectId === projectId);
         if (members.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">등록된 참여인력이 없습니다.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">등록된 참여인력이 없습니다.</td></tr>';
             return;
         }
 
@@ -10025,11 +11573,22 @@ class AetherPMO {
                 ? '<span class="status-badge status-resolved">참여중</span>'
                 : '<span class="status-badge status-occurred">제외됨</span>';
             
+            const empType = mem.employmentType || mem.employment_type || 'UNKNOWN';
+            const empLabel = this.translateEmploymentType(empType);
+            
+            let empCss = 'employment-unknown';
+            if (empType === 'REGULAR_EMPLOYEE' || empType === 'regular') empCss = 'employment-regular';
+            else if (empType === 'INSOURCED_CONTRACTOR' || empType === 'outsourcing') empCss = 'employment-insourced';
+            else if (empType === 'PROJECT_CONTRACTOR' || empType === 'project_contract') empCss = 'employment-project';
+            
+            const empBadge = `<span class="employment-badge ${empCss}">${empLabel}</span>`;
+
             tr.innerHTML = `
                 <td class="font-bold text-xs">${this.escapeHtml(mem.name || mem.memberName || '-')} ${mem.isPm ? '<span class="badge badge-primary" style="font-size:10px; margin-left:4px;">PM</span>' : ''}</td>
                 <td><span class="badge-cat cat-etc">${this.escapeHtml(mem.role || mem.roleName || '수행원')}</span></td>
                 <td class="text-xs font-bold">${this.escapeHtml(mem.department || '-')}</td>
                 <td class="text-xs font-bold">${this.escapeHtml(mem.position || '연구원')}</td>
+                <td>${empBadge}</td>
                 <td class="text-xs text-muted font-bold">${mem.startDate || '-'}</td>
                 <td class="text-xs text-muted font-bold">${mem.endDate || '-'}</td>
                 <td>${statusBadge}</td>
@@ -10396,40 +11955,544 @@ class AetherPMO {
     }
 
     renderProjectDetailArtifactsTable(artifacts) {
+        const container = document.getElementById('project-detail-artifacts-container');
         const tbody = document.getElementById('project-detail-artifacts-tbody');
-        if (!tbody) return;
+        if (!tbody || !container) return;
 
-        if (artifacts.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">등록된 정식 산출물이 없습니다. [단계별 산출물 템플릿]에서 제출하거나 추가로 신규 등록할 수 있습니다.</td></tr>';
+        // If artifacts parameter is not provided, fetch selected ones
+        if (!artifacts) {
+            artifacts = this.getProjectSelectedArtifacts(this.activeProjectId);
+        }
+
+        if (!artifacts || artifacts.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state" style="padding: 50px 20px; text-align: center; background: var(--bg-card-hover); border-radius: 10px; border: 1px dashed var(--bg-card-border); margin: 10px 0;">
+                    <i data-lucide="file-x" style="width: 48px; height: 48px; color: var(--text-muted); margin: 0 auto 16px auto; display: block; opacity: 0.6;"></i>
+                    <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">테일러링에서 선택된 산출물이 없습니다.</h3>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">테일러링 설정에서 프로젝트 적용 산출물을 선택해 주세요.</p>
+                    <button class="btn btn-primary" onclick="app.setDetailTab('methodology')" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; font-weight: 700;">
+                        <i data-lucide="settings" style="width: 15px; height: 15px;"></i>
+                        테일러링 설정으로 이동
+                    </button>
+                </div>
+            `;
+            if (window.lucide) window.lucide.createIcons();
             return;
         }
 
-        tbody.innerHTML = '';
+        // Restore table structure if previously overwritten by empty state
+        if (!container.querySelector('table')) {
+            container.innerHTML = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 130px;">단계</th>
+                            <th style="min-width: 140px;">활동</th>
+                            <th style="min-width: 180px;">산출물명</th>
+                            <th style="width: 110px;">작성 상태</th>
+                            <th style="width: 110px;">담당자</th>
+                            <th style="width: 105px;">최종 수정일</th>
+                            <th style="width: 110px; text-align: center;">결재 상태</th>
+                            <th style="width: 100px; text-align: center;">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody id="project-detail-artifacts-tbody"></tbody>
+                </table>
+            `;
+        }
+
+        const targetTbody = document.getElementById('project-detail-artifacts-tbody');
+        if (!targetTbody) return;
+        targetTbody.innerHTML = '';
+
+        const stageNames = {
+            PRR: 'PRR 사업준비',
+            PRP: 'PRP 착수계획',
+            RAD: 'RAD 분석',
+            AAD: 'AAD 설계',
+            DTD: 'DTD 구현·인수',
+            PED: 'PED 종료'
+        };
+
+        const stageBadges = {
+            PRR: 'cat-requirements',
+            PRP: 'cat-etc',
+            RAD: 'cat-design',
+            AAD: 'cat-design',
+            DTD: 'cat-deploy',
+            PED: 'cat-test'
+        };
+
         artifacts.forEach(art => {
             const tr = document.createElement('tr');
-            const downloadHtml = art.fileName
-                ? `<a href="#" onclick="event.preventDefault(); alert('[다운로드] 파일이 다운로드됩니다: ${art.fileName}')" class="btn btn-xs btn-outline" style="display:inline-flex; align-items:center; gap:2px;"><i data-lucide="download" style="width:10px; height:10px;"></i> 다운로드</a>`
-                : '<span class="text-muted text-xs">-</span>';
+            
+            const stageLabel = stageNames[art.stageCode] || art.stageCode || 'PRP';
+            const stageBadgeClass = stageBadges[art.stageCode] || 'cat-etc';
+
+            // Status Badge
+            const st = art.status || 'NOT_STARTED';
+            let statusBadge = '<span class="status-badge status-onhold">미작성</span>';
+            if (st === 'APPROVED' || st === 'Approved') {
+                statusBadge = '<span class="status-badge status-resolved">승인완료</span>';
+            } else if (st === 'IN_REVIEW' || st === 'Under Review' || st === '검토중') {
+                statusBadge = '<span class="status-badge status-bidding">검토중</span>';
+            } else if (st === 'IN_PROGRESS' || st === 'In Progress' || st === '작성중') {
+                statusBadge = '<span class="status-badge status-inprogress">작성중</span>';
+            }
+
+            // Approval Status Badge
+            let approvalBadge = '<span class="badge badge-neutral" style="font-size:10px;">미결재</span>';
+            if (st === 'APPROVED' || st === 'Approved') {
+                approvalBadge = '<span class="badge badge-success" style="font-size:10px;">승인완료</span>';
+            } else if (st === 'IN_REVIEW' || st === 'Under Review' || st === '검토중') {
+                approvalBadge = '<span class="badge badge-warning" style="font-size:10px;">결재대기</span>';
+            }
+
+            const targetId = art.regArtId || art.id;
 
             tr.innerHTML = `
-                <td class="font-bold text-xs"><a href="#" onclick="event.preventDefault(); app.openArtifactDetailModal('${art.id}')" class="project-name-link">${art.name}</a></td>
-                <td><span class="badge-cat cat-${art.category.toLowerCase().replace(' ', '')}">${this.translateCategory(art.category)}</span></td>
-                <td class="text-center text-xs font-bold">${art.version}</td>
-                <td class="text-xs font-bold">${art.author || '안유경'}</td>
-                <td class="text-xs font-bold text-muted">${art.submitDate || art.createdDate || art.dueDate}</td>
-                <td><span class="status-badge status-${art.status.toLowerCase().replace(' ', '')}">${this.translateArtifactStatus(art.status)}</span></td>
-                <td>${downloadHtml}</td>
-                <td>
-                    <div class="actions-flex">
-                        <button class="btn btn-xs btn-outline" onclick="app.openArtifactDetailModal('${art.id}')">보기</button>
-                        <button class="btn btn-xs btn-outline" onclick="app.openEditArtifactModal('${art.id}')">수정</button>
-                        <button class="btn btn-xs btn-danger" onclick="app.deleteArtifact('${art.id}')">삭제</button>
+                <td><span class="badge-cat ${stageBadgeClass}" style="font-size:11px; font-weight:700;">${stageLabel}</span></td>
+                <td class="text-xs font-bold text-muted">${this.escapeHtml(art.activityName || '-')}</td>
+                <td class="font-bold text-xs">
+                    <i data-lucide="file-text" style="width:14px; height:14px; display:inline-block; vertical-align:middle; margin-right:6px; color:var(--primary);"></i>
+                    <a href="#" onclick="event.preventDefault(); app.openArtifactSummary('${this.activeProjectId}', '${art.activityId}', '${art.id}')" class="project-name-link">${this.escapeHtml(art.name)}</a>
+                </td>
+                <td>${statusBadge}</td>
+                <td class="text-xs font-bold">${this.escapeHtml(art.assigneeName || '미지정')}</td>
+                <td class="text-xs text-muted font-bold">${art.updatedAt || '-'}</td>
+                <td class="text-center">${approvalBadge}</td>
+                <td class="text-center">
+                    <div class="actions-flex" style="justify-content:center;">
+                        <button class="btn btn-xs btn-outline" onclick="app.openArtifactSummary('${this.activeProjectId}', '${art.activityId}', '${art.id}')">보기</button>
                     </div>
                 </td>
             `;
-            tbody.appendChild(tr);
+            targetTbody.appendChild(tr);
         });
+
+        if (window.lucide) window.lucide.createIcons();
     }
+
+    formatInputWithCommas(input) {
+        if (!input) return;
+        const cursor = input.selectionStart || 0;
+        const oldLen = input.value.length;
+        const raw = input.value.replace(/[^0-9]/g, '');
+        if (!raw) {
+            input.value = '';
+            return;
+        }
+        const formatted = Number(raw).toLocaleString('ko-KR');
+        input.value = formatted;
+        const newLen = formatted.length;
+        const diff = newLen - oldLen;
+        const newPos = Math.max(0, cursor + diff);
+        try {
+            input.setSelectionRange(newPos, newPos);
+        } catch (e) {}
+    }
+
+    formatNumberWithCommas(val) {
+        if (val === null || val === undefined || val === '') return '';
+        const raw = String(val).replace(/[^0-9]/g, '');
+        return raw ? Number(raw).toLocaleString('ko-KR') : '';
+    }
+
+    parseNumberFromCommas(val) {
+        if (val === null || val === undefined) return 0;
+        const raw = String(val).replace(/[^0-9]/g, '');
+        return raw ? Number(raw) : 0;
+    }
+
+    /* ==========================================================================
+       AETHER PMO BID READINESS CENTER (입찰 준비센터) MODULE
+       ========================================================================== */
+    getBidReadinessMasterItems() {
+        return [
+            // ① 회사 공통 증빙 (16개)
+            { key: 'BUSINESS_REGISTRATION', category: 'company', name: '사업자등록증', req: true, expiryDays: 365 },
+            { key: 'CORPORATE_REGISTRY', category: 'company', name: '법인등기부등본', req: true, expiryDays: 90 },
+            { key: 'CORPORATE_SEAL_CERTIFICATE', category: 'company', name: '법인인감증명서', req: true, expiryDays: 90 },
+            { key: 'PERSONAL_SEAL_DEED', category: 'company', name: '사용인감계', req: true, expiryDays: 180 },
+            { key: 'BID_REGISTRATION_CERT', category: 'company', name: '경쟁입찰참가자격등록증', req: true, expiryDays: 365 },
+            { key: 'SOFTWARE_BIZ_CERT', category: 'company', name: '소프트웨어사업자 일반현황 관리확인서', req: true, expiryDays: 365 },
+            { key: 'SMB_CERTIFICATE', category: 'company', name: '중소기업확인서', req: true, expiryDays: 365 },
+            { key: 'DIRECT_PRODUCTION_CERT', category: 'company', name: '직접생산확인증명서', req: false, expiryDays: 365 }, // 조건부 N/A 예시
+            { key: 'FINANCIAL_STATEMENT', category: 'company', name: '표준재무제표증명', req: true, expiryDays: 365 },
+            { key: 'CREDIT_RATING_CERT', category: 'company', name: '기업신용평가등급확인서', req: true, expiryDays: 15 }, // 만료예정 D-15 예시
+            { key: 'NATIONAL_TAX_CERT', category: 'company', name: '국세납세증명서', req: true, expiryDays: 30 },
+            { key: 'LOCAL_TAX_CERT', category: 'company', name: '지방세납세증명서', req: true, expiryDays: 30 },
+            { key: 'PERFORMANCE_CERT', category: 'company', name: '실적증명서', req: true, expiryDays: 365 },
+            { key: 'BID_PLEDGE', category: 'company', name: '입찰참여서약서', req: true, expiryDays: 365 },
+            { key: 'CONSORTIUM_AGREEMENT', category: 'company', name: '공동수급협정서', req: false, expiryDays: 365 }, // 조건부 N/A 예시
+            { key: 'PARTICIPATION_PLEDGE', category: 'company', name: '참여확약서', req: true, expiryDays: 365 },
+
+            // ② 투입인력 증빙 (5개)
+            { key: 'EMPLOYMENT_CERTIFICATE', category: 'personnel', name: '재직증명서', req: true, expiryDays: 30 },
+            { key: 'CAREER_CERTIFICATE', category: 'personnel', name: '경력증명서', req: true, expiryDays: 365 },
+            { key: 'LICENSE_COPY', category: 'personnel', name: '자격증 사본', req: true, expiryDays: 365 },
+            { key: 'HEALTH_INSURANCE_CERT', category: 'personnel', name: '건강보험자격득실확인서', req: true, expiryDays: 30 },
+            { key: 'FOUR_INSURANCES_LIST', category: 'personnel', name: '4대보험 가입자명부', req: true, expiryDays: 30 },
+
+            // ③ 제안서류 (4개)
+            { key: 'QUALITATIVE_PROPOSAL', category: 'proposal', name: '정성제안서', req: true, expiryDays: 365 },
+            { key: 'QUANTITATIVE_PROPOSAL', category: 'proposal', name: '정량제안서', req: true, expiryDays: 365 },
+            { key: 'PRICE_BID', category: 'proposal', name: '가격입찰서', req: true, expiryDays: 365 },
+            { key: 'PRESENTATION_SLIDES', category: 'proposal', name: '발표자료', req: true, expiryDays: 365 },
+
+            // ④ 최종 확인사항 (6개 체크리스트)
+            { key: 'CHECK_VRB_APPROVAL', category: 'checklist', name: 'VRB 상신 및 승인 완료 여부', req: true },
+            { key: 'CHECK_CONSORTIUM_SHARE', category: 'checklist', name: '공동수급 지분율 및 협약서 확인', req: false }, // 조건부 N/A 예시
+            { key: 'CHECK_PARTICIPATION_RATE', category: 'checklist', name: '투입인력 참여율(M/M) 확인', req: true },
+            { key: 'CHECK_PERFORMANCE_APPLIED', category: 'checklist', name: '유사 사업 수행실적 확인', req: true },
+            { key: 'CHECK_DOC_STAMPED', category: 'checklist', name: '제출서류 법인인감/사용인감 날인 확인', req: true },
+            { key: 'CHECK_SUBMISSION_DEADLINE', category: 'checklist', name: '제출기한 및 제출처 최종 확인', req: true }
+        ];
+    }
+
+    initBidReadinessState(projectId) {
+        if (!this.state.bidReadinessMap) this.state.bidReadinessMap = {};
+        if (!this.state.bidReadinessMap[projectId]) {
+            const master = this.getBidReadinessMasterItems();
+            const project = this.state.projects?.find(p => p.id === projectId);
+            const isConsortium = project && (project.participationType === 'CONSORTIUM_MEMBER' || project.consortiumMembers?.length > 1);
+
+            const itemStates = {};
+            master.forEach(m => {
+                let progressState = 'COMPLETED';
+                let validityState = 'NORMAL';
+                let assignee = 'PMO';
+
+                // Demo Default State Configuration (Exact 23 Completed, 3 N/A, 5 Incomplete = 82% Readiness)
+                if (m.key === 'DIRECT_PRODUCTION_CERT' || m.key === 'CONSORTIUM_AGREEMENT' || m.key === 'CHECK_CONSORTIUM_SHARE') {
+                    if (!isConsortium && m.key !== 'DIRECT_PRODUCTION_CERT') {
+                        progressState = 'NOT_APPLICABLE';
+                    } else if (m.key === 'DIRECT_PRODUCTION_CERT') {
+                        progressState = 'NOT_APPLICABLE';
+                    }
+                }
+
+                if (m.category === 'company') assignee = 'PMO';
+                if (m.category === 'personnel') assignee = '제안PM';
+                if (m.category === 'proposal') assignee = '제안전략팀';
+                if (m.category === 'checklist') assignee = 'PM/PMO';
+
+                // Specific Demo State Mapping
+                if (m.key === 'LOCAL_TAX_CERT') progressState = 'NOT_STARTED'; // 🔴 미등록
+                if (m.key === 'CREDIT_RATING_CERT') { progressState = 'UNDER_REVIEW'; validityState = 'EXPIRING_SOON'; } // ⚠ 만료예정 D-15
+                if (m.key === 'PRICE_BID') progressState = 'IN_PROGRESS'; // 🟡 작성중
+                if (m.key === 'PRESENTATION_SLIDES') progressState = 'UNDER_REVIEW'; // 🟡 검토중
+                if (m.key === 'CHECK_DOC_STAMPED') progressState = 'IN_PROGRESS'; // 🟡 미완료 날인
+
+                itemStates[m.key] = {
+                    key: m.key,
+                    progressState: progressState,
+                    validityState: validityState,
+                    assignee: assignee,
+                    note: ''
+                };
+            });
+
+            this.state.bidReadinessMap[projectId] = itemStates;
+        }
+        return this.state.bidReadinessMap[projectId];
+    }
+
+    calculateBidReadinessRate(projectId) {
+        const master = this.getBidReadinessMasterItems();
+        const readinessData = this.initBidReadinessState(projectId);
+
+        let totalCount = master.length; // 31
+        let notApplicableCount = 0;
+        let completedCount = 0;
+
+        master.forEach(m => {
+            const item = readinessData[m.key] || {};
+            const state = item.progressState || 'NOT_STARTED';
+
+            if (state === 'NOT_APPLICABLE') {
+                notApplicableCount++;
+            } else if (state === 'COMPLETED') {
+                completedCount++;
+            }
+        });
+
+        const applicableCount = totalCount - notApplicableCount; // e.g. 31 - 3 = 28
+        const incompleteCount = applicableCount - completedCount; // e.g. 28 - 23 = 5
+        const rate = applicableCount > 0 ? Math.round((completedCount / applicableCount) * 100) : 0; // 23/28 = 82%
+
+        return {
+            rate: rate,
+            completedCount: completedCount,
+            applicableCount: applicableCount,
+            notApplicableCount: notApplicableCount,
+            incompleteCount: incompleteCount,
+            totalCount: totalCount
+        };
+    }
+
+    generateReadinessAdvisorAlerts(projectId) {
+        const master = this.getBidReadinessMasterItems();
+        const readinessData = this.initBidReadinessState(projectId);
+        const artifacts = (this.state.artifacts || []).filter(a => a.projectId === projectId);
+        const project = this.state.projects?.find(p => p.id === projectId);
+
+        const alerts = [];
+
+        // Check missing required company docs
+        master.filter(m => m.category === 'company').forEach(m => {
+            const st = readinessData[m.key]?.progressState;
+            const hasFile = artifacts.some(a => a.documentTypeKey === m.key || a.category === m.key);
+            if (st === 'NOT_STARTED' && !hasFile) {
+                alerts.push({ type: 'danger', text: `${m.name}가(이) 아직 등록되지 않았습니다.` });
+            } else if (readinessData[m.key]?.validityState === 'EXPIRING_SOON') {
+                alerts.push({ type: 'warning', text: `${m.name}의 유효기간(D-15) 확인 및 재발급 준비가 필요합니다.` });
+            }
+        });
+
+        // Check proposal docs
+        const slidesState = readinessData['PRESENTATION_SLIDES']?.progressState;
+        if (slidesState !== 'COMPLETED') {
+            alerts.push({ type: 'warning', text: '발포자료(PPT/PDF)가 아직 최종 검토 및 승인 완료되지 않았습니다.' });
+        }
+
+        const priceBidState = readinessData['PRICE_BID']?.progressState;
+        if (priceBidState !== 'COMPLETED') {
+            alerts.push({ type: 'info', text: '가격입찰서 작성 및 최종 산출 내역 검토가 진행 중입니다.' });
+        }
+
+        // Check consortium
+        if (project && (project.participationType === 'CONSORTIUM_MEMBER' || project.consortiumMembers?.length > 1)) {
+            const agreementState = readinessData['CONSORTIUM_AGREEMENT']?.progressState;
+            if (agreementState !== 'COMPLETED') {
+                alerts.push({ type: 'warning', text: '공동수급 프로젝트이나 공동수급협정서가 최종 완료되지 않았습니다.' });
+            }
+        }
+
+        // Check checklist stamps & submission
+        const stampState = readinessData['CHECK_DOC_STAMPED']?.progressState;
+        if (stampState !== 'COMPLETED') {
+            alerts.push({ type: 'danger', text: '제출서류 법인인감/사용인감 최종 날인 확인이 필요합니다.' });
+        }
+
+        if (alerts.length === 0) {
+            alerts.push({ type: 'success', text: '현재 확인된 필수 제출서류 및 점검사항이 모두 완료되었습니다. 최종 제출 전 파일 정합성을 재확인하세요.' });
+        }
+
+        return alerts;
+    }
+
+    updateBidReadinessItemState(projectId, key, field, value) {
+        const readinessData = this.initBidReadinessState(projectId);
+        if (!readinessData[key]) readinessData[key] = { key: key };
+
+        readinessData[key][field] = value;
+
+        // Persist to LocalStorage
+        try {
+            localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+        } catch(e) {}
+
+        // Re-render Bid Readiness Tab
+        if (this.activeDetailTab === 'bid-readiness') {
+            this.renderBidReadinessTab(projectId);
+        }
+    }
+
+
+    setFieldValue(id, value) {
+        const element = document.getElementById(id);
+        if (!element) {
+            console.warn(`[DOM Safe Guard] Missing element: #${id}`);
+            return;
+        }
+        element.value = (value !== null && value !== undefined) ? value : '';
+    }
+
+
+    translateParticipationType(type) {
+        if (!type) return '미지정';
+        const t = String(type).toUpperCase();
+        if (t === 'PRIME_CONTRACTOR') return '주사업자';
+        if (t === 'CONSORTIUM_MEMBER') return '공동수급사';
+        if (t === 'SUBCONTRACTOR') return '하도급사';
+        return type;
+    }
+
+    handleParticipationTypeChange(type) {
+        const primeGroup = document.getElementById('project-prime-contractor-name-group');
+        const consortiumSection = document.getElementById('project-consortium-section');
+        const subcontractSection = document.getElementById('project-subcontract-section');
+        const contractAmountLabel = document.getElementById('project-company-contract-amount-label');
+
+        if (type === 'CONSORTIUM_MEMBER') {
+            if (primeGroup) primeGroup.style.display = 'block';
+            if (consortiumSection) consortiumSection.style.display = 'block';
+            if (subcontractSection) subcontractSection.style.display = 'none';
+            if (contractAmountLabel) contractAmountLabel.textContent = '당사 계약금액 (원)';
+        } else if (type === 'SUBCONTRACTOR') {
+            if (primeGroup) primeGroup.style.display = 'none';
+            if (consortiumSection) consortiumSection.style.display = 'none';
+            if (subcontractSection) subcontractSection.style.display = 'block';
+            if (contractAmountLabel) contractAmountLabel.textContent = '당사 하도급 계약금액 (원)';
+        } else { // PRIME_CONTRACTOR
+            if (primeGroup) primeGroup.style.display = 'none';
+            if (consortiumSection) consortiumSection.style.display = 'block';
+            if (subcontractSection) subcontractSection.style.display = 'none';
+            if (contractAmountLabel) contractAmountLabel.textContent = '당사 계약금액 (원)';
+        }
+    }
+
+    recalculateCompanyContractAmount() {
+        const totalInput = document.getElementById('project-total-contract-amount');
+        const shareInput = document.getElementById('project-company-share-rate');
+        const companyInput = document.getElementById('project-company-contract-amount');
+        if (!totalInput || !shareInput || !companyInput) return;
+
+        const totalAmount = this.parseNumberFromCommas(totalInput.value);
+        const shareRate = parseFloat(shareInput.value) || 0;
+
+        if (totalAmount > 0 && shareRate > 0) {
+            const calculated = Math.round(totalAmount * (shareRate / 100));
+            companyInput.value = this.formatNumberWithCommas(calculated);
+        }
+        this.checkManualContractAmount();
+    }
+
+    checkManualContractAmount() {
+        const totalInput = document.getElementById('project-total-contract-amount');
+        const shareInput = document.getElementById('project-company-share-rate');
+        const companyInput = document.getElementById('project-company-contract-amount');
+        const badge = document.getElementById('project-contract-manual-badge');
+        if (!totalInput || !shareInput || !companyInput || !badge) return;
+
+        const totalAmount = this.parseNumberFromCommas(totalInput.value);
+        const shareRate = parseFloat(shareInput.value) || 0;
+        const currentAmount = this.parseNumberFromCommas(companyInput.value);
+
+        if (totalAmount > 0 && shareRate > 0 && currentAmount > 0) {
+            const calculated = Math.round(totalAmount * (shareRate / 100));
+            if (Math.abs(calculated - currentAmount) > 1) {
+                badge.style.display = 'inline-block';
+            } else {
+                badge.style.display = 'none';
+            }
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    addConsortiumMemberRow() {
+        if (!this.modalConsortiumMembers) this.modalConsortiumMembers = [];
+        this.modalConsortiumMembers.push({
+            id: this.generateUuid(),
+            companyName: '',
+            participationRole: 'CONSORTIUM_MEMBER',
+            shareRate: 0,
+            contractAmount: 0,
+            isLeadCompany: false,
+            isOurCompany: false,
+            note: ''
+        });
+        this.renderModalConsortiumTable();
+    }
+
+    removeConsortiumMemberRow(idx) {
+        if (!this.modalConsortiumMembers) return;
+        this.modalConsortiumMembers.splice(idx, 1);
+        this.renderModalConsortiumTable();
+    }
+
+    updateConsortiumMemberField(idx, field, value) {
+        if (!this.modalConsortiumMembers || !this.modalConsortiumMembers[idx]) return;
+        const row = this.modalConsortiumMembers[idx];
+
+        if (field === 'isLeadCompany' && value) {
+            this.modalConsortiumMembers.forEach((r, i) => { r.isLeadCompany = (i === idx); });
+        } else if (field === 'isOurCompany' && value) {
+            this.modalConsortiumMembers.forEach((r, i) => { r.isOurCompany = (i === idx); });
+        } else {
+            row[field] = value;
+        }
+
+        const totalInput = document.getElementById('project-total-contract-amount');
+        const totalAmount = totalInput ? this.parseNumberFromCommas(totalInput.value) : 0;
+
+        if (field === 'shareRate' && totalAmount > 0) {
+            row.contractAmount = Math.round(totalAmount * (parseFloat(value || 0) / 100));
+        }
+
+        // Sync our company's share rate and contract amount if checked
+        if (row.isOurCompany) {
+            const companyShareInput = document.getElementById('project-company-share-rate');
+            const companyAmountInput = document.getElementById('project-company-contract-amount');
+            if (companyShareInput) companyShareInput.value = row.shareRate || 0;
+            if (companyAmountInput) companyAmountInput.value = this.formatNumberWithCommas(row.contractAmount || 0);
+            this.checkManualContractAmount();
+        }
+
+        this.renderModalConsortiumTable();
+    }
+
+    renderModalConsortiumTable() {
+        const tbody = document.getElementById('project-consortium-tbody');
+        const warningBox = document.getElementById('consortium-validation-warning');
+        if (!tbody) return;
+
+        if (!this.modalConsortiumMembers) this.modalConsortiumMembers = [];
+
+        const totalInput = document.getElementById('project-total-contract-amount');
+        const totalAmount = totalInput ? this.parseNumberFromCommas(totalInput.value) : 0;
+
+        let sumShareRate = 0;
+        tbody.innerHTML = this.modalConsortiumMembers.map((m, idx) => {
+            sumShareRate += (parseFloat(m.shareRate) || 0);
+            const computedAmt = (totalAmount > 0 && m.shareRate > 0) ? Math.round(totalAmount * (parseFloat(m.shareRate) / 100)) : (m.contractAmount || 0);
+            m.contractAmount = computedAmt;
+
+            return `
+                <tr>
+                    <td style="padding:4px 6px;">
+                        <input type="text" value="${m.companyName || ''}" placeholder="회사명 입력" onchange="app.updateConsortiumMemberField(${idx}, 'companyName', this.value)" style="width:100%; height:28px; font-size:12px; padding:0 6px; border:1px solid var(--bg-card-border); border-radius:4px; background:var(--bg-input); color:var(--text-main);">
+                    </td>
+                    <td style="padding:4px 6px; text-align:center;">
+                        <select onchange="app.updateConsortiumMemberField(${idx}, 'participationRole', this.value)" style="width:100%; height:28px; font-size:11px; border:1px solid var(--bg-card-border); border-radius:4px; background:var(--bg-input); color:var(--text-main);">
+                            <option value="PRIME_CONTRACTOR" ${m.participationRole === 'PRIME_CONTRACTOR' ? 'selected' : ''}>주사업자</option>
+                            <option value="CONSORTIUM_MEMBER" ${m.participationRole !== 'PRIME_CONTRACTOR' ? 'selected' : ''}>공동수급사</option>
+                        </select>
+                    </td>
+                    <td style="padding:4px 6px; text-align:right;">
+                        <input type="number" min="0" max="100" step="0.1" value="${m.shareRate || 0}" onchange="app.updateConsortiumMemberField(${idx}, 'shareRate', parseFloat(this.value)||0)" style="width:100%; height:28px; font-size:12px; text-align:right; border:1px solid var(--bg-card-border); border-radius:4px; background:var(--bg-input); color:var(--text-main);">
+                    </td>
+                    <td style="padding:4px 6px; text-align:right; font-weight:700; color:var(--success);">
+                        ${computedAmt ? computedAmt.toLocaleString('ko-KR') : '0'} 원
+                    </td>
+                    <td style="padding:4px 6px; text-align:center;">
+                        <input type="radio" name="modal_consortium_lead" ${m.isLeadCompany ? 'checked' : ''} onchange="app.updateConsortiumMemberField(${idx}, 'isLeadCompany', this.checked)">
+                    </td>
+                    <td style="padding:4px 6px; text-align:center;">
+                        <input type="radio" name="modal_consortium_our" ${m.isOurCompany ? 'checked' : ''} onchange="app.updateConsortiumMemberField(${idx}, 'isOurCompany', this.checked)">
+                    </td>
+                    <td style="padding:4px 6px;">
+                        <input type="text" value="${m.note || ''}" placeholder="비고" onchange="app.updateConsortiumMemberField(${idx}, 'note', this.value)" style="width:100%; height:28px; font-size:11px; padding:0 6px; border:1px solid var(--bg-card-border); border-radius:4px; background:var(--bg-input); color:var(--text-main);">
+                    </td>
+                    <td style="padding:4px 6px; text-align:center;">
+                        <button type="button" class="btn btn-xs btn-danger" onclick="app.removeConsortiumMemberRow(${idx})">&times;</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        if (this.modalConsortiumMembers.length > 0 && Math.abs(sumShareRate - 100) > 0.01) {
+            if (warningBox) {
+                warningBox.style.display = 'block';
+                warningBox.textContent = `공동수급체 지분율 합계가 100%가 아닙니다. (현재 합계: ${sumShareRate.toFixed(1)}%)`;
+            }
+        } else {
+            if (warningBox) warningBox.style.display = 'none';
+        }
+    }
+
 
     /* ==========================================================================
        CRUD OPERATIONS: PROJECTS
@@ -10503,81 +12566,139 @@ class AetherPMO {
         document.getElementById('project-modal').classList.add('open');
     }
 
-    openEditProjectModal(projectId) {
+        openEditProjectModal(projectId) {
         const project = this.state.projects.find(p => p.id === projectId);
         if (!project) return;
 
-        document.getElementById('project-modal-title').textContent = '사업 정보 수정';
-        document.getElementById('project-id-field').value = project.id;
-        document.getElementById('project-name').value = project.name;
-        document.getElementById('project-desc').value = project.desc || '';
+        // Step 1: Basic Fields Population (Null-Safe)
+        const titleElem = document.getElementById('project-modal-title');
+        if (titleElem) titleElem.textContent = '사업 정보 수정';
+
+        this.setFieldValue('project-id-field', project.id);
+        this.setFieldValue('project-name', project.name);
+        this.setFieldValue('project-desc', project.desc);
         
         const deptValue = project.dept || '개발팀';
         const defaultDepts = ['개발팀', '기획팀', '디자인팀', '품질관리팀'];
         if (defaultDepts.includes(deptValue)) {
-            document.getElementById('project-dept').value = deptValue;
-            document.getElementById('project-dept-custom').style.display = 'none';
-            document.getElementById('project-dept-custom').value = '';
+            this.setFieldValue('project-dept', deptValue);
+            const deptCustom = document.getElementById('project-dept-custom');
+            if (deptCustom) { deptCustom.style.display = 'none'; deptCustom.value = ''; }
         } else {
-            document.getElementById('project-dept').value = 'custom';
-            document.getElementById('project-dept-custom').style.display = 'block';
-            document.getElementById('project-dept-custom').value = deptValue;
+            this.setFieldValue('project-dept', 'custom');
+            const deptCustom = document.getElementById('project-dept-custom');
+            if (deptCustom) { deptCustom.style.display = 'block'; deptCustom.value = deptValue; }
         }
         
         this.populateProjectManagerSelect(project.managerId || project.manager);
-        document.getElementById('project-customer').value = project.customer || '';
-        document.getElementById('project-budget').value = project.budget || '';
-        document.getElementById('project-start-date').value = project.startDate;
-        document.getElementById('project-end-date').value = project.endDate;
-        document.getElementById('project-inspection-date').value = project.inspectionDate || '';
-        document.getElementById('project-status').value = project.status;
-        document.getElementById('project-progress').value = project.progress;
-        // 투입 인력 수 = 해당 프로젝트의 is_active 참여인력 자동 계산
+        this.setFieldValue('project-customer', project.customer || project.customerName);
+        this.setFieldValue('project-budget', project.budget ? this.formatNumberWithCommas(project.budget) : '');
+        this.setFieldValue('project-start-date', project.startDate);
+        this.setFieldValue('project-end-date', project.endDate);
+        this.setFieldValue('project-inspection-date', project.inspectionDate);
+        this.setFieldValue('project-status', project.status === 'Completed' ? 'Completed' : 'In Progress');
+        this.setFieldValue('project-progress', project.progress ?? 0);
+
         const activeMemberCount = (this.state.projectMembers || []).filter(
             m => m.projectId === project.id && m.isActive !== false
         ).length;
-        document.getElementById('project-resources').value = activeMemberCount;
-        document.getElementById('project-milestones').value = project.milestones || '';
-        document.getElementById('project-remarks').value = project.remarks || '';
+        this.setFieldValue('project-resources', activeMemberCount);
+        this.setFieldValue('project-milestones', project.milestones);
+        this.setFieldValue('project-remarks', project.remarks);
+        this.setFieldValue('project-code', project.projectCode);
+        
+        const currBizType = project.businessType || project.business_type || project.bizType || '공공 SI';
+        const standardTypes = ['공공 SI', '유지관리', 'ISP', '컨설팅', 'AI'];
+        const bizSelect = document.getElementById('project-biz-type-select');
+        const bizCustom = document.getElementById('project-biz-type-custom');
+        if (bizSelect) {
+            if (standardTypes.includes(currBizType)) {
+                bizSelect.value = currBizType;
+                if (bizCustom) { bizCustom.style.display = 'none'; bizCustom.value = ''; }
+            } else {
+                bizSelect.value = 'custom';
+                if (bizCustom) { bizCustom.style.display = 'block'; bizCustom.value = currBizType; }
+            }
+        }
 
-        // Populate new fields
-        document.getElementById('project-code').value = project.projectCode || '';
-        document.getElementById('project-biz-type').value = project.bizType || '';
-        document.getElementById('project-contract-date').value = project.contractDate || '';
-        document.getElementById('project-location').value = project.location || '';
-        document.getElementById('project-related-biz').value = project.relatedBiz || '';
-        document.getElementById('project-risk-level').value = project.riskLevel || '보통';
+        this.setFieldValue('project-contract-date', project.contractDate || project.startDate);
+        this.setFieldValue('project-location', project.location);
+        this.setFieldValue('project-related-biz', project.relatedBiz);
+        this.setFieldValue('project-risk-level', project.riskLevel || '보통');
 
-        // Populate bid status fields
-        document.getElementById('project-bid-status').value = this.normalizeBiddingStatus(project);
-        document.getElementById('project-bid-status-group').style.display = (project.status === 'Bidding' || project.is_bidding_project) ? 'block' : 'none';
+        // Step 2: Set Participation Type & Toggle Conditional Sections
+        const partType = project.participationType || project.participation_type || 'PRIME_CONTRACTOR';
+        this.setFieldValue('project-participation-type', partType);
+        
+        // Step 3: Handle Conditional Section Visibility
+        this.handleParticipationTypeChange(partType);
 
-        // Populate bidding fields
+        // Step 4: Set Contract, Subcontract, and Bidding Fields (Null-Safe)
+        this.setFieldValue('project-prime-contractor-name', project.primeContractorName || project.prime_contractor_name);
+        this.setFieldValue('project-total-contract-amount', project.totalContractAmount ? this.formatNumberWithCommas(project.totalContractAmount) : '');
+        this.setFieldValue('project-company-share-rate', (project.companyShareRate !== undefined && project.companyShareRate !== null) ? project.companyShareRate : '');
+        
+        const compAmount = project.companyContractAmount || project.company_contract_amount || project.contract_amount || project.budget || 0;
+        this.setFieldValue('project-company-contract-amount', compAmount ? this.formatNumberWithCommas(compAmount) : '');
+
+        this.setFieldValue('project-original-project-name', project.originalProjectName || project.original_project_name);
+        this.setFieldValue('project-subcontract-project-name', project.subcontractProjectName || project.subcontract_project_name);
+        this.setFieldValue('project-subcontract-prime-contractor', project.subcontractPrimeContractor || project.prime_contractor_name);
+        this.setFieldValue('project-subcontract-client-name', project.subcontractClientName || project.subcontract_client_name);
+        this.setFieldValue('project-original-contract-amount', project.originalContractAmount ? this.formatNumberWithCommas(project.originalContractAmount) : '');
+        this.setFieldValue('project-original-project-code', project.originalProjectCode || project.original_project_code);
+
+        // Populate bid status & bidding fields
+        this.setFieldValue('project-bid-status', this.normalizeBiddingStatus(project));
+        const bidGroup = document.getElementById('project-bid-status-group');
+        if (bidGroup) bidGroup.style.display = (project.status === 'Bidding' || project.is_bidding_project) ? 'block' : 'none';
+
         const isBidding = project.status === 'Bidding';
         const biddingFields = document.getElementById('project-bidding-fields');
-        if (biddingFields) {
-            biddingFields.style.display = isBidding ? 'block' : 'none';
+        if (biddingFields) biddingFields.style.display = isBidding ? 'block' : 'none';
+
+        this.setFieldValue('project-bid-number', project.bidNumber);
+        this.setFieldValue('project-customer-name', project.customerName);
+        this.setFieldValue('project-budget-bidding', project.projectBudget ? this.formatNumberWithCommas(project.projectBudget) : '');
+        
+        const biddingSelect = document.getElementById('project-business-type');
+        const biddingCustom = document.getElementById('project-business-type-custom');
+        if (biddingSelect) {
+            if (standardTypes.includes(currBizType)) {
+                biddingSelect.value = currBizType;
+                if (biddingCustom) { biddingCustom.style.display = 'none'; biddingCustom.value = ''; }
+            } else {
+                biddingSelect.value = 'custom';
+                if (biddingCustom) { biddingCustom.style.display = 'block'; biddingCustom.value = currBizType; }
+            }
         }
-        document.getElementById('project-bid-number').value = project.bidNumber || '';
-        document.getElementById('project-customer-name').value = project.customerName || '';
-        document.getElementById('project-budget-bidding').value = project.projectBudget || '';
-        document.getElementById('project-business-type').value = project.businessType || '';
-        document.getElementById('project-sales-owner').value = project.salesOwner || '';
-        document.getElementById('project-proposal-owner').value = project.proposalOwner || '';
-        document.getElementById('project-proposal-pm').value = project.proposalPm || '';
-        document.getElementById('project-business-manager').value = project.businessManager || '';
-        document.getElementById('project-contract-owner').value = project.contractOwner || '';
-        document.getElementById('project-legal-owner').value = project.legalOwner || '';
+        this.setFieldValue('project-sales-owner', project.salesOwner);
+        this.setFieldValue('project-proposal-owner', project.proposalOwner);
+        this.setFieldValue('project-proposal-pm', project.proposalPm);
+        this.setFieldValue('project-business-manager', project.businessManager);
+        this.setFieldValue('project-contract-owner', project.contractOwner);
+        this.setFieldValue('project-legal-owner', project.legalOwner);
 
         // Populate WBS stage inputs
         const stageIds = ['initiation', 'analysis', 'design', 'bpr', 'isp', 'closing'];
         stageIds.forEach(sid => {
             const stage = (project.wbs && project.wbs.stages) ? project.wbs.stages.find(s => s.id === sid) : null;
-            document.getElementById(`wbs-progress-${sid}`).value = stage ? stage.progress : 0;
-            document.getElementById(`wbs-weight-${sid}`).value = stage ? stage.weight : 0;
+            this.setFieldValue(`wbs-progress-${sid}`, stage ? stage.progress : 0);
+            this.setFieldValue(`wbs-weight-${sid}`, stage ? stage.weight : 0);
         });
 
-        document.getElementById('project-modal').classList.add('open');
+        // Step 5: Render Consortium Table & Check Manual Contract Amount
+        let loadedMembers = project.consortiumMembers;
+        if (!loadedMembers || loadedMembers.length === 0) {
+            loadedMembers = (this.state.consortiumMembers || []).filter(c => c.projectId === project.id);
+        }
+        this.modalConsortiumMembers = JSON.parse(JSON.stringify(loadedMembers || []));
+        
+        this.checkManualContractAmount();
+        this.renderModalConsortiumTable();
+
+        const modalElem = document.getElementById('project-modal');
+        if (modalElem) modalElem.classList.add('open');
     }
 
     closeProjectModal() {
@@ -10598,6 +12719,34 @@ class AetherPMO {
 
     handlePmChange(value) {
         const customInput = document.getElementById('project-manager-custom');
+        if (customInput) {
+            if (value === 'custom') {
+                customInput.style.display = 'block';
+                customInput.value = '';
+                customInput.focus();
+            } else {
+                customInput.style.display = 'none';
+                customInput.value = '';
+            }
+        }
+    }
+
+    handleBizTypeChange(value) {
+        const customInput = document.getElementById('project-biz-type-custom');
+        if (customInput) {
+            if (value === 'custom') {
+                customInput.style.display = 'block';
+                customInput.value = '';
+                customInput.focus();
+            } else {
+                customInput.style.display = 'none';
+                customInput.value = '';
+            }
+        }
+    }
+
+    handleBiddingBizTypeChange(value) {
+        const customInput = document.getElementById('project-business-type-custom');
         if (customInput) {
             if (value === 'custom') {
                 customInput.style.display = 'block';
@@ -10654,7 +12803,7 @@ class AetherPMO {
             }
         }
         const customer = document.getElementById('project-customer')?.value?.trim() || '';
-        const budget = Number(document.getElementById('project-budget')?.value || 0);
+        const budget = this.parseNumberFromCommas(document.getElementById('project-budget')?.value);
         const startDate = document.getElementById('project-start-date')?.value || '';
         const endDate = document.getElementById('project-end-date')?.value || '';
         const inspectionDate = document.getElementById('project-inspection-date')?.value || '';
@@ -10669,18 +12818,78 @@ class AetherPMO {
 
         // Retrieve new fields
         const projectCode = document.getElementById('project-code')?.value?.trim() || '';
-        const bizType = document.getElementById('project-biz-type')?.value?.trim() || '';
+        
+        const bizSelectVal = document.getElementById('project-biz-type-select')?.value || '';
+        const bizCustomVal = document.getElementById('project-biz-type-custom')?.value?.trim() || '';
+        const rawBizType = (bizSelectVal === 'custom') ? bizCustomVal : bizSelectVal;
+
+        const biddingSelectVal = document.getElementById('project-business-type')?.value || '';
+        const biddingCustomVal = document.getElementById('project-business-type-custom')?.value?.trim() || '';
+        const rawBiddingType = (biddingSelectVal === 'custom') ? biddingCustomVal : biddingSelectVal;
+
+        const businessType = rawBiddingType || rawBizType || '공공 SI';
+        const bizType = rawBizType || rawBiddingType || '공공 SI';
         const contractDate = document.getElementById('project-contract-date')?.value || '';
         const location = document.getElementById('project-location')?.value?.trim() || '';
         const relatedBiz = document.getElementById('project-related-biz')?.value?.trim() || '';
         const riskLevel = document.getElementById('project-risk-level')?.value || '보통';
         const bidStatus = document.getElementById('project-bid-status')?.value || '';
 
+        // Retrieve Contract, Consortium, and Subcontract fields
+        const participationType = document.getElementById('project-participation-type')?.value || 'PRIME_CONTRACTOR';
+        const primeContractorName = document.getElementById('project-prime-contractor-name')?.value?.trim() || '';
+        const totalContractAmount = this.parseNumberFromCommas(document.getElementById('project-total-contract-amount')?.value);
+        const companyShareRate = parseFloat(document.getElementById('project-company-share-rate')?.value) || 0;
+        const companyContractAmountInput = this.parseNumberFromCommas(document.getElementById('project-company-contract-amount')?.value);
+
+        const originalProjectName = document.getElementById('project-original-project-name')?.value?.trim() || '';
+        const subcontractProjectName = document.getElementById('project-subcontract-project-name')?.value?.trim() || '';
+        const subcontractPrimeContractor = document.getElementById('project-subcontract-prime-contractor')?.value?.trim() || '';
+        const subcontractClientName = document.getElementById('project-subcontract-client-name')?.value?.trim() || '';
+        const originalContractAmount = this.parseNumberFromCommas(document.getElementById('project-original-contract-amount')?.value);
+        const originalProjectCode = document.getElementById('project-original-project-code')?.value?.trim() || '';
+
+        // Validation Rules: Blocked Saves
+        if (!participationType) {
+            alert('사업 참여 형태를 선택해주세요.');
+            return;
+        }
+        if (totalContractAmount < 0 || companyContractAmountInput < 0 || originalContractAmount < 0) {
+            alert('사업금액 및 계약금액은 음수가 될 수 없습니다.');
+            return;
+        }
+        if (companyShareRate < 0 || companyShareRate > 100) {
+            alert('지분율은 0% 이상 100% 이하이어야 합니다.');
+            return;
+        }
+
+        const consortiumMembers = this.modalConsortiumMembers || [];
+        const leadCount = consortiumMembers.filter(m => m.isLeadCompany).length;
+        if (leadCount > 1) {
+            alert('대표사는 1개 회사만 지정할 수 있습니다.');
+            return;
+        }
+        const ourCount = consortiumMembers.filter(m => m.isOurCompany).length;
+        if (ourCount > 1) {
+            alert('당사 여부는 1개 회사만 지정할 수 있습니다.');
+            return;
+        }
+
+        // Warning checks (Proceed with save, display notification)
+        if (consortiumMembers.length > 0) {
+            const sumRate = consortiumMembers.reduce((sum, m) => sum + (parseFloat(m.shareRate) || 0), 0);
+            if (Math.abs(sumRate - 100) > 0.01) {
+                this.showToast(`주의: 공동수급체 지분율 합계가 100%가 아닙니다. (현재 ${sumRate.toFixed(1)}%)`, 'warning');
+            }
+        }
+
+        // Final companyContractAmount calculation fallback logic
+        const companyContractAmount = companyContractAmountInput || budget || (totalContractAmount && companyShareRate ? Math.round(totalContractAmount * (companyShareRate / 100)) : 0);
+
         // Bidding stage fields
         const bidNumber = document.getElementById('project-bid-number')?.value?.trim() || '';
         const customerName = document.getElementById('project-customer-name')?.value?.trim() || '';
-        const projectBudget = Number(document.getElementById('project-budget-bidding')?.value || 0);
-        const businessType = document.getElementById('project-business-type')?.value || '';
+        const projectBudget = this.parseNumberFromCommas(document.getElementById('project-budget-bidding')?.value);
         const salesOwner = document.getElementById('project-sales-owner')?.value?.trim() || '';
         const proposalOwner = document.getElementById('project-proposal-owner')?.value?.trim() || '';
         const proposalPm = document.getElementById('project-proposal-pm')?.value?.trim() || '';
@@ -10738,24 +12947,40 @@ class AetherPMO {
                 const old = this.state.projects[index];
                 const oldManagerId = old.managerId;
 
-                const rawBidStatus = document.getElementById('project-bid-status')?.value || 'proposal_preparing';
-                const normBidStatus = this.normalizeBiddingStatus(rawBidStatus);
+                const rawBidStatus = document.getElementById('project-bid-status')?.value || '';
+                let normBidStatus = rawBidStatus ? this.normalizeBiddingStatus(rawBidStatus) : '';
 
                 let targetStatus = status;
                 let targetBiddingStatus = normBidStatus;
                 let targetBidResult = old.bid_result || old.bidResult || '';
 
-                if (normBidStatus === 'won' || targetStatus === 'In Progress') {
-                    if (old.is_bidding_project || old.status === 'Bidding') {
-                        targetStatus = 'In Progress';
+                // 수행 중/종료 프로젝트인 경우 bid_status 덮어쓰기 방지 및 분리
+                const isExecutionStage = old.status === 'In Progress' || old.status === 'Execution' || old.status === 'Completed' || status === 'In Progress' || status === 'Execution' || status === 'Completed';
+
+                if (isExecutionStage) {
+                    const oldBid = this.normalizeBiddingStatus(old);
+                    if (oldBid === 'won' || old.bid_result === 'WON' || old.bidResult === 'WON') {
                         targetBiddingStatus = 'won';
                         targetBidResult = 'WON';
-                    }
-                } else if (normBidStatus === 'lost' || targetStatus === 'Bid Failed') {
-                    if (old.is_bidding_project || old.status === 'Bidding') {
-                        targetStatus = 'Bid Failed';
+                    } else if (oldBid === 'lost' || old.bid_result === 'LOST' || old.bidResult === 'LOST') {
                         targetBiddingStatus = 'lost';
                         targetBidResult = 'LOST';
+                    } else {
+                        targetBiddingStatus = old.bid_status || old.bidding_status || null;
+                    }
+                } else {
+                    if (normBidStatus === 'won' || targetStatus === 'In Progress') {
+                        if (old.is_bidding_project || old.status === 'Bidding') {
+                            targetStatus = 'In Progress';
+                            targetBiddingStatus = 'won';
+                            targetBidResult = 'WON';
+                        }
+                    } else if (normBidStatus === 'lost' || targetStatus === 'Bid Failed') {
+                        if (old.is_bidding_project || old.status === 'Bidding') {
+                            targetStatus = 'Bid Failed';
+                            targetBiddingStatus = 'lost';
+                            targetBidResult = 'LOST';
+                        }
                     }
                 }
 
@@ -10764,17 +12989,21 @@ class AetherPMO {
                     name, desc, dept, manager, managerId, startDate, endDate,
                     status: targetStatus,
                     project_status: targetStatus,
-                    bidding_status: targetBiddingStatus,
-                    biddingStatus: targetBiddingStatus,
+                    bid_status: targetBiddingStatus || normBidStatus || null,
                     bid_result: targetBidResult,
                     bidResult: targetBidResult,
-                    bidStatus: normBidStatus,
+                    bidStatus: normBidStatus || null,
                     is_bidding_project: Boolean(old.is_bidding_project || old.status === 'Bidding'),
                     progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
                     projectCode, bizType, contractDate, location, relatedBiz, riskLevel, wbs,
                     bidNumber, customerName, projectBudget, businessType,
-                    salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner
+                    salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
+                    participationType, totalContractAmount, companyShareRate, companyContractAmount, primeContractorName,
+                    originalProjectName, subcontractProjectName, subcontractPrimeContractor, subcontractClientName, originalContractAmount, originalProjectCode,
+                    consortiumMembers
                 };
+                delete updatedProject.bidding_status;
+                delete updatedProject.biddingStatus;
                 savedProject = updatedProject;
 
                 // Supabase Sync
@@ -10939,19 +13168,34 @@ class AetherPMO {
                 this.addActivityLog(newId, name, 'project', `신규 사업 등록: "${name}"`);
             }
 
-            // Sync the entire state representation to LocalStorage in local fallback mode
-            if (!this.useSupabase && !this.demoMode) {
-                localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
-            }
-
             // Reload state from Supabase to sync DB schema structures and show real-time changes
             if (this.useSupabase) {
                 await this.loadStateFromSupabase();
             }
 
+            // Guarantee that savedProject updates are preserved in state
+            if (savedProject && savedProject.id) {
+                const targetIdx = (this.state.projects || []).findIndex(p => p.id === savedProject.id);
+                if (targetIdx !== -1) {
+                    this.state.projects[targetIdx] = { ...this.state.projects[targetIdx], ...savedProject };
+                } else {
+                    this.state.projects.push(savedProject);
+                }
+            }
+
+            // Sync updated state to LocalStorage
+            if (!this.demoMode) {
+                try {
+                    localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+                } catch (e) {
+                    console.warn('[LocalStorage Save Error]', e);
+                }
+            }
+
             this.updateProjectsOverdueStatus();
             this.closeProjectModal();
 
+            const targetProjectId = id || (savedProject ? savedProject.id : null);
             const rawBidStatus = document.getElementById('project-bid-status')?.value || '';
             const normBidStatus = savedProject ? this.normalizeBiddingStatus(savedProject) : (rawBidStatus ? this.normalizeBiddingStatus(rawBidStatus) : 'proposal_preparing');
             const isBiddingProject = Boolean(
@@ -10961,7 +13205,6 @@ class AetherPMO {
 
             if (isBiddingProject && normBidStatus) {
                 const targetTab = normBidStatus;
-                const targetProjectId = id || (savedProject ? savedProject.id : null);
                 console.log('[saveProjectForm Post-Save Bidding Navigation]', {
                     projectId: targetProjectId,
                     normBidStatus: targetTab,
@@ -10988,16 +13231,23 @@ class AetherPMO {
                     this.setActiveSidebarMenu('projects/bidding');
                 }
             } else {
-                this.handleRouting();
+                if (targetProjectId && (this.activeView === 'project-detail' || (window.location.hash && window.location.hash.includes('project-detail')))) {
+                    this.syncBiddingTasksByBidStatus(targetProjectId, savedProject?.bidding_status || savedProject?.biddingStatus || savedProject?.bidStatus);
+        this.renderProjectDetail(targetProjectId);
+                } else {
+                    this.handleRouting();
+                }
+                this.renderProjects();
             }
             
             // Show Success Notification
             this.showToast(id ? '사업 정보가 성공적으로 수정되었습니다.' : '신규 사업이 성공적으로 등록되었습니다.', 'success');
 
         } catch (dbError) {
-            console.error('[Supabase Save Error]', dbError);
-            const errMsg = dbError.message || dbError.details || '데이터베이스 저장 중 오류가 발생했습니다.';
-            alert(`저장 실패: ${errMsg}\n(입력 데이터를 확인하시고 다시 시도해주세요.)`);
+            console.error('[Project Save Failed]', dbError);
+            const errMsg = dbError?.message || dbError?.details || '데이터베이스 저장 중 오류가 발생했습니다.';
+            alert(`프로젝트 저장 실패: ${errMsg}\n(입력 데이터를 확인하시고 다시 시도해주세요.)`);
+            return;
         }
     }
 
@@ -14830,6 +17080,7 @@ class AetherPMO {
             this.state.recentlyDownloaded.push(temp.id);
         }
 
+        this.showToast(`📥 '${temp.name}' 템플릿 다운로드 준비중입니다. (시연용 데모 파일)`, 'info');
         try {
             // ① Signed URL 발급 (300초 유효)
             console.log('[downloadGlobalTemplate] createSignedUrl 호출 시도...');
@@ -16359,82 +18610,123 @@ class AetherPMO {
     // ============================================================
     //  DEFAULT GLOBAL TEMPLATES (기본 표준 템플릿 데이터)
     // ============================================================
-    getDefaultGlobalTemplates() {
+                    getDefaultGlobalTemplates() {
         return [
-            // ── 운영사업 착수단계 ──────────────────────────────────
-            { id: 'gt-init-1', projectType: 'operation', name: '착수계', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_착수계.docx', fileSize: '145 KB' },
-            { id: 'gt-init-2', projectType: 'operation', name: '사업수행계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_사업수행계획서.docx', fileSize: '320 KB' },
-            { id: 'gt-init-3', projectType: 'operation', name: '보안관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_보안관리계획서.docx', fileSize: '210 KB' },
-            { id: 'gt-init-4', projectType: 'operation', name: '품질보증계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_품질보증계획서.docx', fileSize: '185 KB' },
-            { id: 'gt-init-5', projectType: 'operation', name: '참여인력 현황', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_참여인력현황.xlsx', fileSize: '98 KB' },
-            { id: 'gt-init-6', projectType: 'operation', name: '비밀유지서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_비밀유지서약서.docx', fileSize: '112 KB' },
+            // ── 운영사업 (OPERATION) ──────────────────────────────────
+            { id: 'gt-op-init-1', templateKey: 'OPERATION_INITIATION_BIZ_PLAN', businessType: 'OPERATION', lifecycleStage: 'INITIATION', projectType: 'operation', name: '사업계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_사업계획서.hwpx', fileSize: '320 KB' },
+            { id: 'gt-op-init-2', templateKey: 'OPERATION_INITIATION_EXEC_PLAN', businessType: 'OPERATION', lifecycleStage: 'INITIATION', projectType: 'operation', name: '사업수행계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_사업수행계획서.hwpx', fileSize: '450 KB' },
+            { id: 'gt-op-init-3', templateKey: 'OPERATION_INITIATION_SECURITY_PLEDGE', businessType: 'OPERATION', lifecycleStage: 'INITIATION', projectType: 'operation', name: '보안서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_보안서약서.hwpx', fileSize: '120 KB' },
+            { id: 'gt-op-init-4', templateKey: 'OPERATION_INITIATION_PRIVACY_PLEDGE', businessType: 'OPERATION', lifecycleStage: 'INITIATION', projectType: 'operation', name: '개인정보보호서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_개인정보보호서약서.hwpx', fileSize: '115 KB' },
+            { id: 'gt-op-init-5', templateKey: 'OPERATION_INITIATION_INTEGRITY_PLEDGE', businessType: 'OPERATION', lifecycleStage: 'INITIATION', projectType: 'operation', name: '청렴서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_청렴서약서.hwpx', fileSize: '105 KB' },
+            { id: 'gt-op-init-6', templateKey: 'OPERATION_INITIATION_WARRANTY_DEED', businessType: 'OPERATION', lifecycleStage: 'INITIATION', projectType: 'operation', name: '하자보증이행각서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_하자보증이행각서.hwpx', fileSize: '140 KB' },
+            { id: 'gt-op-init-7', templateKey: 'OPERATION_INITIATION_LABOR_LAW_CONFIRM', businessType: 'OPERATION', lifecycleStage: 'INITIATION', projectType: 'operation', name: '근로기준법 준수확약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_근로기준법 준수확약서.hwpx', fileSize: '110 KB' },
+            { id: 'gt-op-init-8', templateKey: 'OPERATION_INITIATION_BREAKDOWN_STATEMENT', businessType: 'OPERATION', lifecycleStage: 'INITIATION', projectType: 'operation', name: '산출내역서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_산출내역서.hwpx', fileSize: '185 KB' },
+            { id: 'gt-op-init-9', templateKey: 'OPERATION_INITIATION_QUALITY_PLAN', businessType: 'OPERATION', lifecycleStage: 'INITIATION', projectType: 'operation', name: '품질보증계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_품질보증계획서.hwpx', fileSize: '210 KB' },
+            { id: 'gt-op-init-10', templateKey: 'OPERATION_INITIATION_RISK_PLAN', businessType: 'OPERATION', lifecycleStage: 'INITIATION', projectType: 'operation', name: '위험관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_위험관리계획서.hwpx', fileSize: '195 KB' },
+            { id: 'gt-op-exec-1', templateKey: 'OPERATION_EXECUTION_REQUIREMENTS_DEF', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: '요구사항정의서', stage: 'execution', category: 'Requirements', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_요구사항정의서.hwpx', fileSize: '280 KB' },
+            { id: 'gt-op-exec-2', templateKey: 'OPERATION_EXECUTION_RTM', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: '요구사항추적표(RTM)', stage: 'execution', category: 'Requirements', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_요구사항추적표(RTM).hwpx', fileSize: '240 KB' },
+            { id: 'gt-op-exec-3', templateKey: 'OPERATION_EXECUTION_FEATURE_LIST', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: '기능목록', stage: 'execution', category: 'Requirements', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_기능목록.hwpx', fileSize: '210 KB' },
+            { id: 'gt-op-exec-4', templateKey: 'OPERATION_EXECUTION_SCREEN_DESIGN', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: '화면설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_화면설계서.hwpx', fileSize: '1.8 MB' },
+            { id: 'gt-op-exec-5', templateKey: 'OPERATION_EXECUTION_DB_DESIGN', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: 'DB설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_DB설계서.hwpx', fileSize: '520 KB' },
+            { id: 'gt-op-exec-6', templateKey: 'OPERATION_EXECUTION_INTERFACE_DESIGN', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: '인터페이스설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_인터페이스설계서.hwpx', fileSize: '380 KB' },
+            { id: 'gt-op-exec-7', templateKey: 'OPERATION_EXECUTION_PROGRAM_DESIGN', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: '프로그램설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_프로그램설계서.hwpx', fileSize: '410 KB' },
+            { id: 'gt-op-exec-8', templateKey: 'OPERATION_EXECUTION_UNIT_TEST_RESULT', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: '단위시험결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_단위시험결과서.hwpx', fileSize: '290 KB' },
+            { id: 'gt-op-exec-9', templateKey: 'OPERATION_EXECUTION_INTEGRATION_TEST_PLAN', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: '통합시험계획서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_통합시험계획서.hwpx', fileSize: '320 KB' },
+            { id: 'gt-op-exec-10', templateKey: 'OPERATION_EXECUTION_INTEGRATION_TEST_RESULT', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: '통합시험결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_통합시험결과서.hwpx', fileSize: '350 KB' },
+            { id: 'gt-op-exec-11', templateKey: 'OPERATION_EXECUTION_CONFIG_LOG', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: '형상관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_형상관리대장.hwpx', fileSize: '160 KB' },
+            { id: 'gt-op-exec-12', templateKey: 'OPERATION_EXECUTION_CHANGE_LOG', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: '변경관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_변경관리대장.hwpx', fileSize: '150 KB' },
+            { id: 'gt-op-exec-13', templateKey: 'OPERATION_EXECUTION_RISK_LOG', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: '리스크관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_리스크관리대장.hwpx', fileSize: '145 KB' },
+            { id: 'gt-op-exec-14', templateKey: 'OPERATION_EXECUTION_ISSUE_LOG', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: '이슈관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_이슈관리대장.hwpx', fileSize: '140 KB' },
+            { id: 'gt-op-exec-15', templateKey: 'OPERATION_EXECUTION_MINUTES', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: '회의록', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_회의록.hwpx', fileSize: '95 KB' },
+            { id: 'gt-op-exec-16', templateKey: 'OPERATION_EXECUTION_WEEKLY_REPORT', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: '주간업무보고서', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_주간업무보고서.hwpx', fileSize: '130 KB' },
+            { id: 'gt-op-exec-17', templateKey: 'OPERATION_EXECUTION_MONTHLY_REPORT', businessType: 'OPERATION', lifecycleStage: 'EXECUTION', projectType: 'operation', name: '월간업무보고서', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_월간업무보고서.hwpx', fileSize: '210 KB' },
+            { id: 'gt-op-clos-1', templateKey: 'OPERATION_CLOSING_COMPLETION_REPORT', businessType: 'OPERATION', lifecycleStage: 'CLOSING', projectType: 'operation', name: '완료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_완료보고서.hwpx', fileSize: '580 KB' },
+            { id: 'gt-op-clos-2', templateKey: 'OPERATION_CLOSING_INSPECTION_CONFIRM', businessType: 'OPERATION', lifecycleStage: 'CLOSING', projectType: 'operation', name: '검수확인서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_검수확인서.hwpx', fileSize: '120 KB' },
+            { id: 'gt-op-clos-3', templateKey: 'OPERATION_CLOSING_HANDOVER_DOC', businessType: 'OPERATION', lifecycleStage: 'CLOSING', projectType: 'operation', name: '운영인계서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_운영인계서.hwpx', fileSize: '340 KB' },
+            { id: 'gt-op-clos-4', templateKey: 'OPERATION_CLOSING_ARTIFACT_HANDOVER', businessType: 'OPERATION', lifecycleStage: 'CLOSING', projectType: 'operation', name: '산출물인계서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_산출물인계서.hwpx', fileSize: '190 KB' },
+            { id: 'gt-op-clos-5', templateKey: 'OPERATION_CLOSING_TRAINING_REPORT', businessType: 'OPERATION', lifecycleStage: 'CLOSING', projectType: 'operation', name: '교육결과보고서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_교육결과보고서.hwpx', fileSize: '260 KB' },
+            { id: 'gt-op-clos-6', templateKey: 'OPERATION_CLOSING_PROJECT_FINAL_REPORT', businessType: 'OPERATION', lifecycleStage: 'CLOSING', projectType: 'operation', name: '프로젝트종료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_프로젝트종료보고서.hwpx', fileSize: '1.4 MB' },
+            { id: 'gt-op-clos-7', templateKey: 'OPERATION_CLOSING_CSAT_SURVEY', businessType: 'OPERATION', lifecycleStage: 'CLOSING', projectType: 'operation', name: '고객만족도조사서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_고객만족도조사서.hwpx', fileSize: '110 KB' },
+            { id: 'gt-op-clos-8', templateKey: 'OPERATION_CLOSING_RETROSPECTIVE_REPORT', businessType: 'OPERATION', lifecycleStage: 'CLOSING', projectType: 'operation', name: '프로젝트회고보고서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_운영사업_프로젝트회고보고서.hwpx', fileSize: '220 KB' },
 
-            // ── 운영사업 수행단계 ──────────────────────────────────
-            { id: 'gt-exec-1', projectType: 'operation', name: '요구사항정의서', stage: 'execution', category: 'Requirements', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_요구사항정의서.xlsx', fileSize: '254 KB' },
-            { id: 'gt-exec-2', projectType: 'operation', name: '분석설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_분석설계서.docx', fileSize: '512 KB' },
-            { id: 'gt-exec-3', projectType: 'operation', name: '회의록', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_회의록_양식.docx', fileSize: '85 KB' },
-            { id: 'gt-exec-4', projectType: 'operation', name: '테스트계획서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_테스트계획서.docx', fileSize: '195 KB' },
-            { id: 'gt-exec-5', projectType: 'operation', name: '테스트결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_테스트결과서.xlsx', fileSize: '280 KB' },
-            { id: 'gt-exec-6', projectType: 'operation', name: '위험관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_위험관리대장.xlsx', fileSize: '95 KB' },
-            { id: 'gt-exec-7', projectType: 'operation', name: 'Action Item 관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_ActionItem관리대장.xlsx', fileSize: '105 KB' },
+            // ── 구축사업 (CONSTRUCTION) ──────────────────────────────────
+            { id: 'gt-co-init-1', templateKey: 'CONSTRUCTION_INITIATION_BIZ_PLAN', businessType: 'CONSTRUCTION', lifecycleStage: 'INITIATION', projectType: 'construction', name: '사업계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_사업계획서.hwpx', fileSize: '340 KB' },
+            { id: 'gt-co-init-2', templateKey: 'CONSTRUCTION_INITIATION_EXEC_PLAN', businessType: 'CONSTRUCTION', lifecycleStage: 'INITIATION', projectType: 'construction', name: '사업수행계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_사업수행계획서.hwpx', fileSize: '480 KB' },
+            { id: 'gt-co-init-3', templateKey: 'CONSTRUCTION_INITIATION_SECURITY_PLEDGE', businessType: 'CONSTRUCTION', lifecycleStage: 'INITIATION', projectType: 'construction', name: '보안서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_보안서약서.hwpx', fileSize: '125 KB' },
+            { id: 'gt-co-init-4', templateKey: 'CONSTRUCTION_INITIATION_PRIVACY_PLEDGE', businessType: 'CONSTRUCTION', lifecycleStage: 'INITIATION', projectType: 'construction', name: '개인정보보호서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_개인정보보호서약서.hwpx', fileSize: '118 KB' },
+            { id: 'gt-co-init-5', templateKey: 'CONSTRUCTION_INITIATION_INTEGRITY_PLEDGE', businessType: 'CONSTRUCTION', lifecycleStage: 'INITIATION', projectType: 'construction', name: '청렴서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_청렴서약서.hwpx', fileSize: '108 KB' },
+            { id: 'gt-co-init-6', templateKey: 'CONSTRUCTION_INITIATION_WARRANTY_DEED', businessType: 'CONSTRUCTION', lifecycleStage: 'INITIATION', projectType: 'construction', name: '하자보증이행각서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_하자보증이행각서.hwpx', fileSize: '145 KB' },
+            { id: 'gt-co-init-7', templateKey: 'CONSTRUCTION_INITIATION_LABOR_LAW_CONFIRM', businessType: 'CONSTRUCTION', lifecycleStage: 'INITIATION', projectType: 'construction', name: '근로기준법 준수확약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_근로기준법 준수확약서.hwpx', fileSize: '112 KB' },
+            { id: 'gt-co-init-8', templateKey: 'CONSTRUCTION_INITIATION_BREAKDOWN_STATEMENT', businessType: 'CONSTRUCTION', lifecycleStage: 'INITIATION', projectType: 'construction', name: '산출내역서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_산출내역서.hwpx', fileSize: '190 KB' },
+            { id: 'gt-co-init-9', templateKey: 'CONSTRUCTION_INITIATION_QUALITY_PLAN', businessType: 'CONSTRUCTION', lifecycleStage: 'INITIATION', projectType: 'construction', name: '품질보증계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_품질보증계획서.hwpx', fileSize: '215 KB' },
+            { id: 'gt-co-init-10', templateKey: 'CONSTRUCTION_INITIATION_RISK_PLAN', businessType: 'CONSTRUCTION', lifecycleStage: 'INITIATION', projectType: 'construction', name: '위험관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_위험관리계획서.hwpx', fileSize: '200 KB' },
+            { id: 'gt-co-exec-1', templateKey: 'CONSTRUCTION_EXECUTION_REQUIREMENTS_DEF', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '요구사항정의서', stage: 'execution', category: 'Requirements', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_요구사항정의서.hwpx', fileSize: '290 KB' },
+            { id: 'gt-co-exec-2', templateKey: 'CONSTRUCTION_EXECUTION_RTM', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '요구사항추적표(RTM)', stage: 'execution', category: 'Requirements', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_요구사항추적표(RTM).hwpx', fileSize: '250 KB' },
+            { id: 'gt-co-exec-3', templateKey: 'CONSTRUCTION_EXECUTION_PROCESS_DEF', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '업무프로세스정의서', stage: 'execution', category: 'Requirements', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_업무프로세스정의서.hwpx', fileSize: '340 KB' },
+            { id: 'gt-co-exec-4', templateKey: 'CONSTRUCTION_EXECUTION_FEATURE_LIST', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '기능목록', stage: 'execution', category: 'Requirements', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_기능목록.hwpx', fileSize: '220 KB' },
+            { id: 'gt-co-exec-5', templateKey: 'CONSTRUCTION_EXECUTION_SCREEN_DESIGN', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '화면설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_화면설계서.hwpx', fileSize: '2.1 MB' },
+            { id: 'gt-co-exec-6', templateKey: 'CONSTRUCTION_EXECUTION_DB_DESIGN', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: 'DB설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_DB설계서.hwpx', fileSize: '560 KB' },
+            { id: 'gt-co-exec-7', templateKey: 'CONSTRUCTION_EXECUTION_INTERFACE_DESIGN', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '인터페이스설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_인터페이스설계서.hwpx', fileSize: '400 KB' },
+            { id: 'gt-co-exec-8', templateKey: 'CONSTRUCTION_EXECUTION_PROGRAM_DESIGN', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '프로그램설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_프로그램설계서.hwpx', fileSize: '430 KB' },
+            { id: 'gt-co-exec-9', templateKey: 'CONSTRUCTION_EXECUTION_DEV_STANDARD', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '개발표준서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_개발표준서.hwpx', fileSize: '310 KB' },
+            { id: 'gt-co-exec-10', templateKey: 'CONSTRUCTION_EXECUTION_CODING_RULE', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '코딩규칙서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_코딩규칙서.hwpx', fileSize: '270 KB' },
+            { id: 'gt-co-exec-11', templateKey: 'CONSTRUCTION_EXECUTION_UNIT_TEST_RESULT', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '단위시험결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_단위시험결과서.hwpx', fileSize: '300 KB' },
+            { id: 'gt-co-exec-12', templateKey: 'CONSTRUCTION_EXECUTION_INTEGRATION_TEST_PLAN', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '통합시험계획서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_통합시험계획서.hwpx', fileSize: '330 KB' },
+            { id: 'gt-co-exec-13', templateKey: 'CONSTRUCTION_EXECUTION_INTEGRATION_TEST_RESULT', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '통합시험결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_통합시험결과서.hwpx', fileSize: '360 KB' },
+            { id: 'gt-co-exec-14', templateKey: 'CONSTRUCTION_EXECUTION_UAT_RESULT', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '사용자시험(UAT) 결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_사용자시험(UAT) 결과서.hwpx', fileSize: '380 KB' },
+            { id: 'gt-co-exec-15', templateKey: 'CONSTRUCTION_EXECUTION_CONFIG_LOG', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '형상관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_형상관리대장.hwpx', fileSize: '170 KB' },
+            { id: 'gt-co-exec-16', templateKey: 'CONSTRUCTION_EXECUTION_CHANGE_LOG', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '변경관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_변경관리대장.hwpx', fileSize: '155 KB' },
+            { id: 'gt-co-exec-17', templateKey: 'CONSTRUCTION_EXECUTION_RISK_LOG', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '리스크관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_리스크관리대장.hwpx', fileSize: '150 KB' },
+            { id: 'gt-co-exec-18', templateKey: 'CONSTRUCTION_EXECUTION_ISSUE_LOG', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '이슈관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_이슈관리대장.hwpx', fileSize: '145 KB' },
+            { id: 'gt-co-exec-19', templateKey: 'CONSTRUCTION_EXECUTION_MINUTES', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '회의록', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_회의록.hwpx', fileSize: '100 KB' },
+            { id: 'gt-co-exec-20', templateKey: 'CONSTRUCTION_EXECUTION_WEEKLY_REPORT', businessType: 'CONSTRUCTION', lifecycleStage: 'EXECUTION', projectType: 'construction', name: '주간업무보고서', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_주간업무보고서.hwpx', fileSize: '135 KB' },
+            { id: 'gt-co-clos-1', templateKey: 'CONSTRUCTION_CLOSING_COMPLETION_REPORT', businessType: 'CONSTRUCTION', lifecycleStage: 'CLOSING', projectType: 'construction', name: '완료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_완료보고서.hwpx', fileSize: '600 KB' },
+            { id: 'gt-co-clos-2', templateKey: 'CONSTRUCTION_CLOSING_INSPECTION_CONFIRM', businessType: 'CONSTRUCTION', lifecycleStage: 'CLOSING', projectType: 'construction', name: '검수확인서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_검수확인서.hwpx', fileSize: '125 KB' },
+            { id: 'gt-co-clos-3', templateKey: 'CONSTRUCTION_CLOSING_ARTIFACT_HANDOVER', businessType: 'CONSTRUCTION', lifecycleStage: 'CLOSING', projectType: 'construction', name: '산출물인계서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_산출물인계서.hwpx', fileSize: '195 KB' },
+            { id: 'gt-co-clos-4', templateKey: 'CONSTRUCTION_CLOSING_SYSTEM_HANDOVER', businessType: 'CONSTRUCTION', lifecycleStage: 'CLOSING', projectType: 'construction', name: '시스템운영인계서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_시스템운영인계서.hwpx', fileSize: '360 KB' },
+            { id: 'gt-co-clos-5', templateKey: 'CONSTRUCTION_CLOSING_USER_MANUAL', businessType: 'CONSTRUCTION', lifecycleStage: 'CLOSING', projectType: 'construction', name: '사용자매뉴얼', stage: 'closing', category: 'User Manual', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_사용자매뉴얼.hwpx', fileSize: '1.8 MB' },
+            { id: 'gt-co-clos-6', templateKey: 'CONSTRUCTION_CLOSING_ADMIN_MANUAL', businessType: 'CONSTRUCTION', lifecycleStage: 'CLOSING', projectType: 'construction', name: '관리자매뉴얼', stage: 'closing', category: 'User Manual', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_관리자매뉴얼.hwpx', fileSize: '1.5 MB' },
+            { id: 'gt-co-clos-7', templateKey: 'CONSTRUCTION_CLOSING_TRAINING_REPORT', businessType: 'CONSTRUCTION', lifecycleStage: 'CLOSING', projectType: 'construction', name: '교육결과보고서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_교육결과보고서.hwpx', fileSize: '270 KB' },
+            { id: 'gt-co-clos-8', templateKey: 'CONSTRUCTION_CLOSING_PROJECT_FINAL_REPORT', businessType: 'CONSTRUCTION', lifecycleStage: 'CLOSING', projectType: 'construction', name: '프로젝트종료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_프로젝트종료보고서.hwpx', fileSize: '1.5 MB' },
+            { id: 'gt-co-clos-9', templateKey: 'CONSTRUCTION_CLOSING_CSAT_SURVEY', businessType: 'CONSTRUCTION', lifecycleStage: 'CLOSING', projectType: 'construction', name: '고객만족도조사서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_고객만족도조사서.hwpx', fileSize: '115 KB' },
+            { id: 'gt-co-clos-10', templateKey: 'CONSTRUCTION_CLOSING_RETROSPECTIVE_REPORT', businessType: 'CONSTRUCTION', lifecycleStage: 'CLOSING', projectType: 'construction', name: '프로젝트회고보고서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구축사업_프로젝트회고보고서.hwpx', fileSize: '230 KB' },
 
-            // ── 운영사업 종료단계 ──────────────────────────────────
-            { id: 'gt-close-1', projectType: 'operation', name: '완료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_완료보고서.docx', fileSize: '420 KB' },
-            { id: 'gt-close-2', projectType: 'operation', name: '최종보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_최종보고서.pdf', fileSize: '1.2 MB' },
-            { id: 'gt-close-3', projectType: 'operation', name: '검수확인서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_검수확인서.docx', fileSize: '90 KB' },
-            { id: 'gt-close-4', projectType: 'operation', name: '산출물 인계목록', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_산출물인계목록.xlsx', fileSize: '115 KB' },
-            { id: 'gt-close-5', projectType: 'operation', name: '보안점검 결과서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_보안점검결과서.docx', fileSize: '130 KB' },
-            { id: 'gt-close-6', projectType: 'operation', name: '종료계', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_종료계.docx', fileSize: '95 KB' },
-
-            // ── 구축사업 착수단계 ──────────────────────────────────
-            { id: 'gc-init-1', projectType: 'construction', name: '착수계', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_착수계.docx', fileSize: '145 KB' },
-            { id: 'gc-init-2', projectType: 'construction', name: '사업수행계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_사업수행계획서.docx', fileSize: '340 KB' },
-            { id: 'gc-init-3', projectType: 'construction', name: '보안관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_보안관리계획서.docx', fileSize: '210 KB' },
-            { id: 'gc-init-4', projectType: 'construction', name: '품질보증계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_품질보증계획서.docx', fileSize: '195 KB' },
-            { id: 'gc-init-5', projectType: 'construction', name: '형상관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_형상관리계획서.docx', fileSize: '175 KB' },
-            { id: 'gc-init-6', projectType: 'construction', name: '참여인력 현황', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_참여인력현황.xlsx', fileSize: '98 KB' },
-
-            // ── 구축사업 수행단계 ──────────────────────────────────
-            { id: 'gc-exec-1', projectType: 'construction', name: '요구사항정의서', stage: 'execution', category: 'Requirements', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_요구사항정의서.xlsx', fileSize: '275 KB' },
-            { id: 'gc-exec-2', projectType: 'construction', name: '시스템분석서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_시스템분석서.docx', fileSize: '580 KB' },
-            { id: 'gc-exec-3', projectType: 'construction', name: '설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_설계서.docx', fileSize: '620 KB' },
-            { id: 'gc-exec-4', projectType: 'construction', name: '단위테스트계획서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_단위테스트계획서.docx', fileSize: '200 KB' },
-            { id: 'gc-exec-5', projectType: 'construction', name: '통합테스트결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_통합테스트결과서.xlsx', fileSize: '310 KB' },
-            { id: 'gc-exec-6', projectType: 'construction', name: '회의록', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_회의록.docx', fileSize: '85 KB' },
-            { id: 'gc-exec-7', projectType: 'construction', name: '위험관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_위험관리대장.xlsx', fileSize: '100 KB' },
-
-            // ── 구축사업 종료단계 ──────────────────────────────────
-            { id: 'gc-close-1', projectType: 'construction', name: '완료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_완료보고서.docx', fileSize: '450 KB' },
-            { id: 'gc-close-2', projectType: 'construction', name: '사용자 매뉴얼', stage: 'closing', category: 'User Manual', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_사용자매뉴얼.docx', fileSize: '1.5 MB' },
-            { id: 'gc-close-3', projectType: 'construction', name: '운영자 매뉴얼', stage: 'closing', category: 'User Manual', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_운영자매뉴얼.docx', fileSize: '1.2 MB' },
-            { id: 'gc-close-4', projectType: 'construction', name: '검수확인서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_검수확인서.docx', fileSize: '90 KB' },
-            { id: 'gc-close-5', projectType: 'construction', name: '산출물 인계목록', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_산출물인계목록.xlsx', fileSize: '120 KB' },
-            { id: 'gc-close-6', projectType: 'construction', name: '종료계', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_종료계.docx', fileSize: '95 KB' },
-
-            // ── SW분리발주사업 착수단계 ────────────────────────────
-            { id: 'gs-init-1', projectType: 'sw-separate', name: '착수계', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_착수계.docx', fileSize: '145 KB' },
-            { id: 'gs-init-2', projectType: 'sw-separate', name: '사업수행계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_사업수행계획서.docx', fileSize: '330 KB' },
-            { id: 'gs-init-3', projectType: 'sw-separate', name: '분리발주 협업계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_협업계획서.docx', fileSize: '240 KB' },
-            { id: 'gs-init-4', projectType: 'sw-separate', name: '인터페이스 정의서', stage: 'initiation', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_인터페이스정의서.docx', fileSize: '280 KB' },
-            { id: 'gs-init-5', projectType: 'sw-separate', name: '보안관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_보안관리계획서.docx', fileSize: '210 KB' },
-            { id: 'gs-init-6', projectType: 'sw-separate', name: '참여인력 현황', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_참여인력현황.xlsx', fileSize: '98 KB' },
-
-            // ── SW분리발주사업 수행단계 ────────────────────────────
-            { id: 'gs-exec-1', projectType: 'sw-separate', name: '요구사항정의서', stage: 'execution', category: 'Requirements', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_요구사항정의서.xlsx', fileSize: '265 KB' },
-            { id: 'gs-exec-2', projectType: 'sw-separate', name: 'SW 기능명세서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_SW기능명세서.docx', fileSize: '430 KB' },
-            { id: 'gs-exec-3', projectType: 'sw-separate', name: '분리발주 검토결과서', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_분리발주검토결과서.docx', fileSize: '180 KB' },
-            { id: 'gs-exec-4', projectType: 'sw-separate', name: '단위/통합 테스트계획서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_테스트계획서.docx', fileSize: '210 KB' },
-            { id: 'gs-exec-5', projectType: 'sw-separate', name: '테스트결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_테스트결과서.xlsx', fileSize: '295 KB' },
-            { id: 'gs-exec-6', projectType: 'sw-separate', name: '회의록', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_회의록.docx', fileSize: '85 KB' },
-            { id: 'gs-exec-7', projectType: 'sw-separate', name: '이슈/위험 관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_위험관리대장.xlsx', fileSize: '100 KB' },
-
-            // ── SW분리발주사업 종료단계 ────────────────────────────
-            { id: 'gs-close-1', projectType: 'sw-separate', name: '완료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_완료보고서.docx', fileSize: '440 KB' },
-            { id: 'gs-close-2', projectType: 'sw-separate', name: '소프트웨어 납품목록', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_납품목록.xlsx', fileSize: '130 KB' },
-            { id: 'gs-close-3', projectType: 'sw-separate', name: '검수확인서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_검수확인서.docx', fileSize: '90 KB' },
-            { id: 'gs-close-4', projectType: 'sw-separate', name: '산출물 인계목록', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_산출물인계목록.xlsx', fileSize: '120 KB' },
-            { id: 'gs-close-5', projectType: 'sw-separate', name: '보안점검 결과서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_보안점검결과서.docx', fileSize: '130 KB' },
-            { id: 'gs-close-6', projectType: 'sw-separate', name: '종료계', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_종료계.docx', fileSize: '95 KB' },
+            // ── SW분리발주사업 (SW_SEPARATE) ────────────────────────────
+            { id: 'gt-sw-init-1', templateKey: 'OPERATION_INITIATION_BIZ_PLAN', businessType: 'SW_SEPARATE', lifecycleStage: 'INITIATION', projectType: 'sw-separate', name: '사업계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_사업계획서.hwpx', fileSize: '320 KB' },
+            { id: 'gt-sw-init-2', templateKey: 'OPERATION_INITIATION_EXEC_PLAN', businessType: 'SW_SEPARATE', lifecycleStage: 'INITIATION', projectType: 'sw-separate', name: '사업수행계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_사업수행계획서.hwpx', fileSize: '450 KB' },
+            { id: 'gt-sw-init-3', templateKey: 'OPERATION_INITIATION_SECURITY_PLEDGE', businessType: 'SW_SEPARATE', lifecycleStage: 'INITIATION', projectType: 'sw-separate', name: '보안서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_보안서약서.hwpx', fileSize: '120 KB' },
+            { id: 'gt-sw-init-4', templateKey: 'OPERATION_INITIATION_PRIVACY_PLEDGE', businessType: 'SW_SEPARATE', lifecycleStage: 'INITIATION', projectType: 'sw-separate', name: '개인정보보호서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_개인정보보호서약서.hwpx', fileSize: '115 KB' },
+            { id: 'gt-sw-init-5', templateKey: 'OPERATION_INITIATION_INTEGRITY_PLEDGE', businessType: 'SW_SEPARATE', lifecycleStage: 'INITIATION', projectType: 'sw-separate', name: '청렴서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_청렴서약서.hwpx', fileSize: '105 KB' },
+            { id: 'gt-sw-init-6', templateKey: 'OPERATION_INITIATION_WARRANTY_DEED', businessType: 'SW_SEPARATE', lifecycleStage: 'INITIATION', projectType: 'sw-separate', name: '하자보증이행각서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_하자보증이행각서.hwpx', fileSize: '140 KB' },
+            { id: 'gt-sw-init-7', templateKey: 'OPERATION_INITIATION_LABOR_LAW_CONFIRM', businessType: 'SW_SEPARATE', lifecycleStage: 'INITIATION', projectType: 'sw-separate', name: '근로기준법 준수확약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_근로기준법 준수확약서.hwpx', fileSize: '110 KB' },
+            { id: 'gt-sw-init-8', templateKey: 'OPERATION_INITIATION_BREAKDOWN_STATEMENT', businessType: 'SW_SEPARATE', lifecycleStage: 'INITIATION', projectType: 'sw-separate', name: '산출내역서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_산출내역서.hwpx', fileSize: '185 KB' },
+            { id: 'gt-sw-init-9', templateKey: 'OPERATION_INITIATION_QUALITY_PLAN', businessType: 'SW_SEPARATE', lifecycleStage: 'INITIATION', projectType: 'sw-separate', name: '품질보증계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_품질보증계획서.hwpx', fileSize: '210 KB' },
+            { id: 'gt-sw-init-10', templateKey: 'OPERATION_INITIATION_RISK_PLAN', businessType: 'SW_SEPARATE', lifecycleStage: 'INITIATION', projectType: 'sw-separate', name: '위험관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_위험관리계획서.hwpx', fileSize: '195 KB' },
+            { id: 'gt-sw-exec-1', templateKey: 'OPERATION_EXECUTION_REQUIREMENTS_DEF', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '요구사항정의서', stage: 'execution', category: 'Requirements', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_요구사항정의서.hwpx', fileSize: '280 KB' },
+            { id: 'gt-sw-exec-2', templateKey: 'OPERATION_EXECUTION_RTM', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '요구사항추적표(RTM)', stage: 'execution', category: 'Requirements', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_요구사항추적표(RTM).hwpx', fileSize: '240 KB' },
+            { id: 'gt-sw-exec-3', templateKey: 'OPERATION_EXECUTION_FEATURE_LIST', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '기능목록', stage: 'execution', category: 'Requirements', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_기능목록.hwpx', fileSize: '210 KB' },
+            { id: 'gt-sw-exec-4', templateKey: 'OPERATION_EXECUTION_SCREEN_DESIGN', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '화면설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_화면설계서.hwpx', fileSize: '1.8 MB' },
+            { id: 'gt-sw-exec-5', templateKey: 'OPERATION_EXECUTION_DB_DESIGN', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: 'DB설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_DB설계서.hwpx', fileSize: '520 KB' },
+            { id: 'gt-sw-exec-6', templateKey: 'OPERATION_EXECUTION_INTERFACE_DESIGN', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '인터페이스설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_인터페이스설계서.hwpx', fileSize: '380 KB' },
+            { id: 'gt-sw-exec-7', templateKey: 'OPERATION_EXECUTION_PROGRAM_DESIGN', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '프로그램설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_프로그램설계서.hwpx', fileSize: '410 KB' },
+            { id: 'gt-sw-exec-8', templateKey: 'OPERATION_EXECUTION_UNIT_TEST_RESULT', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '단위시험결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_단위시험결과서.hwpx', fileSize: '290 KB' },
+            { id: 'gt-sw-exec-9', templateKey: 'OPERATION_EXECUTION_INTEGRATION_TEST_PLAN', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '통합시험계획서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_통합시험계획서.hwpx', fileSize: '320 KB' },
+            { id: 'gt-sw-exec-10', templateKey: 'OPERATION_EXECUTION_INTEGRATION_TEST_RESULT', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '통합시험결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_통합시험결과서.hwpx', fileSize: '350 KB' },
+            { id: 'gt-sw-exec-11', templateKey: 'OPERATION_EXECUTION_CONFIG_LOG', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '형상관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_형상관리대장.hwpx', fileSize: '160 KB' },
+            { id: 'gt-sw-exec-12', templateKey: 'OPERATION_EXECUTION_CHANGE_LOG', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '변경관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_변경관리대장.hwpx', fileSize: '150 KB' },
+            { id: 'gt-sw-exec-13', templateKey: 'OPERATION_EXECUTION_RISK_LOG', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '리스크관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_리스크관리대장.hwpx', fileSize: '145 KB' },
+            { id: 'gt-sw-exec-14', templateKey: 'OPERATION_EXECUTION_ISSUE_LOG', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '이슈관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_이슈관리대장.hwpx', fileSize: '140 KB' },
+            { id: 'gt-sw-exec-15', templateKey: 'OPERATION_EXECUTION_MINUTES', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '회의록', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_회의록.hwpx', fileSize: '95 KB' },
+            { id: 'gt-sw-exec-16', templateKey: 'OPERATION_EXECUTION_WEEKLY_REPORT', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '주간업무보고서', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_주간업무보고서.hwpx', fileSize: '130 KB' },
+            { id: 'gt-sw-exec-17', templateKey: 'OPERATION_EXECUTION_MONTHLY_REPORT', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '월간업무보고서', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_월간업무보고서.hwpx', fileSize: '210 KB' },
+            { id: 'gt-sw-clos-1', templateKey: 'OPERATION_CLOSING_COMPLETION_REPORT', businessType: 'SW_SEPARATE', lifecycleStage: 'CLOSING', projectType: 'sw-separate', name: '완료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_완료보고서.hwpx', fileSize: '580 KB' },
+            { id: 'gt-sw-clos-2', templateKey: 'OPERATION_CLOSING_INSPECTION_CONFIRM', businessType: 'SW_SEPARATE', lifecycleStage: 'CLOSING', projectType: 'sw-separate', name: '검수확인서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_검수확인서.hwpx', fileSize: '120 KB' },
+            { id: 'gt-sw-clos-3', templateKey: 'OPERATION_CLOSING_HANDOVER_DOC', businessType: 'SW_SEPARATE', lifecycleStage: 'CLOSING', projectType: 'sw-separate', name: '운영인계서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_운영인계서.hwpx', fileSize: '340 KB' },
+            { id: 'gt-sw-clos-4', templateKey: 'OPERATION_CLOSING_ARTIFACT_HANDOVER', businessType: 'SW_SEPARATE', lifecycleStage: 'CLOSING', projectType: 'sw-separate', name: '산출물인계서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_산출물인계서.hwpx', fileSize: '190 KB' },
+            { id: 'gt-sw-clos-5', templateKey: 'OPERATION_CLOSING_TRAINING_REPORT', businessType: 'SW_SEPARATE', lifecycleStage: 'CLOSING', projectType: 'sw-separate', name: '교육결과보고서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_교육결과보고서.hwpx', fileSize: '260 KB' },
+            { id: 'gt-sw-clos-6', templateKey: 'OPERATION_CLOSING_PROJECT_FINAL_REPORT', businessType: 'SW_SEPARATE', lifecycleStage: 'CLOSING', projectType: 'sw-separate', name: '프로젝트종료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_프로젝트종료보고서.hwpx', fileSize: '1.4 MB' },
+            { id: 'gt-sw-clos-7', templateKey: 'OPERATION_CLOSING_CSAT_SURVEY', businessType: 'SW_SEPARATE', lifecycleStage: 'CLOSING', projectType: 'sw-separate', name: '고객만족도조사서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_고객만족도조사서.hwpx', fileSize: '110 KB' },
+            { id: 'gt-sw-clos-8', templateKey: 'OPERATION_CLOSING_RETROSPECTIVE_REPORT', businessType: 'SW_SEPARATE', lifecycleStage: 'CLOSING', projectType: 'sw-separate', name: '프로젝트회고보고서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_프로젝트회고보고서.hwpx', fileSize: '220 KB' }
         ];
     }
 
@@ -17632,7 +19924,7 @@ class AetherPMO {
         } else {
             // cleared
             document.getElementById('member-name').value = '';
-            document.getElementById('member-employment-type').value = 'regular';
+            document.getElementById('member-employment-type').value = 'REGULAR_EMPLOYEE';
             document.getElementById('member-department').value = '';
             document.getElementById('member-position').value = '';
             document.getElementById('member-role-name').value = '';
@@ -17647,7 +19939,7 @@ class AetherPMO {
             document.getElementById('member-resource-select').value = '';
         }
         if (document.getElementById('member-employment-type')) {
-            document.getElementById('member-employment-type').value = 'regular';
+            document.getElementById('member-employment-type').value = 'REGULAR_EMPLOYEE';
         }
         document.getElementById('member-name').value = '';
         document.getElementById('member-part-role').value = 'DEV';
@@ -17720,14 +20012,11 @@ class AetherPMO {
                 : '기간 미지정';
 
             const typeLabel = this.translateEmploymentType(m.employmentType);
-            const typeColorMap = {
-                regular: { bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.3)', text: '#10b981' },
-                outsourcing: { bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.3)', text: '#3b82f6' },
-                project_contract: { bg: 'rgba(139, 92, 246, 0.1)', border: 'rgba(139, 92, 246, 0.3)', text: '#8b5cf6' },
-                turnkey: { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', text: '#f59e0b' }
-            };
-            const badgeStyle = typeColorMap[m.employmentType || 'regular'] || typeColorMap.regular;
-            const typeBadge = `<span class="status-badge" style="background:${badgeStyle.bg}; color:${badgeStyle.text}; border:1px solid ${badgeStyle.border}; font-size:10px; padding:2px 6px; font-weight:700;">${typeLabel}</span>`;
+            let empCss = 'employment-unknown';
+            if (m.employmentType === 'REGULAR_EMPLOYEE' || m.employmentType === 'regular') empCss = 'employment-regular';
+            else if (m.employmentType === 'INSOURCED_CONTRACTOR' || m.employmentType === 'outsourcing') empCss = 'employment-insourced';
+            else if (m.employmentType === 'PROJECT_CONTRACTOR' || m.employmentType === 'project_contract') empCss = 'employment-project';
+            const typeBadge = `<span class="employment-badge ${empCss}" style="font-size:10px; padding:2px 6px;">${typeLabel}</span>`;
 
             return `
                 <div class="dashboard-card" style="margin-bottom:10px; padding:12px; background: var(--bg-card-hover); border-color: ${m.isActive ? 'var(--bg-card-border)' : 'transparent'}; opacity: ${m.isActive ? 1 : 0.65};">
@@ -17775,7 +20064,7 @@ class AetherPMO {
             document.getElementById('member-resource-select').value = member.resourceId || '';
         }
         if (document.getElementById('member-employment-type')) {
-            document.getElementById('member-employment-type').value = member.employmentType || 'regular';
+            document.getElementById('member-employment-type').value = member.employmentType || 'REGULAR_EMPLOYEE';
         }
 
         document.getElementById('member-form-title').textContent = '참여 인력 수정';
@@ -17798,7 +20087,7 @@ class AetherPMO {
         const startDate = document.getElementById('member-start-date').value || null;
         const endDate = document.getElementById('member-end-date').value || null;
         const memo = document.getElementById('member-memo').value.trim();
-        const employmentType = document.getElementById('member-employment-type')?.value || 'regular';
+        const employmentType = document.getElementById('member-employment-type')?.value || 'REGULAR_EMPLOYEE';
         let resourceId = document.getElementById('member-resource-select')?.value || null;
 
         if (!name) {
@@ -18053,12 +20342,17 @@ class AetherPMO {
 
     translateEmploymentType(type) {
         const mapping = {
+            REGULAR_EMPLOYEE: '정규직',
+            INSOURCED_CONTRACTOR: '자사화',
+            PROJECT_CONTRACTOR: '프로젝트 계약직',
+            UNKNOWN: '미지정',
             regular: '정규직',
             outsourcing: '자사화',
             project_contract: '프로젝트 계약직',
             turnkey: '외부(턴키)'
         };
-        return mapping[type] || type || '정규직';
+        if (!type || type === '' || type === 'null' || type === 'undefined') return '미지정';
+        return mapping[type] || type || '미지정';
     }
 
     getDefaultResources() {
@@ -19214,7 +21508,7 @@ class AetherPMO {
                             </select>
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">
-                            <input type="number" id="edit-con-amount" value="${c.amount || 0}" placeholder="계약금액" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; padding:0 8px; text-align: right;">
+                            <input type="text" inputmode="numeric" id="edit-con-amount" value="${c.amount ? c.amount.toLocaleString('ko-KR') : ''}" placeholder="계약금액" oninput="app.formatInputWithCommas(this)" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; padding:0 8px; text-align: right;">
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
                             <input type="date" id="edit-con-date" value="${c.contractDate || ''}" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:12px; text-align: center;">
@@ -19332,7 +21626,7 @@ class AetherPMO {
             projectId: document.getElementById('edit-con-project-id')?.value || '',
             employmentType: document.getElementById('edit-con-emp-type')?.value || 'outsourcing',
             contractor: document.getElementById('edit-con-contractor')?.value || '',
-            amount: parseInt(document.getElementById('edit-con-amount')?.value || '0', 10),
+            amount: this.parseNumberFromCommas(document.getElementById('edit-con-amount')?.value),
             contractDate: document.getElementById('edit-con-date')?.value || '',
             startDate: document.getElementById('edit-con-start')?.value || '',
             endDate: document.getElementById('edit-con-end')?.value || '',
@@ -19430,13 +21724,13 @@ class AetherPMO {
                             <input type="text" id="edit-sal-dept" value="${s.department || ''}" placeholder="소속부서" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: center;">
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">
-                            <input type="number" id="edit-sal-base" value="${s.baseSalary || 0}" placeholder="기본급" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: right;">
+                            <input type="text" inputmode="numeric" id="edit-sal-base" value="${s.baseSalary ? s.baseSalary.toLocaleString('ko-KR') : ''}" placeholder="기본급" oninput="app.formatInputWithCommas(this)" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: right;">
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">
-                            <input type="number" id="edit-sal-meal" value="${s.mealAllowance || 0}" placeholder="식대" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: right;">
+                            <input type="text" inputmode="numeric" id="edit-sal-meal" value="${s.mealAllowance ? s.mealAllowance.toLocaleString('ko-KR') : ''}" placeholder="식대" oninput="app.formatInputWithCommas(this)" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: right;">
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">
-                            <input type="number" id="edit-sal-car" value="${s.carAllowance || 0}" placeholder="차량유지비" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: right;">
+                            <input type="text" inputmode="numeric" id="edit-sal-car" value="${s.carAllowance ? s.carAllowance.toLocaleString('ko-KR') : ''}" placeholder="차량유지비" oninput="app.formatInputWithCommas(this)" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; text-align: right;">
                         </td>
                         <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: right; color: var(--text-muted); font-size:13px; font-weight:700; background:rgba(0,0,0,0.05); padding-right:16px;">
                             Auto (기본+식대+차량)
@@ -19531,9 +21825,9 @@ class AetherPMO {
         const salIdx = this.state.salaries.findIndex(s => s.id === id);
         if (salIdx === -1) return;
 
-        const base = parseInt(document.getElementById('edit-sal-base')?.value || '0', 10);
-        const meal = parseInt(document.getElementById('edit-sal-meal')?.value || '0', 10);
-        const car = parseInt(document.getElementById('edit-sal-car')?.value || '0', 10);
+        const base = this.parseNumberFromCommas(document.getElementById('edit-sal-base')?.value);
+        const meal = this.parseNumberFromCommas(document.getElementById('edit-sal-meal')?.value);
+        const car = this.parseNumberFromCommas(document.getElementById('edit-sal-car')?.value);
         const net = base + meal + car;
 
         const updated = {

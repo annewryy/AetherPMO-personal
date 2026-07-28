@@ -99,9 +99,7 @@
                         <span class="brand-name">Aether<span>PMO</span><span style="font-size: 9px; font-weight: 800; color: var(--primary); vertical-align: middle; margin-left: 6px; background: rgba(99, 102, 241, 0.15); padding: 1px 5px; border-radius: 4px; border: 1px solid rgba(99, 102, 241, 0.3); text-transform: uppercase; letter-spacing: 0.5px;">Home</span></span>
                         <span class="brand-sub">사업관리 플랫폼</span>
                     </div>
-                    <button id="sidebar-mode-btn" class="sidebar-pin-btn" aria-label="사이드바 모드 선택">
-                        <i data-lucide="layout-sidebar" style="width: 16px; height: 16px;"></i>
-                    </button>
+                    
                 </div>
             </div>
 
@@ -150,13 +148,13 @@
                     </a>
                     <div class="nav-submenu" id="artifacts-submenu">
                         <a href="#artifacts/initiation" class="submenu-item" data-subview="initiation">
-                            <span>├ 착수단계 템플릿</span>
+                            <span>├ 착수단계 템플릿 (10)</span>
                         </a>
                         <a href="#artifacts/execution" class="submenu-item" data-subview="execution">
-                            <span>├ 수행단계 템플릿</span>
+                            <span>├ 수행단계 템플릿 (16)</span>
                         </a>
                         <a href="#artifacts/closing" class="submenu-item" data-subview="closing">
-                            <span>└ 종료단계 템플릿</span>
+                            <span>└ 종료단계 템플릿 (8)</span>
                         </a>
                     </div>
                 </div>
@@ -183,6 +181,12 @@
                     </div>
                 </div>
 
+                <a href="#official-docs" class="nav-item" data-view="official-docs" data-tooltip="공문 관리" style="display: none;">
+                    <i data-lucide="mail"></i>
+                    <span>공문 관리</span>
+                </a>
+
+                <!-- 관리자 설정 (사이드바 최하단 위치) -->
                 <a href="#backup" class="nav-item" data-view="backup" data-tooltip="관리자 설정">
                     <i data-lucide="settings"></i>
                     <span>관리자 설정</span>
@@ -196,10 +200,6 @@
                 <a href="#action-items" class="nav-item" data-view="action-items" data-tooltip="Action Item 관리" style="display: none;">
                     <i data-lucide="check-square"></i>
                     <span>Action Item 관리</span>
-                </a>
-                <a href="#official-docs" class="nav-item" data-view="official-docs" data-tooltip="공문 관리" style="display: none;">
-                    <i data-lucide="mail"></i>
-                    <span>공문 관리</span>
                 </a>
                 <a href="#meeting-minutes" class="nav-item" data-view="meeting-minutes" data-tooltip="회의록 관리" style="display: none;">
                     <i data-lucide="presentation"></i>
@@ -262,9 +262,7 @@
             <!-- Header bar -->
             <header class="main-header">
                 <div class="header-left">
-                    <button class="menu-toggle-btn" id="sidebar-toggle" aria-label="메뉴 토글">
-                        <i data-lucide="menu"></i>
-                    </button>
+                    
                     <div class="header-search">
                         <i data-lucide="search" class="search-icon"></i>
                         <input type="text" id="global-search" placeholder="프로젝트, 산출물, 작성자 검색...">
@@ -331,10 +329,7 @@
                     </button>
 
                     <!-- Demo Mode Switch -->
-                    <div class="demo-mode-toggle-wrapper" id="demo-mode-toggle-btn" style="display:flex; align-items:center; gap:8px; margin-right:12px; background:var(--bg-hover-item); padding:4px 12px; border-radius:20px; border:1px solid var(--bg-card-border); cursor:pointer;" onclick="app.toggleDemoMode()">
-                        <i data-lucide="play" id="demo-mode-icon" style="width:14px; height:14px; color:var(--text-muted);"></i>
-                        <span style="font-size:11px; font-weight:700; color:var(--text-muted);" id="demo-mode-label">Demo Mode Off</span>
-                    </div>
+                    
 
                     <div class="current-date-badge">
                         <i data-lucide="calendar"></i>
@@ -350,13 +345,11 @@
                 <section id="view-dashboard" class="content-view active">
                     <div class="view-header">
                         <div>
-                            <h1 id="dashboard-title-text"><i data-lucide="sparkles" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> Aether AI First Portal</h1>
-                            <p class="subtitle" id="dashboard-subtitle-text">AI 에이전트가 주도하는 지능형 사업관리 커맨드 센터</p>
+                            <h1 id="dashboard-title-text"><i data-lucide="layout-dashboard" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> AetherPMO 커맨드 센터</h1>
+                            <p class="subtitle" id="dashboard-subtitle-text">전사 사업 수행 및 입찰 수주 현황 통합 모니터링 센터</p>
                         </div>
                         <div style="display:flex; gap:10px; align-items:center;">
-                            <button class="btn btn-outline btn-sm" id="btn-toggle-dashboard-mode" onclick="app.toggleDashboardMode()">
-                                <i data-lucide="layout-dashboard" style="width:14px; height:14px; margin-right:4px;"></i> 기존 대시보드 보기
-                            </button>
+                            
                             <button class="btn btn-primary btn-sm" onclick="app.openNewProjectModal()">
                                 <i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 새 프로젝트 등록
                             </button>
@@ -564,114 +557,80 @@
                         </div>
                     </div>
 
-                    <!-- Classic Dashboard wrapper (Initially hidden) -->
+                    <!-- Executive Dashboard (Replaced Layout) -->
                     <div id="classic-dashboard-view" style="display: none; flex-direction: column; gap: 20px;">
-                        <!-- 1. General/Exec View (Now PM-Centric Redesigned Dashboard) -->
-                        <div id="dashboard-exec-view" style="display: flex; flex-direction: column; gap: 20px;">
-                        <!-- Redesigned 7 KPI Cards -->
+                        <div class="view-header">
+                            <h2 style="font-size:18px;"><i data-lucide="layout-dashboard" style="margin-right:8px; vertical-align:middle;"></i>Executive Dashboard</h2>
+                        </div>
+                        
+                        <!-- 1. 7 KPI Cards -->
                         <div class="stats-grid">
-                            <!-- 1. 전체 프로젝트 -->
                             <div class="stat-card" id="kpi-total-projects" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
                                 <div class="stat-card-header">
                                     <span class="stat-title">전체 프로젝트</span>
-                                    <div class="stat-icon icon-bg-primary">
-                                        <i data-lucide="folder"></i>
-                                    </div>
+                                    <div class="stat-icon icon-bg-primary"><i data-lucide="folder"></i></div>
                                 </div>
                                 <div class="stat-value" id="stat-total-projects">0</div>
                                 <div class="stat-subtext">등록된 전체 프로젝트</div>
                             </div>
-                            
-                            <!-- 2. 진행중 -->
                             <div class="stat-card" id="kpi-active-projects" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
                                 <div class="stat-card-header">
                                     <span class="stat-title">진행중</span>
-                                    <div class="stat-icon icon-bg-info">
-                                        <i data-lucide="play-circle"></i>
-                                    </div>
+                                    <div class="stat-icon icon-bg-info"><i data-lucide="play-circle"></i></div>
                                 </div>
                                 <div class="stat-value text-info" id="stat-active-projects">0</div>
                                 <div class="stat-subtext">수행 및 보류 프로젝트</div>
                             </div>
-
-                            <!-- 3. 입찰 -->
                             <div class="stat-card" id="kpi-bidding-projects" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
                                 <div class="stat-card-header">
                                     <span class="stat-title">입찰</span>
-                                    <div class="stat-icon icon-bg-warning">
-                                        <i data-lucide="file-text"></i>
-                                    </div>
+                                    <div class="stat-icon icon-bg-warning"><i data-lucide="file-text"></i></div>
                                 </div>
                                 <div class="stat-value text-warning" id="stat-bidding-projects">0</div>
                                 <div class="stat-subtext">입찰/제안 단계 프로젝트</div>
                             </div>
-
-                            <!-- 4. 지연 -->
                             <div class="stat-card" id="kpi-delayed-projects" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
                                 <div class="stat-card-header">
                                     <span class="stat-title">지연</span>
-                                    <div class="stat-icon icon-bg-danger">
-                                        <i data-lucide="alert-circle"></i>
-                                    </div>
+                                    <div class="stat-icon icon-bg-danger"><i data-lucide="alert-circle"></i></div>
                                 </div>
                                 <div class="stat-value text-danger" id="stat-delayed-projects">0</div>
                                 <div class="stat-subtext">일정 초과 및 지연 프로젝트</div>
                             </div>
-
-                            <!-- 5. 오늘 마감 -->
                             <div class="stat-card" id="kpi-today-due-projects" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
                                 <div class="stat-card-header">
                                     <span class="stat-title">오늘 마감</span>
-                                    <div class="stat-icon icon-bg-danger">
-                                        <i data-lucide="calendar"></i>
-                                    </div>
+                                    <div class="stat-icon icon-bg-danger"><i data-lucide="calendar"></i></div>
                                 </div>
                                 <div class="stat-value text-danger" id="stat-today-due-projects">0</div>
                                 <div class="stat-subtext">오늘 종료 예정 프로젝트</div>
                             </div>
-
-                            <!-- 6. 미완료 Action -->
                             <div class="stat-card" id="kpi-uncompleted-actions" onclick="window.location.hash = 'action-items';" style="cursor:pointer;">
                                 <div class="stat-card-header">
                                     <span class="stat-title">미완료 Action</span>
-                                    <div class="stat-icon icon-bg-warning">
-                                        <i data-lucide="check-square"></i>
-                                    </div>
+                                    <div class="stat-icon icon-bg-warning"><i data-lucide="check-square"></i></div>
                                 </div>
                                 <div class="stat-value text-warning" id="stat-uncompleted-actions">0</div>
                                 <div class="stat-subtext">대기 및 진행 Action Item</div>
                             </div>
-
-                            <!-- 7. 미조치 Risk -->
                             <div class="stat-card" id="kpi-unresolved-risks" onclick="window.location.hash = 'issues';" style="cursor:pointer;">
                                 <div class="stat-card-header">
                                     <span class="stat-title">미조치 Risk</span>
-                                    <div class="stat-icon icon-bg-danger">
-                                        <i data-lucide="alert-triangle"></i>
-                                    </div>
+                                    <div class="stat-icon icon-bg-danger"><i data-lucide="alert-triangle"></i></div>
                                 </div>
                                 <div class="stat-value text-danger" id="stat-unresolved-risks">0</div>
                                 <div class="stat-subtext">발생 및 조치 중 리스크</div>
                             </div>
                         </div>
 
-                        <!-- Redesigned Charts Section -->
+                        <!-- 2. Portfolio Charts -->
                         <div class="dashboard-chart-grid">
-                            <!-- 1. 프로젝트 진행률 가로 막대 차트 -->
                             <div class="dashboard-section-card" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
-                                <div class="card-header-actions">
-                                    <h3><i data-lucide="bar-chart-2" class="chart-header-icon mr-2"></i>프로젝트 진행률</h3>
-                                </div>
-                                <div class="chart-scroll-container" id="dashboard-progress-chart-container">
-                                    <!-- Dynamic WBS Progress Bars -->
-                                </div>
+                                <div class="card-header-actions"><h3><i data-lucide="bar-chart-2" class="chart-header-icon mr-2"></i>프로젝트 진행률</h3></div>
+                                <div class="chart-scroll-container" id="dashboard-progress-chart-container"></div>
                             </div>
-
-                            <!-- 2. 사업유형 도넛 차트 -->
                             <div class="dashboard-section-card" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
-                                <div class="card-header-actions">
-                                    <h3><i data-lucide="pie-chart" class="chart-header-icon mr-2"></i>사업유형 분포</h3>
-                                </div>
+                                <div class="card-header-actions"><h3><i data-lucide="pie-chart" class="chart-header-icon mr-2"></i>사업유형 분포</h3></div>
                                 <div class="chart-wrapper">
                                     <div class="svg-chart-container">
                                         <svg class="donut-chart" viewBox="0 0 42 42" width="100%" height="100%">
@@ -679,44 +638,30 @@
                                             <circle class="donut-ring" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="var(--bg-card-border)" stroke-width="4"></circle>
                                             <g id="donut-business-type-segments-group"></g>
                                         </svg>
-                                        <div class="chart-center-text">
-                                            <span id="chart-business-type-center-value">0</span>
-                                            <span class="label">전체 사업 수</span>
-                                        </div>
+                                        <div class="chart-center-text"><span id="chart-business-type-center-value">0</span><span class="label">전체 사업 수</span></div>
                                     </div>
-                                    <div class="chart-legend" id="chart-business-type-legend">
-                                        <!-- Dynamic business type legend -->
-                                    </div>
+                                    <div class="chart-legend" id="chart-business-type-legend"></div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- 오늘 해야할 일 Section (3열 분할) -->
+                        <!-- 3. Admin Action Center -->
                         <div class="dashboard-section-card">
-                            <div class="card-header-actions">
-                                <h3><i data-lucide="calendar" class="chart-header-icon mr-2" style="color: var(--primary);"></i>오늘 해야할 일</h3>
-                            </div>
-                            <div class="dashboard-sub-grid">
-                                <!-- 1. 오늘/지연 WBS 일정 -->
-                                <div class="sub-card-container" id="today-wbs-container" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
-                                    <div class="sub-card-header">
-                                        <span class="sub-card-title">오늘/지연 WBS 일정</span>
-                                        <span class="badge badge-error" id="today-wbs-badge">0</span>
-                                    </div>
-                                    <div class="sub-card-list" id="today-wbs-list">
-                                        <!-- Dynamic list -->
-                                    </div>
-                                </div>
+                            <div class="card-header-actions"><h3><i data-lucide="shield-check" class="chart-header-icon mr-2" style="color: var(--primary);"></i>Admin Action Center</h3></div>
+                            <div class="dashboard-sub-grid" id="admin-action-center"></div>
+                        </div>
 
-                                <!-- 2. 오늘/지연 Action Item -->
+                        <!-- 4. Today Tasks Section -->
+                        <div class="dashboard-section-card">
+                            <div class="card-header-actions"><h3><i data-lucide="calendar" class="chart-header-icon mr-2" style="color: var(--primary);"></i><span id="today-tasks-section-title">오늘 해야할 일</span> <span id="today-tasks-role-tag" class="exec-role-tag"></span></h3></div>
+                            <div class="dashboard-sub-grid">
+                                <div class="sub-card-container" id="today-wbs-container" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
+                                    <div class="sub-card-header"><span class="sub-card-title">오늘/지연 WBS 일정</span><span class="badge badge-error" id="today-wbs-badge">0</span></div>
+                                    <div class="sub-card-list" id="today-wbs-list"></div>
+                                </div>
                                 <div class="sub-card-container" id="today-actions-container" onclick="window.location.hash = 'action-items';" style="cursor:pointer;">
-                                    <div class="sub-card-header">
-                                        <span class="sub-card-title">오늘/지연 Action Item</span>
-                                        <span class="badge badge-error" id="today-actions-badge">0</span>
-                                    </div>
-                                    <div class="sub-card-list" id="today-actions-list">
-                                        <!-- Dynamic list -->
-                                    </div>
+                                    <div class="sub-card-header"><span class="sub-card-title">오늘/지연 Action Item</span><span class="badge badge-error" id="today-actions-badge">0</span></div>
+                                    <div class="sub-card-list" id="today-actions-list"></div>
                                 </div>
 
                                 <!-- 3. 오늘/지연 제출 산출물 -->
@@ -732,41 +677,35 @@
                             </div>
                         </div>
 
-                        <!-- 최근 활동 Section (3열 분할) -->
-                        <div class="dashboard-section-card">
-                            <div class="card-header-actions">
-                                <h3><i data-lucide="clock" class="chart-header-icon mr-2" style="color: var(--primary);"></i>최근 활동</h3>
+                        <!-- Row 5: 최근 프로젝트 / 최근 활동 / 최근 공지 (3열 분할) -->
+                        <div class="dashboard-sub-grid" style="gap:16px;">
+                            <!-- 최근 프로젝트 -->
+                            <div class="dashboard-section-card" style="min-width:0;">
+                                <div class="card-header-actions">
+                                    <h3><i data-lucide="folder-open" class="chart-header-icon mr-2" style="color:var(--primary);"></i>최근 프로젝트</h3>
+                                    <a href="#projects" class="text-btn" style="font-size:11px; color:var(--primary); white-space:nowrap;">전체 보기 →</a>
+                                </div>
+                                <div class="sub-card-list" id="exec-recent-projects-list"></div>
                             </div>
-                            <div class="dashboard-sub-grid">
-                                <!-- 1. 최근 공문 -->
-                                <div class="sub-card-container" id="recent-docs-container" onclick="window.location.hash = 'official-docs';" style="cursor:pointer;">
-                                    <div class="sub-card-header">
-                                        <span class="sub-card-title">최근 공문</span>
-                                    </div>
-                                    <div class="sub-card-list" id="recent-docs-list">
-                                        <!-- Dynamic list -->
-                                    </div>
-                                </div>
 
-                                <!-- 2. 최근 회의록 -->
-                                <div class="sub-card-container" id="recent-meetings-container" onclick="window.location.hash = 'meetings';" style="cursor:pointer;">
-                                    <div class="sub-card-header">
-                                        <span class="sub-card-title">최근 회의록</span>
-                                    </div>
-                                    <div class="sub-card-list" id="recent-meetings-list">
-                                        <!-- Dynamic list -->
-                                    </div>
+                            <!-- 최근 활동 (회의록 + 산출물) -->
+                            <div class="dashboard-section-card" style="min-width:0;">
+                                <div class="card-header-actions">
+                                    <h3><i data-lucide="activity" class="chart-header-icon mr-2" style="color:var(--primary);"></i>최근 활동</h3>
                                 </div>
+                                <!-- Hidden legacy IDs for JS backward-compat -->
+                                <span id="recent-docs-list" style="display:none;"></span>
+                                <span id="recent-meetings-list" style="display:none;"></span>
+                                <span id="recent-artifacts-list" style="display:none;"></span>
+                                <div class="sub-card-list" id="exec-recent-activities-list"></div>
+                            </div>
 
-                                <!-- 3. 최근 업로드 산출물 -->
-                                <div class="sub-card-container" id="recent-artifacts-container" onclick="window.location.hash = 'artifacts';" style="cursor:pointer;">
-                                    <div class="sub-card-header">
-                                        <span class="sub-card-title">최근 업로드 산출물</span>
-                                    </div>
-                                    <div class="sub-card-list" id="recent-artifacts-list">
-                                        <!-- Dynamic list -->
-                                    </div>
+                            <!-- 최근 공지 / 시스템 로그 -->
+                            <div class="dashboard-section-card" style="min-width:0;">
+                                <div class="card-header-actions">
+                                    <h3><i data-lucide="megaphone" class="chart-header-icon mr-2" style="color:var(--primary);"></i>최근 공지</h3>
                                 </div>
+                                <div class="sub-card-list" id="exec-recent-notices-list"></div>
                             </div>
                         </div>
                     </div>
@@ -777,7 +716,6 @@
                         <div id="pm-dashboard-sections" style="display: none;"></div>
                         <!-- Worker View Sections (Preserved) -->
                         <div id="worker-dashboard-sections" style="display: none;"></div>
-                    </div>
                     </div>
                 </section>
 
@@ -1139,7 +1077,11 @@
                     <!-- Detail Section Tabs -->
                     <div class="project-detail-tabs-container">
                         <button class="detail-tab-btn active" data-tab="overview" onclick="app.setDetailTab('overview')">프로젝트 개요</button>
+                        <button class="detail-tab-btn" data-tab="bidding-tasks" onclick="app.setDetailTab('bidding-tasks')" style="display: none;">제안 Task</button>
                         <button class="detail-tab-btn" data-tab="artifacts" onclick="app.setDetailTab('artifacts')">산출물</button>
+                        <button class="detail-tab-btn" data-tab="bid-readiness" onclick="app.setDetailTab('bid-readiness')" style="display: none;">입찰 준비현황</button>
+                        <button class="detail-tab-btn" data-tab="bidding-wbs" onclick="app.setDetailTab('bidding-wbs')" style="display: none;">WBS</button>
+                        <button class="detail-tab-btn" data-tab="bidding-gantt" onclick="app.setDetailTab('bidding-gantt')" style="display: none;">간트</button>
                         <button class="detail-tab-btn" data-tab="issues" onclick="app.setDetailTab('issues')">이슈</button>
                         <button class="detail-tab-btn" data-tab="risks" onclick="app.setDetailTab('risks')">리스크</button>
                         <button class="detail-tab-btn" data-tab="action-items" onclick="app.setDetailTab('action-items')">Action Item</button>
@@ -1254,23 +1196,31 @@
                     <div id="detail-tab-content-artifacts" class="detail-tab-content">
                         <div class="dashboard-card project-artifacts-card">
                             <div class="card-header-actions" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                                <h3 style="margin:0;">제출된 산출물 목록</h3>
-                                <button class="btn btn-sm btn-primary" onclick="app.openNewArtifactModalFromDetail()">
-                                    <i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 산출물 등록
-                                </button>
+                                <div>
+                                    <h3 style="margin:0;">프로젝트 수행단계 산출물</h3>
+                                    <p class="text-muted text-xs" style="margin:2px 0 0 0;">테일러링 설정에서 선택된 산출물 목록입니다.</p>
+                                </div>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn btn-sm btn-outline" onclick="app.setDetailTab('methodology')">
+                                        <i data-lucide="settings" style="width:14px; height:14px; margin-right:4px;"></i> 테일러링 설정
+                                    </button>
+                                    <button class="btn btn-sm btn-primary" onclick="app.openNewArtifactModalFromDetail()">
+                                        <i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 산출물 등록
+                                    </button>
+                                </div>
                             </div>
-                            <div class="table-container">
+                            <div class="table-container" id="project-detail-artifacts-container">
                                 <table class="data-table">
                                     <thead>
                                         <tr>
-                                            <th>산출물명</th>
-                                            <th>분류</th>
-                                            <th>버전</th>
-                                            <th>작성자</th>
-                                            <th>최종 업데이트</th>
-                                            <th>상태</th>
-                                            <th>다운로드</th>
-                                            <th>관리</th>
+                                            <th style="width: 130px;">단계</th>
+                                            <th style="min-width: 140px;">활동</th>
+                                            <th style="min-width: 180px;">산출물명</th>
+                                            <th style="width: 110px;">작성 상태</th>
+                                            <th style="width: 110px;">담당자</th>
+                                            <th style="width: 105px;">최종 수정일</th>
+                                            <th style="width: 110px; text-align: center;">결재 상태</th>
+                                            <th style="width: 100px; text-align: center;">관리</th>
                                         </tr>
                                     </thead>
                                     <tbody id="project-detail-artifacts-tbody">
@@ -1526,6 +1476,7 @@
                                             <th>역할</th>
                                             <th>소속본부/부서</th>
                                             <th>직급</th>
+                                            <th>고용형태</th>
                                             <th>투입시작일</th>
                                             <th>투입종료일</th>
                                             <th>상태</th>
@@ -1538,6 +1489,26 @@
                                 </table>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- TAB: 입찰 준비현황 (Bid Readiness Center) -->
+                    <div id="detail-tab-content-bid-readiness" class="detail-tab-content">
+                        <!-- Dynamically rendered by app.renderBidReadinessTab(projectId) -->
+                    </div>
+
+                    <!-- TAB: 제안 Task (Proposal Tasks) -->
+                    <div id="detail-tab-content-bidding-tasks" class="detail-tab-content">
+                        <!-- Dynamically rendered by app.renderBiddingTasksTab(projectId) -->
+                    </div>
+
+                    <!-- TAB: WBS (Proposal WBS) -->
+                    <div id="detail-tab-content-bidding-wbs" class="detail-tab-content">
+                        <!-- Dynamically rendered by app.renderBiddingWbsTab(projectId) -->
+                    </div>
+
+                    <!-- TAB: 간트 (Proposal Gantt) -->
+                    <div id="detail-tab-content-bidding-gantt" class="detail-tab-content">
+                        <!-- Dynamically rendered by app.renderBiddingGanttTab(projectId) -->
                     </div>
 
                     <!-- TAB 11: 테일러링 (Methodology - OPMS) -->
@@ -1910,7 +1881,7 @@
 
                 <!-- 7.5. RESOURCE MANAGEMENT VIEW (스프레드시트 엑셀 그리드 형태) -->
                 <section id="view-resources" class="content-view">
-                    <div class="view-header" style="margin-bottom: 24px;">
+                    <div class="view-header">
                         <div>
                             <h1>참여인력 관리</h1>
                             <p class="subtitle">프로젝트에 투입된 전체 인력 현황을 조회하고 엑셀 스프레드시트 형태로 인라인 편집하여 일목요연하게 관리합니다.</p>
@@ -2006,7 +1977,7 @@
 
                 <!-- 7.5.2. CONTRACT MANAGEMENT VIEW -->
                 <section id="view-contracts" class="content-view">
-                    <div class="view-header" style="margin-bottom: 24px;">
+                    <div class="view-header">
                         <div>
                             <h1>계약 관리</h1>
                             <p class="subtitle">프로젝트와 연계된 외주, 자문, 용역 등의 계약 정보를 관리합니다.</p>
@@ -2082,7 +2053,7 @@
 
                 <!-- 7.5.3. SALARY MANAGEMENT VIEW -->
                 <section id="view-salaries" class="content-view">
-                    <div class="view-header" style="margin-bottom: 24px;">
+                    <div class="view-header">
                         <div>
                             <h1>월급여 관리</h1>
                             <p class="subtitle">인력별 월 급여 지급 명세 및 결재 상태를 관리합니다.</p>
@@ -2698,12 +2669,12 @@
                             <input type="text" id="project-manager-custom" placeholder="매니저명 직접 입력" style="display: none; margin-top: 8px;">
                         </div>
                         <div class="form-group">
-                            <label for="project-customer">고객기관 <span class="required">*</span></label>
+                            <label for="project-customer">발주기관 <span class="required">*</span></label>
                             <input type="text" id="project-customer" required placeholder="예: 행정안전부">
                         </div>
                         <div class="form-group">
                             <label for="project-budget">사업금액 (원) <span class="required">*</span></label>
-                            <input type="number" id="project-budget" required placeholder="예: 2450000000">
+                            <input type="text" inputmode="numeric" id="project-budget" required placeholder="예: 2,450,000,000" oninput="app.formatInputWithCommas(this)">
                         </div>
                         <div class="form-group">
                             <label for="project-start-date">시작일 <span class="required">*</span></label>
@@ -2720,12 +2691,8 @@
                         <div class="form-group">
                             <label for="project-status">프로젝트 단계 (진행 상태)</label>
                             <select id="project-status">
-                                <option value="Bidding">입찰 단계 (Bidding)</option>
-                                <option value="In Progress" selected>수행 중 (Active / In Progress)</option>
-                                <option value="Delay">지연 (Delay)</option>
-                                <option value="On Hold">수행 보류 (On Hold)</option>
-                                <option value="Completed">수행 종료 (Closed / Completed)</option>
-                                <option value="Bid Failed">입찰 실패 (Bid Failed)</option>
+                                <option value="In Progress" selected>수행중</option>
+                                <option value="Completed">수행종료</option>
                             </select>
                         </div>
                         <div class="form-group" id="project-bid-status-group" style="display: none;">
@@ -2751,18 +2718,19 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="project-budget-bidding">사업예산(projectBudget)</label>
-                                    <input type="number" id="project-budget-bidding" placeholder="예: 1500000000">
+                                    <input type="text" inputmode="numeric" id="project-budget-bidding" placeholder="예: 1,500,000,000" oninput="app.formatInputWithCommas(this)">
                                 </div>
                                 <div class="form-group">
                                     <label for="project-business-type">사업유형(businessType)</label>
-                                    <select id="project-business-type">
-                                        <option value="">선택하세요</option>
-                                        <option value="구축">구축</option>
-                                        <option value="운영">운영</option>
-                                        <option value="ISP">ISP</option>
-                                        <option value="AI">AI</option>
+                                    <select id="project-business-type" onchange="app.handleBiddingBizTypeChange(this.value)">
+                                        <option value="공공 SI">공공 SI</option>
                                         <option value="유지관리">유지관리</option>
+                                        <option value="ISP">ISP</option>
+                                        <option value="컨설팅">컨설팅</option>
+                                        <option value="AI">AI</option>
+                                        <option value="custom">직접입력...</option>
                                     </select>
+                                    <input type="text" id="project-business-type-custom" placeholder="사업유형 직접 입력" style="display: none; margin-top: 8px;">
                                 </div>
                             </div>
                             
@@ -2807,8 +2775,17 @@
                             <input type="text" id="project-code" placeholder="예: PRJ-2026-001">
                         </div>
                         <div class="form-group">
-                            <label for="project-biz-type">사업 유형</label>
-                            <input type="text" id="project-biz-type" placeholder="예: ISP / BPR, SI 구축">
+                            <label for="project-biz-type-select">사업 유형</label>
+                            <select id="project-biz-type-select" onchange="app.handleBizTypeChange(this.value)">
+                                <option value="공공 SI" selected>공공 SI</option>
+                                <option value="유지관리">유지관리</option>
+                                <option value="ISP">ISP</option>
+                                <option value="컨설팅">컨설팅</option>
+                                <option value="AI">AI</option>
+                                <option value="custom">직접입력...</option>
+                            </select>
+                            <input type="text" id="project-biz-type-custom" placeholder="사업 유형 직접 입력" style="display: none; margin-top: 8px;">
+                            <input type="hidden" id="project-biz-type">
                         </div>
                         <div class="form-group">
                             <label for="project-contract-date">계약일</label>
@@ -2830,7 +2807,101 @@
                                 <option value="높음">높음 (High)</option>
                             </select>
                         </div>
-                        
+                        <!-- ② 계약정보 영역 -->
+                        <div class="form-group span-2" style="margin-top: 15px;">
+                            <h4 style="border-bottom: 1px solid var(--bg-card-border); padding-bottom: 6px; font-size:14px; color:var(--primary); font-weight:700; display:flex; align-items:center; justify-content:space-between;">
+                                <span>계약정보</span>
+                                <span id="project-contract-manual-badge" class="badge" style="display:none; background:var(--warning-glow); color:var(--warning); font-size:11px; padding:2px 8px; border-radius:4px;">자동 계산금액과 다름</span>
+                            </h4>
+                        </div>
+                        <div class="form-group">
+                            <label for="project-participation-type">사업 참여 형태 <span class="required">*</span></label>
+                            <select id="project-participation-type" onchange="app.handleParticipationTypeChange(this.value)">
+                                <option value="PRIME_CONTRACTOR" selected>주사업자</option>
+                                <option value="CONSORTIUM_MEMBER">공동수급사 (부사업자)</option>
+                                <option value="SUBCONTRACTOR">하도급사</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="project-prime-contractor-name-group" style="display: none;">
+                            <label for="project-prime-contractor-name">주사업자 회사명 <span class="required">*</span></label>
+                            <input type="text" id="project-prime-contractor-name" placeholder="예: (주)한국아이티">
+                        </div>
+                        <div class="form-group">
+                            <label for="project-total-contract-amount">전체 사업금액 (원)</label>
+                            <input type="text" inputmode="numeric" id="project-total-contract-amount" placeholder="예: 2,292,895,000" oninput="app.formatInputWithCommas(this); app.recalculateCompanyContractAmount();">
+                        </div>
+                        <div class="form-group" id="project-company-share-rate-group">
+                            <label for="project-company-share-rate">당사 지분율 (%)</label>
+                            <input type="number" id="project-company-share-rate" min="0" max="100" step="0.1" placeholder="예: 45" oninput="app.recalculateCompanyContractAmount();">
+                        </div>
+                        <div class="form-group">
+                            <label for="project-company-contract-amount" id="project-company-contract-amount-label">당사 계약금액 (원)</label>
+                            <input type="text" inputmode="numeric" id="project-company-contract-amount" placeholder="예: 1,031,802,750" oninput="app.formatInputWithCommas(this); app.checkManualContractAmount();">
+                        </div>
+
+                        <!-- ③ 공동수급체 구성 영역 (주사업자/공동수급사) -->
+                        <div class="form-group span-2" id="project-consortium-section" style="margin-top: 15px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 6px; margin-bottom: 10px;">
+                                <h4 style="font-size:14px; color:var(--primary); font-weight:700; margin:0;">공동수급체 구성</h4>
+                                <button type="button" class="btn btn-xs btn-outline" id="btn-add-consortium-member" onclick="app.addConsortiumMemberRow()">
+                                    <i data-lucide="plus" style="width:12px; height:12px; margin-right:4px;"></i> 참여사 추가
+                                </button>
+                            </div>
+                            <div id="consortium-validation-warning" style="display:none; background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); color: var(--warning); padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 10px;">
+                                공동수급체 지분율 합계가 100%가 아닙니다.
+                            </div>
+                            <div style="overflow-x: auto;">
+                                <table class="table" style="width:100%; font-size:12px; border:1px solid var(--bg-card-border);">
+                                    <thead>
+                                        <tr style="background:var(--bg-hover-item);">
+                                            <th style="padding:6px 8px; text-align:left;">회사명</th>
+                                            <th style="padding:6px 8px; text-align:center; width:110px;">참여 구분</th>
+                                            <th style="padding:6px 8px; text-align:right; width:80px;">지분율(%)</th>
+                                            <th style="padding:6px 8px; text-align:right; width:130px;">계약금액(원)</th>
+                                            <th style="padding:6px 8px; text-align:center; width:60px;">대표사</th>
+                                            <th style="padding:6px 8px; text-align:center; width:60px;">당사</th>
+                                            <th style="padding:6px 8px; text-align:left;">비고</th>
+                                            <th style="padding:6px 8px; text-align:center; width:50px;">삭제</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="project-consortium-tbody">
+                                        <!-- Rendered dynamically by app.js -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- ④ 하도급 정보 영역 (하도급사 선택 시) -->
+                        <div class="form-group span-2" id="project-subcontract-section" style="margin-top: 15px; display: none;">
+                            <h4 style="border-bottom: 1px solid var(--bg-card-border); padding-bottom: 6px; font-size:14px; color:var(--primary); font-weight:700;">하도급 상세 정보</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;">
+                                <div class="form-group">
+                                    <label for="project-original-project-name">원도급 사업명</label>
+                                    <input type="text" id="project-original-project-name" placeholder="예: 2026년 차세대 행정통합시스템 구축">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-subcontract-project-name">하도급 사업명</label>
+                                    <input type="text" id="project-subcontract-project-name" placeholder="예: 행정통합시스템 데이터 이관 하도급">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-subcontract-prime-contractor">원도급사</label>
+                                    <input type="text" id="project-subcontract-prime-contractor" placeholder="예: (주)한국아이티">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-subcontract-client-name">하도급 발주사</label>
+                                    <input type="text" id="project-subcontract-client-name" placeholder="예: (주)에이비씨시스템">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-original-contract-amount">원도급 사업금액 (원)</label>
+                                    <input type="text" inputmode="numeric" id="project-original-contract-amount" placeholder="예: 5,000,000,000" oninput="app.formatInputWithCommas(this)">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-original-project-code">원도급 프로젝트코드</label>
+                                    <input type="text" id="project-original-project-code" placeholder="예: ORG-2026-088">
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="form-group span-2">
                             <h4 style="margin-top: 10px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 6px; font-size:13px; color:var(--primary); font-weight:700;">WBS 단계별 진척률 (%) 및 가중치 (%)</h4>
                         </div>
@@ -2921,16 +2992,51 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="artifact-category">산출물 구분 <span class="required">*</span></label>
+                        <label for="artifact-category">제출서류 / 산출물 유형 <span class="required">*</span></label>
                         <select id="artifact-category" required>
-                            <option value="Requirements">요구사항 정의서</option>
-                            <option value="Architecture Design">시스템 설계서</option>
-                            <option value="Source Code">소스코드/릴리즈</option>
-                            <option value="Test Plan">테스트 계획/결과서</option>
-                            <option value="User Manual">사용자 매뉴얼</option>
-                            <option value="Deployment Guide">배포 정의서</option>
-                            <option value="Final Report">완료 보고서</option>
-                            <option value="Etc">기타 산출물</option>
+                            <optgroup label="[입찰] 제안서류">
+                                <option value="QUALITATIVE_PROPOSAL">정성제안서</option>
+                                <option value="QUANTITATIVE_PROPOSAL">정량제안서</option>
+                                <option value="PRICE_BID">가격입찰서</option>
+                                <option value="PRESENTATION_SLIDES">발표자료</option>
+                            </optgroup>
+                            <optgroup label="[입찰] 회사 공통 증빙">
+                                <option value="BUSINESS_REGISTRATION">사업자등록증</option>
+                                <option value="CORPORATE_REGISTRY">법인등기부등본</option>
+                                <option value="CORPORATE_SEAL_CERTIFICATE">법인인감증명서</option>
+                                <option value="PERSONAL_SEAL_DEED">사용인감계</option>
+                                <option value="BID_REGISTRATION_CERT">경쟁입찰참가자격등록증</option>
+                                <option value="SOFTWARE_BIZ_CERT">소프트웨어사업자 일반현황 관리확인서</option>
+                                <option value="SMB_CERTIFICATE">중소기업확인서</option>
+                                <option value="DIRECT_PRODUCTION_CERT">직접생산확인증명서</option>
+                                <option value="FINANCIAL_STATEMENT">표준재무제표증명</option>
+                                <option value="CREDIT_RATING_CERT">기업신용평가등급확인서</option>
+                                <option value="NATIONAL_TAX_CERT">국세납세증명서</option>
+                                <option value="LOCAL_TAX_CERT">지방세납세증명서</option>
+                                <option value="PERFORMANCE_CERT">실적증명서</option>
+                                <option value="BID_PLEDGE">입찰참여서약서</option>
+                                <option value="CONSORTIUM_AGREEMENT">공동수급협정서</option>
+                                <option value="PARTICIPATION_PLEDGE">참여확약서</option>
+                            </optgroup>
+                            <optgroup label="[입찰] 투입인력 증빙">
+                                <option value="EMPLOYMENT_CERTIFICATE">재직증명서</option>
+                                <option value="CAREER_CERTIFICATE">경력증명서</option>
+                                <option value="LICENSE_COPY">자격증 사본</option>
+                                <option value="HEALTH_INSURANCE_CERT">건강보험자격득실확인서</option>
+                                <option value="FOUR_INSURANCES_LIST">4대보험 가입자명부</option>
+                            </optgroup>
+                            <optgroup label="[수행] 일반 프로젝트 산출물">
+                                <option value="Requirements">요구사항 정의서</option>
+                                <option value="Architecture Design">시스템 설계서</option>
+                                <option value="Source Code">소스코드/릴리즈</option>
+                                <option value="Test Plan">테스트 계획/결과서</option>
+                                <option value="User Manual">사용자 매뉴얼</option>
+                                <option value="Deployment Guide">배포 정의서</option>
+                                <option value="Final Report">완료 보고서</option>
+                            </optgroup>
+                            <optgroup label="기타">
+                                <option value="Etc">기타 제출서류 / 산출물</option>
+                            </optgroup>
                         </select>
                     </div>
                     <div class="form-group">
@@ -4596,12 +4702,12 @@
                                     <input type="text" id="member-name" required placeholder="예: 홍길동">
                                 </div>
                                 <div class="form-group">
-                                    <label for="member-employment-type">인력 구분</label>
+                                    <label for="member-employment-type">고용형태</label>
                                     <select id="member-employment-type">
-                                        <option value="regular" selected>정규직</option>
-                                        <option value="outsourcing">자사화</option>
-                                        <option value="project_contract">프로젝트 계약직</option>
-                                        <option value="turnkey">외부(턴키)</option>
+                                        <option value="REGULAR_EMPLOYEE" selected>정규직</option>
+                                        <option value="INSOURCED_CONTRACTOR">자사화</option>
+                                        <option value="PROJECT_CONTRACTOR">프로젝트 계약직</option>
+                                        <option value="UNKNOWN">미지정</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -4670,7 +4776,7 @@
         <div class="sidebar-mode-menu-header">Sidebar 표시 방식</div>
         <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-expanded" data-mode="expanded">
             <i data-lucide="check" class="smi-check"></i>
-            <i data-lucide="layout-sidebar" style="width: 14px; height: 14px;"></i>
+            <i data-lucide="panel-left" style="width: 14px; height: 14px;"></i>
             <span>일반 고정 (Expanded)</span>
         </a>
         <a href="javascript:void(0)" class="sidebar-mode-item" id="smi-compact" data-mode="compact">
