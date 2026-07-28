@@ -516,6 +516,8 @@ export interface WorkflowStatus {
   isInitial: boolean;
   isFinal: boolean;
   sortOrder: number;
+  /** 0039 — 이 상태의 진척률(%) 0~100. 산출물 기반 태스크 진척 산정에 사용(미지정=null). */
+  progressWeight?: number | null;
 }
 
 export interface WorkflowTransitionCondition {
@@ -567,6 +569,7 @@ export interface WorkflowStatusInput {
   isInitial?: boolean;
   isFinal?: boolean;
   sortOrder?: number;
+  progressWeight?: number | null;
 }
 
 export interface WorkflowTransitionInput {

@@ -246,6 +246,7 @@ public final class ReadMappers {
         out.put("isInitial", s.getIsInitial());
         out.put("isFinal", s.getIsFinal());
         out.put("sortOrder", s.getSortOrder());
+        out.put("progressWeight", s.getProgressWeight()); // 0039 — 상태별 진척률(%)
         return out;
     }
 

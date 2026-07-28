@@ -3,7 +3,7 @@
 //   목록(추가/이름·설명·기본 여부 수정/삭제) + 상태(추가·수정·삭제) + 전이(추가·삭제) +
 //   전이 조건(추가·삭제) + 상태머신 다이어그램.
 //   쓰기는 전부 백엔드(workflowsAdmin) — 409(참조 가드)·400(불변식) 메시지를 그대로 노출한다.
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { dataClient } from '../../lib/dataClient';
 import type {
   Workflow, WorkflowStatus, CatalogNode, WorkflowStatusInput, TransitionConditionInput,
@@ -29,12 +29,9 @@ const STATUS_CATEGORY_LABELS: Record<string, string> = {
 };
 // 조건 어휘 — 저장값은 백엔드 코드 그대로, 화면 표기만 한글(ConditionEngine.SCOPES/OPERATORS).
 const CONDITION_SCOPES = [
-  { code: 'SELF', label: '이 항목 자신' },
-  { code: 'TASK', label: '태스크' },
-  { code: 'PROJECT', label: '프로젝트' },
-  { code: 'ACTION_ITEM', label: '액션아이템' },
-  { code: 'ISSUE', label: '이슈/리스크' },
-  { code: 'ACTOR', label: '실행자(로그인 사용자)' },
+  { code: 'SELF', label: '이 산출물 자신' },
+  { code: 'TASK', label: '소속 태스크' },
+  { code: 'PROJECT', label: '소속 프로젝트' },
 ];
 const CONDITION_OPERATORS = [
   { code: 'EXISTS', label: '값이 있음' },
@@ -46,6 +43,54 @@ const CONDITION_OPERATORS = [
 ];
 const scopeLabel = (code: string) => CONDITION_SCOPES.find((s) => s.code === code)?.label ?? code;
 const operatorLabel = (code: string) => CONDITION_OPERATORS.find((o) => o.code === code)?.label ?? code;
+
+// 0039 — 조건 빌더 선택지. 엔진(ConditionEngine)이 실제로 해석하는 것만 노출한다.
+//   · 범위 해석: SELF=이 산출물 행 / TASK=소속 태스크 / PROJECT=소속 프로젝트.
+//     ACTION_ITEM·ISSUE는 엔진에 해석기가 없어(항상 실패) 목록에서 제외.
+//   · version_count는 가상 필드 — 행의 deliverable_id로 버전 수를 센다(프로젝트엔 없음).
+const SCOPE_FIELDS: Record<string, { code: string; label: string }[]> = {
+  SELF: [
+    { code: 'status', label: '상태' },
+    { code: 'file_name', label: '첨부 파일명' },
+    { code: 'version_no', label: '버전 번호' },
+    { code: 'version_count', label: '업로드된 버전 수' },
+    { code: 'due_date', label: '마감일' },
+    { code: 'submitted_at', label: '제출일시' },
+    { code: 'author_name', label: '담당자명' },
+  ],
+  TASK: [
+    { code: 'status', label: '태스크 상태' },
+    { code: 'progress_rate', label: '태스크 진척률(%)' },
+    { code: 'assignee_name', label: '태스크 담당자' },
+    { code: 'planned_end_date', label: '계획 종료일' },
+    { code: 'actual_end_date', label: '실제 종료일' },
+    { code: 'version_count', label: '사용 산출물의 버전 수' },
+  ],
+  PROJECT: [
+    { code: 'status', label: '프로젝트 상태' },
+    { code: 'project_stage', label: '프로젝트 단계' },
+    { code: 'bid_status', label: '입찰 상태' },
+    { code: 'pm_name', label: 'PM' },
+    { code: 'contract_amount', label: '계약금액' },
+    { code: 'planned_end_date', label: '계획 종료일' },
+  ],
+};
+/** 연산자별로 필요한 입력만 보여준다. */
+const OPERATOR_FORM: Record<string, { scope: boolean; field: boolean; param: 'value' | 'sinceStatus' | 'roles' | 'statuses' | null }> = {
+  EXISTS: { scope: true, field: true, param: null },
+  GTE: { scope: true, field: true, param: 'value' },
+  CHANGED_SINCE: { scope: true, field: false, param: 'sinceStatus' },
+  ROLE_IN: { scope: false, field: false, param: 'roles' },
+  ALL_CHILDREN_IN: { scope: true, field: false, param: 'statuses' },
+  COMMENT_REQUIRED: { scope: false, field: false, param: null },
+};
+const DELIVERABLE_STATUSES = [
+  { code: 'DRAFT', label: '작성중' }, { code: 'SUBMITTED', label: '제출' },
+  { code: 'UNDER_REVIEW', label: '검토중' }, { code: 'APPROVED', label: '승인' },
+  { code: 'REJECTED', label: '반려' },
+];
+const opForm = computed(() => OPERATOR_FORM[cOperator.value] ?? { scope: true, field: true, param: null });
+const scopeFields = computed(() => SCOPE_FIELDS[cScope.value] ?? []);
 
 // 이 워크플로를 참조하는 카탈로그 노드 수(비활성 포함 — 마스터 기준)
 const usageById = computed(() => {
@@ -135,10 +180,11 @@ const stCategory = ref<'TODO' | 'IN_PROGRESS' | 'DONE'>('TODO');
 const stInitial = ref(false);
 const stFinal = ref(false);
 const stSort = ref(0);
+const stWeight = ref<number | null>(null);   // 0039 — 상태별 진척률(%)
 
 function openCreateStatus() {
   stName.value = ''; stCode.value = ''; stCategory.value = 'TODO';
-  stInitial.value = false; stFinal.value = false;
+  stInitial.value = false; stFinal.value = false; stWeight.value = null;
   stSort.value = (selected.value?.statuses.length ?? 0) * 10 + 10;
   stModal.value = { mode: 'create' };
 }
@@ -146,6 +192,7 @@ function openEditStatus(s: WorkflowStatus) {
   stName.value = s.name; stCode.value = s.code ?? '';
   stCategory.value = (s.category as 'TODO' | 'IN_PROGRESS' | 'DONE') ?? 'TODO';
   stInitial.value = s.isInitial; stFinal.value = s.isFinal; stSort.value = s.sortOrder;
+  stWeight.value = s.progressWeight ?? null;
   stModal.value = { mode: 'edit', status: s };
 }
 async function submitStatus() {
@@ -159,6 +206,7 @@ async function submitStatus() {
     isInitial: stInitial.value,
     isFinal: stFinal.value,
     sortOrder: stSort.value,
+    progressWeight: stWeight.value,
   };
   await run(async () => {
     if (m.mode === 'create') await dataClient.workflowsAdmin.createStatus(wf.id, input);
@@ -206,31 +254,53 @@ async function removeTransition(transitionId: number, label: string) {
 const condModal = ref<{ transitionId: number; label: string } | null>(null);
 const cScope = ref('SELF');
 const cOperator = ref('EXISTS');
-const cLeftField = ref('');
-const cParams = ref('');
+const cLeftField = ref('status');
 const cMessage = ref('');
+// 연산자별 파라미터 입력값
+const cValue = ref<number | null>(null);          // GTE
+const cSinceStatus = ref('SUBMITTED');            // CHANGED_SINCE
+const cRoles = ref('');                           // ROLE_IN (쉼표 구분)
+const cStatuses = ref<string[]>([]);              // ALL_CHILDREN_IN
 
 function openCreateCondition(transitionId: number, label: string) {
-  cScope.value = 'SELF'; cOperator.value = 'EXISTS'; cLeftField.value = '';
-  cParams.value = ''; cMessage.value = '';
+  cScope.value = 'SELF'; cOperator.value = 'EXISTS'; cLeftField.value = 'status';
+  cValue.value = null; cSinceStatus.value = 'SUBMITTED'; cRoles.value = ''; cStatuses.value = [];
+  cMessage.value = '';
   condModal.value = { transitionId, label };
+}
+// 범위를 바꾸면 그 범위에 없는 필드는 첫 필드로 되돌린다.
+watch(cScope, () => {
+  if (!scopeFields.value.some((f) => f.code === cLeftField.value)) {
+    cLeftField.value = scopeFields.value[0]?.code ?? '';
+  }
+});
+function toggleChildStatus(code: string) {
+  const set = new Set(cStatuses.value);
+  if (set.has(code)) set.delete(code); else set.add(code);
+  cStatuses.value = [...set];
 }
 async function submitCondition() {
   const m = condModal.value;
   if (!m) return;
+  const form = opForm.value;
   let params: Record<string, unknown> | undefined;
-  if (cParams.value.trim()) {
-    try {
-      params = JSON.parse(cParams.value);
-    } catch {
-      actionError.value = 'params는 올바른 JSON이어야 합니다. 예: {"value": 100}';
-      return;
-    }
+  if (form.param === 'value') {
+    if (cValue.value == null) { actionError.value = '기준값을 입력하세요.'; return; }
+    params = { value: cValue.value };
+  } else if (form.param === 'sinceStatus') {
+    params = { since_status: cSinceStatus.value };
+  } else if (form.param === 'roles') {
+    const roles = cRoles.value.split(',').map((s) => s.trim()).filter(Boolean);
+    if (!roles.length) { actionError.value = '역할을 1개 이상 입력하세요.'; return; }
+    params = { roles };
+  } else if (form.param === 'statuses') {
+    if (!cStatuses.value.length) { actionError.value = '상태를 1개 이상 선택하세요.'; return; }
+    params = { statuses: cStatuses.value };
   }
   const input: TransitionConditionInput = {
-    subjectScope: cScope.value,
+    subjectScope: form.scope ? cScope.value : 'SELF',
     operator: cOperator.value,
-    leftField: cLeftField.value.trim() || null,
+    leftField: form.field ? (cLeftField.value || null) : null,
     params,
     errorMessage: cMessage.value.trim() || null,
   };
@@ -305,13 +375,14 @@ function transitionLabel(wf: Workflow | null, t: { fromStatusId: number; toStatu
               <button class="btn btn-sm" type="button" :disabled="busy" @click="openCreateStatus">+ 상태 추가</button>
             </div>
             <table class="tbl">
-              <thead><tr><th>순서</th><th>이름</th><th>코드</th><th>분류</th><th>시작</th><th>종료</th><th></th></tr></thead>
+              <thead><tr><th>순서</th><th>이름</th><th>코드</th><th>분류</th><th class="num">진척률</th><th>시작</th><th>종료</th><th></th></tr></thead>
               <tbody>
                 <tr v-for="s in selected.statuses" :key="s.id">
                   <td class="num">{{ s.sortOrder }}</td>
                   <td class="name">{{ s.name }}</td>
                   <td class="code">{{ s.code || '—' }}</td>
                   <td>{{ s.category ? (STATUS_CATEGORY_LABELS[s.category] ?? s.category) : '—' }}</td>
+                  <td class="num strong">{{ s.progressWeight == null ? '—' : s.progressWeight + '%' }}</td>
                   <td>{{ s.isInitial ? '●' : '' }}</td>
                   <td>{{ s.isFinal ? '●' : '' }}</td>
                   <td class="row-actions">
@@ -387,6 +458,11 @@ function transitionLabel(wf: Workflow | null, t: { fromStatusId: number; toStatu
           <input v-model.number="stSort" class="input" type="number" :disabled="busy" />
         </div>
       </div>
+      <label class="label">
+        진척률(%)
+        <span class="hint">이 상태의 산출물이 기여하는 진척도 — 태스크 진척률은 하위 산출물들의 이 값 평균입니다(비우면 0%)</span>
+      </label>
+      <input v-model.number="stWeight" class="input" type="number" min="0" max="100" placeholder="예: 30" :disabled="busy" />
       <label class="chk"><input v-model="stInitial" type="checkbox" :disabled="busy" /> 시작 상태</label>
       <label class="chk"><input v-model="stFinal" type="checkbox" :disabled="busy" /> 종료 상태</label>
       <template #footer>
@@ -421,26 +497,53 @@ function transitionLabel(wf: Workflow | null, t: { fromStatusId: number; toStatu
 
     <!-- 전이 조건 추가 -->
     <ModalShell v-if="condModal" :title="`조건 추가 — ${condModal.label}`" @close="condModal = null">
-      <div class="row2">
-        <div>
+      <label class="label">조건 종류</label>
+      <select v-model="cOperator" class="input" :disabled="busy">
+        <option v-for="o in CONDITION_OPERATORS" :key="o.code" :value="o.code">{{ o.label }}</option>
+      </select>
+
+      <div v-if="opForm.scope || opForm.field" class="row2">
+        <div v-if="opForm.scope">
           <label class="label">대상 범위</label>
           <select v-model="cScope" class="input" :disabled="busy">
             <option v-for="s in CONDITION_SCOPES" :key="s.code" :value="s.code">{{ s.label }}</option>
           </select>
         </div>
-        <div>
-          <label class="label">연산자</label>
-          <select v-model="cOperator" class="input" :disabled="busy">
-            <option v-for="o in CONDITION_OPERATORS" :key="o.code" :value="o.code">{{ o.label }}</option>
+        <div v-if="opForm.field">
+          <label class="label">대상 항목</label>
+          <select v-model="cLeftField" class="input" :disabled="busy">
+            <option v-for="f in scopeFields" :key="f.code" :value="f.code">{{ f.label }}</option>
           </select>
         </div>
       </div>
-      <label class="label">대상 필드 <span class="hint">(선택 — 예: progress_rate)</span></label>
-      <input v-model="cLeftField" class="input" type="text" :disabled="busy" />
-      <label class="label">파라미터 <span class="hint">(JSON — 예: {"value": 100})</span></label>
-      <input v-model="cParams" class="input" type="text" placeholder='{"value": 100}' :disabled="busy" />
+
+      <template v-if="opForm.param === 'value'">
+        <label class="label">기준값 <span class="hint">(이 값 이상이면 통과)</span></label>
+        <input v-model.number="cValue" class="input" type="number" placeholder="예: 100" :disabled="busy" />
+      </template>
+      <template v-else-if="opForm.param === 'sinceStatus'">
+        <label class="label">기준 상태 <span class="hint">(이 상태가 된 이후 새 버전이 올라왔는지 확인)</span></label>
+        <select v-model="cSinceStatus" class="input" :disabled="busy">
+          <option v-for="s in DELIVERABLE_STATUSES" :key="s.code" :value="s.code">{{ s.label }}</option>
+        </select>
+      </template>
+      <template v-else-if="opForm.param === 'roles'">
+        <label class="label">허용 역할 <span class="hint">(참여인력의 직책/역할명, 쉼표로 구분)</span></label>
+        <input v-model="cRoles" class="input" type="text" placeholder="예: PM, 품질담당" :disabled="busy" />
+      </template>
+      <template v-else-if="opForm.param === 'statuses'">
+        <label class="label">하위 산출물이 도달해야 할 상태 <span class="hint">(선택한 상태 중 하나면 통과)</span></label>
+        <div class="chk-grid">
+          <label v-for="s in DELIVERABLE_STATUSES" :key="s.code" class="chk">
+            <input type="checkbox" :checked="cStatuses.includes(s.code)" :disabled="busy" @change="toggleChildStatus(s.code)" />
+            {{ s.label }}
+          </label>
+        </div>
+      </template>
+      <p v-else-if="cOperator === 'COMMENT_REQUIRED'" class="msg">전이 실행 시 코멘트 입력을 필수로 만듭니다 — 추가 설정이 없습니다.</p>
+
       <label class="label">실패 안내 문구 <span class="hint">(조건 미충족 시 사용자에게 표시)</span></label>
-      <input v-model="cMessage" class="input" type="text" placeholder="예: 진척률 100%여야 합니다." :disabled="busy" />
+      <input v-model="cMessage" class="input" type="text" placeholder="예: 산출물 파일을 1개 이상 첨부하세요." :disabled="busy" />
       <template #footer>
         <button class="btn btn-sm" type="button" :disabled="busy" @click="condModal = null">취소</button>
         <button class="btn btn-primary btn-sm" type="button" :disabled="busy" @click="submitCondition">추가</button>
@@ -519,4 +622,6 @@ function transitionLabel(wf: Workflow | null, t: { fromStatusId: number; toStatu
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .row2 > div { display: flex; flex-direction: column; gap: 4px; }
 .chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; cursor: pointer; }
+.chk-grid { display: flex; flex-wrap: wrap; gap: 10px 16px; }
+.tbl .strong { font-weight: 700; }
 </style>

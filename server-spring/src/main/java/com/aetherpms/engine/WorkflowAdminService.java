@@ -39,9 +39,10 @@ public class WorkflowAdminService {
 
     private static final List<String> STATUS_CATEGORIES = List.of("TODO", "IN_PROGRESS", "DONE");
     private static final Set<String> STATUS_FIELDS = Set.of("code", "name", "color", "category",
-            "is_initial", "is_final", "sort_order");
+            "is_initial", "is_final", "sort_order", "progress_weight");
     private static final Map<String, String> STATUS_ALIASES = Map.of(
-            "isInitial", "is_initial", "isFinal", "is_final", "sortOrder", "sort_order");
+            "isInitial", "is_initial", "isFinal", "is_final", "sortOrder", "sort_order",
+            "progressWeight", "progress_weight");
 
     private static final Set<String> CONDITION_FIELDS = Set.of("subject_scope", "left_field", "operator",
             "params", "error_message", "is_blocking", "sort_order", "logic_op");
@@ -232,6 +233,18 @@ public class WorkflowAdminService {
             Integer n = WriteSupport.intOrNull(body.get("sort_order"));
             if (n == null) throw ApiException.badRequest("sortOrder는 정수여야 합니다.");
             out.put("sort_order", n);
+        }
+        // 0039 — 상태별 진척률(%) 0~100. 산출물 기반 태스크 진척 산정에 쓰인다.
+        if (body.containsKey("progress_weight")) {
+            if (body.get("progress_weight") == null) {
+                out.put("progress_weight", null);
+            } else {
+                Integer n = WriteSupport.intOrNull(body.get("progress_weight"));
+                if (n == null || n < 0 || n > 100) {
+                    throw ApiException.badRequest("progressWeight는 0~100 정수여야 합니다.");
+                }
+                out.put("progress_weight", n);
+            }
         }
         return out;
     }

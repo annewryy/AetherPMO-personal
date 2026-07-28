@@ -198,6 +198,7 @@ public final class RowMappers {
         o.put("isInitial", boolOrNull(v(s, "is_initial")));
         o.put("isFinal", boolOrNull(v(s, "is_final")));
         o.put("sortOrder", asInt(v(s, "sort_order")));
+        o.put("progressWeight", v(s, "progress_weight")); // 0039 — 상태별 진척률(%)
         return o;
     }
 
