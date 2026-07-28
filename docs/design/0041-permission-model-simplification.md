@@ -185,8 +185,13 @@ SELECT m.member_id, m.project_id, m.name, m.person_id, m.is_project_manager, m.c
  ORDER BY m.created_at LIMIT 10;
 ```
 
-- 예상 건수: **199행**(커밋 메시지 기준 dev).
-- 크게 다르거나 수동 생성으로 보이는 행이 있으면 **중단하고 보고**한다.
+- **dev는 이미 수동 정리가 끝났다(2026-07-28 확인) — 예상 건수 `0`.**
+  참여인력 총 89행이 남아 있고(`NULL` 63 · PMO 6 · SE 5 · DBA 4 · QA 4 · AA 4 · DEV 3),
+  이는 커밋 메시지의 288행 − 199행과 정확히 일치한다.
+- **그래도 마이그레이션은 유지한다** — dev만 정리됐을 뿐 다른 환경·백업 복원본에는 남아 있을 수
+  있다. `DELETE`는 0행이어도 안전하다.
+- **0이 아닌 값이 나오면** 그 환경은 미정리 상태다. 건수와 샘플을 보고한 뒤 진행한다.
+  수동 생성으로 보이는 행(예: `is_project_manager=1`인 EXEC)이 섞여 있으면 **중단하고 보고**한다.
 
 **안전 근거**: [ProjectMemberFormModal.vue:27](../../web/src/components/ProjectMemberFormModal.vue)의
 선택지에 `EXEC`이 없어 **수동 생성이 불가능**하다 — 전량이 자동 생성분이다.
@@ -360,23 +365,46 @@ ALTER TABLE pms_role_capability
 > `participation_role`을 **FK로 바꾸지 않는 이유**: 기존 데이터에 카탈로그 밖 값이 있어도
 > 마이그레이션이 실패하지 않게 하기 위함이다.
 
-### 5.2 시스템 그룹 5개의 기본값
+### 5.2 시스템 그룹 6개의 기본값
 
-현행 동작을 최대한 보존하는 보수적 값. `menu_keys`는 §6.2의 키를 쓴다.
+**dev 현황(2026-07-28 확인) — 기존 규칙은 2건뿐이다:**
+
+| rule_id | name | position_code | scope | priority |
+|---|---|---|---|---|
+| 1 | 기본 규칙(전 사원) — 편집·삭제 가능 | `NULL` | `PARTICIPATING` | 1000 |
+| 6 | 임원 — 전사 프로젝트 조회 | `EXEC` | `ALL` | 10 |
+
+`rule_id=1`은 `position_code=NULL`이라 **전원에게 매칭된다.** 이 행을 삭제하거나 STAFF에
+흡수시키지 않고, **"전 사원" 시스템 그룹으로 명시**한다. 규칙이 합집합으로 결합되므로
+매트릭스의 의미가 자연스러워진다:
+
+> **맨 윗줄(전 사원)이 모두가 받는 기본이고, 직책 행이 그 위에 추가로 얹힌다.**
+
+따라서 시스템 그룹은 **6개**다. `menu_keys`는 §6.2의 키를 쓴다.
 
 | position_code | name | priority | scope | menu_keys | capabilities |
 |---|---|---|---|---|---|
-| `EXEC` | 임원 | 10 | `ALL` | 전체(`admin-console` 제외) | 전 항목 `all`/`true` |
+| `NULL` (rule_id=1) | 전 사원 | 1000 | `PARTICIPATING` | `dashboard` `execution` | task/issue/action/deliverable=`own`, meeting.write=`true` |
+| `EXEC` (rule_id=6) | 임원 | 10 | `ALL` | 전체(`admin-console` 제외) | 전 항목 `all`/`true` |
 | `DIV_HEAD` | 본부장·실장 | 20 | `PARTICIPATING` | 전체(`admin-console` 제외) | 전 항목 `all`/`true` |
-| `TEAM_LEAD` | 팀장 | 30 | `PARTICIPATING` | 기본 + `bidding` `execution` `bid-notices` `catalog` `doc-templates` | task/issue/action/deliverable=`all`, meeting.write=`true` |
-| `PART_LEAD` | 파트장 | 40 | `PARTICIPATING` | 기본 + `execution` `catalog` `doc-templates` | 동일 |
-| `STAFF` | 직책 없음(실무자) | 50 | `PARTICIPATING` | 기본 + `execution` | task/issue/action/deliverable=`own`, meeting.write=`true` |
+| `TEAM_LEAD` | 팀장 | 30 | `PARTICIPATING` | `bidding` `bid-notices` `catalog` `doc-templates` | task/issue/action/deliverable=`all` |
+| `PART_LEAD` | 파트장 | 40 | `PARTICIPATING` | `catalog` `doc-templates` | task/issue/action/deliverable=`all` |
+| `STAFF` | 직책 없음(실무자) | 50 | `PARTICIPATING` | (없음 — 전 사원 그룹으로 충분) | (없음) |
 
-"기본" = `dashboard`. **커스텀 그룹(영업 등)은 시드하지 않는다** — 관리자가 화면에서 만든다.
+**직책 행에는 "전 사원 대비 추가분"만 넣는다** — 합집합이므로 중복 나열이 불필요하고,
+전 사원 행을 고치면 전체에 일괄 반영되어 관리가 쉬워진다.
 
-> V37이 이미 시드한 임원 규칙은 `menu_keys=["dashboard"]`, `capabilities=NULL`이다.
-> 규칙이 합집합으로 결합되므로 그 상태로도 동작하지만, **이 문서는 그룹 = 단일 행 모델이므로
-> 임원 그룹의 menu_keys/capabilities를 위 표대로 채워 넣는다**(UPDATE).
+기존 2행은 `UPDATE`로 `is_system=1`과 위 값을 채우고, 나머지 4행만 `INSERT`한다.
+**커스텀 그룹(영업 등)은 시드하지 않는다** — 관리자가 화면에서 만든다.
+
+> `STAFF` 행은 전 사원 행과 대상이 사실상 같아(직책 없음 = 81%) 값이 비어 있다.
+> 그래도 **행 자체는 만든다** — 나중에 "실무자만" 조정할 자리가 필요하고, 매트릭스에 직책 5종이
+> 다 보이는 편이 이해하기 쉽다.
+
+### 5.3 인력 지정 현황
+
+`pms_access_rule_person`은 **현재 비어 있다**(2026-07-28 확인). 인력 지정 축은 `c84ec1a`로
+만들어졌지만 아직 배정된 사람이 없다 — **영업 그룹은 §4.1 화면에서 관리자가 처음 만들게 된다.**
 
 ---
 
@@ -542,18 +570,23 @@ DELETE /api/admin/project-roles/{code}                isSystem 또는 사용 중
 
 ---
 
-## 11. 착수 전 반드시 확인할 것
+## 11. 환경 확인 결과 (2026-07-28, 개발 VM)
 
-**`rbac.enforce` 값을 먼저 확인한다.**
+| 확인 항목 | 결과 |
+|---|---|
+| `rbac.enforce` | **`true`** — RBAC가 실제로 강제되고 있다. 프론트 숨김만이 아니라 `RbacInterceptor`·`ProjectScopeService` 서버 게이트가 동작 중이다. |
+| 적용 마이그레이션 | **V37까지**. `V38`이 비어 있다. |
+| `participation_role='EXEC'` | **0행** (참여인력 총 89행) — dev는 이미 수동 정리 완료. §3.1 |
+| `pms_access_rule` | 2행 — 기본 규칙(전 사원) + 임원 규칙. §5.2 |
+| `pms_access_rule_person` | **비어 있음** — 영업 그룹은 아직 미생성. §5.3 |
 
-```sql
-SELECT setting_value FROM pms_app_setting WHERE setting_key = 'rbac.enforce';
-```
+`rbac.enforce`가 `true`이므로 **권한 설정 변경이 즉시 실동작에 반영된다.** 시스템 그룹 시드
+(§5.2)를 잘못 잡으면 바로 사람들이 못 들어가는 화면이 생긴다. Phase 2 배포 직후 §8 A8을
+우선 확인할 것.
 
-[V20:41](../../server-spring/src/main/resources/db/migration/V20__auth_rbac.sql)에서 `'false'`로
-시드된다. **false면 `RbacInterceptor`와 `ProjectScopeService`가 통째로 no-op**이라, 지금까지 보인
-동작은 전부 프론트 숨김뿐이었다는 뜻이다. 이 경우 권한을 켜는 순간 화면이 크게 달라지므로,
-언제 켤지를 사용자와 합의하고 진행한다. **임의로 켜지 말 것.**
+> 다른 환경(운영 등)에서 착수할 때는 위 5개 항목을 **다시 확인**한다. 특히 `rbac.enforce`가
+> `false`면 권한을 켜는 순간 화면이 크게 달라지므로 언제 켤지 합의하고 진행하고,
+> **임의로 켜지 말 것.**
 
 ---
 
