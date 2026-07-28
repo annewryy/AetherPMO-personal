@@ -947,6 +947,16 @@ class AetherPMO {
                         risk_level: p.riskLevel || '보통',
                         contract_date: p.contractDate || p.startDate || null,
                         related_biz: p.relatedBiz || '',
+                        participation_type: p.participationType || p.participation_type || 'PRIME_CONTRACTOR',
+                        total_contract_amount: p.totalContractAmount || null,
+                        company_share_rate: p.companyShareRate !== undefined ? p.companyShareRate : null,
+                        company_contract_amount: p.companyContractAmount || p.company_contract_amount || p.contract_amount || p.budget || 0,
+                        prime_contractor_name: p.primeContractorName || p.subcontractPrimeContractor || null,
+                        original_project_name: p.originalProjectName || null,
+                        subcontract_project_name: p.subcontractProjectName || null,
+                        subcontract_client_name: p.subcontractClientName || null,
+                        original_contract_amount: p.originalContractAmount || null,
+                        original_project_code: p.originalProjectCode || null,
                         sales_owner: p.salesOwner,
                         proposal_owner: p.proposalOwner,
                         proposal_pm: p.proposalPm,
@@ -1779,6 +1789,16 @@ class AetherPMO {
                 riskLevel: p.risk_level || p.riskLevel || '보통',
                 contractDate: p.contract_date || p.contractDate || p.start_date,
                 relatedBiz: p.related_biz || p.relatedBiz || '',
+                participationType: p.participation_type || p.participationType || 'PRIME_CONTRACTOR',
+                totalContractAmount: p.total_contract_amount ? Number(p.total_contract_amount) : null,
+                companyShareRate: p.company_share_rate !== null && p.company_share_rate !== undefined ? Number(p.company_share_rate) : null,
+                companyContractAmount: Number(p.company_contract_amount || p.contract_amount || p.budget || 0),
+                primeContractorName: p.prime_contractor_name || '',
+                originalProjectName: p.original_project_name || '',
+                subcontractProjectName: p.subcontract_project_name || '',
+                subcontractClientName: p.subcontract_client_name || '',
+                originalContractAmount: p.original_contract_amount ? Number(p.original_contract_amount) : null,
+                originalProjectCode: p.original_project_code || '',
                 salesOwner: p.sales_owner,
                 proposalOwner: p.proposal_owner,
                 proposalPm: p.proposal_pm,
@@ -10149,43 +10169,48 @@ class AetherPMO {
                         </div>
                     </div>
                     
-                    <!-- KPI Row (Exact 6 cards displaying the 7 required fields) -->
-                    <div class="detail-kpi-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; border-top:1px solid var(--bg-card-border); padding-top:16px;">
-                        <!-- 1. 고객사 -->
+                    <!-- Top KPI Summary Cards -->
+                    <div class="detail-kpi-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 16px; border-top:1px solid var(--bg-card-border); padding-top:16px;">
+                        <!-- 1. 발주기관 -->
                         <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px;">
-                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">고객사</span>
-                            <span style="font-size:14px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${project.customer || '-'}">${project.customer || '-'}</span>
+                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">발주기관</span>
+                            <span style="font-size:14px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${project.customer || project.customerName || '-'}">${project.customer || project.customerName || '-'}</span>
                         </div>
                         <!-- 2. 사업책임자 (PM) -->
                         <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px;">
                             <span style="font-size:11px; color:var(--text-muted); font-weight:700;">사업책임자 (PM)</span>
-                            <span style="font-size:14px; font-weight:800; color:var(--primary);">${project.manager}</span>
+                            <span style="font-size:14px; font-weight:800; color:var(--primary);">${project.manager || '-'}</span>
                         </div>
                         <!-- 3. 사업기간 -->
-                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px; min-width: 170px;">
+                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px; min-width: 160px;">
                             <span style="font-size:11px; color:var(--text-muted); font-weight:700;">사업기간</span>
-                            <span style="font-size:13px; font-weight:800; color:var(--text-main);">${project.startDate} ~ ${project.endDate}</span>
+                            <span style="font-size:12px; font-weight:800; color:var(--text-main);">${project.startDate || '-'} ~ ${project.endDate || '-'}</span>
                         </div>
-                        <!-- 4. 계약금액 -->
+                        <!-- 4. 당사 계약금액 -->
                         <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px;">
-                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">계약금액</span>
-                            <span style="font-size:14px; font-weight:800; color:var(--success);">${project.budget ? Number(project.budget).toLocaleString() + ' 원' : '-'}</span>
+                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">당사 계약금액</span>
+                            <span style="font-size:14px; font-weight:800; color:var(--success);">${(project.companyContractAmount || project.company_contract_amount || project.contract_amount || project.budget) ? Number(project.companyContractAmount || project.company_contract_amount || project.contract_amount || project.budget).toLocaleString() + ' 원' : '-'}</span>
                         </div>
-                        <!-- 5. 사업상태 -->
+                        <!-- 5. 사업 참여 형태 -->
+                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px;">
+                            <span style="font-size:11px; color:var(--text-muted); font-weight:700;">사업 참여 형태</span>
+                            <span style="font-size:13px; font-weight:800; color:var(--primary);">${this.translateParticipationType(project.participationType || project.participation_type)}</span>
+                        </div>
+                        <!-- 6. 사업상태 -->
                         <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px;">
                             <span style="font-size:11px; color:var(--text-muted); font-weight:700;">사업상태</span>
                             <span style="font-size:14px; font-weight:800;">
-                                <span class="status-badge status-${project.status.toLowerCase().replace(' ', '')}" style="font-size:10px; font-weight:700; padding:2px 8px; display:inline-block; text-align:center;">${this.translateStatus(project.status)}</span>
+                                <span class="status-badge status-${(project.status||'').toLowerCase().replace(' ', '')}" style="font-size:10px; font-weight:700; padding:2px 8px; display:inline-block; text-align:center;">${this.translateStatus(project.status)}</span>
                             </span>
                         </div>
-                        <!-- 6. 진척률 -->
-                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px; min-width: 180px;">
+                        <!-- 7. 진척률 -->
+                        <div class="detail-kpi-card" style="display:flex; flex-direction:column; gap:4px; min-width: 150px;">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <span style="font-size:11px; color:var(--text-muted); font-weight:700;">진척률</span>
-                                <span style="font-size:12px; font-weight:800; color:var(--primary);">${project.progress}%</span>
+                                <span style="font-size:12px; font-weight:800; color:var(--primary);">${project.progress || 0}%</span>
                             </div>
                             <div class="progress-bar-container" style="margin-top: 6px; height:6px;">
-                                <div class="progress-bar-fill" style="width: ${project.progress}%; background:var(--primary);"></div>
+                                <div class="progress-bar-fill" style="width: ${project.progress || 0}%; background:var(--primary);"></div>
                             </div>
                         </div>
                     </div>
@@ -10282,6 +10307,11 @@ class AetherPMO {
                     </div>
                 `;
             } else {
+                const partLabel = this.translateParticipationType(project.participationType || project.participation_type);
+                const compAmt = project.companyContractAmount || project.company_contract_amount || project.contract_amount || project.budget || 0;
+                const totAmt = project.totalContractAmount || project.total_contract_amount || null;
+                const shareRate = (project.companyShareRate !== undefined && project.companyShareRate !== null) ? project.companyShareRate : (project.company_share_rate !== undefined ? project.company_share_rate : null);
+
                 basicFields.innerHTML = `
                     <div style="display:flex; flex-direction:column; gap:10px; font-size:12px; margin-top:8px;">
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
@@ -10289,31 +10319,50 @@ class AetherPMO {
                             <span style="font-weight:700; text-align:right; max-width: 160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${project.name}">${project.name}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
-                            <span style="color:var(--text-muted); font-weight:700;">발주기관 (고객사)</span>
-                            <span style="font-weight:700; text-align:right;">${project.customer || '-'}</span>
+                            <span style="color:var(--text-muted); font-weight:700;">발주기관</span>
+                            <span style="font-weight:700; text-align:right;">${project.customer || project.customerName || '-'}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
                             <span style="color:var(--text-muted); font-weight:700;">사업책임자 (PM)</span>
-                            <span style="font-weight:700; text-align:right; color:var(--primary);">${project.manager}</span>
+                            <span style="font-weight:700; text-align:right; color:var(--primary);">${project.manager || '-'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">사업 참여 형태</span>
+                            <span style="font-weight:700; text-align:right; color:var(--primary);">${partLabel}</span>
+                        </div>
+                        ${(project.participationType === 'CONSORTIUM_MEMBER' || project.primeContractorName || project.prime_contractor_name) ? `
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">주사업자</span>
+                            <span style="font-weight:700; text-align:right;">${project.primeContractorName || project.prime_contractor_name || '-'}</span>
+                        </div>` : ''}
+                        ${totAmt ? `
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">전체 사업금액</span>
+                            <span style="font-weight:700; text-align:right; color:var(--text-main);">${Number(totAmt).toLocaleString()} 원</span>
+                        </div>` : ''}
+                        ${shareRate !== null ? `
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">당사 지분율</span>
+                            <span style="font-weight:700; text-align:right;">${shareRate}%</span>
+                        </div>` : ''}
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
+                            <span style="color:var(--text-muted); font-weight:700;">당사 계약금액</span>
+                            <span style="font-weight:700; text-align:right; color:var(--success);">${compAmt ? Number(compAmt).toLocaleString() + ' 원' : '-'}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
                             <span style="color:var(--text-muted); font-weight:700;">사업유형</span>
-                            <span style="font-weight:700; text-align:right;">${project.bizType || 'SI 구축'}</span>
-                        </div>
-                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
-                            <span style="color:var(--text-muted); font-weight:700;">계약금액</span>
-                            <span style="font-weight:700; text-align:right; color:var(--success);">${project.budget ? Number(project.budget).toLocaleString() + ' 원' : '-'}</span>
+                            <span style="font-weight:700; text-align:right;">${project.bizType || project.businessType || 'SI 구축'}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
                             <span style="color:var(--text-muted); font-weight:700;">계약일</span>
-                            <span style="font-weight:700; text-align:right;">${project.contractDate || project.startDate}</span>
+                            <span style="font-weight:700; text-align:right;">${project.contractDate || project.startDate || '-'}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
                             <span style="color:var(--text-muted); font-weight:700;">사업기간</span>
-                            <span style="font-weight:700; text-align:right;">${project.startDate} ~ ${project.endDate}</span>
+                            <span style="font-weight:700; text-align:right;">${project.startDate || '-'} ~ ${project.endDate || '-'}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
-                            <span style="color:var(--text-muted); font-weight:700;">사업장소</span>
+                            <span style="color:var(--text-muted); font-weight:700;">수행장소</span>
                             <span style="font-weight:700; text-align:right;">${project.location || '정부서울청사'}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
@@ -11178,6 +11227,190 @@ class AetherPMO {
         return raw ? Number(raw) : 0;
     }
 
+    translateParticipationType(type) {
+        if (!type) return '미지정';
+        const t = String(type).toUpperCase();
+        if (t === 'PRIME_CONTRACTOR') return '주사업자';
+        if (t === 'CONSORTIUM_MEMBER') return '공동수급사';
+        if (t === 'SUBCONTRACTOR') return '하도급사';
+        return type;
+    }
+
+    handleParticipationTypeChange(type) {
+        const primeGroup = document.getElementById('project-prime-contractor-name-group');
+        const consortiumSection = document.getElementById('project-consortium-section');
+        const subcontractSection = document.getElementById('project-subcontract-section');
+        const contractAmountLabel = document.getElementById('project-company-contract-amount-label');
+
+        if (type === 'CONSORTIUM_MEMBER') {
+            if (primeGroup) primeGroup.style.display = 'block';
+            if (consortiumSection) consortiumSection.style.display = 'block';
+            if (subcontractSection) subcontractSection.style.display = 'none';
+            if (contractAmountLabel) contractAmountLabel.textContent = '당사 계약금액 (원)';
+        } else if (type === 'SUBCONTRACTOR') {
+            if (primeGroup) primeGroup.style.display = 'none';
+            if (consortiumSection) consortiumSection.style.display = 'none';
+            if (subcontractSection) subcontractSection.style.display = 'block';
+            if (contractAmountLabel) contractAmountLabel.textContent = '당사 하도급 계약금액 (원)';
+        } else { // PRIME_CONTRACTOR
+            if (primeGroup) primeGroup.style.display = 'none';
+            if (consortiumSection) consortiumSection.style.display = 'block';
+            if (subcontractSection) subcontractSection.style.display = 'none';
+            if (contractAmountLabel) contractAmountLabel.textContent = '당사 계약금액 (원)';
+        }
+    }
+
+    recalculateCompanyContractAmount() {
+        const totalInput = document.getElementById('project-total-contract-amount');
+        const shareInput = document.getElementById('project-company-share-rate');
+        const companyInput = document.getElementById('project-company-contract-amount');
+        if (!totalInput || !shareInput || !companyInput) return;
+
+        const totalAmount = this.parseNumberFromCommas(totalInput.value);
+        const shareRate = parseFloat(shareInput.value) || 0;
+
+        if (totalAmount > 0 && shareRate > 0) {
+            const calculated = Math.round(totalAmount * (shareRate / 100));
+            companyInput.value = this.formatNumberWithCommas(calculated);
+        }
+        this.checkManualContractAmount();
+    }
+
+    checkManualContractAmount() {
+        const totalInput = document.getElementById('project-total-contract-amount');
+        const shareInput = document.getElementById('project-company-share-rate');
+        const companyInput = document.getElementById('project-company-contract-amount');
+        const badge = document.getElementById('project-contract-manual-badge');
+        if (!totalInput || !shareInput || !companyInput || !badge) return;
+
+        const totalAmount = this.parseNumberFromCommas(totalInput.value);
+        const shareRate = parseFloat(shareInput.value) || 0;
+        const currentAmount = this.parseNumberFromCommas(companyInput.value);
+
+        if (totalAmount > 0 && shareRate > 0 && currentAmount > 0) {
+            const calculated = Math.round(totalAmount * (shareRate / 100));
+            if (Math.abs(calculated - currentAmount) > 1) {
+                badge.style.display = 'inline-block';
+            } else {
+                badge.style.display = 'none';
+            }
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    addConsortiumMemberRow() {
+        if (!this.modalConsortiumMembers) this.modalConsortiumMembers = [];
+        this.modalConsortiumMembers.push({
+            id: this.generateUuid(),
+            companyName: '',
+            participationRole: 'CONSORTIUM_MEMBER',
+            shareRate: 0,
+            contractAmount: 0,
+            isLeadCompany: false,
+            isOurCompany: false,
+            note: ''
+        });
+        this.renderModalConsortiumTable();
+    }
+
+    removeConsortiumMemberRow(idx) {
+        if (!this.modalConsortiumMembers) return;
+        this.modalConsortiumMembers.splice(idx, 1);
+        this.renderModalConsortiumTable();
+    }
+
+    updateConsortiumMemberField(idx, field, value) {
+        if (!this.modalConsortiumMembers || !this.modalConsortiumMembers[idx]) return;
+        const row = this.modalConsortiumMembers[idx];
+
+        if (field === 'isLeadCompany' && value) {
+            this.modalConsortiumMembers.forEach((r, i) => { r.isLeadCompany = (i === idx); });
+        } else if (field === 'isOurCompany' && value) {
+            this.modalConsortiumMembers.forEach((r, i) => { r.isOurCompany = (i === idx); });
+        } else {
+            row[field] = value;
+        }
+
+        const totalInput = document.getElementById('project-total-contract-amount');
+        const totalAmount = totalInput ? this.parseNumberFromCommas(totalInput.value) : 0;
+
+        if (field === 'shareRate' && totalAmount > 0) {
+            row.contractAmount = Math.round(totalAmount * (parseFloat(value || 0) / 100));
+        }
+
+        // Sync our company's share rate and contract amount if checked
+        if (row.isOurCompany) {
+            const companyShareInput = document.getElementById('project-company-share-rate');
+            const companyAmountInput = document.getElementById('project-company-contract-amount');
+            if (companyShareInput) companyShareInput.value = row.shareRate || 0;
+            if (companyAmountInput) companyAmountInput.value = this.formatNumberWithCommas(row.contractAmount || 0);
+            this.checkManualContractAmount();
+        }
+
+        this.renderModalConsortiumTable();
+    }
+
+    renderModalConsortiumTable() {
+        const tbody = document.getElementById('project-consortium-tbody');
+        const warningBox = document.getElementById('consortium-validation-warning');
+        if (!tbody) return;
+
+        if (!this.modalConsortiumMembers) this.modalConsortiumMembers = [];
+
+        const totalInput = document.getElementById('project-total-contract-amount');
+        const totalAmount = totalInput ? this.parseNumberFromCommas(totalInput.value) : 0;
+
+        let sumShareRate = 0;
+        tbody.innerHTML = this.modalConsortiumMembers.map((m, idx) => {
+            sumShareRate += (parseFloat(m.shareRate) || 0);
+            const computedAmt = (totalAmount > 0 && m.shareRate > 0) ? Math.round(totalAmount * (parseFloat(m.shareRate) / 100)) : (m.contractAmount || 0);
+            m.contractAmount = computedAmt;
+
+            return `
+                <tr>
+                    <td style="padding:4px 6px;">
+                        <input type="text" value="${m.companyName || ''}" placeholder="회사명 입력" onchange="app.updateConsortiumMemberField(${idx}, 'companyName', this.value)" style="width:100%; height:28px; font-size:12px; padding:0 6px; border:1px solid var(--bg-card-border); border-radius:4px; background:var(--bg-input); color:var(--text-main);">
+                    </td>
+                    <td style="padding:4px 6px; text-align:center;">
+                        <select onchange="app.updateConsortiumMemberField(${idx}, 'participationRole', this.value)" style="width:100%; height:28px; font-size:11px; border:1px solid var(--bg-card-border); border-radius:4px; background:var(--bg-input); color:var(--text-main);">
+                            <option value="PRIME_CONTRACTOR" ${m.participationRole === 'PRIME_CONTRACTOR' ? 'selected' : ''}>주사업자</option>
+                            <option value="CONSORTIUM_MEMBER" ${m.participationRole !== 'PRIME_CONTRACTOR' ? 'selected' : ''}>공동수급사</option>
+                        </select>
+                    </td>
+                    <td style="padding:4px 6px; text-align:right;">
+                        <input type="number" min="0" max="100" step="0.1" value="${m.shareRate || 0}" onchange="app.updateConsortiumMemberField(${idx}, 'shareRate', parseFloat(this.value)||0)" style="width:100%; height:28px; font-size:12px; text-align:right; border:1px solid var(--bg-card-border); border-radius:4px; background:var(--bg-input); color:var(--text-main);">
+                    </td>
+                    <td style="padding:4px 6px; text-align:right; font-weight:700; color:var(--success);">
+                        ${computedAmt ? computedAmt.toLocaleString('ko-KR') : '0'} 원
+                    </td>
+                    <td style="padding:4px 6px; text-align:center;">
+                        <input type="radio" name="modal_consortium_lead" ${m.isLeadCompany ? 'checked' : ''} onchange="app.updateConsortiumMemberField(${idx}, 'isLeadCompany', this.checked)">
+                    </td>
+                    <td style="padding:4px 6px; text-align:center;">
+                        <input type="radio" name="modal_consortium_our" ${m.isOurCompany ? 'checked' : ''} onchange="app.updateConsortiumMemberField(${idx}, 'isOurCompany', this.checked)">
+                    </td>
+                    <td style="padding:4px 6px;">
+                        <input type="text" value="${m.note || ''}" placeholder="비고" onchange="app.updateConsortiumMemberField(${idx}, 'note', this.value)" style="width:100%; height:28px; font-size:11px; padding:0 6px; border:1px solid var(--bg-card-border); border-radius:4px; background:var(--bg-input); color:var(--text-main);">
+                    </td>
+                    <td style="padding:4px 6px; text-align:center;">
+                        <button type="button" class="btn btn-xs btn-danger" onclick="app.removeConsortiumMemberRow(${idx})">&times;</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        if (this.modalConsortiumMembers.length > 0 && Math.abs(sumShareRate - 100) > 0.01) {
+            if (warningBox) {
+                warningBox.style.display = 'block';
+                warningBox.textContent = `공동수급체 지분율 합계가 100%가 아닙니다. (현재 합계: ${sumShareRate.toFixed(1)}%)`;
+            }
+        } else {
+            if (warningBox) warningBox.style.display = 'none';
+        }
+    }
+
+
     /* ==========================================================================
        CRUD OPERATIONS: PROJECTS
        ========================================================================== */
@@ -11308,6 +11541,34 @@ class AetherPMO {
         document.getElementById('project-location').value = project.location || '';
         document.getElementById('project-related-biz').value = project.relatedBiz || '';
         document.getElementById('project-risk-level').value = project.riskLevel || '보통';
+
+        // Populate Contract, Consortium, and Subcontract fields
+        const partType = project.participationType || project.participation_type || 'PRIME_CONTRACTOR';
+        document.getElementById('project-participation-type').value = partType;
+        document.getElementById('project-prime-contractor-name').value = project.primeContractorName || project.prime_contractor_name || '';
+        document.getElementById('project-total-contract-amount').value = project.totalContractAmount ? this.formatNumberWithCommas(project.totalContractAmount) : '';
+        document.getElementById('project-company-share-rate').value = (project.companyShareRate !== undefined && project.companyShareRate !== null) ? project.companyShareRate : '';
+        
+        const compAmount = project.companyContractAmount || project.company_contract_amount || project.contract_amount || project.budget || 0;
+        document.getElementById('project-company-contract-amount').value = compAmount ? this.formatNumberWithCommas(compAmount) : '';
+
+        document.getElementById('project-original-project-name').value = project.originalProjectName || project.original_project_name || '';
+        document.getElementById('project-subcontract-project-name').value = project.subcontractProjectName || project.subcontract_project_name || '';
+        document.getElementById('project-subcontract-prime-contractor').value = project.subcontractPrimeContractor || project.prime_contractor_name || '';
+        document.getElementById('project-subcontract-client-name').value = project.subcontractClientName || project.subcontract_client_name || '';
+        document.getElementById('project-original-contract-amount').value = project.originalContractAmount ? this.formatNumberWithCommas(project.originalContractAmount) : '';
+        document.getElementById('project-original-project-code').value = project.originalProjectCode || project.original_project_code || '';
+
+        // Load consortium members for modal
+        let loadedMembers = project.consortiumMembers;
+        if (!loadedMembers || loadedMembers.length === 0) {
+            loadedMembers = (this.state.consortiumMembers || []).filter(c => c.projectId === project.id);
+        }
+        this.modalConsortiumMembers = JSON.parse(JSON.stringify(loadedMembers || []));
+        
+        this.handleParticipationTypeChange(partType);
+        this.checkManualContractAmount();
+        this.renderModalConsortiumTable();
 
         // Populate bid status fields
         document.getElementById('project-bid-status').value = this.normalizeBiddingStatus(project);
@@ -11486,6 +11747,57 @@ class AetherPMO {
         const riskLevel = document.getElementById('project-risk-level')?.value || '보통';
         const bidStatus = document.getElementById('project-bid-status')?.value || '';
 
+        // Retrieve Contract, Consortium, and Subcontract fields
+        const participationType = document.getElementById('project-participation-type')?.value || 'PRIME_CONTRACTOR';
+        const primeContractorName = document.getElementById('project-prime-contractor-name')?.value?.trim() || '';
+        const totalContractAmount = this.parseNumberFromCommas(document.getElementById('project-total-contract-amount')?.value);
+        const companyShareRate = parseFloat(document.getElementById('project-company-share-rate')?.value) || 0;
+        const companyContractAmountInput = this.parseNumberFromCommas(document.getElementById('project-company-contract-amount')?.value);
+
+        const originalProjectName = document.getElementById('project-original-project-name')?.value?.trim() || '';
+        const subcontractProjectName = document.getElementById('project-subcontract-project-name')?.value?.trim() || '';
+        const subcontractPrimeContractor = document.getElementById('project-subcontract-prime-contractor')?.value?.trim() || '';
+        const subcontractClientName = document.getElementById('project-subcontract-client-name')?.value?.trim() || '';
+        const originalContractAmount = this.parseNumberFromCommas(document.getElementById('project-original-contract-amount')?.value);
+        const originalProjectCode = document.getElementById('project-original-project-code')?.value?.trim() || '';
+
+        // Validation Rules: Blocked Saves
+        if (!participationType) {
+            alert('사업 참여 형태를 선택해주세요.');
+            return;
+        }
+        if (totalContractAmount < 0 || companyContractAmountInput < 0 || originalContractAmount < 0) {
+            alert('사업금액 및 계약금액은 음수가 될 수 없습니다.');
+            return;
+        }
+        if (companyShareRate < 0 || companyShareRate > 100) {
+            alert('지분율은 0% 이상 100% 이하이어야 합니다.');
+            return;
+        }
+
+        const consortiumMembers = this.modalConsortiumMembers || [];
+        const leadCount = consortiumMembers.filter(m => m.isLeadCompany).length;
+        if (leadCount > 1) {
+            alert('대표사는 1개 회사만 지정할 수 있습니다.');
+            return;
+        }
+        const ourCount = consortiumMembers.filter(m => m.isOurCompany).length;
+        if (ourCount > 1) {
+            alert('당사 여부는 1개 회사만 지정할 수 있습니다.');
+            return;
+        }
+
+        // Warning checks (Proceed with save, display notification)
+        if (consortiumMembers.length > 0) {
+            const sumRate = consortiumMembers.reduce((sum, m) => sum + (parseFloat(m.shareRate) || 0), 0);
+            if (Math.abs(sumRate - 100) > 0.01) {
+                this.showToast(`주의: 공동수급체 지분율 합계가 100%가 아닙니다. (현재 ${sumRate.toFixed(1)}%)`, 'warning');
+            }
+        }
+
+        // Final companyContractAmount calculation fallback logic
+        const companyContractAmount = companyContractAmountInput || budget || (totalContractAmount && companyShareRate ? Math.round(totalContractAmount * (companyShareRate / 100)) : 0);
+
         // Bidding stage fields
         const bidNumber = document.getElementById('project-bid-number')?.value?.trim() || '';
         const customerName = document.getElementById('project-customer-name')?.value?.trim() || '';
@@ -11597,7 +11909,10 @@ class AetherPMO {
                     progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
                     projectCode, bizType, contractDate, location, relatedBiz, riskLevel, wbs,
                     bidNumber, customerName, projectBudget, businessType,
-                    salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner
+                    salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
+                    participationType, totalContractAmount, companyShareRate, companyContractAmount, primeContractorName,
+                    originalProjectName, subcontractProjectName, subcontractPrimeContractor, subcontractClientName, originalContractAmount, originalProjectCode,
+                    consortiumMembers
                 };
                 delete updatedProject.bidding_status;
                 delete updatedProject.biddingStatus;

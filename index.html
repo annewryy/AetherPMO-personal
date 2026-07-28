@@ -2654,7 +2654,7 @@
                             <input type="text" id="project-manager-custom" placeholder="매니저명 직접 입력" style="display: none; margin-top: 8px;">
                         </div>
                         <div class="form-group">
-                            <label for="project-customer">고객기관 <span class="required">*</span></label>
+                            <label for="project-customer">발주기관 <span class="required">*</span></label>
                             <input type="text" id="project-customer" required placeholder="예: 행정안전부">
                         </div>
                         <div class="form-group">
@@ -2676,12 +2676,8 @@
                         <div class="form-group">
                             <label for="project-status">프로젝트 단계 (진행 상태)</label>
                             <select id="project-status">
-                                <option value="Bidding">입찰 단계 (Bidding)</option>
-                                <option value="In Progress" selected>수행 중 (Active / In Progress)</option>
-                                <option value="Delay">지연 (Delay)</option>
-                                <option value="On Hold">수행 보류 (On Hold)</option>
-                                <option value="Completed">수행 종료 (Closed / Completed)</option>
-                                <option value="Bid Failed">입찰 실패 (Bid Failed)</option>
+                                <option value="In Progress" selected>수행중</option>
+                                <option value="Completed">수행종료</option>
                             </select>
                         </div>
                         <div class="form-group" id="project-bid-status-group" style="display: none;">
@@ -2788,15 +2784,101 @@
                             <label for="project-related-biz">관련 사업</label>
                             <input type="text" id="project-related-biz" placeholder="예: 차세대 지식재산행정시스템 구축 사업">
                         </div>
+                        <!-- ② 계약정보 영역 -->
+                        <div class="form-group span-2" style="margin-top: 15px;">
+                            <h4 style="border-bottom: 1px solid var(--bg-card-border); padding-bottom: 6px; font-size:14px; color:var(--primary); font-weight:700; display:flex; align-items:center; justify-content:space-between;">
+                                <span>계약정보</span>
+                                <span id="project-contract-manual-badge" class="badge" style="display:none; background:var(--warning-glow); color:var(--warning); font-size:11px; padding:2px 8px; border-radius:4px;">자동 계산금액과 다름</span>
+                            </h4>
+                        </div>
                         <div class="form-group">
-                            <label for="project-risk-level">위험도</label>
-                            <select id="project-risk-level">
-                                <option value="낮음">낮음 (Low)</option>
-                                <option value="보통" selected>보통 (Medium)</option>
-                                <option value="높음">높음 (High)</option>
+                            <label for="project-participation-type">사업 참여 형태 <span class="required">*</span></label>
+                            <select id="project-participation-type" onchange="app.handleParticipationTypeChange(this.value)">
+                                <option value="PRIME_CONTRACTOR" selected>주사업자</option>
+                                <option value="CONSORTIUM_MEMBER">공동수급사 (부사업자)</option>
+                                <option value="SUBCONTRACTOR">하도급사</option>
                             </select>
                         </div>
-                        
+                        <div class="form-group" id="project-prime-contractor-name-group" style="display: none;">
+                            <label for="project-prime-contractor-name">주사업자 회사명 <span class="required">*</span></label>
+                            <input type="text" id="project-prime-contractor-name" placeholder="예: (주)한국아이티">
+                        </div>
+                        <div class="form-group">
+                            <label for="project-total-contract-amount">전체 사업금액 (원)</label>
+                            <input type="text" inputmode="numeric" id="project-total-contract-amount" placeholder="예: 2,292,895,000" oninput="app.formatInputWithCommas(this); app.recalculateCompanyContractAmount();">
+                        </div>
+                        <div class="form-group" id="project-company-share-rate-group">
+                            <label for="project-company-share-rate">당사 지분율 (%)</label>
+                            <input type="number" id="project-company-share-rate" min="0" max="100" step="0.1" placeholder="예: 45" oninput="app.recalculateCompanyContractAmount();">
+                        </div>
+                        <div class="form-group">
+                            <label for="project-company-contract-amount" id="project-company-contract-amount-label">당사 계약금액 (원)</label>
+                            <input type="text" inputmode="numeric" id="project-company-contract-amount" placeholder="예: 1,031,802,750" oninput="app.formatInputWithCommas(this); app.checkManualContractAmount();">
+                        </div>
+
+                        <!-- ③ 공동수급체 구성 영역 (주사업자/공동수급사) -->
+                        <div class="form-group span-2" id="project-consortium-section" style="margin-top: 15px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 6px; margin-bottom: 10px;">
+                                <h4 style="font-size:14px; color:var(--primary); font-weight:700; margin:0;">공동수급체 구성</h4>
+                                <button type="button" class="btn btn-xs btn-outline" id="btn-add-consortium-member" onclick="app.addConsortiumMemberRow()">
+                                    <i data-lucide="plus" style="width:12px; height:12px; margin-right:4px;"></i> 참여사 추가
+                                </button>
+                            </div>
+                            <div id="consortium-validation-warning" style="display:none; background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); color: var(--warning); padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 10px;">
+                                공동수급체 지분율 합계가 100%가 아닙니다.
+                            </div>
+                            <div style="overflow-x: auto;">
+                                <table class="table" style="width:100%; font-size:12px; border:1px solid var(--bg-card-border);">
+                                    <thead>
+                                        <tr style="background:var(--bg-hover-item);">
+                                            <th style="padding:6px 8px; text-align:left;">회사명</th>
+                                            <th style="padding:6px 8px; text-align:center; width:110px;">참여 구분</th>
+                                            <th style="padding:6px 8px; text-align:right; width:80px;">지분율(%)</th>
+                                            <th style="padding:6px 8px; text-align:right; width:130px;">계약금액(원)</th>
+                                            <th style="padding:6px 8px; text-align:center; width:60px;">대표사</th>
+                                            <th style="padding:6px 8px; text-align:center; width:60px;">당사</th>
+                                            <th style="padding:6px 8px; text-align:left;">비고</th>
+                                            <th style="padding:6px 8px; text-align:center; width:50px;">삭제</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="project-consortium-tbody">
+                                        <!-- Rendered dynamically by app.js -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- ④ 하도급 정보 영역 (하도급사 선택 시) -->
+                        <div class="form-group span-2" id="project-subcontract-section" style="margin-top: 15px; display: none;">
+                            <h4 style="border-bottom: 1px solid var(--bg-card-border); padding-bottom: 6px; font-size:14px; color:var(--primary); font-weight:700;">하도급 상세 정보</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;">
+                                <div class="form-group">
+                                    <label for="project-original-project-name">원도급 사업명</label>
+                                    <input type="text" id="project-original-project-name" placeholder="예: 2026년 차세대 행정통합시스템 구축">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-subcontract-project-name">하도급 사업명</label>
+                                    <input type="text" id="project-subcontract-project-name" placeholder="예: 행정통합시스템 데이터 이관 하도급">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-subcontract-prime-contractor">원도급사</label>
+                                    <input type="text" id="project-subcontract-prime-contractor" placeholder="예: (주)한국아이티">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-subcontract-client-name">하도급 발주사</label>
+                                    <input type="text" id="project-subcontract-client-name" placeholder="예: (주)에이비씨시스템">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-original-contract-amount">원도급 사업금액 (원)</label>
+                                    <input type="text" inputmode="numeric" id="project-original-contract-amount" placeholder="예: 5,000,000,000" oninput="app.formatInputWithCommas(this)">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-original-project-code">원도급 프로젝트코드</label>
+                                    <input type="text" id="project-original-project-code" placeholder="예: ORG-2026-088">
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="form-group span-2">
                             <h4 style="margin-top: 10px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 6px; font-size:13px; color:var(--primary); font-weight:700;">WBS 단계별 진척률 (%) 및 가중치 (%)</h4>
                         </div>
