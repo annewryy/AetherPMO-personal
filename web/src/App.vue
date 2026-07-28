@@ -7,7 +7,7 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import {
   Layers, Home, FileSignature, PlayCircle, Search, FileCheck, FileSearch,
-  AlertTriangle, CheckSquare, Mail, Presentation, Users, UserCog, Settings, Sun, Moon,
+  Users, UserCog, Settings, Sun, Moon,
 } from 'lucide-vue-next';
 import { currentProjectStage } from './lib/currentProjectStage';
 import { theme, toggleTheme } from './lib/theme';
@@ -31,10 +31,6 @@ const menus = computed<string[] | null>(() => (isAuthenticated.value ? (currentU
 const hasMenu = (key: string) => !menus.value || menus.value.includes(key);
 const showBidding = computed(() => hasMenu('bidding'));
 const showExecution = computed(() => hasMenu('execution'));
-const showIssues = computed(() => hasMenu('issues'));
-const showActionItems = computed(() => hasMenu('action-items'));
-const showOfficialDocs = computed(() => hasMenu('official-docs'));
-const showMeetingMinutes = computed(() => hasMenu('meeting-minutes'));
 const showTailoring = computed(() => hasMenu('tailoring'));
 const showPersonMgmt = computed(() => hasMenu('persons'));
 const showAdmin = computed(() => hasMenu('admin'));
@@ -71,15 +67,11 @@ const isLoginPage = computed(() => route.path === '/login');
         <RouterLink v-if="showBidding" to="/projects/bidding" :class="{ active: isBiddingList }" class="sub"><FileSignature :size="15" class="nico" />입찰단계</RouterLink>
         <RouterLink v-if="showExecution" to="/projects/active" :class="{ active: isExecList }" class="sub"><PlayCircle :size="15" class="nico" />수행단계</RouterLink>
         <RouterLink v-if="showBidding" to="/bid-notices" :class="{ active: isBidNotices }" class="sub"><Search :size="15" class="nico" />나라장터 공고조회</RouterLink>
-        <RouterLink v-if="showIssues" to="/issues" active-class="active" class="sub"><AlertTriangle :size="15" class="nico" />이슈/리스크</RouterLink>
-        <RouterLink v-if="showActionItems" to="/action-items" active-class="active" class="sub"><CheckSquare :size="15" class="nico" />액션아이템</RouterLink>
-        <RouterLink v-if="showOfficialDocs" to="/official-docs" active-class="active" class="sub"><Mail :size="15" class="nico" />공문</RouterLink>
-        <RouterLink v-if="showMeetingMinutes" to="/meeting-minutes" active-class="active" class="sub"><Presentation :size="15" class="nico" />회의록</RouterLink>
 
         <template v-if="showTailoring">
         <div class="group">테일러링</div>
         <RouterLink to="/catalog" exact-active-class="active" class="sub"><FileCheck :size="15" class="nico" />테일러링</RouterLink>
-        <RouterLink to="/catalog/deliverables" active-class="active" class="sub"><FileSearch :size="15" class="nico" />산출물 관리</RouterLink>
+        <RouterLink to="/catalog/deliverables" active-class="active" class="sub"><FileSearch :size="15" class="nico" />템플릿 관리</RouterLink>
         </template>
 
         <template v-if="showPersonMgmt">

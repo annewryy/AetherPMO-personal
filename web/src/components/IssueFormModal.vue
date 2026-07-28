@@ -2,11 +2,12 @@
 // 0011 B-7 이슈/리스크 신규 등록 폼 (A-3 POST /api/issues).
 //  - type 선택(이슈/리스크) — 리스크로 등록하면 type=리스크, source_rule_id=null(수동).
 //  - 쓰기는 백엔드 전용(dataClient가 API_BASE 게이트). 오류는 서버 {message} 그대로.
-import { ref } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { dataClient } from '../lib/dataClient';
-import type { IssueCreateInput, Project } from '../types';
+import type { IssueCreateInput, Project, Task } from '../types';
 import ModalShell from './ModalShell.vue';
 import OrgPersonField from './OrgPersonField.vue';
+import MultiSelectChecklist from './MultiSelectChecklist.vue';
 
 // projectId 고정(상세 탭) 또는 projects 목록 제공(전역 목록 — 프로젝트 선택 드롭다운) 중 하나.
 const props = defineProps<{ projectId?: number; projects?: Project[] }>();
@@ -15,11 +16,20 @@ const emit = defineEmits<{ (e: 'created'): void; (e: 'close'): void }>();
 const pickedProjectId = ref<number | null>(props.projectId ?? props.projects?.[0]?.id ?? null);
 const title = ref('');
 const type = ref<'이슈' | '리스크'>('이슈');
-const priority = ref('보통');
+const priority = ref('중'); // 백엔드 화이트리스트(상/중/하, chk_pms_issue_priority)와 일치
 const owner = ref('');
 const dueDate = ref('');
+const taskIds = ref<number[]>([]);
 const submitting = ref(false);
 const error = ref<string | null>(null);
+
+// 0039 — 관련 태스크 매핑(다중선택): 선택된 프로젝트의 WBS 태스크 목록.
+const tasks = ref<Task[]>([]);
+const taskOptions = computed(() => tasks.value.map((t) => ({ id: t.id, label: t.name })));
+watch(pickedProjectId, async (pid) => {
+  taskIds.value = [];
+  tasks.value = pid != null ? await dataClient.tasks.listByProject(pid).catch(() => []) : [];
+}, { immediate: true });
 
 async function submit() {
   if (pickedProjectId.value == null) { error.value = '프로젝트를 선택하세요.'; return; }
@@ -33,6 +43,7 @@ async function submit() {
     priority: priority.value || null,
     owner_name: owner.value.trim() || null,
     due_date: dueDate.value || null,
+    task_ids: taskIds.value,
   };
   try {
     await dataClient.issues.create(input);
@@ -67,7 +78,7 @@ async function submit() {
       <div>
         <label class="label">우선순위</label>
         <select v-model="priority" class="input" :disabled="submitting">
-          <option value="높음">높음</option><option value="보통">보통</option><option value="낮음">낮음</option>
+          <option value="상">상</option><option value="중">중</option><option value="하">하</option>
         </select>
       </div>
       <div>
@@ -78,6 +89,12 @@ async function submit() {
 
     <label class="label">담당</label>
     <OrgPersonField v-model="owner" placeholder="담당자명 (선택)" :disabled="submitting" title="담당자 선택" :project-id="pickedProjectId" />
+
+    <label class="label">관련 태스크 <span class="hint">(선택, 여러 개 가능)</span></label>
+    <MultiSelectChecklist
+      v-model="taskIds" :items="taskOptions" :disabled="submitting"
+      empty-text="이 프로젝트에 전개된 태스크가 없습니다."
+    />
 
     <div v-if="error" class="err">{{ error }}</div>
 
@@ -93,6 +110,7 @@ async function submit() {
 <style scoped>
 .label { font-size: 13px; color: var(--muted); }
 .req { color: var(--red); }
+.hint { color: var(--muted); font-weight: 400; }
 .input {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
   color: var(--text); font-size: 14px; padding: 8px 10px; outline: none;

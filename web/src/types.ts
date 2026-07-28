@@ -341,6 +341,8 @@ export interface Issue {
   relatedTaskId?: number | null;
   // 0010 A-4 표시 코드(I-3 — 이슈·리스크 공용, type 플립 시 불변)
   displayCode?: string | null;
+  // 0039 — 이 이슈/리스크와 매핑된 WBS 태스크(다중, pms_issue_task_link)
+  taskIds?: number[];
 }
 
 export interface ActionItem {
@@ -354,6 +356,8 @@ export interface ActionItem {
   confirmComment: string;
   // 0008 — 이 액션아이템이 대응하는 리스크/이슈(pms_action_item.related_issue_id). null=독립 조치
   relatedIssueId?: number | null;
+  // 0039 — 이 액션아이템을 만든 회의(pms_action_item.source_meeting_id). null=독립 조치
+  sourceMeetingId?: number | null;
   // 0010 A-4 표시 코드(A-12)
   displayCode?: string | null;
 }
@@ -382,6 +386,11 @@ export interface MeetingMinute {
   content: string;
   remarks: string;
   authorId: string | null;
+  // 0039 — 회의 ↔ 이슈/리스크·WBS 태스크·산출물 매핑(N:M) + 이 회의 결과로 만들어진 액션아이템(1:N, 상세 전용)
+  issueIds?: number[];
+  taskIds?: number[];
+  deliverableIds?: number[];
+  actionItemIds?: number[];
 }
 
 export interface Activity {
@@ -558,7 +567,7 @@ export interface TransitionConditionInput {
 
 // ---- 범용 코멘트 (0010 A-3 — pms_comment, 상태관리 엔티티 공통) -----------------
 
-export type CommentEntityType = 'TASK' | 'DELIVERABLE' | 'ISSUE' | 'ACTION_ITEM' | 'PROJECT';
+export type CommentEntityType = 'TASK' | 'DELIVERABLE' | 'ISSUE' | 'ACTION_ITEM' | 'PROJECT' | 'MEETING_MINUTES';
 
 export interface EntityComment {
   id: number;                    // comment_id
@@ -680,7 +689,13 @@ export interface IssueCreateInput {
   reported_date?: string | null;
   due_date?: string | null;
   related_task_id?: number | null;
+  task_ids?: number[];
   comment?: string | null;
+}
+
+export interface IssueUpdateInput {
+  task_ids?: number[];
+  [key: string]: unknown;
 }
 
 export interface ActionItemCreateInput {
@@ -690,6 +705,7 @@ export interface ActionItemCreateInput {
   assignee_uid?: string | null;
   due_date?: string | null;
   related_issue_id?: number | null;
+  source_meeting_id?: number | null;
   comment?: string | null;
 }
 
@@ -700,6 +716,20 @@ export interface MeetingMinuteCreateInput {
   attendees?: unknown[];
   content?: string | null;
   remarks?: string | null;
+  issue_ids?: number[];
+  task_ids?: number[];
+  deliverable_ids?: number[];
+}
+
+export interface MeetingMinuteUpdateInput {
+  title?: string;
+  meet_date?: string | null;
+  attendees?: unknown[];
+  content?: string | null;
+  remarks?: string | null;
+  issue_ids?: number[];
+  task_ids?: number[];
+  deliverable_ids?: number[];
 }
 
 // ---- 대시보드 신호 (0007 §5 — GET /api/dashboard/signals, API_BASE 전용) --------

@@ -32,17 +32,21 @@ public class WorkSurfaceService {
 
     public WorkSurfaceService(JdbcTemplate jdbc, AuditWriter audit, DisplayCodeService displayCodeService,
                               com.aetherpms.person.MemberAutoService memberAuto,
-                              com.aetherpms.notification.NotificationService notify) {
+                              com.aetherpms.notification.NotificationService notify,
+                              com.aetherpms.issue.IssueService issueService) {
         this.jdbc = jdbc;
         this.audit = audit;
         this.displayCodeService = displayCodeService;
         this.memberAuto = memberAuto;
         this.notify = notify;
+        this.issueService = issueService;
     }
 
     private final com.aetherpms.notification.NotificationService notify;
 
     private final com.aetherpms.person.MemberAutoService memberAuto;
+
+    private final com.aetherpms.issue.IssueService issueService;
 
     // ---- enum vocabulary (Node work-surface.ts) ---------------------------
     private static final List<String> TASK_STATUSES = List.of("TODO", "IN_PROGRESS", "REVIEW", "REJECTED", "DONE");
@@ -90,9 +94,13 @@ public class WorkSurfaceService {
         // comment 분리
         Object rawComment = raw.remove("comment");
         String comment = (rawComment instanceof String s && !s.trim().isEmpty()) ? s.trim() : null;
+        // 0039 — 이슈의 task_ids는 pms_issue 컬럼이 아니라 별도 링크 테이블(N:M). 일반 컬럼
+        //   업데이트 파이프라인 밖에서 별도 동기화한다(raw에 남아있으면 "허용 필드 아님"으로 거부됨).
+        boolean hasTaskIds = cfg == Entity.ISSUE && raw.containsKey("task_ids");
+        Object taskIdsRaw = raw.remove("task_ids");
 
-        if (raw.isEmpty()) {
-            throw ApiException.badRequest("수정할 필드가 없습니다. 허용 필드: " + String.join(", ", cfg.allowed));
+        if (raw.isEmpty() && !hasTaskIds) {
+            throw ApiException.badRequest("수정할 필드가 없습니다. 허용 필드: " + String.join(", ", cfg.allowed) + ", task_ids");
         }
         List<String> rejected = raw.keySet().stream().filter(k -> !cfg.allowed.contains(k)).toList();
         if (!rejected.isEmpty()) {
@@ -117,12 +125,24 @@ public class WorkSurfaceService {
         }
 
         List<String> cols = new ArrayList<>(fields.keySet());
-        Map<String, Object> after = WriteSupport.updateReturning(jdbc, cfg.table, cfg.idCol, id, fields, false);
+        Map<String, Object> after = fields.isEmpty() ? before
+                : WriteSupport.updateReturning(jdbc, cfg.table, cfg.idCol, id, fields, false);
 
         Long projectId = toLong(before.get("project_id"));
-        audit.write(cfg.type, id, projectId, "UPDATE", cols,
-                WriteSupport.pick(before, cols), WriteSupport.pick(after, cols),
-                actor, "작업 화면 필드 수정");
+        if (!cols.isEmpty()) {
+            audit.write(cfg.type, id, projectId, "UPDATE", cols,
+                    WriteSupport.pick(before, cols), WriteSupport.pick(after, cols),
+                    actor, "작업 화면 필드 수정");
+        }
+
+        // 0039 — 이슈 태스크 매핑(N:M) 동기화. task_ids 미지정이면 기존 유지(빈 배열이면 전체 해제).
+        List<Long> issueTaskIds = null;
+        if (hasTaskIds) {
+            issueTaskIds = issueService.validateTaskIds(taskIdsRaw, projectId);
+            issueService.syncTaskLinks(id, issueTaskIds);
+            audit.write(cfg.type, id, projectId, "UPDATE", List.of("task_ids"), null,
+                    Map.of("task_ids", issueTaskIds), actor, "관련 태스크 매핑 수정");
+        }
 
         // 0031: 태스크 담당자 지정 → 참여인력 자동 등록(있으면 no-op)
         if (cfg == Entity.TASK && fields.containsKey("assignee_name")
@@ -146,11 +166,15 @@ public class WorkSurfaceService {
                     statusChanged ? str(after.get("status")) : null, actor);
         }
 
-        return switch (cfg) {
+        Map<String, Object> result = switch (cfg) {
             case TASK -> RowMappers.mapTask(after);
             case ISSUE -> RowMappers.mapIssue(after);
             case ACTION_ITEM -> RowMappers.mapActionItem(after);
         };
+        if (cfg == Entity.ISSUE) {
+            result.put("taskIds", issueTaskIds != null ? issueTaskIds : issueService.currentTaskIds(id));
+        }
+        return result;
     }
 
     private Map<String, Object> normalize(Entity cfg, Map<String, Object> in) {
@@ -241,7 +265,7 @@ public class WorkSurfaceService {
     public Map<String, Object> createActionItem(Map<String, Object> body, Actor actor) {
         Map<String, Object> b = body == null ? Map.of() : body;
         List<String> allowed = List.of("project_id", "title", "assignee_uid", "assignee_name",
-                "due_date", "related_issue_id", "status");
+                "due_date", "related_issue_id", "source_meeting_id", "status");
         rejectUnknown(b, allowed);
         long projectId = requireProjectId(b);
         String title = requireTitle(b);
@@ -261,12 +285,26 @@ public class WorkSurfaceService {
             relatedIssueId = (long) rid;
             fields.put("related_issue_id", rid);
         }
+        // 0039 — 이 액션아이템이 어느 회의의 결과로 만들어졌는지(회의 1건 → 액션아이템 N건).
+        Long sourceMeetingId = null;
+        if (b.get("source_meeting_id") != null) {
+            int mid = intOf(b.get("source_meeting_id"), "source_meeting_id는 양의 정수여야 합니다.");
+            if (mid <= 0) throw ApiException.badRequest("source_meeting_id는 양의 정수여야 합니다.");
+            sourceMeetingId = (long) mid;
+            fields.put("source_meeting_id", mid);
+        }
 
         requireProjectExists(projectId);
         if (relatedIssueId != null) {
             Integer c = jdbc.queryForObject("SELECT COUNT(*) FROM pms_issue WHERE issue_id = ?",
                     Integer.class, relatedIssueId);
             if (c == null || c == 0) throw ApiException.badRequest("존재하지 않는 related_issue_id입니다.");
+        }
+        if (sourceMeetingId != null) {
+            Integer c = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM pms_meeting_minutes WHERE meeting_id = ? AND project_id = ?",
+                    Integer.class, sourceMeetingId, projectId);
+            if (c == null || c == 0) throw ApiException.badRequest("이 프로젝트의 회의록이 아닙니다: source_meeting_id=" + sourceMeetingId);
         }
 
         fields.put("display_code", displayCodeService.nextDisplayCode(projectId, "ACTION_ITEM", null));
@@ -290,7 +328,8 @@ public class WorkSurfaceService {
     public Map<String, Object> createMeeting(Map<String, Object> body, Actor actor) {
         Map<String, Object> b = body == null ? Map.of() : body;
         List<String> allowed = List.of("project_id", "title", "meet_date", "meeting_date",
-                "location", "attendees", "content", "body", "remarks");
+                "location", "attendees", "content", "body", "remarks",
+                "issue_ids", "task_ids", "deliverable_ids");
         rejectUnknown(b, allowed);
         long projectId = requireProjectId(b);
         String title = requireTitle(b);
@@ -315,12 +354,113 @@ public class WorkSurfaceService {
         if (b.get("remarks") != null) fields.put("remarks", b.get("remarks"));
 
         requireProjectExists(projectId);
+        // 0039 — 회의 ↔ 이슈/리스크·태스크·산출물 매핑(N:M) 검증(같은 프로젝트 소속만 허용).
+        List<Long> issueIds = LinkTableSupport.validateIds(jdbc, b.get("issue_ids"), "issue_ids",
+                "pms_issue", "issue_id", projectId);
+        List<Long> meetingTaskIds = LinkTableSupport.validateIds(jdbc, b.get("task_ids"), "task_ids",
+                "pms_task", "task_id", projectId);
+        List<Long> deliverableIds = LinkTableSupport.validateIds(jdbc, b.get("deliverable_ids"), "deliverable_ids",
+                "pms_deliverable", "deliverable_id", projectId);
+
         fields.put("author_uid", actor.userId());
         Map<String, Object> created = WriteSupport.insertReturning(jdbc, "pms_meeting_minutes", "meeting_id", fields);
+        long meetingId = toLong(created.get("meeting_id"));
+        LinkTableSupport.sync(jdbc, "pms_meeting_issue_link", "meeting_id", "issue_id", meetingId, issueIds);
+        LinkTableSupport.sync(jdbc, "pms_meeting_task_link", "meeting_id", "task_id", meetingId, meetingTaskIds);
+        LinkTableSupport.sync(jdbc, "pms_meeting_deliverable_link", "meeting_id", "deliverable_id", meetingId, deliverableIds);
 
-        audit.write("MEETING_MINUTES", toLong(created.get("meeting_id")), projectId, "INSERT",
+        audit.write("MEETING_MINUTES", meetingId, projectId, "INSERT",
                 null, null, created, actor, "회의록 신규 등록");
-        return RowMappers.mapMeeting(created);
+        Map<String, Object> out = RowMappers.mapMeeting(created);
+        out.put("issueIds", issueIds);
+        out.put("taskIds", meetingTaskIds);
+        out.put("deliverableIds", deliverableIds);
+        return out;
+    }
+
+    // =====================================================================
+    // A-4. PATCH /api/meeting-minutes/{id} (0039)
+    // =====================================================================
+
+    private static final List<String> MEETING_ALLOWED = List.of(
+            "title", "meet_date", "meeting_date", "location", "attendees", "content", "body", "remarks",
+            "issue_ids", "task_ids", "deliverable_ids");
+
+    @Transactional
+    public Map<String, Object> updateMeeting(long id, Map<String, Object> body, Actor actor) {
+        WriteSupport.parseId(id);
+        Map<String, Object> b = body == null ? Map.of() : new LinkedHashMap<>(body);
+        rejectUnknown(b, MEETING_ALLOWED);
+
+        Map<String, Object> before = WriteSupport.findOne(jdbc, "pms_meeting_minutes", "meeting_id", id);
+        if (before == null) throw ApiException.notFound("회의록을 찾을 수 없습니다.");
+        long projectId = toLong(before.get("project_id"));
+
+        boolean hasIssueIds = b.containsKey("issue_ids");
+        boolean hasTaskIds = b.containsKey("task_ids");
+        boolean hasDeliverableIds = b.containsKey("deliverable_ids");
+        Object issueIdsRaw = b.remove("issue_ids");
+        Object taskIdsRaw = b.remove("task_ids");
+        Object deliverableIdsRaw = b.remove("deliverable_ids");
+
+        Map<String, Object> fields = new LinkedHashMap<>();
+        if (b.get("title") != null) {
+            String t = b.get("title").toString().trim();
+            if (t.isEmpty()) throw ApiException.badRequest("title은 비어 있을 수 없습니다.");
+            fields.put("title", t);
+        }
+        Object meetDateRaw = b.get("meet_date") != null ? b.get("meet_date") : b.get("meeting_date");
+        if (meetDateRaw != null) fields.put("meet_date", parseDateTime(meetDateRaw.toString()));
+        if (b.get("location") != null) fields.put("location", b.get("location"));
+        if (b.get("attendees") != null) {
+            if (!(b.get("attendees") instanceof List)) {
+                throw ApiException.badRequest("attendees는 배열이어야 합니다.");
+            }
+            fields.put("attendees", com.aetherpms.common.Json.write(b.get("attendees")));
+        }
+        Object content = b.get("content") != null ? b.get("content") : b.get("body");
+        if (content != null) fields.put("content", content);
+        if (b.get("remarks") != null) fields.put("remarks", b.get("remarks"));
+
+        if (fields.isEmpty() && !hasIssueIds && !hasTaskIds && !hasDeliverableIds) {
+            throw ApiException.badRequest("수정할 필드가 없습니다. 허용 필드: " + String.join(", ", MEETING_ALLOWED));
+        }
+
+        Map<String, Object> after = fields.isEmpty() ? before
+                : WriteSupport.updateReturning(jdbc, "pms_meeting_minutes", "meeting_id", id, fields, true);
+
+        if (!fields.isEmpty()) {
+            List<String> cols = new ArrayList<>(fields.keySet());
+            audit.write("MEETING_MINUTES", id, projectId, "UPDATE", cols,
+                    WriteSupport.pick(before, cols), WriteSupport.pick(after, cols), actor, "회의록 수정");
+        }
+
+        List<Long> issueIds = hasIssueIds
+                ? LinkTableSupport.validateIds(jdbc, issueIdsRaw, "issue_ids", "pms_issue", "issue_id", projectId)
+                : linkedIds("pms_meeting_issue_link", "meeting_id", "issue_id", id);
+        List<Long> taskIds = hasTaskIds
+                ? LinkTableSupport.validateIds(jdbc, taskIdsRaw, "task_ids", "pms_task", "task_id", projectId)
+                : linkedIds("pms_meeting_task_link", "meeting_id", "task_id", id);
+        List<Long> deliverableIds = hasDeliverableIds
+                ? LinkTableSupport.validateIds(jdbc, deliverableIdsRaw, "deliverable_ids",
+                    "pms_deliverable", "deliverable_id", projectId)
+                : linkedIds("pms_meeting_deliverable_link", "meeting_id", "deliverable_id", id);
+        if (hasIssueIds) LinkTableSupport.sync(jdbc, "pms_meeting_issue_link", "meeting_id", "issue_id", id, issueIds);
+        if (hasTaskIds) LinkTableSupport.sync(jdbc, "pms_meeting_task_link", "meeting_id", "task_id", id, taskIds);
+        if (hasDeliverableIds) {
+            LinkTableSupport.sync(jdbc, "pms_meeting_deliverable_link", "meeting_id", "deliverable_id", id, deliverableIds);
+        }
+
+        Map<String, Object> out = RowMappers.mapMeeting(after);
+        out.put("issueIds", issueIds);
+        out.put("taskIds", taskIds);
+        out.put("deliverableIds", deliverableIds);
+        return out;
+    }
+
+    private List<Long> linkedIds(String table, String fromCol, String toCol, long fromId) {
+        return jdbc.query("SELECT " + toCol + " FROM " + table + " WHERE " + fromCol + " = ? ORDER BY " + toCol,
+                (rs, i) -> rs.getLong(1), fromId);
     }
 
     // ---- 공용 헬퍼 --------------------------------------------------------

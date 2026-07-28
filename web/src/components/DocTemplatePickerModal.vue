@@ -107,7 +107,7 @@ onMounted(async () => {
               <button
                 class="btn btn-sm" type="button"
                 :disabled="!focused.fileRef || downloading"
-                :title="focused.fileRef ? '파일을 내려받아 내용을 확인합니다' : '산출물 관리에서 파일을 업로드하세요'"
+                :title="focused.fileRef ? '파일을 내려받아 내용을 확인합니다' : '템플릿 관리에서 파일을 업로드하세요'"
                 @click="download(focused)"
               >{{ downloading ? '다운로드 중…' : '파일 다운로드' }}</button>
               <button class="btn btn-sm btn-primary" type="button" @click="emit('select', focused)">이 양식 선택</button>

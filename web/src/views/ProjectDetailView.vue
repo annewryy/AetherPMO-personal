@@ -27,6 +27,7 @@ import DetailPanel, { type DetailKind } from '../components/DetailPanel.vue';
 import IssueFormModal from '../components/IssueFormModal.vue';
 import ActionItemFormModal from '../components/ActionItemFormModal.vue';
 import MeetingMinuteFormModal from '../components/MeetingMinuteFormModal.vue';
+import MeetingDetailPanel from '../components/MeetingDetailPanel.vue';
 import WbsSchedule from '../components/WbsSchedule.vue';
 import WbsGantt from '../components/WbsGantt.vue';
 import ProjectFormModal from '../components/ProjectFormModal.vue';
@@ -184,6 +185,7 @@ const highlightCommentId = computed(() => {
 });
 
 function openPanel(kind: DetailKind, id: number) {
+  openMeetingId.value = null;
   panelTarget.value = { kind, id };
 }
 function closePanel() {
@@ -194,6 +196,19 @@ function closePanel() {
     delete q.panel; delete q.comment;
     router.replace({ query: q });
   }
+}
+
+// 0039 — 회의록 상세 패널(별도 구조라 DetailKind에는 포함하지 않고 독립 상태로 관리).
+const openMeetingId = ref<number | null>(null);
+function openMeeting(id: number) {
+  panelTarget.value = null;
+  openMeetingId.value = id;
+}
+function closeMeetingPanel() {
+  openMeetingId.value = null;
+}
+async function onMeetingChanged() {
+  await reloadMeetings();
 }
 
 // 딥링크(?panel=kind:id) → 패널 열기. 탭도 대상 도메인으로 맞춘다.
@@ -398,6 +413,11 @@ async function onProjectSaved(updated: Project) {
 const activitiesSorted = computed(() =>
   [...activities.value].sort((a, b) => String(b.date).localeCompare(String(a.date))),
 );
+
+const ACTION_LABELS: Record<string, string> = { INSERT: '등록', UPDATE: '수정', DELETE: '삭제' };
+function actionLabel(t: string): string {
+  return ACTION_LABELS[t] ?? t;
+}
 
 function fmtAmount(v: number): string {
   return v ? v.toLocaleString('ko-KR') + ' 원' : '—';
@@ -828,7 +848,7 @@ watch(() => route.query.panel, applyPanelQuery);
           <table v-else class="grid">
             <thead><tr><th>제목</th><th>회의일</th><th>참석자</th><th>비고</th></tr></thead>
             <tbody>
-              <tr v-for="m in meetings" :key="m.id">
+              <tr v-for="m in meetings" :key="m.id" class="row" @click="openMeeting(m.id)">
                 <td class="name">{{ m.title }}</td>
                 <td>{{ fmtDate(m.meetDate) }}</td>
                 <td class="muted">{{ attendeesText(m.attendees) }}</td>
@@ -876,7 +896,7 @@ watch(() => route.query.panel, applyPanelQuery);
               <tr v-for="a in activitiesSorted" :key="a.id">
                 <td class="code">{{ fmtDate(a.date) }}</td>
                 <td>{{ a.entityType || '—' }}<span v-if="a.entityId != null" class="muted"> #{{ a.entityId }}</span></td>
-                <td>{{ a.type }}</td>
+                <td>{{ actionLabel(a.type) }}</td>
                 <td class="muted">{{ a.text || '—' }}</td>
                 <td>{{ a.userName || '—' }}</td>
               </tr>
@@ -907,6 +927,13 @@ watch(() => route.query.panel, applyPanelQuery);
           대상을 찾을 수 없습니다 — 목록이 갱신되었거나 접근 권한이 없을 수 있습니다.
           <button class="btn btn-sm" @click="closePanel">닫기</button>
         </div>
+      </SideDrawer>
+
+      <SideDrawer v-if="openMeetingId != null" @close="closeMeetingPanel">
+        <MeetingDetailPanel
+          :meeting-id="openMeetingId" :project-id="projectId"
+          :highlight-comment-id="highlightCommentId" @close="closeMeetingPanel" @changed="onMeetingChanged"
+        />
       </SideDrawer>
 
       <!-- ==== 신규 등록 폼 ==== -->

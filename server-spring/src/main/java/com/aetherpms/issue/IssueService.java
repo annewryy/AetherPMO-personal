@@ -25,7 +25,7 @@ public class IssueService {
 
     private static final Set<String> ALLOWED = Set.of(
             "project_id", "title", "type", "priority",
-            "owner_uid", "owner_name", "due_date", "reported_date");
+            "owner_uid", "owner_name", "due_date", "reported_date", "task_ids");
     private static final Set<String> PRIORITIES = Set.of("상", "중", "하");
     private static final Set<String> TYPES = Set.of("리스크", "이슈");
 
@@ -53,6 +53,8 @@ public class IssueService {
             throw ApiException.notFound("프로젝트를 찾을 수 없습니다.");
         }
 
+        List<Long> taskIds = validateTaskIds(body.get("task_ids"), projectId);
+
         String displayCode = displayCodeService.nextIssueDisplayCode(projectId);
         issue.setSourceRuleId(null); // 수동 등록 마커
         issue.setDisplayCode(displayCode);
@@ -61,11 +63,51 @@ public class IssueService {
         if (issue.getStatus() == null) issue.setStatus("발생");
 
         IssueEntity saved = issueRepository.saveAndFlush(issue);
+        syncTaskLinks(saved.getIssueId(), taskIds);
         if (saved.getOwnerName() != null) {
             notify.notifyByName(projectId, saved.getOwnerName(), "ASSIGNED", "ISSUE",
                     saved.getIssueId(), "담당자로 지정되었습니다: " + saved.getTitle());  // 0033 ①
         }
-        return IssueMapper.mapIssue(saved);
+        Map<String, Object> out = IssueMapper.mapIssue(saved);
+        out.put("taskIds", taskIds);
+        return out;
+    }
+
+    /** 이슈에 현재 매핑된 태스크 id 목록(태스크 매핑을 건드리지 않은 PATCH 응답에 그대로 반영하기 위함). */
+    public List<Long> currentTaskIds(long issueId) {
+        return jdbc.query("SELECT task_id FROM pms_issue_task_link WHERE issue_id = ? ORDER BY task_id",
+                (rs, i) -> rs.getLong(1), issueId);
+    }
+
+    /** task_ids 페이로드 검증 — 같은 프로젝트의 태스크만 허용. null이면 빈 목록(변경 없음 아님, 전체 해제). */
+    public List<Long> validateTaskIds(Object raw, long projectId) {
+        if (raw == null) return List.of();
+        if (!(raw instanceof List<?> list)) throw ApiException.badRequest("task_ids는 정수 배열이어야 합니다.");
+        List<Long> ids = new java.util.ArrayList<>();
+        for (Object o : list) {
+            long tid = asPositiveLong(o);
+            if (tid <= 0) throw ApiException.badRequest("task_ids에 유효하지 않은 값이 있습니다: " + o);
+            ids.add(tid);
+        }
+        if (ids.isEmpty()) return List.of();
+        String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+        Object[] args = new Object[ids.size() + 1];
+        args[0] = projectId;
+        for (int i = 0; i < ids.size(); i++) args[i + 1] = ids.get(i);
+        Integer matched = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM pms_task WHERE project_id = ? AND task_id IN (" + placeholders + ")",
+                Integer.class, args);
+        if (matched == null || matched != ids.size()) {
+            throw ApiException.badRequest("task_ids에 이 프로젝트의 태스크가 아닌 값이 있습니다.");
+        }
+        return ids;
+    }
+
+    public void syncTaskLinks(long issueId, List<Long> taskIds) {
+        jdbc.update("DELETE FROM pms_issue_task_link WHERE issue_id = ?", issueId);
+        for (Long tid : taskIds) {
+            jdbc.update("INSERT INTO pms_issue_task_link (issue_id, task_id) VALUES (?, ?)", issueId, tid);
+        }
     }
 
     /** validateIssuePayload 이식 — 화이트리스트·필수·enum 검증. */

@@ -21,7 +21,7 @@ import type {
   WorkflowInput, WorkflowStatusInput, WorkflowTransitionInput, TransitionConditionInput,
   CommentEntityType, EntityComment, CommentCreateInput,
   AvailableTransition, TransitionEntity, ProjectProgress, ProjectWbs,
-  IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput,
+  IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput, MeetingMinuteUpdateInput,
   ProjectMemberRef, ProjectMemberDetail, ProjectMemberInput, ProjectMemberAssignment, AppNotification, AppSetting,
   Person, PersonProjectHistory, PersonFilters, InsourcingTransition, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput, ProjectConvertInput,
   BidAgency, BidNoticeFilters, BidNoticeResult, BidNoticeDetail,
@@ -150,6 +150,7 @@ const COMMENT_ENTITY_PATHS: Record<CommentEntityType, string> = {
   ISSUE: 'issues',
   ACTION_ITEM: 'action-items',
   PROJECT: 'projects',
+  MEETING_MINUTES: 'meeting-minutes',
 };
 
 // ---- 공개 API -------------------------------------------------------------
@@ -334,6 +335,14 @@ export const dataClient = {
     // 0011 B-7: 회의록 신규 등록(A-3). snake_case 본문.
     create(input: MeetingMinuteCreateInput): Promise<MeetingMinute> {
       return apiSend<MeetingMinute>('POST', '/api/meeting-minutes', input);
+    },
+    // 0039: 단건 조회(상세 패널 — issueIds/taskIds/deliverableIds/actionItemIds 포함).
+    async get(id: number): Promise<MeetingMinute> {
+      return apiGet<MeetingMinute>(`/api/meeting-minutes/${id}`);
+    },
+    // 0039: 내용·매핑 수정. snake_case 본문.
+    update(id: number, input: MeetingMinuteUpdateInput): Promise<MeetingMinute> {
+      return apiSend<MeetingMinute>('PATCH', `/api/meeting-minutes/${id}`, input);
     },
   },
 

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 // 0011 B-7 액션아이템 신규 등록 폼 (A-3 POST /api/action-items).
 // 쓰기는 백엔드 전용(dataClient가 API_BASE 게이트). 오류는 서버 {message} 그대로.
-import { ref } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { dataClient } from '../lib/dataClient';
-import type { ActionItemCreateInput, Project } from '../types';
+import type { ActionItemCreateInput, MeetingMinute, Project } from '../types';
 import ModalShell from './ModalShell.vue';
 import OrgPersonField from './OrgPersonField.vue';
 
@@ -14,8 +14,18 @@ const pickedProjectId = ref<number | null>(props.projectId ?? props.projects?.[0
 const title = ref('');
 const assignee = ref('');
 const dueDate = ref('');
+const sourceMeetingId = ref<number | null>(null);
 const submitting = ref(false);
 const error = ref<string | null>(null);
+
+// 0039 — 이 조치가 어느 회의의 결과인지(선택). 프로젝트 회의록 목록에서 고른다.
+const meetings = ref<MeetingMinute[]>([]);
+const meetingOptions = computed(() =>
+  [...meetings.value].sort((a, b) => String(b.meetDate).localeCompare(String(a.meetDate))));
+watch(pickedProjectId, async (pid) => {
+  sourceMeetingId.value = null;
+  meetings.value = pid != null ? await dataClient.meetingMinutes.listByProject(pid).catch(() => []) : [];
+}, { immediate: true });
 
 async function submit() {
   if (pickedProjectId.value == null) { error.value = '프로젝트를 선택하세요.'; return; }
@@ -27,6 +37,7 @@ async function submit() {
     title: title.value.trim(),
     assignee_name: assignee.value.trim() || null,
     due_date: dueDate.value || null,
+    source_meeting_id: sourceMeetingId.value,
   };
   try {
     await dataClient.actionItems.create(input);
@@ -62,6 +73,14 @@ async function submit() {
       </div>
     </div>
 
+    <label class="label">관련 회의 <span class="hint">(선택 — 이 조치를 만든 회의)</span></label>
+    <select v-model.number="sourceMeetingId" class="input" :disabled="submitting">
+      <option :value="null">— 없음(독립 조치) —</option>
+      <option v-for="m in meetingOptions" :key="m.id" :value="m.id">
+        {{ m.title }} ({{ String(m.meetDate).split('T')[0] }})
+      </option>
+    </select>
+
     <div v-if="error" class="err">{{ error }}</div>
 
     <template #footer>
@@ -76,6 +95,7 @@ async function submit() {
 <style scoped>
 .label { font-size: 13px; color: var(--muted); }
 .req { color: var(--red); }
+.hint { color: var(--muted); font-weight: 400; }
 .input {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
   color: var(--text); font-size: 14px; padding: 8px 10px; outline: none;

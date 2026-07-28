@@ -109,6 +109,7 @@ public final class RowMappers {
         o.put("displayCode", v(a, "display_code"));
         o.put("confirmComment", v(a, "confirm_comment"));
         o.put("relatedIssueId", asLong(v(a, "related_issue_id")));
+        o.put("sourceMeetingId", asLong(v(a, "source_meeting_id")));
         return o;
     }
 

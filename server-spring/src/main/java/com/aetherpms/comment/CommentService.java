@@ -49,8 +49,9 @@ public class CommentService {
             case "deliverables" -> new EntityConfig("pms_deliverable", "deliverable_id", "DELIVERABLE", "author_name");
             case "issues" -> new EntityConfig("pms_issue", "issue_id", "ISSUE", "owner_name");
             case "action-items" -> new EntityConfig("pms_action_item", "action_id", "ACTION_ITEM", "assignee_name");
+            case "meeting-minutes" -> new EntityConfig("pms_meeting_minutes", "meeting_id", "MEETING_MINUTES", null);
             default -> throw ApiException.badRequest("지원하지 않는 엔티티입니다: " + entity
-                    + " (지원: tasks, deliverables, issues, action-items)");
+                    + " (지원: tasks, deliverables, issues, action-items, meeting-minutes)");
         };
     }
 
@@ -150,20 +151,37 @@ public class CommentService {
         String preview = toPreview(body);
         String actorName = resolveActorName(projectId, actor.userId());
 
+        // 0039 — @멘션은 recipient_uid만 채우면 GET /api/notifications의 person 축 조회에서
+        //   보이지 않는다(개인 person 연결 계정은 recipient_person_id로만 조회). uid → person 해석 후
+        //   notifyPerson(person 축, 정책·중복억제 포함)을 우선 쓰고, 해석 실패 시에만 레거시 uid로 폴백.
         LinkedHashSet<String> notified = new LinkedHashSet<>();
         for (String uid : mentions) {
             if (actor.userId() != null && uid.equals(actor.userId().toLowerCase())) continue;
             if (notified.contains(uid)) continue;
-            insertNotification(uid, "MENTION", projectId, cfg.entityType(), id, commentId,
-                    actor.userId(), actorName, preview);
+            Long mentionedPersonId = resolvePersonByUid(projectId, uid);
+            if (mentionedPersonId != null) {
+                notifySvc.notifyPerson(mentionedPersonId, "MENTION", projectId, cfg.entityType(), id,
+                        commentId, preview);
+            } else {
+                insertNotification(uid, "MENTION", projectId, cfg.entityType(), id, commentId,
+                        actor.userId(), actorName, preview);
+            }
             notified.add(uid);
         }
         if (parentAuthorUid != null) {
             String parentLc = parentAuthorUid.toLowerCase();
             boolean isSelf = actor.userId() != null && parentLc.equals(actor.userId().toLowerCase());
             if (!isSelf && !notified.contains(parentLc)) {
-                insertNotification(parentAuthorUid, "REPLY", projectId, cfg.entityType(), id, commentId,
-                        actor.userId(), actorName, preview);
+                Long parentUidPersonId = resolvePersonByUid(projectId, parentLc);
+                if (parentUidPersonId != null) {
+                    // notifyPerson은 (수신자,유형,엔티티) 미읽음 중복을 갱신하므로 아래 person 축
+                    // REPLY(parentAuthorPersonId)와 겹쳐 호출돼도 안전(중복 행 생성 안 됨).
+                    notifySvc.notifyPerson(parentUidPersonId, "REPLY", projectId, cfg.entityType(), id,
+                            commentId, preview);
+                } else {
+                    insertNotification(parentAuthorUid, "REPLY", projectId, cfg.entityType(), id, commentId,
+                            actor.userId(), actorName, preview);
+                }
             }
         }
 
@@ -186,6 +204,16 @@ public class CommentService {
 
         Map<String, Object> created = WriteSupport.findOne(jdbc, "pms_comment", "comment_id", commentId);
         return RowMappers.mapComment(created);
+    }
+
+    /** user_uid(프로젝트 참여인력 레거시 계정 uuid) → person_id 해석. 미연결이면 null(레거시 uid 폴백). */
+    private Long resolvePersonByUid(long projectId, String uid) {
+        if (uid == null) return null;
+        List<Long> rows = jdbc.query(
+                "SELECT person_id FROM pms_project_member WHERE project_id = ? AND user_uid = ? "
+              + "AND person_id IS NOT NULL LIMIT 1",
+                (rs, i) -> rs.getLong(1), projectId, uid);
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     private String resolveActorName(long projectId, String actorUid) {

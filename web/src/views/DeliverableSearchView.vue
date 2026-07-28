@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 산출물 관리 (/app/catalog/deliverables) — 0030 개편.
+// 템플릿 관리 (/app/catalog/deliverables) — 0030 개편.
 //   양식(pms_doc_template) 마스터를 유경님 UI처럼 좌측 "분류 네비 + 우측 리스트"로 관리한다.
 //   테일러링 노드와 양식은 1:N — 특정 양식 연결(기본 양식)은 관리자 테일러링 노드 폼에서.
 //   리스트형만 제공(트리·카탈로그 딥링크 폐기 — 1:1 오해 방지, 너울님 2026-07-24).
@@ -144,10 +144,10 @@ function downloadFile(t: DocTemplate) {
 
 <template>
   <div>
-    <h1 class="title">산출물 관리</h1>
+    <h1 class="title">템플릿 관리</h1>
     <p class="sub">산출물 양식(문서 템플릿) 목록 — 테일러링 산출물과 양식은 1:N이며, 테일러링 설정에서 특정 양식을 선택해 연결합니다.</p>
 
-    <div v-if="!apiMode" class="notice">산출물 관리는 백엔드(API_BASE) 연결 후 사용할 수 있습니다.</div>
+    <div v-if="!apiMode" class="notice">템플릿 관리는 백엔드(API_BASE) 연결 후 사용할 수 있습니다.</div>
     <template v-else>
       <StateNotice :loading="loading" :error="loadError" :empty="false" empty-text="" />
 

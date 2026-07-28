@@ -121,6 +121,7 @@ public final class ReadMappers {
         out.put("displayCode", a.getDisplayCode());
         out.put("confirmComment", a.getConfirmComment());
         out.put("relatedIssueId", a.getRelatedIssueId());
+        out.put("sourceMeetingId", a.getSourceMeetingId());
         return out;
     }
 
