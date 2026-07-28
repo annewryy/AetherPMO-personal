@@ -29,6 +29,7 @@ import ActionItemFormModal from '../components/ActionItemFormModal.vue';
 import MeetingMinuteFormModal from '../components/MeetingMinuteFormModal.vue';
 import MeetingDetailPanel from '../components/MeetingDetailPanel.vue';
 import ConsortiumMemberFormModal from '../components/ConsortiumMemberFormModal.vue';
+import ModalShell from '../components/ModalShell.vue';
 import VrbFormModal from '../components/VrbFormModal.vue';
 import WbsSchedule from '../components/WbsSchedule.vue';
 import WbsGantt from '../components/WbsGantt.vue';
@@ -464,6 +465,32 @@ function onConverted(created: Project) {
   router.push(`/projects/${created.id}`);
 }
 
+// ---- 0039: 입찰 결과 확정(상태 전환) ------------------------------------------
+//   수주 → 기존 수행 전환 마법사(수행 프로젝트 생성). 전환 완료 시 백엔드가 원본 입찰을
+//          bid_status=수주 · status=완료로 정리한다(ProjectConvertService).
+//   실패 → 수행 프로젝트를 만들지 않고 입찰 자체만 bid_status=실패 · status=완료로 마감.
+const showBidOutcome = ref(false);
+const bidOutcomeSaving = ref(false);
+const bidOutcomeError = ref<string | null>(null);
+
+function chooseWin() {
+  showBidOutcome.value = false;
+  showConvertWizard.value = true;
+}
+async function chooseLose() {
+  if (!window.confirm('이 입찰을 「실패」로 확정할까요? 수행 프로젝트는 생성되지 않습니다.')) return;
+  bidOutcomeSaving.value = true;
+  bidOutcomeError.value = null;
+  try {
+    project.value = await dataClient.projects.update(projectId.value, { bidStatus: '실패', status: '완료' });
+    showBidOutcome.value = false;
+  } catch (e) {
+    bidOutcomeError.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    bidOutcomeSaving.value = false;
+  }
+}
+
 // ---- 프로젝트 수정 모달(배치18) ----------------------------------------------
 const showEditForm = ref(false);
 async function onProjectSaved(updated: Project) {
@@ -560,9 +587,9 @@ watch(() => route.query.meeting, applyMeetingQuery);
           <button
             v-if="project.stage === 'BIDDING'"
             class="btn btn-primary"
-            title="입찰 정보를 기반으로 수행 프로젝트를 생성합니다(추가 정보 입력 + 테일러링 선택)"
-            @click="showConvertWizard = true"
-          >수행 전환</button>
+            title="입찰 결과(수주/실패)를 확정합니다"
+            @click="showBidOutcome = true"
+          >상태 전환</button>
           <button class="btn" @click="showEditForm = true">수정</button>
           <RouterLink :to="project.stage === 'BIDDING' ? '/projects/bidding' : '/projects/active'" class="back">← 목록</RouterLink>
         </div>
@@ -1060,6 +1087,21 @@ watch(() => route.query.meeting, applyMeetingQuery);
         @created="onMeetingCreated" @close="showMeetingForm = false"
       />
 
+      <!-- 0039 — 입찰 결과 확정(수주/실패) 선택 -->
+      <ModalShell v-if="showBidOutcome" title="입찰 상태 전환" @close="showBidOutcome = false">
+        <p class="outcome-lead">이 입찰의 결과를 선택하세요.</p>
+        <button class="outcome-opt win" type="button" :disabled="bidOutcomeSaving" @click="chooseWin">
+          <span class="outcome-name">수주</span>
+          <span class="outcome-desc">수행 프로젝트를 생성합니다 — 이어서 정보 보완·테일러링 선택 화면이 열립니다.</span>
+        </button>
+        <button class="outcome-opt lose" type="button" :disabled="bidOutcomeSaving" @click="chooseLose">
+          <span class="outcome-name">실패</span>
+          <span class="outcome-desc">수행 프로젝트 없이 이 입찰을 실패로 마감합니다(입찰상태 실패 · 사업상태 완료).</span>
+        </button>
+        <p v-if="bidOutcomeSaving" class="outcome-msg">처리 중…</p>
+        <p v-if="bidOutcomeError" class="outcome-msg err">{{ bidOutcomeError }}</p>
+      </ModalShell>
+
       <!-- 배치18 — 프로젝트 수정 -->
       <ExecConvertWizard
         v-if="showConvertWizard && project"
@@ -1280,6 +1322,22 @@ watch(() => route.query.meeting, applyMeetingQuery);
   border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; margin-left: 6px;
 }
 .tab-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+/* 0039 — 입찰 결과 확정 선택 */
+.outcome-lead { margin: 0; font-size: 13.5px; color: var(--muted); }
+.outcome-opt {
+  display: flex; flex-direction: column; gap: 4px; text-align: left; width: 100%;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  border-radius: 10px; padding: 12px 14px; cursor: pointer; font-family: inherit;
+}
+.outcome-opt:hover:not(:disabled) { border-color: var(--accent); background: var(--panel); }
+.outcome-opt:disabled { opacity: 0.55; cursor: default; }
+.outcome-opt.win .outcome-name { color: var(--green); }
+.outcome-opt.lose .outcome-name { color: var(--red); }
+.outcome-name { font-size: 15px; font-weight: 700; }
+.outcome-desc { font-size: 12.5px; color: var(--muted); }
+.outcome-msg { margin: 0; font-size: 12.5px; color: var(--muted); }
+.outcome-msg.err { color: var(--red); }
+
 .vrb-toolbar { justify-content: space-between; }
 .vrb-title { font-size: 14px; margin: 0; }
 .vrb-meta .strong { font-weight: 700; }
