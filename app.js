@@ -17000,6 +17000,7 @@ class AetherPMO {
             this.state.recentlyDownloaded.push(temp.id);
         }
 
+        this.showToast(`📥 '${temp.name}' 템플릿 다운로드 준비중입니다. (시연용 데모 파일)`, 'info');
         try {
             // ① Signed URL 발급 (300초 유효)
             console.log('[downloadGlobalTemplate] createSignedUrl 호출 시도...');
@@ -18529,82 +18530,47 @@ class AetherPMO {
     // ============================================================
     //  DEFAULT GLOBAL TEMPLATES (기본 표준 템플릿 데이터)
     // ============================================================
-    getDefaultGlobalTemplates() {
+        getDefaultGlobalTemplates() {
         return [
-            // ── 운영사업 착수단계 ──────────────────────────────────
-            { id: 'gt-init-1', projectType: 'operation', name: '착수계', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_착수계.docx', fileSize: '145 KB' },
-            { id: 'gt-init-2', projectType: 'operation', name: '사업수행계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_사업수행계획서.docx', fileSize: '320 KB' },
-            { id: 'gt-init-3', projectType: 'operation', name: '보안관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_보안관리계획서.docx', fileSize: '210 KB' },
-            { id: 'gt-init-4', projectType: 'operation', name: '품질보증계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_품질보증계획서.docx', fileSize: '185 KB' },
-            { id: 'gt-init-5', projectType: 'operation', name: '참여인력 현황', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_참여인력현황.xlsx', fileSize: '98 KB' },
-            { id: 'gt-init-6', projectType: 'operation', name: '비밀유지서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_비밀유지서약서.docx', fileSize: '112 KB' },
+            // ── 착수단계 템플릿 (10개) ──────────────────────────────────
+            { id: 'gt-init-1', projectType: 'operation', name: '사업계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '안유경 PM', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_착수단계_사업계획서.docx', fileSize: '320 KB' },
+            { id: 'gt-init-2', projectType: 'operation', name: '사업수행계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '안유경 PM', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_착수단계_사업수행계획서.docx', fileSize: '450 KB' },
+            { id: 'gt-init-3', projectType: 'operation', name: '보안서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '이영희 PMO', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_착수단계_보안서약서.docx', fileSize: '120 KB' },
+            { id: 'gt-init-4', projectType: 'operation', name: '개인정보보호서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '이영희 PMO', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_착수단계_개인정보보호서약서.docx', fileSize: '115 KB' },
+            { id: 'gt-init-5', projectType: 'operation', name: '청렴서약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '이영희 PMO', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_착수단계_청렴서약서.docx', fileSize: '105 KB' },
+            { id: 'gt-init-6', projectType: 'operation', name: '하자보증이행각서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '안유경 PM', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_착수단계_하자보증이행각서.docx', fileSize: '140 KB' },
+            { id: 'gt-init-7', projectType: 'operation', name: '근로기준법 준수확약서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '이영희 PMO', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_착수단계_근로기준법준수확약서.docx', fileSize: '110 KB' },
+            { id: 'gt-init-8', projectType: 'operation', name: '산출내역서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '김철수 PL', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_착수단계_산출내역서.xlsx', fileSize: '185 KB' },
+            { id: 'gt-init-9', projectType: 'operation', name: '품질보증계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '김철수 PL', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_착수단계_품질보증계획서.docx', fileSize: '210 KB' },
+            { id: 'gt-init-10', projectType: 'operation', name: '위험관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', author: '안유경 PM', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_착수단계_위험관리계획서.docx', fileSize: '195 KB' },
 
-            // ── 운영사업 수행단계 ──────────────────────────────────
-            { id: 'gt-exec-1', projectType: 'operation', name: '요구사항정의서', stage: 'execution', category: 'Requirements', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_요구사항정의서.xlsx', fileSize: '254 KB' },
-            { id: 'gt-exec-2', projectType: 'operation', name: '분석설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_분석설계서.docx', fileSize: '512 KB' },
-            { id: 'gt-exec-3', projectType: 'operation', name: '회의록', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_회의록_양식.docx', fileSize: '85 KB' },
-            { id: 'gt-exec-4', projectType: 'operation', name: '테스트계획서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_테스트계획서.docx', fileSize: '195 KB' },
-            { id: 'gt-exec-5', projectType: 'operation', name: '테스트결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_테스트결과서.xlsx', fileSize: '280 KB' },
-            { id: 'gt-exec-6', projectType: 'operation', name: '위험관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_위험관리대장.xlsx', fileSize: '95 KB' },
-            { id: 'gt-exec-7', projectType: 'operation', name: 'Action Item 관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_ActionItem관리대장.xlsx', fileSize: '105 KB' },
+            // ── 수행단계 템플릿 (16개) ──────────────────────────────────
+            { id: 'gt-exec-1', projectType: 'operation', name: '요구사항정의서', stage: 'execution', category: 'Requirements', version: 'v1.0.0', author: '김철수 PL', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_분석단계_요구사항정의서.xlsx', fileSize: '280 KB' },
+            { id: 'gt-exec-2', projectType: 'operation', name: '요구사항추적표(RTM)', stage: 'execution', category: 'Requirements', version: 'v1.0.0', author: '김철수 PL', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_분석단계_요구사항추적표.xlsx', fileSize: '240 KB' },
+            { id: 'gt-exec-3', projectType: 'operation', name: '기능목록표', stage: 'execution', category: 'Requirements', version: 'v1.0.0', author: '김철수 PL', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_분석단계_기능목록표.xlsx', fileSize: '210 KB' },
+            { id: 'gt-exec-4', projectType: 'operation', name: '화면설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '박디자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_설계단계_화면설계서.pptx', fileSize: '1.8 MB' },
+            { id: 'gt-exec-5', projectType: 'operation', name: 'DB설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '최DBA', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_설계단계_DB설계서.xlsx', fileSize: '520 KB' },
+            { id: 'gt-exec-6', projectType: 'operation', name: '인터페이스설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '정개발', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_설계단계_인터페이스설계서.xlsx', fileSize: '380 KB' },
+            { id: 'gt-exec-7', projectType: 'operation', name: '프로그램설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '정개발', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_설계단계_프로그램설계서.docx', fileSize: '410 KB' },
+            { id: 'gt-exec-8', projectType: 'operation', name: '단위시험결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', author: '정개발', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_구현단계_단위시험결과서.xlsx', fileSize: '290 KB' },
+            { id: 'gt-exec-9', projectType: 'operation', name: '통합시험결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', author: '한QA', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_시험단계_통합시험결과서.xlsx', fileSize: '350 KB' },
+            { id: 'gt-exec-10', projectType: 'operation', name: '형상관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '이영희 PMO', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_수행단계_형상관리대장.xlsx', fileSize: '160 KB' },
+            { id: 'gt-exec-11', projectType: 'operation', name: '변경관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '이영희 PMO', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_수행단계_변경관리대장.xlsx', fileSize: '150 KB' },
+            { id: 'gt-exec-12', projectType: 'operation', name: '리스크관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '안유경 PM', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_수행단계_리스크관리대장.xlsx', fileSize: '145 KB' },
+            { id: 'gt-exec-13', projectType: 'operation', name: '이슈관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '안유경 PM', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_수행단계_이슈관리대장.xlsx', fileSize: '140 KB' },
+            { id: 'gt-exec-14', projectType: 'operation', name: '회의록', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '이영희 PMO', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_수행단계_회의록.docx', fileSize: '95 KB' },
+            { id: 'gt-exec-15', projectType: 'operation', name: '주간업무보고서', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '안유경 PM', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_수행단계_주간업무보고서.docx', fileSize: '130 KB' },
+            { id: 'gt-exec-16', projectType: 'operation', name: '월간업무보고서', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '안유경 PM', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_수행단계_월간업무보고서.docx', fileSize: '210 KB' },
 
-            // ── 운영사업 종료단계 ──────────────────────────────────
-            { id: 'gt-close-1', projectType: 'operation', name: '완료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_완료보고서.docx', fileSize: '420 KB' },
-            { id: 'gt-close-2', projectType: 'operation', name: '최종보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_최종보고서.pdf', fileSize: '1.2 MB' },
-            { id: 'gt-close-3', projectType: 'operation', name: '검수확인서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_검수확인서.docx', fileSize: '90 KB' },
-            { id: 'gt-close-4', projectType: 'operation', name: '산출물 인계목록', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_산출물인계목록.xlsx', fileSize: '115 KB' },
-            { id: 'gt-close-5', projectType: 'operation', name: '보안점검 결과서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_보안점검결과서.docx', fileSize: '130 KB' },
-            { id: 'gt-close-6', projectType: 'operation', name: '종료계', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '운영사업_표준_종료계.docx', fileSize: '95 KB' },
-
-            // ── 구축사업 착수단계 ──────────────────────────────────
-            { id: 'gc-init-1', projectType: 'construction', name: '착수계', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_착수계.docx', fileSize: '145 KB' },
-            { id: 'gc-init-2', projectType: 'construction', name: '사업수행계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_사업수행계획서.docx', fileSize: '340 KB' },
-            { id: 'gc-init-3', projectType: 'construction', name: '보안관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_보안관리계획서.docx', fileSize: '210 KB' },
-            { id: 'gc-init-4', projectType: 'construction', name: '품질보증계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_품질보증계획서.docx', fileSize: '195 KB' },
-            { id: 'gc-init-5', projectType: 'construction', name: '형상관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_형상관리계획서.docx', fileSize: '175 KB' },
-            { id: 'gc-init-6', projectType: 'construction', name: '참여인력 현황', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_참여인력현황.xlsx', fileSize: '98 KB' },
-
-            // ── 구축사업 수행단계 ──────────────────────────────────
-            { id: 'gc-exec-1', projectType: 'construction', name: '요구사항정의서', stage: 'execution', category: 'Requirements', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_요구사항정의서.xlsx', fileSize: '275 KB' },
-            { id: 'gc-exec-2', projectType: 'construction', name: '시스템분석서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_시스템분석서.docx', fileSize: '580 KB' },
-            { id: 'gc-exec-3', projectType: 'construction', name: '설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_설계서.docx', fileSize: '620 KB' },
-            { id: 'gc-exec-4', projectType: 'construction', name: '단위테스트계획서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_단위테스트계획서.docx', fileSize: '200 KB' },
-            { id: 'gc-exec-5', projectType: 'construction', name: '통합테스트결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_통합테스트결과서.xlsx', fileSize: '310 KB' },
-            { id: 'gc-exec-6', projectType: 'construction', name: '회의록', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_회의록.docx', fileSize: '85 KB' },
-            { id: 'gc-exec-7', projectType: 'construction', name: '위험관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_위험관리대장.xlsx', fileSize: '100 KB' },
-
-            // ── 구축사업 종료단계 ──────────────────────────────────
-            { id: 'gc-close-1', projectType: 'construction', name: '완료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_완료보고서.docx', fileSize: '450 KB' },
-            { id: 'gc-close-2', projectType: 'construction', name: '사용자 매뉴얼', stage: 'closing', category: 'User Manual', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_사용자매뉴얼.docx', fileSize: '1.5 MB' },
-            { id: 'gc-close-3', projectType: 'construction', name: '운영자 매뉴얼', stage: 'closing', category: 'User Manual', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_운영자매뉴얼.docx', fileSize: '1.2 MB' },
-            { id: 'gc-close-4', projectType: 'construction', name: '검수확인서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_검수확인서.docx', fileSize: '90 KB' },
-            { id: 'gc-close-5', projectType: 'construction', name: '산출물 인계목록', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_산출물인계목록.xlsx', fileSize: '120 KB' },
-            { id: 'gc-close-6', projectType: 'construction', name: '종료계', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: '구축사업_표준_종료계.docx', fileSize: '95 KB' },
-
-            // ── SW분리발주사업 착수단계 ────────────────────────────
-            { id: 'gs-init-1', projectType: 'sw-separate', name: '착수계', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_착수계.docx', fileSize: '145 KB' },
-            { id: 'gs-init-2', projectType: 'sw-separate', name: '사업수행계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_사업수행계획서.docx', fileSize: '330 KB' },
-            { id: 'gs-init-3', projectType: 'sw-separate', name: '분리발주 협업계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_협업계획서.docx', fileSize: '240 KB' },
-            { id: 'gs-init-4', projectType: 'sw-separate', name: '인터페이스 정의서', stage: 'initiation', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_인터페이스정의서.docx', fileSize: '280 KB' },
-            { id: 'gs-init-5', projectType: 'sw-separate', name: '보안관리계획서', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_보안관리계획서.docx', fileSize: '210 KB' },
-            { id: 'gs-init-6', projectType: 'sw-separate', name: '참여인력 현황', stage: 'initiation', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_참여인력현황.xlsx', fileSize: '98 KB' },
-
-            // ── SW분리발주사업 수행단계 ────────────────────────────
-            { id: 'gs-exec-1', projectType: 'sw-separate', name: '요구사항정의서', stage: 'execution', category: 'Requirements', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_요구사항정의서.xlsx', fileSize: '265 KB' },
-            { id: 'gs-exec-2', projectType: 'sw-separate', name: 'SW 기능명세서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_SW기능명세서.docx', fileSize: '430 KB' },
-            { id: 'gs-exec-3', projectType: 'sw-separate', name: '분리발주 검토결과서', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_분리발주검토결과서.docx', fileSize: '180 KB' },
-            { id: 'gs-exec-4', projectType: 'sw-separate', name: '단위/통합 테스트계획서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_테스트계획서.docx', fileSize: '210 KB' },
-            { id: 'gs-exec-5', projectType: 'sw-separate', name: '테스트결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_테스트결과서.xlsx', fileSize: '295 KB' },
-            { id: 'gs-exec-6', projectType: 'sw-separate', name: '회의록', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_회의록.docx', fileSize: '85 KB' },
-            { id: 'gs-exec-7', projectType: 'sw-separate', name: '이슈/위험 관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_위험관리대장.xlsx', fileSize: '100 KB' },
-
-            // ── SW분리발주사업 종료단계 ────────────────────────────
-            { id: 'gs-close-1', projectType: 'sw-separate', name: '완료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_완료보고서.docx', fileSize: '440 KB' },
-            { id: 'gs-close-2', projectType: 'sw-separate', name: '소프트웨어 납품목록', stage: 'closing', category: 'Final Report', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_납품목록.xlsx', fileSize: '130 KB' },
-            { id: 'gs-close-3', projectType: 'sw-separate', name: '검수확인서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_검수확인서.docx', fileSize: '90 KB' },
-            { id: 'gs-close-4', projectType: 'sw-separate', name: '산출물 인계목록', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_산출물인계목록.xlsx', fileSize: '120 KB' },
-            { id: 'gs-close-5', projectType: 'sw-separate', name: '보안점검 결과서', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_보안점검결과서.docx', fileSize: '130 KB' },
-            { id: 'gs-close-6', projectType: 'sw-separate', name: '종료계', stage: 'closing', category: 'Etc', version: 'v1.0.0', modifiedDate: '2026-06-04', fileName: 'SW분리발주_표준_종료계.docx', fileSize: '95 KB' },
+            // ── 종료단계 템플릿 (8개) ──────────────────────────────────
+            { id: 'gt-close-1', projectType: 'operation', name: '사업완료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', author: '안유경 PM', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_종료단계_사업완료보고서.docx', fileSize: '580 KB' },
+            { id: 'gt-close-2', projectType: 'operation', name: '검수확인서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '이영희 PMO', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_종료단계_검수확인서.docx', fileSize: '120 KB' },
+            { id: 'gt-close-3', projectType: 'operation', name: '산출물인계서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '이영희 PMO', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_종료단계_산출물인계서.xlsx', fileSize: '190 KB' },
+            { id: 'gt-close-4', projectType: 'operation', name: '운영인수인계서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '김철수 PL', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_종료단계_운영인수인계서.docx', fileSize: '340 KB' },
+            { id: 'gt-close-5', projectType: 'operation', name: '교육결과보고서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '정개발', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_종료단계_교육결과보고서.docx', fileSize: '260 KB' },
+            { id: 'gt-close-6', projectType: 'operation', name: '프로젝트종료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', author: '안유경 PM', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_종료단계_프로젝트종료보고서.pdf', fileSize: '1.4 MB' },
+            { id: 'gt-close-7', projectType: 'operation', name: '고객만족도조사서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '이영희 PMO', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_종료단계_고객만족도조사서.docx', fileSize: '110 KB' },
+            { id: 'gt-close-8', projectType: 'operation', name: '프로젝트회고보고서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '안유경 PM', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_종료단계_프로젝트회고보고서.docx', fileSize: '220 KB' }
         ];
     }
 
