@@ -24,8 +24,28 @@ const busy = ref(false);
 const selected = computed(() => workflows.value.find((w) => w.id === selectedId.value) ?? null);
 
 const STATUS_CATEGORIES = ['TODO', 'IN_PROGRESS', 'DONE'] as const;
-const CONDITION_SCOPES = ['SELF', 'TASK', 'PROJECT', 'ACTION_ITEM', 'ISSUE', 'ACTOR'];
-const CONDITION_OPERATORS = ['GTE', 'EXISTS', 'CHANGED_SINCE', 'ROLE_IN', 'ALL_CHILDREN_IN', 'COMMENT_REQUIRED'];
+const STATUS_CATEGORY_LABELS: Record<string, string> = {
+  TODO: '대기', IN_PROGRESS: '진행중', DONE: '완료',
+};
+// 조건 어휘 — 저장값은 백엔드 코드 그대로, 화면 표기만 한글(ConditionEngine.SCOPES/OPERATORS).
+const CONDITION_SCOPES = [
+  { code: 'SELF', label: '이 항목 자신' },
+  { code: 'TASK', label: '태스크' },
+  { code: 'PROJECT', label: '프로젝트' },
+  { code: 'ACTION_ITEM', label: '액션아이템' },
+  { code: 'ISSUE', label: '이슈/리스크' },
+  { code: 'ACTOR', label: '실행자(로그인 사용자)' },
+];
+const CONDITION_OPERATORS = [
+  { code: 'EXISTS', label: '값이 있음' },
+  { code: 'GTE', label: '지정값 이상(≥)' },
+  { code: 'CHANGED_SINCE', label: '지정 시점 이후 변경됨' },
+  { code: 'ROLE_IN', label: '역할이 지정 목록에 포함' },
+  { code: 'ALL_CHILDREN_IN', label: '모든 하위 항목이 지정 상태' },
+  { code: 'COMMENT_REQUIRED', label: '코멘트 필수' },
+];
+const scopeLabel = (code: string) => CONDITION_SCOPES.find((s) => s.code === code)?.label ?? code;
+const operatorLabel = (code: string) => CONDITION_OPERATORS.find((o) => o.code === code)?.label ?? code;
 
 // 이 워크플로를 참조하는 카탈로그 노드 수(비활성 포함 — 마스터 기준)
 const usageById = computed(() => {
@@ -291,7 +311,7 @@ function transitionLabel(wf: Workflow | null, t: { fromStatusId: number; toStatu
                   <td class="num">{{ s.sortOrder }}</td>
                   <td class="name">{{ s.name }}</td>
                   <td class="code">{{ s.code || '—' }}</td>
-                  <td>{{ s.category || '—' }}</td>
+                  <td>{{ s.category ? (STATUS_CATEGORY_LABELS[s.category] ?? s.category) : '—' }}</td>
                   <td>{{ s.isInitial ? '●' : '' }}</td>
                   <td>{{ s.isFinal ? '●' : '' }}</td>
                   <td class="row-actions">
@@ -318,9 +338,9 @@ function transitionLabel(wf: Workflow | null, t: { fromStatusId: number; toStatu
               <ul v-if="t.conditions.length" class="cond-list">
                 <li v-for="c in t.conditions" :key="c.id" class="cond">
                   <span class="cond-txt">
-                    <b>{{ c.subjectScope }}</b>
-                    <template v-if="c.leftField">.{{ c.leftField }}</template>
-                    {{ c.operator }}
+                    <b>{{ scopeLabel(c.subjectScope) }}</b>
+                    <template v-if="c.leftField"> · {{ c.leftField }}</template>
+                    — {{ operatorLabel(c.operator) }}
                     <template v-if="c.params && Object.keys(c.params).length">{{ JSON.stringify(c.params) }}</template>
                   </span>
                   <span v-if="c.errorMessage" class="cond-msg">“{{ c.errorMessage }}”</span>
@@ -359,7 +379,7 @@ function transitionLabel(wf: Workflow | null, t: { fromStatusId: number; toStatu
         <div>
           <label class="label">분류</label>
           <select v-model="stCategory" class="input" :disabled="busy">
-            <option v-for="c in STATUS_CATEGORIES" :key="c" :value="c">{{ c }}</option>
+            <option v-for="c in STATUS_CATEGORIES" :key="c" :value="c">{{ STATUS_CATEGORY_LABELS[c] }}</option>
           </select>
         </div>
         <div>
@@ -405,13 +425,13 @@ function transitionLabel(wf: Workflow | null, t: { fromStatusId: number; toStatu
         <div>
           <label class="label">대상 범위</label>
           <select v-model="cScope" class="input" :disabled="busy">
-            <option v-for="s in CONDITION_SCOPES" :key="s" :value="s">{{ s }}</option>
+            <option v-for="s in CONDITION_SCOPES" :key="s.code" :value="s.code">{{ s.label }}</option>
           </select>
         </div>
         <div>
           <label class="label">연산자</label>
           <select v-model="cOperator" class="input" :disabled="busy">
-            <option v-for="o in CONDITION_OPERATORS" :key="o" :value="o">{{ o }}</option>
+            <option v-for="o in CONDITION_OPERATORS" :key="o.code" :value="o.code">{{ o.label }}</option>
           </select>
         </div>
       </div>
