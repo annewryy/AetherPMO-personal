@@ -5,7 +5,7 @@
 // - 신호 위젯(지연 카드·Today): API_BASE 전용(GET /api/dashboard/signals), 폴백에선 숨김+안내
 // - 진행률 바 차트·사업유형 도넛(SVG 직접)은 유지. 해결/총은 폴백에서도 클라이언트 집계.
 import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
 import type {
   Project, Issue, ActionItem, Artifact, DashboardSignals, DashboardWidgets, MyDashboard,
@@ -16,6 +16,7 @@ import StateNotice from '../components/StateNotice.vue';
 import ProgressBar from '../components/ProgressBar.vue';
 
 const router = useRouter();
+const route = useRoute();
 
 const projects = ref<Project[]>([]);
 const issues = ref<Issue[]>([]);
@@ -32,7 +33,18 @@ const loadError = ref<string | null>(null);
 const apiMode = computed(() => !!window.API_BASE);
 
 // ---- 0038 — 관리자용/실무진용 분리: WORKER는 기본 '내 업무', 그 외 '전체 현황' ----
-const view = ref<'admin' | 'my'>(currentUser.value?.role === 'WORKER' ? 'my' : 'admin');
+// 0041 — 탭 상태를 URL(?view=my)에 보존: 상세로 갔다가 뒤로가기 하면 보던 탭으로 복귀
+type ViewKey = 'admin' | 'my';
+const defaultView: ViewKey = currentUser.value?.role === 'WORKER' ? 'my' : 'admin';
+const view = computed<ViewKey>(() => {
+  const v = String(route.query.view ?? '');
+  return v === 'admin' || v === 'my' ? v : defaultView;
+});
+function selectView(key: ViewKey) {
+  if (view.value === key) return;
+  router.replace({ query: { ...route.query, view: key } });
+  if (key === 'my') void loadMy();
+}
 const my = ref<MyDashboard | null>(null);
 const myError = ref('');
 // 0038 — 카드 목록 공통: 총 건수 표시 + 상위 3건만 기본 표시, 펼치기 토글
@@ -174,6 +186,16 @@ const sortedSummary = computed<SummaryRow[]>(() => {
 });
 // 0039 — 기본 노출 10건(요청). 표가 길어져도 스크롤이 생기지 않는 높이.
 const SUMMARY_COLLAPSE_N = 10;
+// 0039 — 위젯 항목 클릭 → 해당 프로젝트의 상세 탭으로 딥링크.
+//   회의록은 상세가 프로젝트 상세 안의 드로어라 ?meeting= 쿼리로 열고,
+//   공문은 단독 상세 화면이 없어 소속 프로젝트의 공문 탭으로 보낸다.
+function openMeeting(m: { projectId: number; meetingId: number }) {
+  router.push({ path: `/projects/${m.projectId}`, query: { tab: 'meeting-minutes', meeting: String(m.meetingId) } });
+}
+function openOfficialDoc(d: { projectId: number }) {
+  router.push({ path: `/projects/${d.projectId}`, query: { tab: 'official-docs' } });
+}
+
 const summaryVisible = computed(() =>
   (expanded.value['summary'] ? sortedSummary.value : sortedSummary.value.slice(0, SUMMARY_COLLAPSE_N)));
 
@@ -278,8 +300,8 @@ onMounted(async () => {
 
     <!-- 0038 — 관리자용(전체 현황) / 실무진용(내 업무) 분리. WORKER 기본=내 업무 -->
     <div v-if="apiMode && isAuthenticated" class="view-tabs" role="tablist">
-      <button class="vtab" :class="{ on: view === 'admin' }" role="tab" @click="view = 'admin'">전체 현황 (관리자)</button>
-      <button class="vtab" :class="{ on: view === 'my' }" role="tab" @click="view = 'my'; loadMy()">내 업무 (실무)</button>
+      <button class="vtab" :class="{ on: view === 'admin' }" role="tab" @click="selectView('admin')">전체 현황 (관리자)</button>
+      <button class="vtab" :class="{ on: view === 'my' }" role="tab" @click="selectView('my')">내 업무 (실무)</button>
     </div>
 
     <!-- ==================== 실무진용: 내 업무 ==================== -->
@@ -445,7 +467,7 @@ onMounted(async () => {
         <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
         <div v-else-if="!widgets || widgets.recent.officialDocs.length === 0" class="card-empty">등록된 공문이 없습니다.</div>
         <ul v-else class="mini-list">
-          <li v-for="d in visibleOf('rDocs', widgets.recent.officialDocs)" :key="d.docId" class="mini-item" @click="router.push('/official-docs')">
+          <li v-for="d in visibleOf('rDocs', widgets.recent.officialDocs)" :key="d.docId" class="mini-item" @click="openOfficialDoc(d)">
             <span v-if="d.currentStatus" class="due-badge due-today">{{ d.currentStatus }}</span>
             <span class="mini-title">{{ d.title }}</span>
             <span class="mini-meta">
@@ -461,7 +483,7 @@ onMounted(async () => {
         <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
         <div v-else-if="!widgets || widgets.recent.meetings.length === 0" class="card-empty">등록된 회의록이 없습니다.</div>
         <ul v-else class="mini-list">
-          <li v-for="m in visibleOf('rMeet', widgets.recent.meetings)" :key="m.meetingId" class="mini-item" @click="router.push('/meeting-minutes')">
+          <li v-for="m in visibleOf('rMeet', widgets.recent.meetings)" :key="m.meetingId" class="mini-item" @click="openMeeting(m)">
             <span class="mini-title">{{ m.title }}</span>
             <span class="mini-meta">
                 {{ m.projectName }}<template v-if="m.location"> · {{ m.location }}</template> · {{ fmtDate(m.meetDate) }}
@@ -592,7 +614,7 @@ onMounted(async () => {
           <div v-if="widgetsError" class="card-empty">위젯을 불러오지 못했습니다.</div>
           <div v-else-if="!widgets || widgets.recent.meetings.length === 0" class="card-empty">등록된 회의록이 없습니다.</div>
           <ul v-else class="mini-list">
-            <li v-for="m in visibleOf('rMeet', widgets.recent.meetings)" :key="m.meetingId" class="mini-item" @click="router.push('/meeting-minutes')">
+            <li v-for="m in visibleOf('rMeet', widgets.recent.meetings)" :key="m.meetingId" class="mini-item" @click="openMeeting(m)">
               <span class="mini-title">{{ m.title }}</span>
               <span class="mini-meta">
                 {{ m.projectName }}<template v-if="m.location"> · {{ m.location }}</template> · {{ fmtDate(m.meetDate) }}

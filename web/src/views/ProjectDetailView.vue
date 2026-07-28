@@ -209,6 +209,11 @@ function openMeeting(id: number) {
 }
 function closeMeetingPanel() {
   openMeetingId.value = null;
+  if (route.query.meeting) {
+    const q = { ...route.query };
+    delete q.meeting;
+    router.replace({ query: q });
+  }
 }
 async function onMeetingChanged() {
   await reloadMeetings();
@@ -513,12 +518,21 @@ async function loadProject() {
   }
   await loadTab(activeTab.value);
   applyPanelQuery();
+  applyMeetingQuery();
+}
+
+// 0039 — 대시보드 '최근 회의록'에서 ?meeting=<id>로 진입하면 회의록 상세 드로어를 바로 연다.
+function applyMeetingQuery() {
+  const raw = Number(route.query.meeting);
+  if (Number.isFinite(raw) && raw > 0) openMeetingId.value = raw;
+  else if (!route.query.meeting) openMeetingId.value = null;
 }
 
 watch(projectId, loadProject, { immediate: true });
 onUnmounted(() => setCurrentProjectStage(null));
 watch(activeTab, (t) => loadTab(t));
 watch(() => route.query.panel, applyPanelQuery);
+watch(() => route.query.meeting, applyMeetingQuery);
 </script>
 
 <template>

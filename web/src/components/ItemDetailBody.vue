@@ -603,17 +603,6 @@ function onFilePicked(e: Event) {
         </div>
         <div><dt>마감일</dt><dd>{{ fmtDate(artifact?.dueDate) }}</dd></div>
         <div><dt>제출일</dt><dd>{{ artifact?.submitDate || '—' }}</dd></div>
-        <!-- 0038 — 산출물 파일: 템플릿 기반 착수(다운로드) → 수정본 업로드(버전 증가) → 최신본 다운로드 -->
-        <div class="wide"><dt>파일</dt>
-          <dd class="file-actions">
-            <button class="mini-btn" type="button" :disabled="fileBusy" @click="downloadTemplate">템플릿 다운로드</button>
-            <button class="mini-btn" type="button" :disabled="fileBusy" @click="fileInput?.click()">수정본 업로드</button>
-            <button class="mini-btn" type="button" :disabled="fileBusy" @click="downloadCurrent">최신 파일</button>
-            <input ref="fileInput" type="file" class="file-hidden" @change="onFilePicked" />
-            <span v-if="fileMsg" class="file-ok">{{ fileMsg }}</span>
-            <span v-if="fileErr" class="file-err">{{ fileErr }}</span>
-          </dd>
-        </div>
       </template>
 
       <template v-else-if="kind === 'task'">
@@ -669,6 +658,36 @@ function onFilePicked(e: Event) {
         </div>
       </template>
     </dl>
+
+    <!-- 0039 — 산출물은 파일이 핵심 작업이라 dd 안의 작은 링크 버튼에서 전용 패널로 승격.
+         템플릿 받기 → 작업 → 수정본 업로드(버전 증가) → 최신본 받기 흐름을 그대로 노출한다. -->
+    <section v-if="kind === 'artifact'" class="file-panel">
+      <div class="fp-head">
+        <h3 class="fp-title">산출물 파일</h3>
+        <span class="fp-current">
+          <template v-if="artifact?.fileName">
+            현재 파일: <b>{{ artifact.fileName }}</b>
+            <template v-if="artifact?.version"> (v{{ artifact.version }})</template>
+          </template>
+          <template v-else>업로드된 파일이 없습니다 — 템플릿을 받아 작성 후 업로드하세요.</template>
+        </span>
+      </div>
+      <div class="fp-actions">
+        <button class="btn btn-primary fp-btn" type="button" :disabled="fileBusy" @click="fileInput?.click()">
+          ⬆ 수정본 업로드
+        </button>
+        <button class="btn fp-btn" type="button" :disabled="fileBusy || !artifact?.fileName" @click="downloadCurrent">
+          ⬇ 최신 파일 받기
+        </button>
+        <button class="btn fp-btn ghost" type="button" :disabled="fileBusy" @click="downloadTemplate">
+          템플릿 받기
+        </button>
+        <input ref="fileInput" type="file" class="file-hidden" @change="onFilePicked" />
+      </div>
+      <p v-if="fileBusy" class="fp-msg">처리 중…</p>
+      <p v-else-if="fileMsg" class="fp-msg ok">{{ fileMsg }}</p>
+      <p v-else-if="fileErr" class="fp-msg err">{{ fileErr }}</p>
+    </section>
 
     <!-- 상세내용(이슈=검토/액션=확인 코멘트) — 읽기 전용(백엔드 수정 계약 없음) -->
     <div v-if="kind === 'issue' || kind === 'action'" class="detail-field">
@@ -891,6 +910,22 @@ function onFilePicked(e: Event) {
 .file-hidden { display: none; }
 .file-ok { font-size: 12px; color: var(--green); }
 .file-err { font-size: 12px; color: var(--red); }
+
+/* 0039 — 산출물 파일 전용 패널(강조) */
+.file-panel {
+  display: flex; flex-direction: column; gap: 10px;
+  border: 1px solid var(--accent); border-radius: 10px; padding: 12px 14px;
+  background: rgba(139, 92, 246, 0.06);
+}
+.fp-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.fp-title { font-size: 14px; margin: 0; }
+.fp-current { font-size: 12.5px; color: var(--muted); }
+.fp-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.fp-btn { font-size: 13.5px; font-weight: 600; padding: 8px 14px; }
+.fp-btn.ghost { color: var(--muted); }
+.fp-msg { margin: 0; font-size: 12.5px; color: var(--muted); }
+.fp-msg.ok { color: var(--green); }
+.fp-msg.err { color: var(--red); }
 
 .select-in {
   background: var(--panel-2, var(--panel)); border: 1px solid var(--border); border-radius: 6px;
