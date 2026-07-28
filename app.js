@@ -4754,51 +4754,32 @@ class AetherPMO {
        ========================================================================== */
     renderDashboard() {
         this.updateProjectsOverdueStatus();
+        this.dashboardMode = 'classic';
 
-        if (this.dashboardMode === 'ai-portal') {
-            const portalView = document.getElementById('ai-first-portal-view');
-            const classicView = document.getElementById('classic-dashboard-view');
-            if (portalView) portalView.style.display = 'flex';
-            if (classicView) classicView.style.display = 'none';
+        const portalView = document.getElementById('ai-first-portal-view');
+        const miniBar = document.getElementById('portal-kpi-mini-bar');
+        const classicView = document.getElementById('classic-dashboard-view');
 
-            const titleText = document.getElementById('dashboard-title-text');
-            const subtitleText = document.getElementById('dashboard-subtitle-text');
-            if (titleText) {
-                titleText.innerHTML = '<i data-lucide="sparkles" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> Aether AI First Portal';
-            }
-            if (subtitleText) {
-                subtitleText.textContent = 'AI 에이전트가 주도하는 지능형 사업관리 커맨드 센터';
-            }
+        if (portalView) portalView.style.display = 'none';
+        if (miniBar) miniBar.style.display = 'none';
+        if (classicView) classicView.style.display = 'flex';
 
-            const toggleBtn = document.getElementById('btn-toggle-dashboard-mode');
-            if (toggleBtn) {
-                toggleBtn.innerHTML = '<i data-lucide="layout-dashboard" style="width:14px; height:14px; margin-right:4px;"></i> 기존 대시보드 보기';
-            }
-
-            this.renderAIPortal();
-        } else {
-            const portalView = document.getElementById('ai-first-portal-view');
-            const classicView = document.getElementById('classic-dashboard-view');
-            if (portalView) portalView.style.display = 'none';
-            if (classicView) classicView.style.display = 'flex';
-
-            const titleText = document.getElementById('dashboard-title-text');
-            const subtitleText = document.getElementById('dashboard-subtitle-text');
-            const role = this.currentUser?.role;
-            const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
-            if (titleText) {
-                titleText.innerHTML = isAdmin
-                    ? '<i data-lucide="layout-dashboard" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> Executive Dashboard'
-                    : '<i data-lucide="layout-dashboard" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> 통합 PMO 대시보드';
-            }
-            if (subtitleText) {
-                subtitleText.textContent = isAdmin
-                    ? '포트폴리오 전체 현황 및 관리자 Action Center'
-                    : '전체 프로젝트 진행 상태 및 사업 관리 요약';
-            }
-
-            this.renderClassicDashboard();
+        const titleText = document.getElementById('dashboard-title-text');
+        const subtitleText = document.getElementById('dashboard-subtitle-text');
+        const role = this.currentUser?.role;
+        const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
+        if (titleText) {
+            titleText.innerHTML = isAdmin
+                ? '<i data-lucide="layout-dashboard" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> Executive Dashboard'
+                : '<i data-lucide="layout-dashboard" class="text-primary mr-1" style="width:24px; height:24px; vertical-align:middle;"></i> 통합 PMO 대시보드';
         }
+        if (subtitleText) {
+            subtitleText.textContent = isAdmin
+                ? '포트폴리오 전체 현황 및 관리자 Action Center'
+                : '전체 프로젝트 진행 상태 및 사업 관리 요약';
+        }
+
+        this.renderClassicDashboard();
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
