@@ -7581,6 +7581,7 @@ class AetherPMO {
             ...updateData
         };
 
+        this.syncBiddingTasksByBidStatus(targetId, updateData.bidding_status || nextStatus);
         await this.saveState('project_upsert', updatedProject);
         return updatedProject;
     }
@@ -9228,6 +9229,68 @@ class AetherPMO {
     /* ==========================================================================
        AETHER PMO BIDDING SCHEDULE (제안 Task, WBS, 간트) SINGLE SOURCE MODULE
        ========================================================================== */
+
+    
+    /* ==========================================================================
+       BIDDING TASKS STATUS AUTO-SYNC ON PROPOSAL SUBMISSION MODULE
+       ========================================================================== */
+
+    recalculateBiddingWbsProgress(tasks) {
+        if (!Array.isArray(tasks)) return;
+        const parentTasks = tasks.filter(t => t.type === 'GROUP' || t.isParent);
+        parentTasks.forEach(parent => {
+            const children = tasks.filter(child => String(child.parentId) === String(parent.id));
+            if (!children.length) return;
+
+            const totalProg = children.reduce((sum, child) => sum + Number(child.progress || 0), 0);
+            parent.progress = Math.round(totalProg / children.length);
+            parent.status = parent.progress === 100 ? 'COMPLETED' : 'IN_PROGRESS';
+        });
+    }
+
+    syncBiddingTasksByBidStatus(projectId, bidStatus) {
+        const projectKey = String(projectId);
+        const normStatus = this.normalizeBiddingStatus(bidStatus);
+
+        console.log('[syncBiddingTasksByBidStatus]', { projectId: projectKey, rawStatus: bidStatus, normStatus: normStatus });
+
+        if (normStatus === 'proposal_submitted' || normStatus === 'won') {
+            const tasks = this.getBiddingTasks(projectKey);
+
+            if (Array.isArray(tasks)) {
+                tasks.forEach(task => {
+                    if (task.status === 'NOT_APPLICABLE' || task.progressState === 'NOT_APPLICABLE') {
+                        return; // Exclude N/A tasks
+                    }
+                    task.status = 'COMPLETED';
+                    task.progress = 100;
+                    task.completedAt = task.completedAt || new Date().toISOString();
+                });
+
+                this.recalculateBiddingWbsProgress(tasks);
+
+                // Persist state to LocalStorage
+                try {
+                    localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+                } catch(e) {}
+
+                // Refresh active schedule view
+                this.refreshBiddingScheduleViews(projectKey);
+            }
+        }
+    }
+
+    refreshBiddingScheduleViews(projectId) {
+        const activeTab = this.activeDetailTab;
+        if (activeTab === 'bidding-tasks' && typeof this.renderBiddingTasksTab === 'function') {
+            this.renderBiddingTasksTab(projectId);
+        } else if (activeTab === 'bidding-wbs' && typeof this.renderBiddingWbsTab === 'function') {
+            this.renderBiddingWbsTab(projectId);
+        } else if (activeTab === 'bidding-gantt' && typeof this.renderBiddingGanttTab === 'function') {
+            this.renderBiddingGanttTab(projectId);
+        }
+    }
+
 
     renderMissingBiddingTabError(containerId, tabName) {
         console.error(`[Bidding] ${tabName} renderer is not defined`);
@@ -13089,7 +13152,8 @@ class AetherPMO {
                 }
             } else {
                 if (targetProjectId && (this.activeView === 'project-detail' || (window.location.hash && window.location.hash.includes('project-detail')))) {
-                    this.renderProjectDetail(targetProjectId);
+                    this.syncBiddingTasksByBidStatus(targetProjectId, savedProject?.bidding_status || savedProject?.biddingStatus || savedProject?.bidStatus);
+        this.renderProjectDetail(targetProjectId);
                 } else {
                     this.handleRouting();
                 }
