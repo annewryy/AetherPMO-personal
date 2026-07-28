@@ -337,7 +337,9 @@ public class DashboardWidgetService {
                 SELECT i.issue_id, i.project_id, p.project_name, i.title
                   FROM pms_issue i JOIN pms_project p ON p.project_id = i.project_id
                  WHERE i.type = '리스크' AND i.status <> '완료' AND p.status <> '완료'
-                   AND NOT EXISTS (SELECT 1 FROM pms_action_item a WHERE a.related_issue_id = i.issue_id)
+                   AND NOT EXISTS (SELECT 1 FROM pms_entity_link el
+                                    WHERE el.link_type = 'RELATED' AND el.src_type = 'ISSUE'
+                                      AND el.src_id = i.issue_id AND el.dst_type = 'ACTION_ITEM')
                  ORDER BY FIELD(i.priority, '상', '중', '하'), i.issue_id""",
                 rs -> { out.add(reco(rs.getLong(2), s(rs.getString(3)),
                         "리스크 '" + s(rs.getString(4)) + "' 대응 액션 등록", "ISSUE", rs.getLong(1))); });

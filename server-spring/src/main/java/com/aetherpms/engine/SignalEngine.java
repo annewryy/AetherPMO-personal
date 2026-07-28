@@ -133,11 +133,14 @@ public class SignalEngine {
         SELECT i.*, p.project_name FROM pms_issue i JOIN pms_project p ON p.project_id = i.project_id
          WHERE i.type = '리스크' AND i.status <> '완료' AND p.status <> '완료' ORDER BY i.issue_id
         """;
-    // 0039 — 이슈↔액션아이템은 이제 N:M 링크 테이블(pms_action_item_issue_link)이 원본.
-    //   레거시 related_issue_id 단일 컬럼은 V31에서 이 테이블로 백필됐고 신규 등록은 더 이상 채우지 않는다.
+    // 0040 — 이슈↔액션아이템은 단일 링크 테이블(pms_entity_link)이 원본.
+    //   레거시 related_issue_id 단일 컬럼은 V31에서 백필됐고 신규 등록은 더 이상 채우지 않는다.
+    //   ISSUE(rank 3) < ACTION_ITEM(rank 5)이라 이슈는 항상 src 쪽 — 양방향 OR 불필요.
     private static final String RISK_ACTION_COUNTS_SQL =
-            "SELECT issue_id AS related_issue_id, CAST(COUNT(*) AS SIGNED) AS cnt "
-          + "FROM pms_action_item_issue_link GROUP BY issue_id";
+            "SELECT src_id AS issue_id, CAST(COUNT(*) AS SIGNED) AS cnt "
+          + "FROM pms_entity_link "
+          + "WHERE link_type = 'RELATED' AND src_type = 'ISSUE' AND dst_type = 'ACTION_ITEM' "
+          + "GROUP BY src_id";
 
     // =====================================================================
     // 지연 신호 (ProjectDelaySignal)
@@ -631,7 +634,7 @@ public class SignalEngine {
             if (actionCountCache != null) return actionCountCache;
             actionCountCache = new LinkedHashMap<>();
             for (Map<String, Object> r : jdbc.queryForList(RISK_ACTION_COUNTS_SQL)) {
-                actionCountCache.put(((Number) r.get("related_issue_id")).longValue(),
+                actionCountCache.put(((Number) r.get("issue_id")).longValue(),
                         ((Number) r.get("cnt")).intValue());
             }
             return actionCountCache;

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.aetherpms.auth.AuthContext;
 import com.aetherpms.auth.ProjectScopeService;
 import com.aetherpms.common.ApiException;
+import com.aetherpms.common.LinkEntity;
 import com.aetherpms.common.LinkTableSupport;
 import com.aetherpms.common.ReadMappers;
 import com.aetherpms.common.ReadSupport;
@@ -66,12 +67,9 @@ public class MeetingReadController {
         return out;
     }
 
+    /** 0040 — 이웃 타입 4종(issueIds/taskIds/deliverableIds/actionItemIds)을 쿼리 1회로 부착. */
     private void attachLinks(List<Map<String, Object>> rows) {
-        LinkTableSupport.attach(jdbc, rows, "id", "pms_meeting_issue_link", "meeting_id", "issue_id", "issueIds");
-        LinkTableSupport.attach(jdbc, rows, "id", "pms_meeting_task_link", "meeting_id", "task_id", "taskIds");
-        LinkTableSupport.attach(jdbc, rows, "id", "pms_meeting_deliverable_link", "meeting_id",
-                "deliverable_id", "deliverableIds");
-        LinkTableSupport.attach(jdbc, rows, "id", "pms_meeting_action_link", "meeting_id",
-                "action_id", "actionItemIds");
+        LinkTableSupport.attachAll(jdbc, rows, "id", LinkEntity.MEETING,
+                List.of(LinkEntity.ISSUE, LinkEntity.TASK, LinkEntity.DELIVERABLE, LinkEntity.ACTION_ITEM));
     }
 }

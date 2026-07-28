@@ -78,33 +78,32 @@ public class WorkSurfaceService {
     }
 
     // =====================================================================
-    // 0039 재개정 — 이슈/액션아이템의 관련항목 매핑(N:M). 컬럼이 아니라 링크 테이블이라
+    // 0039 재개정 / 0040 통합 — 이슈/액션아이템의 관련항목 매핑(N:M). 컬럼이 아니라 링크라
     //   patch()의 일반 컬럼 화이트리스트 밖에서 별도 동기화한다. jsonField는 PATCH/POST
-    //   본문 키, linkTable(fromCol,toCol)은 pms_*_link 테이블, targetTable/targetIdCol은
-    //   같은 프로젝트 소속 검증 대상.
+    //   본문 키, other는 상대 엔티티(저장은 단일 pms_entity_link, 응답 키·검증 대상 테이블은
+    //   LinkEntity에서 파생).
     // =====================================================================
-    private record LinkFieldSpec(String jsonField, String outKey, String linkTable, String fromCol, String toCol,
-                                 String targetTable, String targetIdCol) {}
+    private record LinkFieldSpec(String jsonField, LinkEntity other) {}
 
     private static final Map<Entity, List<LinkFieldSpec>> LINK_FIELDS = Map.of(
             Entity.ISSUE, List.of(
-                    new LinkFieldSpec("task_ids", "taskIds", "pms_issue_task_link", "issue_id", "task_id",
-                            "pms_task", "task_id"),
-                    new LinkFieldSpec("deliverable_ids", "deliverableIds", "pms_issue_deliverable_link",
-                            "issue_id", "deliverable_id", "pms_deliverable", "deliverable_id"),
-                    new LinkFieldSpec("meeting_ids", "meetingIds", "pms_meeting_issue_link", "issue_id", "meeting_id",
-                            "pms_meeting_minutes", "meeting_id"),
-                    new LinkFieldSpec("action_ids", "actionItemIds", "pms_action_item_issue_link",
-                            "issue_id", "action_id", "pms_action_item", "action_id")),
+                    new LinkFieldSpec("task_ids", LinkEntity.TASK),
+                    new LinkFieldSpec("deliverable_ids", LinkEntity.DELIVERABLE),
+                    new LinkFieldSpec("meeting_ids", LinkEntity.MEETING),
+                    new LinkFieldSpec("action_ids", LinkEntity.ACTION_ITEM)),
             Entity.ACTION_ITEM, List.of(
-                    new LinkFieldSpec("task_ids", "taskIds", "pms_action_item_task_link", "action_id", "task_id",
-                            "pms_task", "task_id"),
-                    new LinkFieldSpec("deliverable_ids", "deliverableIds", "pms_action_item_deliverable_link",
-                            "action_id", "deliverable_id", "pms_deliverable", "deliverable_id"),
-                    new LinkFieldSpec("issue_ids", "issueIds", "pms_action_item_issue_link", "action_id", "issue_id",
-                            "pms_issue", "issue_id"),
-                    new LinkFieldSpec("meeting_ids", "meetingIds", "pms_meeting_action_link", "action_id", "meeting_id",
-                            "pms_meeting_minutes", "meeting_id")));
+                    new LinkFieldSpec("task_ids", LinkEntity.TASK),
+                    new LinkFieldSpec("deliverable_ids", LinkEntity.DELIVERABLE),
+                    new LinkFieldSpec("issue_ids", LinkEntity.ISSUE),
+                    new LinkFieldSpec("meeting_ids", LinkEntity.MEETING)));
+
+    private static LinkEntity linkSelf(Entity cfg) {
+        return switch (cfg) {
+            case TASK -> LinkEntity.TASK;
+            case ISSUE -> LinkEntity.ISSUE;
+            case ACTION_ITEM -> LinkEntity.ACTION_ITEM;
+        };
+    }
 
     /** raw에서 이 엔티티의 링크 필드들을 떼어내고(있으면), 필드명→원본값 맵으로 반환. */
     private Map<String, Object> extractLinkFields(Entity cfg, Map<String, Object> raw) {
@@ -117,19 +116,18 @@ public class WorkSurfaceService {
 
     /** 검증 + 동기화(지정된 필드만) 후, outKey(camelCase) → 최종 id 목록(미지정 필드는 현재값)을 반환. */
     private Map<String, List<Long>> syncLinkFields(Entity cfg, long id, long projectId,
-                                                    Map<String, Object> linkRaw) {
+                                                    Map<String, Object> linkRaw, Actor actor) {
+        LinkEntity self = linkSelf(cfg);
+        String actorUid = actor == null ? null : actor.userId();
         Map<String, List<Long>> out = new LinkedHashMap<>();
         for (LinkFieldSpec spec : LINK_FIELDS.getOrDefault(cfg, List.of())) {
             if (linkRaw.containsKey(spec.jsonField())) {
                 List<Long> ids = LinkTableSupport.validateIds(jdbc, linkRaw.get(spec.jsonField()), spec.jsonField(),
-                        spec.targetTable(), spec.targetIdCol(), projectId);
-                LinkTableSupport.sync(jdbc, spec.linkTable(), spec.fromCol(), spec.toCol(), id, ids);
-                out.put(spec.outKey(), ids);
+                        spec.other(), projectId);
+                LinkTableSupport.sync(jdbc, self, id, spec.other(), ids, projectId, actorUid);
+                out.put(spec.other().outKey(), ids);
             } else {
-                out.put(spec.outKey(), jdbc.query(
-                        "SELECT " + spec.toCol() + " FROM " + spec.linkTable() + " WHERE " + spec.fromCol() + " = ? "
-                                + "ORDER BY " + spec.toCol(),
-                        (rs, i) -> rs.getLong(1), id));
+                out.put(spec.other().outKey(), LinkTableSupport.linked(jdbc, self, id, spec.other()));
             }
         }
         return out;
@@ -191,7 +189,7 @@ public class WorkSurfaceService {
         }
 
         // 0039 — 관련항목 매핑(N:M) 동기화. 필드 미지정이면 기존 유지(빈 배열이면 전체 해제).
-        Map<String, List<Long>> linkResult = syncLinkFields(cfg, id, projectId, linkRaw);
+        Map<String, List<Long>> linkResult = syncLinkFields(cfg, id, projectId, linkRaw, actor);
         if (!linkRaw.isEmpty()) {
             audit.write(cfg.type, id, projectId, "UPDATE", new ArrayList<>(linkRaw.keySet()), null,
                     linkResult, actor, "관련항목 매핑 수정");
@@ -338,7 +336,7 @@ public class WorkSurfaceService {
         long actionId = toLong(created.get("action_id"));
 
         // 0039 — 관련항목 매핑(N:M): task_ids/deliverable_ids/issue_ids/meeting_ids.
-        Map<String, List<Long>> linkResult = syncLinkFields(Entity.ACTION_ITEM, actionId, projectId, linkRaw);
+        Map<String, List<Long>> linkResult = syncLinkFields(Entity.ACTION_ITEM, actionId, projectId, linkRaw, actor);
 
         if (created.get("assignee_name") != null) {
             notify.notifyByName(projectId, created.get("assignee_name").toString(), "ASSIGNED",
@@ -388,21 +386,22 @@ public class WorkSurfaceService {
         requireProjectExists(projectId);
         // 0039 — 회의 ↔ 이슈/리스크·태스크·산출물 매핑(N:M) 검증(같은 프로젝트 소속만 허용).
         List<Long> issueIds = LinkTableSupport.validateIds(jdbc, b.get("issue_ids"), "issue_ids",
-                "pms_issue", "issue_id", projectId);
+                LinkEntity.ISSUE, projectId);
         List<Long> meetingTaskIds = LinkTableSupport.validateIds(jdbc, b.get("task_ids"), "task_ids",
-                "pms_task", "task_id", projectId);
+                LinkEntity.TASK, projectId);
         List<Long> deliverableIds = LinkTableSupport.validateIds(jdbc, b.get("deliverable_ids"), "deliverable_ids",
-                "pms_deliverable", "deliverable_id", projectId);
+                LinkEntity.DELIVERABLE, projectId);
         List<Long> actionIds = LinkTableSupport.validateIds(jdbc, b.get("action_ids"), "action_ids",
-                "pms_action_item", "action_id", projectId);
+                LinkEntity.ACTION_ITEM, projectId);
 
         fields.put("author_uid", actor.userId());
         Map<String, Object> created = WriteSupport.insertReturning(jdbc, "pms_meeting_minutes", "meeting_id", fields);
         long meetingId = toLong(created.get("meeting_id"));
-        LinkTableSupport.sync(jdbc, "pms_meeting_issue_link", "meeting_id", "issue_id", meetingId, issueIds);
-        LinkTableSupport.sync(jdbc, "pms_meeting_task_link", "meeting_id", "task_id", meetingId, meetingTaskIds);
-        LinkTableSupport.sync(jdbc, "pms_meeting_deliverable_link", "meeting_id", "deliverable_id", meetingId, deliverableIds);
-        LinkTableSupport.sync(jdbc, "pms_meeting_action_link", "meeting_id", "action_id", meetingId, actionIds);
+        String actorUid = actor.userId();
+        LinkTableSupport.sync(jdbc, LinkEntity.MEETING, meetingId, LinkEntity.ISSUE, issueIds, projectId, actorUid);
+        LinkTableSupport.sync(jdbc, LinkEntity.MEETING, meetingId, LinkEntity.TASK, meetingTaskIds, projectId, actorUid);
+        LinkTableSupport.sync(jdbc, LinkEntity.MEETING, meetingId, LinkEntity.DELIVERABLE, deliverableIds, projectId, actorUid);
+        LinkTableSupport.sync(jdbc, LinkEntity.MEETING, meetingId, LinkEntity.ACTION_ITEM, actionIds, projectId, actorUid);
 
         audit.write("MEETING_MINUTES", meetingId, projectId, "INSERT",
                 null, null, created, actor, "회의록 신규 등록");
@@ -473,27 +472,32 @@ public class WorkSurfaceService {
                     WriteSupport.pick(before, cols), WriteSupport.pick(after, cols), actor, "회의록 수정");
         }
 
+        String actorUid = actor == null ? null : actor.userId();
         List<Long> issueIds = hasIssueIds
-                ? LinkTableSupport.validateIds(jdbc, issueIdsRaw, "issue_ids", "pms_issue", "issue_id", projectId)
-                : linkedIds("pms_meeting_issue_link", "meeting_id", "issue_id", id);
+                ? LinkTableSupport.validateIds(jdbc, issueIdsRaw, "issue_ids", LinkEntity.ISSUE, projectId)
+                : LinkTableSupport.linked(jdbc, LinkEntity.MEETING, id, LinkEntity.ISSUE);
         List<Long> taskIds = hasTaskIds
-                ? LinkTableSupport.validateIds(jdbc, taskIdsRaw, "task_ids", "pms_task", "task_id", projectId)
-                : linkedIds("pms_meeting_task_link", "meeting_id", "task_id", id);
+                ? LinkTableSupport.validateIds(jdbc, taskIdsRaw, "task_ids", LinkEntity.TASK, projectId)
+                : LinkTableSupport.linked(jdbc, LinkEntity.MEETING, id, LinkEntity.TASK);
         List<Long> deliverableIds = hasDeliverableIds
                 ? LinkTableSupport.validateIds(jdbc, deliverableIdsRaw, "deliverable_ids",
-                    "pms_deliverable", "deliverable_id", projectId)
-                : linkedIds("pms_meeting_deliverable_link", "meeting_id", "deliverable_id", id);
+                    LinkEntity.DELIVERABLE, projectId)
+                : LinkTableSupport.linked(jdbc, LinkEntity.MEETING, id, LinkEntity.DELIVERABLE);
         List<Long> actionIds = hasActionIds
                 ? LinkTableSupport.validateIds(jdbc, actionIdsRaw, "action_ids",
-                    "pms_action_item", "action_id", projectId)
-                : linkedIds("pms_meeting_action_link", "meeting_id", "action_id", id);
-        if (hasIssueIds) LinkTableSupport.sync(jdbc, "pms_meeting_issue_link", "meeting_id", "issue_id", id, issueIds);
-        if (hasTaskIds) LinkTableSupport.sync(jdbc, "pms_meeting_task_link", "meeting_id", "task_id", id, taskIds);
+                    LinkEntity.ACTION_ITEM, projectId)
+                : LinkTableSupport.linked(jdbc, LinkEntity.MEETING, id, LinkEntity.ACTION_ITEM);
+        if (hasIssueIds) {
+            LinkTableSupport.sync(jdbc, LinkEntity.MEETING, id, LinkEntity.ISSUE, issueIds, projectId, actorUid);
+        }
+        if (hasTaskIds) {
+            LinkTableSupport.sync(jdbc, LinkEntity.MEETING, id, LinkEntity.TASK, taskIds, projectId, actorUid);
+        }
         if (hasDeliverableIds) {
-            LinkTableSupport.sync(jdbc, "pms_meeting_deliverable_link", "meeting_id", "deliverable_id", id, deliverableIds);
+            LinkTableSupport.sync(jdbc, LinkEntity.MEETING, id, LinkEntity.DELIVERABLE, deliverableIds, projectId, actorUid);
         }
         if (hasActionIds) {
-            LinkTableSupport.sync(jdbc, "pms_meeting_action_link", "meeting_id", "action_id", id, actionIds);
+            LinkTableSupport.sync(jdbc, LinkEntity.MEETING, id, LinkEntity.ACTION_ITEM, actionIds, projectId, actorUid);
         }
 
         Map<String, Object> out = RowMappers.mapMeeting(after);
@@ -502,11 +506,6 @@ public class WorkSurfaceService {
         out.put("deliverableIds", deliverableIds);
         out.put("actionItemIds", actionIds);
         return out;
-    }
-
-    private List<Long> linkedIds(String table, String fromCol, String toCol, long fromId) {
-        return jdbc.query("SELECT " + toCol + " FROM " + table + " WHERE " + fromCol + " = ? ORDER BY " + toCol,
-                (rs, i) -> rs.getLong(1), fromId);
     }
 
     // ---- 공용 헬퍼 --------------------------------------------------------
