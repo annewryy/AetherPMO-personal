@@ -21,7 +21,12 @@ import org.springframework.stereotype.Service;
 public class G2bNoticeService {
 
     private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final int MAX_RANGE_DAYS = 186; // 레거시 6개월 가드.
+    /**
+     * 나라장터 OpenAPI 조회기간 상한(실측). 초과하면 오류가 아니라 <b>빈 결과</b>가 조용히 돌아와
+     * 사용자에겐 "검색이 안 되는" 것으로 보인다 → 여기서 명확한 에러로 끊는다.
+     * (구 레거시 가드는 6개월(186일)이었으나 실제 API 동작과 어긋나 30일로 정정.)
+     */
+    private static final int MAX_RANGE_DAYS = 30;
 
     private final List<G2bNoticeSource> sources;
     private final G2bNoticeCache cache;
@@ -33,14 +38,23 @@ public class G2bNoticeService {
         this.props = props;
     }
 
-    /** 조회 결과: 페이징된 공고 목록 + 전체건수(필터 후). */
-    public record Result(List<BidNotice> items, int totalCount) {
+    /**
+     * 조회 결과.
+     *
+     * @param items       현재 페이지 공고
+     * @param totalCount  <b>우리가 들고 있는</b> 필터 후 건수 — 페이저는 이 값을 쓴다(실제 이동 가능 범위).
+     * @param sourceTotal 나라장터가 보고한 전체 건수. 수집 상한(300건)에 걸리면 totalCount보다 크다.
+     * @param truncated   수집 상한에 걸려 일부만 보여주는 중인지.
+     */
+    public record Result(List<BidNotice> items, int totalCount, int sourceTotal, boolean truncated) {
         public Map<String, Object> toDto() {
             List<Map<String, Object>> list = new ArrayList<>(items.size());
             for (BidNotice n : items) list.add(n.toDto());
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("notices", list);
             m.put("totalCount", totalCount);
+            m.put("sourceTotalCount", sourceTotal);
+            m.put("truncated", truncated);
             return m;
         }
     }
@@ -53,8 +67,10 @@ public class G2bNoticeService {
         }
         BidNoticeQuery q = normalize(raw);
 
-        // 1) 소스별 수집(캐시 기반).
+        // 1) 소스별 수집(캐시 기반). sourceTotal은 나라장터가 보고한 전체 건수의 합.
         List<BidNotice> collected = new ArrayList<>();
+        int sourceTotal = 0;
+        boolean truncated = false;
         for (G2bNoticeSource src : sources) {
             boolean wanted = switch (src.noticeType()) {
                 case BidNoticeQuery.TYPE_MAIN -> q.wantsMain();
@@ -62,7 +78,10 @@ public class G2bNoticeService {
                 default -> false;
             };
             if (!wanted || !src.isEnabled()) continue;
-            collected.addAll(fetchCached(src, q));
+            NoticeFetch f = fetchCached(src, q);
+            collected.addAll(f.items());
+            sourceTotal += f.sourceTotal();
+            truncated |= f.truncated();
         }
 
         // 2) 공고번호 기준 dedup(레거시 seenNoticeNos).
@@ -76,15 +95,18 @@ public class G2bNoticeService {
         int from = Math.max(0, (q.page() - 1) * q.limit());
         int to = Math.min(total, from + q.limit());
         List<BidNotice> pageItems = from >= total ? List.of() : filtered.subList(from, to);
-        return new Result(new ArrayList<>(pageItems), total);
+
+        // 로컬 검색어로 걸러낸 경우엔 상위 총건수와 직접 비교할 수 없다(상위는 미필터 기준).
+        //   → 잘림 표시는 "수집 자체가 상한에 걸렸는지"로만 판단하고, sourceTotal은 그대로 전달한다.
+        return new Result(new ArrayList<>(pageItems), total, Math.max(sourceTotal, total), truncated);
     }
 
-    private List<BidNotice> fetchCached(G2bNoticeSource src, BidNoticeQuery q) {
+    private NoticeFetch fetchCached(G2bNoticeSource src, BidNoticeQuery q) {
         // 기관/기간 단위 캐시(검색어는 로컬필터라 키에서 제외 — 같은 기관/기간의 재검색은 캐시 히트).
         String key = G2bNoticeCache.key(src.noticeType(), q.agencyName(), q.bgngDt(), q.endDt());
-        List<BidNotice> cached = cache.get(key);
+        NoticeFetch cached = cache.get(key);
         if (cached != null) return cached;
-        List<BidNotice> fetched = src.fetch(q);
+        NoticeFetch fetched = src.fetch(q);
         cache.put(key, fetched);
         return fetched;
     }
@@ -134,7 +156,8 @@ public class G2bNoticeService {
         }
         if (rangeExceeds(bgn, end)) {
             throw new G2bException(
-                "나라장터 공고 검색은 응답 지연 방지를 위해 최대 6개월 이내 기간만 조회할 수 있습니다.");
+                "나라장터 공고 검색은 최대 " + MAX_RANGE_DAYS + "일 이내 기간만 조회할 수 있습니다."
+                + " (나라장터 OpenAPI 제약 — 초과 시 결과가 비어 있게 반환됩니다.)");
         }
         String type = raw.noticeType() == null || raw.noticeType().isBlank()
                 ? BidNoticeQuery.TYPE_ALL : raw.noticeType().trim();

@@ -1,7 +1,5 @@
 package com.aetherpms.g2b;
 
-import java.util.List;
-
 /**
  * 공고 소스 어댑터 (설계 0016 §B) — 본공고/사전규격을 동일 인터페이스로 흡수.
  *
@@ -20,6 +18,9 @@ public interface G2bNoticeSource {
     /**
      * 외부 OpenAPI를 호출해 원시 공고 목록을 가져온다(캐시/페이징/로컬필터 전 단계).
      * 기간·기관·검색어 기준으로 수집만 담당. 실패/키없음 시 예외(G2bException).
+     *
+     * <p>수집은 상한(페이지 수)에서 끊기므로 반환값은 실제 수집분과 나라장터가 보고한
+     * 전체 건수를 함께 담는다({@link NoticeFetch}).
      */
-    List<BidNotice> fetch(BidNoticeQuery query);
+    NoticeFetch fetch(BidNoticeQuery query);
 }

@@ -45,11 +45,12 @@ public class MainNoticeSource implements G2bNoticeSource {
     }
 
     @Override
-    public List<BidNotice> fetch(BidNoticeQuery q) {
+    public NoticeFetch fetch(BidNoticeQuery q) {
         String inqryBgnDt = q.bgngDt() + "0000";
         String inqryEndDt = q.endDt() + "2359";
 
         List<BidNotice> out = new ArrayList<>();
+        int sourceTotal = 0; // 나라장터가 보고한 전체 건수(1페이지 응답 기준).
         for (int page = 1; page <= MAX_PAGES; page++) {
             MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
             params.add("serviceKey", props.getServiceKey());
@@ -78,12 +79,14 @@ public class MainNoticeSource implements G2bNoticeSource {
             if (xmlErr != null) {
                 throw new G2bException("나라장터 본공고 조회 실패 - " + xmlErr);
             }
+            if (page == 1) sourceTotal = G2bResponseParser.totalCount(body);
             List<Map<String, Object>> items = G2bResponseParser.extractItems(body);
             if (items.isEmpty()) break;
             for (Map<String, Object> it : items) out.add(map(it));
             if (items.size() < PAGE_SIZE) break; // 마지막 페이지.
         }
-        return out;
+        // totalCount를 못 읽었으면(구 응답/파싱실패) 수집분을 전체로 간주 — 잘림 표시가 뜨지 않게.
+        return new NoticeFetch(out, Math.max(sourceTotal, out.size()));
     }
 
     /** 레거시 필드 매핑 그대로. */

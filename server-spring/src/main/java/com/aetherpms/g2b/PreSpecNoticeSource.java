@@ -58,10 +58,10 @@ public class PreSpecNoticeSource implements G2bNoticeSource {
     }
 
     @Override
-    public List<BidNotice> fetch(BidNoticeQuery q) {
+    public NoticeFetch fetch(BidNoticeQuery q) {
         if (!isEnabled()) {
             // 비활성: 지어내지 않고 빈 목록. all 조회 시 본공고만 나온다.
-            return List.of();
+            return NoticeFetch.empty();
         }
         String inqryBgnDt = q.bgngDt() + "0000";
         String inqryEndDt = q.endDt() + "2359";
@@ -94,7 +94,8 @@ public class PreSpecNoticeSource implements G2bNoticeSource {
         List<Map<String, Object>> items = G2bResponseParser.extractItems(body);
         List<BidNotice> out = new ArrayList<>(items.size());
         for (Map<String, Object> it : items) out.add(map(it));
-        return out;
+        // 사전규격은 1페이지(100건)만 수집 — 상위 총건수를 함께 실어 잘림을 화면에서 알 수 있게 한다.
+        return new NoticeFetch(out, Math.max(G2bResponseParser.totalCount(body), out.size()));
     }
 
     /** TODO(확정 필요): 실 응답으로 필드명 검증 후 확정. */

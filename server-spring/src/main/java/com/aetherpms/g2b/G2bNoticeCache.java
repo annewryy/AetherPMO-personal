@@ -1,6 +1,5 @@
 package com.aetherpms.g2b;
 
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -18,7 +17,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class G2bNoticeCache {
 
-    private record Entry(long expiresAt, List<BidNotice> value) {}
+    private record Entry(long expiresAt, NoticeFetch value) {}
 
     private final Map<String, Entry> store = new ConcurrentHashMap<>();
     private final G2bProperties props;
@@ -33,7 +32,7 @@ public class G2bNoticeCache {
     }
 
     /** 캐시된 값(유효) 반환, 없거나 만료면 null. */
-    public List<BidNotice> get(String key) {
+    public NoticeFetch get(String key) {
         Entry e = store.get(key);
         if (e == null) return null;
         if (System.currentTimeMillis() > e.expiresAt()) {
@@ -43,7 +42,7 @@ public class G2bNoticeCache {
         return e.value();
     }
 
-    public void put(String key, List<BidNotice> value) {
+    public void put(String key, NoticeFetch value) {
         long ttl = Math.max(0, props.getCacheTtlSeconds()) * 1000L;
         store.put(key, new Entry(System.currentTimeMillis() + ttl, value));
     }

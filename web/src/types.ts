@@ -1143,7 +1143,12 @@ export interface BidNoticeFilters {
 // GET /api/bid-notices 응답 — 목록 + 총건수(페이징).
 export interface BidNoticeResult {
   notices: BidNotice[];
+  /** 백엔드가 실제로 수집해 들고 있는 건수. 페이저가 이동할 수 있는 범위. */
   totalCount: number;
+  /** 나라장터가 보고한 전체 건수. 수집 상한(300건)에 걸리면 totalCount보다 크다. */
+  sourceTotalCount?: number;
+  /** 수집 상한에 걸려 일부만 보여주는 중인지. true면 기간·기관·검색어로 좁혀야 한다. */
+  truncated?: boolean;
 }
 
 // 공고규격서 첨부 1건 (BidNoticeDetail.specDocs[] 항목).

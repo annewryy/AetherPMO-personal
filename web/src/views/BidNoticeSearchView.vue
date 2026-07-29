@@ -5,7 +5,7 @@
 //  - 검색: 키워드·기간(선택). 조회는 서버 호출(dataClient.bidNotices.search) — 클라 필터 금지.
 //  - 결과 그리드: 공고번호·유형 Badge·공고명·기관·공고일·마감일·예산·상세링크 + totalCount·페이징.
 //  - 백엔드 전용(레거시 폴백 없음): API_BASE 없으면 조회 불가 안내.
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
 import { absoluteRowNo } from '../lib/pagination';
@@ -27,6 +27,10 @@ const AGENCY_DIRECT = '__direct__'; // 드롭다운 특수항목: 직접입력
 const agencies = ref<BidAgency[]>([]);
 const notices = ref<BidNotice[]>([]);
 const totalCount = ref(0);
+// 나라장터 전체 건수 / 수집 상한(300건)에 걸려 잘렸는지. 잘림이면 화면에 명시한다
+//   — 예전엔 수집분만 "총 N건"으로 보여줘서 5,000건짜리 조회가 300건으로 보였다.
+const sourceTotalCount = ref(0);
+const truncated = ref(false);
 const loading = ref(false);
 const loadError = ref<string | null>(null);
 const searched = ref(false); // 한 번이라도 조회했는지(초기 vs 결과 없음 구분)
@@ -38,8 +42,50 @@ const selectedAgency = ref<string>(''); // '' = 전체(기관 무필터). 기관
 const directAgency = ref('');                       // "직접입력" 선택 시 자유텍스트
 const noticeType = ref<BidNoticeType>('all');
 const keyword = ref('');
-const bgngDt = ref(''); // <input type="date"> → yyyy-MM-dd
-const endDt = ref('');
+// 나라장터 OpenAPI 조회기간 상한. 초과하면 오류가 아니라 "빈 결과"로 조용히 돌아오므로
+//   (사용자에겐 '검색이 안 되는' 것으로 보인다) UI에서 30일을 넘기지 못하게 강제한다.
+const MAX_RANGE_DAYS = 30;
+
+// 기본 조회기간: 시작=30일 전, 종료=오늘. 빈 값으로 두면 백엔드가 대신 채우지만
+//   화면에 어떤 기간으로 조회 중인지 안 보여 "날짜가 고정된 것처럼" 읽힌다 → 명시적으로 채운다.
+const bgngDt = ref(addDays(todayYmd(), -MAX_RANGE_DAYS)); // <input type="date"> → yyyy-MM-dd
+const endDt = ref(todayYmd());
+
+/** 로컬 타임존 기준 yyyy-MM-dd (toISOString은 UTC라 새벽에 하루 밀림). */
+function toYmd(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function todayYmd(): string {
+  return toYmd(new Date());
+}
+
+/** yyyy-MM-dd 에 n일 가감(음수 가능). 월/연 경계는 Date가 처리. */
+function addDays(ymd: string, n: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + n);
+  return toYmd(dt);
+}
+
+/** 시작일 기준 선택 가능한 최대 종료일(= 시작일 + 30일). 시작일이 비면 제한 없음. */
+const endDtMax = computed(() => (bgngDt.value ? addDays(bgngDt.value, MAX_RANGE_DAYS) : ''));
+
+// 시작일을 바꾸면 종료일을 [시작일, 시작일+30일] 안으로 끌어당긴다.
+watch(bgngDt, (v) => {
+  if (!v) return;
+  const max = addDays(v, MAX_RANGE_DAYS);
+  if (!endDt.value || endDt.value > max) endDt.value = max;
+  else if (endDt.value < v) endDt.value = v;
+});
+
+// 종료일을 직접 바꿔 30일을 넘기면 상한으로 되돌린다(캘린더 max와 이중 방어).
+watch(endDt, (v) => {
+  if (!v || !bgngDt.value) return;
+  const max = addDays(bgngDt.value, MAX_RANGE_DAYS);
+  if (v > max) endDt.value = max;
+});
 
 // --- 페이징 ---
 const page = ref(1);
@@ -87,11 +133,15 @@ async function runSearch() {
     });
     notices.value = result.notices;
     totalCount.value = result.totalCount;
+    sourceTotalCount.value = result.sourceTotalCount ?? result.totalCount;
+    truncated.value = result.truncated ?? false;
     searched.value = true;
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e);
     notices.value = [];
     totalCount.value = 0;
+    sourceTotalCount.value = 0;
+    truncated.value = false;
   } finally {
     loading.value = false;
   }
@@ -199,13 +249,20 @@ onMounted(async () => {
         </label>
         <label class="field">
           <span class="flabel">공고일(종료)</span>
-          <input v-model="endDt" class="in" type="date" :disabled="!apiMode" />
+          <input
+            v-model="endDt"
+            class="in"
+            type="date"
+            :min="bgngDt || undefined"
+            :max="endDtMax || undefined"
+            :disabled="!apiMode"
+          />
         </label>
         <div class="btns">
           <button class="btn btn-primary" :disabled="!apiMode || loading" @click="search">조회</button>
         </div>
       </div>
-      <p class="hint">기간을 비우면 최근 30일을 조회합니다.</p>
+      <p class="hint">나라장터 제약으로 조회기간은 최대 30일입니다. 시작일을 바꾸면 종료일이 자동으로 맞춰집니다.</p>
     </div>
 
     <div v-if="!apiMode" class="notice">
@@ -217,8 +274,19 @@ onMounted(async () => {
       </div>
 
       <div class="result-head" v-if="searched && !loading && !loadError">
-        <span class="count">총 <strong>{{ totalCount.toLocaleString('ko-KR') }}</strong>건</span>
+        <span class="count">
+          <template v-if="truncated">
+            나라장터 총 <strong>{{ sourceTotalCount.toLocaleString('ko-KR') }}</strong>건 중
+            상위 <strong>{{ totalCount.toLocaleString('ko-KR') }}</strong>건
+          </template>
+          <template v-else>총 <strong>{{ totalCount.toLocaleString('ko-KR') }}</strong>건</template>
+        </span>
         <PageSizeSelect :model-value="numOfRows" @update:model-value="changePageSize" />
+      </div>
+
+      <div v-if="truncated && searched && !loading && !loadError" class="notice warn">
+        조회 결과가 많아 상위 {{ totalCount.toLocaleString('ko-KR') }}건만 표시합니다 —
+        기간·기관·검색어로 범위를 좁히면 전체를 확인할 수 있습니다.
       </div>
 
       <div v-if="loading" class="notice">불러오는 중…</div>
