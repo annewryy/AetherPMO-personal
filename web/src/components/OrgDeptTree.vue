@@ -6,6 +6,15 @@ import { computed, onMounted, ref } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import type { OrgDept } from '../types';
 
+// showAllRow: '전체 조직' 행 표시(기본 true). 상위 화면이 자체 '전체' 행을 갖는 경우 false.
+// selectedCode: 넘기면 선택 상태를 상위가 소유한다(부서·회사 등 다른 축과 배타 선택을 위해).
+//   미지정이면 이 컴포넌트가 자체 관리(기존 동작).
+const props = withDefaults(defineProps<{
+  showAllRow?: boolean;
+  allLabel?: string;
+  selectedCode?: string | null;
+}>(), { showAllRow: true, allLabel: '전체 조직' });
+
 const emit = defineEmits<{
   (e: 'select', v: { deptCode: string | null; deptNames: string[] }): void;
 }>();
@@ -14,7 +23,10 @@ const depts = ref<OrgDept[]>([]);
 const loading = ref(true);
 const error = ref('');
 const openSet = ref(new Set<string>());
-const selected = ref<string | null>(null);
+const selectedOwn = ref<string | null>(null);
+// selectedCode prop을 넘긴 화면은 상위가 소유(controlled), 아니면 자체 상태.
+const selected = computed(() =>
+  (props.selectedCode !== undefined ? props.selectedCode : selectedOwn.value) ?? null);
 
 const childrenMap = computed<Map<string, OrgDept[]>>(() => {
   const m = new Map<string, OrgDept[]>();
@@ -73,7 +85,7 @@ function toggleOpen(code: string) {
 }
 
 function select(d: OrgDept | null) {
-  selected.value = d?.deptCode ?? null;
+  selectedOwn.value = d?.deptCode ?? null;
   emit('select', d ? { deptCode: d.deptCode, deptNames: subtreeNames(d.deptCode) } : { deptCode: null, deptNames: [] });
 }
 
@@ -92,8 +104,11 @@ onMounted(async () => {
 
 <template>
   <div class="dept-tree">
-    <button type="button" class="row all" :class="{ on: selected === null }" @click="select(null)">
-      전체 조직
+    <button
+      v-if="showAllRow" type="button" class="row all"
+      :class="{ on: selected === null }" @click="select(null)"
+    >
+      {{ allLabel }}
     </button>
     <p v-if="loading" class="state">조직도 불러오는 중…</p>
     <p v-else-if="error" class="state err">{{ error }}</p>
