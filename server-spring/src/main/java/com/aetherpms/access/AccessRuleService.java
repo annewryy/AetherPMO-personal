@@ -21,6 +21,13 @@ import com.aetherpms.common.Json;
 @Service
 public class AccessRuleService {
 
+    /** 0039 — 관리포인트 권한 어휘(0034 §3). RoleCapabilityController와 동일해야 한다. */
+    private static final List<String> CAP_KEYS = List.of(
+            "project.edit", "member.manage", "task.edit", "issue.edit",
+            "action.edit", "deliverable.edit", "meeting.write", "doc.write");
+    private static final List<String> TRISTATE_CAPS =
+            List.of("task.edit", "issue.edit", "action.edit", "deliverable.edit");
+
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AccessRuleService.class);
 
     private final JdbcTemplate jdbc;
@@ -190,7 +197,7 @@ public class AccessRuleService {
         }
         if (body.containsKey("capabilities")) {
             Object c = body.get("capabilities");
-            f.put("capabilities", c == null ? null : Json.write(c));
+            f.put("capabilities", c == null ? null : Json.write(validateCapabilities(c)));
         }
         if (body.containsKey("priority") || requireAll) {
             Object p = body.get("priority");
@@ -212,6 +219,34 @@ public class AccessRuleService {
     }
 
     @SuppressWarnings("unchecked")
+    /**
+     * 0039 — 규칙이 부여하는 관리포인트 권한 검증. 역할 권한(④)과 같은 어휘를 쓴다.
+     *   키/값이 틀리면 조용히 무시되는 대신 400으로 돌려준다(권한은 조용히 틀리면 안 된다).
+     */
+    private static Map<String, Object> validateCapabilities(Object raw) {
+        if (!(raw instanceof Map<?, ?> m)) {
+            throw ApiException.badRequest("capabilities는 객체여야 합니다.");
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> e : m.entrySet()) {
+            String k = String.valueOf(e.getKey());
+            if (!CAP_KEYS.contains(k)) {
+                throw ApiException.badRequest("알 수 없는 권한 키: " + k
+                        + " (허용: " + String.join(", ", CAP_KEYS) + ")");
+            }
+            Object v = e.getValue();
+            if (TRISTATE_CAPS.contains(k)) {
+                if (!("all".equals(v) || "own".equals(v) || Boolean.FALSE.equals(v))) {
+                    throw ApiException.badRequest(k + "는 all/own/false 중 하나여야 합니다.");
+                }
+            } else if (!(v instanceof Boolean)) {
+                throw ApiException.badRequest(k + "는 boolean이어야 합니다.");
+            }
+            out.put(k, v);
+        }
+        return out;
+    }
+
     private static Map<String, Object> shape(Map<String, Object> r, Map<Long, List<Map<String, Object>>> personsByRule) {
         Map<String, Object> o = new LinkedHashMap<>();
         long ruleId = ((Number) r.get("rule_id")).longValue();

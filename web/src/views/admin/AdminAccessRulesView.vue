@@ -44,8 +44,8 @@ const form = ref<AccessRuleInput>(blankForm());
 function blankForm(): AccessRuleInput {
   return {
     name: '', deptCode: null, includeSub: true, positionCode: null, employmentType: null,
-    menuKeys: ['dashboard'], projectScope: 'PARTICIPATING', priority: 100, enabled: true,
-    personIds: [],
+    menuKeys: ['dashboard'], projectScope: 'PARTICIPATING', capabilities: null,
+    priority: 100, enabled: true, personIds: [],
   };
 }
 const selectedDeptName = ref('');
@@ -60,10 +60,48 @@ function openEdit(r: AccessRule) {
   form.value = {
     name: r.name ?? '', deptCode: r.deptCode, includeSub: r.includeSub, positionCode: r.positionCode,
     employmentType: r.employmentType, menuKeys: [...r.menuKeys], projectScope: r.projectScope,
+    capabilities: r.capabilities ? { ...r.capabilities } : null,
     priority: r.priority, enabled: r.enabled, personIds: [...(r.personIds ?? [])],
   };
   selectedDeptName.value = '';
   personQuery.value = '';
+}
+
+// ---- 0039: 이 규칙이 부여하는 관리포인트 권한(③ 축) ----
+//   역할 권한(④)과 같은 어휘를 쓰고, 실제 판정은 둘을 더 허용적인 쪽으로 합친다(ProjectScopeService).
+//   직급(직책)만으로 "본부장은 전 프로젝트 수정 가능" 같은 부여를 하려면 이 축이 필요하다.
+const CAP_KEYS = [
+  'project.edit', 'member.manage', 'task.edit', 'issue.edit',
+  'action.edit', 'deliverable.edit', 'meeting.write', 'doc.write',
+] as const;
+const TRISTATE_KEYS = ['task.edit', 'issue.edit', 'action.edit', 'deliverable.edit'];
+const CAP_LABELS: Record<string, string> = {
+  'project.edit': '프로젝트 수정', 'member.manage': '참여인력 관리',
+  'task.edit': '태스크', 'issue.edit': '이슈/리스크', 'action.edit': '액션아이템',
+  'deliverable.edit': '산출물', 'meeting.write': '회의록 작성', 'doc.write': '공문 작성',
+};
+const isTristateCap = (k: string) => TRISTATE_KEYS.includes(k);
+function capValue(k: string): unknown {
+  return form.value.capabilities?.[k] ?? (isTristateCap(k) ? false : false);
+}
+function setCap(k: string, v: unknown) {
+  const next = { ...(form.value.capabilities ?? {}) };
+  // false는 "부여 안 함"이라 키를 지운다 — 빈 객체면 capabilities 자체를 null로 보낸다.
+  if (v === false) delete next[k]; else next[k] = v;
+  form.value.capabilities = Object.keys(next).length ? next : null;
+}
+function cycleCap(k: string) {
+  const cur = capValue(k);
+  setCap(k, cur === 'all' ? 'own' : cur === 'own' ? false : 'all');
+}
+function toggleCap(k: string) { setCap(k, !capValue(k)); }
+const grantedCapCount = computed(() => Object.keys(form.value.capabilities ?? {}).length);
+function capSummary(r: AccessRule): string {
+  const c = r.capabilities;
+  if (!c || !Object.keys(c).length) return '—';
+  return Object.entries(c)
+    .map(([k, v]) => `${CAP_LABELS[k] ?? k}${v === 'all' ? '(전체)' : v === 'own' ? '(본인)' : ''}`)
+    .join(', ');
 }
 
 // ---- 인력 지정 축 ----
@@ -191,7 +229,7 @@ onMounted(async () => {
             <thead>
               <tr>
                 <th class="num">순위</th><th>이름</th><th>부서</th><th>직책</th><th>인력구분</th>
-                <th>인력 지정</th><th>메뉴</th><th>범위</th><th>활성</th><th></th>
+                <th>인력 지정</th><th>메뉴</th><th>범위</th><th>부여 권한</th><th>활성</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -210,6 +248,7 @@ onMounted(async () => {
                 </td>
                 <td class="menu-cell">{{ r.menuKeys.map((k) => menuLabels[k] ?? k).join(', ') }}</td>
                 <td>{{ r.projectScope }}</td>
+                <td class="menu-cell">{{ capSummary(r) }}</td>
                 <td><input type="checkbox" :checked="r.enabled" @change="toggleEnabled(r)" /></td>
                 <td class="actions">
                   <button class="btn btn-sm" @click="openEdit(r)">수정</button>
@@ -307,6 +346,22 @@ onMounted(async () => {
                 </label>
               </div>
             </div>
+            <div class="field wide">
+              <span class="label">
+                부여 권한 <span class="hint">(관리포인트 — 역할 권한과 합쳐서 더 허용적인 쪽 적용)</span>
+                <span v-if="grantedCapCount" class="cap-count">{{ grantedCapCount }}개 부여</span>
+              </span>
+              <div class="cap-grid">
+                <div v-for="k in CAP_KEYS" :key="k" class="cap-cell">
+                  <span class="cap-name">{{ CAP_LABELS[k] }}</span>
+                  <button
+                    v-if="isTristateCap(k)" type="button" class="tri"
+                    :class="'tri-' + (capValue(k) || 'false')" @click="cycleCap(k)"
+                  >{{ capValue(k) === 'all' ? '전체' : capValue(k) === 'own' ? '본인' : '부여 안 함' }}</button>
+                  <input v-else type="checkbox" :checked="!!capValue(k)" @change="toggleCap(k)" />
+                </div>
+              </div>
+            </div>
           </div>
           <div class="form-actions">
             <button class="btn btn-primary" :disabled="saving" @click="save">
@@ -376,6 +431,25 @@ onMounted(async () => {
 .dept-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .chip { font-size: 12px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); }
 .chk-inline { display: flex; align-items: center; gap: 5px; font-size: 12.5px; }
+
+/* 0039 — 규칙이 부여하는 관리포인트 권한 */
+.cap-count {
+  margin-left: 6px; font-size: 11px; font-weight: 700; color: var(--accent);
+  background: rgba(139, 92, 246, 0.14); border-radius: 999px; padding: 1px 8px;
+}
+.cap-grid { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 8px 12px; }
+.cap-cell { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: var(--bg); }
+.cap-name { font-size: 12.5px; color: var(--muted); }
+.tri {
+  border: 1px solid var(--border); background: var(--panel); color: var(--muted);
+  font-size: 11.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px;
+  cursor: pointer; font-family: inherit; white-space: nowrap;
+}
+.tri-all { color: var(--green); border-color: var(--green); }
+.tri-own { color: var(--yellow); border-color: var(--yellow); }
+.tri-false { color: var(--muted); }
+@media (max-width: 1200px) { .cap-grid { grid-template-columns: repeat(2, 1fr); } }
 .menu-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px 12px; }
 .form-actions { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
 .cand { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }

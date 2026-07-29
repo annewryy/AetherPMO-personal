@@ -1281,6 +1281,8 @@ export interface AccessRuleInput {
   employmentType: string | null;
   menuKeys: string[];
   projectScope: 'ALL' | 'DEPT' | 'PARTICIPATING';
+  /** 0039 — 이 규칙이 부여하는 관리포인트 권한(역할 권한과 같은 어휘). null이면 부여 없음. */
+  capabilities: Record<string, unknown> | null;
   priority: number;
   enabled: boolean;
   personIds: number[];
