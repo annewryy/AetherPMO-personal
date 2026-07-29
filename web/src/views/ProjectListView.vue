@@ -330,7 +330,11 @@ onMounted(() => { void load(); });
         <!-- 수행 카드 -->
         <template v-else>
           <div class="card-head">
-            <span v-if="p.dept" class="card-code"><span class="dept-tag">{{ p.dept }}</span></span>
+            <!-- 입찰 카드와 같은 자리에 사업번호. 부서는 그 옆 태그로(둘 다 보여야 식별이 된다) -->
+            <span class="card-code">
+              {{ p.projectCode || '—' }}
+              <span v-if="p.dept" class="dept-tag">{{ p.dept }}</span>
+            </span>
             <span class="head-badges">
               <span v-if="isOverdue(p)" class="badge overdue">기간초과</span>
               <span class="badge status">{{ statusKo(p) }}</span>
@@ -437,7 +441,7 @@ onMounted(() => { void load(); });
 .badge.dday-over { background: color-mix(in srgb, #e5484d 18%, transparent); color: #e5484d; }
 .badge.dday-none { background: var(--panel-2); color: var(--muted); }
 .dept-tag {
-  display: inline-block; margin-right: 6px; padding: 2px 8px; border-radius: 4px;
+  display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 4px;
   background: var(--panel-2); color: var(--muted); font-size: 12px; font-family: inherit;
 }
 
