@@ -370,7 +370,9 @@ onMounted(() => {
 .org-side {
   /* 부서 트리는 최대 8단·236행까지 펼쳐진다. 패널에 높이 제한을 두면 자체 스크롤바가
      생겨 목록과 스크롤이 이중으로 걸리므로, 내용 높이만큼 늘리고 페이지 스크롤에 맡긴다. */
-  width: 230px; flex-shrink: 0;
+  /* 폭 320px — 깊은 단계는 들여쓰기(단계당 14px)가 폭을 먹어 부서명이 잘렸다.
+     실측 386개 부서 중 230px에선 다수가, 320px에선 3개만 잘린다(그 이상은 목록 폭 손해). */
+  width: 320px; flex-shrink: 0;
   border: 1px solid var(--border); border-radius: 10px; background: var(--panel);
   padding: 10px;
 }
