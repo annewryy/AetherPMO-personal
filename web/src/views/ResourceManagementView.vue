@@ -368,9 +368,11 @@ onMounted(() => {
 /* 0038 — 좌측 조직도 트리 레이아웃 */
 .body-cols { display: flex; gap: 14px; align-items: flex-start; }
 .org-side {
-  width: 230px; flex-shrink: 0; position: sticky; top: 12px;
+  /* 부서 트리는 최대 8단·236행까지 펼쳐진다. 패널에 높이 제한을 두면 자체 스크롤바가
+     생겨 목록과 스크롤이 이중으로 걸리므로, 내용 높이만큼 늘리고 페이지 스크롤에 맡긴다. */
+  width: 230px; flex-shrink: 0;
   border: 1px solid var(--border); border-radius: 10px; background: var(--panel);
-  padding: 10px; max-height: calc(100vh - 140px); overflow-y: auto;
+  padding: 10px;
 }
 .org-side-title { font-size: 12.5px; font-weight: 700; color: var(--muted); margin: 0 0 8px 4px; }
 .body-main { flex: 1; min-width: 0; }
