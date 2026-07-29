@@ -20,7 +20,7 @@ if (!serviceRoleKey) {
     process.exit(1);
 }
 
-const supabaseUrl = process.env.SUPABASE_URL || 'https://xzlvxqzyxgtbfkkpqzxd.supabase.co';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://rhbyfzimvpkkuljmnfct.supabase.co';
 
 const demoAccounts = [
     { email: 'admin@aetherpmo.com', password: 'admin1234', name: '시스템 관리자', role: 'SYS_ADMIN' },

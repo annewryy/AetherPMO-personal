@@ -213,7 +213,12 @@ class AetherPMO {
             console.log('[Supabase] Enabled and initialized successfully.');
         } else {
             this.useSupabase = false;
-            console.log('[Supabase] Disabled or not configured. Running in LocalStorage fallback mode.');
+            console.error('[Supabase Configuration Error] Supabase client is disabled or invalid configuration detected.', {
+                url: supabaseUrl || 'Missing',
+                hasAnonKey: !!supabaseKey,
+                hasSupabaseJs: typeof window.supabase !== 'undefined'
+            });
+            console.warn('[Supabase] Running in LocalStorage fallback mode.');
         }
 
         this.demoMode = false;
@@ -2377,7 +2382,9 @@ class AetherPMO {
                 }
             }
         } catch (e) {
-            console.error('[Supabase] Failed loading state from database. Falling back to LocalStorage.', e);
+            console.error('[Supabase DB Error] Critical failure loading state from Supabase database:', e.message || e, e);
+            console.error('[Supabase DB Error Traceback]', e.stack || e);
+            this.showToast('Supabase DB 데이터 로딩 오류가 발생했습니다: ' + (e.message || e), 'error');
             const stored = localStorage.getItem('aether_pms_state');
             if (stored) {
                 this.state = JSON.parse(stored);
