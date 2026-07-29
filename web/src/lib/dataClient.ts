@@ -807,7 +807,8 @@ export const dataClient = {
       if (filters.projectId != null) qs.set('projectId', String(filters.projectId));
       if (filters.location && filters.location.trim()) qs.set('location', filters.location.trim());
       if (filters.customer && filters.customer.trim()) qs.set('customer', filters.customer.trim());
-      if (filters.departments && filters.departments.length) qs.set('departments', filters.departments.join(','));
+      // 부서는 코드 1건만 보낸다 — 하위 부서명 전개는 서버 몫(부서명 나열 시 URL이 414까지 커짐).
+      if (filters.deptCode) qs.set('deptCode', filters.deptCode);
       if (filters.includeInactive) qs.set('includeInactive', 'true');
       const q = qs.toString();
       return apiGet<Person[]>(`/api/persons${q ? `?${q}` : ''}`);

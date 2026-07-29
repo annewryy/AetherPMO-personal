@@ -11,7 +11,7 @@ import type { OrgDept, OrgExternalMember } from '../types';
 
 export type PersonScope =
   | { kind: 'all' }
-  | { kind: 'dept'; deptCode: string; deptNames: string[] }
+  | { kind: 'dept'; deptCode: string }
   | { kind: 'company'; companyName: string };
 
 const emit = defineEmits<{ (e: 'select', v: PersonScope): void }>();
@@ -34,18 +34,6 @@ const byParent = computed(() => {
 });
 const roots = computed(() => byParent.value.get(null) ?? []);
 function childrenOf(code: string): OrgDept[] { return byParent.value.get(code) ?? []; }
-
-/** 부서 + 하위 전체의 부서명(서버 IN 필터용) */
-function subtreeNames(code: string): string[] {
-  const out: string[] = [];
-  const walk = (c: string) => {
-    const d = depts.value.find((x) => x.deptCode === c);
-    if (d) out.push(d.deptNm);
-    for (const ch of childrenOf(c)) walk(ch.deptCode);
-  };
-  walk(code);
-  return out;
-}
 
 /** 외부 인력을 회사별로 묶는다(소속 미지정 포함). */
 const companyGroups = computed(() => {
@@ -80,7 +68,7 @@ function toggle(key: string) {
 function pickAll() { selectedKey.value = 'all'; emit('select', { kind: 'all' }); }
 function pickDept(d: OrgDept) {
   selectedKey.value = 'dept:' + d.deptCode;
-  emit('select', { kind: 'dept', deptCode: d.deptCode, deptNames: subtreeNames(d.deptCode) });
+  emit('select', { kind: 'dept', deptCode: d.deptCode });
 }
 function pickCompany(name: string) {
   selectedKey.value = 'company:' + name;

@@ -43,8 +43,8 @@ const company = ref('');
 const project = ref('');   // 투입 프로젝트명(백엔드 projectId는 숫자라 별도 처리)
 const location = ref('');
 const customer = ref('');
-// 0038 — 좌측 조직도 트리 선택(하위 포함 부서명 목록, 서버 IN 필터)
-const deptFilter = ref<string[]>([]);
+// 0038 — 좌측 조직도 트리 선택 부서 코드(하위 부서 전개는 서버가 한다)
+const deptFilter = ref<string>('');
 // 0038 — 기본은 재직 인력만, 체크 시 재직 외(종료 등) 포함
 const includeInactive = ref(false);
 // 0038 — 로그인 ID 컬럼은 시스템 관리자에게만
@@ -52,9 +52,9 @@ const isAdmin = computed(() => currentUser.value?.role === 'SYS_ADMIN');
 // 0039 — 좌측 네비: 내부(부서) · 외부(회사) 어느 쪽을 골라도 인력 마스터 목록을 좁힌다.
 //   부서와 회사는 서로 배타 — 하나를 고르면 다른 축은 비운다.
 function onScopeSelect(v: PersonScope) {
-  if (v.kind === 'all') { deptFilter.value = []; company.value = ''; }
-  else if (v.kind === 'dept') { deptFilter.value = v.deptNames; company.value = ''; }
-  else { deptFilter.value = []; company.value = v.companyName; }
+  if (v.kind === 'all') { deptFilter.value = ''; company.value = ''; }
+  else if (v.kind === 'dept') { deptFilter.value = v.deptCode; company.value = ''; }
+  else { deptFilter.value = ''; company.value = v.companyName; }
   void search();
 }
 
@@ -85,7 +85,7 @@ function buildFilters(): PersonFilters {
   if (customer.value.trim()) f.customer = customer.value.trim();
   const pv = project.value.trim();
   if (pv && /^\d+$/.test(pv)) f.projectId = Number(pv);
-  if (deptFilter.value.length) f.departments = [...deptFilter.value];
+  if (deptFilter.value) f.deptCode = deptFilter.value;
   if (includeInactive.value) f.includeInactive = true;
   return f;
 }
@@ -110,7 +110,7 @@ function reset() {
   selectedTypes.value = [];
   matchMode.value = 'or';
   name.value = company.value = project.value = location.value = customer.value = '';
-  deptFilter.value = [];
+  deptFilter.value = '';
   void search();
 }
 

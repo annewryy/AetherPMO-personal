@@ -82,11 +82,17 @@ public class PersonService {
             // 0038 — 기본은 재직 인력만. '재직 외 포함' 체크 시 전체(status NULL=수동 등록 → 재직 취급).
             where.add("(p.status IS NULL OR p.status = '재직')");
         }
-        if (q.departments() != null && !q.departments().isEmpty()) {
-            // 0038 — 조직도 트리 선택 부서(하위 포함) 필터: 부서명 IN
-            where.add("p.department IN (" + String.join(",",
-                    java.util.Collections.nCopies(q.departments().size(), "?")) + ")");
-            args.addAll(q.departments());
+        // 0038 — 조직도 트리 선택 부서(하위 포함) 필터: 부서명 IN.
+        //   deptCode가 오면 하위 부서 전개는 서버가 한다(부서명 수백 개를 URL에 싣지 않기 위해 — 414 방지).
+        List<String> deptNames = q.deptCode() != null ? subtreeDeptNames(q.deptCode()) : q.departments();
+        if (deptNames != null) {
+            if (deptNames.isEmpty()) {
+                where.add("1 = 0");   // 조직도에 없는 부서 코드 → 전체 조회로 새지 않도록 공집합
+            } else {
+                where.add("p.department IN (" + String.join(",",
+                        java.util.Collections.nCopies(deptNames.size(), "?")) + ")");
+                args.addAll(deptNames);
+            }
         }
         if (notBlank(q.name())) {
             where.add("p.name LIKE ?");
@@ -122,6 +128,45 @@ public class PersonService {
             out.add(dto);
         }
         return out;
+    }
+
+    /**
+     * 0038/0041 — 부서 코드 1건 → 자신 + 모든 하위 부서의 **부서명** 목록.
+     * pms_person.department는 코드가 아니라 부서명이라 이름으로 전개한다.
+     * 부서 마스터는 수백 건 규모라 전량 로드 후 메모리 BFS(재귀 CTE 미지원 DB 대비).
+     */
+    private List<String> subtreeDeptNames(String rootCode) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT dept_code, upper_dept_code, dept_nm FROM pms_org_dept");
+        Map<String, String> nameOf = new LinkedHashMap<>();
+        Map<String, List<String>> childrenOf = new LinkedHashMap<>();
+        for (Map<String, Object> r : rows) {
+            String code = trimOrNull(r.get("dept_code"));
+            if (code == null) continue;
+            nameOf.put(code, trimOrNull(r.get("dept_nm")));
+            String parent = trimOrNull(r.get("upper_dept_code"));
+            if (parent != null) childrenOf.computeIfAbsent(parent, k -> new ArrayList<>()).add(code);
+        }
+        if (!nameOf.containsKey(rootCode)) return List.of();
+
+        List<String> names = new ArrayList<>();
+        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
+        java.util.Deque<String> stack = new java.util.ArrayDeque<>();
+        stack.push(rootCode);
+        while (!stack.isEmpty()) {
+            String code = stack.pop();
+            if (!seen.add(code)) continue;          // 순환 참조 방어
+            String nm = nameOf.get(code);
+            if (nm != null && !nm.isBlank() && !names.contains(nm)) names.add(nm);
+            for (String child : childrenOf.getOrDefault(code, List.of())) stack.push(child);
+        }
+        return names;
+    }
+
+    private static String trimOrNull(Object v) {
+        if (v == null) return null;
+        String s = String.valueOf(v).trim();
+        return s.isEmpty() ? null : s;
     }
 
     // =====================================================================
