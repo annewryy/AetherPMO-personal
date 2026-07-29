@@ -309,7 +309,11 @@ class AetherPMO {
                     .single();
 
                 if (profileErr || !profile) {
-                    console.warn('[Supabase Auth] Profile not found, using session user metadata', profileErr);
+                    console.warn('[Supabase Auth Profile Warning] public.profiles lookup failed or empty for UID ' + session.user.id + ':', {
+                        message: profileErr?.message || 'No profile record found in public.profiles table',
+                        code: profileErr?.code || 'PGRST116',
+                        details: profileErr?.details || 'Run supabase_personal_seed.sql in Supabase SQL Editor to populate public.profiles with UID 32e80e83-b2d9-4ed6-8896-14ef8285fdaf'
+                    });
                     const role = session.user.user_metadata?.role || 'VIEWER';
                     const name = session.user.user_metadata?.name || session.user.email.split('@')[0];
                     this.currentUser = {
@@ -517,7 +521,14 @@ class AetherPMO {
                 }
 
                 if (error) {
-                    alert('로그인 실패: ' + (error.message || '이메일 또는 비밀번호가 올바르지 않습니다.'));
+                    console.error('[Supabase Auth Failure] Login failed for email:', email, {
+                        message: error.message,
+                        code: error.code || error.status || 'AUTH_ERROR',
+                        status: error.status || 'N/A',
+                        name: error.name,
+                        rawError: error
+                    });
+                    alert('로그인 실패 [' + (error.code || error.status || 'AUTH_ERROR') + ']: ' + (error.message || '이메일 또는 비밀번호가 올바르지 않습니다.'));
                     passwordInput.value = '';
                     passwordInput.focus();
                     return;
@@ -539,8 +550,14 @@ class AetherPMO {
                 return;
 
             } catch (e) {
-                console.error('[Supabase Auth] Login failed', e);
-                alert('로그인 중 오류가 발생했습니다.');
+                console.error('[Supabase Auth Exception] Exception during login execution:', {
+                    message: e.message || e,
+                    code: e.code || e.status || 'EXCEPTION',
+                    status: e.status || 'N/A',
+                    stack: e.stack,
+                    rawError: e
+                });
+                alert('로그인 중 오류가 발생했습니다: ' + (e.message || e));
                 return;
             }
         }
@@ -17993,6 +18010,29 @@ class AetherPMO {
 
     getDefaultUsers() {
         return [
+            {
+                email: 'admin.personal@aetherpmo.com',
+                password: 'admin1234',
+                role: 'SYS_ADMIN',
+                name: '안유경 (개인 관리자)',
+                company: 'AetherIT',
+                division: 'SI사업본부',
+                position: '수석',
+                phone: '010-1111-2222',
+                profileImage: '',
+                profileColor: '#4338CA',
+                initials: 'AYK',
+                avatarType: 'default',
+                assignedProjectIds: ['proj-demo-26-001', 'proj-demo-26-002', 'proj-demo-25-003'],
+                notifications: {
+                    actionItem: true,
+                    risk: true,
+                    meeting: true,
+                    officialDoc: true,
+                    artifact: true,
+                    projectOverdue: true
+                }
+            },
             {
                 email: 'admin@aetherpmo.com',
                 password: 'admin1234',
