@@ -31,10 +31,11 @@ import com.aetherpms.common.WriteSupport;
  *
  * 기본값(미지정 시): project_stage=BIDDING, status='입찰', bid_status='제안준비중',
  *                    progress_rate=0, source_project_id=null.
- * 발번: project_code = PRJ-{연도}-{NNN}-B (ProjectCodeService, 0001 규칙).
+ * 사업번호: projectCode 필수 — 사용자가 직접 입력한다(2026-07-29 자동 발번 폐지).
+ *           중복이면 409(ProjectCodeService.requireAvailable).
  *
  * 응답: GET /api/projects/{id} 와 동일 shape(ProjectMapper + consortiumMembers/vrbInfo/counts).
- * 원자성: 발번+insert 를 @Transactional (JDBC insert + 같은 트랜잭션 JPA 재조회로 매핑 재사용).
+ * 원자성: 코드 중복검사+insert 를 @Transactional (JDBC insert + 같은 트랜잭션 JPA 재조회로 매핑 재사용).
  */
 @Service
 public class ProjectCreateService {
@@ -66,7 +67,7 @@ public class ProjectCreateService {
 
     // 입력으로 받는 camelCase 키(그 외는 400으로 거부해 오타/미지원 필드를 조기 차단).
     private static final Set<String> ALLOWED_KEYS = Set.of(
-            "name", "description", "desc",
+            "name", "projectCode", "description", "desc",
             "customerName", "clientCompanyId", "clientAgencyCode",
             "budget", "contractAmount", "projectBudget",
             "announcementNo", "proposalDeadline", "businessType",
@@ -135,11 +136,9 @@ public class ProjectCreateService {
         Long clientCompanyId = resolveClientCompanyId(b);
         if (clientCompanyId != null) fields.put("client_company_id", clientCompanyId);
 
-        // ---- 발번(원자) + insert ----------------------------------------
-        String projectCode = "BIDDING".equals(stage)
-                ? projectCodeService.nextBiddingCode()
-                : projectCodeService.nextBaseCode();
-        fields.put("project_code", projectCode);
+        // ---- 사업번호(사용자 직접 입력) + insert -------------------------
+        //   2026-07-29: 자동 발번 폐지. 사내 기존 코드 체계를 그대로 입력받고 중복만 막는다.
+        fields.put("project_code", projectCodeService.requireAvailable(b.get("projectCode"), null));
         if (actor.userId() != null) fields.put("created_by", actor.userId());
 
         Map<String, Object> created = WriteSupport.insertReturning(jdbc, "pms_project", "project_id", fields);

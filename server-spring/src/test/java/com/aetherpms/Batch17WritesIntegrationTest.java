@@ -75,10 +75,10 @@ class Batch17WritesIntegrationTest {
     // A. PATCH /api/projects/{id}
     // ===================================================================
 
-    /** 새 프로젝트 생성 후 그 id 반환(seed 오염 방지). */
+    /** 새 프로젝트 생성 후 그 id 반환(seed 오염 방지). 사업번호는 필수라 고유값을 만들어 넣는다. */
     private long createProject(String name) {
         ResponseEntity<Map<String, Object>> resp = send(HttpMethod.POST, "/api/projects",
-                Map.of("name", name), MAP);
+                Map.of("name", name, "projectCode", "B17-" + System.nanoTime()), MAP);
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         return ((Number) resp.getBody().get("id")).longValue();
     }

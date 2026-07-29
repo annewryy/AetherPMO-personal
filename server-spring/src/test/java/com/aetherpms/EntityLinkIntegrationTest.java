@@ -104,7 +104,9 @@ class EntityLinkIntegrationTest {
     // ---- 픽스처 ------------------------------------------------------------
 
     private long createProject(String name) {
-        return ((Number) ok(HttpMethod.POST, "/api/projects", Map.of("name", name)).get("id")).longValue();
+        // 사업번호는 필수 입력(2026-07-29) — 테스트마다 고유값.
+        Map<String, Object> body = Map.of("name", name, "projectCode", "EL-" + System.nanoTime());
+        return ((Number) ok(HttpMethod.POST, "/api/projects", body).get("id")).longValue();
     }
 
     /** 태스크 생성 엔드포인트가 없어 직접 INSERT. 이름을 고유하게 잡아 되읽는다. */

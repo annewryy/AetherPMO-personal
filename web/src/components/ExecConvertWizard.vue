@@ -7,6 +7,7 @@ import { ref, reactive, computed } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import type { Project, ProjectConvertInput, CatalogNode } from '../types';
 import { subtreeIds, toTailoringEntries } from '../lib/tailoring';
+import { useProjectCode } from '../lib/projectCode';
 import TailoringPicker from './TailoringPicker.vue';
 import OrgPersonField from './OrgPersonField.vue';
 
@@ -61,7 +62,10 @@ async function loadCatalog() {
 
 const saving = ref(false);
 const saveError = ref<string | null>(null);
-const step1Valid = computed(() => form.name.trim().length > 0);
+// 수행 프로젝트 사업번호 — 2026-07-29부터 입찰코드에서 자동 파생하지 않고 직접 입력한다.
+const { code: projectCode, state: codeState, message: codeMessage, canSubmit: codeOk } = useProjectCode();
+
+const step1Valid = computed(() => form.name.trim().length > 0 && codeOk.value);
 const canSubmit = computed(() => step1Valid.value && !saving.value);
 
 function goNext() {
@@ -79,7 +83,7 @@ async function submit() {
   saving.value = true;
   saveError.value = null;
   try {
-    const input: ProjectConvertInput = {};
+    const input: ProjectConvertInput = { projectCode: projectCode.value.trim() };
     const s = (v: string) => v.trim() || undefined;
     if (s(form.name)) input.name = s(form.name);
     if (s(form.customerName)) input.customerName = s(form.customerName);
@@ -129,6 +133,15 @@ async function submit() {
             <label class="field">
               <span class="flabel">사업명 <span class="req">*</span></span>
               <input v-model="form.name" class="in" type="text" required :disabled="saving" />
+            </label>
+            <label class="field">
+              <span class="flabel">수행 사업번호 <span class="req">*</span></span>
+              <input
+                v-model="projectCode" class="in mono" type="text" maxlength="50" required
+                placeholder="예: OKC26-045 (수행 프로젝트에 부여할 사업번호)"
+                :class="{ bad: codeState === 'taken' }" :disabled="saving"
+              />
+              <span v-if="codeMessage" class="code-msg" :class="codeState">{{ codeMessage }}</span>
             </label>
             <div class="grid2">
               <label class="field">
@@ -204,6 +217,7 @@ async function submit() {
               <dd>{{ selectedCount > 0 ? `${selectedCount}개 선택(조상 자동 포함) — 태스크·산출물 전개` : '선택 안 함 — 전개 없이 생성' }}</dd>
             </div>
             <div class="wide"><dt>원본 입찰</dt><dd>{{ props.project.projectCode }} — 전환 후 수주·완료 처리(기록 유지)</dd></div>
+            <div><dt>수행 사업번호</dt><dd class="mono">{{ projectCode.trim() || '—' }}</dd></div>
           </dl>
           <div v-if="saveError" class="notice err">
             전환에 실패했습니다. <span class="detail">({{ saveError }})</span>
@@ -286,6 +300,11 @@ async function submit() {
   color: var(--text); font-size: 14px; padding: 9px 12px; outline: none; width: 100%; box-sizing: border-box;
 }
 .in:focus { border-color: var(--accent); }
+.in.bad { border-color: var(--red); }
+/* 사업번호 중복 확인 결과 */
+.code-msg { font-size: 12px; color: var(--muted); margin-top: 4px; display: block; }
+.code-msg.ok { color: var(--green, #22c55e); }
+.code-msg.taken, .code-msg.error { color: var(--red); }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
 
 .hint { margin: 0; font-size: 13px; color: var(--muted); opacity: 0.85; }

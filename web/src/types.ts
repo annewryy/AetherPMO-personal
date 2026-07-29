@@ -73,6 +73,8 @@ export interface ProjectFilters {
 //   미지정 기본값(백엔드): stage=BIDDING, status=입찰, bidStatus=제안준비중. 발번(-B) 자동.
 export interface ProjectCreateInput {
   name: string;                       // 필수
+  // 2026-07-29 — 사업번호는 자동 발번을 폐지하고 사용자가 직접 입력한다. 필수·중복 시 409.
+  projectCode: string;                // 필수
   customerName?: string;
   clientCompanyId?: number | null;
   // 배치16 — 나라장터 수요기관코드. 백엔드가 pms_company.agency_code 매칭, 없으면 CLIENT 자동생성·연결.
@@ -108,11 +110,13 @@ export interface ProjectCreateInput {
 }
 
 // 프로젝트 수정 입력 (배치18 — PATCH /api/projects/{id}, camelCase 화이트리스트 부분수정).
-//   생성 입력과 동일한 편집가능 필드의 부분집합. 불변 필드(projectCode·sourceProjectId·
-//   clientCompanyId·clientAgencyCode·tailoring)는 넘기면 백엔드 400 — 여기 포함하지 않는다.
+//   생성 입력과 동일한 편집가능 필드의 부분집합. 불변 필드(sourceProjectId·clientCompanyId·
+//   clientAgencyCode·tailoring)는 넘기면 백엔드 400 — 여기 포함하지 않는다.
 //   보낸 키만 갱신(미지정 키는 유지). 미지원키 400·없으면 404.
+//   projectCode는 2026-07-29부터 수정 가능(중복이면 409).
 export interface ProjectUpdateInput {
   name?: string;
+  projectCode?: string;
   customerName?: string;
   budget?: number;
   contractAmount?: number;
@@ -144,6 +148,8 @@ export interface ProjectUpdateInput {
 // 0033 — 입찰→수행 전환 마법사 입력(POST /api/projects/{id}/convert-to-execution).
 //   전부 선택(미지정 시 입찰 값 복사). tailoring 있으면 수행 프로젝트에 전개.
 export interface ProjectConvertInput {
+  // 수행 프로젝트 사업번호 — 2026-07-29부터 마법사에서 직접 입력(필수·중복 시 409).
+  projectCode: string;
   name?: string;
   customerName?: string;
   contractAmount?: number;

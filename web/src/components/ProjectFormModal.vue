@@ -1,15 +1,17 @@
 <script setup lang="ts">
 // 배치18 — 프로젝트 생성/수정 폼 모달 (일반 생성, 나라장터 마법사 아님).
-//  - mode='create': POST /api/projects (필수 name). 미지정 필드는 백엔드 기본값
-//    (stage=BIDDING, status=입찰, bidStatus=제안준비중) + 발번(-B) 자동.
+//  - mode='create': POST /api/projects (필수 name·projectCode). 미지정 필드는 백엔드 기본값
+//    (stage=BIDDING, status=입찰, bidStatus=제안준비중).
 //  - mode='edit'  : PATCH /api/projects/{id} — 현재값 프리필 후 변경분만 부분수정.
-//    불변 필드(projectCode·sourceProjectId·clientCompanyId 등)는 폼에 없음(백엔드가 400).
+//    불변 필드(sourceProjectId·clientCompanyId 등)는 폼에 없음(백엔드가 400).
+//  - 2026-07-29: 사업번호(projectCode) 자동 발번 폐지 → 생성·수정 모두 직접 입력 + 중복 확인.
 //  - 쓰기는 백엔드 전용(dataClient가 API_BASE 게이트). 오류는 서버 {message} 그대로.
 //  - status는 응답이 영문(In Progress 등) → 편집 프리필 시 한글로 역매핑(백엔드는 한글 저장).
 import { ref, reactive, computed } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import type { Project, ProjectCreateInput, ProjectUpdateInput, CatalogNode } from '../types';
 import { subtreeIds, toTailoringEntries } from '../lib/tailoring';
+import { useProjectCode } from '../lib/projectCode';
 import ModalShell from './ModalShell.vue';
 import OrgPersonField from './OrgPersonField.vue';
 import TailoringPicker from './TailoringPicker.vue';
@@ -58,6 +60,10 @@ function normalizeStatus(v: string | null | undefined): string {
 const p = props.project;
 // 폼 상태 — edit면 현재값 프리필, create면 빈값(백엔드 기본값에 위임).
 const name = ref(p?.name ?? '');
+// 사업번호 — 수정 모드는 자기 자신을 중복에서 제외해야 한다.
+const { code: projectCode, state: codeState, message: codeMessage, canSubmit: codeOk } =
+  useProjectCode(() => (props.mode === 'edit' ? props.project?.id : undefined));
+projectCode.value = p?.projectCode ?? '';
 const customerName = ref(p?.customerName ?? '');
 const businessType = ref(p?.businessType ?? '');
 const dept = ref(p?.dept ?? '');
@@ -141,7 +147,7 @@ const contractAmountText = computed({
 
 // create: 채워진 필드만 실어 보낸다(빈 문자열/미지정은 백엔드 기본값에 위임).
 function buildCreate(): ProjectCreateInput {
-  const input: ProjectCreateInput = { name: name.value.trim() };
+  const input: ProjectCreateInput = { name: name.value.trim(), projectCode: projectCode.value.trim() };
   const s = (v: string) => v.trim() || undefined;
   if (s(customerName.value)) input.customerName = s(customerName.value);
   if (s(businessType.value)) input.businessType = s(businessType.value);
@@ -177,6 +183,7 @@ function buildPatch(): ProjectUpdateInput {
   const orig = props.project!;
   const t = (v: string) => v.trim();
   if (t(name.value) !== (orig.name ?? '')) patch.name = t(name.value);
+  if (t(projectCode.value) !== (orig.projectCode ?? '')) patch.projectCode = t(projectCode.value);
   if (t(customerName.value) !== (orig.customerName ?? '')) patch.customerName = t(customerName.value);
   if (t(businessType.value) !== (orig.businessType ?? '')) patch.businessType = t(businessType.value);
   if (t(dept.value) !== (orig.dept ?? '')) patch.dept = t(dept.value);
@@ -207,6 +214,8 @@ function buildPatch(): ProjectUpdateInput {
 
 async function submit() {
   if (!name.value.trim()) { error.value = '사업명은 필수입니다.'; return; }
+  if (!projectCode.value.trim()) { error.value = '사업번호는 필수입니다.'; return; }
+  if (codeState.value === 'taken') { error.value = '이미 사용 중인 사업번호입니다.'; return; }
   submitting.value = true;
   error.value = null;
   try {
@@ -231,6 +240,14 @@ async function submit() {
   <ModalShell :title="mode === 'create' ? '신규 프로젝트' : '프로젝트 수정'" @close="emit('close')">
     <label class="label">사업명 <span class="req">*</span></label>
     <input v-model="name" class="input" type="text" placeholder="사업명" :disabled="submitting" />
+
+    <label class="label">사업번호 <span class="req">*</span></label>
+    <input
+      v-model="projectCode" class="input" type="text" maxlength="50"
+      placeholder="예: OKC26-001 (기존 사업번호를 그대로 입력)"
+      :class="{ bad: codeState === 'taken' }" :disabled="submitting"
+    />
+    <p v-if="codeMessage" class="code-msg" :class="codeState">{{ codeMessage }}</p>
 
     <div class="row2">
       <div>
@@ -387,7 +404,7 @@ async function submit() {
       <button class="btn btn-sm" type="button" :disabled="submitting" @click="emit('close')">취소</button>
       <button
         class="btn btn-primary btn-sm" type="button"
-        :disabled="submitting || !name.trim()" @click="submit"
+        :disabled="submitting || !name.trim() || !codeOk" @click="submit"
       >
         {{ submitting ? '저장 중…' : (mode === 'create' ? '생성' : '저장') }}
       </button>
@@ -404,6 +421,11 @@ async function submit() {
   font-family: inherit; width: 100%; box-sizing: border-box; resize: vertical;
 }
 .input:focus { border-color: var(--accent); }
+.input.bad { border-color: var(--red); }
+/* 사업번호 중복 확인 결과 — 입력 바로 아래 한 줄 */
+.code-msg { font-size: 12.5px; margin: 4px 0 0; color: var(--muted); }
+.code-msg.ok { color: var(--green, #22c55e); }
+.code-msg.taken, .code-msg.error { color: var(--red); }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .row2 > div { display: flex; flex-direction: column; gap: 4px; }
 .err { color: var(--red); font-size: 13px; }

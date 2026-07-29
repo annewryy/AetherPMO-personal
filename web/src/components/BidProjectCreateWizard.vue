@@ -12,6 +12,7 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import type { BidNoticeDetail, Project, ProjectCreateInput, CatalogNode } from '../types';
 import { subtreeIds, toTailoringEntries } from '../lib/tailoring';
+import { useProjectCode } from '../lib/projectCode';
 import TailoringPicker from './TailoringPicker.vue';
 import OrgPersonField from './OrgPersonField.vue';
 
@@ -66,8 +67,11 @@ const selectedNodeIds = reactive(new Set<number>());
 const saving = ref(false);
 const saveError = ref<string | null>(null);
 
-const canSubmit = computed(() => form.name.trim().length > 0 && !saving.value);
-const step1Valid = computed(() => form.name.trim().length > 0);
+// 사업번호 — 2026-07-29부터 자동 발번이 아니라 직접 입력(중복 확인 포함).
+const { code: projectCode, state: codeState, message: codeMessage, canSubmit: codeOk } = useProjectCode();
+
+const canSubmit = computed(() => form.name.trim().length > 0 && codeOk.value && !saving.value);
+const step1Valid = computed(() => form.name.trim().length > 0 && codeOk.value);
 
 // cascade 토글: 이 노드 + 하위 전체를 선택/해제.
 function toggleNode(node: CatalogNode, checked: boolean) {
@@ -117,7 +121,7 @@ async function submit() {
   saveError.value = null;
   try {
     // 화이트리스트(camelCase)만 전송. 빈 값은 생략(백엔드 기본값 유지).
-    const input: ProjectCreateInput = { name: form.name.trim() };
+    const input: ProjectCreateInput = { name: form.name.trim(), projectCode: projectCode.value.trim() };
     if (form.customerName.trim()) input.customerName = form.customerName.trim();
     // 배치16: 공고의 수요기관코드를 함께 전송 → 백엔드가 회사 매칭, 없으면 CLIENT 자동생성·연결.
     //   코드 없으면(구 공고 등) 생략 → 백엔드가 customerName 이름 폴백으로 처리.
@@ -189,6 +193,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
             <label class="field">
               <span class="flabel">사업명 <span class="req">*</span></span>
               <input v-model="form.name" class="in" type="text" required :disabled="saving" />
+            </label>
+            <label class="field">
+              <span class="flabel">사업번호 <span class="req">*</span></span>
+              <input
+                v-model="projectCode" class="in mono" type="text" maxlength="50" required
+                placeholder="예: OKC26-001 (기존 사업번호를 그대로 입력)"
+                :class="{ bad: codeState === 'taken' }" :disabled="saving"
+              />
+              <span v-if="codeMessage" class="code-msg" :class="codeState">{{ codeMessage }}</span>
             </label>
             <div class="grid2">
               <label class="field">
@@ -266,6 +279,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
           <p class="lead">아래 내용으로 신규 입찰 프로젝트(단계=입찰)를 생성합니다.</p>
           <dl class="summary">
             <div class="wide"><dt>사업명</dt><dd>{{ dash(form.name) }}</dd></div>
+            <div><dt>사업번호</dt><dd class="mono">{{ dash(projectCode) }}</dd></div>
             <div><dt>고객사(기관)</dt><dd>{{ dash(form.customerName) }}</dd></div>
             <div><dt>계약금액</dt><dd>{{ budgetText(form.contractAmount) }}</dd></div>
             <div><dt>공고번호</dt><dd class="mono">{{ dash(form.announcementNo) }}</dd></div>
@@ -366,6 +380,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
   color: var(--text); font-size: 14px; padding: 9px 12px; outline: none; width: 100%; box-sizing: border-box;
 }
 .in:focus { border-color: var(--accent); }
+.in.bad { border-color: var(--red); }
+/* 사업번호 중복 확인 결과 */
+.code-msg { font-size: 12px; color: var(--muted); margin-top: 4px; display: block; }
+.code-msg.ok { color: var(--green, #22c55e); }
+.code-msg.taken, .code-msg.error { color: var(--red); }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
 
 .hint { margin: 0; font-size: 13px; color: var(--muted); opacity: 0.85; }

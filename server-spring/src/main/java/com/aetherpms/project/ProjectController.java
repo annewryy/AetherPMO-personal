@@ -49,6 +49,7 @@ public class ProjectController {
     private final ProjectConvertService convertService;
     private final JdbcTemplate jdbc;
     private final ProjectScopeService scope;
+    private final ProjectCodeService projectCodeService;
 
     public ProjectController(ProjectRepository projectRepository,
                              ProjectCompanyRepository companyRepository,
@@ -56,7 +57,8 @@ public class ProjectController {
                              ProjectUpdateService updateService,
                              JdbcTemplate jdbc,
                              ProjectConvertService convertService,
-                             ProjectScopeService scope) {
+                             ProjectScopeService scope,
+                             ProjectCodeService projectCodeService) {
         this.projectRepository = projectRepository;
         this.companyRepository = companyRepository;
         this.createService = createService;
@@ -64,6 +66,7 @@ public class ProjectController {
         this.jdbc = jdbc;
         this.convertService = convertService;
         this.scope = scope;
+        this.projectCodeService = projectCodeService;
     }
 
     // ---- POST /api/projects — 프로젝트 생성 (0017 §B P1) ------------------
@@ -94,6 +97,25 @@ public class ProjectController {
             @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
         scope.assertCanEditProject(AuthContext.of(req), id);  // 0032 §4 — 전환=프로젝트 수정 권한
         return convertService.convertToExecution(id, body, CurrentActor.resolve(req));
+    }
+
+    // ---- GET /api/projects/code-available — 사업번호 중복 확인(폼 실시간 체크용) ----
+    //   저장 시 서버가 다시 검사하므로(409) 이건 편의용 선행 확인일 뿐이다 — 신뢰 경계는 저장 경로.
+    //   excludeId: 수정 화면에서 자기 자신은 중복으로 치지 않기 위해.
+    @GetMapping("/api/projects/code-available")
+    public Map<String, Object> codeAvailable(
+            @RequestParam("code") String code,
+            @RequestParam(name = "excludeId", required = false) Long excludeId) {
+        String normalized = ProjectCodeService.normalize(code);
+        if (normalized == null) {
+            return Map.of("code", "", "available", false, "reason", "사업번호를 입력하세요.");
+        }
+        boolean taken = projectCodeService.isTaken(normalized, excludeId);
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("code", normalized);
+        out.put("available", !taken);
+        if (taken) out.put("reason", "이미 사용 중인 사업번호입니다.");
+        return out;
     }
 
     @GetMapping("/api/projects")

@@ -39,14 +39,18 @@ public class ProjectUpdateService {
     private final ProjectRepository projectRepository;
     private final ProjectCompanyRepository companyRepository;
     private final AuditWriter audit;
+    private final ProjectCodeService projectCodeService;
 
     public ProjectUpdateService(JdbcTemplate jdbc, ProjectRepository projectRepository,
-                                ProjectCompanyRepository companyRepository, AuditWriter audit, com.aetherpms.person.MemberAutoService memberAuto) {
+                                ProjectCompanyRepository companyRepository, AuditWriter audit,
+                                com.aetherpms.person.MemberAutoService memberAuto,
+                                ProjectCodeService projectCodeService) {
         this.jdbc = jdbc;
         this.projectRepository = projectRepository;
         this.companyRepository = companyRepository;
         this.audit = audit;
         this.memberAuto = memberAuto;
+        this.projectCodeService = projectCodeService;
     }
 
     // create 와 동일한 CHECK 값(수정 시에도 enum 검증).
@@ -55,10 +59,11 @@ public class ProjectUpdateService {
             List.of("제안준비중", "제안제출", "결과대기", "수주", "실패");
     private static final List<String> STAGES = List.of("BIDDING", "EXECUTION", "COMPLETED");
 
-    // 수정 허용 camelCase 키(create 필드셋 정합). 불변 필드(project_code·source·created_by)와
+    // 수정 허용 camelCase 키(create 필드셋 정합). 불변 필드(source_project_id·created_by)와
     // create 전용(clientCompanyId/clientAgencyCode/tailoring)은 제외 — 넘어오면 400.
+    //   projectCode는 2026-07-29부터 수정 가능(사용자 직접 입력 체계) — 중복이면 409.
     private static final Set<String> ALLOWED_KEYS = Set.of(
-            "name", "description", "desc",
+            "name", "projectCode", "description", "desc",
             "customerName",
             "budget", "contractAmount", "projectBudget",
             "announcementNo", "proposalDeadline", "businessType",
@@ -94,6 +99,10 @@ public class ProjectUpdateService {
             String name = b.get("name") == null ? null : b.get("name").toString().trim();
             if (name == null || name.isEmpty()) throw ApiException.badRequest("name(사업명)은 비울 수 없습니다.");
             fields.put("project_name", name);
+        }
+        // 사업번호 — 비울 수 없고 자기 자신을 제외한 중복이면 409.
+        if (b.containsKey("projectCode")) {
+            fields.put("project_code", projectCodeService.requireAvailable(b.get("projectCode"), id));
         }
         putStrIfPresent(fields, "description", b, "description", "desc");
         putStrIfPresent(fields, "customer_name", b, "customerName");

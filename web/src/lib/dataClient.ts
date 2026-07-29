@@ -185,6 +185,15 @@ export const dataClient = {
       return apiGet<Project[]>(`/api/projects${q ? `?${q}` : ''}`);
     },
 
+    // 사업번호 중복 확인(폼 실시간 체크). 저장 경로가 다시 검사하므로 이건 편의용 선행 확인이다.
+    //   excludeId: 수정 화면에서 자기 자신 제외.
+    async codeAvailable(code: string, excludeId?: number): Promise<{ code: string; available: boolean; reason?: string }> {
+      if (!apiBase()) return { code, available: true };
+      const qs = new URLSearchParams({ code });
+      if (excludeId != null) qs.set('excludeId', String(excludeId));
+      return apiGet(`/api/projects/code-available?${qs.toString()}`);
+    },
+
     async get(id: number): Promise<Project | null> {
       if (!apiBase()) return null;
       return apiGet<Project | null>(`/api/projects/${id}`);
@@ -202,7 +211,8 @@ export const dataClient = {
     },
 
     // 0033 — 입찰→수행 전환(설계 0001 스폰 트랜잭션 + 마법사 입력). 응답 = 새 수행 프로젝트 상세.
-    convertToExecution(id: number, input: ProjectConvertInput = {}): Promise<Project> {
+    //   projectCode는 필수다(2026-07-29 자동 파생 폐지) — 기본값 없이 호출부가 반드시 채운다.
+    convertToExecution(id: number, input: ProjectConvertInput): Promise<Project> {
       return apiSend<Project>('POST', `/api/projects/${id}/convert-to-execution`, input);
     },
 

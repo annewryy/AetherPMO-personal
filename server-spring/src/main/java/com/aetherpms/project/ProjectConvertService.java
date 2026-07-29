@@ -18,7 +18,7 @@ import com.aetherpms.person.MemberAutoService;
  * 0033 — 입찰 → 수행 전환(스폰). 설계 0001 데이터 경계 그대로:
  *  - 복사: 사업명·고객사(회사FK)·공고번호·계약금액·사업유형·컨소시엄 역할/지분·팀·PM·설명·부서·수행장소
  *  - 행 복제: pms_project_company(컨소시엄)·pms_contact_point
- *  - 새로 생성: project_code(입찰 코드의 -B 제거, 충돌 시 신규 발번)·stage=EXECUTION·status=진행중·progress=0
+ *  - 새로 생성: project_code(**마법사에서 직접 입력, 필수·중복 시 409**)·stage=EXECUTION·status=진행중·progress=0
  *  - 승계 안 함: 입찰 이슈/액션/산출물/태스크·bid_status·proposal_deadline (수행 테일러링은 이후 재선택)
  *  - 전환 완료 시 입찰: bid_status=수주 + status=완료(stage는 BIDDING 유지)
  *  - 이미 전환된 입찰(파생 수행 존재)은 409.
@@ -70,16 +70,9 @@ public class ProjectConvertService {
             throw ApiException.conflict("이미 수행 전환된 프로젝트입니다 — 파생 수행 프로젝트가 존재합니다.");
         }
 
-        // 수행 코드: 입찰 코드의 -B 제거(공통 베이스 유지, 0001). 충돌·부재 시 신규 발번.
+        // 수행 코드: 2026-07-29부터 마법사에서 직접 입력받는다(자동 -B 제거 폐지). 중복이면 409.
         String srcCode = str(src.get("project_code"));
-        String execCode = null;
-        if (srcCode != null && srcCode.endsWith("-B")) {
-            String base = srcCode.substring(0, srcCode.length() - 2);
-            Integer dup = jdbc.queryForObject(
-                    "SELECT COUNT(*) FROM pms_project WHERE project_code = ?", Integer.class, base);
-            if (dup != null && dup == 0) execCode = base;
-        }
-        if (execCode == null) execCode = codeService.nextBaseCode();
+        String execCode = codeService.requireAvailable(b.get("projectCode"), null);
 
         jdbc.update("""
                 INSERT INTO pms_project

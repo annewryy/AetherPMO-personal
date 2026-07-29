@@ -161,40 +161,9 @@ function toInput(): CatalogNodeInput {
 }
 
 // 0029 §C — 파일명 패턴 설정(요구 0004 §4). 관리자에서 조회·수정.
+//   프로젝트 코드 패턴 설정은 2026-07-29 제거 — 사업번호를 사람이 직접 입력하는 체계로
+//   바뀌어 자동 발번 패턴이 쓰이지 않는다(백엔드 발번 코드·카운터는 롤백 대비로 남아 있음).
 const filenamePattern = ref('');
-const codePattern = ref('');
-const codePatternSaved = ref(false);
-const codePatternSaving = ref(false);
-async function loadCodePattern() {
-  try {
-    const r = await dataClient.adminSettings.get('project.code.pattern');
-    codePattern.value = r.value ?? '';
-  } catch (e) {
-    console.error('[admin] 코드 패턴 로드 실패:', e);
-  }
-}
-async function saveCodePattern() {
-  codePatternSaving.value = true;
-  codePatternSaved.value = false;
-  try {
-    const r = await dataClient.adminSettings.put('project.code.pattern', codePattern.value);
-    codePattern.value = r.value ?? '';
-    codePatternSaved.value = true;
-    window.setTimeout(() => { codePatternSaved.value = false; }, 2500);
-  } catch (e) {
-    alert(e instanceof Error ? e.message : String(e));
-  } finally {
-    codePatternSaving.value = false;
-  }
-}
-// 패턴 미리보기(연도·순번 예시)
-const codePreview = computed(() => {
-  const y = new Date().getFullYear();
-  return (codePattern.value || 'PRJ-{연도}-{순번}')
-    .replace('{연도2}', String(y % 100).padStart(2, '0'))
-    .replace('{연도}', String(y))
-    .replace('{순번}', '001');
-});
 const patternSaved = ref(false);
 const patternSaving = ref(false);
 async function loadPattern() {
@@ -284,7 +253,6 @@ onMounted(async () => {
   }
   if (apiMode.value) {
     void loadPattern();
-    void loadCodePattern();
     dataClient.docTemplates.list().then((v) => { docTemplates.value = v; })
       .catch((e) => console.error('[admin] 양식 목록 로드 실패:', e));
   }
@@ -327,16 +295,6 @@ function onTplSelect(t: { id: number }) {
           {{ patternSaving ? '저장 중…' : '패턴 저장' }}
         </button>
         <span v-if="patternSaved" class="pattern-ok">저장됨</span>
-      </div>
-      <label class="pattern-label">프로젝트 코드 패턴
-        <span class="pattern-hint">토큰: {연도} {연도2} {순번}(필수) — 예: OKC{연도2}-{순번} → 미리보기 <code>{{ codePreview }}</code>{{ '' }} (입찰은 -B 자동 부착)</span>
-      </label>
-      <div class="pattern-row">
-        <input v-model="codePattern" class="input pattern-input" type="text" :disabled="codePatternSaving" />
-        <button class="btn btn-sm" :disabled="codePatternSaving || !codePattern.trim()" @click="saveCodePattern">
-          {{ codePatternSaving ? '저장 중…' : '패턴 저장' }}
-        </button>
-        <span v-if="codePatternSaved" class="pattern-ok">저장됨</span>
       </div>
     </div>
 

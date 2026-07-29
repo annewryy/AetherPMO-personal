@@ -60,22 +60,41 @@ class ProjectCreateIntegrationTest {
 
     private static final ParameterizedTypeReference<Map<String, Object>> MAP = new ParameterizedTypeReference<>() {};
 
+    private final java.util.concurrent.atomic.AtomicInteger codeSeq = new java.util.concurrent.atomic.AtomicInteger();
+
+    /** 사업번호는 매번 새로 만든다 — 같은 컨테이너에서 테스트가 여러 번 돌아도 충돌하지 않게. */
+    private String uniqueCode() {
+        return "TEST-" + System.nanoTime() + "-" + codeSeq.incrementAndGet();
+    }
+
+    /**
+     * 2026-07-29부터 projectCode는 필수 입력이다. 코드 자체가 관심사가 아닌 케이스까지
+     * 전부 고치지 않도록, 본문에 projectCode가 없으면 여기서 고유 코드를 채워 보낸다.
+     */
+    @SuppressWarnings("unchecked")
     private ResponseEntity<Map<String, Object>> post(Object body) {
+        Object payload = body;
+        if (body instanceof Map<?, ?> m && !m.containsKey("projectCode")) {
+            Map<String, Object> copy = new HashMap<>((Map<String, Object>) m);
+            copy.put("projectCode", uniqueCode());
+            payload = copy;
+        }
         HttpHeaders h = new HttpHeaders();
         h.set("Content-Type", "application/json");
         h.set("X-User-Id", "11111111-1111-1111-1111-111111111111");
-        return rest.exchange("/api/projects", HttpMethod.POST, new HttpEntity<>(body, h), MAP);
+        return rest.exchange("/api/projects", HttpMethod.POST, new HttpEntity<>(payload, h), MAP);
     }
 
     @Test
-    void create_minimal_appliesDefaultsAndBiddingCode() {
-        ResponseEntity<Map<String, Object>> resp = post(Map.of("name", "나라장터 신규 입찰 사업"));
+    void create_minimal_appliesDefaultsAndKeepsGivenCode() {
+        String code = uniqueCode();
+        ResponseEntity<Map<String, Object>> resp = post(Map.of("name", "나라장터 신규 입찰 사업", "projectCode", code));
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         Map<String, Object> body = resp.getBody();
         assertThat(body).isNotNull();
 
-        // 발번: 베이스 PRJ-{연도}-{NNN} + 입찰 접미사 -B.
-        assertThat(body.get("projectCode").toString()).matches("PRJ-\\d{4}-\\d{3}-B");
+        // 2026-07-29: 자동 발번 폐지 — 입력한 사업번호가 그대로 저장된다(접미사 부착도 없음).
+        assertThat(body.get("projectCode")).isEqualTo(code);
         // 기본값.
         assertThat(body.get("stage")).isEqualTo("BIDDING");
         assertThat(body.get("status")).isEqualTo("Bidding"); // 매퍼 KO('입찰')→EN
@@ -144,12 +163,76 @@ class ProjectCreateIntegrationTest {
     }
 
     @Test
-    void create_sequentialCodes_areUniqueAndIncrementing() {
-        String c1 = post(Map.of("name", "연번 A")).getBody().get("projectCode").toString();
-        String c2 = post(Map.of("name", "연번 B")).getBody().get("projectCode").toString();
-        assertThat(c1).isNotEqualTo(c2);
-        // 둘 다 -B 접미사, 순번은 서로 다름.
-        assertThat(List.of(c1, c2)).allMatch(c -> c.endsWith("-B"));
+    void create_missingProjectCode_400() {
+        Map<String, Object> in = new HashMap<>();
+        in.put("name", "사업번호 없는 생성");
+        in.put("projectCode", "   ");   // 공백만 → 비어 있는 것으로 취급
+        ResponseEntity<Map<String, Object>> resp = post(in);
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(resp.getBody().get("message").toString()).contains("사업번호");
+    }
+
+    @Test
+    void create_duplicateProjectCode_409() {
+        String code = uniqueCode();
+        assertThat(post(Map.of("name", "중복 코드 A", "projectCode", code)).getStatusCode())
+                .isEqualTo(HttpStatus.CREATED);
+
+        ResponseEntity<Map<String, Object>> dup = post(Map.of("name", "중복 코드 B", "projectCode", code));
+        assertThat(dup.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(dup.getBody().get("message").toString()).contains("이미 사용 중인 사업번호");
+    }
+
+    /** 앞뒤 공백은 정리해서 저장한다(사용자가 복사·붙여넣기로 넣는 값이라). */
+    @Test
+    void create_trimsProjectCode() {
+        String code = uniqueCode();
+        Map<String, Object> body = post(Map.of("name", "공백 정리", "projectCode", "  " + code + "  ")).getBody();
+        assertThat(body.get("projectCode")).isEqualTo(code);
+    }
+
+    @Test
+    void codeAvailable_reportsTakenAndFree() {
+        String code = uniqueCode();
+        Map<String, Object> free = rest.exchange("/api/projects/code-available?code=" + code,
+                HttpMethod.GET, null, MAP).getBody();
+        assertThat(free.get("available")).isEqualTo(true);
+
+        long id = ((Number) post(Map.of("name", "점유 코드", "projectCode", code)).getBody().get("id")).longValue();
+
+        Map<String, Object> taken = rest.exchange("/api/projects/code-available?code=" + code,
+                HttpMethod.GET, null, MAP).getBody();
+        assertThat(taken.get("available")).isEqualTo(false);
+
+        // 수정 화면: 자기 자신은 중복이 아니다.
+        Map<String, Object> self = rest.exchange(
+                "/api/projects/code-available?code=" + code + "&excludeId=" + id,
+                HttpMethod.GET, null, MAP).getBody();
+        assertThat(self.get("available")).isEqualTo(true);
+    }
+
+    @Test
+    void patch_projectCode_updatesAndRejectsDuplicate() {
+        String codeA = uniqueCode();
+        String codeB = uniqueCode();
+        long idA = ((Number) post(Map.of("name", "코드수정 A", "projectCode", codeA)).getBody().get("id")).longValue();
+        post(Map.of("name", "코드수정 B", "projectCode", codeB));
+
+        HttpHeaders h = new HttpHeaders();
+        h.set("Content-Type", "application/json");
+        h.set("X-User-Id", "11111111-1111-1111-1111-111111111111");
+
+        // 이미 B가 쓰는 코드로 바꾸면 409.
+        ResponseEntity<Map<String, Object>> dup = rest.exchange("/api/projects/" + idA, HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("projectCode", codeB), h), MAP);
+        assertThat(dup.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+
+        // 비어 있지 않은 새 코드로는 정상 수정.
+        String codeC = uniqueCode();
+        ResponseEntity<Map<String, Object>> ok = rest.exchange("/api/projects/" + idA, HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("projectCode", codeC), h), MAP);
+        assertThat(ok.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(ok.getBody().get("projectCode")).isEqualTo(codeC);
     }
 
     @Test
