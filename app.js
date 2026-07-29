@@ -192,15 +192,17 @@ class AetherPMO {
         this.tempAttachedFile = null;
 
         // Initialize Supabase if config is present and not placeholder
-        const hasSupabaseConfig = window.SUPABASE_CONFIG && 
-                                  window.SUPABASE_CONFIG.url && 
-                                  window.SUPABASE_CONFIG.url !== 'YOUR_SUPABASE_PROJECT_URL' &&
-                                  window.SUPABASE_CONFIG.anonKey &&
-                                  window.SUPABASE_CONFIG.anonKey !== 'YOUR_SUPABASE_ANON_KEY' &&
+        const supabaseUrl = window.SUPABASE_CONFIG?.url || window.__ENV__?.SUPABASE_URL;
+        const supabaseKey = window.SUPABASE_CONFIG?.anonKey || window.__ENV__?.SUPABASE_ANON_KEY;
+
+        const hasSupabaseConfig = supabaseUrl && 
+                                  supabaseUrl !== 'YOUR_SUPABASE_PROJECT_URL' &&
+                                  supabaseKey &&
+                                  supabaseKey !== 'YOUR_SUPABASE_ANON_KEY' &&
                                   typeof window.supabase !== 'undefined';
 
         if (hasSupabaseConfig) {
-            this.supabase = window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey, {
+            this.supabase = window.supabase.createClient(supabaseUrl, supabaseKey, {
                 auth: {
                     storage: window.sessionStorage,
                     persistSession: true,
