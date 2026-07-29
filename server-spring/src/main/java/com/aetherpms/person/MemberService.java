@@ -35,9 +35,23 @@ public class MemberService {
     }
 
     private static final List<String> MEMBER_TYPES = List.of("INTERNAL", "EXTERNAL");
-    private static final List<String> PARTICIPATION_ROLES = List.of(
-            "PM", "PL", "PMO", "TA", "AA", "DA", "DBA", "SE", "DEV", "QA", "CT", "ETC",
-            "EXEC"); // 0034 §5 결정4 철회 — 자동 등록은 제거(접근 규칙 EXEC+ALL로 대체). 과거 데이터 호환으로 코드만 유지
+    // 0039 — 참여역할 어휘는 관리자가 편집하는 마스터(pms_role_capability)가 원본이다.
+    //   코드에 고정하면 '역할 추가'가 불가능하고 DB CHECK와 이중 관리가 되므로(V38에서 CHECK 제거)
+    //   저장 시점에 마스터를 조회해 검증한다.
+    private String requireKnownRole(Object raw) {
+        String code = raw == null ? "" : raw.toString().trim();
+        if (code.isEmpty()) return null;
+        Integer c = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM pms_role_capability WHERE role_code = ?", Integer.class, code);
+        if (c == null || c == 0) {
+            List<String> known = jdbc.query(
+                    "SELECT role_code FROM pms_role_capability ORDER BY sort_order, role_code",
+                    (rs, i) -> rs.getString(1));
+            throw ApiException.badRequest("유효하지 않은 participationRole 값: " + code
+                    + " (허용: " + String.join(", ", known) + ")");
+        }
+        return code;
+    }
 
     @Transactional
     public Map<String, Object> createMember(long projectId, Map<String, Object> body, Actor actor) {
@@ -69,7 +83,7 @@ public class MemberService {
         String userUid = str(b.get("userUid"));
         String amaranthEmpNo = str(b.get("amaranthEmpNo"));
         String participationRole = b.get("participationRole") != null
-                ? requireInList("participationRole", b.get("participationRole"), PARTICIPATION_ROLES) : null;
+                ? requireKnownRole(b.get("participationRole")) : null;
 
         // 저장 동기화(0005 §D): find-or-insert person → person_id.
         long personId = personSync.findOrInsertPerson(memberType, amaranthEmpNo, userUid,
@@ -158,7 +172,7 @@ public class MemberService {
         if (b.containsKey("department")) set.put("department", str(b.get("department")));
         if (b.containsKey("participationRole")) {
             set.put("participation_role", b.get("participationRole") == null ? null
-                    : requireInList("participationRole", b.get("participationRole"), PARTICIPATION_ROLES));
+                    : requireKnownRole(b.get("participationRole")));
         }
         if (b.containsKey("employmentType")) {
             set.put("employment_type", PersonSyncService.normalizeEmploymentType(str(b.get("employmentType"))));

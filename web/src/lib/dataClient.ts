@@ -24,7 +24,7 @@ import type {
   IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput, MeetingMinuteUpdateInput,
   ConsortiumPayload, ConsortiumMemberInput, VrbInfoInput,
   ProjectMemberRef, ProjectMemberDetail, ProjectMemberInput, ProjectMemberAssignment, AppNotification, AppSetting,
-  Person, PersonInput, PersonProjectHistory, PersonFilters, InsourcingTransition, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput, ProjectConvertInput,
+  Person, PersonInput, PersonProjectHistory, PersonFilters, ProjectRole, InsourcingTransition, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput, ProjectConvertInput,
   BidAgency, BidNoticeFilters, BidNoticeResult, BidNoticeDetail,
 } from '../types';
 
@@ -711,12 +711,19 @@ export const dataClient = {
   },
 
   // 0034 §2단계 — 프로젝트 역할(④) 전역 관리포인트 권한
+  // 0039 — 참여역할 마스터(코드·표시명·정렬 + capability). 추가/수정/삭제 지원.
   roleCapabilities: {
-    list(): Promise<{ roles: { roleCode: string; capabilities: Record<string, unknown> }[]; capabilityKeys: string[]; tristateKeys: string[] }> {
+    list(): Promise<{ roles: ProjectRole[]; capabilityKeys: string[]; tristateKeys: string[] }> {
       return apiGet('/api/admin/role-capabilities');
     },
-    update(roleCode: string, body: Record<string, unknown>) {
+    create(input: { roleCode: string; label?: string; sortOrder?: number }): Promise<ProjectRole> {
+      return apiSend('POST', '/api/admin/role-capabilities', input);
+    },
+    update(roleCode: string, body: Record<string, unknown>): Promise<ProjectRole> {
       return apiSend('PATCH', `/api/admin/role-capabilities/${roleCode}`, body);
+    },
+    remove(roleCode: string): Promise<{ deleted: boolean; roleCode: string }> {
+      return apiSend('DELETE', `/api/admin/role-capabilities/${roleCode}`);
     },
   },
 

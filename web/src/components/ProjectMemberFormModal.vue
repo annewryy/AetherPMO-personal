@@ -23,8 +23,9 @@ const emit = defineEmits<{ (e: 'saved'): void; (e: 'close'): void }>();
 
 const isEdit = computed(() => !!props.member);
 
-// 참여역할(0014) — PM·PL·PMO·TA·AA·DA·DBA·SE·DEV·QA·CT·ETC.
-const PARTICIPATION_ROLES = ['PM', 'PL', 'PMO', 'TA', 'AA', 'DA', 'DBA', 'SE', 'DEV', 'QA', 'CT', 'ETC'] as const;
+// 0039 — 참여역할은 관리자가 편집하는 마스터(관리자 콘솔 > 역할 권한)에서 불러온다.
+//   하드코딩하면 역할을 추가해도 이 폼에 안 나온다. 로드 실패 시엔 선택지를 비운다(더미 금지).
+const participationRoles = ref<{ code: string; label: string }[]>([]);
 
 const name = ref('');
 const memberType = ref<ProjectMemberType>('INTERNAL');
@@ -52,6 +53,12 @@ onMounted(async () => {
     syncCompanySelect();
   } catch (e) {
     console.error('[member-form] 회사 목록 로드 실패:', e);
+  }
+  try {
+    const r = await dataClient.roleCapabilities.list();
+    participationRoles.value = r.roles.map((x) => ({ code: x.roleCode, label: x.label || x.roleCode }));
+  } catch (e) {
+    console.error('[member-form] 참여역할 목록 로드 실패:', e);
   }
   if (props.projectSelectable) {
     try {
@@ -263,7 +270,7 @@ async function submit() {
         <label class="label">참여역할</label>
         <select v-model="participationRole" class="input" :disabled="submitting">
           <option value="">선택 안 함</option>
-          <option v-for="r in PARTICIPATION_ROLES" :key="r" :value="r">{{ r }}</option>
+          <option v-for="r in participationRoles" :key="r.code" :value="r.code">{{ r.label }}</option>
         </select>
       </div>
     </div>

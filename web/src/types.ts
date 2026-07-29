@@ -971,6 +971,14 @@ export interface Person {
   activeProjectCount?: number;
 }
 
+/** 0039 — 프로젝트 참여역할 마스터(pms_role_capability). 관리자 콘솔에서 추가·수정·삭제한다. */
+export interface ProjectRole {
+  roleCode: string;
+  label: string | null;
+  sortOrder: number;
+  capabilities: Record<string, unknown>;
+}
+
 /** 0039 — 인력 마스터 신규 등록/수정 입력(POST /api/persons · PATCH /api/persons/{id}). */
 export interface PersonInput {
   name: string;
