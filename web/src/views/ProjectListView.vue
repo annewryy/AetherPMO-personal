@@ -66,8 +66,13 @@ const tabs = computed(() => (isBidding.value ? BID_TABS : EXEC_TABS));
 
 const LOCATIONS: readonly ProjectLocationFilter[] = ['서울', '대전', '대구', '광주', '기타'];
 
+// 번호류는 표기 구분자(하이픈·공백·언더바)를 빼고 비교한다 — 화면에 'OKC-26-0826'으로 보이는 걸
+//   '0826'이나 '260826'으로 찾아도 걸리게. 사업명은 원문 그대로 부분일치.
+const squash = (v: string | null | undefined) => (v ?? '').toLowerCase().replace(/[-_\s]/g, '');
+
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase();
+  const qSquashed = q.replace(/[-_\s]/g, '');
   return projects.value.filter((p) => {
     if (statusFilter.value !== 'ALL') {
       const v = isBidding.value ? p.bidStatus : p.status;
@@ -76,7 +81,8 @@ const filtered = computed(() => {
     if (!q) return true;
     return (
       (p.name ?? '').toLowerCase().includes(q) ||
-      (p.projectCode ?? '').toLowerCase().includes(q)
+      (!!qSquashed && squash(p.projectCode).includes(qSquashed)) ||
+      (!!qSquashed && squash(p.announcementNo).includes(qSquashed))
     );
   });
 });
@@ -210,7 +216,7 @@ onMounted(() => { void load(); });
         v-model="query"
         class="search"
         type="search"
-        placeholder="이름·코드 검색"
+        placeholder="사업명·사업번호·공고번호 검색"
       />
       <button class="btn btn-primary" @click="showCreateForm = true">+ 신규 프로젝트</button>
     </div>
@@ -232,6 +238,11 @@ onMounted(() => { void load(); });
     </div>
     <div v-else-if="filtered.length === 0" class="notice">
       필터 조건에 맞는 프로젝트가 없습니다.
+      <!-- 입찰/수행 목록이 메뉴로 갈려 있어, 반대쪽 단계에 있는 사업은 여기서 안 잡힌다. -->
+      <span v-if="query.trim()" class="detail">
+        찾는 사업이 {{ isBidding ? '수행단계' : '입찰단계' }}에 있을 수 있습니다 —
+        {{ isBidding ? '수행' : '입찰' }} 목록에서도 검색해 보세요.
+      </span>
     </div>
 
     <!-- 결과 헤더(총건수 + 페이지당 건수) -->

@@ -252,10 +252,6 @@ function rateText(v: number | null): string {
             <span class="tick-line" />
             <span class="tick-label">{{ t.label }}</span>
           </span>
-          <span
-            v-if="todayPct != null && todayPct >= 0 && todayPct <= 100"
-            class="today-head" :style="{ left: todayPct + '%' }"
-          >오늘</span>
         </div>
         <div v-else class="axis axis-none">일정 미정</div>
       </div>
@@ -400,10 +396,6 @@ function rateText(v: number | null): string {
 .tick { position: absolute; top: 0; transform: translateX(-50%); text-align: center; }
 .tick-line { display: block; width: 1px; height: 6px; margin: 0 auto; background: var(--border); }
 .tick-label { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; }
-.today-head {
-  position: absolute; top: 2px; transform: translateX(-50%);
-  font-size: 11px; font-weight: 700; color: var(--red); white-space: nowrap;
-}
 
 /* 바디 행 */
 .wbs-body { }
@@ -482,8 +474,8 @@ function rateText(v: number | null): string {
 .bar.delayed { border-color: var(--red); background: rgba(239, 68, 68, 0.18); }
 .bar.delayed .bar-fill { background: var(--red); }
 .today-line {
-  position: absolute; top: -2px; bottom: -2px; width: 2px;
-  background: var(--red); opacity: 0.55; z-index: 1; transform: translateX(-1px);
+  position: absolute; top: -2px; bottom: -2px; width: 1px;
+  background: var(--red); opacity: 0.55; z-index: 1; transform: translateX(-0.5px);
 }
 .no-plan { font-size: 12px; color: var(--muted); line-height: 20px; }
 
@@ -498,7 +490,7 @@ function rateText(v: number | null): string {
 .sw-bar { background: rgba(59, 130, 246, 0.22); border: 1px solid var(--blue); }
 .sw-fill { background: var(--blue); }
 .sw-delayed { background: rgba(239, 68, 68, 0.18); border: 1px solid var(--red); }
-.sw-today { width: 3px; background: var(--red); border-radius: 0; }
+.sw-today { width: 2px; background: var(--red); border-radius: 0; }
 
 .card-empty { font-size: 14px; color: var(--muted); padding: 8px 0; }
 

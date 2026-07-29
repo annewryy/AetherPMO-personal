@@ -13,7 +13,7 @@ import ProjectMemberFormModal from '../components/ProjectMemberFormModal.vue';
 import ProjectSelectField from '../components/ProjectSelectField.vue';
 import PageSizeSelect from '../components/PageSizeSelect.vue';
 import Pager from '../components/Pager.vue';
-import { DEFAULT_PAGE_SIZE, usePagination } from '../lib/pagination';
+import { usePagination } from '../lib/pagination';
 
 const router = useRouter();
 const apiMode = computed(() => !!window.API_BASE);
@@ -109,7 +109,9 @@ const persons = computed<PersonGroup[]>(() => {
   return [...map.values()];
 });
 
-const pageSize = ref<number>(DEFAULT_PAGE_SIZE);
+// 인력 1명당 참여 이력이 여러 줄로 펼쳐져 행 높이가 커서, 이 화면만 기본 10건으로 시작한다
+//   (공통 DEFAULT_PAGE_SIZE=20 대신. 페이지크기 셀렉트로 언제든 바꿀 수 있다.)
+const pageSize = ref<number>(10);
 const { page, total, totalPages, paged, goPage, resetPage, setPageSize, rowNo } =
   usePagination(persons, pageSize);
 watch([projectFilter, selectedTypes, query, includeInactive], () => resetPage());
