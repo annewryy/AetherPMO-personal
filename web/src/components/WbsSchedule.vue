@@ -250,7 +250,6 @@ function rateText(v: number | null): string {
         class="wbs-row" :class="'lvl-' + row.depth"
       >
         <!-- 0044 §D — 산출물 행 제거: 산출물은 태스크 상세 페이지에서 확인·이동한다. -->
-        <template>
         <div class="col-tree" :style="{ paddingLeft: 8 + row.depth * 20 + 'px' }">
           <span class="type-tag" :class="'ty-' + row.node.nodeType">{{ typeLabel(row.node.nodeType) }}</span>
           <span
@@ -304,7 +303,6 @@ function rateText(v: number | null): string {
             <span v-else class="no-plan">일정 미정</span>
           </div>
         </div>
-        </template>
       </div>
     </div>
 
