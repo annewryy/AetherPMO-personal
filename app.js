@@ -27653,3 +27653,49 @@ class AetherPMO {
         a.click();
     }
 }
+
+
+/* ============================================================================
+   AETHER PMO CORE APPLICATION BOOTSTRAPPER & GLOBAL INSTANTIATION
+   ============================================================================ */
+
+// Class alias for compatibility (supports both AetherPMO and AetherPMOApp)
+const AetherPMOApp = AetherPMO;
+if (typeof window !== 'undefined') {
+    window.AetherPMOApp = AetherPMOApp;
+    window.AetherPMO = AetherPMO;
+}
+
+let app;
+
+try {
+    console.log('[BOOT] STEP1 - Instantiating AetherPMOApp');
+    app = new AetherPMOApp();
+
+    if (typeof window !== 'undefined') {
+        window.app = app;
+        console.log('[BOOT] STEP2 - Global window.app assigned successfully:', typeof window.app);
+    }
+} catch (err) {
+    console.error('[BOOT] App instantiation error:', err);
+}
+
+if (typeof document !== 'undefined') {
+    const initApp = async () => {
+        try {
+            console.log('[BOOT] STEP3 - Running app.init()');
+            if (app && typeof app.init === 'function') {
+                await app.init();
+            }
+            console.log('[BOOT] STEP4 - Application boot complete!');
+        } catch (error) {
+            console.error('[BOOT] App initialization failed:', error);
+        }
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+        initApp();
+    }
+}
