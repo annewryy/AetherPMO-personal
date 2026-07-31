@@ -82,6 +82,8 @@ function syncCompanySelect() {
 }
 const position = ref('');
 const department = ref('');
+// 0042 — 표시용 부서명과 별개로 조직도 부서 코드를 들고 간다(부서 필터의 축).
+const deptCode = ref<string | null>(null);
 const roleName = ref('');
 const participationRole = ref('');
 const isProjectManager = ref(false);
@@ -113,6 +115,7 @@ function onOrgPick(p: OrgPick) {
     memberType.value = 'EXTERNAL';
     picked.value = null;
     amaranthEmpNo.value = '';
+    deptCode.value = null;
     if (!isEdit.value) name.value = '';
     return;
   }
@@ -120,6 +123,7 @@ function onOrgPick(p: OrgPick) {
   name.value = p.name ?? '';
   amaranthEmpNo.value = p.amaranthEmpNo ?? '';
   if (p.department) department.value = p.department;
+  deptCode.value = p.deptCode;
   if (p.position) position.value = p.position;
   if (p.source === 'EXTERNAL') {
     if (p.companyName) { company.value = p.companyName; syncCompanySelect(); }
@@ -138,6 +142,7 @@ function clearPicked() {
   amaranthEmpNo.value = '';
   if (!isEdit.value) {
     name.value = ''; department.value = ''; position.value = ''; company.value = '';
+    deptCode.value = null;
     companySelect.value = ''; newCompanyName.value = '';
   }
 }
@@ -201,6 +206,7 @@ async function submit() {
   input.companyId = companyId;
   input.position = position.value.trim() || null;
   input.department = department.value.trim() || null;
+  input.deptCode = deptCode.value;
   input.roleName = roleName.value.trim() || null;
   input.participationRole = participationRole.value || null;
   try {

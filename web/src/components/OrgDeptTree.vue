@@ -1,105 +1,80 @@
 <script setup lang="ts">
-// 0038 — 조직도 부서 트리(재사용 컴포넌트): OrgPickerModal의 부서 축(데이터 소스·펼침·하위 합산
-// 인원수)을 독립 트리로 분리. 인력관리 좌측 필터 등 부서 선택이 필요한 화면에서 사용.
-// 선택 시 해당 부서 + 하위 전체의 (deptCode[], deptName[])을 emit한다.
-import { computed, onMounted, ref } from 'vue';
-import { dataClient } from '../lib/dataClient';
+// 0038/0042 — 조직도 부서 트리(**유일한** 부서 렌더 컴포넌트).
+//   부서 축이 필요한 화면은 전부 여기를 쓴다: 인력관리 좌측 네비(PersonNavigator),
+//   접근규칙 관리(AdminAccessRulesView), 조직도 선택창(OrgPickerModal).
+//   트리 조립·하위 합산 인원수 계산은 lib/orgTree.ts가 소유한다(0042 — 예전엔 이 파일과
+//   OrgPickerModal이 같은 코드를 두 벌 들고 있어서 한쪽만 고치면 다른 쪽에 버그가 남았다).
+import { computed, ref, watch } from 'vue';
+import { useOrgTree } from '../lib/orgTree';
 import type { OrgDept } from '../types';
 
 // showAllRow: '전체 조직' 행 표시(기본 true). 상위 화면이 자체 '전체' 행을 갖는 경우 false.
 // selectedCode: 넘기면 선택 상태를 상위가 소유한다(부서·회사 등 다른 축과 배타 선택을 위해).
 //   미지정이면 이 컴포넌트가 자체 관리(기존 동작).
+// mode: 'select'=행 클릭이 부서 선택(필터 화면). 'expand'=행 클릭이 펼침 토글(선택창 — 잎은 인원).
+// countSuffix: 인원수 뒤에 붙일 단위('명' 등). 기본은 숫자만.
+// expandable: 캐럿을 보일지 판단(기본은 하위 부서가 있을 때). 선택창은 인원이 있어도 펼쳐야 한다.
 const props = withDefaults(defineProps<{
   showAllRow?: boolean;
   allLabel?: string;
   selectedCode?: string | null;
-}>(), { showAllRow: true, allLabel: '전체 조직' });
+  mode?: 'select' | 'expand';
+  countSuffix?: string;
+  expandable?: (d: OrgDept, hasKids: boolean) => boolean;
+}>(), {
+  showAllRow: true,
+  allLabel: '전체 조직',
+  mode: 'select',
+  countSuffix: '',
+});
 
 const emit = defineEmits<{
   (e: 'select', v: { deptCode: string | null; deptNames: string[] }): void;
+  // 펼침이 열릴 때 알린다 — 선택창이 부서 인원을 지연 로드하는 신호.
+  (e: 'open', deptCode: string): void;
 }>();
 
-const depts = ref<OrgDept[]>([]);
-const loading = ref(true);
-const error = ref('');
+const { index, loading, error } = useOrgTree();
+
 const openSet = ref(new Set<string>());
 const selectedOwn = ref<string | null>(null);
 // selectedCode prop을 넘긴 화면은 상위가 소유(controlled), 아니면 자체 상태.
 const selected = computed(() =>
   (props.selectedCode !== undefined ? props.selectedCode : selectedOwn.value) ?? null);
 
-const childrenMap = computed<Map<string, OrgDept[]>>(() => {
-  const m = new Map<string, OrgDept[]>();
-  for (const d of depts.value) {
-    const key = d.upperDeptCode ?? '__ROOT__';
-    if (!m.has(key)) m.set(key, []);
-    m.get(key)!.push(d);
-  }
-  return m;
-});
-const roots = computed(() => childrenMap.value.get('__ROOT__') ?? []);
-function childrenOf(code: string): OrgDept[] { return childrenMap.value.get(code) ?? []; }
+// 루트는 기본 펼침. 로드 완료 시 1회(computed 안에서 상태를 건드리면 재계산 루프가 된다).
+watch(index, (idx) => {
+  if (idx) openSet.value = new Set([...openSet.value, ...idx.roots.map((d) => d.deptCode)]);
+}, { immediate: true });
 
-// 하위 부서 전체 합산 인원수(0038 — 직속만 표시하지 않는다)
-const cumCounts = computed<Map<string, number>>(() => {
-  const map = new Map<string, number>();
-  const total = (d: OrgDept): number => {
-    if (map.has(d.deptCode)) return map.get(d.deptCode)!;
-    let n = d.memberCount;
-    for (const c of childrenOf(d.deptCode)) n += total(c);
-    map.set(d.deptCode, n);
-    return n;
-  };
-  for (const d of depts.value) total(d);
-  return map;
-});
+const rows = computed(() => index.value?.flatten(openSet.value) ?? []);
 
-interface Row { dept: OrgDept; level: number; hasKids: boolean }
-const rows = computed<Row[]>(() => {
-  const out: Row[] = [];
-  const walk = (d: OrgDept, level: number) => {
-    const kids = childrenOf(d.deptCode);
-    out.push({ dept: d, level, hasKids: kids.length > 0 });
-    if (openSet.value.has(d.deptCode)) kids.forEach((c) => walk(c, level + 1));
-  };
-  roots.value.forEach((d) => walk(d, 0));
-  return out;
-});
+function isExpandable(d: OrgDept, hasKids: boolean): boolean {
+  return props.expandable ? props.expandable(d, hasKids) : hasKids;
+}
 
-function subtreeNames(code: string): string[] {
-  const out: string[] = [];
-  const walk = (d: OrgDept) => {
-    out.push(d.deptNm);
-    childrenOf(d.deptCode).forEach(walk);
-  };
-  const start = depts.value.find((d) => d.deptCode === code);
-  if (start) walk(start);
-  return out;
+function cumCount(code: string): number {
+  return index.value?.cumCount(code) ?? 0;
 }
 
 function toggleOpen(code: string) {
   const s = new Set(openSet.value);
   if (s.has(code)) s.delete(code);
-  else s.add(code);
+  else { s.add(code); emit('open', code); }
   openSet.value = s;
 }
 
 function select(d: OrgDept | null) {
   selectedOwn.value = d?.deptCode ?? null;
-  emit('select', d ? { deptCode: d.deptCode, deptNames: subtreeNames(d.deptCode) } : { deptCode: null, deptNames: [] });
+  emit('select', d
+    ? { deptCode: d.deptCode, deptNames: index.value?.subtreeNames(d.deptCode) ?? [] }
+    : { deptCode: null, deptNames: [] });
 }
 
-onMounted(async () => {
-  try {
-    depts.value = await dataClient.org.departments();
-    // 루트는 기본 펼침
-    openSet.value = new Set(roots.value.map((d) => d.deptCode));
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
-  } finally {
-    loading.value = false;
-  }
-});
+function onRowClick(d: OrgDept) {
+  if (props.mode === 'expand') toggleOpen(d.deptCode);
+  else select(d);
+}
 </script>
 
 <template>
@@ -114,19 +89,26 @@ onMounted(async () => {
     <p v-else-if="error" class="state err">{{ error }}</p>
     <p v-else-if="rows.length === 0" class="state">조직도 데이터가 없습니다(동기화 필요).</p>
     <template v-else>
-      <div v-for="r in rows" :key="r.dept.deptCode" class="line" :style="{ paddingLeft: `${r.level * 14}px` }">
-        <button
-          type="button" class="tw" :class="{ hidden: !r.hasKids }"
-          @click="toggleOpen(r.dept.deptCode)"
-        >{{ openSet.has(r.dept.deptCode) ? '▾' : '▸' }}</button>
-        <button
-          type="button" class="row" :class="{ on: selected === r.dept.deptCode }"
-          @click="select(r.dept)"
-        >
-          <span class="nm">{{ r.dept.deptNm }}</span>
-          <span v-if="(cumCounts.get(r.dept.deptCode) ?? 0) > 0" class="cnt">{{ cumCounts.get(r.dept.deptCode) }}</span>
-        </button>
-      </div>
+      <template v-for="r in rows" :key="r.kind + ':' + r.dept.deptCode">
+        <!-- 부서 행 -->
+        <div v-if="r.kind === 'dept'" class="line" :style="{ paddingLeft: `${r.level * 14}px` }">
+          <button
+            type="button" class="tw" :class="{ hidden: !isExpandable(r.dept, r.hasKids) }"
+            @click="toggleOpen(r.dept.deptCode)"
+          >{{ openSet.has(r.dept.deptCode) ? '▾' : '▸' }}</button>
+          <button
+            type="button" class="row" :class="{ on: selected === r.dept.deptCode }"
+            @click="onRowClick(r.dept)"
+          >
+            <span class="nm">{{ r.dept.deptNm }}</span>
+            <span v-if="cumCount(r.dept.deptCode) > 0" class="cnt">
+              {{ cumCount(r.dept.deptCode) }}{{ countSuffix }}
+            </span>
+          </button>
+        </div>
+        <!-- 펼쳐진 부서 뒤 삽입 지점(선택창의 인원 행 등) -->
+        <slot v-else name="after-dept" :dept="r.dept" :level="r.level" :has-kids="r.hasKids" />
+      </template>
     </template>
   </div>
 </template>

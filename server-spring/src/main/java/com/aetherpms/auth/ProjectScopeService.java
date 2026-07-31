@@ -13,6 +13,7 @@ import com.aetherpms.access.AccessRuleService;
 import com.aetherpms.access.CapabilityMerge;
 import com.aetherpms.common.ApiException;
 import com.aetherpms.common.Json;
+import com.aetherpms.org.OrgTreeService;
 
 /**
  * 0034 — 참여 프로젝트 스코프(①메뉴는 AccessRuleService, 여기는 ②관리포인트) + 0032 잔여 시행 지점.
@@ -25,10 +26,13 @@ public class ProjectScopeService {
 
     private final JdbcTemplate jdbc;
     private final AccessRuleService accessRuleService;
+    private final OrgTreeService orgTree;
 
-    public ProjectScopeService(JdbcTemplate jdbc, AccessRuleService accessRuleService) {
+    public ProjectScopeService(JdbcTemplate jdbc, AccessRuleService accessRuleService,
+            OrgTreeService orgTree) {
         this.jdbc = jdbc;
         this.accessRuleService = accessRuleService;
+        this.orgTree = orgTree;
     }
 
     private boolean enforce() {
@@ -75,7 +79,15 @@ public class ProjectScopeService {
             if (!"DEPT".equals(rule.get("project_scope"))) continue;
             String deptCode = (String) rule.get("dept_code");
             if (deptCode == null) continue;
-            Set<String> names = accessRuleService.expandDeptNamesPublic(deptCode,
+            // 0042 — 예전엔 AccessRuleService의 pass-through(expandDeptNamesPublic)를 거쳤다.
+            //   부서 전개의 주인은 org 도메인이므로 OrgTreeService를 직접 쓴다.
+            //
+            // ⚠️ 여기만 아직 **이름** 비교다. 비교 대상이 pms_person이 아니라 pms_project.dept
+            //   (프로젝트 담당부서, VARCHAR(200) 자유 문자열)이고 그 컬럼엔 부서 코드가 없다.
+            //   조직도에 동명 부서가 흔하므로(재무팀 6개 등) 이름이 겹치는 다른 부서의 프로젝트가
+            //   DEPT 범위에 함께 열릴 수 있다. 인력 축은 5단계에서 코드로 옮겼고,
+            //   프로젝트 축은 pms_project.dept_code 도입이 선행돼야 한다(별도 과제).
+            Set<String> names = orgTree.subtreeNames(deptCode,
                     !Boolean.FALSE.equals(rule.get("include_sub")));
             if (names.isEmpty()) continue;
             String placeholders = String.join(",", names.stream().map(n -> "?").toList());

@@ -28,7 +28,10 @@ import java.util.Map;
 @Service
 public class OrgSyncService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OrgSyncService.class);
+
     private final JdbcTemplate jdbc; // 우리 DB(메인 datasource)
+    private final OrgTreeService orgTree; // 0042 — 동기화 후 부서 트리 스냅샷 무효화
 
     @Value("${amaranth.view.url:}")
     private String viewUrl;
@@ -37,8 +40,9 @@ public class OrgSyncService {
     @Value("${amaranth.view.password:}")
     private String viewPassword;
 
-    public OrgSyncService(JdbcTemplate jdbc) {
+    public OrgSyncService(JdbcTemplate jdbc, OrgTreeService orgTree) {
         this.jdbc = jdbc;
+        this.orgTree = orgTree;
     }
 
     /** 동기화 실행. 소스 view DB에서 읽어 미러 테이블 치환. 카운트 반환. */
@@ -105,11 +109,87 @@ public class OrgSyncService {
                 "INSERT INTO pms_org_member_dept (mber_id, dept_code, dept_nm, duty_code) VALUES (?, ?, ?, ?)",
                 memberDepts);
 
+        // 0042 — 부서 스냅샷 캐시를 버린다. 이 호출이 빠지면 OrgTreeService가 동기화 전 트리를 계속 쓴다.
+        orgTree.invalidate();
+
+        // 0042 5단계 — 아마란스 재직자를 인력 마스터로 승격(사용자 결정 (a)).
+        Map<String, Object> promoted = promoteMembersToPersons();
+
         Map<String, Object> out = new LinkedHashMap<>();
+        out.putAll(promoted);
         out.put("departments", depts.size());
         out.put("members", members.size());
         out.put("memberDepts", memberDepts.size());
         out.put("syncedAt", java.time.LocalDateTime.now().toString());
+        return out;
+    }
+
+    /**
+     * 0042 5단계 — 아마란스 회원 → 인력 마스터(pms_person) 벌크 승격.
+     *
+     * 왜: 예전엔 pms_person이 **참여인력으로 저장될 때만** find-or-insert로 생겼다. 그래서
+     *   인력관리 목록은 "프로젝트에 투입된 적 있는 사람"뿐이었는데, 좌측 트리 인원수는
+     *   아마란스 전원 기준이었다 — 12명이라고 뜬 부서를 눌러도 목록이 0건인 게 정상 동작이었다.
+     *   (2026-07-29 dev 실측: org_member 897명 vs person 2명.)
+     *
+     * 겸직(한 회원이 여러 부서) 처리: pms_person은 부서를 하나만 갖는다. **직책이 있는 부서를
+     *   우선**하고, 동률이면 dept_code 오름차순으로 대표 부서 1건을 고른다(결정적 — 동기화를
+     *   여러 번 돌려도 같은 결과). 겸직 전체는 pms_org_member_dept에 그대로 남아 있고
+     *   조직도 선택창은 거기서 읽으므로 정보가 사라지지는 않는다.
+     *
+     * 갱신 시 employment_type·company_id는 **건드리지 않는다**. 자사화 전환(0019)으로
+     *   'insourced'가 된 인력이 동기화 한 번에 'regular'로 되돌아가면 안 된다.
+     */
+    private Map<String, Object> promoteMembersToPersons() {
+        // 재직(P) 회원 → upsert. 사번(amaranth_emp_no)이 유니크 키.
+        int upserted = jdbc.update("""
+                INSERT INTO pms_person
+                       (source, amaranth_emp_no, name, employment_type, department, dept_code, position, email, status)
+                SELECT 'INTERNAL', m.mber_id, m.mber_nm, 'regular',
+                       d.dept_nm, pd.dept_code, NULLIF(dc.duty_nm, ''), m.email, '재직'
+                  FROM pms_org_member m
+                  -- LEFT JOIN인 이유: 부서 행이 하나도 없는 재직자도 있다(dev 실측 9명).
+                  --   결정 (a)는 "아마란스 재직 전원이 인력 마스터에 있다"이므로 이들도 만든다.
+                  --   부서만 미상(dept_code NULL)으로 남아 부서 필터엔 안 걸린다.
+                  LEFT JOIN (SELECT mber_id, dept_code, duty_code,
+                               ROW_NUMBER() OVER (PARTITION BY mber_id
+                                                  ORDER BY (duty_code IS NULL), dept_code) AS rn
+                          FROM pms_org_member_dept) pd
+                    ON pd.mber_id = m.mber_id AND pd.rn = 1
+                  LEFT JOIN pms_org_dept d ON d.dept_code = pd.dept_code
+                  LEFT JOIN pms_org_duty_code dc ON dc.duty_code = pd.duty_code
+                 WHERE m.status = 'P'
+                    ON DUPLICATE KEY UPDATE
+                       name       = VALUES(name),
+                       department = VALUES(department),
+                       dept_code  = VALUES(dept_code),
+                       position   = VALUES(position),
+                       email      = VALUES(email),
+                       status     = '재직'
+                """);
+
+        // 퇴직(D) 회원은 새로 만들지 않고, 이미 있는 인력만 '종료'로 내린다.
+        //   아마란스가 내부 인력 재직상태의 원천이다(0020 경계).
+        int retired = jdbc.update("""
+                UPDATE pms_person p
+                  JOIN pms_org_member m ON m.mber_id = p.amaranth_emp_no
+                   SET p.status = '종료'
+                 WHERE m.status = 'D' AND p.status <> '종료'
+                """);
+
+        // 부서 코드를 못 채운 내부 인력(동명 부서라 백필이 포기했거나 사번 미보유) — 운영 확인용.
+        Integer unresolved = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM pms_person WHERE source = 'INTERNAL' AND dept_code IS NULL",
+                Integer.class);
+        if (unresolved != null && unresolved > 0) {
+            log.warn("조직 동기화: 부서 코드를 확정하지 못한 내부 인력 {}명 (동명 부서 또는 사번 미보유). "
+                    + "부서 필터에서 제외된다 — 수동 확인 필요.", unresolved);
+        }
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("personsUpserted", upserted);
+        out.put("personsRetired", retired);
+        out.put("personsWithoutDeptCode", unresolved == null ? 0 : unresolved);
         return out;
     }
 

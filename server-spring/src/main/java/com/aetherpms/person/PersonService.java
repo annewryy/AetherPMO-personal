@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.aetherpms.common.ApiException;
+import com.aetherpms.org.OrgTreeService;
 
 /**
  * 인력관리 조회 — 설계 0014 (목록/상세/프로젝트 이력).
@@ -23,9 +24,11 @@ import com.aetherpms.common.ApiException;
 public class PersonService {
 
     private final JdbcTemplate jdbc;
+    private final OrgTreeService orgTree;
 
-    public PersonService(JdbcTemplate jdbc) {
+    public PersonService(JdbcTemplate jdbc, OrgTreeService orgTree) {
         this.jdbc = jdbc;
+        this.orgTree = orgTree;
     }
 
     // employment_type 5종(설계 0005 §B에서 확정한 코드값).
@@ -40,7 +43,7 @@ public class PersonService {
     public List<Map<String, Object>> list(PersonQuery q) {
         StringBuilder sql = new StringBuilder(
             "SELECT DISTINCT p.person_id, p.source, p.amaranth_emp_no, p.name, " +
-            "       p.employment_type, p.company_id, p.department, p.position, " +
+            "       p.employment_type, p.company_id, p.department, p.dept_code, p.position, " +
             "       p.phone, p.email, p.status, c.company_name, u.username AS login_id " +
             "FROM pms_person p " +
             "LEFT JOIN pms_company c ON c.company_id = p.company_id " +
@@ -82,16 +85,21 @@ public class PersonService {
             // 0038 — 기본은 재직 인력만. '재직 외 포함' 체크 시 전체(status NULL=수동 등록 → 재직 취급).
             where.add("(p.status IS NULL OR p.status = '재직')");
         }
-        // 0038 — 조직도 트리 선택 부서(하위 포함) 필터: 부서명 IN.
-        //   deptCode가 오면 하위 부서 전개는 서버가 한다(부서명 수백 개를 URL에 싣지 않기 위해 — 414 방지).
-        List<String> deptNames = q.deptCode() != null ? subtreeDeptNames(q.deptCode()) : q.departments();
-        if (deptNames != null) {
-            if (deptNames.isEmpty()) {
+        // 0038/0042 — 조직도 트리 선택 부서(하위 포함) 필터.
+        //   하위 전개는 서버가 한다(부서 코드 수백 개를 URL에 싣지 않기 위해 — 414 방지).
+        //   0042 5단계: 부서'명' IN → 부서'코드' IN 으로 전환했다. 조직도엔 동명 부서가 흔해서
+        //   (재무팀 6개 등) 이름으로 거르면 무관한 부서 인원이 함께 걸렸다.
+        //   dept_code가 NULL인 인력(동명이라 백필이 포기했거나 외부 인력)은 어느 부서에도
+        //   속하지 않는 것으로 본다 — 임의의 부서에 끼워 넣는 게 바로 고치려는 버그다.
+        List<String> deptCodes = q.deptCode() == null ? null
+                : new ArrayList<>(orgTree.subtreeCodes(q.deptCode(), true));
+        if (deptCodes != null) {
+            if (deptCodes.isEmpty()) {
                 where.add("1 = 0");   // 조직도에 없는 부서 코드 → 전체 조회로 새지 않도록 공집합
             } else {
-                where.add("p.department IN (" + String.join(",",
-                        java.util.Collections.nCopies(deptNames.size(), "?")) + ")");
-                args.addAll(deptNames);
+                where.add("p.dept_code IN (" + String.join(",",
+                        java.util.Collections.nCopies(deptCodes.size(), "?")) + ")");
+                args.addAll(deptCodes);
             }
         }
         if (notBlank(q.name())) {
@@ -130,45 +138,6 @@ public class PersonService {
         return out;
     }
 
-    /**
-     * 0038/0041 — 부서 코드 1건 → 자신 + 모든 하위 부서의 **부서명** 목록.
-     * pms_person.department는 코드가 아니라 부서명이라 이름으로 전개한다.
-     * 부서 마스터는 수백 건 규모라 전량 로드 후 메모리 BFS(재귀 CTE 미지원 DB 대비).
-     */
-    private List<String> subtreeDeptNames(String rootCode) {
-        List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT dept_code, upper_dept_code, dept_nm FROM pms_org_dept");
-        Map<String, String> nameOf = new LinkedHashMap<>();
-        Map<String, List<String>> childrenOf = new LinkedHashMap<>();
-        for (Map<String, Object> r : rows) {
-            String code = trimOrNull(r.get("dept_code"));
-            if (code == null) continue;
-            nameOf.put(code, trimOrNull(r.get("dept_nm")));
-            String parent = trimOrNull(r.get("upper_dept_code"));
-            if (parent != null) childrenOf.computeIfAbsent(parent, k -> new ArrayList<>()).add(code);
-        }
-        if (!nameOf.containsKey(rootCode)) return List.of();
-
-        List<String> names = new ArrayList<>();
-        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
-        java.util.Deque<String> stack = new java.util.ArrayDeque<>();
-        stack.push(rootCode);
-        while (!stack.isEmpty()) {
-            String code = stack.pop();
-            if (!seen.add(code)) continue;          // 순환 참조 방어
-            String nm = nameOf.get(code);
-            if (nm != null && !nm.isBlank() && !names.contains(nm)) names.add(nm);
-            for (String child : childrenOf.getOrDefault(code, List.of())) stack.push(child);
-        }
-        return names;
-    }
-
-    private static String trimOrNull(Object v) {
-        if (v == null) return null;
-        String s = String.valueOf(v).trim();
-        return s.isEmpty() ? null : s;
-    }
-
     // =====================================================================
     // GET /api/persons/{id} — 기본 정보
     // =====================================================================
@@ -178,7 +147,7 @@ public class PersonService {
         if (id <= 0) throw ApiException.badRequest("유효하지 않은 id입니다.");
         List<Map<String, Object>> rows = jdbc.queryForList(
             "SELECT p.person_id, p.source, p.amaranth_emp_no, p.name, p.employment_type, " +
-            "       p.company_id, p.department, p.position, p.phone, p.email, p.status, " +
+            "       p.company_id, p.department, p.dept_code, p.position, p.phone, p.email, p.status, " +
             "       c.company_name " +
             "FROM pms_person p " +
             "LEFT JOIN pms_company c ON c.company_id = p.company_id " +
@@ -254,7 +223,8 @@ public class PersonService {
         out.put("employmentType", r.get("employment_type"));
         out.put("companyId", toLong(r.get("company_id")));
         out.put("companyName", r.get("company_name"));
-        out.put("department", r.get("department"));
+        out.put("department", r.get("department"));   // 표시용 부서명(외부 인력은 자유 입력)
+        out.put("deptCode", r.get("dept_code"));      // 0042 — 필터 축(조직도 부서 코드). 외부/미상은 null
         out.put("position", r.get("position"));
         out.put("phone", r.get("phone"));
         out.put("email", r.get("email"));

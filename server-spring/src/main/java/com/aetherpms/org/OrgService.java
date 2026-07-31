@@ -22,13 +22,25 @@ public class OrgService {
         this.jdbc = jdbc;
     }
 
-    /** 부서 트리(평탄) — 프론트에서 upperDeptCode로 트리 구성. memberCount로 빈 부서 판별. */
+    /**
+     * 부서 트리(평탄) — 프론트에서 upperDeptCode로 트리 구성. memberCount로 빈 부서 판별.
+     *
+     * 0042 — memberCount는 **재직(status='P')만** 센다. 예전엔 pms_org_member_dept를 조건 없이
+     *   COUNT(*)해서 퇴직자까지 포함했고, 정작 members()는 기본이 재직만이라 트리에 뜬 숫자와
+     *   부서를 펼쳤을 때 나오는 인원 수가 서로 달랐다.
+     *   상관 서브쿼리(부서 수만큼 COUNT 반복) → GROUP BY 1회 조인으로 교체.
+     */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> departments() {
         List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT d.dept_code, d.upper_dept_code, d.dept_nm, " +
-                "  (SELECT COUNT(*) FROM pms_org_member_dept md WHERE md.dept_code = d.dept_code) AS member_count " +
-                "FROM pms_org_dept d ORDER BY d.dept_nm");
+                "SELECT d.dept_code, d.upper_dept_code, d.dept_nm, COALESCE(mc.cnt, 0) AS member_count " +
+                "FROM pms_org_dept d " +
+                "LEFT JOIN (SELECT md.dept_code, COUNT(*) AS cnt " +
+                "             FROM pms_org_member_dept md " +
+                "             JOIN pms_org_member m ON m.mber_id = md.mber_id " +
+                "            WHERE m.status = 'P' " +
+                "            GROUP BY md.dept_code) mc ON mc.dept_code = d.dept_code " +
+                "ORDER BY d.dept_nm");
         List<Map<String, Object>> out = new ArrayList<>(rows.size());
         for (Map<String, Object> r : rows) {
             Map<String, Object> o = new LinkedHashMap<>();

@@ -58,7 +58,7 @@ public class MemberService {
         if (projectId <= 0) throw ApiException.badRequest("유효하지 않은 projectId입니다.");
         Map<String, Object> b = body == null ? Map.of() : body;
         List<String> allowed = List.of("memberType", "userUid", "amaranthEmpNo", "name",
-                "company", "companyId", "roleName", "position", "department",
+                "company", "companyId", "roleName", "position", "department", "deptCode",
                 "participationRole", "employmentType", "isProjectManager",
                 "startDate", "endDate", "memo");
         List<String> unknown = b.keySet().stream().filter(k -> !allowed.contains(k)).toList();
@@ -87,7 +87,7 @@ public class MemberService {
 
         // 저장 동기화(0005 §D): find-or-insert person → person_id.
         long personId = personSync.findOrInsertPerson(memberType, amaranthEmpNo, userUid,
-                name.trim(), employmentType, companyId, department, position);
+                name.trim(), employmentType, companyId, department, str(b.get("deptCode")), position);
 
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("project_id", projectId);
@@ -140,7 +140,7 @@ public class MemberService {
         if (memberId <= 0) throw ApiException.badRequest("유효하지 않은 memberId입니다.");
         Map<String, Object> b = body == null ? Map.of() : body;
         List<String> allowed = List.of("memberType", "userUid", "amaranthEmpNo", "name",
-                "company", "companyId", "roleName", "position", "department",
+                "company", "companyId", "roleName", "position", "department", "deptCode",
                 "participationRole", "employmentType", "isProjectManager",
                 "startDate", "endDate", "memo",
                 "projectId");   // 0028 §C: 참여인력 관리에서 투입 프로젝트 이동
@@ -210,7 +210,7 @@ public class MemberService {
                     : jdbc.queryForObject("SELECT employment_type FROM pms_project_member WHERE member_id=?", String.class, memberId);
             long personId = personSync.findOrInsertPerson(memberType, str(b.get("amaranthEmpNo")), str(b.get("userUid")),
                     name, employmentType, toLongOrNull(b.get("companyId")),
-                    str(b.get("department")), str(b.get("position")));
+                    str(b.get("department")), str(b.get("deptCode")), str(b.get("position")));
             set.put("person_id", personId);
         }
 

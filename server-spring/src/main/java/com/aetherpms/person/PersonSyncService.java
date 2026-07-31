@@ -42,12 +42,13 @@ public class PersonSyncService {
      * @param name            성명(필수)
      * @param employmentType  5종 코드(regular/insourced/project_contract/turnkey/freelancer)
      * @param companyId       소속회사 FK(없으면 null)
-     * @param department      부서(없으면 null)
+     * @param department      부서명 — 표시용(외부 인력은 자유 입력). 없으면 null
+     * @param deptCode        조직도 부서 코드(0042) — 부서 필터의 축. 내부 인력만, 없으면 null
      * @param position        직책(없으면 null)
      */
     public long findOrInsertPerson(String source, String amaranthEmpNo, String userUid,
             String name, String employmentType, Long companyId,
-            String department, String position) {
+            String department, String deptCode, String position) {
 
         String src = "INTERNAL".equals(source) ? "INTERNAL" : "EXTERNAL";
         String nm = name == null ? null : name.trim();
@@ -76,7 +77,7 @@ public class PersonSyncService {
 
         // 4) 신규 insert.
         return insertPerson(src, notBlank(amaranthEmpNo) ? amaranthEmpNo.trim() : null,
-                nm, empType, companyId, department, position);
+                nm, empType, companyId, department, notBlank(deptCode) ? deptCode.trim() : null, position);
     }
 
     private Long findByNaturalKey(String source, String name, Long companyId, String empType) {
@@ -89,7 +90,7 @@ public class PersonSyncService {
     }
 
     private long insertPerson(String source, String amaranthEmpNo, String name,
-            String empType, Long companyId, String department, String position) {
+            String empType, Long companyId, String department, String deptCode, String position) {
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("source", source);
         fields.put("amaranth_emp_no", amaranthEmpNo);
@@ -97,6 +98,7 @@ public class PersonSyncService {
         fields.put("employment_type", empType);
         fields.put("company_id", companyId);
         fields.put("department", department);
+        fields.put("dept_code", deptCode);
         fields.put("position", position);
         fields.put("status", "재직");
 

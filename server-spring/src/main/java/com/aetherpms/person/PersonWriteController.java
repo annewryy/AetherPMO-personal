@@ -108,7 +108,7 @@ public class PersonWriteController {
     private Map<String, Object> normalize(Map<String, Object> raw, boolean create, Map<String, Object> before) {
         Map<String, Object> b = raw == null ? Map.of() : raw;
         List<String> allowed = List.of("name", "source", "amaranthEmpNo", "employmentType",
-                "companyId", "department", "position", "phone", "email", "status");
+                "companyId", "department", "deptCode", "position", "phone", "email", "status");
         List<String> unknown = b.keySet().stream().filter(k -> !allowed.contains(k)).toList();
         if (!unknown.isEmpty()) {
             throw ApiException.badRequest("허용되지 않는 필드: " + String.join(", ", unknown)
@@ -158,6 +158,19 @@ public class PersonWriteController {
         }
         putTrimmed(out, b, "amaranthEmpNo", "amaranth_emp_no");
         putTrimmed(out, b, "department", "department");
+        // 0042 — 부서 코드는 조직도에 실재하는 코드만 받는다. 오타가 들어오면 그 인력은
+        //   어느 부서 필터에도 안 걸리고 조용히 사라지므로 여기서 막는다.
+        if (b.containsKey("deptCode")) {
+            String dc = b.get("deptCode") == null ? null : b.get("deptCode").toString().trim();
+            if (dc == null || dc.isEmpty()) {
+                out.put("dept_code", null);
+            } else {
+                Integer ok = jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM pms_org_dept WHERE dept_code = ?", Integer.class, dc);
+                if (ok == null || ok == 0) throw ApiException.badRequest("존재하지 않는 부서 코드입니다: " + dc);
+                out.put("dept_code", dc);
+            }
+        }
         putTrimmed(out, b, "position", "position");
         putTrimmed(out, b, "phone", "phone");
         putTrimmed(out, b, "email", "email");

@@ -10,7 +10,8 @@ export type ProjectStage = 'BIDDING' | 'EXECUTION' | 'COMPLETED';
 
 export interface Project {
   id: number;
-  projectCode: string;
+  // 입찰 단계는 사업번호가 아직 없을 수 있다(수주 후 확정) → null 가능. 표시부는 '—' 폴백.
+  projectCode: string | null;
   name: string;
   desc: string;
   dept: string;
@@ -73,8 +74,9 @@ export interface ProjectFilters {
 //   미지정 기본값(백엔드): stage=BIDDING, status=입찰, bidStatus=제안준비중. 발번(-B) 자동.
 export interface ProjectCreateInput {
   name: string;                       // 필수
-  // 2026-07-29 — 사업번호는 자동 발번을 폐지하고 사용자가 직접 입력한다. 필수·중복 시 409.
-  projectCode: string;                // 필수
+  // 2026-07-29 — 사업번호는 자동 발번을 폐지하고 사용자가 직접 입력한다. 중복이면 409.
+  //   입찰(BIDDING) 단계는 미입력 허용(수주 후 확정) — 수행·완료 단계로 만들 땐 필수(400).
+  projectCode?: string;
   customerName?: string;
   clientCompanyId?: number | null;
   // 배치16 — 나라장터 수요기관코드. 백엔드가 pms_company.agency_code 매칭, 없으면 CLIENT 자동생성·연결.
@@ -251,6 +253,8 @@ export interface ProjectMemberInput {
   roleName?: string | null;
   position?: string | null;
   department?: string | null;
+  /** 0042 — 조직도 부서 코드. person 마스터의 부서 필터 축이 된다(내부 인력 선택 시에만 채워짐). */
+  deptCode?: string | null;
   participationRole?: string | null;
   isProjectManager?: boolean | null;
   userUid?: string | null;
@@ -967,7 +971,8 @@ export interface Person {
   employmentType: EmploymentType | string;
   companyId: number | null;
   companyName: string | null;
-  department: string | null;
+  department: string | null;         // 표시용 부서명(외부 인력은 자유 입력)
+  deptCode: string | null;           // 0042 — 조직도 부서 코드. 부서 필터는 이 축으로 건다
   position: string | null;
   phone: string | null;
   email: string | null;
@@ -1035,7 +1040,8 @@ export interface OrgPick {
   personId: number | null;           // 기존 외부 person
   companyId: number | null;
   companyName: string | null;
-  department: string | null;
+  department: string | null;         // 표시용 부서명
+  deptCode: string | null;           // 0042 — 조직도 부서 코드(필터 축). 내부만, 외부/신규는 null
   position: string | null;           // 직책/직급
   dutyCode: string | null;
   employmentType: string | null;     // 외부 기존 person의 인력구분(있으면)

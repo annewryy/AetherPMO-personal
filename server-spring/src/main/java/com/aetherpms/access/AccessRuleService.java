@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import com.aetherpms.common.ApiException;
 import com.aetherpms.common.Json;
+import com.aetherpms.org.OrgTreeService;
 
 /**
  * 0034 — 부서×직책×인력구분 접근 규칙(③) 판정 + CRUD.
@@ -31,9 +32,11 @@ public class AccessRuleService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AccessRuleService.class);
 
     private final JdbcTemplate jdbc;
+    private final OrgTreeService orgTree;
 
-    public AccessRuleService(JdbcTemplate jdbc) {
+    public AccessRuleService(JdbcTemplate jdbc, OrgTreeService orgTree) {
         this.jdbc = jdbc;
+        this.orgTree = orgTree;
     }
 
     // ================= 조회(관리자 CRUD) =================
@@ -276,31 +279,6 @@ public class AccessRuleService {
 
     // ================= 판정 =================
 
-    /** rule_id → dept_nm 부분집합(하위 포함 여부 반영), 캐시 없이 매 호출 계산(조직 규모상 무리 없음). */
-    private Set<String> expandDeptNames(String deptCode, boolean includeSub) {
-        Set<String> out = new HashSet<>();
-        List<Map<String, Object>> all = jdbc.queryForList("SELECT dept_code, upper_dept_code, dept_nm FROM pms_org_dept");
-        Map<String, String> nameByCode = new LinkedHashMap<>();
-        Map<String, List<String>> childrenOf = new LinkedHashMap<>();
-        for (Map<String, Object> d : all) {
-            String code = String.valueOf(d.get("dept_code"));
-            nameByCode.put(code, String.valueOf(d.get("dept_nm")));
-            String upper = d.get("upper_dept_code") == null ? null : String.valueOf(d.get("upper_dept_code"));
-            if (upper != null) childrenOf.computeIfAbsent(upper, k -> new ArrayList<>()).add(code);
-        }
-        if (!nameByCode.containsKey(deptCode)) return out;
-        out.add(nameByCode.get(deptCode));
-        if (includeSub) {
-            java.util.Deque<String> stack = new java.util.ArrayDeque<>(childrenOf.getOrDefault(deptCode, List.of()));
-            while (!stack.isEmpty()) {
-                String code = stack.pop();
-                out.add(nameByCode.get(code));
-                stack.addAll(childrenOf.getOrDefault(code, List.of()));
-            }
-        }
-        return out;
-    }
-
     /**
      * @param assigned 이 규칙에 배정된 person_id 집합(없으면 빈 집합). 비어 있으면 인력 축은
      *                 따지지 않는다 — 기존 규칙(조직 축만 쓰는 규칙)의 동작이 바뀌지 않는다.
@@ -312,9 +290,15 @@ public class AccessRuleService {
         }
         String deptCode = (String) rule.get("dept_code");
         if (deptCode != null) {
-            Set<String> names = expandDeptNames(deptCode, toBool(rule.get("include_sub")));
-            String personDept = (String) person.get("department");
-            if (personDept == null || !names.contains(personDept)) return false;
+            // 0042 — 하위 전개는 OrgTreeService 하나로 위임(순환 방어 포함 + 동기화 사이 캐시).
+            //   예전엔 여기 자체 BFS가 있었고 순환 방어가 없어 upper_dept_code 사이클에 무한 루프였다.
+            //   또 이 메서드는 (규칙 × 인원)만큼 불리므로 캐시 없이는 그만큼 전체 부서 스캔이 돌았다.
+            //   5단계: 부서명 비교 → **부서 코드 비교**. 동명 부서(재무팀 6개 등)가 있으면
+            //   이름 비교는 무관한 부서 사람에게까지 권한을 열어줬다 — 권한 판정에서 특히 위험하다.
+            //   dept_code가 없는 인력(외부·미상)은 부서 축 규칙에 걸리지 않는다(fail-closed).
+            Set<String> codes = orgTree.subtreeCodes(deptCode, toBool(rule.get("include_sub")));
+            String personDeptCode = (String) person.get("dept_code");
+            if (personDeptCode == null || !codes.contains(personDeptCode)) return false;
         }
         String posCode = (String) rule.get("position_code");
         if (posCode != null && !posCode.equals(PositionCode.of((String) person.get("position")))) return false;
@@ -342,7 +326,7 @@ public class AccessRuleService {
     public List<Map<String, Object>> matchedRulesFor(Long personId) {
         if (personId == null) return List.of();
         List<Map<String, Object>> people = jdbc.queryForList(
-                "SELECT person_id, department, position, employment_type FROM pms_person WHERE person_id = ?", personId);
+                "SELECT person_id, department, dept_code, position, employment_type FROM pms_person WHERE person_id = ?", personId);
         if (people.isEmpty()) return List.of();
         Map<String, Object> person = people.get(0);
 
@@ -360,11 +344,6 @@ public class AccessRuleService {
         return out;
     }
 
-    /** 0034 §0단계/1단계에서 쓰던 dept 확장을 2단계(ProjectScopeService)에서도 재사용. */
-    public Set<String> expandDeptNamesPublic(String deptCode, boolean includeSub) {
-        return expandDeptNames(deptCode, includeSub);
-    }
-
     /** 로그인 사용자의 유효 메뉴 키 집합. person 미연결/매칭 규칙 없음 = 기본값(대시보드만, 0034 §5 결정3). */
     public Set<String> resolveMenus(Long personId) {
         List<Map<String, Object>> rules = matchedRulesFor(personId);
@@ -379,7 +358,7 @@ public class AccessRuleService {
     /** §4 판정 시뮬레이터 — 사용자 하나의 매칭 규칙·유효 메뉴를 미리보기. */
     public Map<String, Object> simulate(long personId) {
         List<Map<String, Object>> people = jdbc.queryForList(
-                "SELECT person_id, name, department, position, employment_type FROM pms_person WHERE person_id = ?", personId);
+                "SELECT person_id, name, department, dept_code, position, employment_type FROM pms_person WHERE person_id = ?", personId);
         if (people.isEmpty()) throw ApiException.notFound("인력을 찾을 수 없습니다: " + personId);
         Map<String, Object> person = people.get(0);
 

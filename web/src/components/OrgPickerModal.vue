@@ -1,11 +1,16 @@
 <script setup lang="ts">
 // 조직도 선택 모달(0020) — 재사용 컴포넌트.
-//   최상위 가지: 내부인력(아마란스 부서 트리 → 부서 펼치면 인원) · 외부인력(회사별 그룹 + 신규 직접입력).
+//   최상위 가지: 내부인력(부서 트리 → 부서 펼치면 인원) · 외부인력(회사별 그룹 + 신규 직접입력).
 //   상단 검색으로 내부/외부 인원 통합 검색. 선택 시 통일된 OrgPick을 emit하고 닫는다.
 //   참여인력 등록·PM 선택·담당자 지정 등 어디서든 <OrgPickerModal @select @close/>로 사용.
+//
+// 0042 — 부서 축은 OrgDeptTree에 위임한다. 예전엔 이 파일이 트리 조립·하위 합산 인원수·재귀
+//   walk를 자체 구현해 OrgDeptTree와 거의 같은 코드가 두 벌이었다(인력관리 좌측 트리가 2단에서
+//   잘린 버그가 정확히 그 중복에서 나왔다). 부서 인원 행은 #after-dept 슬롯으로 끼워 넣는다.
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import type { OrgDept, OrgMember, OrgExternalMember, OrgPick } from '../types';
+import OrgDeptTree from './OrgDeptTree.vue';
 
 const props = withDefaults(defineProps<{
   roots?: 'both' | 'internal' | 'external';
@@ -19,12 +24,11 @@ const showInternal = computed(() => props.roots !== 'external');
 const showExternal = computed(() => props.roots !== 'internal');
 
 // ---- 데이터 ----
-const depts = ref<OrgDept[]>([]);
-const deptChildren = new Map<string, OrgDept[]>();   // parentCode('__ROOT__') → 자식 부서
 const deptMembers = ref<Record<string, OrgMember[] | 'loading'>>({});
 const externalMembers = ref<OrgExternalMember[] | 'loading' | null>(null);
-const expanded = ref<Set<string>>(new Set());
-const loading = ref(true);
+// 최상위 가지(내부인력/외부인력)의 펼침만 여기서 관리 — 부서 트리 내부 펼침은 OrgDeptTree가 소유.
+const openInternal = ref(true);
+const openExternal = ref(false);
 const error = ref<string | null>(null);
 
 // ---- 검색 ----
@@ -34,44 +38,26 @@ const searchResults = ref<SearchRow[]>([]);
 const searching = ref(false);
 let timer: ReturnType<typeof setTimeout> | null = null;
 
-onMounted(async () => {
-  try {
-    if (showInternal.value) {
-      const list = await dataClient.org.departments();
-      depts.value = list;
-      deptChildren.clear();
-      for (const d of list) {
-        const key = d.upperDeptCode ?? '__ROOT__';
-        (deptChildren.get(key) ?? deptChildren.set(key, []).get(key)!).push(d);
-      }
-      expanded.value.add('root:internal'); // 내부 루트 기본 펼침
-    }
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
-  } finally {
-    loading.value = false;
-  }
-  window.addEventListener('keydown', onKey);
-});
+onMounted(() => window.addEventListener('keydown', onKey));
 onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); if (timer) clearTimeout(timer); });
 function onKey(ev: KeyboardEvent) { if (ev.key === 'Escape') emit('close'); }
 
-const rootDepts = computed(() => deptChildren.get('__ROOT__') ?? []);
-function childrenOf(code: string): OrgDept[] { return deptChildren.get(code) ?? []; }
-
-// 0038 — 부서 인원 표시는 하위 부서 전체 합산(직속만이 아니라)
-const cumCounts = computed<Map<string, number>>(() => {
-  const map = new Map<string, number>();
-  const total = (d: OrgDept): number => {
-    if (map.has(d.deptCode)) return map.get(d.deptCode)!;
-    let n = d.memberCount;
-    for (const c of childrenOf(d.deptCode)) n += total(c);
-    map.set(d.deptCode, n);
-    return n;
-  };
-  for (const d of depts.value) total(d);
-  return map;
-});
+// ---- 부서 인원(지연 로드) ----
+// 부서를 펼칠 때 OrgDeptTree가 'open'을 쏜다. 이미 받은 부서는 다시 부르지 않는다.
+async function onDeptOpen(code: string) {
+  if (deptMembers.value[code] !== undefined) return;
+  deptMembers.value = { ...deptMembers.value, [code]: 'loading' };
+  try {
+    const list = await dataClient.org.members({ deptCode: code });
+    deptMembers.value = { ...deptMembers.value, [code]: list };
+  } catch {
+    deptMembers.value = { ...deptMembers.value, [code]: [] };
+  }
+}
+// 인원이 있는 부서는 하위 부서가 없어도 펼칠 수 있어야 한다(잎 부서의 인원 목록).
+function deptExpandable(d: OrgDept, hasKids: boolean): boolean {
+  return hasKids || d.memberCount > 0;
+}
 
 // ---- 외부 그룹(회사별) ----
 const externalGroups = computed(() => {
@@ -85,98 +71,20 @@ const externalGroups = computed(() => {
   }
   return [...map.values()];
 });
-
-// ---- 펼침/접기(+ 지연 로드) ----
-async function toggle(id: string, opts?: { deptCode?: string; isExternalRoot?: boolean }) {
-  const set = expanded.value;
-  if (set.has(id)) { set.delete(id); expanded.value = new Set(set); return; }
-  set.add(id); expanded.value = new Set(set);
-  if (opts?.deptCode && deptMembers.value[opts.deptCode] === undefined) {
-    void loadDeptMembers(opts.deptCode);
-  }
-  if (opts?.isExternalRoot && externalMembers.value === null) {
-    void loadExternal();
-  }
+const openCompanies = ref<Set<string>>(new Set());
+function toggleCompany(key: string) {
+  const s = new Set(openCompanies.value);
+  if (s.has(key)) s.delete(key); else s.add(key);
+  openCompanies.value = s;
 }
-async function loadDeptMembers(code: string) {
-  deptMembers.value = { ...deptMembers.value, [code]: 'loading' };
-  try {
-    const list = await dataClient.org.members({ deptCode: code });
-    deptMembers.value = { ...deptMembers.value, [code]: list };
-  } catch {
-    deptMembers.value = { ...deptMembers.value, [code]: [] };
-  }
+function toggleExternalRoot() {
+  openExternal.value = !openExternal.value;
+  if (openExternal.value && externalMembers.value === null) void loadExternal();
 }
 async function loadExternal() {
   externalMembers.value = 'loading';
   try { externalMembers.value = await dataClient.org.externalMembers(); }
   catch { externalMembers.value = []; }
-}
-
-// ---- 평탄화(렌더 행) ----
-interface Row {
-  id: string; level: number;
-  type: 'group' | 'dept' | 'member' | 'ext-member' | 'new-external' | 'loading' | 'empty';
-  label: string; sub?: string;
-  expandable?: boolean; deptCode?: string; isExternalRoot?: boolean;
-  member?: OrgMember; ext?: OrgExternalMember;
-}
-const rows = computed<Row[]>(() => {
-  const out: Row[] = [];
-  const isOpen = (id: string) => expanded.value.has(id);
-
-  if (showInternal.value) {
-    out.push({ id: 'root:internal', level: 0, type: 'group', label: '내부인력', expandable: true });
-    if (isOpen('root:internal')) rootDepts.value.forEach((d) => walkDept(d, 1, out, isOpen));
-  }
-  if (showExternal.value) {
-    out.push({ id: 'root:external', level: 0, type: 'group', label: '외부인력', expandable: true, isExternalRoot: true });
-    if (isOpen('root:external')) {
-      if (externalMembers.value === 'loading' || externalMembers.value === null) {
-        out.push({ id: 'ext-loading', level: 1, type: 'loading', label: '불러오는 중…' });
-      } else {
-        for (const g of externalGroups.value) {
-          const gid = 'company:' + g.key;
-          out.push({ id: gid, level: 1, type: 'group', label: g.name, sub: `${g.members.length}명`, expandable: true });
-          if (isOpen(gid)) g.members.forEach((e) => out.push({
-            id: 'ext:' + e.personId, level: 2, type: 'ext-member', label: e.name,
-            sub: [e.position, e.department].filter(Boolean).join(' · ') || undefined, ext: e,
-          }));
-        }
-        if (props.allowNewExternal) {
-          out.push({ id: 'new-ext', level: 1, type: 'new-external', label: '＋ 새 외부 인력 직접 입력' });
-        }
-        if (externalGroups.value.length === 0 && !props.allowNewExternal) {
-          out.push({ id: 'ext-empty', level: 1, type: 'empty', label: '등록된 외부 인력이 없습니다.' });
-        }
-      }
-    }
-  }
-  return out;
-});
-
-function walkDept(d: OrgDept, level: number, out: Row[], isOpen: (id: string) => boolean) {
-  const kids = childrenOf(d.deptCode);
-  const expandable = d.memberCount > 0 || kids.length > 0;
-  const id = 'dept:' + d.deptCode;
-  const cum = cumCounts.value.get(d.deptCode) ?? d.memberCount;
-  out.push({
-    id, level, type: 'dept', label: d.deptNm,
-    sub: cum > 0 ? `${cum}명` : undefined,
-    expandable, deptCode: d.deptCode,
-  });
-  if (isOpen(id)) {
-    kids.forEach((c) => walkDept(c, level + 1, out, isOpen));
-    const mem = deptMembers.value[d.deptCode];
-    if (mem === 'loading') out.push({ id: id + ':loading', level: level + 1, type: 'loading', label: '불러오는 중…' });
-    else if (Array.isArray(mem)) {
-      if (mem.length === 0 && kids.length === 0) out.push({ id: id + ':empty', level: level + 1, type: 'empty', label: '(인원 없음)' });
-      mem.forEach((m) => out.push({
-        id: 'm:' + m.mberId + ':' + m.deptCode, level: level + 1, type: 'member', label: m.mberNm,
-        sub: m.dutyNm ?? undefined, member: m,
-      }));
-    }
-  }
 }
 
 // ---- 검색 ----
@@ -209,34 +117,33 @@ const isSearching = computed(() => query.value.trim().length > 0);
 function pickInternal(m: OrgMember) {
   emit('select', {
     source: 'INTERNAL', name: m.mberNm, amaranthEmpNo: m.mberId, personId: null,
-    companyId: null, companyName: null, department: m.deptNm, position: m.dutyNm,
-    dutyCode: m.dutyCode, employmentType: null,
+    companyId: null, companyName: null, department: m.deptNm, deptCode: m.deptCode,
+    position: m.dutyNm, dutyCode: m.dutyCode, employmentType: null,
   });
 }
 function pickExternal(e: OrgExternalMember) {
   emit('select', {
     source: 'EXTERNAL', name: e.name, amaranthEmpNo: null, personId: e.personId,
-    companyId: e.companyId, companyName: e.companyName, department: e.department, position: e.position,
-    dutyCode: null, employmentType: e.employmentType,
+    companyId: e.companyId, companyName: e.companyName, department: e.department, deptCode: null,
+    position: e.position, dutyCode: null, employmentType: e.employmentType,
   });
 }
 function pickNewExternal() {
   emit('select', {
     source: 'NEW_EXTERNAL', name: null, amaranthEmpNo: null, personId: null,
-    companyId: null, companyName: null, department: null, position: null, dutyCode: null, employmentType: null,
+    companyId: null, companyName: null, department: null, deptCode: null,
+    position: null, dutyCode: null, employmentType: null,
   });
-}
-function onRowClick(r: Row) {
-  if (r.type === 'group' || r.type === 'dept') toggle(r.id, { deptCode: r.deptCode, isExternalRoot: r.isExternalRoot });
-  else if (r.type === 'member' && r.member) pickInternal(r.member);
-  else if (r.type === 'ext-member' && r.ext) pickExternal(r.ext);
-  else if (r.type === 'new-external') pickNewExternal();
 }
 function subOf(m: OrgMember): string {
   return [m.deptNm, m.dutyNm].filter(Boolean).join(' · ');
 }
 function extSub(e: OrgExternalMember): string {
   return [e.companyName, e.position].filter(Boolean).join(' · ');
+}
+/** 부서 인원 행 들여쓰기 — OrgDeptTree의 부서명(캐럿 18px + level*14px)에 맞춘다. */
+function memberIndent(level: number): string {
+  return `${level * 14 + 26}px`;
 }
 </script>
 
@@ -254,7 +161,6 @@ function extSub(e: OrgExternalMember): string {
 
       <div class="body">
         <div v-if="error" class="notice err">{{ error }}</div>
-        <div v-else-if="loading" class="notice">불러오는 중…</div>
 
         <!-- 검색 결과(플랫) -->
         <template v-else-if="isSearching">
@@ -272,19 +178,81 @@ function extSub(e: OrgExternalMember): string {
         </template>
 
         <!-- 트리 -->
-        <ul v-else class="list">
-          <li v-for="r in rows" :key="r.id"
-              class="item"
-              :class="{ leaf: r.type === 'member' || r.type === 'ext-member' || r.type === 'new-external', muted: r.type === 'loading' || r.type === 'empty' }"
-              :style="{ paddingLeft: 8 + r.level * 18 + 'px' }"
-              @click="onRowClick(r)">
-            <span v-if="r.expandable" class="caret">{{ expanded.has(r.id) ? '▾' : '▸' }}</span>
-            <span v-else-if="r.type === 'member' || r.type === 'ext-member'" class="dot" :class="r.type === 'member' ? 'int' : 'ext'" />
-            <span v-else class="caret-sp" />
-            <span class="nm" :class="{ group: r.type === 'group' }">{{ r.label }}</span>
-            <span v-if="r.sub" class="sub">{{ r.sub }}</span>
-          </li>
-        </ul>
+        <template v-else>
+          <!-- 내부인력: 부서 트리(OrgDeptTree) + 부서별 인원 행(슬롯) -->
+          <template v-if="showInternal">
+            <div class="item" @click="openInternal = !openInternal">
+              <span class="caret">{{ openInternal ? '▾' : '▸' }}</span>
+              <span class="nm group">내부인력</span>
+            </div>
+            <div v-show="openInternal" class="dept-wrap">
+              <OrgDeptTree
+                :show-all-row="false"
+                mode="expand"
+                count-suffix="명"
+                :expandable="deptExpandable"
+                @open="onDeptOpen"
+              >
+                <template #after-dept="{ dept, level, hasKids }">
+                  <div v-if="deptMembers[dept.deptCode] === 'loading'"
+                       class="item muted" :style="{ paddingLeft: memberIndent(level) }">
+                    <span class="caret-sp" /><span class="nm">불러오는 중…</span>
+                  </div>
+                  <template v-else-if="Array.isArray(deptMembers[dept.deptCode])">
+                    <div v-if="(deptMembers[dept.deptCode] as OrgMember[]).length === 0 && !hasKids"
+                         class="item muted" :style="{ paddingLeft: memberIndent(level) }">
+                      <span class="caret-sp" /><span class="nm">(인원 없음)</span>
+                    </div>
+                    <div v-for="m in (deptMembers[dept.deptCode] as OrgMember[])"
+                         :key="m.mberId + ':' + m.deptCode"
+                         class="item leaf" :style="{ paddingLeft: memberIndent(level) }"
+                         @click="pickInternal(m)">
+                      <span class="dot int" />
+                      <span class="nm">{{ m.mberNm }}</span>
+                      <span v-if="m.dutyNm" class="sub">{{ m.dutyNm }}</span>
+                    </div>
+                  </template>
+                </template>
+              </OrgDeptTree>
+            </div>
+          </template>
+
+          <!-- 외부인력: 회사별 그룹 -->
+          <template v-if="showExternal">
+            <div class="item" @click="toggleExternalRoot">
+              <span class="caret">{{ openExternal ? '▾' : '▸' }}</span>
+              <span class="nm group">외부인력</span>
+            </div>
+            <template v-if="openExternal">
+              <div v-if="externalMembers === 'loading' || externalMembers === null" class="item muted lv1">
+                <span class="caret-sp" /><span class="nm">불러오는 중…</span>
+              </div>
+              <template v-else>
+                <template v-for="g in externalGroups" :key="g.key">
+                  <div class="item lv1" @click="toggleCompany(g.key)">
+                    <span class="caret">{{ openCompanies.has(g.key) ? '▾' : '▸' }}</span>
+                    <span class="nm group">{{ g.name }}</span>
+                    <span class="sub">{{ g.members.length }}명</span>
+                  </div>
+                  <div v-for="e in (openCompanies.has(g.key) ? g.members : [])" :key="'ext:' + e.personId"
+                       class="item leaf lv2" @click="pickExternal(e)">
+                    <span class="dot ext" />
+                    <span class="nm">{{ e.name }}</span>
+                    <span v-if="[e.position, e.department].filter(Boolean).length" class="sub">
+                      {{ [e.position, e.department].filter(Boolean).join(' · ') }}
+                    </span>
+                  </div>
+                </template>
+                <div v-if="allowNewExternal" class="item leaf lv1" @click="pickNewExternal">
+                  <span class="caret-sp" /><span class="nm">＋ 새 외부 인력 직접 입력</span>
+                </div>
+                <div v-else-if="externalGroups.length === 0" class="item muted lv1">
+                  <span class="caret-sp" /><span class="nm">등록된 외부 인력이 없습니다.</span>
+                </div>
+              </template>
+            </template>
+          </template>
+        </template>
       </div>
     </div>
   </div>
@@ -320,6 +288,8 @@ function extSub(e: OrgExternalMember): string {
 .notice { padding: 14px 12px; font-size: 14px; color: var(--muted); }
 .notice.err { color: var(--red); }
 .list { list-style: none; margin: 0; padding: 0; }
+/* 부서 트리는 OrgDeptTree가 자체 스타일을 갖는다. 들여쓰기 기준만 맞춘다. */
+.dept-wrap { padding-left: 8px; }
 .item {
   display: flex; align-items: center; gap: 8px;
   padding: 7px 8px; border-radius: 7px; cursor: pointer; user-select: none;
@@ -327,6 +297,8 @@ function extSub(e: OrgExternalMember): string {
 .item:hover { background: var(--panel-2, var(--bg)); }
 .item.muted { color: var(--muted); cursor: default; }
 .item.muted:hover { background: transparent; }
+.lv1 { padding-left: 26px; }
+.lv2 { padding-left: 44px; }
 .caret { width: 14px; text-align: center; font-size: 11px; color: var(--muted); flex-shrink: 0; }
 .caret-sp { width: 14px; flex-shrink: 0; }
 .dot { width: 7px; height: 7px; border-radius: 999px; flex-shrink: 0; margin: 0 3px; }

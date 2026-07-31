@@ -6,6 +6,7 @@ import { computed, onMounted, ref } from 'vue';
 import { dataClient } from '../../lib/dataClient';
 import { EMPLOYMENT_TYPES } from '../../lib/personLabels';
 import OrgDeptTree from '../../components/OrgDeptTree.vue';
+import { loadOrgTree, type OrgTreeIndex } from '../../lib/orgTree';
 import type { AccessRule, AccessRuleInput, Person, AccessRuleSimulation } from '../../types';
 
 const rules = ref<AccessRule[]>([]);
@@ -16,6 +17,15 @@ const loading = ref(true);
 const loadError = ref('');
 const saving = ref(false);
 const actionError = ref('');
+
+// 0042 — 규칙 표에 부서 코드 원문(예: 'D0031')을 그대로 보여주던 걸 부서명으로 바꾼다.
+//   코드→이름 조회 수단이 없어서 생긴 타협이었다. 트리와 같은 캐시를 쓰므로 추가 요청은 없다.
+const orgTree = ref<OrgTreeIndex | null>(null);
+function deptLabel(deptCode: string | null, includeSub: boolean): string {
+  if (!deptCode) return '전체';
+  const nm = orgTree.value?.nameOf(deptCode) ?? deptCode;   // 조직도에 없는 코드는 원문 노출
+  return nm + (includeSub ? ' (하위 포함)' : '');
+}
 
 const POSITION_LABELS: Record<string, string> = {
   STAFF: '직책 없음(실무자)', PART_LEAD: '파트장', TEAM_LEAD: '팀장',
@@ -197,6 +207,7 @@ async function runSimulate(personId: number) {
 
 onMounted(async () => {
   await load();
+  try { orgTree.value = await loadOrgTree(); } catch { orgTree.value = null; }
   try { persons.value = await dataClient.persons.list(); } catch { persons.value = []; }
 });
 </script>
@@ -236,7 +247,7 @@ onMounted(async () => {
               <tr v-for="r in rules" :key="r.ruleId" :class="{ inactive: !r.enabled }">
                 <td class="num">{{ r.priority }}</td>
                 <td class="name">{{ r.name || '—' }}</td>
-                <td>{{ r.deptCode ? (r.deptCode + (r.includeSub ? ' (하위 포함)' : '')) : '전체' }}</td>
+                <td>{{ deptLabel(r.deptCode, r.includeSub) }}</td>
                 <td>{{ r.positionCode ? (POSITION_LABELS[r.positionCode] ?? r.positionCode) : '전체' }}</td>
                 <td>{{ r.employmentType || '전체' }}</td>
                 <td class="person-cell">
