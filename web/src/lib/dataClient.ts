@@ -24,7 +24,7 @@ import type {
   IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput, MeetingMinuteUpdateInput,
   ConsortiumPayload, ConsortiumMemberInput, VrbInfoInput,
   ProjectMemberRef, ProjectMemberDetail, ProjectMemberInput, ProjectMemberAssignment, AppNotification, AppSetting,
-  Person, PersonInput, PersonProjectHistory, PersonFilters, ProjectRole, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput, ProjectConvertInput,
+  Person, PersonInput, PersonProjectHistory, PersonFilters, ProjectRole, EmploymentTypeInfo, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput, ProjectConvertInput,
   BidAgency, BidNoticeFilters, BidNoticeResult, BidNoticeDetail,
 } from '../types';
 
@@ -820,6 +820,29 @@ export const dataClient = {
     async projects(id: number): Promise<PersonProjectHistory[]> {
       if (!apiBase()) return [];
       return apiGet<PersonProjectHistory[]>(`/api/persons/${id}/projects`);
+    },
+  },
+
+  // 인력구분 코드 마스터(0044) — 폼/필터는 활성 목록, 관리자는 전체+CRUD.
+  employmentTypes: {
+    async list(): Promise<EmploymentTypeInfo[]> {
+      if (!apiBase()) return [];
+      return apiGet<EmploymentTypeInfo[]>('/api/employment-types');
+    },
+    async adminList(): Promise<EmploymentTypeInfo[]> {
+      if (!apiBase()) return [];
+      return apiGet<EmploymentTypeInfo[]>('/api/admin/employment-types');
+    },
+    async create(input: { code: string; label: string; isOutsourced?: boolean; sortOrder?: number }):
+        Promise<EmploymentTypeInfo> {
+      return apiSend<EmploymentTypeInfo>('POST', '/api/admin/employment-types', input);
+    },
+    async update(code: string, patch: Partial<{ label: string; isOutsourced: boolean; sortOrder: number; isActive: boolean }>):
+        Promise<EmploymentTypeInfo> {
+      return apiSend<EmploymentTypeInfo>('PATCH', `/api/admin/employment-types/${encodeURIComponent(code)}`, patch);
+    },
+    async remove(code: string): Promise<void> {
+      await apiSend('DELETE', `/api/admin/employment-types/${encodeURIComponent(code)}`);
     },
   },
 

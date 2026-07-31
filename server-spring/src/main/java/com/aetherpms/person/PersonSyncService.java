@@ -27,9 +27,12 @@ import com.aetherpms.common.ApiException;
 public class PersonSyncService {
 
     private final JdbcTemplate jdbc;
+    // 0044 — 인력구분 검증은 pms_employment_type 마스터 기준(하드코딩 5종 폐지).
+    private final EmploymentTypeService employmentTypes;
 
-    public PersonSyncService(JdbcTemplate jdbc) {
+    public PersonSyncService(JdbcTemplate jdbc, EmploymentTypeService employmentTypes) {
         this.jdbc = jdbc;
+        this.employmentTypes = employmentTypes;
     }
 
     /**
@@ -53,7 +56,7 @@ public class PersonSyncService {
         String src = "INTERNAL".equals(source) ? "INTERNAL" : "EXTERNAL";
         String nm = name == null ? null : name.trim();
         if (nm == null || nm.isEmpty()) throw ApiException.badRequest("인력 성명(name)은 필수입니다.");
-        String empType = normalizeEmploymentType(employmentType);
+        String empType = employmentTypes.normalize(employmentType);
 
         // 1) 내부 + 사번: 사번 유니크 키로 조회.
         if ("INTERNAL".equals(src) && notBlank(amaranthEmpNo)) {
@@ -117,15 +120,6 @@ public class PersonSyncService {
         return rows.isEmpty() ? null : ((Number) rows.get(0).get("person_id")).longValue();
     }
 
-    static String normalizeEmploymentType(String v) {
-        String t = v == null ? "regular" : v.trim();
-        if (t.isEmpty()) t = "regular";
-        if (!PersonService.EMPLOYMENT_TYPES.contains(t)) {
-            throw ApiException.badRequest("유효하지 않은 employmentType 값: " + v
-                    + " (허용: " + String.join(", ", PersonService.EMPLOYMENT_TYPES) + ")");
-        }
-        return t;
-    }
 
     private static boolean notBlank(String s) { return s != null && !s.trim().isEmpty(); }
 }

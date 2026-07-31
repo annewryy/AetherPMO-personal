@@ -5,7 +5,7 @@
 //  - 쓰기는 백엔드 전용(dataClient가 API_BASE 게이트). 오류는 서버 {message} 그대로.
 import { ref, computed, onMounted } from 'vue';
 import { dataClient } from '../lib/dataClient';
-import { EMPLOYMENT_TYPES } from '../lib/personLabels';
+import { EMPLOYMENT_TYPES, isOutsourcedType } from '../lib/personLabels';
 import type { ProjectMemberInput, ProjectMemberType, EmploymentType, OrgPick, ProjectMemberDetail, Company, Project } from '../types';
 import ModalShell from './ModalShell.vue';
 import OrgPickerModal from './OrgPickerModal.vue';
@@ -34,13 +34,13 @@ const employmentType = ref<EmploymentType | ''>('');
 // 0027 결정4 — 소속회사: 자유 텍스트 → 회사 기준정보(pms_company) 선택.
 //   '__new__' 선택 시 신규 회사명을 입력받아 저장 시점에 companies.create 후 연결.
 //   외주 계열(project_contract/turnkey/freelancer)은 소속회사 필수.
-const OUTSOURCED_TYPES: ReadonlySet<string> = new Set(['project_contract', 'turnkey', 'freelancer']);
 const companies = ref<Company[]>([]);
 const companySelect = ref<number | '' | '__new__'>('');
 const newCompanyName = ref('');
 const company = ref('');   // 표시명(제출 본문 company) — select/신규 입력에서 파생
 
-const companyRequired = computed(() => OUTSOURCED_TYPES.has(employmentType.value));
+// 0044 — 외주 계열 판정은 인력구분 마스터(isOutsourced)를 따른다.
+const companyRequired = computed(() => isOutsourcedType(employmentType.value));
 
 // 0028 §C — 투입 프로젝트 선택(참여인력 관리 전용). 등록: 필수 선택, 수정: 변경 시 이동.
 //   프로젝트 수가 많아도 고를 수 있게 검색형 콤보박스(ProjectSelectField) 사용.

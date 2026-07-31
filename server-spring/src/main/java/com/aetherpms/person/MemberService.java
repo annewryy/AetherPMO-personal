@@ -28,11 +28,16 @@ public class MemberService {
     private final JdbcTemplate jdbc;
     private final PersonSyncService personSync;
 
-    public MemberService(JdbcTemplate jdbc, PersonSyncService personSync, com.aetherpms.notification.NotificationService notify) {
+    public MemberService(JdbcTemplate jdbc, PersonSyncService personSync,
+            com.aetherpms.notification.NotificationService notify, EmploymentTypeService employmentTypes) {
         this.jdbc = jdbc;
         this.personSync = personSync;
         this.notify = notify;
+        this.employmentTypes = employmentTypes;
     }
+
+    // 0044 — 인력구분 검증은 pms_employment_type 마스터 기준(하드코딩 5종 폐지).
+    private final EmploymentTypeService employmentTypes;
 
     private static final List<String> MEMBER_TYPES = List.of("INTERNAL", "EXTERNAL");
     // 0039 — 참여역할 어휘는 관리자가 편집하는 마스터(pms_role_capability)가 원본이다.
@@ -76,7 +81,7 @@ public class MemberService {
 
         String memberType = b.get("memberType") != null
                 ? requireInList("memberType", b.get("memberType"), MEMBER_TYPES) : "EXTERNAL";
-        String employmentType = PersonSyncService.normalizeEmploymentType(str(b.get("employmentType")));
+        String employmentType = employmentTypes.normalize(str(b.get("employmentType")));
         Long companyId = toLongOrNull(b.get("companyId"));
         String department = str(b.get("department"));
         String position = str(b.get("position"));
@@ -175,7 +180,7 @@ public class MemberService {
                     : requireKnownRole(b.get("participationRole")));
         }
         if (b.containsKey("employmentType")) {
-            set.put("employment_type", PersonSyncService.normalizeEmploymentType(str(b.get("employmentType"))));
+            set.put("employment_type", employmentTypes.normalize(str(b.get("employmentType"))));
         }
         if (b.containsKey("isProjectManager")) {
             set.put("is_project_manager", truthy(b.get("isProjectManager")) ? 1 : 0);

@@ -952,13 +952,25 @@ export type CompanyInput = Omit<Company, 'id'>;
 // GET /api/persons · /api/persons/{id} · /api/persons/{id}/projects 응답(camelCase DTO).
 // 읽기 전용 — 저장/동기화는 0005 소관. 신규 조회라 dataClient.persons가 이 형태로 반환한다.
 
-// employmentType 코드(0005 B 확정). 라벨 매핑은 lib/personLabels.ts.
+// employmentType 코드. 0044부터 pms_employment_type 마스터가 원천(관리자가 추가 가능)이라
+// 아래 5종은 기본 시드일 뿐 — 저장/표시는 string으로 다룬다. 라벨은 lib/personLabels.ts.
 export type EmploymentType =
   | 'regular'           // 정규직
   | 'insourced'         // 자사화
   | 'project_contract'  // 프로젝트 계약직
   | 'turnkey'           // 외주(턴키)
   | 'freelancer';       // 프리랜서
+
+// GET /api/employment-types 항목(0044 — 인력구분 코드 마스터).
+export interface EmploymentTypeInfo {
+  code: string;
+  label: string;
+  isOutsourced: boolean;             // 외주 계열 — 인력 등록 시 소속회사 필수
+  sortOrder: number;
+  isActive?: boolean;                // 관리자 목록에만
+  personCount?: number;              // 관리자 목록에만 — 삭제 가능 여부 근거
+  memberCount?: number;
+}
 
 // 인력 원천: 내부(아마란스 위임) / 외부(PMS 소유)
 export type PersonSource = 'INTERNAL' | 'EXTERNAL';

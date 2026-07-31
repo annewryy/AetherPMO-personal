@@ -20,6 +20,7 @@ import AdminSignalRulesView from './views/admin/AdminSignalRulesView.vue';
 import AdminCatalogView from './views/admin/AdminCatalogView.vue';
 import AdminWorkflowsView from './views/admin/AdminWorkflowsView.vue';
 import AdminCompaniesView from './views/admin/AdminCompaniesView.vue';
+import AdminEmploymentTypesView from './views/admin/AdminEmploymentTypesView.vue';
 import AdminUsersView from './views/admin/AdminUsersView.vue';
 import AdminNotificationView from './views/admin/AdminNotificationView.vue';
 import AdminAccessRulesView from './views/admin/AdminAccessRulesView.vue';
@@ -65,6 +66,7 @@ export const router = createRouter({
         { path: 'catalog', name: 'admin-catalog', component: AdminCatalogView },
         { path: 'workflows', name: 'admin-workflows', component: AdminWorkflowsView },
         { path: 'companies', name: 'admin-companies', component: AdminCompaniesView },
+        { path: 'employment-types', name: 'admin-employment-types', component: AdminEmploymentTypesView },
         { path: 'users', name: 'admin-users', component: AdminUsersView },
         { path: 'notifications', name: 'admin-notifications', component: AdminNotificationView },
         { path: 'access-rules', name: 'admin-access-rules', component: AdminAccessRulesView },

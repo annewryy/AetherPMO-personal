@@ -31,20 +31,20 @@ import jakarta.servlet.http.HttpServletRequest;
 public class PersonWriteController {
 
     private static final List<String> SOURCES = List.of("INTERNAL", "EXTERNAL");
-    private static final List<String> EMPLOYMENT_TYPES =
-            List.of("regular", "insourced", "project_contract", "turnkey", "freelancer");
     private static final List<String> STATUSES = List.of("재직", "종료");
-    /** 외주 계열은 소속회사 필수(참여인력 등록 폼과 동일 규칙). */
-    private static final List<String> OUTSOURCED = List.of("project_contract", "turnkey", "freelancer");
 
     private final JdbcTemplate jdbc;
     private final PersonService service;
     private final AuditWriter audit;
+    // 0044 — 인력구분은 하드코딩 5종이 아니라 pms_employment_type 마스터 기준으로 검증한다.
+    private final EmploymentTypeService employmentTypes;
 
-    public PersonWriteController(JdbcTemplate jdbc, PersonService service, AuditWriter audit) {
+    public PersonWriteController(JdbcTemplate jdbc, PersonService service, AuditWriter audit,
+            EmploymentTypeService employmentTypes) {
         this.jdbc = jdbc;
         this.service = service;
         this.audit = audit;
+        this.employmentTypes = employmentTypes;
     }
 
     @PostMapping("/api/persons")
@@ -129,12 +129,7 @@ public class PersonWriteController {
             out.put("source", v);
         }
         if (b.containsKey("employmentType") || create) {
-            String v = b.get("employmentType") == null ? "regular" : b.get("employmentType").toString().trim();
-            if (!EMPLOYMENT_TYPES.contains(v)) {
-                throw ApiException.badRequest("인력구분은 " + String.join(", ", EMPLOYMENT_TYPES)
-                        + " 중 하나여야 합니다.");
-            }
-            out.put("employment_type", v);
+            out.put("employment_type", employmentTypes.normalize(str(b.get("employmentType"))));
         }
         if (b.containsKey("status")) {
             String v = b.get("status") == null ? "재직" : b.get("status").toString().trim();
@@ -180,7 +175,7 @@ public class PersonWriteController {
                 : before == null ? null : str(before.get("employment_type"));
         Object effCompany = out.containsKey("company_id") ? out.get("company_id")
                 : before == null ? null : before.get("company_id");
-        if (effType != null && OUTSOURCED.contains(effType) && effCompany == null) {
+        if (effType != null && employmentTypes.outsourcedCodes().contains(effType) && effCompany == null) {
             throw ApiException.badRequest("외주 계열 인력은 소속회사가 필수입니다.");
         }
         return out;

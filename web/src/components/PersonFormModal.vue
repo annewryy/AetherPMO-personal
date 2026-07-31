@@ -7,7 +7,7 @@
 //   (사번 중복으로 저장도 거부됨), 외부 인력도 조직도 가지 자체가 기등록 마스터라 '신규 등록'과 맞지 않는다.
 import { ref, computed, onMounted } from 'vue';
 import { dataClient } from '../lib/dataClient';
-import { EMPLOYMENT_TYPES } from '../lib/personLabels';
+import { EMPLOYMENT_TYPES, isOutsourcedType } from '../lib/personLabels';
 import type { Company, EmploymentType, Person, PersonInput } from '../types';
 import ModalShell from './ModalShell.vue';
 
@@ -15,7 +15,6 @@ const props = defineProps<{ person?: Person | null }>();  // 있으면 수정 �
 const emit = defineEmits<{ (e: 'saved', person: Person): void; (e: 'close'): void }>();
 
 const isEdit = computed(() => !!props.person);
-const OUTSOURCED: ReadonlySet<string> = new Set(['project_contract', 'turnkey', 'freelancer']);
 
 const name = ref(props.person?.name ?? '');
 const source = ref<'INTERNAL' | 'EXTERNAL'>((props.person?.source as 'INTERNAL' | 'EXTERNAL') ?? 'EXTERNAL');
@@ -33,7 +32,8 @@ const error = ref<string | null>(null);
 const companies = ref<Company[]>([]);
 const companySelect = ref<number | '' | '__new__'>(props.person?.companyId ?? '');
 const newCompanyName = ref('');
-const companyRequired = computed(() => OUTSOURCED.has(String(employmentType.value)));
+// 0044 — 외주 계열 판정은 인력구분 마스터(isOutsourced)를 따른다.
+const companyRequired = computed(() => isOutsourcedType(String(employmentType.value)));
 
 onMounted(async () => {
   try {

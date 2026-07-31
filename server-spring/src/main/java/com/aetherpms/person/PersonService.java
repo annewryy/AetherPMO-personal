@@ -25,15 +25,14 @@ public class PersonService {
 
     private final JdbcTemplate jdbc;
     private final OrgTreeService orgTree;
+    // 0044 — 인력구분 검증은 pms_employment_type 마스터 기준(하드코딩 5종 폐지).
+    private final EmploymentTypeService employmentTypes;
 
-    public PersonService(JdbcTemplate jdbc, OrgTreeService orgTree) {
+    public PersonService(JdbcTemplate jdbc, OrgTreeService orgTree, EmploymentTypeService employmentTypes) {
         this.jdbc = jdbc;
         this.orgTree = orgTree;
+        this.employmentTypes = employmentTypes;
     }
-
-    // employment_type 5종(설계 0005 §B에서 확정한 코드값).
-    static final List<String> EMPLOYMENT_TYPES =
-            List.of("regular", "insourced", "project_contract", "turnkey", "freelancer");
 
     // =====================================================================
     // GET /api/persons — 목록(서버측 필터)
@@ -62,10 +61,11 @@ public class PersonService {
         // 인력구분(employment_type) 복수 + AND/OR.
         List<String> types = q.employmentTypes();
         if (types != null && !types.isEmpty()) {
+            var known = employmentTypes.knownCodes();
             for (String t : types) {
-                if (!EMPLOYMENT_TYPES.contains(t)) {
+                if (!known.contains(t)) {
                     throw ApiException.badRequest("유효하지 않은 employmentType 값: " + t
-                            + " (허용: " + String.join(", ", EMPLOYMENT_TYPES) + ")");
+                            + " (허용: " + String.join(", ", known.stream().sorted().toList()) + ")");
                 }
             }
             // AND는 단일 인력이 여러 유형을 동시에 가질 수 없어 논리상 공집합이 되므로
