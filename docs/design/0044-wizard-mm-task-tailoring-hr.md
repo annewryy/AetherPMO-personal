@@ -1,7 +1,7 @@
 ---
 id: 0044
 title: 생성 마법사 통일 · 컨소시엄 MM/인력 이관 · 태스크 상세 강화 · 테일러링 고객사 분류 · 인력구분 커스텀
-status: CONFIRMED
+status: IMPLEMENTED
 scope: [schema, dataClient, web-ui, backend]
 depends: [0013, 0014, 0017, 0019, 0021, 0029, 0042]
 created: 2026-07-31
