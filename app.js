@@ -1891,14 +1891,16 @@ class AetherPMO {
                     displayOrder: a.display_order !== undefined && a.display_order !== null ? Number(a.display_order) : null
                 }));
 
-            // NIRS 표준 산출물 마스터 카탈로그 로드
+            // NIRS 표준 산출물 마스터 카탈로그 로드 (Source Logging & File Metadata)
             try {
-                const { data: nirsData, error: nirsErr } = await this.supabase
-                    .from('nirs_standard_templates')
-                    .select('*')
-                    .order('sequence_no', { ascending: true });
+                const [ { data: nirsData, error: nirsErr }, { data: nirsFilesData } ] = await Promise.all([
+                    this.supabase.from('nirs_standard_templates').select('*').order('sequence_no', { ascending: true }),
+                    this.supabase.from('nirs_standard_template_files').select('*').eq('is_active', true)
+                ]);
 
                 if (!nirsErr && nirsData && nirsData.length > 0) {
+                    console.log('[NIRS Templates] Source: Supabase');
+                    this.nirsSourceType = 'Supabase';
                     this.state.nirsStandardTemplates = nirsData.map(n => ({
                         id: n.id,
                         sequenceNo: n.sequence_no,
@@ -1916,11 +1918,29 @@ class AetherPMO {
                         description: n.description || ''
                     }));
                 } else {
+                    console.log('[NIRS Templates] Source: Default Fallback');
+                    this.nirsSourceType = 'Default Fallback';
                     this.state.nirsStandardTemplates = this.getDefaultNirsTemplates();
                 }
+
+                this.state.nirsTemplateFiles = (nirsFilesData || []).map(f => ({
+                    id: f.id,
+                    templateId: f.template_id,
+                    originalFileName: f.original_file_name,
+                    storageBucket: f.storage_bucket,
+                    storagePath: f.storage_path,
+                    mimeType: f.mime_type,
+                    fileExtension: f.file_extension,
+                    fileSize: f.file_size,
+                    fileVersion: f.file_version,
+                    downloadCount: f.download_count || 0
+                }));
+
             } catch (e) {
-                console.warn('[Supabase] nirs_standard_templates query warning, using local default:', e);
+                console.warn('[NIRS Templates] Source: Default Fallback (Error)', e);
+                this.nirsSourceType = 'Default Fallback';
                 this.state.nirsStandardTemplates = this.getDefaultNirsTemplates();
+                this.state.nirsTemplateFiles = [];
             }
 
             this.sortGlobalTemplates();
@@ -11909,6 +11929,159 @@ class AetherPMO {
     }
 
     
+    
+    async downloadNirsTemplateFile(templateId) {
+        if (this.isDownloadingNirsFile) return;
+
+        const files = this.state.nirsTemplateFiles || [];
+        const fileRec = files.find(f => f.templateId === templateId);
+
+        if (!fileRec) {
+            this.showToast('등록된 표준 양식 파일이 없습니다.', 'warning');
+            return;
+        }
+
+        if (!this.currentUser) {
+            this.showToast('로그인이 필요한 기능입니다.', 'error');
+            return;
+        }
+
+        try {
+            this.isDownloadingNirsFile = true;
+            this.showToast('보안 서명 다운로드 URL을 생성하는 중...', 'info');
+
+            if (this.useSupabase) {
+                const { data, error } = await this.supabase
+                    .storage
+                    .from(fileRec.storageBucket || 'nirs-standard-templates')
+                    .createSignedUrl(fileRec.storagePath, 60, {
+                        download: fileRec.originalFileName
+                    });
+
+                if (error || !data?.signedUrl) {
+                    throw error || new Error('Signed URL 생성 실패');
+                }
+
+                // Increment download count in DB
+                await this.supabase
+                    .from('nirs_standard_template_files')
+                    .update({ download_count: (fileRec.downloadCount || 0) + 1 })
+                    .eq('id', fileRec.id);
+
+                fileRec.downloadCount = (fileRec.downloadCount || 0) + 1;
+
+                // Trigger file download via browser
+                const a = document.createElement('a');
+                a.href = data.signedUrl;
+                a.download = fileRec.originalFileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+
+                this.showToast(`[다운로드 완료] ${fileRec.originalFileName}`, 'success');
+            } else {
+                this.showToast(`[시연 모드] ${fileRec.originalFileName} 파일 다운로드가 요청되었습니다.`, 'info');
+            }
+
+            if (typeof this.renderNirsMasterCatalog === 'function') {
+                this.renderNirsMasterCatalog(this.activeNirsCategory || 'all', this.nirsSearchQuery || '');
+            }
+        } catch (e) {
+            console.error('[NIRS Download Error]', e);
+            this.showToast('파일 다운로드 중 오류가 발생했습니다: ' + (e.message || e), 'error');
+        } finally {
+            this.isDownloadingNirsFile = false;
+        }
+    }
+
+    async uploadNirsTemplateFile(templateId, fileInput) {
+        const userRole = this.currentUser?.role;
+        if (userRole !== 'SYS_ADMIN' && userRole !== 'EXEC_ADMIN') {
+            this.showToast('권한이 없습니다. SYS_ADMIN 또는 EXEC_ADMIN만 파일 등록/수정이 가능합니다.', 'error');
+            return;
+        }
+
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const maxBytes = 50 * 1024 * 1024; // 50MB
+        if (file.size > maxBytes) {
+            this.showToast('파일 크기는 최대 50MB까지 업로드 가능합니다.', 'warning');
+            return;
+        }
+
+        const allowedExts = ['hwp', 'hwpx', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'pdf', 'zip'];
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!allowedExts.includes(ext)) {
+            this.showToast(`허용되지 않은 파일 형식입니다. (허용: ${allowedExts.join(', ')})`, 'warning');
+            return;
+        }
+
+        try {
+            this.showToast('Storage에 파일 업로드 중...', 'info');
+            const timestamp = Date.now();
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const storagePath = `catalog/${templateId}/${timestamp}_${safeName}`;
+
+            const { data: storageData, error: storageErr } = await this.supabase
+                .storage
+                .from('nirs-standard-templates')
+                .upload(storagePath, file, { upsert: true });
+
+            if (storageErr) throw storageErr;
+
+            // Deactivate previous active file for this template
+            await this.supabase
+                .from('nirs_standard_template_files')
+                .update({ is_active: false })
+                .eq('template_id', templateId);
+
+            // Insert new metadata record
+            const { data: dbData, error: dbErr } = await this.supabase
+                .from('nirs_standard_template_files')
+                .insert({
+                    template_id: templateId,
+                    original_file_name: file.name,
+                    storage_bucket: 'nirs-standard-templates',
+                    storage_path: storagePath,
+                    mime_type: file.type || 'application/octet-stream',
+                    file_extension: ext,
+                    file_size: file.size,
+                    file_version: '1.0',
+                    is_primary: true,
+                    is_active: true,
+                    uploaded_by: this.currentUser.id
+                })
+                .select('*')
+                .single();
+
+            if (dbErr) throw dbErr;
+
+            if (!this.state.nirsTemplateFiles) this.state.nirsTemplateFiles = [];
+            this.state.nirsTemplateFiles = this.state.nirsTemplateFiles.filter(f => f.templateId !== templateId);
+            this.state.nirsTemplateFiles.push({
+                id: dbData.id,
+                templateId: templateId,
+                originalFileName: dbData.original_file_name,
+                storageBucket: dbData.storage_bucket,
+                storagePath: dbData.storage_path,
+                mimeType: dbData.mime_type,
+                fileExtension: dbData.file_extension,
+                fileSize: dbData.file_size,
+                fileVersion: dbData.file_version,
+                downloadCount: 0
+            });
+
+            this.showToast(`[등록 완료] ${file.name} 표준 파일이 업로드되었습니다.`, 'success');
+            if (typeof this.renderNirsMasterCatalog === 'function') {
+                this.renderNirsMasterCatalog(this.activeNirsCategory || 'all', this.nirsSearchQuery || '');
+            }
+        } catch (e) {
+            console.error('[NIRS Upload Error]', e);
+            this.showToast('파일 업로드 중 오류가 발생했습니다: ' + (e.message || e), 'error');
+        }
+    }
+
     renderNirsMasterCatalog(categoryFilter = 'all', searchQuery = '') {
         const tbody = document.getElementById('global-template-list-tbody');
         if (!tbody) return;
@@ -11929,6 +12102,42 @@ class AetherPMO {
                                       item.category === '통합구축' ? '<span class="badge badge-purple">통합구축</span>' :
                                       '<span class="badge badge-warning">업무전환</span>';
 
+                const files = this.state.nirsTemplateFiles || [];
+                const fileRec = files.find(f => f.templateId === item.id);
+                const isAdmin = this.currentUser?.role === 'SYS_ADMIN' || this.currentUser?.role === 'EXEC_ADMIN';
+
+                let fileStatusBadge = '';
+                let fileMetaHtml = '';
+                let downloadBtn = '';
+                let uploadBtn = '';
+
+                if (fileRec) {
+                    const kbSize = fileRec.fileSize ? (fileRec.fileSize / 1024).toFixed(1) + ' KB' : '';
+                    fileStatusBadge = '<span class="badge badge-success" style="font-size:11px;">등록 완료</span>';
+                    fileMetaHtml = `<div style="font-size:11px; color:var(--text-muted); margin-top:2px;">v${fileRec.fileVersion || '1.0'} | ${kbSize} | 다운로드 ${fileRec.downloadCount || 0}회</div>`;
+                    downloadBtn = `
+                        <button class="btn btn-sm btn-primary" onclick="app.downloadNirsTemplateFile('${item.id}')" title="${fileRec.originalFileName} 다운로드">
+                            <i data-lucide="download" style="width:13px; height:13px; margin-right:4px;"></i> 다운로드
+                        </button>
+                    `;
+                } else {
+                    fileStatusBadge = '<span class="badge badge-secondary" style="font-size:11px;">미등록</span>';
+                    downloadBtn = `
+                        <button class="btn btn-sm btn-ghost" disabled title="등록된 표준 양식 파일이 없습니다.">
+                            <i data-lucide="download" style="width:13px; height:13px; margin-right:4px; opacity:0.5;"></i> 다운로드
+                        </button>
+                    `;
+                }
+
+                if (isAdmin) {
+                    uploadBtn = `
+                        <label class="btn btn-sm btn-outline" style="margin-left:4px; cursor:pointer;" title="파일 등록 / 교체">
+                            <i data-lucide="upload" style="width:13px; height:13px;"></i>
+                            <input type="file" style="display:none;" onchange="app.uploadNirsTemplateFile('${item.id}', this)" />
+                        </label>
+                    `;
+                }
+
                 html += `
                     <tr>
                         <td style="text-align: center; color: var(--text-muted);">${item.sequenceNo}</td>
@@ -11937,6 +12146,8 @@ class AetherPMO {
                         <td style="text-align: center; color: var(--text-muted);">${item.subStage}</td>
                         <td>
                             <strong style="color: var(--text-primary); font-size: 13.5px;">${item.artifactName}</strong>
+                            ${fileStatusBadge}
+                            ${fileMetaHtml}
                             ${item.description ? `<div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">${item.description}</div>` : ''}
                         </td>
                         <td style="text-align: center; font-size: 12px; color: var(--text-muted);">${item.authorRole || item.managerRole || '-'}</td>
@@ -11947,9 +12158,10 @@ class AetherPMO {
                         </td>
                         <td style="text-align: center; font-size: 12px; color: var(--text-muted);">${item.submissionTiming || '-'}</td>
                         <td style="text-align: center;">
-                            <button class="btn btn-sm btn-ghost" onclick="app.showToast('NIRS 표준 규정 서식입니다.', 'info')" title="표준 서식 규정보기">
-                                <i data-lucide="file-text" style="width:14px; height:14px;"></i>
-                            </button>
+                            <div style="display:flex; justify-content:center; align-items:center;">
+                                ${downloadBtn}
+                                ${uploadBtn}
+                            </div>
                         </td>
                     </tr>
                 `;
