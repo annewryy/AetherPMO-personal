@@ -13252,7 +13252,7 @@ class AetherPMO {
         const infraList = fullList.filter(t => t.category === '통합구축');
         const appList = fullList.filter(t => t.category === '업무전환');
 
-        // ── 3. TOP 1: KPI Cards Typography & Quiet Default Border ─────────────
+        // ── 3. KPI Cards with Structured Theme Classes & WCAG Contrast ──────
         const kpiGridContainer = document.getElementById('kpi-cards-container');
         const btnRegisterLbl = document.getElementById('lbl-btn-register-template');
 
@@ -13275,33 +13275,33 @@ class AetherPMO {
                     <div class="kpi-card nirs-summary-card active">
                         <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="building-2"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">0</div>
-                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">전체 산출물</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">한국지역정보개발원</div>
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">0</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">전체 산출물</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">한국지역정보개발원</div>
                         </div>
                     </div>
                     <div class="kpi-card nirs-summary-card">
                         <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="layers"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">5</div>
-                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">사업유형</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">분류안 구성완료</div>
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">5</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">사업유형</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">분류안 구성완료</div>
                         </div>
                     </div>
                     <div class="kpi-card nirs-summary-card">
                         <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="folder-tree"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">51</div>
-                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">업무영역</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">분류안 구성완료</div>
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">51</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">업무영역</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">분류안 구성완료</div>
                         </div>
                     </div>
                     <div class="kpi-card nirs-summary-card">
                         <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="clock"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:22px; font-weight:800; color:#6366F1; margin-bottom:2px;">DRAFT</div>
-                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">분류 상태</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">표준체계 설계 중</div>
+                            <div class="kpi-num" style="font-size:22px; font-weight:800; color:#8B5CF6; margin-bottom:2px;">DRAFT</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">분류 상태</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">표준체계 설계 중</div>
                         </div>
                     </div>
                 `;
@@ -13310,33 +13310,33 @@ class AetherPMO {
                     <div class="kpi-card nirs-summary-card active">
                         <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="landmark"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">0</div>
-                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">전체 산출물</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">국세청</div>
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">0</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">전체 산출물</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">국세청</div>
                         </div>
                     </div>
                     <div class="kpi-card nirs-summary-card">
                         <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="layers"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">6</div>
-                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">사업유형</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">분류안 구성완료</div>
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">6</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">사업유형</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">분류안 구성완료</div>
                         </div>
                     </div>
                     <div class="kpi-card nirs-summary-card">
                         <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="folder-tree"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">63</div>
-                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">업무영역</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">분류안 구성완료</div>
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">63</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">업무영역</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">분류안 구성완료</div>
                         </div>
                     </div>
                     <div class="kpi-card nirs-summary-card">
                         <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="clock"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:22px; font-weight:800; color:#6366F1; margin-bottom:2px;">DRAFT</div>
-                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">분류 상태</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">표준체계 설계 중</div>
+                            <div class="kpi-num" style="font-size:22px; font-weight:800; color:#8B5CF6; margin-bottom:2px;">DRAFT</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">분류 상태</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">표준체계 설계 중</div>
                         </div>
                     </div>
                 `;
@@ -13345,33 +13345,33 @@ class AetherPMO {
                     <div class="kpi-card nirs-summary-card ${catFilter === 'all' ? 'active' : ''}" onclick="app.selectNirsCategoryFilter('all')">
                         <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="layers"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">179</div>
-                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">전체 산출물</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">NIRS 자원통합사업</div>
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">179</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">전체 산출물</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">NIRS 자원통합사업</div>
                         </div>
                     </div>
                     <div class="kpi-card nirs-summary-card ${catFilter === '사업관리' ? 'active' : ''}" onclick="app.selectNirsCategoryFilter('사업관리')">
                         <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="briefcase"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">136</div>
-                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">사업관리</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">6개 수행단계</div>
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">136</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">사업관리</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">6개 수행단계</div>
                         </div>
                     </div>
                     <div class="kpi-card nirs-summary-card ${catFilter === '통합구축' ? 'active' : ''}" onclick="app.selectNirsCategoryFilter('통합구축')">
                         <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="server"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">32</div>
-                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">통합구축</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">4개 수행단계</div>
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">32</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">통합구축</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">4개 수행단계</div>
                         </div>
                     </div>
                     <div class="kpi-card nirs-summary-card ${catFilter === '업무전환' ? 'active' : ''}" onclick="app.selectNirsCategoryFilter('업무전환')">
                         <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="refresh-cw"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">11</div>
-                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">업무전환</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">4개 수행단계</div>
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">11</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">업무전환</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">4개 수행단계</div>
                         </div>
                     </div>
                 `;
@@ -13380,33 +13380,33 @@ class AetherPMO {
                     <div class="kpi-card nirs-summary-card active">
                         <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="settings"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">0</div>
-                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">운영·유지관리</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">국가정보자원관리원</div>
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">0</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">운영·유지관리</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">국가정보자원관리원</div>
                         </div>
                     </div>
                     <div class="kpi-card nirs-summary-card">
                         <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="wrench"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">10</div>
-                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">업무영역</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">분류안 구성완료</div>
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">10</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">업무영역</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">분류안 구성완료</div>
                         </div>
                     </div>
                     <div class="kpi-card nirs-summary-card">
                         <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="shield-alert"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">0</div>
-                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">장애·문제관리</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">분류안 구성완료</div>
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">0</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">장애·문제관리</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">분류안 구성완료</div>
                         </div>
                     </div>
                     <div class="kpi-card nirs-summary-card">
                         <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="file-check-2"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">0</div>
-                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">SLA 수준관리</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">분류안 구성완료</div>
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">0</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">SLA 수준관리</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">분류안 구성완료</div>
                         </div>
                     </div>
                 `;
@@ -13414,7 +13414,7 @@ class AetherPMO {
             kpiGridContainer.innerHTML = kpiHtml;
         }
 
-        // ── 4. TOP 2: Left Tree Indentation & Clean Hierarchy (No Redundant Number Badges) ─
+        // ── 4. Tree Node Expanded vs Selected Isolation & All-Artifacts Alignment ──
         const treeContainer = document.getElementById('artifact-category-tree');
         if (treeContainer) {
             let treeHtml = '';
@@ -13470,12 +13470,13 @@ class AetherPMO {
 
             orgsDef.forEach(org => {
                 const isOrgActive = (currentOrg === org.code);
+                // Org Tier is Expanded Parent Node (class 'expanded', NO dark background)
 
                 treeHtml += `
                     <div class="tree-node-type" style="margin-bottom:6px;">
-                        <div class="tree-cat-header tree-node-level-1 ${isOrgActive ? 'active' : ''}" onclick="app.handleOrgChange('${org.code}')">
+                        <div class="tree-cat-header tree-node-level-1 ${isOrgActive ? 'expanded' : ''}" onclick="app.handleOrgChange('${org.code}')">
                             <span style="display:flex; align-items:center; gap:6px;">
-                                <i data-lucide="${isOrgActive ? 'folder-open' : 'folder'}" style="width:15px; height:15px; color:${isOrgActive ? '#6366F1' : 'var(--text-muted)'};"></i>
+                                <i data-lucide="${isOrgActive ? 'folder-open' : 'folder'}" style="width:15px; height:15px; color:${isOrgActive ? '#8B5CF6' : 'var(--text-muted)'};"></i>
                                 <span>${org.name}</span>
                             </span>
                         </div>
@@ -13488,10 +13489,11 @@ class AetherPMO {
                         if (biz.isDraft && !showDrafts) return;
 
                         const isBizActive = (currentBizType === biz.code || (currentBizType === 'all' && biz.code === 'RESOURCE_INTEGRATION'));
+                        // BizType Tier is Expanded Parent Node (class 'expanded', NO dark background)
 
                         treeHtml += `
                             <div>
-                                <div class="tree-cat-header tree-node-level-2 ${currentBizType === biz.code ? 'active' : ''}" onclick="event.stopPropagation(); app.handleBizTypeChange('${biz.code}')">
+                                <div class="tree-cat-header tree-node-level-2 ${isBizActive ? 'expanded' : ''}" onclick="event.stopPropagation(); app.handleBizTypeChange('${biz.code}')">
                                     <span style="display:flex; align-items:center; gap:5px;">
                                         <i data-lucide="layers" style="width:13px; height:13px; color:var(--text-muted);"></i>
                                         ${biz.name}
@@ -13503,6 +13505,17 @@ class AetherPMO {
                             treeHtml += `<div style="display:flex; flex-direction:column; gap:3px; margin-top:2px;">`;
 
                             if (biz.code === 'RESOURCE_INTEGRATION') {
+                                // Explicit "📄 전체 산출물" Node matching Breadcrumb & Selection
+                                const isAllSelected = (catFilter === 'all' && stageFilter === 'all');
+                                treeHtml += `
+                                    <div class="tree-cat-header tree-node-level-3 ${isAllSelected ? 'selected' : ''}" onclick="event.stopPropagation(); app.activeNirsCategory='all'; app.activeNirsStage='all'; app.renderArtifacts();">
+                                        <span style="display:flex; align-items:center; gap:5px;">
+                                            <i data-lucide="files" style="width:12px; height:12px;"></i>
+                                            <strong>전체 산출물 (179)</strong>
+                                        </span>
+                                    </div>
+                                `;
+
                                 const categoriesDef = [
                                     { key: '사업관리', name: '사업관리', items: pmList, defaultStages: ['착수 준비', '착수', '계획', '수행 및 통제', '안정화', '종료'] },
                                     { key: '통합구축', name: '통합구축', items: infraList, defaultStages: ['착수', '설계', '구축', '종료'] },
@@ -13519,9 +13532,9 @@ class AetherPMO {
 
                                     treeHtml += `
                                         <div class="tree-node-type">
-                                            <div class="tree-cat-header tree-node-level-3 ${isCatActive ? 'active' : ''}" onclick="event.stopPropagation(); app.activeNirsCategory='${catDef.key}'; app.activeNirsStage='all'; app.renderArtifacts();">
+                                            <div class="tree-cat-header tree-node-level-3 ${isCatActive ? 'selected' : ''}" onclick="event.stopPropagation(); app.activeNirsCategory='${catDef.key}'; app.activeNirsStage='all'; app.renderArtifacts();">
                                                 <span style="display:flex; align-items:center; gap:5px;">
-                                                    <i data-lucide="folder" style="width:12px; height:12px; color:var(--text-muted);"></i>
+                                                    <i data-lucide="folder" style="width:12px; height:12px;"></i>
                                                     ${catDef.name}
                                                 </span>
                                             </div>
@@ -13532,9 +13545,9 @@ class AetherPMO {
                                         const count = stageCounts[stgName] || 0;
                                         const isStgActive = (catFilter === catDef.key && stageFilter === stgName);
                                         treeHtml += `
-                                            <div class="tree-node-stage-item tree-node-level-4 ${isStgActive ? 'active' : ''}" onclick="event.stopPropagation(); app.activeNirsCategory='${catDef.key}'; app.activeNirsStage='${stgName}'; app.renderArtifacts();">
+                                            <div class="tree-node-stage-item tree-node-level-4 ${isStgActive ? 'selected' : ''}" onclick="event.stopPropagation(); app.activeNirsCategory='${catDef.key}'; app.activeNirsStage='${stgName}'; app.renderArtifacts();">
                                                 <span>• ${stgName}</span>
-                                                <span style="margin-left:auto; font-size:10.5px; color:var(--text-muted);">(${count})</span>
+                                                <span style="margin-left:auto; font-size:10.5px; opacity:0.75;">(${count})</span>
                                             </div>
                                         `;
                                     });
@@ -13682,7 +13695,7 @@ class AetherPMO {
             }
         }
 
-        // ── 8. Table 44px Rows & Deliverable Name Cell Typography (line-height 1.4) ─
+        // ── 8. Table Rows & Clean Actions ──────────────────────────────────
         const tbody = document.getElementById('global-templates-tbody');
         if (!tbody) return;
 
@@ -13696,7 +13709,7 @@ class AetherPMO {
                 if (isAdmin) {
                     html = `<tr><td colspan="14" class="text-center" style="padding: 70px 20px;">
                         <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; max-width:520px; margin:0 auto; text-align:center;">
-                            <i data-lucide="layers" style="width:48px; height:48px; color:#6366F1; stroke-width:1.5; margin-bottom:14px;"></i>
+                            <i data-lucide="layers" style="width:48px; height:48px; color:#8B5CF6; stroke-width:1.5; margin-bottom:14px;"></i>
                             <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">${orgLabel} 표준 산출물이 아직 등록되지 않았습니다.</h3>
                             <p style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom:20px;">${bizCountLabel}이 등록되어 있습니다.<br/>새 표준 양식을 직접 등록하거나 CSV 파일로 일괄 등록할 수 있습니다.</p>
                             <div style="display:flex; gap:10px; justify-content:center;">
@@ -13780,7 +13793,7 @@ class AetherPMO {
                         <td class="text-center" style="position:sticky; left:0; z-index:5; background:var(--bg-card);">
                             <input type="checkbox" class="chk-nirs-item" ${isChecked ? 'checked' : ''} onchange="app.toggleNirsTemplateSelect('${item.id}', this.checked)">
                         </td>
-                        <td style="position:sticky; left:36px; z-index:5; background:var(--bg-card); font-family:monospace; font-size:11.5px; font-weight:600; color:#6366F1;">${item.id}</td>
+                        <td style="position:sticky; left:36px; z-index:5; background:var(--bg-card); font-family:monospace; font-size:11.5px; font-weight:600; color:#8B5CF6;">${item.id}</td>
                         <td style="position:sticky; left:141px; z-index:5; background:var(--bg-card);" class="artifact-name-column sticky-artifact-name">
                             <div style="font-size:13px; font-weight:600; color:var(--text-primary); line-height:1.4;">${item.artifactName}</div>
                             <div style="font-size:11px; color:var(--text-muted); margin-top:3px; line-height:1.4;">${item.category} · ${item.stage} ${item.description ? ' | ' + item.description : ''}</div>
