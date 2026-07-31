@@ -47,6 +47,10 @@ public class CatalogNodeEntity {
     @Column(name = "stage")
     private String stage;
 
+    // 0044 §E — 고객사 분류(공통코드 CLIENT_CATEGORY, 'default'=표준)
+    @Column(name = "client_category")
+    private String clientCategory;
+
     @Column(name = "template_file_ref")
     private String templateFileRef;
 
@@ -92,6 +96,7 @@ public class CatalogNodeEntity {
     public Integer getSeqNo() { return seqNo; }
     public String getDeliverableCategory() { return deliverableCategory; }
     public String getStage() { return stage; }
+    public String getClientCategory() { return clientCategory; }
     public String getTemplateFileRef() { return templateFileRef; }
     public String getTemplateTags() { return templateTags; }
     public Long getWorkflowId() { return workflowId; }

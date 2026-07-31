@@ -161,6 +161,7 @@ public final class RowMappers {
         o.put("seqNo", asInt(v(n, "seq_no")));
         o.put("deliverableCategory", v(n, "deliverable_category"));
         o.put("stage", v(n, "stage"));
+        o.put("clientCategory", v(n, "client_category") == null ? "default" : v(n, "client_category")); // 0044 §E
         o.put("templateFileRef", v(n, "template_file_ref"));
         o.put("templateTags", Json.readAny(str(v(n, "template_tags"))));
         o.put("workflowId", asLong(v(n, "workflow_id")));

@@ -6,6 +6,7 @@
 import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
+import { useCodes, fallbackCodes } from '../lib/codes';
 import type { CatalogNode, Workflow, DocTemplate } from '../types';
 import CatalogNodeItem from '../components/CatalogNodeItem.vue';
 import CatalogDetailPanel from '../components/CatalogDetailPanel.vue';
@@ -29,26 +30,40 @@ const selectedNodeId = ref<number | null>(null);
 const expanded = ref<Record<number, boolean>>({});
 const highlightId = ref<number | null>(null);
 
-// 0029 — 방법론 탭(표준 트리 필터). 커스텀 = methodology NULL(기존 데모/수동 트리).
+// 0044 §E — 최상위 축: 고객사 분류(공통코드 CLIENT_CATEGORY, 'default'=표준).
+const CLIENT_CATEGORIES = useCodes('CLIENT_CATEGORY',
+  fallbackCodes('CLIENT_CATEGORY', [{ code: 'default', label: '표준' }]));
+const categoryTab = ref<string>('default');
+const visibleCategories = computed(() =>
+  CLIENT_CATEGORIES.filter((c) =>
+    phases.value.some((p) => (p.clientCategory ?? 'default') === c.code)));
+const categoryPhases = computed(() =>
+  phases.value.filter((p) => (p.clientCategory ?? 'default') === categoryTab.value));
+
+// 0029 — 방법론 탭(표준 트리 필터). 0044에서 '커스텀' 탭 제거 — 고객사 분류가 그 역할을 대체.
 const METHODOLOGY_TABS = [
   { key: 'OPMS', label: 'OPMS 사업관리' },
   { key: 'ODS', label: 'ODS 시스템구축' },
   { key: 'OMS', label: 'OMS 유지관리' },
   { key: 'BIS', label: 'BIS ISP컨설팅' },
-  { key: '__custom__', label: '커스텀' },
 ] as const;
 const methodologyTab = ref<string>('OPMS');
 
 const visibleTabs = computed(() =>
-  METHODOLOGY_TABS.filter((t) =>
-    t.key === '__custom__'
-      ? phases.value.some((p) => !p.methodology)
-      : phases.value.some((p) => p.methodology === t.key)),
-);
+  METHODOLOGY_TABS.filter((t) => categoryPhases.value.some((p) => p.methodology === t.key)));
 
 const filteredPhases = computed(() =>
-  phases.value.filter((p) =>
-    methodologyTab.value === '__custom__' ? !p.methodology : p.methodology === methodologyTab.value));
+  categoryPhases.value.filter((p) => p.methodology === methodologyTab.value));
+
+function selectCategory(code: string) {
+  categoryTab.value = code;
+  const first = visibleTabs.value[0];
+  methodologyTab.value = first ? first.key : 'OPMS';
+  const list = filteredPhases.value;
+  selectedPhaseId.value = list.length ? list[0].id : null;
+  selectedNodeId.value = null;
+  highlightId.value = null;
+}
 
 // 0039 — 단계(PHASE) 위에 입찰/수행 구분을 둔다. 사업준비(PRR)만 입찰, 나머지는 수행.
 //   stage가 비어 있는 과도기 데이터는 '수행'으로 묶어 목록에서 사라지지 않게 한다.
@@ -135,8 +150,9 @@ async function applyDeepLink() {
   if (!Number.isFinite(nodeId) || phases.value.length === 0) return;
   const path = findPath(phases.value, nodeId);
   if (!path) return;
+  categoryTab.value = path[0].clientCategory ?? 'default';
   const rootMeth = path[0].methodology;
-  methodologyTab.value = rootMeth ?? '__custom__';
+  if (rootMeth) methodologyTab.value = rootMeth;
   selectedPhaseId.value = path[0].id;
   for (const n of path) expanded.value[n.id] = true;
   highlightId.value = nodeId;
@@ -155,7 +171,9 @@ onMounted(async () => {
       dataClient.workflows.list(),
       dataClient.docTemplates.list().catch(() => []),
     ]);
-    // 첫 탭 = 존재하는 방법론 우선(표준 시드 후 OPMS), 없으면 커스텀.
+    // 첫 탭 = 존재하는 분류·방법론 우선(표준 시드 후 default/OPMS).
+    const firstCat = visibleCategories.value[0];
+    if (firstCat) categoryTab.value = firstCat.code;
     const first = visibleTabs.value[0];
     if (first) methodologyTab.value = first.key;
     if (filteredPhases.value.length) selectedPhaseId.value = filteredPhases.value[0].id;
@@ -180,6 +198,15 @@ watch(() => route.query.node, applyDeepLink);
       :empty="!loading && !loadError && phases.length === 0"
       empty-text="테일러링 표준 데이터가 없습니다 — 백엔드(API_BASE) 연결 후 표시됩니다."
     />
+
+    <!-- 0044 §E: 고객사 분류 탭(최상위) -->
+    <div v-if="!loading && !loadError && visibleCategories.length > 1" class="cat-tabs">
+      <button
+        v-for="c in visibleCategories" :key="c.code"
+        class="ctab" :class="{ on: categoryTab === c.code }"
+        @click="selectCategory(c.code)"
+      >{{ c.label }}</button>
+    </div>
 
     <!-- 0029: 방법론 탭 -->
     <div v-if="!loading && !loadError && phases.length > 0" class="meth-tabs">
@@ -251,6 +278,16 @@ watch(() => route.query.node, applyDeepLink);
 <style scoped>
 .title { font-size: 22px; margin: 0 0 4px; }
 .sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
+
+/* 0044 §E — 고객사 분류 탭(방법론 탭 위의 최상위 축) */
+.cat-tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.ctab {
+  border: 1px solid var(--border); background: var(--panel); color: var(--muted);
+  font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 999px;
+  cursor: pointer; font-family: inherit;
+}
+.ctab:hover { color: var(--text); }
+.ctab.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 .meth-tabs {
   display: flex; gap: 4px; margin-bottom: 14px;

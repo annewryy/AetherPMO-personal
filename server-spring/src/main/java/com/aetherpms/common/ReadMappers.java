@@ -219,6 +219,7 @@ public final class ReadMappers {
         out.put("seqNo", n.getSeqNo());
         out.put("deliverableCategory", n.getDeliverableCategory());
         out.put("stage", n.getStage());
+        out.put("clientCategory", n.getClientCategory() == null ? "default" : n.getClientCategory()); // 0044 §E
         out.put("templateFileRef", n.getTemplateFileRef());
         // templateTags: Node는 n.template_tags ?? null. 값 있으면 파싱 원형(배열/객체).
         out.put("templateTags", jsonAny(n.getTemplateTags()));

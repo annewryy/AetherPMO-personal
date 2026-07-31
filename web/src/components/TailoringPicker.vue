@@ -10,6 +10,7 @@
 import { ref, computed, watch } from 'vue';
 import type { CatalogNode } from '../types';
 import { BIZ_TYPES, filterTreeByBizType, flattenNodes, sizeOf } from '../lib/tailoring';
+import { useCodes, fallbackCodes } from '../lib/codes';
 import CatalogSelector from './CatalogSelector.vue';
 
 const props = defineProps<{
@@ -32,16 +33,27 @@ const emit = defineEmits<{
 }>();
 
 const bizType = ref('SI');
-// 단계 필터 → 유형 필터 순으로 좁힌다. stage 미지정 노드는 '수행'으로 본다(V36 백필 기준).
+
+// 0044 §E — 고객사 분류(공통코드 CLIENT_CATEGORY) 필터. 분류가 2개 이상일 때만 선택 노출.
+const CLIENT_CATEGORIES = useCodes('CLIENT_CATEGORY',
+  fallbackCodes('CLIENT_CATEGORY', [{ code: 'default', label: '표준' }]));
+const clientCategory = ref('default');
+const visibleCategories = computed(() =>
+  CLIENT_CATEGORIES.filter((c) =>
+    props.tree.some((n) => (n.clientCategory ?? 'default') === c.code)));
+const categoryScoped = computed(() =>
+  props.tree.filter((n) => (n.clientCategory ?? 'default') === clientCategory.value));
+
+// 분류 → 단계 필터 → 유형 필터 순으로 좁힌다. stage 미지정 노드는 '수행'으로 본다(V36 백필 기준).
 const stageScoped = computed(() => {
   const want = props.stage === 'BIDDING' ? 'BIDDING' : props.stage ? 'EXECUTION' : null;
-  if (!want) return props.tree;
-  return props.tree.filter((n) => (n.stage ?? 'EXECUTION') === want);
+  if (!want) return categoryScoped.value;
+  return categoryScoped.value.filter((n) => (n.stage ?? 'EXECUTION') === want);
 });
 const filteredTree = computed(() => filterTreeByBizType(stageScoped.value, bizType.value));
 
-// 유형 변경 시 필터 밖 노드는 선택에서 제거(전개 대상 오염 방지).
-watch([bizType, () => props.stage], () => {
+// 분류·유형 변경 시 필터 밖 노드는 선택에서 제거(전개 대상 오염 방지).
+watch([bizType, clientCategory, () => props.stage], () => {
   const allowed = new Set(flattenNodes(filteredTree.value).map((n) => n.id));
   const stale = [...props.selected].filter((id) => !allowed.has(id));
   if (stale.length) emit('remove', stale);
@@ -65,6 +77,15 @@ function autoSelectRequired() {
   <div class="tailor">
     <!-- 0029 Phase B — 유형·규모 연동 자동 전개 -->
     <div class="tailor-ctl">
+      <!-- 0044 §E — 고객사 분류(2개 이상일 때만) -->
+      <div v-if="visibleCategories.length > 1" class="ctl-row">
+        <span class="ctl-key">고객사 분류</span>
+        <button
+          v-for="c in visibleCategories" :key="c.code" type="button"
+          class="type-chip" :class="{ on: clientCategory === c.code }" :disabled="disabled"
+          @click="clientCategory = c.code"
+        >{{ c.label }}</button>
+      </div>
       <div class="ctl-row">
         <span class="ctl-key">사업 유형</span>
         <button

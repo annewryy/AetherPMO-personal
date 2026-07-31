@@ -127,7 +127,8 @@ public class OfficialDocService {
             fields.put("title", title);
         }
         if (b.containsKey("docNumber")) putStrNullable(fields, "doc_number", b.get("docNumber"));
-        if (b.containsKey("category")) if (b.get("category") != null) fields.put("category", codes.nullableValid("DOC_CATEGORY", b.get("category")));
+        // 수정에서 category:null은 "분류 없음"으로 클리어(구 putEnum 동작 유지 — 리뷰 지적 반영).
+        if (b.containsKey("category")) fields.put("category", codes.nullableValid("DOC_CATEGORY", b.get("category")));
         if (b.containsKey("draftDept")) putStrNullable(fields, "draft_dept", b.get("draftDept"));
         if (b.containsKey("drafter")) putStrNullable(fields, "drafter_name", b.get("drafter"));
         if (b.containsKey("drafterId")) putUuidNullable(fields, "drafter_uid", b.get("drafterId"));

@@ -5,7 +5,9 @@
 // 백엔드 응답 그대로 표시(dataClient.apiSend가 message 패스스루).
 import { ref, computed, onMounted } from 'vue';
 import { dataClient } from '../../lib/dataClient';
+import { useCodes, fallbackCodes } from '../../lib/codes';
 import DocTemplatePickerModal from '../../components/DocTemplatePickerModal.vue';
+import CatalogCopyModal from '../../components/CatalogCopyModal.vue';
 import type { CatalogNode, CatalogNodeType, CatalogNodeInput, Workflow, DocTemplate } from '../../types';
 import CatalogNodeItem from '../../components/CatalogNodeItem.vue';
 import StateNotice from '../../components/StateNotice.vue';
@@ -13,6 +15,29 @@ import StateNotice from '../../components/StateNotice.vue';
 const apiMode = computed(() => !!window.API_BASE);
 
 const roots = ref<CatalogNode[]>([]);
+
+// 0044 §E — 고객사 분류 탭(관리자는 코드에 등록된 분류를 전부 본다 — 빈 분류 포함).
+const CLIENT_CATEGORIES = useCodes('CLIENT_CATEGORY',
+  fallbackCodes('CLIENT_CATEGORY', [{ code: 'default', label: '표준' }]));
+const categoryTab = ref<string>('default');
+const categoryRoots = computed(() =>
+  roots.value.filter((n) => (n.clientCategory ?? 'default') === categoryTab.value));
+function selectCategory(code: string) {
+  categoryTab.value = code;
+  selectedId.value = null;
+  mode.value = 'idle';
+  actionError.value = null;
+}
+
+// 0044 §E — 선택 복사 모달(마법사와 동일한 체크박스 트리 재사용).
+const showCopyModal = ref(false);
+async function onCopied(newCategory: string) {
+  showCopyModal.value = false;
+  await reload();
+  const { reloadCodes } = await import('../../lib/codes');
+  await reloadCodes('CLIENT_CATEGORY');
+  categoryTab.value = newCategory;
+}
 const workflows = ref<Workflow[]>([]);
 const loading = ref(true);
 const loadError = ref<string | null>(null);
@@ -47,7 +72,7 @@ const flat = computed<FlatNode[]>(() => {
   const walk = (nodes: CatalogNode[], depth: number) => {
     for (const n of nodes) { out.push({ node: n, depth }); walk(n.children, depth + 1); }
   };
-  walk(roots.value, 0);
+  walk(categoryRoots.value, 0);   // 0044 §E — 부모 후보·탐색은 현재 분류 안에서만
   return out;
 });
 const byId = computed(() => new Map(flat.value.map((f) => [f.node.id, f.node])));
@@ -141,6 +166,8 @@ function onParentChange() {
 function toInput(): CatalogNodeInput {
   return {
     parentId: form.value.parentId,
+    // 0044 §E — 신규 노드는 현재 분류 탭 소속(수정 시엔 백엔드가 기존값 유지).
+    clientCategory: mode.value === 'create' ? categoryTab.value : undefined,
     nodeType: form.value.nodeType,
     code: form.value.code.trim() || null,
     name: form.value.name.trim(),
@@ -304,6 +331,20 @@ function onTplSelect(t: { id: number }) {
       empty-text="테일러링 데이터가 없습니다 — 데이터 소스 연결 후 표시됩니다."
     />
 
+    <!-- 0044 §E: 고객사 분류 탭 + 선택 복사 -->
+    <div v-if="!loading && roots.length > 0" class="cat-row">
+      <div class="cat-tabs">
+        <button
+          v-for="c in CLIENT_CATEGORIES" :key="c.code"
+          class="ctab" :class="{ on: categoryTab === c.code }"
+          @click="selectCategory(c.code)"
+        >{{ c.label }}</button>
+      </div>
+      <button class="btn btn-sm" :disabled="!apiMode" @click="showCopyModal = true">
+        복사하여 새 분류 만들기
+      </button>
+    </div>
+
     <div v-if="!loading && roots.length > 0" class="layout">
       <section class="tree-panel">
         <div class="tree-head">
@@ -312,9 +353,12 @@ function onTplSelect(t: { id: number }) {
             + {{ addLabel }}
           </button>
         </div>
-        <ul class="tree">
+        <div v-if="categoryRoots.length === 0" class="empty">
+          이 분류에 노드가 없습니다 — '복사하여 새 분류 만들기' 또는 '분류(PHASE) 추가'로 시작하세요.
+        </div>
+        <ul v-else class="tree">
           <CatalogNodeItem
-            v-for="n in roots" :key="n.id"
+            v-for="n in categoryRoots" :key="n.id"
             :node="n" :expanded="expanded" :toggle="toggle"
             :selected-id="selectedId" :highlight-id="null" any-selectable
             @select="selectNode"
@@ -391,7 +435,7 @@ function onTplSelect(t: { id: number }) {
             <label class="field">
               <span class="label">방법론</span>
               <select v-model="form.methodology" class="select">
-                <option :value="null">커스텀(없음)</option>
+                <option :value="null">미지정</option>
                 <option v-for="m in METHODOLOGIES" :key="m" :value="m">{{ m }}</option>
               </select>
             </label>
@@ -452,6 +496,14 @@ function onTplSelect(t: { id: number }) {
     @select="onTplSelect"
     @close="showTplPicker = false"
   />
+
+  <!-- 0044 §E — 선택 복사(마법사의 테일러링 체크박스 트리 재사용) -->
+  <CatalogCopyModal
+    v-if="showCopyModal"
+    :tree="roots"
+    @copied="onCopied"
+    @close="showCopyModal = false"
+  />
 </template>
 
 <style scoped>
@@ -474,6 +526,16 @@ function onTplSelect(t: { id: number }) {
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px;
 }
 .tree-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px 10px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+/* 0044 §E — 고객사 분류 탭 줄 */
+.cat-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.cat-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.ctab {
+  border: 1px solid var(--border); background: var(--panel); color: var(--muted);
+  font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 999px;
+  cursor: pointer; font-family: inherit;
+}
+.ctab:hover { color: var(--text); }
+.ctab.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 .tree-title { font-size: 13px; color: var(--muted); font-weight: 600; }
 .tree { margin: 0; padding: 0; }
 

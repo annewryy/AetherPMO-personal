@@ -20,9 +20,19 @@ import jakarta.servlet.http.HttpServletRequest;
 public class CatalogAdminController {
 
     private final CatalogAdminService service;
+    private final CatalogCopyService copyService;
 
-    public CatalogAdminController(CatalogAdminService service) {
+    public CatalogAdminController(CatalogAdminService service, CatalogCopyService copyService) {
         this.service = service;
+        this.copyService = copyService;
+    }
+
+    /** 0044 §E — 선택 복사로 새 고객사 분류 생성. /api/admin/* 경로라 SYS_ADMIN 가드. */
+    @PostMapping("/api/admin/catalog/copy")
+    public ResponseEntity<Map<String, Object>> copy(
+            @RequestBody(required = false) Map<String, Object> body, HttpServletRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(copyService.copy(body, CurrentActor.resolve(req)));
     }
 
     @PostMapping("/api/catalog/nodes")

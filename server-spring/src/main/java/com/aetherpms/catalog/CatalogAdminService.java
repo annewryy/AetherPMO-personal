@@ -29,10 +29,15 @@ public class CatalogAdminService {
     private final JdbcTemplate jdbc;
     private final AuditWriter audit;
 
-    public CatalogAdminService(JdbcTemplate jdbc, AuditWriter audit) {
+    public CatalogAdminService(JdbcTemplate jdbc, AuditWriter audit,
+            com.aetherpms.code.CommonCodeService codes) {
         this.jdbc = jdbc;
         this.audit = audit;
+        this.codes = codes;
     }
+
+    // 0044 §E — 고객사 분류(CLIENT_CATEGORY) 검증용 공통코드.
+    private final com.aetherpms.code.CommonCodeService codes;
 
     private static final List<String> NODE_TYPES = List.of("PHASE", "ACTIVITY", "TASK", "DELIVERABLE");
     private static final List<String> CATALOG_STAGES = List.of("BIDDING", "EXECUTION");
@@ -43,7 +48,8 @@ public class CatalogAdminService {
             "template_file_ref", "template_tags", "workflow_id", "is_active",
             // 0029 — 테일러링 표준 트리 필드(관리자 편집 — 요구 0004 §4)
             "methodology", "required_small", "required_medium", "required_large",
-            "doc_format", "file_name_base", "doc_template_id");
+            "doc_format", "file_name_base", "doc_template_id",
+            "client_category");   // 0044 §E — 고객사 분류
     private static final Map<String, String> NODE_ALIASES = Map.ofEntries(
             Map.entry("parentId", "parent_node_id"), Map.entry("nodeType", "node_type"),
             Map.entry("isOptional", "is_optional"), Map.entry("sortOrder", "sort_order"),
@@ -52,7 +58,8 @@ public class CatalogAdminService {
             Map.entry("workflowId", "workflow_id"), Map.entry("isActive", "is_active"),
             Map.entry("requiredSmall", "required_small"), Map.entry("requiredMedium", "required_medium"),
             Map.entry("requiredLarge", "required_large"), Map.entry("docFormat", "doc_format"),
-            Map.entry("fileNameBase", "file_name_base"), Map.entry("docTemplateId", "doc_template_id"));
+            Map.entry("fileNameBase", "file_name_base"), Map.entry("docTemplateId", "doc_template_id"),
+            Map.entry("clientCategory", "client_category"));
 
     private static final List<String> METHODOLOGIES = List.of("OPMS", "ODS", "OMS", "BIS");
 
@@ -64,8 +71,22 @@ public class CatalogAdminService {
                 ? fetchNodeType(toLong(normalized.get("parent_node_id"))) : null;
         validateNodeHierarchy(str(normalized.get("node_type")), parentType);
 
-        if (normalized.get("code") != null) assertCodeUnique(str(normalized.get("code")), null);
+        if (normalized.get("code") != null) {
+            // 분류 미지정 신규 노드는 부모의 분류를 따른다(루트면 'default').
+            String cc = str(normalized.get("client_category"));
+            if (cc == null && normalized.get("parent_node_id") != null) {
+                cc = jdbc.query("SELECT client_category FROM pms_catalog_node WHERE node_id = ?",
+                        rs -> rs.next() ? rs.getString(1) : null, toLong(normalized.get("parent_node_id")));
+            }
+            assertCodeUnique(str(normalized.get("code")), null, cc);
+        }
         if (normalized.get("workflow_id") != null) assertWorkflowExists(toLong(normalized.get("workflow_id")));
+        // 0044 §E — 분류 미지정이면 부모 분류 상속(루트는 컬럼 DEFAULT 'default').
+        if (normalized.get("client_category") == null && normalized.get("parent_node_id") != null) {
+            String inherited = jdbc.query("SELECT client_category FROM pms_catalog_node WHERE node_id = ?",
+                    rs -> rs.next() ? rs.getString(1) : null, toLong(normalized.get("parent_node_id")));
+            if (inherited != null) normalized.put("client_category", inherited);
+        }
 
         Map<String, Object> node = WriteSupport.insertReturning(jdbc, "pms_catalog_node", "node_id",
                 toDbFields(normalized));
@@ -92,7 +113,11 @@ public class CatalogAdminService {
             String parentType = effParentId != null ? fetchNodeType(toLong(effParentId)) : null;
             validateNodeHierarchy(effType, parentType);
         }
-        if (normalized.get("code") != null) assertCodeUnique(str(normalized.get("code")), id);
+        if (normalized.get("code") != null) {
+            String cc = normalized.containsKey("client_category") ? str(normalized.get("client_category"))
+                    : str(before.get("client_category"));
+            assertCodeUnique(str(normalized.get("code")), id, cc);
+        }
         if (normalized.get("workflow_id") != null) assertWorkflowExists(toLong(normalized.get("workflow_id")));
 
         List<String> cols = List.copyOf(normalized.keySet());
@@ -185,6 +210,11 @@ public class CatalogAdminService {
             }
             out.put("methodology", v == null ? null : str(v));
         }
+        // 0044 §E — 고객사 분류는 공통코드 CLIENT_CATEGORY 기준(미지정은 'default'=표준).
+        if (body.containsKey("client_category")) {
+            String cc = codes.nullableValid("CLIENT_CATEGORY", body.get("client_category"));
+            out.put("client_category", cc == null ? "default" : cc);
+        }
         for (String k : List.of("code", "description", "deliverable_category", "stage", "template_file_ref",
                 "doc_format", "file_name_base")) {
             if (!body.containsKey(k)) continue;
@@ -233,11 +263,14 @@ public class CatalogAdminService {
         return rows.get(0);
     }
 
-    private void assertCodeUnique(String code, Long excludeNodeId) {
+    // 0044 §E — code 유일성은 고객사 분류 단위. 표준을 복사한 분류가 같은 code를 갖는 게 정상이다.
+    private void assertCodeUnique(String code, Long excludeNodeId, String clientCategory) {
+        String cc = clientCategory == null ? "default" : clientCategory;
         int c = excludeNodeId != null
-                ? count("SELECT COUNT(*) FROM pms_catalog_node WHERE code = ? AND node_id <> ?", code, excludeNodeId)
-                : count("SELECT COUNT(*) FROM pms_catalog_node WHERE code = ?", code);
-        if (c > 0) throw ApiException.conflict("이미 존재하는 code입니다: " + code);
+                ? count("SELECT COUNT(*) FROM pms_catalog_node WHERE code = ? AND client_category = ? "
+                        + "AND node_id <> ?", code, cc, excludeNodeId)
+                : count("SELECT COUNT(*) FROM pms_catalog_node WHERE code = ? AND client_category = ?", code, cc);
+        if (c > 0) throw ApiException.conflict("이미 존재하는 code입니다(같은 고객사 분류 내): " + code);
     }
 
     private void assertWorkflowExists(long workflowId) {

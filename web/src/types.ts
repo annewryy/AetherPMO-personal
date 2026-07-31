@@ -494,6 +494,7 @@ export interface CatalogNode {
   seqNo: number | null;
   deliverableCategory: string | null;
   stage: string | null;          // BIDDING/EXECUTION 등
+  clientCategory: string;        // 0044 §E — 고객사 분류(공통코드 CLIENT_CATEGORY, 'default'=표준)
   templateFileRef: string | null; // 산출물 템플릿 파일 참조(파일명/텍스트) — 실열람은 FilePort 도입 후(0017 §C-1)
   // template_tags: 백엔드가 jsonAny로 파싱(배열/객체/문자열/null). 프론트는 콤마·JSON 관용 파싱.
   templateTags: string | string[] | Record<string, unknown> | null;
@@ -543,6 +544,8 @@ export interface CatalogNodeInput {
   isActive: boolean;
   // 0039 — PHASE의 입찰/수행 구분(BIDDING·EXECUTION). PHASE 외 노드는 상위를 따르므로 null.
   stage?: string | null;
+  // 0044 §E — 고객사 분류(생성 시 현재 탭 분류. 미지정=부모 상속/기본 default)
+  clientCategory?: string | null;
   // 0029 — 테일러링 표준 필드(관리자 편집)
   methodology?: string | null;
   requiredSmall?: boolean | null;

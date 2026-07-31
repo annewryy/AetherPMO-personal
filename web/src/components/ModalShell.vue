@@ -6,7 +6,8 @@
 //   입력 중이던 내용이 통째로 날아가던 문제 — 저장/취소/✕/Esc로만 닫히게 한다.
 import { onMounted, onBeforeUnmount } from 'vue';
 
-defineProps<{ title: string }>();
+// wide — 트리 선택 등 넓은 본문용(0044 테일러링 복사 모달).
+defineProps<{ title: string; wide?: boolean }>();
 const emit = defineEmits<{ (e: 'close'): void }>();
 
 function onKey(ev: KeyboardEvent) {
@@ -18,7 +19,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
 
 <template>
   <div class="overlay">
-    <div class="card" role="dialog" aria-modal="true">
+    <div class="card" :class="{ wide }" role="dialog" aria-modal="true">
       <div class="head">
         <h3 class="title">{{ title }}</h3>
         <button class="x" type="button" aria-label="닫기" @click="emit('close')">✕</button>
@@ -43,6 +44,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
 }
 .card {
   width: 100%; max-width: 480px;
+}
+.card.wide { max-width: 880px; }
+.card, .card.wide {
   background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 }

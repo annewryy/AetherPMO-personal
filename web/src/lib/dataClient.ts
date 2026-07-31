@@ -403,6 +403,11 @@ export const dataClient = {
       );
       return includeInactive ? roots : pruneInactive(roots);
     },
+    // 0044 §E — 선택 복사로 새 고객사 분류 생성(SYS_ADMIN). 조상은 서버가 보강한다.
+    async copy(input: { targetClientCategory: string; nodeIds: number[] }):
+        Promise<{ clientCategory: string; copiedCount: number }> {
+      return apiSend('POST', '/api/admin/catalog/copy', input);
+    },
   },
 
   // 카탈로그 관리 쓰기 (0009 모듈 2) — 백엔드 전용. 409(참조/코드 중복)·400(계층 규칙)

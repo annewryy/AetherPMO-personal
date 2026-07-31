@@ -6,6 +6,7 @@
 //   양식(pms_doc_template) 마스터 표는 이 화면에서 제거했다 — 여기서는 산출물↔양식 연결만 본다.
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { dataClient } from '../lib/dataClient';
+import { useCodes, fallbackCodes } from '../lib/codes';
 import type { CatalogNode, DocTemplate } from '../types';
 import { currentUser } from '../lib/auth';
 import StateNotice from '../components/StateNotice.vue';
@@ -32,26 +33,37 @@ const templateById = computed(() => {
   return m;
 });
 
-// ---- 탭: 방법론(테일러링과 동일 어휘) ----------------------------------------
+// ---- 탭: 고객사 분류(0044 §E — 최상위 축) + 방법론(테일러링과 동일 어휘) --------
+const CLIENT_CATEGORIES = useCodes('CLIENT_CATEGORY',
+  fallbackCodes('CLIENT_CATEGORY', [{ code: 'default', label: '표준' }]));
+const categoryTab = ref<string>('default');
+const visibleCategories = computed(() =>
+  CLIENT_CATEGORIES.filter((c) =>
+    phases.value.some((p) => (p.clientCategory ?? 'default') === c.code)));
+const categoryPhases = computed(() =>
+  phases.value.filter((p) => (p.clientCategory ?? 'default') === categoryTab.value));
+
+// 0044에서 '커스텀' 탭 제거 — 고객사 분류가 그 역할을 대체.
 const METHODOLOGY_TABS = [
   { key: 'OPMS', label: 'OPMS 사업관리' },
   { key: 'ODS', label: 'ODS 시스템구축' },
   { key: 'OMS', label: 'OMS 유지관리' },
   { key: 'BIS', label: 'BIS ISP컨설팅' },
-  { key: '__custom__', label: '커스텀' },
 ] as const;
 const tab = ref<string>('OPMS');
 
 const visibleTabs = computed(() =>
-  METHODOLOGY_TABS.filter((t) =>
-    t.key === '__custom__'
-      ? phases.value.some((p) => !p.methodology)
-      : phases.value.some((p) => p.methodology === t.key)),
-);
+  METHODOLOGY_TABS.filter((t) => categoryPhases.value.some((p) => p.methodology === t.key)));
 
 const filteredPhases = computed(() =>
-  phases.value.filter((p) =>
-    tab.value === '__custom__' ? !p.methodology : p.methodology === tab.value));
+  categoryPhases.value.filter((p) => p.methodology === tab.value));
+
+function selectCategory(code: string) {
+  categoryTab.value = code;
+  const first = visibleTabs.value[0];
+  tab.value = first ? first.key : 'OPMS';
+  selectedPhaseId.value = null;
+}
 
 // ---- 단계(PHASE) 좌측 네비 — 테일러링과 같은 입찰/수행 구분 -------------------
 const STAGE_GROUPS: { key: string; label: string }[] = [
@@ -147,7 +159,9 @@ async function load() {
       dataClient.catalog.tree(),
       dataClient.docTemplates.list(),
     ]);
-    // 첫 탭 = 실제로 존재하는 방법론 우선(테일러링 화면과 같은 규칙).
+    // 첫 탭 = 실제로 존재하는 분류·방법론 우선(테일러링 화면과 같은 규칙).
+    const firstCat = visibleCategories.value[0];
+    if (firstCat) categoryTab.value = firstCat.code;
     const first = visibleTabs.value[0];
     if (first) tab.value = first.key;
   } catch (e) {
@@ -277,6 +291,14 @@ async function clearLink(r: DeliverableRow) {
 
       <template v-if="!loading && !loadError">
         <!-- 탭: 방법론 -->
+        <!-- 0044 §E: 고객사 분류 탭(최상위) -->
+        <div v-if="visibleCategories.length > 1" class="cat-tabs">
+          <button
+            v-for="c in visibleCategories" :key="c.code"
+            class="ctab" :class="{ on: categoryTab === c.code }"
+            @click="selectCategory(c.code)"
+          >{{ c.label }}</button>
+        </div>
         <div v-if="visibleTabs.length > 0" class="meth-tabs">
           <button
             v-for="t in visibleTabs" :key="t.key"
@@ -461,6 +483,14 @@ async function clearLink(r: DeliverableRow) {
 }
 
 /* 탭 — 테일러링 화면과 같은 모양 */
+.cat-tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.ctab {
+  border: 1px solid var(--border); background: var(--panel); color: var(--muted);
+  font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 999px;
+  cursor: pointer; font-family: inherit;
+}
+.ctab:hover { color: var(--text); }
+.ctab.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 .meth-tabs {
   display: flex; align-items: center; gap: 4px; margin-bottom: 14px;
   background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 3px; width: fit-content;
