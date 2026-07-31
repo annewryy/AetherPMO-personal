@@ -8391,3 +8391,99 @@ body.dark-mode .badge-status-cancelled {
         page-break-inside: avoid !important;
     }
 }
+
+/* ============================================================================
+   SALARY TEMPLATE EDIT SPLIT 2-COLUMN MODAL STYLES
+   ============================================================================ */
+.salary-template-modal-content {
+    width: min(1320px, calc(100vw - 40px)) !important;
+    height: min(880px, calc(100vh - 40px)) !important;
+    max-width: 1320px !important;
+    max-height: 92vh !important;
+    background: var(--bg-card, #FFFFFF) !important;
+    color: var(--text-primary, #0F172A) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.35) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    border: 1px solid var(--border-color, #E2E8F0) !important;
+    margin: auto !important;
+}
+
+.salary-template-modal-content .modal-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 16px 24px !important;
+    border-bottom: 1px solid var(--border-color, #E2E8F0) !important;
+    background: var(--bg-card-header, rgba(0,0,0,0.02)) !important;
+    flex-shrink: 0 !important;
+}
+
+.salary-template-modal-content .modal-body {
+    flex: 1 !important;
+    min-height: 0 !important;
+    padding: 20px 24px !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.salary-template-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 20px !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}
+
+.salary-template-editor-col {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    padding-right: 4px !important;
+}
+
+.salary-template-preview-col {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    background: #F8FAFC !important;
+    border: 1px solid var(--border-color, #E2E8F0) !important;
+    border-radius: 8px !important;
+    padding: 14px !important;
+}
+
+.salary-template-preview-body {
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    background: #FFFFFF !important;
+    color: #1E293B !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 6px !important;
+    padding: 20mm 15mm !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06) !important;
+}
+
+.salary-template-modal-content .modal-footer {
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 14px 24px !important;
+    border-top: 1px solid var(--border-color, #E2E8F0) !important;
+    background: var(--bg-card-header, rgba(0,0,0,0.02)) !important;
+    flex-shrink: 0 !important;
+}
+
+@media (max-width: 992px) {
+    .salary-template-grid {
+        grid-template-columns: 1fr !important;
+        overflow-y: auto !important;
+    }
+}

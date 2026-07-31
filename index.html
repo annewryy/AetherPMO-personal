@@ -5126,7 +5126,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=9cf4059_v2"></script>
+    <script src="app.js?v=9cf4059_v3"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
@@ -5205,54 +5205,78 @@
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY TEMPLATE EDIT                                             -->
     <!-- ======================================================================= -->
-    <div id="modal-salary-template-edit" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 840px;">
-            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
-                <h3 style="font-size: 17px; font-weight: 700; color: var(--text-primary);" id="sal-tmpl-modal-title">HTML 품의서 양식 등록</h3>
+        <!-- ======================================================================= -->
+    <!-- MODAL: SALARY TEMPLATE EDIT (SPLIT 2-COLUMN LAYOUT WITH REALTIME PREVIEW) -->
+    <!-- ======================================================================= -->
+    <div id="modal-salary-template-edit" class="modal salary-template-modal" style="display: none;">
+        <div class="salary-template-modal-content">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="file-code" style="width: 18px; height: 18px; color: #6366F1;"></i>
+                    <h3 style="font-size: 17px; font-weight: 700; color: var(--text-primary);" id="sal-tmpl-modal-title">HTML 품의서 양식 등록</h3>
+                </div>
                 <button type="button" class="close-btn" onclick="app.closeSalaryTemplateEditModal()">&times;</button>
             </div>
-            <div class="modal-body" style="padding: 16px 0;">
-                <form id="form-salary-template">
-                    <input type="hidden" id="sal-tmpl-id" />
-                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 12px;">
-                        <div>
-                            <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">양식명 <span class="required">*</span></label>
-                            <input type="text" id="sal-tmpl-name" placeholder="예: 월급여 지급품의서 (표준)" required style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);" />
-                        </div>
-                        <div>
-                            <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">적용 고용형태</label>
-                            <select id="sal-tmpl-target" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);">
-                                <option value="ALL">전체 고용형태 공용</option>
-                                <option value="INSOURCED_CONTRACTOR">자사화 인력 전용</option>
-                                <option value="PROJECT_CONTRACTOR">프로젝트 계약직 전용</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div style="margin-bottom: 12px; display: flex; gap: 20px;">
-                        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
-                            <input type="checkbox" id="sal-tmpl-is-default" /> 기본 양식으로 지정
-                        </label>
-                        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
-                            <input type="checkbox" id="sal-tmpl-is-active" checked /> 활성화 사용
-                        </label>
+            <div class="modal-body">
+                <div class="salary-template-grid">
+                    <!-- Left Column: Form & HTML Editor -->
+                    <div class="salary-template-editor-col">
+                        <form id="form-salary-template" style="display: flex; flex-direction: column; height: 100%;">
+                            <input type="hidden" id="sal-tmpl-id" />
+
+                            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 12px;">
+                                <div>
+                                    <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">양식명 <span class="required">*</span></label>
+                                    <input type="text" id="sal-tmpl-name" placeholder="예: 월급여 지급품의서 (표준)" required style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);" />
+                                </div>
+                                <div>
+                                    <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">적용 고용형태</label>
+                                    <select id="sal-tmpl-target" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);">
+                                        <option value="ALL">전체 고용형태 공용</option>
+                                        <option value="INSOURCED_CONTRACTOR">자사화 인력 전용</option>
+                                        <option value="PROJECT_CONTRACTOR">프로젝트 계약직 전용</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom: 12px; display: flex; gap: 20px;">
+                                <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                                    <input type="checkbox" id="sal-tmpl-is-default" /> 기본 양식으로 지정
+                                </label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                                    <input type="checkbox" id="sal-tmpl-is-active" checked /> 활성화 사용
+                                </label>
+                            </div>
+
+                            <!-- Mustache Guide Box -->
+                            <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 11px; color: var(--text-primary); line-height: 1.4;">
+                                <strong>📌 Mustache 치환변수 안내:</strong><br />
+                                • 단일 변수: <code>{{project_name}}</code>, <code>{{project_code}}</code>, <code>{{client_name}}</code>, <code>{{payment_month}}</code>, <code>{{payment_date}}</code>, <code>{{total_member_count}}</code>, <code>{{total_payment_amount}}</code>, <code>{{total_payment_amount_korean}}</code><br />
+                                • 반복문: <code>{{#payment_items}} ... {{/payment_items}}</code> (사용가능: <code>{{index}}</code>, <code>{{member_name}}</code>, <code>{{employment_type_name}}</code>, <code>{{assignment_period}}</code>, <code>{{base_salary}}</code>, <code>{{meal_allowance}}</code>, <code>{{other_allowance}}</code>, <code>{{total_payment}}</code>)
+                            </div>
+
+                            <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+                                <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">HTML 본문 코드 <span class="required">*</span></label>
+                                <textarea id="sal-tmpl-html" oninput="app.updateSalaryTemplatePreview()" rows="12" required style="width: 100%; flex: 1; min-height: 200px; font-family: monospace; font-size: 12px; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary); line-height: 1.5; resize: none;"></textarea>
+                            </div>
+                        </form>
                     </div>
 
-                    <!-- Mustache Variable Guide Box -->
-                    <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 11.5px; color: var(--text-primary);">
-                        <strong>📌 Mustache 치환변수 안내:</strong><br />
-                        • 단일 변수: <code>{{project_name}}</code>, <code>{{project_code}}</code>, <code>{{client_name}}</code>, <code>{{payment_month}}</code>, <code>{{payment_date}}</code>, <code>{{total_member_count}}</code>, <code>{{total_payment_amount}}</code>, <code>{{total_payment_amount_korean}}</code><br />
-                        • 반복문 블록: <code>{{#payment_items}} ... {{/payment_items}}</code> (내부 사용: <code>{{index}}</code>, <code>{{member_name}}</code>, <code>{{employment_type_name}}</code>, <code>{{assignment_period}}</code>, <code>{{base_salary}}</code>, <code>{{meal_allowance}}</code>, <code>{{other_allowance}}</code>, <code>{{total_payment}}</code>)
+                    <!-- Right Column: Real-Time A4 Preview -->
+                    <div class="salary-template-preview-col">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border-color);">
+                            <span style="font-size: 13px; font-weight: 700; color: var(--text-primary);"><i data-lucide="eye" style="width: 14px; height: 14px; margin-right: 4px;"></i> 실시간 A4 품의서 미리보기</span>
+                            <span style="font-size: 10.5px; color: var(--text-muted);">Mustache 데이터 치환 결과</span>
+                        </div>
+                        <div id="sal-tmpl-preview" class="salary-template-preview-body">
+                            <!-- Real-time live HTML preview rendered here -->
+                        </div>
                     </div>
-
-                    <div>
-                        <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">HTML 본문 <span class="required">*</span></label>
-                        <textarea id="sal-tmpl-html" rows="14" required style="width: 100%; font-family: monospace; font-size: 12px; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);"></textarea>
-                    </div>
-                </form>
+                </div>
             </div>
-            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="app.closeSalaryTemplateEditModal()">취소</button>
-                <button type="button" class="btn btn-primary" onclick="app.saveSalaryTemplate()">양식 저장</button>
+                <button type="button" class="btn btn-primary" onclick="app.saveSalaryTemplate()">저장하기</button>
             </div>
         </div>
     </div>

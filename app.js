@@ -27474,17 +27474,17 @@ class AetherPMO {
         tbody.innerHTML = html;
     }
 
-    openSalaryTemplateEditModal(templateId = null) {
-        const modal = document.getElementById('modal-salary-template-edit');
+        openSalaryTemplateEditModal(templateId = null) {
+        const modal = document.getElementById('modal-salary-template-edit') || document.getElementById('salary-template-modal');
         if (!modal) return;
 
         const title = document.getElementById('sal-tmpl-modal-title');
         const idInput = document.getElementById('sal-tmpl-id');
-        const nameInput = document.getElementById('sal-tmpl-name');
-        const targetSelect = document.getElementById('sal-tmpl-target');
+        const nameInput = document.getElementById('sal-tmpl-name') || document.getElementById('salary-template-name');
+        const targetSelect = document.getElementById('sal-tmpl-target') || document.getElementById('salary-template-employment-type');
         const defaultChk = document.getElementById('sal-tmpl-is-default');
         const activeChk = document.getElementById('sal-tmpl-is-active');
-        const htmlInput = document.getElementById('sal-tmpl-html');
+        const htmlInput = document.getElementById('sal-tmpl-html') || document.getElementById('salary-template-html');
 
         if (templateId) {
             const t = (this.state.salaryTemplates || []).find(tmpl => tmpl.id === templateId);
@@ -27509,6 +27509,36 @@ class AetherPMO {
         }
 
         modal.style.display = 'flex';
+        this.updateSalaryTemplatePreview();
+        if (window.lucide) lucide.createIcons();
+    }
+
+    updateSalaryTemplatePreview() {
+        const htmlInput = document.getElementById('sal-tmpl-html') || document.getElementById('salary-template-html');
+        const previewCont = document.getElementById('sal-tmpl-preview') || document.getElementById('salary-template-preview');
+        if (!previewCont) return;
+
+        const rawHtml = htmlInput?.value || '';
+
+        // Sample context for live preview
+        const sampleContext = {
+            approval_no: 'SPA-202608-001',
+            payment_month: '2026-08',
+            payment_date: '2026-08-25',
+            project_name: '행정통합시스템 구축 사업',
+            project_code: 'PRJ-2026-08',
+            client_name: '국가정보자원관리원',
+            total_member_count: '2명',
+            total_payment_amount: '12,500,000원',
+            total_payment_amount_korean: '금 일천이백오십만원정',
+            payment_items: [
+                { member_name: '안유경', employment_type_name: '자사화', assignment_period: '2026.03.01 ~ 계속', base_salary: 5500000, meal_allowance: 200000, other_allowance: 300000, total_payment: 6000000 },
+                { member_name: '홍길동', employment_type_name: '계약직', assignment_period: '2026.04.01 ~ 2026.12.31', base_salary: 6000000, meal_allowance: 200000, other_allowance: 300000, total_payment: 6500000 }
+            ]
+        };
+
+        const rendered = this.renderMustacheTemplate(rawHtml, sampleContext);
+        previewCont.innerHTML = rendered || '<div style="color:#94a3b8; text-align:center; padding:40px;">HTML 코드를 입력하면 실시간으로 미리보기가 표시됩니다.</div>';
     }
 
     closeSalaryTemplateEditModal() {
