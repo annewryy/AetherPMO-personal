@@ -8652,3 +8652,31 @@ body.dark-mode .badge-status-cancelled {
         overflow-y: auto !important;
     }
 }
+
+/* ============================================================================
+   VIEW-RESOURCES FULL-WIDTH & LAYOUT FIX
+   ============================================================================ */
+#view-resources {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    box-sizing: border-box !important;
+    padding: 24px !important;
+    display: block !important;
+}
+
+#view-resources .content-container,
+#view-resources .resource-management-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.resource-summary-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+    gap: 16px !important;
+    width: 100% !important;
+    margin-bottom: 24px !important;
+}
