@@ -179,7 +179,7 @@ public class WbsService {
             deliverableCounts.put("approved", dc == null ? 0L : dc[1]);
             node.put("deliverableCounts", deliverableCounts);
             // 0039 — 태스크 상세와 동일한 유효 진척률로 덮어써 화면 간 수치를 통일한다
-            //   (산출물 있으면 승인비율, 없으면 태스크 수동 progress_rate — TaskProgressResolver).
+            //   (산출물 있으면 상태 가중치 평균, 없으면 태스크 수동 progress_rate — TaskProgressResolver).
             Long taskId = asLongOrNull(r.get("task_id"));
             if (taskId != null && effectiveProgress.containsKey(taskId)) {
                 int eff = effectiveProgress.get(taskId);

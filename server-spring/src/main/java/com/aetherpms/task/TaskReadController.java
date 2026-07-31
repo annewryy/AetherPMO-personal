@@ -17,7 +17,7 @@ import com.aetherpms.common.ReadSupport;
 /**
  * task 읽기(구 ReadController 분리).
  * 0039 — progress는 TaskProgressResolver로 덮어써 WBS/간트차트와 동일 수치를 보장한다
- *   (산출물 있으면 승인비율, 없으면 태스크 수동 progress_rate). 관련항목(이슈·액션아이템·회의록)은
+ *   (산출물 있으면 상태 가중치 평균, 없으면 태스크 수동 progress_rate). 관련항목(이슈·액션아이템·회의록)은
  *   전부 역방향 링크(이 태스크를 참조하는 쪽)로 부착한다.
  */
 @RestController
