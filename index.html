@@ -147,6 +147,20 @@
                     </a>
                 </div>
 
+                <!-- 인력 및 월급여 관리 그룹 -->
+                <div class="nav-item-wrapper" id="nav-wrapper-hr">
+                    <a href="#resources" class="nav-item" data-view="resources" data-tooltip="참여인력 관리">
+                        <i data-lucide="users"></i>
+                        <span>참여인력 관리</span>
+                    </a>
+                </div>
+                <div class="nav-item-wrapper" id="nav-wrapper-salaries">
+                    <a href="#salaries" class="nav-item" data-view="salaries" data-tooltip="월급여 관리">
+                        <i data-lucide="banknote"></i>
+                        <span>월급여 관리</span>
+                    </a>
+                </div>
+
                 <a href="#official-docs" class="nav-item" data-view="official-docs" data-tooltip="공문 관리" style="display: none;">
                     <i data-lucide="mail"></i>
                     <span>공문 관리</span>
@@ -5113,5 +5127,194 @@
 
     <!-- Core App logic script -->
     <script src="app.js?v=139b43a"></script>
+
+    <!-- ======================================================================= -->
+    <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
+    <!-- ======================================================================= -->
+    <div id="modal-salary-approval-detail" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 960px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <h3 style="font-size: 18px; font-weight: 700; color: var(--text-primary);" id="sal-approval-modal-title">월 급여 지급품의 상세</h3>
+                    <span id="sal-approval-modal-status-badge" class="badge">DRAFT</span>
+                </div>
+                <button type="button" class="close-btn" onclick="app.closeSalaryApprovalDetailModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px 0;">
+                <!-- Header Info Box -->
+                <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                    <div><span style="color:var(--text-muted); font-size:12px;">품의번호:</span> <strong id="sal-modal-approval-no" style="font-family:monospace;">-</strong></div>
+                    <div><span style="color:var(--text-muted); font-size:12px;">지급연월:</span> <strong id="sal-modal-payment-month">-</strong></div>
+                    <div><span style="color:var(--text-muted); font-size:12px;">프로젝트:</span> <strong id="sal-modal-project-name">-</strong></div>
+                    <div><span style="color:var(--text-muted); font-size:12px;">총 지급인원:</span> <strong id="sal-modal-member-count">0명</strong></div>
+                    <div><span style="color:var(--text-muted); font-size:12px;">총 지급예정액:</span> <strong id="sal-modal-total-amount" style="color:#6366F1; font-size:15px;">0원</strong></div>
+                </div>
+
+                <!-- Sub-Tab Inside Detail Modal: Rendered A4 Preview vs Items Table vs Raw HTML -->
+                <div style="display: flex; gap: 10px; border-bottom: 1px solid var(--border-color); margin-bottom: 16px;">
+                    <button type="button" class="btn btn-sm btn-outline active" id="btn-sal-modal-view-doc" onclick="app.switchSalaryApprovalModalView('doc')">📄 품의서 A4 미리보기</button>
+                    <button type="button" class="btn btn-sm btn-outline" id="btn-sal-modal-view-items" onclick="app.switchSalaryApprovalModalView('items')">📋 대상자 내역 표</button>
+                    <button type="button" class="btn btn-sm btn-outline" id="btn-sal-modal-view-html" onclick="app.switchSalaryApprovalModalView('html')">💻 HTML 원본</button>
+                </div>
+
+                <!-- View 1: Rendered A4 HTML Preview -->
+                <div id="sal-modal-pane-doc" style="display: block;">
+                    <div id="sal-modal-a4-preview" class="a4-doc-container">
+                        <!-- Rendered HTML inserted here -->
+                    </div>
+                </div>
+
+                <!-- View 2: Items Table -->
+                <div id="sal-modal-pane-items" style="display: none;">
+                    <table class="data-table-compact" style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: var(--bg-card-header); border-bottom: 1px solid var(--border-color);">
+                                <th style="padding: 8px;">No</th>
+                                <th style="padding: 8px;">성명</th>
+                                <th style="padding: 8px;">고용형태</th>
+                                <th style="padding: 8px;">투입기간</th>
+                                <th style="padding: 8px; text-align: right;">기본급</th>
+                                <th style="padding: 8px; text-align: right;">식대</th>
+                                <th style="padding: 8px; text-align: right;">기타수당</th>
+                                <th style="padding: 8px; text-align: right;">조정금액</th>
+                                <th style="padding: 8px; text-align: right;">최종지급액</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sal-modal-items-tbody"></tbody>
+                    </table>
+                </div>
+
+                <!-- View 3: Raw HTML -->
+                <div id="sal-modal-pane-html" style="display: none;">
+                    <textarea id="sal-modal-raw-html-input" rows="16" style="width: 100%; font-family: monospace; font-size: 12px; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 14px; margin-top: 10px;">
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn btn-outline" onclick="app.printSalaryApprovalDocument()">
+                        <i data-lucide="printer" style="width: 14px; height: 14px; margin-right: 4px;"></i> 인쇄 / PDF로 저장
+                    </button>
+                </div>
+                <div style="display: flex; gap: 8px;" id="sal-modal-actions-container">
+                    <!-- Action buttons dynamically populated based on status -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- MODAL: SALARY TEMPLATE EDIT                                             -->
+    <!-- ======================================================================= -->
+    <div id="modal-salary-template-edit" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 840px;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                <h3 style="font-size: 17px; font-weight: 700; color: var(--text-primary);" id="sal-tmpl-modal-title">HTML 품의서 양식 등록</h3>
+                <button type="button" class="close-btn" onclick="app.closeSalaryTemplateEditModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 16px 0;">
+                <form id="form-salary-template">
+                    <input type="hidden" id="sal-tmpl-id" />
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div>
+                            <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">양식명 <span class="required">*</span></label>
+                            <input type="text" id="sal-tmpl-name" placeholder="예: 월급여 지급품의서 (표준)" required style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);" />
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">적용 고용형태</label>
+                            <select id="sal-tmpl-target" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);">
+                                <option value="ALL">전체 고용형태 공용</option>
+                                <option value="INSOURCED_CONTRACTOR">자사화 인력 전용</option>
+                                <option value="PROJECT_CONTRACTOR">프로젝트 계약직 전용</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 12px; display: flex; gap: 20px;">
+                        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                            <input type="checkbox" id="sal-tmpl-is-default" /> 기본 양식으로 지정
+                        </label>
+                        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                            <input type="checkbox" id="sal-tmpl-is-active" checked /> 활성화 사용
+                        </label>
+                    </div>
+
+                    <!-- Mustache Variable Guide Box -->
+                    <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 11.5px; color: var(--text-primary);">
+                        <strong>📌 Mustache 치환변수 안내:</strong><br />
+                        • 단일 변수: <code>{{project_name}}</code>, <code>{{project_code}}</code>, <code>{{client_name}}</code>, <code>{{payment_month}}</code>, <code>{{payment_date}}</code>, <code>{{total_member_count}}</code>, <code>{{total_payment_amount}}</code>, <code>{{total_payment_amount_korean}}</code><br />
+                        • 반복문 블록: <code>{{#payment_items}} ... {{/payment_items}}</code> (내부 사용: <code>{{index}}</code>, <code>{{member_name}}</code>, <code>{{employment_type_name}}</code>, <code>{{assignment_period}}</code>, <code>{{base_salary}}</code>, <code>{{meal_allowance}}</code>, <code>{{other_allowance}}</code>, <code>{{total_payment}}</code>)
+                    </div>
+
+                    <div>
+                        <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">HTML 본문 <span class="required">*</span></label>
+                        <textarea id="sal-tmpl-html" rows="14" required style="width: 100%; font-family: monospace; font-size: 12px; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border-color); padding-top: 12px;">
+                <button type="button" class="btn btn-outline" onclick="app.closeSalaryTemplateEditModal()">취소</button>
+                <button type="button" class="btn btn-primary" onclick="app.saveSalaryTemplate()">양식 저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- MODAL: WORKFORCE RESOURCE EDIT                                          -->
+    <!-- ======================================================================= -->
+    <div id="modal-resource-edit" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                <h3 style="font-size: 17px; font-weight: 700; color: var(--text-primary);" id="res-modal-title">참여인력 정보 등록</h3>
+                <button type="button" class="close-btn" onclick="app.closeResourceModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 16px 0;">
+                <form id="form-resource-edit">
+                    <input type="hidden" id="res-edit-id" />
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div>
+                            <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">성명 <span class="required">*</span></label>
+                            <input type="text" id="res-edit-name" required style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);" />
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">고용형태 <span class="required">*</span></label>
+                            <select id="res-edit-employment-type" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);">
+                                <option value="INSOURCED_CONTRACTOR">자사화 인력</option>
+                                <option value="PROJECT_CONTRACTOR">프로젝트 계약직</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div>
+                            <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">부서 / 소속사</label>
+                            <input type="text" id="res-edit-department" placeholder="예: SI사업본부" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);" />
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">직급 / 등급</label>
+                            <input type="text" id="res-edit-position" placeholder="예: 부장 / 특급기술자" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);" />
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <div>
+                            <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">은행명</label>
+                            <input type="text" id="res-edit-bank-name" placeholder="예: 국민은행" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);" />
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">계좌번호</label>
+                            <input type="text" id="res-edit-account-number" placeholder="예: 110-123-456789" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);" />
+                        </div>
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                            <input type="checkbox" id="res-edit-is-active" checked /> 재직 / 활성 상태
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border-color); padding-top: 12px;">
+                <button type="button" class="btn btn-outline" onclick="app.closeResourceModal()">취소</button>
+                <button type="button" class="btn btn-primary" onclick="app.saveResource()">저장</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

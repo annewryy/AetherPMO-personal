@@ -4558,7 +4558,11 @@ class AetherPMO {
         } else if (viewName === 'contracts') {
             this.renderContractsView();
         } else if (viewName === 'salaries') {
-            this.renderSalariesView();
+            this.renderResourcesView();
+        } else if (viewName === 'resources') {
+            this.renderResourcesView();
+        } else if (viewName === 'salaries') {
+            this.switchSalarySubTab('target');
         } else if (viewName === 'backup') {
             this.renderUserManagementTable();
         } else if (viewName === 'my-account') {
@@ -26517,7 +26521,1108 @@ class AetherPMO {
         this.showToast('급여 지급 정보가 삭제되었습니다.', 'info');
         this.renderSalariesView();
     }
-}
 
-// Instantiate Global Application
-const app = new AetherPMO();
+    // ============================================================================
+    // AETHERPMO MONTHLY SALARY PAYMENT APPROVAL & WORKFORCE MANAGEMENT SYSTEM
+    // ============================================================================
+
+    // ── 1. Core Utilities (Korean Money, Masking, Sanitizing, Mustache Engine) ──
+    numberToKoreanMoney(amount) {
+        const num = Math.round(Number(amount) || 0);
+        if (num === 0) return '금 영원정';
+        if (num < 0) return '금 마이너스 ' + this.numberToKoreanMoney(Math.abs(num)).replace('금 ', '');
+
+        const units = ['', '만', '억', '조', '경'];
+        const digits = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
+        const subUnits = ['', '십', '백', '천'];
+
+        let str = '';
+        let numStr = String(num);
+        let len = numStr.length;
+
+        for (let i = 0; i < len; i++) {
+            let digit = Number(numStr[i]);
+            let pos = len - 1 - i;
+            let unitPos = Math.floor(pos / 4);
+            let subPos = pos % 4;
+
+            if (digit !== 0) {
+                if (!(digit === 1 && subPos > 0)) {
+                    str += digits[digit];
+                }
+                str += subUnits[subPos];
+            }
+
+            if (subPos === 0 && str.slice(-1) !== units[unitPos]) {
+                let groupVal = Number(numStr.slice(Math.max(0, i - 3), i + 1));
+                if (groupVal > 0) {
+                    str += units[unitPos];
+                }
+            }
+        }
+        return '금 ' + str + '원정';
+    }
+
+    maskAccountNumber(accountNo) {
+        if (!accountNo) return '-';
+        const str = String(accountNo).trim();
+        if (str.length <= 6) return '***-***';
+        const visibleFront = str.slice(0, 3);
+        const visibleBack = str.slice(-3);
+        return `${visibleFront}-***-***${visibleBack}`;
+    }
+
+    sanitizeHtml(html) {
+        if (!html) return '';
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        // Remove dangerous elements
+        const dangerous = doc.querySelectorAll('script, iframe, object, embed, form, link, style');
+        dangerous.forEach(el => el.remove());
+
+        // Remove inline event attributes and javascript: URLs
+        const allElements = doc.querySelectorAll('*');
+        allElements.forEach(el => {
+            Array.from(el.attributes).forEach(attr => {
+                if (attr.name.startsWith('on')) {
+                    el.removeAttribute(attr.name);
+                }
+                if ((attr.name === 'href' || attr.name === 'src') && attr.value.trim().toLowerCase().startsWith('javascript:')) {
+                    el.removeAttribute(attr.name);
+                }
+            });
+        });
+        return doc.body.innerHTML;
+    }
+
+    renderMustacheTemplate(templateHtml, context) {
+        if (!templateHtml) return '';
+        let result = templateHtml;
+
+        // 1. Loop replacement: {{#payment_items}} ... {{/payment_items}}
+        const loopRegex = /\{\{#payment_items\}\}([\s\S]*?)\{\{\/payment_items\}\}/g;
+        result = result.replace(loopRegex, (match, itemTemplate) => {
+            const items = context.payment_items || [];
+            return items.map((item, idx) => {
+                let rowHtml = itemTemplate;
+                const itemContext = {
+                    ...item,
+                    index: idx + 1,
+                    base_salary: (Number(item.base_salary) || 0).toLocaleString() + '원',
+                    meal_allowance: (Number(item.meal_allowance) || 0).toLocaleString() + '원',
+                    other_allowance: (Number(item.other_allowance) || 0).toLocaleString() + '원',
+                    total_payment: (Number(item.total_payment) || 0).toLocaleString() + '원'
+                };
+                for (const key in itemContext) {
+                    const val = itemContext[key] !== undefined && itemContext[key] !== null ? itemContext[key] : '';
+                    rowHtml = rowHtml.replace(new RegExp(`\{\{${key}\}\}`, 'g'), val);
+                }
+                return rowHtml;
+            }).join('');
+        });
+
+        # 2. Single variable replacements
+        for (const key in context) {
+            if (key === 'payment_items') continue;
+            const val = context[key] !== undefined && context[key] !== null ? context[key] : '';
+            result = result.replace(new RegExp(`\{\{${key}\}\}`, 'g'), val);
+        }
+
+        return this.sanitizeHtml(result);
+    }
+
+    // ── 2. Workforce Master View (참여인력 관리) ──────────────────────────
+    renderResourcesView() {
+        const keyword = (document.getElementById('resource-search-input')?.value || '').toLowerCase().trim();
+        const typeFilter = document.getElementById('resource-filter-type')?.value || 'all';
+        const statusFilter = document.getElementById('resource-filter-status')?.value || 'all';
+
+        let list = [...(this.state.resources || [])];
+
+        if (typeFilter !== 'all') {
+            list = list.filter(r => (r.employmentType || r.employment_type) === typeFilter);
+        }
+        if (statusFilter === 'active') {
+            list = list.filter(r => r.isActive !== false);
+        } else if (statusFilter === 'inactive') {
+            list = list.filter(r => r.isActive === false);
+        }
+
+        if (keyword) {
+            list = list.filter(r =>
+                (r.name || '').toLowerCase().includes(keyword) ||
+                (r.department || '').toLowerCase().includes(keyword) ||
+                (r.position || '').toLowerCase().includes(keyword) ||
+                (r.roleName || '').toLowerCase().includes(keyword)
+            );
+        }
+
+        const tbody = document.getElementById('resources-table-body');
+        if (!tbody) return;
+
+        let html = '';
+        if (list.length === 0) {
+            html = `<tr><td colspan="9" class="text-center" style="padding:40px; color:var(--text-muted);">등록된 참여인력 정보가 없습니다.</td></tr>`;
+        } else {
+            list.forEach(r => {
+                const empTypeLabel = (r.employmentType === 'INSOURCED_CONTRACTOR' || r.employment_type === 'INSOURCED_CONTRACTOR') ?
+                    '<span class="badge badge-primary">자사화 인력</span>' :
+                    '<span class="badge badge-info">프로젝트 계약직</span>';
+
+                // Find active project memberships
+                const activeMems = (this.state.projectMembers || []).filter(m => (m.resourceId === r.id || m.resource_id === r.id) && m.status !== 'COMPLETED');
+                const projectNames = activeMems.map(m => {
+                    const p = (this.state.projects || []).find(proj => proj.id === (m.projectId || m.project_id));
+                    return p ? p.name : '프로젝트';
+                }).join(', ') || '<span style="color:var(--text-muted); font-size:11px;">미투입</span>';
+
+                const statusBadge = r.isActive !== false ?
+                    '<span class="badge badge-success">재직</span>' :
+                    '<span class="badge badge-subtle">퇴사</span>';
+
+                html += `
+                    <tr>
+                        <td style="font-weight:600; color:var(--text-primary);">${r.name}</td>
+                        <td>${empTypeLabel}</td>
+                        <td>${r.department || '-'}</td>
+                        <td>${r.position || '-'}</td>
+                        <td>${r.roleName || '-'}</td>
+                        <td style="font-family:monospace; font-size:11.5px; color:var(--text-muted);">${r.bankName ? r.bankName + ' ' : ''}${this.maskAccountNumber(r.accountNumber || r.account_number)}</td>
+                        <td style="font-size:12px;">${projectNames}</td>
+                        <td class="text-center">${statusBadge}</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-outline" onclick="app.openResourceModal('${r.id}')" title="수정">
+                                <i data-lucide="edit-3" style="width:12px; height:12px;"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+        tbody.innerHTML = html;
+        if (window.lucide) lucide.createIcons();
+    }
+
+    openResourceModal(resourceId = null) {
+        const modal = document.getElementById('modal-resource-edit');
+        if (!modal) return;
+
+        const title = document.getElementById('res-modal-title');
+        const idInput = document.getElementById('res-edit-id');
+        const nameInput = document.getElementById('res-edit-name');
+        const typeSelect = document.getElementById('res-edit-employment-type');
+        const deptInput = document.getElementById('res-edit-department');
+        const posInput = document.getElementById('res-edit-position');
+        const bankInput = document.getElementById('res-edit-bank-name');
+        const accInput = document.getElementById('res-edit-account-number');
+        const activeChk = document.getElementById('res-edit-is-active');
+
+        if (resourceId) {
+            const r = (this.state.resources || []).find(res => res.id === resourceId);
+            if (r) {
+                if (title) title.textContent = '참여인력 정보 수정';
+                if (idInput) idInput.value = r.id;
+                if (nameInput) nameInput.value = r.name || '';
+                if (typeSelect) typeSelect.value = r.employmentType || r.employment_type || 'INSOURCED_CONTRACTOR';
+                if (deptInput) deptInput.value = r.department || '';
+                if (posInput) posInput.value = r.position || '';
+                if (bankInput) bankInput.value = r.bankName || r.bank_name || '';
+                if (accInput) accInput.value = r.accountNumber || r.account_number || '';
+                if (activeChk) activeChk.checked = r.isActive !== false;
+            }
+        } else {
+            if (title) title.textContent = '신규 참여인력 등록';
+            if (idInput) idInput.value = '';
+            if (nameInput) nameInput.value = '';
+            if (typeSelect) typeSelect.value = 'INSOURCED_CONTRACTOR';
+            if (deptInput) deptInput.value = '';
+            if (posInput) posInput.value = '';
+            if (bankInput) bankInput.value = '';
+            if (accInput) accInput.value = '';
+            if (activeChk) activeChk.checked = true;
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    closeResourceModal() {
+        const modal = document.getElementById('modal-resource-edit');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async saveResource() {
+        const idInput = document.getElementById('res-edit-id');
+        const nameInput = document.getElementById('res-edit-name');
+        const typeSelect = document.getElementById('res-edit-employment-type');
+        const deptInput = document.getElementById('res-edit-department');
+        const posInput = document.getElementById('res-edit-position');
+        const bankInput = document.getElementById('res-edit-bank-name');
+        const accInput = document.getElementById('res-edit-account-number');
+        const activeChk = document.getElementById('res-edit-is-active');
+
+        if (!nameInput?.value.trim()) {
+            this.showToast('성명을 입력해주세요.', 'warning');
+            return;
+        }
+
+        const isNew = !idInput?.value;
+        const resourceId = isNew ? (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'res-' + Date.now()) : idInput.value;
+
+        const record = {
+            id: resourceId,
+            name: nameInput.value.trim(),
+            employmentType: typeSelect.value,
+            employment_type: typeSelect.value,
+            department: deptInput?.value.trim() || '',
+            position: posInput?.value.trim() || '',
+            bankName: bankInput?.value.trim() || '',
+            bank_name: bankInput?.value.trim() || '',
+            accountNumber: accInput?.value.trim() || '',
+            account_number: accInput?.value.trim() || '',
+            isActive: activeChk ? activeChk.checked : true,
+            is_active: activeChk ? activeChk.checked : true,
+            updatedAt: new Date().toISOString()
+        };
+
+        if (isNew) {
+            this.state.resources = this.state.resources || [];
+            this.state.resources.push(record);
+        } else {
+            const idx = this.state.resources.findIndex(r => r.id === resourceId);
+            if (idx !== -1) this.state.resources[idx] = record;
+        }
+
+        await this.saveState('resource_upsert', record);
+        this.closeResourceModal();
+        this.showToast('참여인력 정보가 저장되었습니다.', 'success');
+        this.renderResourcesView();
+    }
+
+    // ── 3. Monthly Salary Management Sub-Tabs & Target Engine ─────────────
+    switchSalarySubTab(tabName) {
+        const btns = document.querySelectorAll('.salary-tab-btn');
+        btns.forEach(b => {
+            if (b.getAttribute('data-salary-tab') === tabName) {
+                b.classList.add('active');
+            } else {
+                b.classList.remove('active');
+            }
+        });
+
+        const panes = document.querySelectorAll('.salary-tab-pane');
+        panes.forEach(p => {
+            p.style.display = 'none';
+        });
+
+        const targetPane = document.getElementById(`salary-tab-content-${tabName}`);
+        if (targetPane) targetPane.style.display = 'block';
+
+        if (tabName === 'target') {
+            this.initSalaryTargetTab();
+        } else if (tabName === 'approvals') {
+            this.renderSalaryApprovalsTable();
+        } else if (tabName === 'templates') {
+            this.renderSalaryTemplatesTable();
+        } else if (tabName === 'history') {
+            this.renderSalaryHistoryView();
+        }
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    initSalaryTargetTab() {
+        const monthInput = document.getElementById('salary-target-month');
+        if (monthInput && !monthInput.value) {
+            const now = new Date();
+            monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        const projSelect = document.getElementById('salary-target-project');
+        if (projSelect) {
+            const projects = this.state.projects || [];
+            let options = `<option value="">프로젝트를 선택하세요</option>`;
+            projects.forEach(p => {
+                options += `<option value="${p.id}">${p.name} (${p.code || p.id.slice(0, 6)})</option>`;
+            });
+            projSelect.innerHTML = options;
+        }
+    }
+
+    fetchMonthlySalaryTargets() {
+        const monthVal = document.getElementById('salary-target-month')?.value;
+        const projId = document.getElementById('salary-target-project')?.value;
+        const tbody = document.getElementById('salary-targets-tbody');
+        if (!tbody) return;
+
+        if (!monthVal || !projId) {
+            tbody.innerHTML = `<tr><td colspan="11" class="text-center" style="padding:40px; color:var(--text-muted);">지급연월과 프로젝트를 선택해주세요.</td></tr>`;
+            return;
+        }
+
+        const year = Number(monthVal.split('-')[0]);
+        const month = Number(monthVal.split('-')[1]);
+        const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
+        const lastDayNum = new Date(year, month, 0).getDate();
+        const monthEnd = `${year}-${String(month).padStart(2, '0')}-${String(lastDayNum).padStart(2, '0')}`;
+
+        const project = (this.state.projects || []).find(p => p.id === projId);
+
+        // Fetch assigned project members
+        const members = (this.state.projectMembers || []).filter(m => {
+            const mProjId = m.projectId || m.project_id;
+            if (mProjId !== projId) return false;
+
+            const st = m.startDate || m.start_date || '2000-01-01';
+            const ed = m.endDate || m.end_date || null;
+            const status = m.status || 'ACTIVE';
+
+            // Clause: start_date <= monthEnd AND (end_date IS NULL OR end_date >= monthStart) AND status === 'ACTIVE'
+            const startOk = st <= monthEnd;
+            const endOk = (!ed || ed >= monthStart);
+            const statusOk = (status === 'ACTIVE');
+
+            return startOk && endOk && statusOk;
+        });
+
+        if (members.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="11" class="text-center" style="padding:40px; color:var(--text-muted);">${monthVal} 해당월에 투입 중인 진행(ACTIVE) 상태의 참여인력이 없습니다.</td></tr>`;
+            return;
+        }
+
+        this.currentSalaryTargets = members.map(m => {
+            const res = (this.state.resources || []).find(r => r.id === (m.resourceId || m.resource_id)) || {};
+            const st = m.startDate || m.start_date || '';
+            const ed = m.endDate || m.end_date || '';
+
+            // Mid-month check: started after 1st of month OR ended before last day of month
+            const isMidMonth = (st > monthStart) || (ed && ed < monthEnd);
+
+            const baseSalary = Number(m.baseSalary || m.base_salary || 0);
+            const mealAllowance = Number(m.mealAllowance || m.meal_allowance || 0);
+            const otherAllowance = Number(m.otherAllowance || m.other_allowance || 0);
+            const adjustment = 0;
+            const total = baseSalary + mealAllowance + otherAllowance + adjustment;
+
+            return {
+                memberId: m.id,
+                resourceId: res.id || m.resourceId || m.resource_id || m.id,
+                memberName: m.name || res.name || '참여인력',
+                employmentType: m.employmentType || res.employmentType || res.employment_type || 'INSOURCED_CONTRACTOR',
+                department: m.department || res.department || '',
+                position: m.position || res.position || '',
+                assignedTask: m.roleName || m.assigned_task || '',
+                startDate: st,
+                endDate: ed,
+                baseSalary,
+                mealAllowance,
+                otherAllowance,
+                adjustmentAmount: adjustment,
+                adjustmentReason: '',
+                totalPayment: total,
+                bankName: res.bankName || res.bank_name || '',
+                accountNumberMasked: this.maskAccountNumber(res.accountNumber || res.account_number),
+                isMidMonth,
+                selected: true
+            };
+        });
+
+        this.renderSalaryTargetsTable();
+    }
+
+    renderSalaryTargetsTable() {
+        const tbody = document.getElementById('salary-targets-tbody');
+        if (!tbody || !this.currentSalaryTargets) return;
+
+        const projId = document.getElementById('salary-target-project')?.value;
+        const project = (this.state.projects || []).find(p => p.id === projId);
+
+        let html = '';
+        this.currentSalaryTargets.forEach((t, idx) => {
+            const empTypeLabel = t.employmentType === 'INSOURCED_CONTRACTOR' ?
+                '<span class="badge badge-primary">자사화</span>' : '<span class="badge badge-info">계약직</span>';
+
+            const midMonthBadge = t.isMidMonth ?
+                '<span class="badge badge-warning" title="월 중 입·퇴사자로서 금액 조정이 필요할 수 있습니다.">⚠️ 월중 입·퇴사자</span>' :
+                '<span class="badge badge-success">정상</span>';
+
+            html += `
+                <tr>
+                    <td class="text-center"><input type="checkbox" class="chk-salary-target-item" data-idx="${idx}" ${t.selected ? 'checked' : ''} onchange="app.currentSalaryTargets[${idx}].selected = this.checked;" /></td>
+                    <td style="font-weight:600; font-size:12px;">${project ? project.name : '-'}</td>
+                    <td style="font-weight:700; color:var(--text-primary);">${t.memberName}</td>
+                    <td>${empTypeLabel}</td>
+                    <td style="font-size:11.5px; color:var(--text-muted);">${t.startDate || '~'} ~ ${t.endDate || '계속'}</td>
+                    <td style="text-align:right; font-weight:600;">${t.baseSalary.toLocaleString()}원</td>
+                    <td style="text-align:right;">${t.mealAllowance.toLocaleString()}원</td>
+                    <td style="text-align:right;">${t.otherAllowance.toLocaleString()}원</td>
+                    <td style="text-align:right;">
+                        <input type="number" value="${t.adjustmentAmount}" onchange="app.updateTargetAdjustment(${idx}, this.value)" style="width:85px; text-align:right; height:28px; padding:0 4px; font-size:12px; border-radius:4px; border:1px solid var(--border-color); background:var(--bg-input);" />
+                    </td>
+                    <td style="text-align:right; font-weight:700; color:#6366F1;" id="target-total-${idx}">${t.totalPayment.toLocaleString()}원</td>
+                    <td class="text-center">${midMonthBadge}</td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        if (window.lucide) lucide.createIcons();
+    }
+
+    updateTargetAdjustment(idx, value) {
+        if (!this.currentSalaryTargets || !this.currentSalaryTargets[idx]) return;
+        const adj = Number(value) || 0;
+        const item = this.currentSalaryTargets[idx];
+        item.adjustmentAmount = adj;
+        item.totalPayment = item.baseSalary + item.mealAllowance + item.otherAllowance + adj;
+
+        const cell = document.getElementById(`target-total-${idx}`);
+        if (cell) cell.textContent = item.totalPayment.toLocaleString() + '원';
+    }
+
+    toggleSalaryTargetSelectAll(checked) {
+        if (!this.currentSalaryTargets) return;
+        this.currentSalaryTargets.forEach(t => t.selected = checked);
+        const chks = document.querySelectorAll('.chk-salary-target-item');
+        chks.forEach(c => c.checked = checked);
+    }
+
+    // ── 4. Atomic Payment Approval Creation & Snapshot ─────────────────────
+    async createSalaryPaymentApproval() {
+        const monthVal = document.getElementById('salary-target-month')?.value;
+        const projId = document.getElementById('salary-target-project')?.value;
+
+        if (!monthVal || !projId) {
+            this.showToast('지급연월과 프로젝트를 선택해주세요.', 'warning');
+            return;
+        }
+
+        const selectedTargets = (this.currentSalaryTargets || []).filter(t => t.selected);
+        if (selectedTargets.length === 0) {
+            this.showToast('지급품의 대상 인력을 최소 1명 이상 선택해주세요.', 'warning');
+            return;
+        }
+
+        // DB Level Partial Unique Index / Active Approval Duplicate Check
+        const existingApprovals = this.state.salaryApprovals || [];
+        const activeDuplicate = existingApprovals.find(a =>
+            a.projectId === projId && a.paymentMonth === monthVal && a.status !== 'CANCELLED'
+        );
+
+        if (activeDuplicate) {
+            this.showToast(`이미 ${monthVal}월 해당 프로젝트에 활성 상태의 지급품의(${activeDuplicate.approvalNo})가 존재합니다.`, 'error');
+            return;
+        }
+
+        const project = (this.state.projects || []).find(p => p.id === projId) || { name: '프로젝트' };
+        const defaultTemplate = (this.state.salaryTemplates || []).find(t => t.isDefault) || this.getDefaultSalaryTemplate();
+
+        const approvalId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'appr-' + Date.now();
+        const approvalNo = `SPA-${monthVal.replace('-', '')}-${String(Math.floor(Math.random() * 900) + 100)}`;
+        const title = `[급여] ${project.name} ${monthVal} 월급여 지급품의서`;
+
+        let totalBase = 0, totalMeal = 0, totalOther = 0, totalAdj = 0, totalPayment = 0;
+        const items = selectedTargets.map(t => {
+            totalBase += t.baseSalary;
+            totalMeal += t.mealAllowance;
+            totalOther += t.otherAllowance;
+            totalAdj += t.adjustmentAmount;
+            totalPayment += t.totalPayment;
+
+            return {
+                id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'item-' + Date.now() + Math.random(),
+                approvalId,
+                projectId: projId,
+                paymentMonth: monthVal,
+                resourceId: t.resourceId,
+                memberId: t.memberId,
+                approvalStatus: 'DRAFT',
+                memberName: t.memberName,
+                employmentType: t.employmentType,
+                department: t.department,
+                position: t.position,
+                assignedTask: t.assignedTask,
+                assignmentStartDate: t.startDate,
+                assignmentEndDate: t.endDate,
+                baseSalary: t.baseSalary,
+                mealAllowance: t.mealAllowance,
+                otherAllowance: t.otherAllowance,
+                adjustmentAmount: t.adjustmentAmount,
+                adjustmentReason: t.adjustmentReason,
+                totalPayment: t.totalPayment,
+                bankName: t.bankName,
+                accountNumberMasked: t.accountNumberMasked,
+                isMidMonth: t.isMidMonth,
+                memberSnapshot: JSON.parse(JSON.stringify(t))
+            };
+        });
+
+        // Context for Mustache Template Engine
+        const mustacheContext = {
+            project_name: project.name,
+            project_code: project.code || projId.slice(0, 8),
+            client_name: project.customer || project.clientName || '발주처',
+            project_start_date: project.startDate || '-',
+            project_end_date: project.endDate || '-',
+            payment_month: monthVal,
+            payment_date: `${monthVal}-25`,
+            total_member_count: selectedTargets.length + '명',
+            total_payment_amount: totalPayment.toLocaleString() + '원',
+            total_payment_amount_korean: this.numberToKoreanMoney(totalPayment),
+            payment_items: selectedTargets.map(t => ({
+                member_name: t.memberName,
+                employment_type_name: t.employmentType === 'INSOURCED_CONTRACTOR' ? '자사화' : '계약직',
+                assignment_period: `${t.startDate || '~'} ~ ${t.endDate || '계속'}`,
+                base_salary: t.baseSalary,
+                meal_allowance: t.mealAllowance,
+                other_allowance: t.otherAllowance,
+                total_payment: t.totalPayment
+            }))
+        };
+
+        const renderedHtml = this.renderMustacheTemplate(defaultTemplate.htmlContent, mustacheContext);
+
+        const approvalRecord = {
+            id: approvalId,
+            approvalNo,
+            projectId: projId,
+            paymentMonth: monthVal,
+            paymentDate: `${monthVal}-25`,
+            templateId: defaultTemplate.id,
+            templateVersion: defaultTemplate.version || 1,
+            title,
+            totalMemberCount: selectedTargets.length,
+            totalBaseSalary: totalBase,
+            totalMealAllowance: totalMeal,
+            totalOtherAllowance: totalOther,
+            totalAdjustmentAmount: totalAdj,
+            totalPaymentAmount: totalPayment,
+            status: 'DRAFT',
+            htmlSnapshot: renderedHtml,
+            projectSnapshot: JSON.parse(JSON.stringify(project)),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        // State update
+        this.state.salaryApprovals = this.state.salaryApprovals || [];
+        this.state.salaryApprovals.unshift(approvalRecord);
+
+        this.state.salaryItems = this.state.salaryItems || [];
+        this.state.salaryItems.push(...items);
+
+        // Sync with Supabase (RPC or table upserts)
+        await this.saveState('salary_approval_create', { approval: approvalRecord, items });
+
+        this.showToast(`지급품의서(${approvalNo}) 초안이 생성되었습니다.`, 'success');
+        this.switchSalarySubTab('approvals');
+    }
+
+    // ── 5. Payment Approvals View & Detail Modal ─────────────────────────
+    renderSalaryApprovalsTable() {
+        const statusFilter = document.getElementById('salary-approval-filter-status')?.value || 'all';
+        const searchKw = (document.getElementById('salary-approval-search')?.value || '').toLowerCase().trim();
+
+        let list = [...(this.state.salaryApprovals || [])];
+
+        if (statusFilter !== 'all') {
+            list = list.filter(a => a.status === statusFilter);
+        }
+
+        if (searchKw) {
+            list = list.filter(a =>
+                (a.approvalNo || '').toLowerCase().includes(searchKw) ||
+                (a.title || '').toLowerCase().includes(searchKw) ||
+                (a.paymentMonth || '').toLowerCase().includes(searchKw)
+            );
+        }
+
+        const tbody = document.getElementById('salary-approvals-tbody');
+        if (!tbody) return;
+
+        if (list.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center" style="padding:40px; color:var(--text-muted);">생성된 월 급여 지급품의서가 없습니다.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        list.forEach(a => {
+            const project = (this.state.projects || []).find(p => p.id === a.projectId) || a.projectSnapshot || { name: '-' };
+            const statusClass = `badge-status-${(a.status || 'DRAFT').toLowerCase()}`;
+            const statusLabel = {
+                DRAFT: '초안', SUBMITTED: '상신', APPROVED: '승인', REJECTED: '반려', PAID: '지급완료', CANCELLED: '취소'
+            }[a.status] || a.status;
+
+            html += `
+                <tr>
+                    <td style="font-family:monospace; font-weight:700; color:#8B5CF6;">${a.approvalNo}</td>
+                    <td style="font-weight:600;">${a.paymentMonth}</td>
+                    <td style="font-size:12px;">${project.name}</td>
+                    <td style="font-weight:600; color:var(--text-primary);">${a.title}</td>
+                    <td class="text-center">${a.totalMemberCount}명</td>
+                    <td style="text-align:right; font-weight:700; color:#6366F1;">${Number(a.totalPaymentAmount || 0).toLocaleString()}원</td>
+                    <td class="text-center"><span class="badge ${statusClass}">${statusLabel}</span></td>
+                    <td class="text-center" style="font-size:11.5px; color:var(--text-muted);">${(a.submittedAt || a.createdAt || '').slice(0, 10)}</td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline" onclick="app.openSalaryApprovalDetailModal('${a.id}')">
+                            <i data-lucide="eye" style="width:12px; height:12px; margin-right:2px;"></i> 상세
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        if (window.lucide) lucide.createIcons();
+    }
+
+    openSalaryApprovalDetailModal(approvalId) {
+        const modal = document.getElementById('modal-salary-approval-detail');
+        if (!modal) return;
+
+        const approval = (this.state.salaryApprovals || []).find(a => a.id === approvalId);
+        if (!approval) return;
+
+        this.currentApprovalDetail = approval;
+
+        // Populate header modal elements
+        const titleEl = document.getElementById('sal-approval-modal-title');
+        const statusBadge = document.getElementById('sal-approval-modal-status-badge');
+        if (titleEl) titleEl.textContent = approval.title;
+        if (statusBadge) {
+            statusBadge.className = `badge badge-status-${(approval.status || 'DRAFT').toLowerCase()}`;
+            statusBadge.textContent = approval.status;
+        }
+
+        document.getElementById('sal-modal-approval-no').textContent = approval.approvalNo;
+        document.getElementById('sal-modal-payment-month').textContent = approval.paymentMonth;
+        const project = (this.state.projects || []).find(p => p.id === approval.projectId) || approval.projectSnapshot || {};
+        document.getElementById('sal-modal-project-name').textContent = project.name || '-';
+        document.getElementById('sal-modal-member-count').textContent = approval.totalMemberCount + '명';
+        document.getElementById('sal-modal-total-amount').textContent = Number(approval.totalPaymentAmount || 0).toLocaleString() + '원';
+
+        // Rendered A4 HTML Preview
+        const previewCont = document.getElementById('sal-modal-a4-preview');
+        if (previewCont) previewCont.innerHTML = approval.htmlSnapshot || '<div>품의서 내용이 없습니다.</div>';
+
+        // Render Items Table
+        const items = (this.state.salaryItems || []).filter(i => i.approvalId === approvalId);
+        const itemsTbody = document.getElementById('sal-modal-items-tbody');
+        if (itemsTbody) {
+            let itemsHtml = '';
+            items.forEach((item, idx) => {
+                itemsHtml += `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td style="font-weight:700;">${item.memberName}</td>
+                        <td>${item.employmentType === 'INSOURCED_CONTRACTOR' ? '자사화' : '계약직'}</td>
+                        <td style="font-size:11px; color:var(--text-muted);">${item.assignmentStartDate || '~'} ~ ${item.assignmentEndDate || '계속'}</td>
+                        <td style="text-align:right;">${Number(item.baseSalary || 0).toLocaleString()}원</td>
+                        <td style="text-align:right;">${Number(item.mealAllowance || 0).toLocaleString()}원</td>
+                        <td style="text-align:right;">${Number(item.otherAllowance || 0).toLocaleString()}원</td>
+                        <td style="text-align:right;">${Number(item.adjustmentAmount || 0).toLocaleString()}원</td>
+                        <td style="text-align:right; font-weight:700; color:#6366F1;">${Number(item.totalPayment || 0).toLocaleString()}원</td>
+                    </tr>
+                `;
+            });
+            itemsTbody.innerHTML = itemsHtml;
+        }
+
+        // Populate Raw HTML input
+        const rawInput = document.getElementById('sal-modal-raw-html-input');
+        if (rawInput) rawInput.value = approval.htmlSnapshot || '';
+
+        // Dynamically build allowed status action buttons
+        this.renderSalaryApprovalModalActionButtons(approval);
+
+        this.switchSalaryApprovalModalView('doc');
+        modal.style.display = 'flex';
+        if (window.lucide) lucide.createIcons();
+    }
+
+    closeSalaryApprovalDetailModal() {
+        const modal = document.getElementById('modal-salary-approval-detail');
+        if (modal) modal.style.display = 'none';
+        this.currentApprovalDetail = null;
+    }
+
+    switchSalaryApprovalModalView(viewType) {
+        ['doc', 'items', 'html'].forEach(v => {
+            const btn = document.getElementById(`btn-sal-modal-view-${v}`);
+            const pane = document.getElementById(`sal-modal-pane-${v}`);
+            if (btn && pane) {
+                if (v === viewType) {
+                    btn.classList.add('active');
+                    pane.style.display = 'block';
+                } else {
+                    btn.classList.remove('active');
+                    pane.style.display = 'none';
+                }
+            }
+        });
+    }
+
+    renderSalaryApprovalModalActionButtons(approval) {
+        const container = document.getElementById('sal-modal-actions-container');
+        if (!container) return;
+
+        const st = approval.status;
+        let btnsHtml = '';
+
+        if (st === 'DRAFT') {
+            btnsHtml = `
+                <button type="button" class="btn btn-outline-danger" onclick="app.updateSalaryApprovalStatus('${approval.id}', 'CANCELLED')">취소 처리</button>
+                <button type="button" class="btn btn-primary" onclick="app.updateSalaryApprovalStatus('${approval.id}', 'SUBMITTED')">
+                    <i data-lucide="send" style="width:14px; height:14px; margin-right:4px;"></i> 상신 처리
+                </button>
+            `;
+        } else if (st === 'SUBMITTED') {
+            btnsHtml = `
+                <button type="button" class="btn btn-outline-danger" onclick="app.promptApprovalRejection('${approval.id}')">반려</button>
+                <button type="button" class="btn btn-success" onclick="app.updateSalaryApprovalStatus('${approval.id}', 'APPROVED')">
+                    <i data-lucide="check-circle" style="width:14px; height:14px; margin-right:4px;"></i> 승인
+                </button>
+            `;
+        } else if (st === 'REJECTED') {
+            btnsHtml = `
+                <button type="button" class="btn btn-outline-danger" onclick="app.updateSalaryApprovalStatus('${approval.id}', 'CANCELLED')">취소 처리</button>
+                <button type="button" class="btn btn-outline-primary" onclick="app.updateSalaryApprovalStatus('${approval.id}', 'DRAFT')">초안으로 회수/재작성</button>
+            `;
+        } else if (st === 'APPROVED') {
+            btnsHtml = `
+                <span style="font-size:12px; color:var(--text-muted); align-self:center;">🔒 승인완료 (수정불가)</span>
+                <button type="button" class="btn btn-primary" onclick="app.updateSalaryApprovalStatus('${approval.id}', 'PAID')">
+                    <i data-lucide="banknote" style="width:14px; height:14px; margin-right:4px;"></i> 지급완료 처리
+                </button>
+            `;
+        } else if (st === 'PAID') {
+            btnsHtml = `<span style="font-size:12px; color:var(--text-muted); align-self:center;">🔒 지급완료 확정 (수정/전환 불가)</span>`;
+        } else if (st === 'CANCELLED') {
+            btnsHtml = `<span style="font-size:12px; color:var(--text-muted); align-self:center;">🚫 취소된 품의서</span>`;
+        }
+
+        container.innerHTML = btnsHtml;
+    }
+
+    async updateSalaryApprovalStatus(approvalId, newStatus, rejectionReason = '') {
+        const approval = (this.state.salaryApprovals || []).find(a => a.id === approvalId);
+        if (!approval) return;
+
+        const currentStatus = approval.status;
+
+        // Transition validation rules:
+        // DRAFT -> SUBMITTED, CANCELLED
+        // SUBMITTED -> APPROVED, REJECTED
+        // REJECTED -> DRAFT, CANCELLED
+        // APPROVED -> PAID
+        // PAID -> NONE (Locked)
+        const validTransitions = {
+            DRAFT: ['SUBMITTED', 'CANCELLED'],
+            SUBMITTED: ['APPROVED', 'REJECTED'],
+            REJECTED: ['DRAFT', 'CANCELLED'],
+            APPROVED: ['PAID'],
+            PAID: [],
+            CANCELLED: []
+        };
+
+        if (!validTransitions[currentStatus]?.includes(newStatus)) {
+            this.showToast(`'${currentStatus}' 상태에서 '${newStatus}' 상태로의 전환은 불허됩니다.`, 'error');
+            return;
+        }
+
+        approval.status = newStatus;
+        approval.updatedAt = new Date().toISOString();
+
+        if (newStatus === 'SUBMITTED') approval.submittedAt = new Date().toISOString();
+        if (newStatus === 'APPROVED') approval.approvedAt = new Date().toISOString();
+        if (newStatus === 'PAID') approval.paidAt = new Date().toISOString();
+        if (newStatus === 'REJECTED') approval.rejectionReason = rejectionReason;
+
+        // Update items status for DB partial unique index sync
+        const items = (this.state.salaryItems || []).filter(i => i.approvalId === approvalId);
+        items.forEach(i => i.approvalStatus = newStatus);
+
+        // Record Activity Log
+        const actRecord = {
+            id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'act-' + Date.now(),
+            actionType: 'SALARY_APPROVAL_STATUS_CHANGE',
+            title: `지급품의서 ${approval.approvalNo} 상태 변경 (${currentStatus} -> ${newStatus})`,
+            remarks: rejectionReason ? `반려사유: ${rejectionReason}` : '',
+            createdAt: new Date().toISOString()
+        };
+        this.state.activities = this.state.activities || [];
+        this.state.activities.unshift(actRecord);
+
+        await this.saveState('salary_approval_status_update', { approval, items, activity: actRecord });
+
+        this.showToast(`지급품의서 상태가 '${newStatus}'(으)로 변경되었습니다.`, 'success');
+        this.closeSalaryApprovalDetailModal();
+        this.renderSalaryApprovalsTable();
+    }
+
+    promptApprovalRejection(approvalId) {
+        const reason = prompt('지급품의서 반려 사유를 입력하세요:');
+        if (reason === null) return;
+        if (!reason.trim()) {
+            this.showToast('반려 사유를 입력하셔야 합니다.', 'warning');
+            return;
+        }
+        this.updateSalaryApprovalStatus(approvalId, 'REJECTED', reason.trim());
+    }
+
+    printSalaryApprovalDocument() {
+        if (!this.currentApprovalDetail) {
+            this.showToast('인쇄할 품의서 정보가 없습니다.', 'warning');
+            return;
+        }
+        window.print();
+    }
+
+    // ── 6. HTML Templates Master View ────────────────────────────────────
+    getDefaultSalaryTemplate() {
+        return {
+            id: 'tmpl-sal-default',
+            template_name: '월급여 지급품의서 (표준)',
+            employment_type_target: 'ALL',
+            is_default: true,
+            is_active: true,
+            version: 1,
+            htmlContent: `
+                <div style="font-family:'Malgun Gothic', '맑은 고딕', sans-serif; padding:10px;">
+                    <h2 style="text-align:center; font-size:24px; font-weight:800; border-bottom:2px solid #333; padding-bottom:10px; margin-bottom:20px;">월 급여 지급 품의서</h2>
+                    <table style="width:100%; border-collapse:collapse; margin-bottom:20px; font-size:12px;">
+                        <tr>
+                            <th style="border:1px solid #ddd; background:#f4f4f4; padding:8px; width:15%;">품의번호</th>
+                            <td style="border:1px solid #ddd; padding:8px; width:35%;">{{approval_no}}</td>
+                            <th style="border:1px solid #ddd; background:#f4f4f4; padding:8px; width:15%;">지급연월</th>
+                            <td style="border:1px solid #ddd; padding:8px; width:35%;">{{payment_month}}</td>
+                        </tr>
+                        <tr>
+                            <th style="border:1px solid #ddd; background:#f4f4f4; padding:8px;">프로젝트명</th>
+                            <td style="border:1px solid #ddd; padding:8px;">{{project_name}} ({{project_code}})</td>
+                            <th style="border:1px solid #ddd; background:#f4f4f4; padding:8px;">발주처</th>
+                            <td style="border:1px solid #ddd; padding:8px;">{{client_name}}</td>
+                        </tr>
+                        <tr>
+                            <th style="border:1px solid #ddd; background:#f4f4f4; padding:8px;">총 지급인원</th>
+                            <td style="border:1px solid #ddd; padding:8px;">{{total_member_count}}</td>
+                            <th style="border:1px solid #ddd; background:#f4f4f4; padding:8px;">총 지급액</th>
+                            <td style="border:1px solid #ddd; padding:8px; font-weight:700; color:#3730A3;">{{total_payment_amount}} ({{total_payment_amount_korean}})</td>
+                        </tr>
+                    </table>
+
+                    <h3 style="font-size:14px; font-weight:700; margin-bottom:8px;">1. 세부 지급 명세 목록</h3>
+                    <table style="width:100%; border-collapse:collapse; text-align:center; font-size:11.5px;">
+                        <thead>
+                            <tr style="background:#eef2ff;">
+                                <th style="border:1px solid #ccc; padding:6px;">No</th>
+                                <th style="border:1px solid #ccc; padding:6px;">성명</th>
+                                <th style="border:1px solid #ccc; padding:6px;">고용형태</th>
+                                <th style="border:1px solid #ccc; padding:6px;">투입기간</th>
+                                <th style="border:1px solid #ccc; padding:6px;">기본급</th>
+                                <th style="border:1px solid #ccc; padding:6px;">식대</th>
+                                <th style="border:1px solid #ccc; padding:6px;">기타수당</th>
+                                <th style="border:1px solid #ccc; padding:6px;">최종 지급액</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{#payment_items}}
+                            <tr>
+                                <td style="border:1px solid #ccc; padding:6px;">{{index}}</td>
+                                <td style="border:1px solid #ccc; padding:6px; font-weight:700;">{{member_name}}</td>
+                                <td style="border:1px solid #ccc; padding:6px;">{{employment_type_name}}</td>
+                                <td style="border:1px solid #ccc; padding:6px;">{{assignment_period}}</td>
+                                <td style="border:1px solid #ccc; padding:6px; text-align:right;">{{base_salary}}</td>
+                                <td style="border:1px solid #ccc; padding:6px; text-align:right;">{{meal_allowance}}</td>
+                                <td style="border:1px solid #ccc; padding:6px; text-align:right;">{{other_allowance}}</td>
+                                <td style="border:1px solid #ccc; padding:6px; text-align:right; font-weight:700;">{{total_payment}}</td>
+                            </tr>
+                            {{/payment_items}}
+                        </tbody>
+                    </table>
+
+                    <div style="margin-top:30px; font-size:12px; line-height:1.8;">
+                        <p>위와 같이 {{payment_month}}월 프로젝트 참여인력 급여 지급품의서를 상신하오니 검토 후 승인하여 주시기 바랍니다.</p>
+                        <p style="text-align:right; margin-top:20px;">작성일자: {{payment_date}}</p>
+                    </div>
+                </div>
+            `
+        };
+    }
+
+    renderSalaryTemplatesTable() {
+        const list = this.state.salaryTemplates || [this.getDefaultSalaryTemplate()];
+        const tbody = document.getElementById('salary-templates-tbody');
+        if (!tbody) return;
+
+        let html = '';
+        list.forEach(t => {
+            html += `
+                <tr>
+                    <td style="font-weight:700; color:var(--text-primary);">${t.template_name || t.templateName}</td>
+                    <td>${(t.employment_type_target || t.employmentTypeTarget) === 'ALL' ? '전체 공용' : (t.employment_type_target || t.employmentTypeTarget)}</td>
+                    <td class="text-center">v${t.version || 1}</td>
+                    <td class="text-center">${t.is_default || t.isDefault ? '<span class="badge badge-success">기본</span>' : '-'}</td>
+                    <td class="text-center">${t.is_active !== false ? '<span class="badge badge-primary">사용중</span>' : '<span class="badge badge-subtle">중지</span>'}</td>
+                    <td class="text-center" style="font-size:11.5px; color:var(--text-muted);">${(t.updated_at || t.updatedAt || '').slice(0, 10)}</td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline" onclick="app.openSalaryTemplateEditModal('${t.id}')">수정</button>
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+    }
+
+    openSalaryTemplateEditModal(templateId = null) {
+        const modal = document.getElementById('modal-salary-template-edit');
+        if (!modal) return;
+
+        const title = document.getElementById('sal-tmpl-modal-title');
+        const idInput = document.getElementById('sal-tmpl-id');
+        const nameInput = document.getElementById('sal-tmpl-name');
+        const targetSelect = document.getElementById('sal-tmpl-target');
+        const defaultChk = document.getElementById('sal-tmpl-is-default');
+        const activeChk = document.getElementById('sal-tmpl-is-active');
+        const htmlInput = document.getElementById('sal-tmpl-html');
+
+        if (templateId) {
+            const t = (this.state.salaryTemplates || []).find(tmpl => tmpl.id === templateId);
+            if (t) {
+                if (title) title.textContent = 'HTML 품의서 양식 수정';
+                if (idInput) idInput.value = t.id;
+                if (nameInput) nameInput.value = t.template_name || t.templateName || '';
+                if (targetSelect) targetSelect.value = t.employment_type_target || t.employmentTypeTarget || 'ALL';
+                if (defaultChk) defaultChk.checked = !!(t.is_default || t.isDefault);
+                if (activeChk) activeChk.checked = t.is_active !== false;
+                if (htmlInput) htmlInput.value = t.htmlContent || t.html_content || '';
+            }
+        } else {
+            const def = this.getDefaultSalaryTemplate();
+            if (title) title.textContent = '신규 HTML 품의서 양식 등록';
+            if (idInput) idInput.value = '';
+            if (nameInput) nameInput.value = '';
+            if (targetSelect) targetSelect.value = 'ALL';
+            if (defaultChk) defaultChk.checked = false;
+            if (activeChk) activeChk.checked = true;
+            if (htmlInput) htmlInput.value = def.htmlContent;
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    closeSalaryTemplateEditModal() {
+        const modal = document.getElementById('modal-salary-template-edit');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async saveSalaryTemplate() {
+        const idInput = document.getElementById('sal-tmpl-id');
+        const nameInput = document.getElementById('sal-tmpl-name');
+        const targetSelect = document.getElementById('sal-tmpl-target');
+        const defaultChk = document.getElementById('sal-tmpl-is-default');
+        const activeChk = document.getElementById('sal-tmpl-is-active');
+        const htmlInput = document.getElementById('sal-tmpl-html');
+
+        if (!nameInput?.value.trim() || !htmlInput?.value.trim()) {
+            this.showToast('양식명과 HTML 본문을 모두 입력해주세요.', 'warning');
+            return;
+        }
+
+        const isNew = !idInput?.value;
+        const tmplId = isNew ? (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'tmpl-' + Date.now()) : idInput.value;
+
+        const record = {
+            id: tmplId,
+            template_name: nameInput.value.trim(),
+            templateName: nameInput.value.trim(),
+            employment_type_target: targetSelect.value,
+            employmentTypeTarget: targetSelect.value,
+            is_default: defaultChk ? defaultChk.checked : false,
+            isDefault: defaultChk ? defaultChk.checked : false,
+            is_active: activeChk ? activeChk.checked : true,
+            html_content: htmlInput.value.trim(),
+            htmlContent: htmlInput.value.trim(),
+            version: 1,
+            updatedAt: new Date().toISOString()
+        };
+
+        this.state.salaryTemplates = this.state.salaryTemplates || [this.getDefaultSalaryTemplate()];
+
+        if (record.isDefault) {
+            this.state.salaryTemplates.forEach(t => t.is_default = t.isDefault = false);
+        }
+
+        if (isNew) {
+            this.state.salaryTemplates.push(record);
+        } else {
+            const idx = this.state.salaryTemplates.findIndex(t => t.id === tmplId);
+            if (idx !== -1) this.state.salaryTemplates[idx] = record;
+        }
+
+        await this.saveState('salary_template_upsert', record);
+        this.closeSalaryTemplateEditModal();
+        this.showToast('품의서 양식이 저장되었습니다.', 'success');
+        this.renderSalaryTemplatesTable();
+    }
+
+    // ── 7. Payment History View ──────────────────────────────────────────
+    renderSalaryHistoryView() {
+        const list = (this.state.salaryApprovals || []).filter(a => a.status === 'PAID');
+        const tbody = document.getElementById('salary-history-tbody');
+        if (!tbody) return;
+
+        if (list.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center" style="padding:40px; color:var(--text-muted);">지급 완료(PAID) 처리된 급여 이력이 없습니다.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        list.forEach(a => {
+            const items = (this.state.salaryItems || []).filter(i => i.approvalId === a.id);
+            const project = (this.state.projects || []).find(p => p.id === a.projectId) || a.projectSnapshot || {};
+
+            items.forEach(i => {
+                html += `
+                    <tr>
+                        <td style="font-weight:600;">${a.paymentMonth}</td>
+                        <td style="font-size:12px;">${project.name || '-'}</td>
+                        <td style="font-weight:700;">${i.memberName}</td>
+                        <td>${i.employmentType === 'INSOURCED_CONTRACTOR' ? '자사화' : '계약직'}</td>
+                        <td style="text-align:right;">${Number(i.baseSalary || 0).toLocaleString()}원</td>
+                        <td style="text-align:right;">${Number(i.mealAllowance || 0).toLocaleString()}원</td>
+                        <td style="text-align:right;">${Number(i.otherAllowance || 0).toLocaleString()}원</td>
+                        <td style="text-align:right;">${Number(i.adjustmentAmount || 0).toLocaleString()}원</td>
+                        <td style="text-align:right; font-weight:700; color:#3730A3;">${Number(i.totalPayment || 0).toLocaleString()}원</td>
+                        <td class="text-center" style="font-size:11.5px; color:var(--text-muted);">${(a.paidAt || a.updatedAt || '').slice(0, 10)}</td>
+                    </tr>
+                `;
+            });
+        });
+        tbody.innerHTML = html;
+    }
+
+    exportSalaryHistoryToExcel() {
+        this.showToast('급여 지급 완료 이력을 CSV 파일로 내보냅니다.', 'info');
+        const list = (this.state.salaryApprovals || []).filter(a => a.status === 'PAID');
+        let csv = '지급연월,프로젝트,성명,고용형태,기본급,식대,기타수당,조정금액,최종지급액,지급일자
+';
+
+        list.forEach(a => {
+            const items = (this.state.salaryItems || []).filter(i => i.approvalId === a.id);
+            const project = (this.state.projects || []).find(p => p.id === a.projectId) || a.projectSnapshot || {};
+            items.forEach(i => {
+                csv += `"${a.paymentMonth}","${project.name || ''}","${i.memberName}","${i.employmentType}",${i.baseSalary},${i.mealAllowance},${i.otherAllowance},${i.adjustmentAmount},${i.totalPayment},"${(a.paidAt || '').slice(0,10)}"
+`;
+            });
+        });
+
+        const blob = new Blob(["﻿" + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `AetherPMO_Salary_History_${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+    }
+
+}
