@@ -8,6 +8,7 @@
 // 쓰기는 전부 백엔드(API_BASE) 전용. 폴백에선 편집 컨트롤 비활성 + 안내. 오류는 서버 {message} 그대로.
 // 드로어의 닫기(✕) 버튼·aside 래퍼는 이 본문에 없다(호출측 chrome). 필드/상태 변경 후 'changed' emit.
 import { ref, computed, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
 import { fullDisplayCode } from '../lib/displayCode';
 import type {
@@ -144,6 +145,8 @@ interface Draft {
   plannedEndDate: string;
   actualStartDate: string;
   actualEndDate: string;
+  plannedEffort: number | null;   // 0044 §D — M/M(공수)
+  weight: number;                 // 0044 §D — 진척 가중치(기본 1)
   taskIds: number[];
   deliverableIds: number[];
   issueIds: number[];
@@ -162,6 +165,8 @@ function buildDraft(): Draft {
     plannedEndDate: props.task?.plannedEndDate ?? '',
     actualStartDate: props.task?.actualStartDate ?? '',
     actualEndDate: props.task?.actualEndDate ?? '',
+    plannedEffort: props.task?.plannedEffort ?? null,
+    weight: props.task?.weight ?? 1,
     taskIds: [...(props.issue?.taskIds ?? props.action?.taskIds ?? [])],
     deliverableIds: [...(props.issue?.deliverableIds ?? props.action?.deliverableIds ?? [])],
     issueIds: [...(props.action?.issueIds ?? [])],
@@ -202,6 +207,8 @@ async function saveDraft() {
     if (d.plannedEndDate !== b.plannedEndDate) body.planned_end_date = d.plannedEndDate || null;
     if (d.actualStartDate !== b.actualStartDate) body.actual_start_date = d.actualStartDate || null;
     if (d.actualEndDate !== b.actualEndDate) body.actual_end_date = d.actualEndDate || null;
+    if (d.plannedEffort !== b.plannedEffort) body.planned_effort = d.plannedEffort;   // 0044 §D M/M
+    if (d.weight !== b.weight) body.weight = d.weight;                                // 0044 §D 가중치
   }
   if (props.kind === 'issue' || props.kind === 'action') {
     if (JSON.stringify(d.taskIds) !== JSON.stringify(b.taskIds)) body.task_ids = d.taskIds;
@@ -463,6 +470,12 @@ async function submitConvert(comment: string) {
 function fmtDate(v: string | null | undefined): string {
   return v ? String(v).split('T')[0] : '—';
 }
+
+// 0044 §D — 태스크 상세의 산출물 목록에서 산출물 상세로 이동(WBS 진입점 대체).
+const router = useRouter();
+function openDeliverable(id: number) {
+  router.push(`/deliverables/${id}`);
+}
 function dateValue(v: string | null | undefined): string {
   return v ? String(v).split('T')[0] : '';
 }
@@ -656,8 +669,50 @@ function onFilePicked(e: Event) {
             <input type="date" class="date-in" v-model="draft.actualEndDate" :disabled="!apiMode" />
           </dd>
         </div>
+        <!-- 0044 §D — 태스크 M/M(공수)·진척 가중치 -->
+        <div><dt>M/M (공수)</dt>
+          <dd>
+            <input
+              v-model.number="draft.plannedEffort" class="f-input narrow" type="number"
+              min="0" step="0.01" placeholder="—" :disabled="!apiMode"
+            />
+          </dd>
+        </div>
+        <div><dt>가중치</dt>
+          <dd>
+            <input
+              v-model.number="draft.weight" class="f-input narrow" type="number"
+              min="0" step="0.01" :disabled="!apiMode"
+            />
+            <span class="hint-inline">단계/전체 진척 롤업 비중 (기본 1)</span>
+          </dd>
+        </div>
       </template>
     </dl>
+
+    <!-- 0044 §D — 태스크 산출물 목록: WBS에서 진입점을 없애고 여기서 확인·이동한다. -->
+    <section v-if="kind === 'task'" class="task-deliv">
+      <h3 class="td-title">산출물 <span class="td-count">{{ taskDeliverables.length }}</span></h3>
+      <div v-if="taskDeliverables.length === 0" class="td-empty">
+        이 태스크에 산출물이 없습니다 — 테일러링 전개 시 연결되거나 산출물 화면에서 추가합니다.
+      </div>
+      <table v-else class="td-grid">
+        <thead><tr><th>산출물명</th><th>상태</th><th>버전</th><th>마감일</th><th>담당</th></tr></thead>
+        <tbody>
+          <tr
+            v-for="d in taskDeliverables" :key="d.id"
+            class="td-row" role="link" tabindex="0"
+            @click="openDeliverable(d.id)" @keydown.enter="openDeliverable(d.id)"
+          >
+            <td class="td-name">{{ d.name }}<span v-if="d.id === draft.deliverableId" class="td-use">사용</span></td>
+            <td><StatusBadge :status="d.status" /></td>
+            <td class="muted">{{ d.version ? `v${d.version}` : '—' }}</td>
+            <td class="muted">{{ fmtDate(d.dueDate) }}</td>
+            <td class="muted">{{ d.author || '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
 
     <!-- 0039 — 산출물은 파일이 핵심 작업이라 dd 안의 작은 링크 버튼에서 전용 패널로 승격.
          템플릿 받기 → 작업 → 수정본 업로드(버전 증가) → 최신본 받기 흐름을 그대로 노출한다. -->
@@ -933,6 +988,30 @@ function onFilePicked(e: Event) {
 }
 .hint-inline { font-size: 12px; color: var(--muted); margin-left: 6px; }
 .f-input.narrow { max-width: 90px; }
+
+/* 0044 §D — 태스크 산출물 목록 섹션 */
+.task-deliv {
+  margin: 14px 0; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--panel);
+}
+.td-title { font-size: 14.5px; margin: 0 0 10px; }
+.td-count {
+  font-size: 11.5px; font-weight: 700; color: var(--muted);
+  background: var(--panel-2, var(--panel)); border: 1px solid var(--border);
+  border-radius: 999px; padding: 0 8px; margin-left: 4px;
+}
+.td-empty { font-size: 13px; color: var(--muted); }
+.td-grid { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+.td-grid th, .td-grid td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+.td-grid th { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+.td-row { cursor: pointer; }
+.td-row:hover td { background: var(--panel-2, rgba(139, 92, 246, 0.06)); }
+.td-name { font-weight: 600; }
+.td-use {
+  font-size: 11px; font-weight: 700; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 999px; padding: 0 6px; margin-left: 6px;
+}
+.muted { color: var(--muted); }
 
 /* 0039 — 관련항목 */
 .rel-section { gap: 8px; }

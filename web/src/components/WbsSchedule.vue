@@ -21,17 +21,13 @@ function openTask(node: WbsNode) {
   router.push(`/tasks/${node.taskId}`);
 }
 
-// 0039 — WBS 산출물 행(4번째 레벨) 클릭 → 산출물 상세(조회·수정·상태 전이·코멘트).
-function openDeliverable(deliverableId: number) {
-  router.push(`/deliverables/${deliverableId}`);
-}
-
 // ---- 트리 평탄화(표·간트 공통 행) ------------------------------------------------
+// 0044 §D — 산출물 행(구 4번째 레벨)은 제거. 산출물은 태스크 상세 페이지에서 확인·이동한다
+//   (태스크 행의 산출물 승인 n/N 요약은 유지).
 interface FlatRow {
   node: WbsNode;
-  depth: number;      // 0 PHASE / 1 ACTIVITY / 2 TASK / 3 DELIVERABLE(0039)
+  depth: number;      // 0 PHASE / 1 ACTIVITY / 2 TASK
   health: Health;
-  deliverable?: import('../types').WbsDeliverable;  // depth 3만
 }
 
 const rows = computed<FlatRow[]>(() => {
@@ -42,21 +38,11 @@ const rows = computed<FlatRow[]>(() => {
       out.push({ node: activity, depth: 1, health: health(activity) });
       for (const task of activity.tasks ?? []) {
         out.push({ node: task, depth: 2, health: health(task) });
-        // 0039 — 태스크 하위 산출물까지 노출(트리가 태스크에서 끊기던 것 확장).
-        //   산출물은 자체 일정·진척 개념이 없어 표 숫자/간트 바 없이 상태만 표기한다.
-        for (const d of task.deliverables ?? []) {
-          out.push({ node: task, depth: 3, health: health(task), deliverable: d });
-        }
       }
     }
   }
   return out;
 });
-
-// 산출물 상태 라벨(pms_deliverable.status)
-const DELIV_STATUS_LABELS: Record<string, string> = {
-  DRAFT: '작성중', SUBMITTED: '제출', UNDER_REVIEW: '검토중', REJECTED: '반려', APPROVED: '승인',
-};
 
 const isEmpty = computed(() => rows.value.length === 0);
 
@@ -263,38 +249,8 @@ function rateText(v: number | null): string {
         v-for="(row, i) in rows" :key="row.node.nodeId + '-' + i"
         class="wbs-row" :class="'lvl-' + row.depth"
       >
-        <!-- 0039 — 산출물 행(depth 3): 자체 일정·진척 개념이 없어 상태·마감일만 표기 -->
-        <template v-if="row.deliverable">
-          <div class="col-tree" :style="{ paddingLeft: 8 + row.depth * 20 + 'px' }">
-            <span class="type-tag ty-DELIVERABLE">산출물</span>
-            <span
-              class="node-name task-link" :title="row.deliverable.name + ' — 상세 열기'"
-              role="link" tabindex="0"
-              @click="openDeliverable(row.deliverable.deliverableId)"
-              @keydown.enter="openDeliverable(row.deliverable.deliverableId)"
-            >{{ row.deliverable.name }}</span>
-          </div>
-          <div class="col-assignee">{{ row.deliverable.assigneeName || '—' }}</div>
-          <div class="col-range">{{ row.deliverable.dueDate ? shortDate(row.deliverable.dueDate) + ' 마감' : '—' }}</div>
-          <div class="col-status">
-            <span class="status-pill" :class="'dv-' + row.deliverable.status">
-              {{ DELIV_STATUS_LABELS[row.deliverable.status ?? ''] ?? (row.deliverable.status || '—') }}
-            </span>
-          </div>
-          <div class="col-num muted">—</div>
-          <div class="col-num muted">—</div>
-          <div class="col-num muted">—</div>
-          <div class="col-gantt">
-            <div class="lane">
-              <span
-                v-if="todayPct != null && todayPct >= 0 && todayPct <= 100"
-                class="today-line" :style="{ left: todayPct + '%' }"
-              />
-            </div>
-          </div>
-        </template>
-
-        <template v-else>
+        <!-- 0044 §D — 산출물 행 제거: 산출물은 태스크 상세 페이지에서 확인·이동한다. -->
+        <template>
         <div class="col-tree" :style="{ paddingLeft: 8 + row.depth * 20 + 'px' }">
           <span class="type-tag" :class="'ty-' + row.node.nodeType">{{ typeLabel(row.node.nodeType) }}</span>
           <span

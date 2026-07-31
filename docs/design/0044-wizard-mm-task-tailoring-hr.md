@@ -159,6 +159,13 @@ stage. 고객사 분류 자리 없음. 복사 API 없음(create/update/delete만
   코드 테이블로 이관되며 라벨만 '자사화').
 
 ### F-2. 인력구분 마스터화 (관리자 CRUD)
+
+> **2026-07-31 개정(사용자 결정)**: 인력구분 전용 테이블 대신 **그룹형 공통코드
+> `pms_common_code`** 하나로 통합했다(그룹 8종: EMPLOYMENT_TYPE·CONTRACT_TYPE·
+> CONSORTIUM_ROLE·COMPANY_TYPE·PERSON_STATUS·DOC_CATEGORY·CLIENT_CATEGORY·VRB_STATUS).
+> 관리자 화면도 '인력구분' 단일 화면 대신 **'코드 관리'**(그룹 네비 + CRUD).
+> 그룹별 부가속성은 attrs JSON(인력구분의 outsourced). 상태머신 결합 어휘(프로젝트/입찰/
+> 태스크/이슈/액션/산출물 상태, 방법론·사업유형)는 코드화 제외. 아래 원안은 이력용.
 **현황**: 5종 코드가 DB CHECK 3곳(V6/V7/V19) + 백엔드 상수 2곳 + 프론트 상수 3곳에 하드코딩.
 
 **설계**:

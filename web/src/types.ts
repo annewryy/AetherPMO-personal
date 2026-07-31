@@ -362,6 +362,9 @@ export interface Task {
   issueIds?: number[];
   actionItemIds?: number[];
   meetingIds?: number[];
+  // 0044 §D — M/M(planned_effort, 계획 공수)·진척 롤업 가중치(기본 1)
+  plannedEffort?: number | null;
+  weight?: number;
 }
 
 export interface Artifact {
