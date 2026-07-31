@@ -3,7 +3,9 @@
 //   나라장터→입찰 마법사와 동일 흐름. Step1 입찰 정보 프리필 + 수행 추가 입력(기간 등)
 //   → Step2 테일러링 선택(CatalogSelector 재사용) → Step3 확인·전환.
 //   전환 트랜잭션(정보 복사·컨소시엄/연락처 복제·수주·완료 처리·전개)은 백엔드(0001 경계).
-import { ref, reactive, computed } from 'vue';
+//   ⚠️ 2026-07-29 임시: 발표 시연 편의를 위해 수행 사업번호를 자동으로 채워 넣는다.
+//      아래 "[임시 — 시연용 자동 채번]" 블록만 지우면 원래(직접 입력) 동작으로 돌아온다.
+import { ref, reactive, computed, onMounted } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import type { Project, ProjectConvertInput, CatalogNode } from '../types';
 import { subtreeIds, toTailoringEntries } from '../lib/tailoring';
@@ -68,6 +70,56 @@ const { code: projectCode, state: codeState, message: codeMessage, canSubmit: co
 const step1Valid = computed(() => form.name.trim().length > 0 && codeOk.value);
 const canSubmit = computed(() => step1Valid.value && !saving.value);
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ⚠️ [임시 — 시연용 자동 채번] 2026-07-29 너울님 요청.
+//   정식 규칙은 "수행 사업번호는 사용자가 직접 입력"이다(자동 발번 폐지, 0029/0033).
+//   발표 자료 촬영·시연 중에 매번 사업번호를 손으로 만들어 넣지 않도록, 기존 코드 체계를
+//   보고 다음 번호를 후보로 채워 넣기만 한다(입력칸은 그대로 수정 가능).
+//   TODO(시연 종료 후 제거): 이 블록 전체 + onMounted 호출 + 템플릿의 .demo-hint 안내 문구.
+//   서버는 여전히 필수·중복 검증을 하므로 이 값이 틀려도 저장이 강행되지는 않는다.
+const demoAutoCode = ref(false);   // 시연용 자동 채움이 실제로 일어났는지(안내 문구 노출용)
+
+/** 기존 코드에서 접두어(OKC26 등)와 순번 자릿수를 추론해 다음 빈 번호를 만든다. */
+async function autofillProjectCode() {
+  if (projectCode.value.trim()) return;   // 사용자가 이미 입력했으면 건드리지 않는다
+  try {
+    const projects = await dataClient.projects.list();
+    const CODE_RE = /^([A-Za-z]+\d{2})-(\d+)$/;   // 예: OKC26-023
+    const srcPrefix = props.project.projectCode?.match(CODE_RE)?.[1];
+    const counts = new Map<string, number>();
+    let width = 3;
+    let maxSeq = 0;
+    for (const p of projects) {
+      const m = p.projectCode?.match(CODE_RE);
+      if (!m) continue;
+      counts.set(m[1], (counts.get(m[1]) ?? 0) + 1);
+    }
+    // 원본 입찰 코드의 접두어 > 가장 많이 쓰인 접두어 > 올해 기본값(OKC{YY}).
+    const topPrefix = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    const prefix = srcPrefix ?? topPrefix ?? `OKC${String(new Date().getFullYear() % 100).padStart(2, '0')}`;
+    for (const p of projects) {
+      const m = p.projectCode?.match(CODE_RE);
+      if (!m || m[1] !== prefix) continue;
+      width = Math.max(width, m[2].length);
+      maxSeq = Math.max(maxSeq, Number(m[2]));
+    }
+    // 중복이면 다음 번호로 — 시연 중 반복 전환해도 계속 새 번호가 나오게.
+    for (let seq = maxSeq + 1; seq <= maxSeq + 50; seq += 1) {
+      const candidate = `${prefix}-${String(seq).padStart(width, '0')}`;
+      const r = await dataClient.projects.codeAvailable(candidate);
+      if (r.available) {
+        projectCode.value = candidate;
+        demoAutoCode.value = true;
+        return;
+      }
+    }
+  } catch {
+    // 자동 채움은 편의 기능일 뿐 — 실패하면 조용히 빈칸으로 두고 직접 입력받는다.
+  }
+}
+onMounted(autofillProjectCode);
+// ───────────────────────────────── 임시 블록 끝 ──────────────────────────────
+
 function goNext() {
   if (step.value === 0 && !step1Valid.value) return;
   if (step.value < STEPS.length - 1) step.value += 1;
@@ -114,7 +166,7 @@ async function submit() {
   <div class="overlay" @click.self="!saving && emit('close')">
     <div class="modal" role="dialog" aria-modal="true" aria-label="수행 전환">
       <header class="head">
-        <h2 class="title">수행 전환 — {{ props.project.projectCode }}</h2>
+        <h2 class="title">수행 전환 — {{ props.project.projectCode || props.project.name }}</h2>
         <button class="x" type="button" aria-label="닫기" :disabled="saving" @click="emit('close')">✕</button>
       </header>
 
@@ -142,6 +194,8 @@ async function submit() {
                 :class="{ bad: codeState === 'taken' }" :disabled="saving"
               />
               <span v-if="codeMessage" class="code-msg" :class="codeState">{{ codeMessage }}</span>
+              <!-- TODO(시연 종료 후 제거): 임시 자동 채번 안내(script의 임시 블록과 함께 삭제) -->
+              <span v-if="demoAutoCode" class="demo-hint">자동으로 다음 번호를 채웠습니다 — 필요하면 수정하세요.</span>
             </label>
             <div class="grid2">
               <label class="field">
@@ -216,7 +270,7 @@ async function submit() {
               <dt>테일러링 선택</dt>
               <dd>{{ selectedCount > 0 ? `${selectedCount}개 선택(조상 자동 포함) — 태스크·산출물 전개` : '선택 안 함 — 전개 없이 생성' }}</dd>
             </div>
-            <div class="wide"><dt>원본 입찰</dt><dd>{{ props.project.projectCode }} — 전환 후 수주·완료 처리(기록 유지)</dd></div>
+            <div class="wide"><dt>원본 입찰</dt><dd>{{ props.project.projectCode || props.project.name }} — 전환 후 수주·완료 처리(기록 유지)</dd></div>
             <div><dt>수행 사업번호</dt><dd class="mono">{{ projectCode.trim() || '—' }}</dd></div>
           </dl>
           <div v-if="saveError" class="notice err">
@@ -305,6 +359,8 @@ async function submit() {
 .code-msg { font-size: 12px; color: var(--muted); margin-top: 4px; display: block; }
 .code-msg.ok { color: var(--green, #22c55e); }
 .code-msg.taken, .code-msg.error { color: var(--red); }
+/* TODO(시연 종료 후 제거): 임시 자동 채번 안내 문구 스타일 */
+.demo-hint { font-size: 12px; color: var(--muted); margin-top: 2px; display: block; opacity: 0.85; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
 
 .hint { margin: 0; font-size: 13px; color: var(--muted); opacity: 0.85; }

@@ -12,6 +12,8 @@ import com.aetherpms.common.ApiException;
  *
  * <p><b>2026-07-29부터 생성·수정·수행전환 모두 사용자가 코드를 직접 입력한다.</b> 회사에 이미
  * 쓰던 사업번호 체계를 그대로 넣기 위해 형식은 강제하지 않고, 공백 정리와 <b>중복 검사</b>만 한다.
+ * 입력 시점 규칙: <b>입찰(BIDDING) 단계는 미입력 허용</b>(사업번호는 수주 후에 나온다),
+ * 수행(EXECUTION)·완료(COMPLETED) 단계는 필수.
  * 아래 자동 발번(nextBaseCode/nextBiddingCode)은 롤백 여지를 위해 남겨둔 미사용 코드다.
  *
  * 코드 스킴:
@@ -62,19 +64,29 @@ public class ProjectCodeService {
     }
 
     /**
-     * 입력 코드를 검증해 저장 가능한 값으로 돌려준다 — 필수·길이·중복.
+     * 입력 코드를 검증해 저장 가능한 값으로 돌려준다 — 길이·중복. <b>미입력이면 null</b>.
+     * 입찰 단계는 사내 사업번호가 아직 없는 게 정상이라(수주 후 채번) 빈 값을 허용한다(2026-07-29).
      * 중복이면 409(Conflict)로 던져 프론트가 "이미 사용 중인 사업번호"를 그대로 표시하게 한다.
      */
-    public String requireAvailable(Object raw, Long excludeProjectId) {
+    public String optionalAvailable(Object raw, Long excludeProjectId) {
         String code = normalize(raw);
         if (code == null) {
-            throw ApiException.badRequest("projectCode(사업번호)는 필수입니다.");
+            return null;
         }
         if (code.length() > MAX_LEN) {
             throw ApiException.badRequest("projectCode(사업번호)는 " + MAX_LEN + "자를 넘을 수 없습니다.");
         }
         if (isTaken(code, excludeProjectId)) {
             throw ApiException.conflict("이미 사용 중인 사업번호입니다: " + code);
+        }
+        return code;
+    }
+
+    /** {@link #optionalAvailable} + 필수 검증 — 수행 전환 등 사업번호가 반드시 있어야 하는 경로용. */
+    public String requireAvailable(Object raw, Long excludeProjectId) {
+        String code = optionalAvailable(raw, excludeProjectId);
+        if (code == null) {
+            throw ApiException.badRequest("projectCode(사업번호)는 필수입니다.");
         }
         return code;
     }

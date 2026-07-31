@@ -62,6 +62,7 @@ public class ProjectUpdateService {
     // 수정 허용 camelCase 키(create 필드셋 정합). 불변 필드(source_project_id·created_by)와
     // create 전용(clientCompanyId/clientAgencyCode/tailoring)은 제외 — 넘어오면 400.
     //   projectCode는 2026-07-29부터 수정 가능(사용자 직접 입력 체계) — 중복이면 409.
+    //   입찰 단계에선 빈 값으로 지울 수 있다(수주 후 채번). 수행·완료 단계에선 필수(400).
     private static final Set<String> ALLOWED_KEYS = Set.of(
             "name", "projectCode", "description", "desc",
             "customerName",
@@ -100,9 +101,10 @@ public class ProjectUpdateService {
             if (name == null || name.isEmpty()) throw ApiException.badRequest("name(사업명)은 비울 수 없습니다.");
             fields.put("project_name", name);
         }
-        // 사업번호 — 비울 수 없고 자기 자신을 제외한 중복이면 409.
+        // 사업번호 — 입찰 단계는 비울 수 있고(수주 후 채번), 자기 자신을 제외한 중복이면 409.
+        //   수행·완료 단계에서 비는 경우는 아래 단계 정합성 검사에서 400으로 막는다.
         if (b.containsKey("projectCode")) {
-            fields.put("project_code", projectCodeService.requireAvailable(b.get("projectCode"), id));
+            fields.put("project_code", projectCodeService.optionalAvailable(b.get("projectCode"), id));
         }
         putStrIfPresent(fields, "description", b, "description", "desc");
         putStrIfPresent(fields, "customer_name", b, "customerName");
@@ -133,6 +135,17 @@ public class ProjectUpdateService {
         if (fields.isEmpty()) {
             // 키는 있었으나 전부 빈문자열 등으로 무시된 경우.
             throw ApiException.badRequest("수정할 유효한 필드가 없습니다.");
+        }
+
+        // 단계 ↔ 사업번호 정합성 — 입찰만 미입력 허용. 수행·완료로 올리거나 그 상태에서 코드를
+        // 비우려 하면 400(사업번호를 비운 채 수행 단계로 넘어가는 걸 막는다).
+        String stageAfter = fields.containsKey("project_stage")
+                ? String.valueOf(fields.get("project_stage"))
+                : String.valueOf(before.get("project_stage"));
+        Object codeAfter = fields.containsKey("project_code")
+                ? fields.get("project_code") : before.get("project_code");
+        if (!"BIDDING".equals(stageAfter) && (codeAfter == null || codeAfter.toString().trim().isEmpty())) {
+            throw ApiException.badRequest("수행·완료 단계에서는 projectCode(사업번호)가 필수입니다.");
         }
 
         Map<String, Object> after = WriteSupport.updateReturning(

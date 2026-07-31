@@ -68,8 +68,9 @@ class ProjectCreateIntegrationTest {
     }
 
     /**
-     * 2026-07-29부터 projectCode는 필수 입력이다. 코드 자체가 관심사가 아닌 케이스까지
-     * 전부 고치지 않도록, 본문에 projectCode가 없으면 여기서 고유 코드를 채워 보낸다.
+     * 2026-07-29부터 projectCode는 사용자 입력이다(입찰 단계는 선택). 코드 자체가 관심사가 아닌
+     * 케이스까지 전부 고치지 않도록, 본문에 projectCode가 없으면 여기서 고유 코드를 채워 보낸다.
+     * 미입력 동작을 검증하는 테스트는 명시적으로 빈 문자열을 넣는다.
      */
     @SuppressWarnings("unchecked")
     private ResponseEntity<Map<String, Object>> post(Object body) {
@@ -162,14 +163,52 @@ class ProjectCreateIntegrationTest {
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
+    /** 입찰 단계는 사업번호가 수주 후에 나온다 — 미입력이어도 생성된다(2026-07-29). */
     @Test
-    void create_missingProjectCode_400() {
+    void create_bidding_withoutProjectCode_201() {
         Map<String, Object> in = new HashMap<>();
-        in.put("name", "사업번호 없는 생성");
+        in.put("name", "사업번호 없는 입찰 생성");
         in.put("projectCode", "   ");   // 공백만 → 비어 있는 것으로 취급
+        ResponseEntity<Map<String, Object>> resp = post(in);
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(resp.getBody().get("stage")).isEqualTo("BIDDING");
+        assertThat(resp.getBody().get("projectCode")).isNull();
+    }
+
+    /** 수행·완료 단계로 바로 만들 땐 사업번호가 필수다. */
+    @Test
+    void create_execution_withoutProjectCode_400() {
+        Map<String, Object> in = new HashMap<>();
+        in.put("name", "사업번호 없는 수행 생성");
+        in.put("stage", "EXECUTION");
+        in.put("projectCode", "");
         ResponseEntity<Map<String, Object>> resp = post(in);
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(resp.getBody().get("message").toString()).contains("사업번호");
+    }
+
+    /** 입찰 프로젝트는 사업번호를 나중에 지울 수도 있다 — 단, 수행 단계로 올릴 땐 필수. */
+    @Test
+    void patch_bidding_clearsCode_butExecutionStageRequiresIt() {
+        String code = uniqueCode();
+        long id = ((Number) post(Map.of("name", "코드 비우기", "projectCode", code)).getBody().get("id")).longValue();
+
+        HttpHeaders h = new HttpHeaders();
+        h.set("Content-Type", "application/json");
+        h.set("X-User-Id", "11111111-1111-1111-1111-111111111111");
+
+        Map<String, Object> clearBody = new HashMap<>();
+        clearBody.put("projectCode", "");
+        ResponseEntity<Map<String, Object>> cleared = rest.exchange("/api/projects/" + id, HttpMethod.PATCH,
+                new HttpEntity<>(clearBody, h), MAP);
+        assertThat(cleared.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(cleared.getBody().get("projectCode")).isNull();
+
+        // 코드가 빈 상태에서 수행 단계로 올리면 400.
+        ResponseEntity<Map<String, Object>> toExec = rest.exchange("/api/projects/" + id, HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("stage", "EXECUTION"), h), MAP);
+        assertThat(toExec.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(toExec.getBody().get("message").toString()).contains("사업번호");
     }
 
     @Test

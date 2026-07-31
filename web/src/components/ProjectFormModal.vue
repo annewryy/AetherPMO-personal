@@ -1,10 +1,11 @@
 <script setup lang="ts">
 // 배치18 — 프로젝트 생성/수정 폼 모달 (일반 생성, 나라장터 마법사 아님).
-//  - mode='create': POST /api/projects (필수 name·projectCode). 미지정 필드는 백엔드 기본값
+//  - mode='create': POST /api/projects (필수 name). 미지정 필드는 백엔드 기본값
 //    (stage=BIDDING, status=입찰, bidStatus=제안준비중).
 //  - mode='edit'  : PATCH /api/projects/{id} — 현재값 프리필 후 변경분만 부분수정.
 //    불변 필드(sourceProjectId·clientCompanyId 등)는 폼에 없음(백엔드가 400).
 //  - 2026-07-29: 사업번호(projectCode) 자동 발번 폐지 → 생성·수정 모두 직접 입력 + 중복 확인.
+//    입찰(BIDDING) 단계에선 선택 입력(사업번호는 수주 후 확정) — 수행·완료 단계에선 필수.
 //  - 쓰기는 백엔드 전용(dataClient가 API_BASE 게이트). 오류는 서버 {message} 그대로.
 //  - status는 응답이 영문(In Progress 등) → 편집 프리필 시 한글로 역매핑(백엔드는 한글 저장).
 import { ref, reactive, computed } from 'vue';
@@ -61,8 +62,14 @@ const p = props.project;
 // 폼 상태 — edit면 현재값 프리필, create면 빈값(백엔드 기본값에 위임).
 const name = ref(p?.name ?? '');
 // 사업번호 — 수정 모드는 자기 자신을 중복에서 제외해야 한다.
+//   입찰 단계는 사업번호가 수주 후에 나오므로 선택 입력. 수행·완료 단계는 필수(백엔드와 동일 규칙).
+//   stage 는 아래에서 정의되므로 지연 평가(getter)로 참조한다.
+const codeRequired = computed(() => (stage.value || 'BIDDING') !== 'BIDDING');
 const { code: projectCode, state: codeState, message: codeMessage, canSubmit: codeOk } =
-  useProjectCode(() => (props.mode === 'edit' ? props.project?.id : undefined));
+  useProjectCode(
+    () => (props.mode === 'edit' ? props.project?.id : undefined),
+    () => codeRequired.value,
+  );
 projectCode.value = p?.projectCode ?? '';
 const customerName = ref(p?.customerName ?? '');
 const businessType = ref(p?.businessType ?? '');
@@ -147,8 +154,9 @@ const contractAmountText = computed({
 
 // create: 채워진 필드만 실어 보낸다(빈 문자열/미지정은 백엔드 기본값에 위임).
 function buildCreate(): ProjectCreateInput {
-  const input: ProjectCreateInput = { name: name.value.trim(), projectCode: projectCode.value.trim() };
+  const input: ProjectCreateInput = { name: name.value.trim() };
   const s = (v: string) => v.trim() || undefined;
+  if (s(projectCode.value)) input.projectCode = s(projectCode.value);
   if (s(customerName.value)) input.customerName = s(customerName.value);
   if (s(businessType.value)) input.businessType = s(businessType.value);
   if (s(dept.value)) input.dept = s(dept.value);
@@ -214,7 +222,9 @@ function buildPatch(): ProjectUpdateInput {
 
 async function submit() {
   if (!name.value.trim()) { error.value = '사업명은 필수입니다.'; return; }
-  if (!projectCode.value.trim()) { error.value = '사업번호는 필수입니다.'; return; }
+  if (codeRequired.value && !projectCode.value.trim()) {
+    error.value = '수행·완료 단계에서는 사업번호가 필수입니다.'; return;
+  }
   if (codeState.value === 'taken') { error.value = '이미 사용 중인 사업번호입니다.'; return; }
   submitting.value = true;
   error.value = null;
@@ -241,10 +251,14 @@ async function submit() {
     <label class="label">사업명 <span class="req">*</span></label>
     <input v-model="name" class="input" type="text" placeholder="사업명" :disabled="submitting" />
 
-    <label class="label">사업번호 <span class="req">*</span></label>
+    <label class="label">
+      사업번호
+      <span v-if="codeRequired" class="req">*</span>
+      <span v-else class="opt">(선택 — 수주 후 입력 가능)</span>
+    </label>
     <input
       v-model="projectCode" class="input" type="text" maxlength="50"
-      placeholder="예: OKC26-001 (기존 사업번호를 그대로 입력)"
+      :placeholder="codeRequired ? '예: OKC26-001 (기존 사업번호를 그대로 입력)' : '예: OKC26-001 (아직 없으면 비워 두세요)'"
       :class="{ bad: codeState === 'taken' }" :disabled="submitting"
     />
     <p v-if="codeMessage" class="code-msg" :class="codeState">{{ codeMessage }}</p>
@@ -415,6 +429,7 @@ async function submit() {
 <style scoped>
 .label { font-size: 13px; color: var(--muted); }
 .req { color: var(--red); }
+.opt { color: var(--muted); font-weight: 400; }
 .input {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
   color: var(--text); font-size: 14px; padding: 8px 10px; outline: none;

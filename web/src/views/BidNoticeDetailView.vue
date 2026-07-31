@@ -178,7 +178,7 @@ function onCreated(project: Project) {
   // 생성 후 입찰단계 목록으로 이동 + 안내(0017 §C-2, 0025 라우트). 쿼리로 성공 메시지 전달.
   void router.push({
     path: '/projects/bidding',
-    query: { created: `${project.name} (${project.projectCode})` },
+    query: { created: project.projectCode ? `${project.name} (${project.projectCode})` : project.name },
   });
 }
 

@@ -68,7 +68,9 @@ const saving = ref(false);
 const saveError = ref<string | null>(null);
 
 // 사업번호 — 2026-07-29부터 자동 발번이 아니라 직접 입력(중복 확인 포함).
-const { code: projectCode, state: codeState, message: codeMessage, canSubmit: codeOk } = useProjectCode();
+//   입찰 단계에선 아직 사업번호가 없는 게 정상이라 선택 입력이다(수주 후 수행 전환에서 필수).
+const { code: projectCode, state: codeState, message: codeMessage, canSubmit: codeOk } =
+  useProjectCode(undefined, () => false);
 
 const canSubmit = computed(() => form.name.trim().length > 0 && codeOk.value && !saving.value);
 const step1Valid = computed(() => form.name.trim().length > 0 && codeOk.value);
@@ -121,7 +123,8 @@ async function submit() {
   saveError.value = null;
   try {
     // 화이트리스트(camelCase)만 전송. 빈 값은 생략(백엔드 기본값 유지).
-    const input: ProjectCreateInput = { name: form.name.trim(), projectCode: projectCode.value.trim() };
+    const input: ProjectCreateInput = { name: form.name.trim() };
+    if (projectCode.value.trim()) input.projectCode = projectCode.value.trim();
     if (form.customerName.trim()) input.customerName = form.customerName.trim();
     // 배치16: 공고의 수요기관코드를 함께 전송 → 백엔드가 회사 매칭, 없으면 CLIENT 자동생성·연결.
     //   코드 없으면(구 공고 등) 생략 → 백엔드가 customerName 이름 폴백으로 처리.
@@ -195,10 +198,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
               <input v-model="form.name" class="in" type="text" required :disabled="saving" />
             </label>
             <label class="field">
-              <span class="flabel">사업번호 <span class="req">*</span></span>
+              <span class="flabel">사업번호 <span class="opt">(선택 — 수주 후 입력 가능)</span></span>
               <input
-                v-model="projectCode" class="in mono" type="text" maxlength="50" required
-                placeholder="예: OKC26-001 (기존 사업번호를 그대로 입력)"
+                v-model="projectCode" class="in mono" type="text" maxlength="50"
+                placeholder="예: OKC26-001 (아직 없으면 비워 두세요)"
                 :class="{ bad: codeState === 'taken' }" :disabled="saving"
               />
               <span v-if="codeMessage" class="code-msg" :class="codeState">{{ codeMessage }}</span>
@@ -375,6 +378,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
 .field { display: flex; flex-direction: column; gap: 5px; }
 .flabel { font-size: 13px; font-weight: 600; color: var(--muted); }
 .req { color: var(--accent); }
+.opt { color: var(--muted); font-weight: 400; }
 .in {
   background: var(--panel-2, var(--panel)); border: 1px solid var(--border); border-radius: 8px;
   color: var(--text); font-size: 14px; padding: 9px 12px; outline: none; width: 100%; box-sizing: border-box;

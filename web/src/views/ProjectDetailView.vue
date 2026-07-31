@@ -817,7 +817,7 @@ watch(() => route.query.meeting, applyMeetingQuery);
                     {{ fmtDate(row.task.plannedStartDate) }} ~ {{ fmtDate(row.task.plannedEndDate) }} ·
                   </template>
                   {{ row.task.progress }}%
-                  <span v-if="taskHasDeliverable(row.task.id)" class="calc-tag" title="산출물 승인 기준 계산 우선">계산</span>
+                  <span v-if="taskHasDeliverable(row.task.id)" class="calc-tag" title="하위 산출물 상태 기준 자동 계산">계산</span>
                 </span>
               </template>
               <template v-else-if="row.artifact">

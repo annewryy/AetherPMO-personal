@@ -31,8 +31,9 @@ import com.aetherpms.common.WriteSupport;
  *
  * 기본값(미지정 시): project_stage=BIDDING, status='입찰', bid_status='제안준비중',
  *                    progress_rate=0, source_project_id=null.
- * 사업번호: projectCode 필수 — 사용자가 직접 입력한다(2026-07-29 자동 발번 폐지).
- *           중복이면 409(ProjectCodeService.requireAvailable).
+ * 사업번호: projectCode 는 사용자가 직접 입력한다(2026-07-29 자동 발번 폐지).
+ *           입찰(BIDDING) 단계는 미입력 허용(사업번호는 수주 후에 확정) — 수행·완료 단계는 필수.
+ *           중복이면 409(ProjectCodeService.optionalAvailable/requireAvailable).
  *
  * 응답: GET /api/projects/{id} 와 동일 shape(ProjectMapper + consortiumMembers/vrbInfo/counts).
  * 원자성: 코드 중복검사+insert 를 @Transactional (JDBC insert + 같은 트랜잭션 JPA 재조회로 매핑 재사용).
@@ -138,7 +139,11 @@ public class ProjectCreateService {
 
         // ---- 사업번호(사용자 직접 입력) + insert -------------------------
         //   2026-07-29: 자동 발번 폐지. 사내 기존 코드 체계를 그대로 입력받고 중복만 막는다.
-        fields.put("project_code", projectCodeService.requireAvailable(b.get("projectCode"), null));
+        //   입찰 단계는 아직 사업번호가 없는 게 정상 → 미입력 허용(수행·완료 단계는 필수).
+        String projectCode = "BIDDING".equals(stage)
+                ? projectCodeService.optionalAvailable(b.get("projectCode"), null)
+                : projectCodeService.requireAvailable(b.get("projectCode"), null);
+        if (projectCode != null) fields.put("project_code", projectCode);
         if (actor.userId() != null) fields.put("created_by", actor.userId());
 
         Map<String, Object> created = WriteSupport.insertReturning(jdbc, "pms_project", "project_id", fields);
