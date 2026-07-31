@@ -41,25 +41,31 @@ const categoryPhases = computed(() =>
   phases.value.filter((p) => (p.clientCategory ?? 'default') === categoryTab.value));
 
 // 0029 — 방법론 탭(표준 트리 필터). 0044에서 '커스텀' 탭 제거 — 고객사 분류가 그 역할을 대체.
+// 2026-07-31 — OPMS 사업관리는 별도 탭이 아니라 모든 사업 유형에 공통이므로,
+//   각 방법론 탭 안에 해당 방법론 단계 + 사업관리(OPMS) 단계를 함께 보여준다.
 const METHODOLOGY_TABS = [
-  { key: 'OPMS', label: 'OPMS 사업관리' },
   { key: 'ODS', label: 'ODS 시스템구축' },
   { key: 'OMS', label: 'OMS 유지관리' },
   { key: 'BIS', label: 'BIS ISP컨설팅' },
   { key: 'ECR', label: 'ECR 정보자원 도입' }, // 0043 — NIRS 인프라 납품 산출물
 ] as const;
-const methodologyTab = ref<string>('OPMS');
+const methodologyTab = ref<string>('ODS');
 
 const visibleTabs = computed(() =>
   METHODOLOGY_TABS.filter((t) => categoryPhases.value.some((p) => p.methodology === t.key)));
 
-const filteredPhases = computed(() =>
-  categoryPhases.value.filter((p) => p.methodology === methodologyTab.value));
+// 탭 방법론 단계 + 공통 OPMS 단계(탭이 하나도 없는 분류는 OPMS만이라도 보여준다).
+const opmsPhases = computed(() =>
+  categoryPhases.value.filter((p) => p.methodology === 'OPMS'));
+const ownPhases = computed(() =>
+  visibleTabs.value.length === 0 ? []
+    : categoryPhases.value.filter((p) => p.methodology === methodologyTab.value));
+const filteredPhases = computed(() => [...ownPhases.value, ...opmsPhases.value]);
 
 function selectCategory(code: string) {
   categoryTab.value = code;
   const first = visibleTabs.value[0];
-  methodologyTab.value = first ? first.key : 'OPMS';
+  methodologyTab.value = first ? first.key : 'ODS';
   const list = filteredPhases.value;
   selectedPhaseId.value = list.length ? list[0].id : null;
   selectedNodeId.value = null;
@@ -68,18 +74,25 @@ function selectCategory(code: string) {
 
 // 0039 — 단계(PHASE) 위에 입찰/수행 구분을 둔다. 사업준비(PRR)만 입찰, 나머지는 수행.
 //   stage가 비어 있는 과도기 데이터는 '수행'으로 묶어 목록에서 사라지지 않게 한다.
+//   블록 순서: 탭 방법론 단계(입찰→수행) 먼저, 그 아래 사업관리(OPMS) 단계(입찰→수행).
 const STAGE_GROUPS: { key: string; label: string }[] = [
   { key: 'BIDDING', label: '입찰' },
   { key: 'EXECUTION', label: '수행' },
 ];
-const phaseGroups = computed(() =>
-  STAGE_GROUPS
+function stageGroupsOf(list: CatalogNode[], keyPrefix: string) {
+  return STAGE_GROUPS
     .map((g) => ({
-      ...g,
-      phases: filteredPhases.value.filter((p) =>
-        (p.stage ?? 'EXECUTION') === g.key),
+      key: `${keyPrefix}-${g.key}`,
+      stage: g.key,               // CSS 색상 클래스(stage-BIDDING/-EXECUTION)용 원본 키
+      label: g.label,
+      phases: list.filter((p) => (p.stage ?? 'EXECUTION') === g.key),
     }))
-    .filter((g) => g.phases.length > 0));
+    .filter((g) => g.phases.length > 0);
+}
+const phaseGroups = computed(() => [
+  ...stageGroupsOf(ownPhases.value, 'own'),
+  ...stageGroupsOf(opmsPhases.value, 'opms'),
+]);
 
 function selectMethodology(key: string) {
   methodologyTab.value = key;
@@ -153,7 +166,8 @@ async function applyDeepLink() {
   if (!path) return;
   categoryTab.value = path[0].clientCategory ?? 'default';
   const rootMeth = path[0].methodology;
-  if (rootMeth) methodologyTab.value = rootMeth;
+  // OPMS 단계는 모든 탭에 공통 노출되므로 탭 전환 불필요(전환하면 없는 탭을 가리킨다).
+  if (rootMeth && rootMeth !== 'OPMS') methodologyTab.value = rootMeth;
   selectedPhaseId.value = path[0].id;
   for (const n of path) expanded.value[n.id] = true;
   highlightId.value = nodeId;
@@ -222,7 +236,7 @@ watch(() => route.query.node, applyDeepLink);
       <!-- 1열: 분류(PHASE) -->
       <aside class="phase-list">
         <template v-for="g in phaseGroups" :key="g.key">
-          <div class="stage-head" :class="'stage-' + g.key">
+          <div class="stage-head" :class="'stage-' + g.stage">
             {{ g.label }} <span class="stage-count">{{ g.phases.length }}</span>
           </div>
           <button

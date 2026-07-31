@@ -44,25 +44,30 @@ const categoryPhases = computed(() =>
   phases.value.filter((p) => (p.clientCategory ?? 'default') === categoryTab.value));
 
 // 0044에서 '커스텀' 탭 제거 — 고객사 분류가 그 역할을 대체.
+// 2026-07-31 — OPMS 사업관리는 별도 탭이 아니라 모든 사업 유형 공통: 각 탭에 함께 노출(테일러링과 동일).
 const METHODOLOGY_TABS = [
-  { key: 'OPMS', label: 'OPMS 사업관리' },
   { key: 'ODS', label: 'ODS 시스템구축' },
   { key: 'OMS', label: 'OMS 유지관리' },
   { key: 'BIS', label: 'BIS ISP컨설팅' },
   { key: 'ECR', label: 'ECR 정보자원 도입' }, // 0043 — NIRS 인프라 납품 산출물
 ] as const;
-const tab = ref<string>('OPMS');
+const tab = ref<string>('ODS');
 
 const visibleTabs = computed(() =>
   METHODOLOGY_TABS.filter((t) => categoryPhases.value.some((p) => p.methodology === t.key)));
 
-const filteredPhases = computed(() =>
-  categoryPhases.value.filter((p) => p.methodology === tab.value));
+// 탭 방법론 단계 + 공통 OPMS 단계(탭이 없는 분류는 OPMS만이라도).
+const opmsPhases = computed(() =>
+  categoryPhases.value.filter((p) => p.methodology === 'OPMS'));
+const ownPhases = computed(() =>
+  visibleTabs.value.length === 0 ? []
+    : categoryPhases.value.filter((p) => p.methodology === tab.value));
+const filteredPhases = computed(() => [...ownPhases.value, ...opmsPhases.value]);
 
 function selectCategory(code: string) {
   categoryTab.value = code;
   const first = visibleTabs.value[0];
-  tab.value = first ? first.key : 'OPMS';
+  tab.value = first ? first.key : 'ODS';
   selectedPhaseId.value = null;
 }
 
@@ -98,13 +103,21 @@ const countByPhase = computed(() => {
   return m;
 });
 
-const phaseGroups = computed(() =>
-  STAGE_GROUPS
+// 블록 순서: 탭 방법론 단계(입찰→수행) 먼저, 그 아래 사업관리(OPMS) 단계(입찰→수행).
+function stageGroupsOf(list: CatalogNode[], keyPrefix: string) {
+  return STAGE_GROUPS
     .map((g) => ({
-      ...g,
-      phases: filteredPhases.value.filter((p) => (p.stage ?? 'EXECUTION') === g.key),
+      key: `${keyPrefix}-${g.key}`,
+      stage: g.key,               // CSS 색상 클래스(stage-BIDDING/-EXECUTION)용 원본 키
+      label: g.label,
+      phases: list.filter((p) => (p.stage ?? 'EXECUTION') === g.key),
     }))
-    .filter((g) => g.phases.length > 0));
+    .filter((g) => g.phases.length > 0);
+}
+const phaseGroups = computed(() => [
+  ...stageGroupsOf(ownPhases.value, 'own'),
+  ...stageGroupsOf(opmsPhases.value, 'opms'),
+]);
 
 const selectedPhase = computed(() =>
   filteredPhases.value.find((p) => p.id === selectedPhaseId.value) ?? null);
@@ -322,7 +335,7 @@ async function clearLink(r: DeliverableRow) {
               <span class="phase-counts">산출물 {{ allRows.length }}</span>
             </button>
             <template v-for="g in phaseGroups" :key="g.key">
-              <div class="stage-head" :class="'stage-' + g.key">
+              <div class="stage-head" :class="'stage-' + g.stage">
                 {{ g.label }} <span class="stage-count">{{ g.phases.length }}</span>
               </div>
               <button
