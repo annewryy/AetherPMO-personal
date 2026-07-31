@@ -15,10 +15,15 @@ const kind = computed(() => {
   if (['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'REJECTED', 'APPROVED'].includes(s)) return s;
   return ALIAS[props.status] ?? 'OTHER';
 });
+// 표기는 항상 한글 — 영문 코드가 저장돼 있어도 라벨로 변환(미지정 코드만 원문 유지).
+const LABELS: Record<string, string> = {
+  DRAFT: '작성중', SUBMITTED: '제출', UNDER_REVIEW: '검토중', REJECTED: '반려', APPROVED: '승인',
+};
+const label = computed(() => LABELS[kind.value] ?? (props.status || '—'));
 </script>
 
 <template>
-  <span class="badge" :class="'k-' + kind">{{ status || '—' }}</span>
+  <span class="badge" :class="'k-' + kind">{{ label }}</span>
 </template>
 
 <style scoped>

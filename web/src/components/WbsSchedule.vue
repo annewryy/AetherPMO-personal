@@ -55,7 +55,7 @@ const rows = computed<FlatRow[]>(() => {
 
 // 산출물 상태 라벨(pms_deliverable.status)
 const DELIV_STATUS_LABELS: Record<string, string> = {
-  DRAFT: '작성중', SUBMITTED: '제출', IN_REVIEW: '검토중', REJECTED: '반려', APPROVED: '승인',
+  DRAFT: '작성중', SUBMITTED: '제출', UNDER_REVIEW: '검토중', REJECTED: '반려', APPROVED: '승인',
 };
 
 const isEmpty = computed(() => rows.value.length === 0);
