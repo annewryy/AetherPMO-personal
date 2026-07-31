@@ -19,15 +19,21 @@ const DEFAULT_TYPES: EmploymentTypeInfo[] = [
 export const EMPLOYMENT_TYPES = reactive<EmploymentTypeInfo[]>([...DEFAULT_TYPES]);
 
 let loaded = false;
-/** 마스터 재조회(관리자 CRUD 직후 force=true로 갱신). 실패 시 기존 값 유지. */
+/** 마스터 재조회(관리자 CRUD 직후 force=true로 갱신). 실패 시 기존 값 유지.
+ *  0044 개정 — 원천은 공통코드 그룹 EMPLOYMENT_TYPE(attrs.outsourced → isOutsourced). */
 export async function loadEmploymentTypes(force = false): Promise<void> {
   if (loaded && !force) return;
   try {
     // 순환 import 방지(느긋한 로드) — dataClient는 personLabels를 참조하지 않지만 방어적으로.
     const { dataClient } = await import('./dataClient');
-    const list = await dataClient.employmentTypes.list();
+    const list = await dataClient.codes.list('EMPLOYMENT_TYPE');
     if (list.length > 0) {
-      EMPLOYMENT_TYPES.splice(0, EMPLOYMENT_TYPES.length, ...list);
+      EMPLOYMENT_TYPES.splice(0, EMPLOYMENT_TYPES.length, ...list.map((c) => ({
+        code: c.code,
+        label: c.label,
+        isOutsourced: c.attrs?.outsourced === true,
+        sortOrder: c.sortOrder,
+      })));
       loaded = true;
     }
   } catch {

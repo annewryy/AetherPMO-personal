@@ -27,12 +27,12 @@ import com.aetherpms.common.ApiException;
 public class PersonSyncService {
 
     private final JdbcTemplate jdbc;
-    // 0044 — 인력구분 검증은 pms_employment_type 마스터 기준(하드코딩 5종 폐지).
-    private final EmploymentTypeService employmentTypes;
+    // 0044 — 인력구분 검증은 공통코드(EMPLOYMENT_TYPE) 기준(하드코딩 5종 폐지).
+    private final com.aetherpms.code.CommonCodeService codes;
 
-    public PersonSyncService(JdbcTemplate jdbc, EmploymentTypeService employmentTypes) {
+    public PersonSyncService(JdbcTemplate jdbc, com.aetherpms.code.CommonCodeService codes) {
         this.jdbc = jdbc;
-        this.employmentTypes = employmentTypes;
+        this.codes = codes;
     }
 
     /**
@@ -56,7 +56,7 @@ public class PersonSyncService {
         String src = "INTERNAL".equals(source) ? "INTERNAL" : "EXTERNAL";
         String nm = name == null ? null : name.trim();
         if (nm == null || nm.isEmpty()) throw ApiException.badRequest("인력 성명(name)은 필수입니다.");
-        String empType = employmentTypes.normalize(employmentType);
+        String empType = codes.normalizeOrDefault("EMPLOYMENT_TYPE", employmentType, "regular");
 
         // 1) 내부 + 사번: 사번 유니크 키로 조회.
         if ("INTERNAL".equals(src) && notBlank(amaranthEmpNo)) {

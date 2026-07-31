@@ -6,7 +6,7 @@ const MODULES = [
   { path: '/admin/catalog', label: '테일러링' },
   { path: '/admin/workflows', label: '워크플로' },
   { path: '/admin/companies', label: '기준정보' },
-  { path: '/admin/employment-types', label: '인력구분' },
+  { path: '/admin/codes', label: '코드 관리' },
   { path: '/admin/users', label: '사용자' },
   { path: '/admin/notifications', label: '알림 기준' },
   { path: '/admin/access-rules', label: '접근 규칙' },

@@ -30,18 +30,22 @@ import jakarta.servlet.http.HttpServletRequest;
 @RestController
 public class VrbWriteController {
 
-    private static final List<String> STATUSES = List.of("미상신", "상신예정", "상신완료", "승인", "반려");
     private static final List<String> DATE_FIELDS = List.of("plannedDate", "submittedDate", "approvedDate");
 
     private final JdbcTemplate jdbc;
     private final ProjectScopeService scope;
     private final AuditWriter audit;
 
-    public VrbWriteController(JdbcTemplate jdbc, ProjectScopeService scope, AuditWriter audit) {
+    public VrbWriteController(JdbcTemplate jdbc, ProjectScopeService scope, AuditWriter audit,
+            com.aetherpms.code.CommonCodeService codes) {
         this.jdbc = jdbc;
         this.scope = scope;
         this.audit = audit;
+        this.codes = codes;
     }
+
+    // 0044 — VRB 상태 어휘는 공통코드 VRB_STATUS가 원천(관리자 코드 관리).
+    private final com.aetherpms.code.CommonCodeService codes;
 
     @PutMapping("/api/projects/{id}/vrb")
     @Transactional
@@ -88,11 +92,7 @@ public class VrbWriteController {
 
         Map<String, Object> out = new LinkedHashMap<>();
         if (b.containsKey("status")) {
-            String s = b.get("status") == null ? "" : b.get("status").toString().trim();
-            if (!STATUSES.contains(s)) {
-                throw ApiException.badRequest("진행 상태는 " + String.join(", ", STATUSES) + " 중 하나여야 합니다.");
-            }
-            out.put("status", s);
+            out.put("status", codes.normalizeOrDefault("VRB_STATUS", b.get("status"), "미상신"));
         }
         for (String key : DATE_FIELDS) {
             if (!b.containsKey(key)) continue;

@@ -27,12 +27,15 @@ public class CompanyAdminService {
     private final JdbcTemplate jdbc;
     private final AuditWriter audit;
 
-    public CompanyAdminService(JdbcTemplate jdbc, AuditWriter audit) {
+    public CompanyAdminService(JdbcTemplate jdbc, AuditWriter audit,
+            com.aetherpms.code.CommonCodeService codes) {
         this.jdbc = jdbc;
         this.audit = audit;
+        this.codes = codes;
     }
 
-    private static final List<String> COMPANY_TYPES = List.of("OWN", "PARTNER", "CLIENT");
+    // 0044 — 회사 유형 어휘는 공통코드 COMPANY_TYPE이 원천(관리자 코드 관리).
+    private final com.aetherpms.code.CommonCodeService codes;
     // 0039 — agency_code(V10, 나라장터 수요기관코드) 누락돼 프론트가 보내는 agencyCode가
     //   "허용되지 않는 필드"로 거부되어 신규 회사 등록이 항상 실패하던 버그 수정.
     private static final Set<String> COMPANY_FIELDS = Set.of("company_name", "company_type", "is_active", "agency_code");
@@ -96,14 +99,7 @@ public class CompanyAdminService {
             throw ApiException.badRequest("company_name은 필수입니다.");
         }
         if (body.containsKey("company_type")) {
-            if (body.get("company_type") == null) {
-                out.put("company_type", null);
-            } else if (!COMPANY_TYPES.contains(str(body.get("company_type")))) {
-                throw ApiException.badRequest("유효하지 않은 company_type: " + body.get("company_type")
-                        + " (허용: " + String.join(", ", COMPANY_TYPES) + ")");
-            } else {
-                out.put("company_type", body.get("company_type"));
-            }
+            out.put("company_type", codes.nullableValid("COMPANY_TYPE", body.get("company_type")));
         }
         if (body.containsKey("is_active")) {
             if (!(body.get("is_active") instanceof Boolean bv)) {

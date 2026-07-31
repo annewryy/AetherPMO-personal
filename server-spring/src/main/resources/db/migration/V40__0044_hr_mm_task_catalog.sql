@@ -9,40 +9,80 @@
 -- ① 자사화 전환 제거 (0019 폐기 — insourcing 패키지·UI도 함께 삭제됨)
 DROP TABLE IF EXISTS `pms_insourcing_transition`;
 
--- ② 인력구분 마스터
-CREATE TABLE `pms_employment_type` (
-  `code`          VARCHAR(30)  NOT NULL COMMENT '인력구분 코드(불변 식별자 — person/member가 이 값을 저장)',
-  `label`         VARCHAR(50)  NOT NULL COMMENT '표시 라벨(한글)',
-  `is_outsourced` TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '외주 계열 여부 — 1이면 인력 등록 시 소속회사 필수',
-  `sort_order`    INT          NOT NULL DEFAULT 0 COMMENT '노출 순서(필터 체크박스·select)',
-  `is_active`     TINYINT(1)   NOT NULL DEFAULT 1 COMMENT '0=비활성(신규 선택 불가, 기존 데이터 표시는 유지)',
-  `created_at`    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at`    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`code`)
-) COMMENT='인력구분 코드 마스터(0044 — 관리자 페이지에서 추가·수정·삭제)';
+-- ② 공통 코드 마스터 (2026-07-31 개정 — 인력구분 전용 테이블 대신 그룹형 공통코드 하나로)
+--   그룹(어휘)별 코드값을 관리자 페이지 '코드 관리'에서 추가·수정·삭제한다.
+--   code는 참조 컬럼에 저장되는 값 그 자체(한글 어휘는 한글이 code — 기존 데이터 무이관).
+--   attrs: 그룹별 부가속성 JSON(인력구분의 {"outsourced":true} 등).
+CREATE TABLE `pms_common_code` (
+  `group_code` VARCHAR(40)  NOT NULL COMMENT '코드 그룹(EMPLOYMENT_TYPE/CONTRACT_TYPE/CONSORTIUM_ROLE/...)',
+  `code`       VARCHAR(50)  NOT NULL COMMENT '코드값(참조 컬럼에 저장되는 값 — 불변)',
+  `label`      VARCHAR(100) NOT NULL COMMENT '표시 라벨',
+  `attrs`      JSON         NULL COMMENT '그룹별 부가속성(예: 인력구분 {"outsourced":true})',
+  `sort_order` INT          NOT NULL DEFAULT 0 COMMENT '노출 순서',
+  `is_active`  TINYINT(1)   NOT NULL DEFAULT 1 COMMENT '0=비활성(신규 선택 불가, 기존 데이터 표시는 유지)',
+  `created_at` TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`group_code`, `code`)
+) COMMENT='공통 코드 마스터(0044 — 관리자 코드 관리 화면이 원천)';
 
-INSERT INTO `pms_employment_type` (`code`, `label`, `is_outsourced`, `sort_order`) VALUES
-  ('regular',          '정규직',           0, 10),
-  ('insourced',        '자사화',           0, 20),
-  ('project_contract', '프로젝트 계약직',  1, 30),
-  ('turnkey',          '외주(턴키)',       1, 40),
-  ('freelancer',       '프리랜서',         1, 50);
+-- 시드: 기존 하드코딩 어휘를 그대로 옮긴다(값 발명 없음 — CONTRACT_TYPE은 빈 그룹으로 시작).
+INSERT INTO `pms_common_code` (`group_code`, `code`, `label`, `attrs`, `sort_order`) VALUES
+  ('EMPLOYMENT_TYPE', 'regular',          '정규직',          '{"outsourced": false}', 10),
+  ('EMPLOYMENT_TYPE', 'insourced',        '자사화',          '{"outsourced": false}', 20),
+  ('EMPLOYMENT_TYPE', 'project_contract', '프로젝트 계약직', '{"outsourced": true}',  30),
+  ('EMPLOYMENT_TYPE', 'turnkey',          '외주(턴키)',      '{"outsourced": true}',  40),
+  ('EMPLOYMENT_TYPE', 'freelancer',       '프리랜서',        '{"outsourced": true}',  50),
+  ('CONSORTIUM_ROLE', '주사업자',   '주사업자',  NULL, 10),
+  ('CONSORTIUM_ROLE', '부사업자',   '부사업자',  NULL, 20),
+  ('CONSORTIUM_ROLE', '협력사',     '협력사',    NULL, 30),
+  ('COMPANY_TYPE',    'OWN',        '자사',      NULL, 10),
+  ('COMPANY_TYPE',    'PARTNER',    '협력사',    NULL, 20),
+  ('COMPANY_TYPE',    'CLIENT',     '고객사',    NULL, 30),
+  ('PERSON_STATUS',   '재직',       '재직',      NULL, 10),
+  ('PERSON_STATUS',   '종료',       '종료',      NULL, 20),
+  ('DOC_CATEGORY',    '품의문',     '품의문',    NULL, 10),
+  ('DOC_CATEGORY',    '공문',       '공문',      NULL, 20),
+  ('CLIENT_CATEGORY', 'default',    '표준',      NULL, 10),
+  ('VRB_STATUS',      '미상신',     '미상신',    NULL, 10),
+  ('VRB_STATUS',      '상신예정',   '상신예정',  NULL, 20),
+  ('VRB_STATUS',      '상신완료',   '상신완료',  NULL, 30),
+  ('VRB_STATUS',      '승인',       '승인',      NULL, 40),
+  ('VRB_STATUS',      '반려',       '반려',      NULL, 50);
 
--- 고정 5종 CHECK 제약 해제 — 값 검증은 앱이 마스터 테이블 기준으로 수행한다.
---   (V19의 명명 제약 + V6/V7 인라인 CHECK의 자동 이름까지 모두 제거)
+-- 코드 관리 대상 컬럼들의 고정 CHECK 해제 + 길이 여유 — 값 검증은 앱이 공통코드 기준으로 수행.
+--   (V19의 명명 제약 + V1/V3/V6/V7 인라인 CHECK의 자동 이름까지 모두 제거)
 ALTER TABLE `pms_project_member` DROP CONSTRAINT IF EXISTS `chk_pms_member_employment`;
 ALTER TABLE `pms_project_member` DROP CONSTRAINT IF EXISTS `employment_type`;
 ALTER TABLE `pms_person`         DROP CONSTRAINT IF EXISTS `chk_pms_person_employment`;
 ALTER TABLE `pms_person`         DROP CONSTRAINT IF EXISTS `employment_type`;
--- 커스텀 코드 길이 여유 — 마스터 code(VARCHAR(30))와 정합.
-ALTER TABLE `pms_project_member`
-  MODIFY `employment_type` VARCHAR(30) NOT NULL DEFAULT 'regular' COMMENT '인력구분 코드(pms_employment_type.code)';
-ALTER TABLE `pms_person`
-  MODIFY `employment_type` VARCHAR(30) NOT NULL DEFAULT 'regular' COMMENT '인력구분 코드(pms_employment_type.code)';
+ALTER TABLE `pms_person`         DROP CONSTRAINT IF EXISTS `chk_pms_person_status`;
+ALTER TABLE `pms_person`         DROP CONSTRAINT IF EXISTS `status`;
+ALTER TABLE `pms_company`        DROP CONSTRAINT IF EXISTS `chk_pms_company_type`;
+ALTER TABLE `pms_company`        DROP CONSTRAINT IF EXISTS `company_type`;
+ALTER TABLE `pms_project_company` DROP CONSTRAINT IF EXISTS `chk_pms_proj_co_role`;
+ALTER TABLE `pms_project_company` DROP CONSTRAINT IF EXISTS `role`;
+ALTER TABLE `pms_official_doc`   DROP CONSTRAINT IF EXISTS `chk_pms_odoc_category`;
+ALTER TABLE `pms_official_doc`   DROP CONSTRAINT IF EXISTS `category`;
+ALTER TABLE `pms_vrb_info`       DROP CONSTRAINT IF EXISTS `chk_pms_vrb_status`;
+ALTER TABLE `pms_vrb_info`       DROP CONSTRAINT IF EXISTS `status`;
 
--- ③ 참여인력 계약 항목 (계약 형태는 우선 자유 텍스트 — 코드화 요구 시 마스터 승격)
 ALTER TABLE `pms_project_member`
-  ADD COLUMN `contract_type`   VARCHAR(30) NULL COMMENT '계약 형태(도급/파견 등 자유 입력)' AFTER `employment_type`,
+  MODIFY `employment_type` VARCHAR(50) NOT NULL DEFAULT 'regular' COMMENT '인력구분 코드(공통코드 EMPLOYMENT_TYPE)';
+ALTER TABLE `pms_person`
+  MODIFY `employment_type` VARCHAR(50) NOT NULL DEFAULT 'regular' COMMENT '인력구분 코드(공통코드 EMPLOYMENT_TYPE)',
+  MODIFY `status`          VARCHAR(50) NOT NULL DEFAULT '재직'    COMMENT '재직상태(공통코드 PERSON_STATUS)';
+ALTER TABLE `pms_company`
+  MODIFY `company_type` VARCHAR(50) NULL COMMENT '회사 유형(공통코드 COMPANY_TYPE)';
+ALTER TABLE `pms_project_company`
+  MODIFY `role` VARCHAR(50) NULL COMMENT '컨소시엄 역할(공통코드 CONSORTIUM_ROLE)';
+ALTER TABLE `pms_official_doc`
+  MODIFY `category` VARCHAR(50) NULL COMMENT '공문 분류(공통코드 DOC_CATEGORY)';
+ALTER TABLE `pms_vrb_info`
+  MODIFY `status` VARCHAR(50) NOT NULL COMMENT 'VRB 상태(공통코드 VRB_STATUS)';
+
+-- ③ 참여인력 계약 항목 (계약 형태는 공통코드 CONTRACT_TYPE — 관리자가 코드 등록 후 사용)
+ALTER TABLE `pms_project_member`
+  ADD COLUMN `contract_type`   VARCHAR(50) NULL COMMENT '계약 형태(공통코드 CONTRACT_TYPE)' AFTER `employment_type`,
   ADD COLUMN `contract_amount` BIGINT      NULL COMMENT '계약 금액(원)' AFTER `contract_type`;
 
 -- ④ 컨소시엄 총 M/M — 입찰 단계에서 지정한 총 투입 공수를 수행 단계가 승계·관리

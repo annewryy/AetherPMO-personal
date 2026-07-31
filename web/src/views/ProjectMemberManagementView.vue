@@ -141,6 +141,8 @@ function editRow(r: ProjectMemberAssignment) {
       department: r.department,
       participationRole: r.participationRole,
       employmentType: r.employmentType,
+      contractType: r.contractType,
+      contractAmount: r.contractAmount,
       isProjectManager: r.isProjectManager,
       isActive: r.isActive,
       userUid: r.userUid,

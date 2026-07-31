@@ -2,17 +2,20 @@
 // 0039 — VRB(사업성 검토) 심의 정보 수정. 프로젝트당 1건이라 PUT upsert 한 번으로 저장한다.
 import { ref } from 'vue';
 import { dataClient } from '../lib/dataClient';
+import { useCodes, fallbackCodes } from '../lib/codes';
 import type { VrbInfo } from '../types';
 import ModalShell from './ModalShell.vue';
 
 const props = defineProps<{ projectId: number; vrb?: VrbInfo | null }>();
 const emit = defineEmits<{ (e: 'saved', vrb: VrbInfo): void; (e: 'close'): void }>();
 
-const STATUSES = ['미상신', '상신예정', '상신완료', '승인', '반려'];
+// 0044 — VRB 상태 어휘는 공통코드 VRB_STATUS(관리자 코드 관리). 폴백은 기존 5종.
+const STATUSES = useCodes('VRB_STATUS', fallbackCodes('VRB_STATUS',
+  [{ code: '미상신' }, { code: '상신예정' }, { code: '상신완료' }, { code: '승인' }, { code: '반려' }]));
 
 const dateOnly = (v: string | null | undefined) => (v ? String(v).split('T')[0] : '');
 
-const status = ref(props.vrb?.status && STATUSES.includes(props.vrb.status) ? props.vrb.status : '미상신');
+const status = ref(props.vrb?.status || '미상신');
 const vrbNumber = ref(props.vrb?.vrbNumber ?? '');
 const plannedDate = ref(dateOnly(props.vrb?.plannedDate));
 const submittedDate = ref(dateOnly(props.vrb?.submittedDate));
@@ -48,7 +51,7 @@ async function submit() {
       <div>
         <label class="label">진행 상태</label>
         <select v-model="status" class="input" :disabled="submitting">
-          <option v-for="s in STATUSES" :key="s" :value="s">{{ s }}</option>
+          <option v-for="s in STATUSES" :key="s.code" :value="s.code">{{ s.label }}</option>
         </select>
       </div>
       <div>

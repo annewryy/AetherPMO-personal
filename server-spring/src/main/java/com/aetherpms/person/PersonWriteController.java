@@ -31,20 +31,19 @@ import jakarta.servlet.http.HttpServletRequest;
 public class PersonWriteController {
 
     private static final List<String> SOURCES = List.of("INTERNAL", "EXTERNAL");
-    private static final List<String> STATUSES = List.of("재직", "종료");
 
     private final JdbcTemplate jdbc;
     private final PersonService service;
     private final AuditWriter audit;
-    // 0044 — 인력구분은 하드코딩 5종이 아니라 pms_employment_type 마스터 기준으로 검증한다.
-    private final EmploymentTypeService employmentTypes;
+    // 0044 — 인력구분·재직상태는 공통코드(EMPLOYMENT_TYPE·PERSON_STATUS) 기준으로 검증한다.
+    private final com.aetherpms.code.CommonCodeService codes;
 
     public PersonWriteController(JdbcTemplate jdbc, PersonService service, AuditWriter audit,
-            EmploymentTypeService employmentTypes) {
+            com.aetherpms.code.CommonCodeService codes) {
         this.jdbc = jdbc;
         this.service = service;
         this.audit = audit;
-        this.employmentTypes = employmentTypes;
+        this.codes = codes;
     }
 
     @PostMapping("/api/persons")
@@ -129,14 +128,10 @@ public class PersonWriteController {
             out.put("source", v);
         }
         if (b.containsKey("employmentType") || create) {
-            out.put("employment_type", employmentTypes.normalize(str(b.get("employmentType"))));
+            out.put("employment_type", codes.normalizeOrDefault("EMPLOYMENT_TYPE", b.get("employmentType"), "regular"));
         }
         if (b.containsKey("status")) {
-            String v = b.get("status") == null ? "재직" : b.get("status").toString().trim();
-            if (!STATUSES.contains(v)) {
-                throw ApiException.badRequest("재직상태는 " + String.join(", ", STATUSES) + " 중 하나여야 합니다.");
-            }
-            out.put("status", v);
+            out.put("status", codes.normalizeOrDefault("PERSON_STATUS", b.get("status"), "재직"));
         }
         if (b.containsKey("companyId")) {
             Object v = b.get("companyId");
@@ -175,7 +170,7 @@ public class PersonWriteController {
                 : before == null ? null : str(before.get("employment_type"));
         Object effCompany = out.containsKey("company_id") ? out.get("company_id")
                 : before == null ? null : before.get("company_id");
-        if (effType != null && employmentTypes.outsourcedCodes().contains(effType) && effCompany == null) {
+        if (effType != null && codes.flag("EMPLOYMENT_TYPE", effType, "outsourced") && effCompany == null) {
             throw ApiException.badRequest("외주 계열 인력은 소속회사가 필수입니다.");
         }
         return out;

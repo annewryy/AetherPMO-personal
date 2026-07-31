@@ -4,6 +4,7 @@
 //   (한 건씩 추가하는 도중에는 100%가 될 수 없으므로 저장 자체는 막지 않는다).
 import { ref, computed } from 'vue';
 import { dataClient } from '../lib/dataClient';
+import { useCodes, fallbackCodes } from '../lib/codes';
 import type { ConsortiumMember, ConsortiumPayload } from '../types';
 import ModalShell from './ModalShell.vue';
 
@@ -15,11 +16,13 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ (e: 'saved', payload: ConsortiumPayload): void; (e: 'close'): void }>();
 
-const ROLES = ['주사업자', '부사업자', '협력사'];
+// 0044 — 역할 어휘는 공통코드 CONSORTIUM_ROLE(관리자 코드 관리). 폴백은 기존 3종.
+const ROLES = useCodes('CONSORTIUM_ROLE', fallbackCodes('CONSORTIUM_ROLE',
+  [{ code: '주사업자' }, { code: '부사업자' }, { code: '협력사' }]));
 
 const isEdit = computed(() => !!props.member);
 const companyName = ref(props.member?.companyName ?? '');
-const role = ref(props.member?.role && ROLES.includes(props.member.role) ? props.member.role : '주사업자');
+const role = ref(props.member?.role || '주사업자');
 const shareRate = ref<number | null>(props.member?.shareRate ?? null);
 // 0044 §B — 총 투입 공수(M/M). 입찰에서 지정하고 수행 단계가 승계·관리한다.
 const totalMm = ref<number | null>(props.member?.totalMm ?? null);
@@ -73,7 +76,7 @@ async function submit() {
       <div>
         <label class="label">역할 <span class="req">*</span></label>
         <select v-model="role" class="input" :disabled="submitting">
-          <option v-for="r in ROLES" :key="r" :value="r">{{ r }}</option>
+          <option v-for="r in ROLES" :key="r.code" :value="r.code">{{ r.label }}</option>
         </select>
       </div>
       <div>

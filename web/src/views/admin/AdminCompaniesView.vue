@@ -4,6 +4,7 @@
 // 때만 — 백엔드 가드 메시지를 그대로 표시. 쓰기는 API_BASE 필수(폴백=조회+안내).
 import { ref, computed, onMounted } from 'vue';
 import { dataClient } from '../../lib/dataClient';
+import { useCodes, fallbackCodes, codeLabel } from '../../lib/codes';
 import type { Company, CompanyInput } from '../../types';
 import StateNotice from '../../components/StateNotice.vue';
 import PageSizeSelect from '../../components/PageSizeSelect.vue';
@@ -17,10 +18,11 @@ const loading = ref(true);
 const loadError = ref<string | null>(null);
 const actionError = ref<string | null>(null);
 
-const TYPE_LABELS: Record<string, string> = {
-  OWN: '자사', PARTNER: '협력사', CLIENT: '고객사',
-};
-const TYPES = Object.keys(TYPE_LABELS);
+// 0044 — 회사 유형 어휘는 공통코드 COMPANY_TYPE(관리자 코드 관리). 폴백은 기존 3종.
+const TYPES = useCodes('COMPANY_TYPE', fallbackCodes('COMPANY_TYPE', [
+  { code: 'OWN', label: '자사' }, { code: 'PARTNER', label: '협력사' }, { code: 'CLIENT', label: '고객사' },
+]));
+const typeLabel = (t: string | null | undefined) => (t ? codeLabel(TYPES, t) : '—');
 
 const formOpen = ref(false);
 const editingId = ref<number | null>(null);
@@ -121,7 +123,7 @@ onMounted(async () => {
         <label class="field">
           <span class="label">유형</span>
           <select v-model="form.type" class="select">
-            <option v-for="t in TYPES" :key="t" :value="t">{{ TYPE_LABELS[t] }}</option>
+            <option v-for="t in TYPES" :key="t.code" :value="t.code">{{ t.label }}</option>
           </select>
         </label>
         <label class="field">
@@ -152,7 +154,7 @@ onMounted(async () => {
         <tr v-for="(c, idx) in paged" :key="c.id" :class="{ off: !c.isActive }">
           <td class="no">{{ rowNo(idx) }}</td>
           <td class="name">{{ c.name }}</td>
-          <td>{{ c.type ? (TYPE_LABELS[c.type] ?? c.type) : '—' }}</td>
+          <td>{{ typeLabel(c.type) }}</td>
           <td>{{ c.isActive ? '활성' : '비활성' }}</td>
           <td class="cell-actions">
             <button class="btn btn-sm" :disabled="!apiMode" @click="openEdit(c)">수정</button>

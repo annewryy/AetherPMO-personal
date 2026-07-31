@@ -6,6 +6,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import { EMPLOYMENT_TYPES, isOutsourcedType } from '../lib/personLabels';
+import { useCodes } from '../lib/codes';
 import type { ProjectMemberInput, ProjectMemberType, EmploymentType, OrgPick, ProjectMemberDetail, Company, Project } from '../types';
 import ModalShell from './ModalShell.vue';
 import OrgPickerModal from './OrgPickerModal.vue';
@@ -87,7 +88,9 @@ const deptCode = ref<string | null>(null);
 const roleName = ref('');
 const participationRole = ref('');
 const isProjectManager = ref(false);
-// 0044 §G — 계약 형태(자유 텍스트)·계약 금액(원). 금액은 천단위 콤마 표시, 내부값은 숫자.
+// 0044 §G — 계약 형태(공통코드 CONTRACT_TYPE — 관리자 코드 관리에서 등록)·계약 금액(원).
+//   금액은 천단위 콤마 표시, 내부값은 숫자.
+const CONTRACT_TYPES = useCodes('CONTRACT_TYPE');
 const contractType = ref('');
 const contractAmount = ref<number | null>(null);
 const contractAmountText = computed({
@@ -324,7 +327,11 @@ async function submit() {
     <div class="row2">
       <div>
         <label class="label">계약 형태</label>
-        <input v-model="contractType" class="input" type="text" placeholder="예: 도급, 파견 (선택)" :disabled="submitting" />
+        <select v-model="contractType" class="input" :disabled="submitting || CONTRACT_TYPES.length === 0">
+          <option value="">{{ CONTRACT_TYPES.length === 0 ? '등록된 코드 없음' : '선택 안 함' }}</option>
+          <option v-for="t in CONTRACT_TYPES" :key="t.code" :value="t.code">{{ t.label }}</option>
+        </select>
+        <p v-if="CONTRACT_TYPES.length === 0" class="hint-line">관리자 &gt; 코드 관리에서 계약 형태 코드를 등록하면 선택할 수 있습니다.</p>
       </div>
       <div>
         <label class="label">계약 금액(원)</label>

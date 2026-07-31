@@ -8,6 +8,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { dataClient } from '../lib/dataClient';
 import { EMPLOYMENT_TYPES, isOutsourcedType } from '../lib/personLabels';
+import { useCodes, fallbackCodes } from '../lib/codes';
 import type { Company, EmploymentType, Person, PersonInput } from '../types';
 import ModalShell from './ModalShell.vue';
 
@@ -25,6 +26,9 @@ const position = ref(props.person?.position ?? '');
 const phone = ref(props.person?.phone ?? '');
 const email = ref(props.person?.email ?? '');
 const status = ref(props.person?.status ?? '재직');
+// 0044 — 재직상태 어휘는 공통코드 PERSON_STATUS. 폴백은 기존 2종.
+const PERSON_STATUSES = useCodes('PERSON_STATUS', fallbackCodes('PERSON_STATUS',
+  [{ code: '재직' }, { code: '종료' }]));
 const submitting = ref(false);
 const error = ref<string | null>(null);
 
@@ -126,9 +130,9 @@ async function submit() {
       </div>
       <div>
         <label class="label">재직상태</label>
+        <!-- 0044 — 어휘는 공통코드 PERSON_STATUS(관리자 코드 관리) -->
         <select v-model="status" class="input" :disabled="submitting">
-          <option value="재직">재직</option>
-          <option value="종료">종료</option>
+          <option v-for="s in PERSON_STATUSES" :key="s.code" :value="s.code">{{ s.label }}</option>
         </select>
       </div>
     </div>

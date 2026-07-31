@@ -969,15 +969,25 @@ export type EmploymentType =
   | 'turnkey'           // 외주(턴키)
   | 'freelancer';       // 프리랜서
 
-// GET /api/employment-types 항목(0044 — 인력구분 코드 마스터).
+// 0044 — 공통 코드(pms_common_code). GET /api/codes?group=X 항목.
+//   그룹: EMPLOYMENT_TYPE·CONTRACT_TYPE·CONSORTIUM_ROLE·COMPANY_TYPE·PERSON_STATUS·
+//         DOC_CATEGORY·CLIENT_CATEGORY·VRB_STATUS (그룹 신설은 백엔드 코드 작업).
+export interface CommonCode {
+  group: string;
+  code: string;                      // 참조 컬럼에 저장되는 값 그 자체(한글 어휘는 한글이 code)
+  label: string;
+  attrs: Record<string, unknown> | null;  // 그룹별 부가속성(인력구분 {outsourced:true} 등)
+  sortOrder: number;
+  isActive?: boolean;                // 관리자 목록에만
+  useCount?: number;                 // 관리자 목록에만 — 삭제 가능 여부 근거
+}
+
+// personLabels 전용 뷰(공통코드 EMPLOYMENT_TYPE에서 파생).
 export interface EmploymentTypeInfo {
   code: string;
   label: string;
   isOutsourced: boolean;             // 외주 계열 — 인력 등록 시 소속회사 필수
   sortOrder: number;
-  isActive?: boolean;                // 관리자 목록에만
-  personCount?: number;              // 관리자 목록에만 — 삭제 가능 여부 근거
-  memberCount?: number;
 }
 
 // 인력 원천: 내부(아마란스 위임) / 외부(PMS 소유)

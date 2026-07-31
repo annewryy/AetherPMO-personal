@@ -37,13 +37,18 @@ public class OfficialDocService {
     private final JdbcTemplate jdbc;
     private final AuditWriter audit;
 
-    public OfficialDocService(JdbcTemplate jdbc, AuditWriter audit) {
+    public OfficialDocService(JdbcTemplate jdbc, AuditWriter audit,
+            com.aetherpms.code.CommonCodeService codes) {
         this.jdbc = jdbc;
         this.audit = audit;
+        this.codes = codes;
     }
 
+    // 0044 — 공문 분류(DOC_CATEGORY) 검증용 공통코드. current_status(아마란스 결재 상태)는 고정 유지.
+    private final com.aetherpms.code.CommonCodeService codes;
+
     // pms_official_doc CHECK 제약(스키마 V3).
-    private static final List<String> CATEGORIES = List.of("품의문", "공문");
+    // 0044 — 공문 분류 어휘는 공통코드 DOC_CATEGORY가 원천(관리자 코드 관리).
     private static final List<String> STATUSES = List.of("기안", "결재중", "완료", "반려");
 
     // 등록 허용 키(camelCase). mapOfficialDoc 계약 + 스키마 컬럼.
@@ -79,7 +84,7 @@ public class OfficialDocService {
         fields.put("project_id", projectId);
         fields.put("title", title);
         putStr(fields, "doc_number", b.get("docNumber"));
-        putEnum(fields, "category", b.get("category"), CATEGORIES);
+        if (b.get("category") != null) fields.put("category", codes.nullableValid("DOC_CATEGORY", b.get("category")));
         putStr(fields, "draft_dept", b.get("draftDept"));
         putStr(fields, "drafter_name", b.get("drafter"));
         putUuid(fields, "drafter_uid", b.get("drafterId"));
@@ -122,7 +127,7 @@ public class OfficialDocService {
             fields.put("title", title);
         }
         if (b.containsKey("docNumber")) putStrNullable(fields, "doc_number", b.get("docNumber"));
-        if (b.containsKey("category")) putEnum(fields, "category", b.get("category"), CATEGORIES);
+        if (b.containsKey("category")) if (b.get("category") != null) fields.put("category", codes.nullableValid("DOC_CATEGORY", b.get("category")));
         if (b.containsKey("draftDept")) putStrNullable(fields, "draft_dept", b.get("draftDept"));
         if (b.containsKey("drafter")) putStrNullable(fields, "drafter_name", b.get("drafter"));
         if (b.containsKey("drafterId")) putUuidNullable(fields, "drafter_uid", b.get("drafterId"));

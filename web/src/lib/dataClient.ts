@@ -24,7 +24,7 @@ import type {
   IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput, MeetingMinuteUpdateInput,
   ConsortiumPayload, ConsortiumMemberInput, VrbInfoInput,
   ProjectMemberRef, ProjectMemberDetail, ProjectMemberInput, ProjectMemberAssignment, AppNotification, AppSetting,
-  Person, PersonInput, PersonProjectHistory, PersonFilters, ProjectRole, EmploymentTypeInfo, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput, ProjectConvertInput,
+  Person, PersonInput, PersonProjectHistory, PersonFilters, ProjectRole, CommonCode, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput, ProjectConvertInput,
   BidAgency, BidNoticeFilters, BidNoticeResult, BidNoticeDetail,
 } from '../types';
 
@@ -823,26 +823,35 @@ export const dataClient = {
     },
   },
 
-  // 인력구분 코드 마스터(0044) — 폼/필터는 활성 목록, 관리자는 전체+CRUD.
-  employmentTypes: {
-    async list(): Promise<EmploymentTypeInfo[]> {
+  // 공통 코드 마스터(0044 — pms_common_code). 폼/필터는 활성 목록, 관리자는 전체+CRUD.
+  //   code가 한글일 수 있어 CRUD 대상 코드는 경로가 아닌 쿼리 파라미터.
+  codes: {
+    async list(group: string): Promise<CommonCode[]> {
       if (!apiBase()) return [];
-      return apiGet<EmploymentTypeInfo[]>('/api/employment-types');
+      return apiGet<CommonCode[]>(`/api/codes?group=${encodeURIComponent(group)}`);
     },
-    async adminList(): Promise<EmploymentTypeInfo[]> {
+    async groups(): Promise<{ group: string; label: string }[]> {
       if (!apiBase()) return [];
-      return apiGet<EmploymentTypeInfo[]>('/api/admin/employment-types');
+      return apiGet<{ group: string; label: string }[]>('/api/admin/codes/groups');
     },
-    async create(input: { code: string; label: string; isOutsourced?: boolean; sortOrder?: number }):
-        Promise<EmploymentTypeInfo> {
-      return apiSend<EmploymentTypeInfo>('POST', '/api/admin/employment-types', input);
+    async adminList(group: string): Promise<CommonCode[]> {
+      if (!apiBase()) return [];
+      return apiGet<CommonCode[]>(`/api/admin/codes?group=${encodeURIComponent(group)}`);
     },
-    async update(code: string, patch: Partial<{ label: string; isOutsourced: boolean; sortOrder: number; isActive: boolean }>):
-        Promise<EmploymentTypeInfo> {
-      return apiSend<EmploymentTypeInfo>('PATCH', `/api/admin/employment-types/${encodeURIComponent(code)}`, patch);
+    async create(group: string, input: {
+      code: string; label?: string; attrs?: Record<string, unknown> | null; sortOrder?: number;
+    }): Promise<CommonCode> {
+      return apiSend<CommonCode>('POST', `/api/admin/codes/${encodeURIComponent(group)}`, input);
     },
-    async remove(code: string): Promise<void> {
-      await apiSend('DELETE', `/api/admin/employment-types/${encodeURIComponent(code)}`);
+    async update(group: string, code: string, patch: Partial<{
+      label: string; attrs: Record<string, unknown> | null; sortOrder: number; isActive: boolean;
+    }>): Promise<CommonCode> {
+      return apiSend<CommonCode>('PATCH',
+        `/api/admin/codes/${encodeURIComponent(group)}?code=${encodeURIComponent(code)}`, patch);
+    },
+    async remove(group: string, code: string): Promise<void> {
+      await apiSend('DELETE',
+        `/api/admin/codes/${encodeURIComponent(group)}?code=${encodeURIComponent(code)}`);
     },
   },
 

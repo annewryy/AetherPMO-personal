@@ -36,16 +36,18 @@ import jakarta.servlet.http.HttpServletRequest;
 @RestController
 public class ConsortiumController {
 
-    private static final List<String> ROLES = List.of("주사업자", "부사업자", "협력사");
-
     private final JdbcTemplate jdbc;
+    // 0044 — 역할 어휘는 공통코드 CONSORTIUM_ROLE이 원천(관리자 코드 관리).
+    private final com.aetherpms.code.CommonCodeService codes;
     private final ProjectScopeService scope;
     private final AuditWriter audit;
 
-    public ConsortiumController(JdbcTemplate jdbc, ProjectScopeService scope, AuditWriter audit) {
+    public ConsortiumController(JdbcTemplate jdbc, ProjectScopeService scope, AuditWriter audit,
+            com.aetherpms.code.CommonCodeService codes) {
         this.jdbc = jdbc;
         this.scope = scope;
         this.audit = audit;
+        this.codes = codes;
     }
 
     @GetMapping("/api/projects/{id}/consortium")
@@ -173,10 +175,8 @@ public class ConsortiumController {
             out.put("company_name", name);
         }
         if (b.containsKey("role") || create) {
-            String role = b.get("role") == null ? "" : b.get("role").toString().trim();
-            if (!ROLES.contains(role)) {
-                throw ApiException.badRequest("역할은 " + String.join(", ", ROLES) + " 중 하나여야 합니다.");
-            }
+            String role = codes.nullableValid("CONSORTIUM_ROLE", b.get("role"));
+            if (role == null) throw ApiException.badRequest("역할은 필수입니다.");
             out.put("role", role);
         }
         if (b.containsKey("shareRate") || create) {

@@ -25,13 +25,13 @@ public class PersonService {
 
     private final JdbcTemplate jdbc;
     private final OrgTreeService orgTree;
-    // 0044 — 인력구분 검증은 pms_employment_type 마스터 기준(하드코딩 5종 폐지).
-    private final EmploymentTypeService employmentTypes;
+    // 0044 — 인력구분 검증은 공통코드(EMPLOYMENT_TYPE) 기준(하드코딩 5종 폐지).
+    private final com.aetherpms.code.CommonCodeService codes;
 
-    public PersonService(JdbcTemplate jdbc, OrgTreeService orgTree, EmploymentTypeService employmentTypes) {
+    public PersonService(JdbcTemplate jdbc, OrgTreeService orgTree, com.aetherpms.code.CommonCodeService codes) {
         this.jdbc = jdbc;
         this.orgTree = orgTree;
-        this.employmentTypes = employmentTypes;
+        this.codes = codes;
     }
 
     // =====================================================================
@@ -61,7 +61,7 @@ public class PersonService {
         // 인력구분(employment_type) 복수 + AND/OR.
         List<String> types = q.employmentTypes();
         if (types != null && !types.isEmpty()) {
-            var known = employmentTypes.knownCodes();
+            var known = codes.knownCodes("EMPLOYMENT_TYPE");
             for (String t : types) {
                 if (!known.contains(t)) {
                     throw ApiException.badRequest("유효하지 않은 employmentType 값: " + t

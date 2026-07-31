@@ -29,15 +29,15 @@ public class MemberService {
     private final PersonSyncService personSync;
 
     public MemberService(JdbcTemplate jdbc, PersonSyncService personSync,
-            com.aetherpms.notification.NotificationService notify, EmploymentTypeService employmentTypes) {
+            com.aetherpms.notification.NotificationService notify, com.aetherpms.code.CommonCodeService codes) {
         this.jdbc = jdbc;
         this.personSync = personSync;
         this.notify = notify;
-        this.employmentTypes = employmentTypes;
+        this.codes = codes;
     }
 
-    // 0044 — 인력구분 검증은 pms_employment_type 마스터 기준(하드코딩 5종 폐지).
-    private final EmploymentTypeService employmentTypes;
+    // 0044 — 인력구분·계약형태 검증은 공통코드(EMPLOYMENT_TYPE·CONTRACT_TYPE) 기준.
+    private final com.aetherpms.code.CommonCodeService codes;
 
     private static final List<String> MEMBER_TYPES = List.of("INTERNAL", "EXTERNAL");
     // 0039 — 참여역할 어휘는 관리자가 편집하는 마스터(pms_role_capability)가 원본이다.
@@ -82,7 +82,7 @@ public class MemberService {
 
         String memberType = b.get("memberType") != null
                 ? requireInList("memberType", b.get("memberType"), MEMBER_TYPES) : "EXTERNAL";
-        String employmentType = employmentTypes.normalize(str(b.get("employmentType")));
+        String employmentType = codes.normalizeOrDefault("EMPLOYMENT_TYPE", b.get("employmentType"), "regular");
         Long companyId = toLongOrNull(b.get("companyId"));
         String department = str(b.get("department"));
         String position = str(b.get("position"));
@@ -112,7 +112,7 @@ public class MemberService {
         if (b.get("startDate") != null) fields.put("start_date", LocalDate.parse(str(b.get("startDate"))));
         if (b.get("endDate") != null) fields.put("end_date", LocalDate.parse(str(b.get("endDate"))));
         if (b.get("memo") != null) fields.put("memo", str(b.get("memo")));
-        if (b.get("contractType") != null) fields.put("contract_type", str(b.get("contractType")));
+        if (b.get("contractType") != null) fields.put("contract_type", codes.nullableValid("CONTRACT_TYPE", b.get("contractType")));
         if (b.get("contractAmount") != null) fields.put("contract_amount", requireNonNegativeAmount(b.get("contractAmount")));
 
         List<String> cols = List.copyOf(fields.keySet());
@@ -184,7 +184,7 @@ public class MemberService {
                     : requireKnownRole(b.get("participationRole")));
         }
         if (b.containsKey("employmentType")) {
-            set.put("employment_type", employmentTypes.normalize(str(b.get("employmentType"))));
+            set.put("employment_type", codes.normalizeOrDefault("EMPLOYMENT_TYPE", b.get("employmentType"), "regular"));
         }
         if (b.containsKey("isProjectManager")) {
             set.put("is_project_manager", truthy(b.get("isProjectManager")) ? 1 : 0);
@@ -198,7 +198,7 @@ public class MemberService {
             set.put("end_date", v == null || v.isEmpty() ? null : LocalDate.parse(v));
         }
         if (b.containsKey("memo")) set.put("memo", str(b.get("memo")));
-        if (b.containsKey("contractType")) set.put("contract_type", str(b.get("contractType")));
+        if (b.containsKey("contractType")) set.put("contract_type", codes.nullableValid("CONTRACT_TYPE", b.get("contractType")));
         if (b.containsKey("contractAmount")) {
             set.put("contract_amount", b.get("contractAmount") == null ? null
                     : requireNonNegativeAmount(b.get("contractAmount")));
