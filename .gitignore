@@ -28,3 +28,7 @@ passwd
 password.txt
 secrets/
 supabase-config.js
+
+# Office 임시 잠금파일
+~$*
+**/~$*
