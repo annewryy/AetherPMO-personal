@@ -124,7 +124,7 @@ public class ConsortiumController {
     /** 목록 + 지분율 합계(화면 경고용). */
     private Map<String, Object> payload(long projectId) {
         List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT project_company_id, project_id, company_name, role, share_rate, description, "
+                "SELECT project_company_id, project_id, company_name, role, share_rate, total_mm, description, "
               + "contact_name, contact_phone, contact_email FROM pms_project_company "
               + "WHERE project_id = ? ORDER BY project_company_id", projectId);
         List<Map<String, Object>> members = new java.util.ArrayList<>();
@@ -137,6 +137,8 @@ public class ConsortiumController {
             m.put("role", r.get("role"));
             double share = r.get("share_rate") == null ? 0 : ((Number) r.get("share_rate")).doubleValue();
             m.put("shareRate", share);
+            // 0044 §B — 총 투입 공수(M/M). 입찰에서 지정, 수행에서 관리.
+            m.put("totalMm", r.get("total_mm") == null ? null : ((Number) r.get("total_mm")).doubleValue());
             m.put("description", r.get("description"));
             m.put("contactName", r.get("contact_name"));
             m.put("contactPhone", r.get("contact_phone"));
@@ -155,7 +157,7 @@ public class ConsortiumController {
     /** 화이트리스트 + 어휘·범위 검증. create=true면 회사명·역할·지분율 필수. */
     private Map<String, Object> normalize(Map<String, Object> raw, boolean create) {
         Map<String, Object> b = raw == null ? Map.of() : raw;
-        List<String> allowed = List.of("companyName", "role", "shareRate", "description",
+        List<String> allowed = List.of("companyName", "role", "shareRate", "totalMm", "description",
                 "contactName", "contactPhone", "contactEmail");
         List<String> unknown = b.keySet().stream().filter(k -> !allowed.contains(k)).toList();
         if (!unknown.isEmpty()) {
@@ -188,6 +190,22 @@ public class ConsortiumController {
             }
             if (share < 0 || share > 100) throw ApiException.badRequest("지분율은 0~100 사이여야 합니다.");
             out.put("share_rate", share);
+        }
+        // 0044 §B — 총 투입 공수(M/M). 선택 입력, 0 이상 소수 2자리.
+        if (b.containsKey("totalMm")) {
+            Object v = b.get("totalMm");
+            if (v == null || v.toString().trim().isEmpty()) {
+                out.put("total_mm", null);
+            } else {
+                double mm;
+                try {
+                    mm = v instanceof Number n ? n.doubleValue() : Double.parseDouble(v.toString());
+                } catch (NumberFormatException e) {
+                    throw ApiException.badRequest("총 M/M은 숫자여야 합니다.");
+                }
+                if (mm < 0) throw ApiException.badRequest("총 M/M은 0 이상이어야 합니다.");
+                out.put("total_mm", Math.round(mm * 100.0) / 100.0);
+            }
         }
         putTrimmed(out, b, "description", "description");
         putTrimmed(out, b, "contactName", "contact_name");

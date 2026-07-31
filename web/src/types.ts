@@ -291,6 +291,7 @@ export interface ConsortiumMember {
   companyName: string;
   role: string;              // 주사업자 | 부사업자 | 협력사
   shareRate: number;
+  totalMm?: number | null;   // 0044 §B — 총 투입 공수(M/M). 입찰에서 지정, 수행에서 관리
   description: string;
   contactName?: string | null;
   contactPhone?: string | null;
@@ -309,6 +310,7 @@ export interface ConsortiumMemberInput {
   companyName: string;
   role: string;
   shareRate: number;
+  totalMm?: number | null;   // 0044 §B
   description?: string | null;
   contactName?: string | null;
   contactPhone?: string | null;

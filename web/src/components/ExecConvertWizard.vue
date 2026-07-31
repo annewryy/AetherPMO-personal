@@ -231,7 +231,7 @@ async function submit() {
               <span class="flabel">설명</span>
               <textarea v-model="form.description" class="in" rows="2" :disabled="saving"></textarea>
             </label>
-            <p class="hint">전환 시 컨소시엄·연락처가 복제되고, 이 입찰 프로젝트는 수주·완료 처리됩니다. 코드(-B 제거)·발번은 자동입니다.</p>
+            <p class="hint">전환 시 참여인력·컨소시엄(총 M/M 포함)·연락처가 승계되고, 이 입찰 프로젝트는 수주·완료 처리됩니다.</p>
           </form>
         </section>
 

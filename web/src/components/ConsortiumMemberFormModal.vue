@@ -21,6 +21,8 @@ const isEdit = computed(() => !!props.member);
 const companyName = ref(props.member?.companyName ?? '');
 const role = ref(props.member?.role && ROLES.includes(props.member.role) ? props.member.role : '주사업자');
 const shareRate = ref<number | null>(props.member?.shareRate ?? null);
+// 0044 §B — 총 투입 공수(M/M). 입찰에서 지정하고 수행 단계가 승계·관리한다.
+const totalMm = ref<number | null>(props.member?.totalMm ?? null);
 const contactName = ref(props.member?.contactName ?? '');
 const contactPhone = ref(props.member?.contactPhone ?? '');
 const contactEmail = ref(props.member?.contactEmail ?? '');
@@ -36,12 +38,14 @@ async function submit() {
   if (!companyName.value.trim()) { error.value = '회사명은 필수입니다.'; return; }
   if (shareRate.value == null) { error.value = '지분율은 필수입니다.'; return; }
   if (shareRate.value < 0 || shareRate.value > 100) { error.value = '지분율은 0~100 사이여야 합니다.'; return; }
+  if (totalMm.value != null && totalMm.value < 0) { error.value = '총 M/M은 0 이상이어야 합니다.'; return; }
   submitting.value = true;
   error.value = null;
   const input = {
     companyName: companyName.value.trim(),
     role: role.value,
     shareRate: shareRate.value,
+    totalMm: totalMm.value,
     description: description.value.trim() || null,
     contactName: contactName.value.trim() || null,
     contactPhone: contactPhone.value.trim() || null,
@@ -82,6 +86,10 @@ async function submit() {
       저장 후 총 지분율: <b>{{ projectedTotal }}%</b>
       <template v-if="Math.abs(projectedTotal - 100) >= 0.005"> — 총합이 100%가 아닙니다.</template>
     </p>
+
+    <label class="label">총 M/M (투입 공수)</label>
+    <input v-model.number="totalMm" class="input" type="number" min="0" step="0.01"
+           placeholder="예: 24 (선택 — 수행 전환 시 승계)" :disabled="submitting" />
 
     <div class="row2">
       <div>

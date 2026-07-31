@@ -162,6 +162,13 @@ public class TransitionService {
 
         jdbc.update("UPDATE " + cfg.table() + " SET status = ? WHERE " + cfg.idCol() + " = ?", toStatus, id);
 
+        // 2026-07-31 사용자 결정 — 산출물 상태가 전이되면 부모 태스크의 수동 진척률을 리셋해
+        //   계산값(상태 가중치 평균)으로 복귀시킨다. 수동값은 다음 산출물 변경 전까지만 유효한
+        //   스냅샷이라 "승인인데 40%" 같은 낡은 수치가 남지 않는다(TaskProgressResolver 참조).
+        if ("DELIVERABLE".equals(cfg.entityType()) && ent.get("task_id") != null) {
+            jdbc.update("UPDATE pms_task SET progress_rate = NULL WHERE task_id = ?", ent.get("task_id"));
+        }
+
         // 0033 ⑥ — 담당 항목 반려 전이만 알림(v1 — 승인·완료는 소음 방지 차원에서 제외)
         if ("REJECTED".equalsIgnoreCase(toStatus) || "반려".equals(toStatus)) {
             String assigneeCol = "DELIVERABLE".equals(cfg.entityType()) ? "author_name" : "assignee_name";

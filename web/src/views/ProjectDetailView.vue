@@ -75,10 +75,11 @@ const tabs = computed<TabKey[]>(() => {
   if (!project.value) return [];
   // WBS/일정: 실행 단계 핵심. BIDDING(제안 일정)에서도 노출.
   // 참여인력: 입찰·실행 공통(유경님 요구 §1).
+  // 컨소시엄: 0044 §B — 입찰에서 지정한 총 M/M을 수행 단계에서도 관리해야 하므로 공통 노출.
   const stageTabs: TabKey[] =
     project.value.stage === 'BIDDING'
       ? ['tasks', 'wbs', 'gantt', 'consortium', 'vrb', 'members']
-      : ['wbs', 'gantt', 'artifacts', 'meeting-minutes', 'issues', 'action-items', 'official-docs', 'members'];
+      : ['wbs', 'gantt', 'artifacts', 'meeting-minutes', 'issues', 'action-items', 'official-docs', 'consortium', 'members'];
   return ['overview', ...stageTabs, 'activity'];
 });
 
@@ -401,6 +402,12 @@ function onVrbSaved(saved: import('../types').VrbInfo) {
 
 // 0039 — 컨소시엄 구성원 CRUD. 응답에 목록+합계가 함께 온다.
 const consortiumMembers = ref<import('../types').ConsortiumMember[]>([]);
+// 0044 §B — 합계 M/M(전원 미입력이면 null → '—').
+const consortiumMmTotal = computed<number | null>(() => {
+  const vals = consortiumMembers.value.map((m) => m.totalMm).filter((v): v is number => v != null);
+  if (vals.length === 0) return null;
+  return Math.round(vals.reduce((s, v) => s + v, 0) * 100) / 100;
+});
 const consortiumTotal = ref(0);
 const consortiumBalanced = ref(true);
 const consortiumError = ref<string | null>(null);
@@ -823,7 +830,7 @@ watch(() => route.query.meeting, applyMeetingQuery);
                     {{ fmtDate(row.task.plannedStartDate) }} ~ {{ fmtDate(row.task.plannedEndDate) }} ·
                   </template>
                   {{ row.task.progress }}%
-                  <span v-if="taskHasDeliverable(row.task.id)" class="calc-tag" title="하위 산출물 상태 기준 자동 계산">계산</span>
+                  <span v-if="taskHasDeliverable(row.task.id)" class="calc-tag" title="하위 산출물 상태 기준 자동 계산 — 수동 입력 시 수동값 우선(산출물 상태 변경 때 계산값으로 복귀)">계산</span>
                 </span>
               </template>
               <template v-else-if="row.artifact">
@@ -848,13 +855,14 @@ watch(() => route.query.meeting, applyMeetingQuery);
           <template v-else>
             <table class="grid">
               <thead>
-                <tr><th>회사명</th><th>역할</th><th class="num">지분율 (%)</th><th>담당자</th><th>연락처</th><th>이메일</th><th>비고</th><th>작업</th></tr>
+                <tr><th>회사명</th><th>역할</th><th class="num">지분율 (%)</th><th class="num">총 M/M</th><th>담당자</th><th>연락처</th><th>이메일</th><th>비고</th><th>작업</th></tr>
               </thead>
               <tbody>
                 <tr v-for="c in consortiumMembers" :key="c.id ?? c.companyName">
                   <td class="name">{{ c.companyName }}</td>
                   <td><span class="role-chip" :class="{ lead: c.role === '주사업자' }">{{ c.role || '—' }}</span></td>
                   <td class="num">{{ c.shareRate }}%</td>
+                  <td class="num">{{ c.totalMm != null ? c.totalMm : '—' }}</td>
                   <td>{{ c.contactName || '—' }}</td>
                   <td class="muted">{{ c.contactPhone || '—' }}</td>
                   <td class="muted">{{ c.contactEmail || '—' }}</td>
@@ -869,6 +877,7 @@ watch(() => route.query.meeting, applyMeetingQuery);
             <div class="share-foot">
               <span>총 지분율: <b :class="{ bad: !consortiumBalanced }">{{ consortiumTotal }}%</b></span>
               <span v-if="!consortiumBalanced" class="share-warn">⚠ 총합이 100%가 아닙니다.</span>
+              <span>합계 M/M: <b>{{ consortiumMmTotal != null ? consortiumMmTotal : '—' }}</b></span>
             </div>
           </template>
         </template>

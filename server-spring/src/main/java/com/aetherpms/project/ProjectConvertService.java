@@ -89,15 +89,34 @@ public class ProjectConvertService {
         Long newId = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
 
         // 행 복제: 컨소시엄 + 연락처(0001)
+        //   0044 §B — total_mm(입찰에서 지정한 총 투입 공수)과 V34 담당자 3컬럼(contact_*)이
+        //   복제에서 빠져 전환 시 유실되던 것을 함께 승계한다.
         jdbc.update("""
-                INSERT INTO pms_project_company (project_id, company_id, company_name, role, share_rate, description)
-                SELECT ?, company_id, company_name, role, share_rate, description
+                INSERT INTO pms_project_company (project_id, company_id, company_name, role, share_rate,
+                                                 total_mm, contact_name, contact_phone, contact_email, description)
+                SELECT ?, company_id, company_name, role, share_rate,
+                       total_mm, contact_name, contact_phone, contact_email, description
                   FROM pms_project_company WHERE project_id = ?""", newId, sourceId);
         jdbc.update("""
                 INSERT INTO pms_contact_point (project_id, field, contact_type, user_id, name,
                                                company, company_id, title, phone, email, note)
                 SELECT ?, field, contact_type, user_id, name, company, company_id, title, phone, email, note
                   FROM pms_contact_point WHERE project_id = ?""", newId, sourceId);
+
+        // 0044 §B — 참여인력 승계: 입찰 단계에 등록된 활성 인력 전원을 수행 프로젝트로 행 복제.
+        //   (기존에는 PM만 재등록 → 입찰 참여인력이 수행에서 사라졌다.)
+        jdbc.update("""
+                INSERT INTO pms_project_member (project_id, person_id, member_type, user_uid, name,
+                                                company, company_id, role_name, position, department,
+                                                participation_role, employment_type, contract_type,
+                                                contract_amount, is_project_manager, is_active,
+                                                start_date, end_date, memo)
+                SELECT ?, person_id, member_type, user_uid, name,
+                       company, company_id, role_name, position, department,
+                       participation_role, employment_type, contract_type,
+                       contract_amount, is_project_manager, is_active,
+                       start_date, end_date, memo
+                  FROM pms_project_member WHERE project_id = ? AND is_active = 1""", newId, sourceId);
 
         // 마법사 추가 입력(오버라이드) 적용 — 넘어온 키만, 빈 문자열은 무시
         Map<String, Object> overrides = new LinkedHashMap<>();
