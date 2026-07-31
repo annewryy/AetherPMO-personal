@@ -12949,10 +12949,44 @@ class AetherPMO {
         const searchInput = document.getElementById('nirs-template-search');
         if (searchInput) searchInput.value = '';
 
-        if (typeof this.switchView === 'function') {
-            this.switchView('artifacts');
+        const orgSelectMain = document.getElementById('select-nirs-org-main');
+        if (orgSelectMain) orgSelectMain.value = organizationCode;
+
+        const bizSelectMain = document.getElementById('select-nirs-biz-type-main');
+        if (bizSelectMain) {
+            if (organizationCode === 'NIRS') {
+                bizSelectMain.innerHTML = `
+                    <option value="RESOURCE_INTEGRATION">자원통합사업 (179)</option>
+                    <option value="OPERATION_MAINTENANCE">운영·유지관리사업 (0)</option>
+                    <option value="all">전체 사업유형</option>
+                `;
+                bizSelectMain.value = 'RESOURCE_INTEGRATION';
+            } else if (organizationCode === 'KLID') {
+                bizSelectMain.innerHTML = `
+                    <option value="all">전체 사업유형 (5개)</option>
+                    <option value="KLID_SYSTEM_BUILD">정보시스템 구축사업 (0)</option>
+                    <option value="KLID_SYSTEM_OM">정보시스템 운영·유지관리사업 (0)</option>
+                    <option value="KLID_INFRA_BUILD">정보인프라 구축사업 (0)</option>
+                    <option value="KLID_INFRA_OM">정보인프라 운영·유지관리사업 (0)</option>
+                    <option value="KLID_SECURITY_OM">정보보호·보안운영사업 (0)</option>
+                `;
+                bizSelectMain.value = 'all';
+            } else if (organizationCode === 'NTS') {
+                bizSelectMain.innerHTML = `
+                    <option value="all">전체 사업유형 (6개)</option>
+                    <option value="NTS_SYSTEM_BUILD">정보시스템 구축·고도화사업 (0)</option>
+                    <option value="NTS_SYSTEM_OM">정보시스템 운영·유지관리사업 (0)</option>
+                    <option value="NTS_INFRA_OM">정보인프라 운영·유지관리사업 (0)</option>
+                    <option value="NTS_DATA_ANALYTICS">데이터·빅데이터 사업 (0)</option>
+                    <option value="NTS_AI">AI·지능정보화 사업 (0)</option>
+                    <option value="NTS_SECURITY_NETWORK">정보보호·통신망 사업 (0)</option>
+                `;
+                bizSelectMain.value = 'all';
+            }
         }
-        this.handleOrgChange(organizationCode);
+
+        // Perform exactly ONCE DOM render
+        this.renderArtifacts();
     } = {}) {
         this.featureFlags = this.featureFlags || { projectCommonTemplates: false, templateFileManagement: false };
         this.activeOrgCode = organizationCode;
