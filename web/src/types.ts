@@ -210,6 +210,8 @@ export interface ProjectMemberDetail {
   department: string | null;
   participationRole: string | null;               // PM·PL·PMO·… (0014)
   employmentType: EmploymentType | string | null;
+  contractType: string | null;                    // 0044 §G — 계약 형태
+  contractAmount: number | null;                  // 0044 §G — 계약 금액(원)
   isProjectManager: boolean | null;
   isActive: boolean | null;
   userUid: string | null;
@@ -227,6 +229,8 @@ export interface ProjectMemberAssignment {
   userUid: string | null;
   name: string;
   employmentType: EmploymentType | string | null;
+  contractType: string | null;                    // 0044 §G — 계약 형태
+  contractAmount: number | null;                  // 0044 §G — 계약 금액(원)
   company: string | null;
   companyId: number | null;
   department: string | null;
@@ -259,6 +263,8 @@ export interface ProjectMemberInput {
   isProjectManager?: boolean | null;
   userUid?: string | null;
   amaranthEmpNo?: string | null;
+  contractType?: string | null;      // 0044 §G — 계약 형태(자유 텍스트)
+  contractAmount?: number | null;    // 0044 §G — 계약 금액(원)
 }
 
 // 0012 A-2/C-3 알림 — GET /api/notifications (X-User-Id 기준)

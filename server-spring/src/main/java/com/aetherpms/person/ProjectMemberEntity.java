@@ -53,6 +53,13 @@ public class ProjectMemberEntity {
     @Column(name = "employment_type")
     private String employmentType;
 
+    // 0044 §G — 계약 형태·계약 금액(원)
+    @Column(name = "contract_type")
+    private String contractType;
+
+    @Column(name = "contract_amount")
+    private Long contractAmount;
+
     @Column(name = "is_active")
     private Boolean isActive;
 
@@ -72,6 +79,8 @@ public class ProjectMemberEntity {
     public String getRoleName() { return roleName; }
     public String getDepartment() { return department; }
     public String getEmploymentType() { return employmentType; }
+    public String getContractType() { return contractType; }
+    public Long getContractAmount() { return contractAmount; }
     public Boolean getIsActive() { return isActive; }
     public Boolean getIsProjectManager() { return isProjectManager; }
 }

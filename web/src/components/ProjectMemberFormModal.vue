@@ -87,6 +87,16 @@ const deptCode = ref<string | null>(null);
 const roleName = ref('');
 const participationRole = ref('');
 const isProjectManager = ref(false);
+// 0044 §G — 계약 형태(자유 텍스트)·계약 금액(원). 금액은 천단위 콤마 표시, 내부값은 숫자.
+const contractType = ref('');
+const contractAmount = ref<number | null>(null);
+const contractAmountText = computed({
+  get: () => (contractAmount.value == null ? '' : contractAmount.value.toLocaleString('ko-KR')),
+  set: (v: string) => {
+    const digits = v.replace(/[^0-9]/g, '');
+    contractAmount.value = digits ? Number(digits) : null;
+  },
+});
 
 // 조직도 선택(0020) — 재사용 OrgPickerModal로 내부/외부 인력을 트리·검색으로 선택.
 const amaranthEmpNo = ref('');
@@ -106,6 +116,8 @@ if (m) {
   roleName.value = m.roleName ?? '';
   participationRole.value = m.participationRole ?? '';
   isProjectManager.value = !!m.isProjectManager;
+  contractType.value = m.contractType ?? '';
+  contractAmount.value = m.contractAmount ?? null;
 }
 
 function onOrgPick(p: OrgPick) {
@@ -209,6 +221,8 @@ async function submit() {
   input.deptCode = deptCode.value;
   input.roleName = roleName.value.trim() || null;
   input.participationRole = participationRole.value || null;
+  input.contractType = contractType.value.trim() || null;
+  input.contractAmount = contractAmount.value;
   try {
     if (isEdit.value && props.member) {
       // 수정: URL은 원 소속 프로젝트, 프로젝트가 바뀌었으면 PATCH projectId로 이동(행 보존).
@@ -305,6 +319,19 @@ async function submit() {
 
     <label class="label">직책(역할명)</label>
     <input v-model="roleName" class="input" type="text" placeholder="직책/역할명 (선택)" :disabled="submitting" />
+
+    <!-- 0044 §G — 계약 형태·계약 금액 -->
+    <div class="row2">
+      <div>
+        <label class="label">계약 형태</label>
+        <input v-model="contractType" class="input" type="text" placeholder="예: 도급, 파견 (선택)" :disabled="submitting" />
+      </div>
+      <div>
+        <label class="label">계약 금액(원)</label>
+        <input v-model="contractAmountText" class="input" type="text" inputmode="numeric"
+               placeholder="예: 50,000,000 (선택)" :disabled="submitting" />
+      </div>
+    </div>
 
     <label class="chk">
       <input v-model="isProjectManager" type="checkbox" :disabled="submitting" />

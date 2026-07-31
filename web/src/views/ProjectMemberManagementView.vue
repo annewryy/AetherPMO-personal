@@ -220,7 +220,8 @@ onMounted(() => {
           <thead>
             <tr>
               <th class="no">No.</th><th class="col-project">프로젝트</th><th>성명</th><th>인력구분</th>
-              <th>소속본부/부서</th><th>직급</th><th>참여역할</th><th>PM 여부</th>
+              <th>소속본부/부서</th><th>직급</th><th>참여역할</th>
+              <th>계약 형태</th><th class="amt-h">계약 금액</th><th>PM 여부</th>
               <th>투입시작일</th><th>투입종료일</th><th>비고</th><th>관리</th>
             </tr>
           </thead>
@@ -238,6 +239,14 @@ onMounted(() => {
               <td>{{ g.department || '—' }}</td>
               <td>{{ g.position || '—' }}</td>
               <td>{{ g.roleName || '—' }}</td>
+              <td>
+                <div v-for="r in g.participations" :key="r.memberId" class="stack">{{ r.contractType || '—' }}</div>
+              </td>
+              <td class="amt">
+                <div v-for="r in g.participations" :key="r.memberId" class="stack">
+                  {{ r.contractAmount != null ? r.contractAmount.toLocaleString('ko-KR') : '—' }}
+                </div>
+              </td>
               <td>
                 <div v-for="r in g.participations" :key="r.memberId" class="stack">
                   <span v-if="r.isProjectManager" class="pm-tag">PM</span>
@@ -331,6 +340,8 @@ onMounted(() => {
 .muted { color: var(--muted); }
 
 .stack { padding: 2px 0; min-height: 22px; line-height: 18px; }
+.amt-h { text-align: right; }
+.amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .proj { cursor: pointer; }
 .proj:hover { color: var(--accent); }
 .pcode { color: var(--muted); font-family: ui-monospace, monospace; font-size: 12.5px; }

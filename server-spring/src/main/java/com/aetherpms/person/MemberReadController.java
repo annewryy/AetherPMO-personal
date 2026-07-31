@@ -40,6 +40,7 @@ public class MemberReadController {
         List<Map<String, Object>> rows = jdbc.queryForList("""
                 SELECT m.member_id, m.project_id, p.project_code, p.project_name,
                        m.person_id, m.member_type, m.user_uid, m.name, m.employment_type,
+                       m.contract_type, m.contract_amount,
                        m.company, m.company_id, m.department,
                        m.position, m.role_name, m.participation_role, m.is_project_manager,
                        m.is_active, m.start_date, m.end_date, m.memo
@@ -57,6 +58,8 @@ public class MemberReadController {
             o.put("userUid", r.get("user_uid"));
             o.put("name", r.get("name"));
             o.put("employmentType", r.get("employment_type"));
+            o.put("contractType", r.get("contract_type"));       // 0044 §G
+            o.put("contractAmount", r.get("contract_amount"));
             o.put("company", r.get("company"));
             o.put("companyId", r.get("company_id"));
             o.put("department", r.get("department"));

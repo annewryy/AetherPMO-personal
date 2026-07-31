@@ -292,6 +292,8 @@ public final class ReadMappers {
         out.put("roleName", m.getRoleName());
         out.put("department", m.getDepartment());
         out.put("employmentType", m.getEmploymentType());
+        out.put("contractType", m.getContractType());        // 0044 §G
+        out.put("contractAmount", m.getContractAmount());
         out.put("isProjectManager", m.getIsProjectManager() != null && m.getIsProjectManager());
         out.put("isActive", m.getIsActive() == null || m.getIsActive());
         return out;

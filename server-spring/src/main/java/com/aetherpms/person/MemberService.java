@@ -65,7 +65,8 @@ public class MemberService {
         List<String> allowed = List.of("memberType", "userUid", "amaranthEmpNo", "name",
                 "company", "companyId", "roleName", "position", "department", "deptCode",
                 "participationRole", "employmentType", "isProjectManager",
-                "startDate", "endDate", "memo");
+                "startDate", "endDate", "memo",
+                "contractType", "contractAmount");   // 0044 §G — 계약 형태·계약 금액
         List<String> unknown = b.keySet().stream().filter(k -> !allowed.contains(k)).toList();
         if (!unknown.isEmpty()) {
             throw ApiException.badRequest("허용되지 않는 필드: " + String.join(", ", unknown)
@@ -111,6 +112,8 @@ public class MemberService {
         if (b.get("startDate") != null) fields.put("start_date", LocalDate.parse(str(b.get("startDate"))));
         if (b.get("endDate") != null) fields.put("end_date", LocalDate.parse(str(b.get("endDate"))));
         if (b.get("memo") != null) fields.put("memo", str(b.get("memo")));
+        if (b.get("contractType") != null) fields.put("contract_type", str(b.get("contractType")));
+        if (b.get("contractAmount") != null) fields.put("contract_amount", requireNonNegativeAmount(b.get("contractAmount")));
 
         List<String> cols = List.copyOf(fields.keySet());
         String colList = String.join(", ", cols);
@@ -148,6 +151,7 @@ public class MemberService {
                 "company", "companyId", "roleName", "position", "department", "deptCode",
                 "participationRole", "employmentType", "isProjectManager",
                 "startDate", "endDate", "memo",
+                "contractType", "contractAmount",   // 0044 §G — 계약 형태·계약 금액
                 "projectId");   // 0028 §C: 참여인력 관리에서 투입 프로젝트 이동
         List<String> unknown = b.keySet().stream().filter(k -> !allowed.contains(k)).toList();
         if (!unknown.isEmpty()) {
@@ -194,6 +198,11 @@ public class MemberService {
             set.put("end_date", v == null || v.isEmpty() ? null : LocalDate.parse(v));
         }
         if (b.containsKey("memo")) set.put("memo", str(b.get("memo")));
+        if (b.containsKey("contractType")) set.put("contract_type", str(b.get("contractType")));
+        if (b.containsKey("contractAmount")) {
+            set.put("contract_amount", b.get("contractAmount") == null ? null
+                    : requireNonNegativeAmount(b.get("contractAmount")));
+        }
         // 0028 §C: 투입 프로젝트 이동 — 대상 프로젝트 존재 검증 후 project_id 변경(행·이력 보존).
         if (b.containsKey("projectId")) {
             Long np = toLongOrNull(b.get("projectId"));
@@ -247,7 +256,7 @@ public class MemberService {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT member_id, project_id, member_type, user_uid, name, person_id, company, " +
                 "       company_id, position, participation_role, role_name, department, " +
-                "       employment_type, is_project_manager, is_active " +
+                "       employment_type, contract_type, contract_amount, is_project_manager, is_active " +
                 "FROM pms_project_member WHERE member_id = ?", memberId);
         if (rows.isEmpty()) throw ApiException.notFound("참여인력을 찾을 수 없습니다.");
         Map<String, Object> r = rows.get(0);
@@ -266,9 +275,20 @@ public class MemberService {
         out.put("roleName", r.get("role_name"));
         out.put("department", r.get("department"));
         out.put("employmentType", r.get("employment_type"));
+        out.put("contractType", r.get("contract_type"));
+        out.put("contractAmount", r.get("contract_amount"));
         out.put("isProjectManager", truthy(r.get("is_project_manager")));
         out.put("isActive", r.get("is_active") == null || truthy(r.get("is_active")));
         return out;
+    }
+
+    /** 계약 금액 — 0 이상 정수(원). 문자열 숫자도 허용. */
+    private static Long requireNonNegativeAmount(Object v) {
+        Long amount = toLongOrNull(v);
+        if (amount == null || amount < 0) {
+            throw ApiException.badRequest("contractAmount(계약 금액)는 0 이상의 정수(원)여야 합니다.");
+        }
+        return amount;
     }
 
     private static String requireInList(String field, Object value, List<String> list) {

@@ -108,7 +108,9 @@ watch(() => props.projectId, load, { immediate: true });
           <thead>
             <tr>
               <th class="no">No.</th><th>성명</th><th>구분</th><th>인력구분</th>
-              <th>소속</th><th>직급/직책</th><th>참여역할</th><th>PM</th><th class="ops-h">작업</th>
+              <th>소속</th><th>직급/직책</th><th>참여역할</th>
+              <th>계약 형태</th><th class="amt-h">계약 금액</th>
+              <th>PM</th><th class="ops-h">작업</th>
             </tr>
           </thead>
           <tbody>
@@ -120,6 +122,8 @@ watch(() => props.projectId, load, { immediate: true });
               <td>{{ m.company || '—' }}</td>
               <td>{{ m.position || '—' }}</td>
               <td>{{ m.participationRole || '—' }}</td>
+              <td>{{ m.contractType || '—' }}</td>
+              <td class="amt">{{ m.contractAmount != null ? m.contractAmount.toLocaleString('ko-KR') : '—' }}</td>
               <td>
                 <span v-if="m.isProjectManager" class="pm-tag" title="프로젝트 관리자(PM)">PM</span>
                 <span v-else class="muted">—</span>
@@ -175,6 +179,8 @@ watch(() => props.projectId, load, { immediate: true });
 /* 작업(수정/삭제) */
 .ops-h { width: 132px; }
 .ops { white-space: nowrap; }
+.amt-h { text-align: right; }
+.amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .op-btn {
   border: 1px solid var(--border); background: var(--panel-2, var(--panel)); color: var(--text);
   font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 7px; cursor: pointer; margin-right: 4px;
