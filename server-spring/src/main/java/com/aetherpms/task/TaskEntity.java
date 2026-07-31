@@ -34,6 +34,13 @@ public class TaskEntity {
     @Column(name = "progress_rate")
     private Integer progressRate;
 
+    // 0044 §D — M/M(계획 공수, V1부터 있던 미사용 컬럼을 태스크 M/M로 사용)·진척 롤업 가중치(V40)
+    @Column(name = "planned_effort")
+    private java.math.BigDecimal plannedEffort;
+
+    @Column(name = "weight")
+    private java.math.BigDecimal weight;
+
     @Column(name = "planned_start_date")
     private LocalDate plannedStartDate;
 
@@ -77,6 +84,8 @@ public class TaskEntity {
     public String getTaskName() { return taskName; }
     public String getStatus() { return status; }
     public Integer getProgressRate() { return progressRate; }
+    public java.math.BigDecimal getPlannedEffort() { return plannedEffort; }
+    public java.math.BigDecimal getWeight() { return weight; }
     public LocalDate getPlannedStartDate() { return plannedStartDate; }
     public LocalDate getPlannedEndDate() { return plannedEndDate; }
     public Integer getDepth() { return depth; }

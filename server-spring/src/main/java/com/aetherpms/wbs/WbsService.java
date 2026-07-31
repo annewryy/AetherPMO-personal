@@ -170,6 +170,10 @@ public class WbsService {
             // 태스크 상세 이동용 실제 pms_task.task_id — nodeId(카탈로그 노드 id)와 다르다.
             //   전개 매핑이 없으면 null(아직 태스크 미생성) → 프론트는 이동 비활성.
             node.put("taskId", asLongOrNull(r.get("task_id")));
+            // 0044 §D — 진척 롤업 가중치(기본 1)·M/M. 상위 실제%는 weight 가중 평균으로 굴린다.
+            node.put("weight", r.get("task_weight") == null ? 1.0 : ((Number) r.get("task_weight")).doubleValue());
+            node.put("plannedEffort", r.get("task_planned_effort") == null ? null
+                    : ((Number) r.get("task_planned_effort")).doubleValue());
             node.put("status", str(r.get("task_status")));
             node.put("assigneeId", str(r.get("assignee_id")));
             node.put("assigneeName", str(r.get("assignee_name")));
@@ -244,11 +248,21 @@ public class WbsService {
      * 0039 — 상위 노드(단계/활동) 실제% = 하위 태스크 유효 진척률의 단순 평균.
      * 하위 태스크가 하나도 없으면 기존 산출물 롤업 값을 그대로 둔다.
      */
+    /** 0044 §D — 태스크 weight 가중 평균(기본 1 → 기존 단순 평균과 동일). 전부 0이면 단순 평균. */
     private static void rollUpActual(Map<String, Object> parent, List<Map<String, Object>> tasks) {
         if (tasks.isEmpty()) return;
-        int sum = 0;
-        for (Map<String, Object> t : tasks) sum += (Integer) t.get("actualRate");
-        parent.put("actualRate", (int) Math.round((double) sum / tasks.size()));
+        double weightedSum = 0, weightTotal = 0;
+        int plainSum = 0;
+        for (Map<String, Object> t : tasks) {
+            int rate = (Integer) t.get("actualRate");
+            double w = t.get("weight") instanceof Number n ? n.doubleValue() : 1.0;
+            weightedSum += rate * w;
+            weightTotal += w;
+            plainSum += rate;
+        }
+        parent.put("actualRate", weightTotal > 0
+                ? (int) Math.round(weightedSum / weightTotal)
+                : (int) Math.round((double) plainSum / tasks.size()));
     }
 
     /** 계획 시작·종료가 모두 있으면 0007 §1 선형 기대치, 아니면 null(판정불가). */

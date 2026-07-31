@@ -55,7 +55,8 @@ public class WorkSurfaceService {
                 Set.of("progress_rate", "status", "actual_start_date", "actual_end_date",
                        "planned_start_date", "planned_end_date",   // 0031: 태스크 일정 지정
                        "assignee_id", "assignee_name",
-                       "deliverable_id")),                          // 0038: 실사용 산출물(후보 중 택1)
+                       "deliverable_id",                            // 0038: 실사용 산출물(후보 중 택1)
+                       "planned_effort", "weight")),                // 0044 §D: M/M(공수)·진척 가중치
         ISSUE("pms_issue", "issue_id", "ISSUE",
                 Set.of("status", "priority", "due_date", "resolved_date", "owner_uid", "owner_name", "title")),
         ACTION_ITEM("pms_action_item", "action_id", "ACTION_ITEM",
@@ -250,6 +251,17 @@ public class WorkSurfaceService {
                     int a = intOf(out.get("assignee_id"), "assignee_id는 양의 정수여야 합니다.");
                     if (a <= 0) throw ApiException.badRequest("assignee_id는 양의 정수여야 합니다.");
                     out.put("assignee_id", a);
+                }
+                // 0044 §D — M/M(planned_effort)은 0 이상(null 허용=미지정), weight는 0 이상(0=롤업 제외).
+                if (out.containsKey("planned_effort") && out.get("planned_effort") != null) {
+                    double mm = doubleOf(out.get("planned_effort"), "planned_effort(M/M)는 0 이상 숫자여야 합니다.");
+                    if (mm < 0) throw ApiException.badRequest("planned_effort(M/M)는 0 이상 숫자여야 합니다.");
+                    out.put("planned_effort", Math.round(mm * 100.0) / 100.0);
+                }
+                if (out.get("weight") != null) {
+                    double w = doubleOf(out.get("weight"), "weight(가중치)는 0 이상 숫자여야 합니다.");
+                    if (w < 0) throw ApiException.badRequest("weight(가중치)는 0 이상 숫자여야 합니다.");
+                    out.put("weight", Math.round(w * 100.0) / 100.0);
                 }
             }
             case ISSUE -> {
@@ -568,6 +580,14 @@ public class WorkSurfaceService {
                 return (int) d;
             }
             return Integer.parseInt(v.toString());
+        } catch (NumberFormatException e) {
+            throw ApiException.badRequest(msg);
+        }
+    }
+
+    private static double doubleOf(Object v, String msg) {
+        try {
+            return v instanceof Number n ? n.doubleValue() : Double.parseDouble(v.toString());
         } catch (NumberFormatException e) {
             throw ApiException.badRequest(msg);
         }

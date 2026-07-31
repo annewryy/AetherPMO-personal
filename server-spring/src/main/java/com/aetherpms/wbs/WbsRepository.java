@@ -41,6 +41,8 @@ public class WbsRepository {
                t.planned_start_date AS phase_planned_start,
                t.planned_end_date   AS phase_planned_end,
                tk.task_id,
+               tk.weight              AS task_weight,
+               tk.planned_effort      AS task_planned_effort,
                tk.status              AS task_status,
                tk.assignee_id         AS assignee_id,
                tk.planned_start_date  AS task_planned_start,

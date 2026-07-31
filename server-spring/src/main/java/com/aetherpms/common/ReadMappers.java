@@ -189,6 +189,8 @@ public final class ReadMappers {
         out.put("deliverableId", t.getDeliverableId()); // 0038
         out.put("assignee", t.getAssigneeName());   // 담당자명(직접 저장). 조직도 선택으로 채움
         out.put("assigneeId", t.getAssigneeId());
+        out.put("plannedEffort", t.getPlannedEffort() == null ? null : t.getPlannedEffort().doubleValue()); // 0044 §D M/M
+        out.put("weight", t.getWeight() == null ? 1.0 : t.getWeight().doubleValue());                       // 0044 §D 가중치
         return out;
     }
 
