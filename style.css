@@ -8488,158 +8488,9 @@ body.dark-mode .badge-status-cancelled {
     }
 }
 
-/* ============================================================================
-   STATIC SALARY TEMPLATE EDIT MODAL DEDICATED ISOLATED CSS
-   ============================================================================ */
-#salary-template-modal,
-#modal-salary-template-edit {
-    position: fixed !important;
-    inset: 0 !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    z-index: 10000 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 20px !important;
-    background: rgba(3, 7, 18, 0.75) !important;
-    backdrop-filter: blur(6px) !important;
-}
-
-#salary-template-modal.hidden,
-#salary-template-modal[style*="display: none"],
-#modal-salary-template-edit.hidden,
-#modal-salary-template-edit[style*="display: none"] {
-    display: none !important;
-}
-
-.salary-template-modal-content {
-    width: min(1320px, calc(100vw - 40px)) !important;
-    height: min(880px, calc(100vh - 40px)) !important;
-    max-width: 1320px !important;
-    max-height: 92vh !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-    border-radius: 16px !important;
-    background: #ffffff !important;
-    color: #111827 !important;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45) !important;
-    border: 1px solid #e5e7eb !important;
-    margin: auto !important;
-}
-
-.salary-template-modal-header {
-    flex: 0 0 auto !important;
-    padding: 16px 24px !important;
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    border-bottom: 1px solid #e5e7eb !important;
-    background: #f9fafb !important;
-}
-
-.salary-template-modal-body {
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(440px, 1fr) !important;
-    overflow: hidden !important;
-    background: #ffffff !important;
-}
-
-.salary-template-editor-column {
-    min-width: 0 !important;
-    min-height: 0 !important;
-    overflow-y: auto !important;
-    padding: 20px 24px !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 10px !important;
-    background: #ffffff !important;
-    color: #111827 !important;
-}
-
-.salary-template-editor-column label {
-    font-size: 12px !important;
-    font-weight: 700 !important;
-    color: #374151 !important;
-}
-
-.salary-template-editor-column input[type="text"],
-.salary-template-editor-column select {
-    width: 100% !important;
-    height: 38px !important;
-    padding: 0 12px !important;
-    border-radius: 6px !important;
-    border: 1px solid #d1d5db !important;
-    background: #ffffff !important;
-    color: #111827 !important;
-    font-size: 13px !important;
-}
-
-#salary-template-html,
-#sal-tmpl-html {
-    flex: 1 !important;
-    min-height: 320px !important;
-    resize: vertical !important;
-    background: #ffffff !important;
-    color: #111827 !important;
-    border: 1px solid #d1d5db !important;
-    border-radius: 6px !important;
-    padding: 12px !important;
-    font-family: monospace !important;
-    font-size: 12px !important;
-    line-height: 1.5 !important;
-}
-
-.salary-template-preview-column {
-    min-width: 0 !important;
-    min-height: 0 !important;
-    overflow-y: auto !important;
-    padding: 20px !important;
-    background: #f3f4f6 !important;
-    border-left: 1px solid #e5e7eb !important;
-    display: flex !important;
-    flex-direction: column !important;
-}
-
-.salary-template-a4-preview,
-.salary-template-preview-body {
-    width: 100% !important;
-    min-height: 500px !important;
-    margin: 0 auto !important;
-    padding: 24px 20px !important;
-    background: #ffffff !important;
-    color: #111827 !important;
-    border: 1px solid #d1d5db !important;
-    border-radius: 8px !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
-    box-sizing: border-box !important;
-}
-
-.salary-template-modal-footer {
-    flex: 0 0 auto !important;
-    display: flex !important;
-    justify-content: flex-end !important;
-    align-items: center !important;
-    gap: 10px !important;
-    padding: 14px 24px !important;
-    border-top: 1px solid #e5e7eb !important;
-    background: #f9fafb !important;
-}
-
-@media (max-width: 992px) {
-    .salary-template-modal-body {
-        grid-template-columns: 1fr !important;
-        overflow-y: auto !important;
-    }
-}
 
 /* ============================================================================
-   STATIC SALARY TEMPLATE EDIT MODAL CLEAN V6 CSS (NO INLINE DISPLAY NONE)
+   STATIC SALARY TEMPLATE EDIT MODAL DIAGNOSTIC V7 CSS (RED BORDER TEST)
    ============================================================================ */
 #salary-template-modal {
     position: fixed !important;
@@ -8648,33 +8499,41 @@ body.dark-mode .badge-status-cancelled {
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
-    z-index: 10000 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 1000000 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    padding: 20px !important;
-    background: rgba(3, 7, 18, 0.75) !important;
-    backdrop-filter: blur(6px) !important;
+    background: rgba(15, 23, 42, 0.85) !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 #salary-template-modal.hidden {
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
 }
 
 .salary-template-modal-content {
+    position: relative !important;
     width: min(1320px, calc(100vw - 40px)) !important;
-    height: min(880px, calc(100vh - 40px)) !important;
-    max-width: 1320px !important;
-    max-height: 92vh !important;
+    height: min(840px, calc(100vh - 40px)) !important;
+    min-width: 900px !important;
+    min-height: 600px !important;
     display: flex !important;
     flex-direction: column !important;
-    overflow: hidden !important;
-    border-radius: 16px !important;
     background: #ffffff !important;
     color: #111827 !important;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45) !important;
-    border: 1px solid #e5e7eb !important;
+    border: 5px solid red !important;
+    border-radius: 16px !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 1000001 !important;
     margin: auto !important;
+    overflow: hidden !important;
 }
 
 .salary-template-modal-header {
