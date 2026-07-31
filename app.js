@@ -7609,7 +7609,7 @@ class AetherPMO {
 
         const nameElem = document.getElementById('bid-result-project-name');
         if (nameElem) {
-            nameElem.textContent = `‘${project.name}’의 입찰 결과를 선택해 주세요.`;
+            nameElem.textContent = `'${project.name}'의 입찰 결과를 선택해 주세요.`;
         }
 
         if (modal) {
@@ -26622,7 +26622,7 @@ class AetherPMO {
             }).join('');
         });
 
-        # 2. Single variable replacements
+        // 2. Single variable replacements
         for (const key in context) {
             if (key === 'payment_items') continue;
             const val = context[key] !== undefined && context[key] !== null ? context[key] : '';
@@ -27602,27 +27602,24 @@ class AetherPMO {
         tbody.innerHTML = html;
     }
 
-    exportSalaryHistoryToExcel() {
+        exportSalaryHistoryToExcel() {
         this.showToast('급여 지급 완료 이력을 CSV 파일로 내보냅니다.', 'info');
         const list = (this.state.salaryApprovals || []).filter(a => a.status === 'PAID');
-        let csv = '지급연월,프로젝트,성명,고용형태,기본급,식대,기타수당,조정금액,최종지급액,지급일자
-';
+        let csv = '지급연월,프로젝트,성명,고용형태,기본급,식대,기타수당,조정금액,최종지급액,지급일자\n';
 
         list.forEach(a => {
             const items = (this.state.salaryItems || []).filter(i => i.approvalId === a.id);
             const project = (this.state.projects || []).find(p => p.id === a.projectId) || a.projectSnapshot || {};
             items.forEach(i => {
-                csv += `"${a.paymentMonth}","${project.name || ''}","${i.memberName}","${i.employmentType}",${i.baseSalary},${i.mealAllowance},${i.otherAllowance},${i.adjustmentAmount},${i.totalPayment},"${(a.paidAt || '').slice(0,10)}"
-`;
+                csv += `"${a.paymentMonth}","${project.name || ''}","${i.memberName}","${i.employmentType}",${i.baseSalary},${i.mealAllowance},${i.otherAllowance},${i.adjustmentAmount},${i.totalPayment},"${(a.paidAt || '').slice(0,10)}"\n`;
             });
         });
 
-        const blob = new Blob(["﻿" + csv], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `AetherPMO_Salary_History_${new Date().toISOString().slice(0,10)}.csv`;
         a.click();
     }
-
 }
