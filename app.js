@@ -1895,7 +1895,7 @@ class AetherPMO {
             try {
                 const [ { data: nirsData, error: nirsErr }, { data: nirsFilesData } ] = await Promise.all([
                     this.supabase.from('nirs_standard_templates').select('*').order('sequence_no', { ascending: true }),
-                    this.supabase.from('nirs_standard_template_files').select('*').eq('is_active', true)
+                    this.supabase.from('standard_artifact_template_files').select('*').eq('is_active', true)
                 ]);
 
                 if (!nirsErr && nirsData && nirsData.length > 0) {
@@ -13202,7 +13202,7 @@ class AetherPMO {
                         <div class="kpi-content">
                             <div class="kpi-label">운영·유지관리</div>
                             <div class="kpi-value" style="font-size:22px; font-weight:800;">0건</div>
-                            <div class="kpi-sub"><span class="badge badge-warning" style="font-size:10px;">표준체계 등록 필요</span></div>
+                            <div class="kpi-sub"><span class="badge badge-warning" style="font-size:10px;">표준체계 설계 중</span></div>
                         </div>
                     </div>
                     <div class="kpi-card nirs-summary-card">
@@ -13446,7 +13446,7 @@ class AetherPMO {
                     html = `<tr><td colspan="14" class="text-center" style="padding: 60px 20px;">
                         <i data-lucide="layers" style="width:42px; height:42px; color:var(--primary-color); stroke-width:1.5; margin-bottom:12px;"></i>
                         <h3 style="font-size:16px; font-weight:700; color:var(--text-primary); margin-bottom:6px;">운영·유지관리사업 표준 산출물이 아직 등록되지 않았습니다.</h3>
-                        <p style="font-size:13px; color:var(--text-muted); max-width:480px; margin:0 auto 16px auto;">0건 · 표준체계 등록 필요 (마스터 분류안 10개 영역 구성완료). 아래 버튼을 클릭하여 새 표준 양식을 등록하거나 일괄 업로드하세요.</p>
+                        <p style="font-size:13px; color:var(--text-muted); max-width:480px; margin:0 auto 16px auto;">0건 · 표준체계 설계 중 (마스터 분류안 10개 영역 구성완료). 아래 버튼을 클릭하여 새 표준 양식을 등록하거나 일괄 업로드하세요.</p>
                         <div style="display:flex; gap:8px; justify-content:center;">
                             <button class="btn btn-primary" onclick="app.openUploadNirsModal()">
                                 <i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 표준 산출물 등록
