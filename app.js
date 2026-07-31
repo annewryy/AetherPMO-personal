@@ -12932,7 +12932,7 @@ class AetherPMO {
     
     
     
-    resetStandardArtifactView({ organizationCode = 'NIRS', businessTypeCode = 'RESOURCE_INTEGRATION' } = {}) {
+        resetStandardArtifactView({ organizationCode = 'NIRS', businessTypeCode = 'RESOURCE_INTEGRATION' } = {}) {
         this.featureFlags = this.featureFlags || { projectCommonTemplates: false, templateFileManagement: false };
         this.activeOrgCode = organizationCode;
         this.activeBizTypeCode = businessTypeCode;
@@ -12987,27 +12987,6 @@ class AetherPMO {
 
         // Perform exactly ONCE DOM render
         this.renderArtifacts();
-    } = {}) {
-        this.featureFlags = this.featureFlags || { projectCommonTemplates: false, templateFileManagement: false };
-        this.activeOrgCode = organizationCode;
-        this.activeBizTypeCode = businessTypeCode;
-        this.activeNirsCategory = 'all';
-        this.activeNirsStage = 'all';
-        this.nirsCurrentPage = 1;
-        this.nirsSearchQuery = '';
-
-        const catSelect = document.getElementById('filter-nirs-category');
-        const stageSelect = document.getElementById('filter-nirs-stage');
-        if (catSelect) catSelect.value = 'all';
-        if (stageSelect) stageSelect.value = 'all';
-
-        const searchInput = document.getElementById('nirs-template-search');
-        if (searchInput) searchInput.value = '';
-
-        if (typeof this.switchView === 'function') {
-            this.switchView('artifacts');
-        }
-        this.handleOrgChange(organizationCode);
     }
 
     switchArtifactSubView(subview) {
