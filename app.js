@@ -12172,6 +12172,19 @@ class AetherPMO {
     }
 
     
+    
+    toggleNirsMoreFilters() {
+        const row = document.getElementById('nirs-more-filters-row');
+        const btn = document.getElementById('btn-nirs-more-filters');
+        if (!row) return;
+        const isHidden = row.style.display === 'none';
+        row.style.display = isHidden ? 'flex' : 'none';
+        if (btn) {
+            btn.innerHTML = isHidden ? '<i data-lucide="filter" style="width:13px; height:13px;"></i> 더보기 ▲' : '<i data-lucide="filter" style="width:13px; height:13px;"></i> 더보기 ▼';
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+
     selectNirsCategoryFilter(cat) {
         this.activeNirsCategory = cat;
         this.activeNirsStage = 'all';
@@ -12293,220 +12306,276 @@ class AetherPMO {
     }
 
     renderArtifacts() {
-        const type  = this.activeGlobalTemplateType  || 'operation';
-        const stage = this.activeGlobalTemplateStage || 'initiation';
+        if (!this.selectedNirsTemplateIds) this.selectedNirsTemplateIds = new Set();
+        
+        const catFilter  = this.activeNirsCategory || 'all';
+        const stageFilter = this.activeNirsStage || 'all';
+        const fileStatusFilter = this.activeNirsFileStatus || 'all';
+        const offFilter  = this.activeNirsOfficial || 'all';
+        const appFilter  = this.activeNirsApproval || 'all';
+        const sealFilter = this.activeNirsSeal || 'all';
+        const query      = (this.nirsSearchQuery || '').toLowerCase();
 
-        // ── 필터 변경 시 선택 세트 리셋 ────────────────────────────
-        if (type !== this.prevGlobalTemplateType || stage !== this.prevGlobalTemplateStage) {
-            this.selectedTemplateIds.clear();
-            const selectAllTh = document.getElementById('th-template-select-all');
-            if (selectAllTh) selectAllTh.checked = false;
-            this.prevGlobalTemplateType = type;
-            this.prevGlobalTemplateStage = stage;
-        }
+        // ── 1. 전체 마스터 데이타셋 가져오기 (DB/State 기반) ──────────────
+        const fullList = this.state.nirsStandardTemplates || this.getDefaultNirsTemplates();
+        const filesList = this.state.nirsTemplateFiles || [];
 
-        // ── 1단계: 프로젝트 분류 트리 동적 렌더링 ───────────────────
-        const projectTypes = this.state.projectTypes || this.getDefaultProjectTypes();
+        // ── 2. 동적 건수 집계 (Dynamic COUNT Computation - No Hardcoding!) ──
+        const totalCount = fullList.length;
+        const pmList = fullList.filter(t => t.category === '사업관리');
+        const infraList = fullList.filter(t => t.category === '통합구축');
+        const appList = fullList.filter(t => t.category === '업무전환');
+
+        // ── 3. 상단 요약 KPI 카드 수치 동적 업데이트 & 하이라이트 ─────────────
+        const kpiTotal = document.getElementById('kpi-nirs-total');
+        const kpiPm = document.getElementById('kpi-nirs-pm');
+        const kpiInfra = document.getElementById('kpi-nirs-infra');
+        const kpiApp = document.getElementById('kpi-nirs-app');
+
+        if (kpiTotal) kpiTotal.textContent = `${totalCount}건`;
+        if (kpiPm) kpiPm.textContent = `${pmList.length}건`;
+        if (kpiInfra) kpiInfra.textContent = `${infraList.length}건`;
+        if (kpiApp) kpiApp.textContent = `${appList.length}건`;
+
+        // 카드 하이라이트 Sync
+        ['all', '사업관리', '통합구축', '업무전환'].forEach(c => {
+            const cardId = c === 'all' ? 'kpi-card-all' : c === '사업관리' ? 'kpi-card-pm' : c === '통합구축' ? 'kpi-card-infra' : 'kpi-card-app';
+            const cardEl = document.getElementById(cardId);
+            if (cardEl) {
+                if (c === catFilter) cardEl.classList.add('active');
+                else cardEl.classList.remove('active');
+            }
+        });
+
+        // ── 4. 좌측 NIRS 표준 산출물 전용 동적 트리 생성 (기존 구조 완전 폐기) ──
         const treeContainer = document.getElementById('artifact-category-tree');
         if (treeContainer) {
-            treeContainer.innerHTML = '';
-            
-            projectTypes.forEach(pt => {
-                // 사업유형 노드 생성
-                const typeNode = document.createElement('div');
-                typeNode.className = 'tree-node-type';
+            let treeHtml = '';
+
+            const categoriesDef = [
+                { key: '사업관리', name: '사업관리', icon: 'briefcase', items: pmList, defaultStages: ['착수 준비', '착수', '계획', '수행 및 통제', '안정화', '종료'] },
+                { key: '통합구축', name: '통합구축', icon: 'server', items: infraList, defaultStages: ['착수', '설계', '구축', '종료'] },
+                { key: '업무전환', name: '업무전환', icon: 'refresh-cw', items: appList, defaultStages: ['착수', '설계', '구축', '종료'] }
+            ];
+
+            // Root Node
+            const isRootActive = (catFilter === 'all' && stageFilter === 'all');
+            treeHtml += `
+                <div class="tree-cat-header ${isRootActive ? 'active' : ''}" onclick="app.selectNirsCategoryFilter('all')">
+                    <span style="display:flex; align-items:center; gap:6px;">
+                        <i data-lucide="book-open" style="width:15px; height:15px; color:var(--primary-color);"></i>
+                        <strong>국가정보자원관리원</strong>
+                    </span>
+                    <span class="badge badge-primary" style="font-size:11px;">${totalCount}</span>
+                </div>
+                <div style="margin-top:8px; display:flex; flex-direction:column; gap:10px; padding-left:4px;">
+            `;
+
+            categoriesDef.forEach(catDef => {
+                const isCatActive = (catFilter === catDef.key && stageFilter === 'all');
                 
-                const labelDiv = document.createElement('div');
-                labelDiv.className = 'tree-node-type-label';
-                labelDiv.innerHTML = `<i data-lucide="${pt.icon}" style="width:15px; height:15px; color: var(--text-muted);"></i> ${pt.label}`;
-                typeNode.appendChild(labelDiv);
-                
-                // 하위 단계 리스트 컨테이너
-                const stagesContainer = document.createElement('div');
-                stagesContainer.className = 'tree-node-stages';
-                
-                const stagesDef = [
-                    { key: 'initiation', label: '착수단계 템플릿', icon: 'file-text' },
-                    { key: 'execution', label: '수행단계 템플릿', icon: 'play-circle' },
-                    { key: 'closing', label: '종료단계 템플릿', icon: 'check-circle2' }
-                ].map(s => {
-                    const count = this.getFilteredTemplates(pt.key, s.key).length;
-                    return { ...s, displayCount: count };
+                // Group stages dynamically for this category
+                const stageCounts = {};
+                catDef.items.forEach(item => {
+                    const stg = item.stage || '미지정';
+                    stageCounts[stg] = (stageCounts[stg] || 0) + 1;
                 });
-                
-                stagesDef.forEach(s => {
-                    const stageItem = document.createElement('div');
-                    const isActive = (pt.key === type && s.key === stage);
-                    stageItem.className = `tree-node-stage-item${isActive ? ' active' : ''}`;
-                    stageItem.innerHTML = `<i data-lucide="${s.icon}" style="width:13px; height:13px;"></i> ${s.label} (${s.displayCount})`;
-                    stageItem.onclick = () => {
-                        window.location.hash = `#artifacts/${pt.key}/${s.key}`;
-                    };
-                    stagesContainer.appendChild(stageItem);
+
+                treeHtml += `
+                    <div class="tree-node-type">
+                        <div class="tree-cat-header ${isCatActive ? 'active' : ''}" onclick="app.selectNirsCategoryFilter('${catDef.key}')">
+                            <span style="display:flex; align-items:center; gap:6px;">
+                                <i data-lucide="${catDef.icon}" style="width:14px; height:14px; color:var(--text-muted);"></i>
+                                ${catDef.name}
+                            </span>
+                            <span class="badge badge-outline" style="font-size:11px;">${catDef.items.length}</span>
+                        </div>
+                        <div class="tree-node-stages" style="padding-left:14px; margin-left:6px; border-left:1px dashed var(--border-color); display:flex; flex-direction:column; gap:3px; margin-top:4px;">
+                `;
+
+                catDef.defaultStages.forEach(stgName => {
+                    const count = stageCounts[stgName] || 0;
+                    const isStgActive = (catFilter === catDef.key && stageFilter === stgName);
+                    treeHtml += `
+                        <div class="tree-node-stage-item ${isStgActive ? 'active' : ''}" onclick="event.stopPropagation(); app.activeNirsCategory='${catDef.key}'; app.activeNirsStage='${stgName}'; app.renderArtifacts();">
+                            <i data-lucide="circle" style="width:6px; height:6px; color:${isStgActive ? 'var(--primary-color)' : 'var(--text-muted)'};"></i>
+                            <span>${stgName}</span>
+                            <span style="margin-left:auto; font-size:11px; color:var(--text-muted);">(${count})</span>
+                        </div>
+                    `;
                 });
-                
-                typeNode.appendChild(stagesContainer);
-                treeContainer.appendChild(typeNode);
+
+                treeHtml += `
+                        </div>
+                    </div>
+                `;
             });
+
+            treeHtml += `</div>`;
+            treeContainer.innerHTML = treeHtml;
         }
 
-        // ── 권한 체크 ────────────────────────────────────────────────
-        const hasTemplatePermission = this.checkTemplatePermission();
-        const btnAdd = document.getElementById('btn-add-global-template');
-        if (btnAdd) {
-            btnAdd.style.display = hasTemplatePermission ? 'block' : 'none';
-        }
+        // ── 5. 다중 필터링 및 검색 적용 ──────────────────────────────────
+        let filtered = fullList.filter(item => {
+            if (catFilter !== 'all' && item.category !== catFilter) return false;
+            if (stageFilter !== 'all' && item.stage !== stageFilter) return false;
 
-        // ── 현재 선택된 경로 표시 (우측 상단 path-info) ──────────────────
-        const typeInfo = projectTypes.find(pt => pt.key === type);
-        const typeLabelEl = document.getElementById('path-project-type');
-        if (typeLabelEl) {
-            typeLabelEl.textContent = typeInfo ? typeInfo.label : '운영사업';
-        }
-        
-        const stageLabelEl = document.getElementById('path-project-stage');
-        if (stageLabelEl) {
-            const stageLabelMap = { initiation: '착수단계 템플릿', execution: '수행단계 템플릿', closing: '종료단계 템플릿' };
-            stageLabelEl.textContent = stageLabelMap[stage] || '착수단계 템플릿';
-        }
+            const fileRec = filesList.find(f => f.templateId === item.id);
+            if (fileStatusFilter === 'registered' && !fileRec) return false;
+            if (fileStatusFilter === 'unregistered' && fileRec) return false;
 
-        // ── 테이블 렌더링 ────────────────────────────────────────────
+            if (offFilter === 'required' && !item.requiresOfficialLetter) return false;
+            if (offFilter === 'none' && item.requiresOfficialLetter) return false;
+
+            if (appFilter === 'required' && !item.requiresClientApproval) return false;
+            if (appFilter === 'none' && item.requiresClientApproval) return false;
+
+            if (sealFilter === 'required' && !item.requiresSeal) return false;
+            if (sealFilter === 'none' && item.requiresSeal) return false;
+
+            if (query) {
+                const matchCode = (item.id || '').toLowerCase().includes(query);
+                const matchName = (item.artifactName || '').toLowerCase().includes(query);
+                const matchStage = (item.stage || '').toLowerCase().includes(query);
+                const matchSub = (item.subStage || '').toLowerCase().includes(query);
+                const matchMgr = (item.managerRole || '').toLowerCase().includes(query);
+                const matchAuthor = (item.authorRole || '').toLowerCase().includes(query);
+                const matchTiming = (item.submissionTiming || '').toLowerCase().includes(query);
+                const matchNote = (item.description || '').toLowerCase().includes(query);
+
+                if (!matchCode && !matchName && !matchStage && !matchSub && !matchMgr && !matchAuthor && !matchTiming && !matchNote) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        this.currentFilteredNirsList = filtered;
+
+        // ── 6. Breadcrumb 갱신 ─────────────────────────────────────────────
+        const breadSub = document.getElementById('nirs-breadcrumb-sub');
+        const listCount = document.getElementById('nirs-list-count');
+
+        if (breadSub) {
+            if (catFilter === 'all' && stageFilter === 'all') {
+                breadSub.innerHTML = `
+                    <i data-lucide="chevron-right" style="width:12px; height:12px; margin:0 4px; color:var(--text-muted);"></i>
+                    <span class="text-primary font-bold">전체 산출물</span>
+                `;
+            } else if (stageFilter === 'all') {
+                breadSub.innerHTML = `
+                    <i data-lucide="chevron-right" style="width:12px; height:12px; margin:0 4px; color:var(--text-muted);"></i>
+                    <span class="text-primary font-bold">${catFilter}</span>
+                `;
+            } else {
+                breadSub.innerHTML = `
+                    <i data-lucide="chevron-right" style="width:12px; height:12px; margin:0 4px; color:var(--text-muted);"></i>
+                    <span>${catFilter}</span>
+                    <i data-lucide="chevron-right" style="width:12px; height:12px; margin:0 4px; color:var(--text-muted);"></i>
+                    <span class="text-primary font-bold">${stageFilter}</span>
+                `;
+            }
+        }
+        if (listCount) listCount.textContent = filtered.length;
+
+        // ── 7. 우측 컴팩트 테이블 렌더링 (14 컬럼 레이아웃) ─────────────────────
         const tbody = document.getElementById('global-templates-tbody');
         if (!tbody) return;
 
-        const templates = this.getFilteredTemplates(type, stage);
+        const isAdmin = this.currentUser?.role === 'SYS_ADMIN' || this.currentUser?.role === 'EXEC_ADMIN';
+        let html = '';
 
-        if (templates.length === 0) {
-            const typeLabel = typeInfo ? typeInfo.label : type;
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">[${typeLabel}] ${stage === 'initiation' ? '착수' : stage === 'execution' ? '수행' : '종료'}단계에 등록된 표준 템플릿 양식이 없습니다.</td></tr>`;
+        if (filtered.length === 0) {
+            html = `<tr><td colspan="14" class="text-center" style="padding: 50px 0; color: var(--text-muted);">
+                <i data-lucide="file-x" style="width:36px; height:36px; stroke-width:1.5; margin-bottom:8px; opacity:0.5;"></i>
+                <div style="font-size:14px;">조건에 일치하는 표준 산출물이 없습니다.</div>
+            </td></tr>`;
         } else {
-            tbody.innerHTML = '';
-            templates.forEach(temp => {
-                const tr = document.createElement('tr');
-                tr.setAttribute('data-id', temp.id);
+            filtered.forEach(item => {
+                const fileRec = filesList.find(f => f.templateId === item.id);
+                const isChecked = this.selectedNirsTemplateIds.has(item.id);
 
-                // 파일 확장자 동적 추출 및 대소문자 무관 Badge 매핑
-                const fileName = temp.fileName || '';
-                const dotIndex = fileName.lastIndexOf('.');
-                const ext = dotIndex !== -1 ? fileName.substring(dotIndex + 1).toLowerCase() : '';
-                
-                let extBadge = '';
-                if (ext) {
-                    const upperExt = ext.toUpperCase();
-                    if (upperExt === 'HWP' || upperExt === 'HWPX') {
-                        extBadge = `<span class="badge badge-info mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0;">${upperExt}</span>`;
-                    } else if (upperExt === 'DOC' || upperExt === 'DOCX') {
-                        extBadge = `<span class="badge badge-primary mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0;">${upperExt}</span>`;
-                    } else if (upperExt === 'XLS' || upperExt === 'XLSX') {
-                        extBadge = `<span class="badge badge-success mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0;">${upperExt}</span>`;
-                    } else if (upperExt === 'PPT' || upperExt === 'PPTX') {
-                        extBadge = `<span class="badge badge-warning mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0;">${upperExt}</span>`;
-                    } else if (upperExt === 'PDF') {
-                        extBadge = `<span class="badge badge-error mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0;">PDF</span>`;
-                    } else if (['ZIP', 'PNG', 'JPG', 'JPEG'].includes(upperExt)) {
-                        extBadge = `<span class="badge badge-ghost mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0; background:var(--bg-card-border); color:var(--text-muted);">${upperExt}</span>`;
-                    } else {
-                        extBadge = `<span class="badge badge-ghost mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0; background:var(--bg-card-border); color:var(--text-muted);">FILE</span>`;
-                    }
+                const subBadge = item.requiresSubmission ? '<span class="badge-flag-yes" title="발주처 제출 필수">📥 제출</span>' : '<span class="badge-flag-no">-</span>';
+                const offBadge = item.requiresOfficialLetter ? '<span class="badge-flag-yes" title="공문 발신 필수">📄 공문</span>' : '<span class="badge-flag-no">-</span>';
+                const appBadge = item.requiresClientApproval ? '<span class="badge-flag-yes" title="발주처 서면 승인 필수">✔ 승인</span>' : '<span class="badge-flag-no">-</span>';
+                const sealBadge = item.requiresSeal ? '<span class="badge-flag-yes" title="직인/인감 날인 필수">🔴 인감</span>' : '<span class="badge-flag-no">-</span>';
+
+                const managerHtml = item.managerRole ? `<span style="font-weight:500;">${item.managerRole}</span>` : `<span class="badge badge-subtle">미지정</span>`;
+                const authorHtml = item.authorRole ? `<span style="font-weight:500;">${item.authorRole}</span>` : `<span class="badge badge-subtle">미지정</span>`;
+
+                let fileBadgeHtml = '';
+                let fileInfoHtml = '-';
+                let versionHtml = '-';
+                let downloadBtn = '';
+                let uploadBtn = '';
+
+                if (fileRec) {
+                    const ext = (fileRec.fileExtension || 'file').toUpperCase();
+                    const kbSize = fileRec.fileSize ? (fileRec.fileSize / 1024).toFixed(1) + ' KB' : '';
+                    fileBadgeHtml = `<span class="badge badge-success" style="font-size:11px;">🟢 등록완료</span>`;
+                    fileInfoHtml = `<div style="display:flex; flex-direction:column; gap:2px;">
+                        <strong style="font-size:12px; color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:180px;" title="${fileRec.originalFileName}">${fileRec.originalFileName}</strong>
+                        <div style="font-size:11px; color:var(--text-muted);"><span class="badge badge-outline" style="font-size:9.5px; padding:1px 4px;">${ext}</span> ${kbSize}</div>
+                    </div>`;
+                    versionHtml = `v${fileRec.fileVersion || '1.0'}`;
+                    downloadBtn = `
+                        <button class="btn btn-sm btn-primary" onclick="app.downloadNirsTemplateFile('${item.id}')" title="${fileRec.originalFileName} (${kbSize}) 다운로드">
+                            <i data-lucide="download" style="width:12px; height:12px;"></i>
+                        </button>
+                    `;
                 } else {
-                    extBadge = `<span class="badge badge-ghost mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0; background:var(--bg-card-border); color:var(--text-muted);">FILE</span>`;
+                    fileBadgeHtml = `<span class="badge badge-secondary" style="font-size:11px;">⚪ 미등록</span>`;
+                    downloadBtn = `
+                        <button class="btn btn-sm btn-ghost" disabled title="등록된 표준 양식 파일이 없습니다.">
+                            <i data-lucide="download" style="width:12px; height:12px; opacity:0.4;"></i>
+                        </button>
+                    `;
                 }
 
-                const isPDF = ext === 'pdf';
-                const previewBtn = isPDF
-                    ? `
-                        <button type="button" class="btn btn-xs btn-outline-info" onclick="event.stopPropagation(); app.previewPDF('${temp.id}');" style="padding: 2px 6px; font-size: 10px; margin-left: 6px; display:inline-flex; align-items:center; gap:2px; flex-shrink:0;">
-                            <i data-lucide="eye" style="width:10px; height:10px;"></i> 미리보기
-                        </button>
-                    `
-                    : '';
-
-                const downloadHtml = `
-                    <div style="display:flex; flex-direction:column; gap:2px; justify-content:center; text-align:left; width: 100%; overflow:hidden;">
-                        <div style="display:flex; align-items:center; gap:6px; width:100%; overflow:hidden;">
-                            <a href="#" class="file-name-link font-bold text-xs text-ellipsis" style="max-width: calc(100% - 35px); cursor: pointer;" title="파일 다운로드" onclick="event.preventDefault(); event.stopPropagation(); app.downloadGlobalTemplate('${temp.id}'); return false;">
-                                ${temp.fileName}
-                            </a>
-                            <i data-lucide="download" class="text-primary" style="width:13px; height:13px; flex-shrink:0; cursor: pointer;" title="파일 다운로드" onclick="event.stopPropagation(); app.downloadGlobalTemplate('${temp.id}');"></i>
-                            ${previewBtn}
-                        </div>
-                        <span class="text-xs text-muted hide-mobile" style="font-size:10px; margin-left:0px;">${temp.fileSize}</span>
-                    </div>
-                `;
-
-                const actionHtml = hasTemplatePermission
-                    ? `
-                        <div class="actions-flex" style="justify-content:center; gap:8px;">
-                            <button type="button" class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.openEditGlobalTemplateModal('${temp.id}')">
-                                <i data-lucide="edit" style="width:11px; height:11px; margin-right:2px;"></i> 수정
-                            </button>
-                            <button type="button" class="btn btn-xs btn-danger" onclick="event.stopPropagation(); app.deleteGlobalTemplate('${temp.id}')">
-                                <i data-lucide="trash-2" style="width:11px; height:11px; margin-right:2px;"></i> 삭제
-                            </button>
-                        </div>
-                    `
-                    : `
-                        <div style="text-align:center;">
-                            <button type="button" class="btn btn-xs btn-primary" onclick="event.stopPropagation(); app.downloadGlobalTemplate('${temp.id}')">
-                                <i data-lucide="download" style="width:11px; height:11px; margin-right:2px;"></i> 다운로드
-                            </button>
-                        </div>
+                if (isAdmin) {
+                    uploadBtn = `
+                        <label class="btn btn-sm btn-outline" style="cursor:pointer;" title="표준 양식 등록/교체">
+                            <i data-lucide="upload" style="width:12px; height:12px;"></i>
+                            <input type="file" accept=".hwp,.hwpx,.docx,.xlsx,.pdf,.zip" style="display:none;" onchange="app.uploadNirsTemplateFile('${item.id}', this)" />
+                        </label>
                     `;
+                }
 
-                const isChecked = this.selectedTemplateIds.has(temp.id);
-                const categoryLabel = this.translateCategory(temp.category);
-
-                tr.innerHTML = `
-                    <td class="text-center">
-                        <input type="checkbox" class="template-row-checkbox" data-id="${temp.id}" ${isChecked ? 'checked' : ''} onchange="app.toggleTemplateSelection('${temp.id}', this.checked)">
-                    </td>
-                    <td class="font-bold text-sm text-left" style="color:var(--text-main); overflow:hidden; vertical-align: middle;">
-                        <div style="display:flex; flex-direction:column; gap:2px; width:100%; overflow:hidden;">
-                            <div style="display:flex; align-items:center; gap:2px; width:100%; overflow:hidden;">
-                                <i data-lucide="grip-vertical" class="drag-handle text-muted hide-mobile" title="드래그해서 순서 변경" style="cursor: grab; width: 14px; height: 14px; margin-right: 4px; flex-shrink: 0;"></i>
-                                ${extBadge}
-                                <span class="text-ellipsis" title="${temp.name}" style="max-width:calc(100% - 70px);">${temp.name}</span>
-                                <div class="mobile-order-buttons hide-desktop" style="display: none; align-items: center; gap: 4px; margin-left: auto;">
-                                    <button class="btn btn-xs btn-outline" onclick="app.moveTemplateOrder('${temp.id}', 'up'); event.stopPropagation();" title="위로 이동" style="padding: 2px 4px;">
-                                        <i data-lucide="chevron-up" style="width:12px; height:12px;"></i>
-                                    </button>
-                                    <button class="btn btn-xs btn-outline" onclick="app.moveTemplateOrder('${temp.id}', 'down'); event.stopPropagation();" title="아래로 이동" style="padding: 2px 4px;">
-                                        <i data-lucide="chevron-down" style="width:12px; height:12px;"></i>
-                                    </button>
-                                </div>
+                html += `
+                    <tr>
+                        <td class="text-center">
+                            <input type="checkbox" class="chk-nirs-item" ${isChecked ? 'checked' : ''} onchange="app.toggleNirsTemplateSelect('${item.id}', this.checked)">
+                        </td>
+                        <td style="font-family:monospace; font-size:11.5px; font-weight:600; color:var(--primary-color);">${item.id}</td>
+                        <td>
+                            <strong style="color:var(--text-primary); font-size:13px;">${item.artifactName}</strong>
+                            ${item.description ? `<div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${item.description}</div>` : ''}
+                        </td>
+                        <td class="text-center">${fileBadgeHtml}</td>
+                        <td>${fileInfoHtml}</td>
+                        <td class="text-center" style="font-size:11.5px; color:var(--text-muted);">${versionHtml}</td>
+                        <td class="text-center">${managerHtml}</td>
+                        <td class="text-center">${authorHtml}</td>
+                        <td class="text-center">${subBadge}</td>
+                        <td class="text-center">${offBadge}</td>
+                        <td class="text-center">${appBadge}</td>
+                        <td class="text-center">${sealBadge}</td>
+                        <td class="text-center" style="font-size:11.5px; color:var(--text-muted);">${item.submissionTiming || '-'}</td>
+                        <td class="text-center">
+                            <div class="nirs-action-btn-group">
+                                ${downloadBtn}
+                                ${uploadBtn}
                             </div>
-                            <span class="text-xs text-muted" style="font-size:10px; font-weight:normal; margin-left:2px;">
-                                수정자 ${temp.author || '미지정'} · 수정일 ${temp.modifiedDate} · 다운로드 ${temp.downloadCount || 0}회
-                            </span>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="badge-cat cat-${temp.category.toLowerCase().replace(' ', '')} text-ellipsis" style="max-width:100%; display:inline-block;" title="${categoryLabel}">${categoryLabel}</span>
-                    </td>
-                    <td class="text-center text-xs font-bold">${temp.version}</td>
-                    <td>${downloadHtml}</td>
-                    <td>${actionHtml}</td>
+                        </td>
+                    </tr>
                 `;
-                tbody.appendChild(tr);
             });
-
-            // 헤더 체크박스 상태 동기화 (현재 노출된 화면 기준)
-            const selectAllTh = document.getElementById('th-template-select-all');
-            if (selectAllTh) {
-                selectAllTh.checked = templates.length > 0 && templates.every(t => this.selectedTemplateIds.has(t.id));
-            }
         }
 
-        this.updateBulkDownloadButton();
-
-        this.applyRolePermissions();
-
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-
-        // 산출물 템플릿 Drag & Drop 순서 재정렬 바인딩
-        this.initTemplateRowDragAndDrop();
+        tbody.innerHTML = html;
+        this.updateNirsBulkDownloadBtnState();
+        if (window.lucide) lucide.createIcons();
     }
 
     updateProjectStageCounts() {
