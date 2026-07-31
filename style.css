@@ -8088,3 +8088,180 @@ body.dark-mode .tree-node-stage-item.selected,
     border-left: 3px solid #6366F1 !important;
     border-radius: 0 6px 6px 0 !important;
 }
+
+/* ============================================================================
+   COMPREHENSIVE STATE & THEME TOKEN ARCHITECTURE (SELECTION, BADGES, CONTRAST)
+   ============================================================================ */
+
+/* ── LIGHT MODE COMPREHENSIVE TOKENS ────────────────────────────────────── */
+body:not(.dark-mode), [data-theme="light"] {
+    --tbl-bg-normal: #FFFFFF;
+    --tbl-bg-hover: #F8FAFC;
+    --tbl-bg-selected: #EEF2FF;
+    --tbl-border-selected: #6366F1;
+    --tbl-text-primary: #1E293B;
+    --tbl-text-secondary: #475569;
+    --tbl-text-muted: #64748B;
+    
+    /* Badge Light Tokens */
+    --badge-sub-bg: #DBEAFE; --badge-sub-text: #1E40AF; --badge-sub-border: #BFDBFE;
+    --badge-off-bg: #F3E8FF; --badge-off-text: #6B21A8; --badge-off-border: #E9D5FF;
+    --badge-app-bg: #D1FAE5; --badge-app-text: #065F46; --badge-app-border: #A7F3D0;
+    --badge-seal-bg: #FEE2E2; --badge-seal-text: #991B1B; --badge-seal-border: #FECACA;
+    --badge-reg-bg: #DCFCE7; --badge-reg-text: #166534; --badge-reg-border: #BBF7D0;
+    --badge-unreg-bg: #F1F5F9; --badge-unreg-text: #475569; --badge-unreg-border: #E2E8F0;
+
+    /* Tree Light Tokens */
+    --tree-text-normal: #334155;
+    --tree-text-expanded: #0F172A;
+    --tree-bg-selected: #F5F3FF;
+    --tree-text-selected: #6D28D9;
+    --tree-border-selected: #7C3AED;
+}
+
+/* ── DARK MODE COMPREHENSIVE TOKENS ─────────────────────────────────────── */
+body.dark-mode, [data-theme="dark"] {
+    --tbl-bg-normal: #131C2E;
+    --tbl-bg-hover: #1A2640;
+    --tbl-bg-selected: #1E293B;
+    --tbl-border-selected: #6366F1;
+    --tbl-text-primary: #F8FAFC;
+    --tbl-text-secondary: #CBD5E1;
+    --tbl-text-muted: #94A3B8;
+    
+    /* Badge Dark Tokens */
+    --badge-sub-bg: rgba(59, 130, 246, 0.2); --badge-sub-text: #93C5FD; --badge-sub-border: rgba(59, 130, 246, 0.4);
+    --badge-off-bg: rgba(139, 92, 246, 0.2); --badge-off-text: #E9D5FF; --badge-off-border: rgba(139, 92, 246, 0.4);
+    --badge-app-bg: rgba(16, 185, 129, 0.2); --badge-app-text: #A7F3D0; --badge-app-border: rgba(16, 185, 129, 0.4);
+    --badge-seal-bg: rgba(239, 68, 68, 0.2); --badge-seal-text: #FCA5A5; --badge-seal-border: rgba(239, 68, 68, 0.4);
+    --badge-reg-bg: rgba(34, 197, 94, 0.2); --badge-reg-text: #86EFAC; --badge-reg-border: rgba(34, 197, 94, 0.4);
+    --badge-unreg-bg: rgba(148, 163, 184, 0.2); --badge-unreg-text: #CBD5E1; --badge-unreg-border: rgba(148, 163, 184, 0.4);
+
+    /* Tree Dark Tokens */
+    --tree-text-normal: #CBD5E1;
+    --tree-text-expanded: #F8FAFC;
+    --tree-bg-selected: #1E293B;
+    --tree-text-selected: #F8FAFC;
+    --tree-border-selected: #6366F1;
+}
+
+/* ── TABLE ROW SELECTION & THEME INHERITANCE ───────────────────────────── */
+.data-table-compact tbody tr.selected {
+    background-color: var(--tbl-bg-selected) !important;
+}
+.data-table-compact tbody tr.selected td {
+    background-color: var(--tbl-bg-selected) !important;
+    color: var(--tbl-text-primary) !important;
+}
+.data-table-compact tbody tr.selected td:first-child {
+    border-left: 3px solid var(--tbl-border-selected) !important;
+}
+
+/* Ensure sticky cells in selected rows inherit selected background */
+.data-table-compact tbody tr.selected td.sticky-artifact-name,
+.data-table-compact tbody tr.selected td[style*="sticky"] {
+    background-color: var(--tbl-bg-selected) !important;
+}
+
+/* ── INDEPENDENT BADGE STYLES (No Row Background Inheritance) ────────────── */
+.badge-filled-sub {
+    background-color: var(--badge-sub-bg) !important;
+    color: var(--badge-sub-text) !important;
+    border: 1px solid var(--badge-sub-border) !important;
+    padding: 3px 8px !important;
+    border-radius: 9999px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    gap: 3px !important;
+}
+.badge-filled-off {
+    background-color: var(--badge-off-bg) !important;
+    color: var(--badge-off-text) !important;
+    border: 1px solid var(--badge-off-border) !important;
+    padding: 3px 8px !important;
+    border-radius: 9999px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    gap: 3px !important;
+}
+.badge-filled-app {
+    background-color: var(--badge-app-bg) !important;
+    color: var(--badge-app-text) !important;
+    border: 1px solid var(--badge-app-border) !important;
+    padding: 3px 8px !important;
+    border-radius: 9999px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    gap: 3px !important;
+}
+.badge-filled-seal {
+    background-color: var(--badge-seal-bg) !important;
+    color: var(--badge-seal-text) !important;
+    border: 1px solid var(--badge-seal-border) !important;
+    padding: 3px 8px !important;
+    border-radius: 9999px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    gap: 3px !important;
+}
+
+.badge-status-reg {
+    background-color: var(--badge-reg-bg) !important;
+    color: var(--badge-reg-text) !important;
+    border: 1px solid var(--badge-reg-border) !important;
+    padding: 2px 8px !important;
+    border-radius: 9999px !important;
+    font-size: 10.5px !important;
+    font-weight: 600 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    white-space: nowrap !important;
+}
+.badge-status-unreg {
+    background-color: var(--badge-unreg-bg) !important;
+    color: var(--badge-unreg-text) !important;
+    border: 1px solid var(--badge-unreg-border) !important;
+    padding: 2px 8px !important;
+    border-radius: 9999px !important;
+    font-size: 10.5px !important;
+    font-weight: 600 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    white-space: nowrap !important;
+}
+
+/* ── TREE ITEM STYLES USING THEME TOKENS ───────────────────────────────── */
+.tree-cat-header {
+    color: var(--tree-text-normal) !important;
+    background: transparent !important;
+    border-left: 3px solid transparent !important;
+}
+.tree-cat-header.expanded {
+    color: var(--tree-text-expanded) !important;
+    font-weight: 700 !important;
+    background: transparent !important;
+}
+.tree-cat-header.selected,
+.tree-node-stage-item.selected {
+    background-color: var(--tree-bg-selected) !important;
+    color: var(--tree-text-selected) !important;
+    font-weight: 600 !important;
+    border-left: 3px solid var(--tree-border-selected) !important;
+    border-radius: 0 6px 6px 0 !important;
+}

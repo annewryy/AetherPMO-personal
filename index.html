@@ -881,16 +881,23 @@
                             <div class="table-container" style="flex:1; overflow-y:auto; margin-top:12px;">
                                 <table class="data-table">
                                     <thead>
-                                        <tr>
-                                            <th style="width: 240px;">공고명</th>
-                                            <th>발주기관</th>
-                                            <th>공고번호</th>
-                                            <th>사업예산</th>
-                                            <th style="width: 160px; min-width: 160px;">공고일/마감일</th>
-                                            <th>D-Day</th>
-                                            <th class="text-center" style="width: 130px;">작업</th>
-                                        </tr>
-                                    </thead>
+                            <tr>
+                                <th class="text-center" style="width:36px; min-width:36px; position:sticky; left:0; z-index:10;"><input type="checkbox" id="chk-nirs-select-all" onchange="app.toggleNirsSelectAll(this.checked)"></th>
+                                <th style="width:105px; min-width:105px; position:sticky; left:36px; z-index:10;">코드</th>
+                                <th style="min-width:220px; position:sticky; left:141px; z-index:10;" class="artifact-name-column sticky-artifact-name">표준 산출물명</th>
+                                <th class="text-center" style="width:90px; min-width:90px;">양식 상태</th>
+                                <th style="width:160px; min-width:160px;">양식 파일 정보</th>
+                                <th class="text-center" style="width:60px; min-width:60px;">버전</th>
+                                <th class="text-center" style="width:100px; min-width:100px;">관리자(승인)</th>
+                                <th class="text-center" style="width:100px; min-width:100px;">작성담당자</th>
+                                <th class="text-center" style="width:68px; min-width:68px;">제출</th>
+                                <th class="text-center" style="width:60px; min-width:60px;">공문</th>
+                                <th class="text-center" style="width:68px; min-width:68px;">승인</th>
+                                <th class="text-center" style="width:60px; min-width:60px;">인감</th>
+                                <th class="text-center" style="width:130px; min-width:130px;">제출 시기</th>
+                                <th class="text-center" style="width:80px; min-width:80px; position:sticky; right:0; z-index:10;">관리</th>
+                            </tr>
+                        </thead>
                                     <tbody id="g2b-announcements-tbody">
                                         <!-- Dynamic rows -->
                                     </tbody>

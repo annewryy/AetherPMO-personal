@@ -13470,7 +13470,6 @@ class AetherPMO {
 
             orgsDef.forEach(org => {
                 const isOrgActive = (currentOrg === org.code);
-                // Org Tier is Expanded Parent Node (class 'expanded', NO dark background)
 
                 treeHtml += `
                     <div class="tree-node-type" style="margin-bottom:6px;">
@@ -13489,7 +13488,6 @@ class AetherPMO {
                         if (biz.isDraft && !showDrafts) return;
 
                         const isBizActive = (currentBizType === biz.code || (currentBizType === 'all' && biz.code === 'RESOURCE_INTEGRATION'));
-                        // BizType Tier is Expanded Parent Node (class 'expanded', NO dark background)
 
                         treeHtml += `
                             <div>
@@ -13505,7 +13503,6 @@ class AetherPMO {
                             treeHtml += `<div style="display:flex; flex-direction:column; gap:3px; margin-top:2px;">`;
 
                             if (biz.code === 'RESOURCE_INTEGRATION') {
-                                // Explicit "📄 전체 산출물" Node matching Breadcrumb & Selection
                                 const isAllSelected = (catFilter === 'all' && stageFilter === 'all');
                                 treeHtml += `
                                     <div class="tree-cat-header tree-node-level-3 ${isAllSelected ? 'selected' : ''}" onclick="event.stopPropagation(); app.activeNirsCategory='all'; app.activeNirsStage='all'; app.renderArtifacts();">
@@ -13695,7 +13692,7 @@ class AetherPMO {
             }
         }
 
-        // ── 8. Table Rows & Clean Actions ──────────────────────────────────
+        // ── 8. Table Rows with Independent Badge Classes & Selection Class ──
         const tbody = document.getElementById('global-templates-tbody');
         if (!tbody) return;
 
@@ -13710,8 +13707,8 @@ class AetherPMO {
                     html = `<tr><td colspan="14" class="text-center" style="padding: 70px 20px;">
                         <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; max-width:520px; margin:0 auto; text-align:center;">
                             <i data-lucide="layers" style="width:48px; height:48px; color:#8B5CF6; stroke-width:1.5; margin-bottom:14px;"></i>
-                            <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">${orgLabel} 표준 산출물이 아직 등록되지 않았습니다.</h3>
-                            <p style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom:20px;">${bizCountLabel}이 등록되어 있습니다.<br/>새 표준 양식을 직접 등록하거나 CSV 파일로 일괄 등록할 수 있습니다.</p>
+                            <h3 style="font-size:17px; font-weight:700; color:var(--tbl-text-primary); margin-bottom:8px;">${orgLabel} 표준 산출물이 아직 등록되지 않았습니다.</h3>
+                            <p style="font-size:13px; color:var(--tbl-text-muted); line-height:1.5; margin-bottom:20px;">${bizCountLabel}이 등록되어 있습니다.<br/>새 표준 양식을 직접 등록하거나 CSV 파일로 일괄 등록할 수 있습니다.</p>
                             <div style="display:flex; gap:10px; justify-content:center;">
                                 <button class="btn btn-primary" onclick="app.openUploadNirsModal()">
                                     <i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 표준 산출물 등록
@@ -13724,15 +13721,15 @@ class AetherPMO {
                     </td></tr>`;
                 } else {
                     html = `<tr><td colspan="14" class="text-center" style="padding: 70px 20px;">
-                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; max-width:480px; margin:0 auto; text-align:center; color:var(--text-muted);">
+                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; max-width:480px; margin:0 auto; text-align:center; color:var(--tbl-text-muted);">
                             <i data-lucide="clock" style="width:48px; height:48px; stroke-width:1.5; margin-bottom:14px; opacity:0.6;"></i>
-                            <h3 style="font-size:16px; font-weight:600; color:var(--text-primary); margin-bottom:6px;">등록된 표준 산출물이 없습니다.</h3>
+                            <h3 style="font-size:16px; font-weight:600; color:var(--tbl-text-primary); margin-bottom:6px;">등록된 표준 산출물이 없습니다.</h3>
                             <p style="font-size:13px;">${orgLabel} 표준체계 확장 예정입니다.</p>
                         </div>
                     </td></tr>`;
                 }
             } else {
-                html = `<tr><td colspan="14" class="text-center" style="padding: 60px 0; color: var(--text-muted);">
+                html = `<tr><td colspan="14" class="text-center" style="padding: 60px 0; color: var(--tbl-text-muted);">
                     <i data-lucide="file-x" style="width:36px; height:36px; stroke-width:1.5; margin-bottom:8px; opacity:0.5;"></i>
                     <div style="font-size:14px;">조건에 일치하는 표준 산출물이 없습니다.</div>
                 </td></tr>`;
@@ -13742,13 +13739,14 @@ class AetherPMO {
                 const fileRec = filesList.find(f => f.templateId === item.id);
                 const isChecked = this.selectedNirsTemplateIds.has(item.id);
 
-                const subBadge = item.requiresSubmission ? '<span class="badge-filled-blue" title="발주처 제출 필수">📥 제출</span>' : '<span style="color:var(--text-muted); font-size:11px;">-</span>';
-                const offBadge = item.requiresOfficialLetter ? '<span class="badge-filled-purple" title="공문 발신 필수">📄 공문</span>' : '<span style="color:var(--text-muted); font-size:11px;">-</span>';
-                const appBadge = item.requiresClientApproval ? '<span class="badge-filled-green" title="발주처 서면 승인 필수">✔ 승인</span>' : '<span style="color:var(--text-muted); font-size:11px;">-</span>';
-                const sealBadge = item.requiresSeal ? '<span class="badge-filled-red" title="직인/인감 날인 필수">🔴 인감</span>' : '<span style="color:var(--text-muted); font-size:11px;">-</span>';
+                // Independent Badge Classes (Single-line layout & Independent contrast)
+                const subBadge = item.requiresSubmission ? '<span class="badge-filled-sub" title="발주처 제출 필수">📥 제출</span>' : '<span style="color:var(--tbl-text-muted); font-size:11px;">-</span>';
+                const offBadge = item.requiresOfficialLetter ? '<span class="badge-filled-off" title="공문 발신 필수">📄 공문</span>' : '<span style="color:var(--tbl-text-muted); font-size:11px;">-</span>';
+                const appBadge = item.requiresClientApproval ? '<span class="badge-filled-app" title="발주처 서면 승인 필수">✔ 승인</span>' : '<span style="color:var(--tbl-text-muted); font-size:11px;">-</span>';
+                const sealBadge = item.requiresSeal ? '<span class="badge-filled-seal" title="직인/인감 날인 필수">🔴 인감</span>' : '<span style="color:var(--tbl-text-muted); font-size:11px;">-</span>';
 
-                const managerHtml = item.managerRole ? `<span style="font-weight:500;">${item.managerRole}</span>` : `<span class="badge badge-subtle">미지정</span>`;
-                const authorHtml = item.authorRole ? `<span style="font-weight:500;">${item.authorRole}</span>` : `<span class="badge badge-subtle">미지정</span>`;
+                const managerHtml = item.managerRole ? `<span style="font-weight:500; color:var(--tbl-text-primary);">${item.managerRole}</span>` : `<span class="badge badge-subtle">미지정</span>`;
+                const authorHtml = item.authorRole ? `<span style="font-weight:500; color:var(--tbl-text-primary);">${item.authorRole}</span>` : `<span class="badge badge-subtle">미지정</span>`;
 
                 let fileBadgeHtml = '';
                 let fileInfoHtml = '-';
@@ -13759,10 +13757,10 @@ class AetherPMO {
                 if (fileRec) {
                     const ext = (fileRec.fileExtension || 'file').toUpperCase();
                     const kbSize = fileRec.fileSize ? (fileRec.fileSize / 1024).toFixed(1) + ' KB' : '';
-                    fileBadgeHtml = `<span class="badge badge-success" style="font-size:10.5px; border-radius:9999px;">🟢 등록완료</span>`;
+                    fileBadgeHtml = `<span class="badge-status-reg">🟢 등록완료</span>`;
                     fileInfoHtml = `<div style="display:flex; flex-direction:column; gap:1px;">
-                        <strong style="font-size:12px; color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:140px;" title="${fileRec.originalFileName}">${fileRec.originalFileName}</strong>
-                        <div style="font-size:10.5px; color:var(--text-muted);"><span class="badge badge-outline" style="font-size:9px; padding:1px 4px;">${ext}</span> ${kbSize}</div>
+                        <strong style="font-size:12px; color:var(--tbl-text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:140px;" title="${fileRec.originalFileName}">${fileRec.originalFileName}</strong>
+                        <div style="font-size:10.5px; color:var(--tbl-text-muted);"><span class="badge badge-outline" style="font-size:9px; padding:1px 4px;">${ext}</span> ${kbSize}</div>
                     </div>`;
                     versionHtml = `v${fileRec.fileVersion || '1.0'}`;
                     downloadBtn = `
@@ -13771,7 +13769,7 @@ class AetherPMO {
                         </button>
                     `;
                 } else {
-                    fileBadgeHtml = `<span class="badge badge-secondary" style="font-size:10.5px; border-radius:9999px;">⚪ 미등록</span>`;
+                    fileBadgeHtml = `<span class="badge-status-unreg">⚪ 미등록</span>`;
                     downloadBtn = `
                         <button class="btn btn-sm btn-ghost" disabled title="등록된 표준 양식 파일이 없습니다.">
                             <i data-lucide="download" style="width:12px; height:12px; opacity:0.4;"></i>
@@ -13789,26 +13787,26 @@ class AetherPMO {
                 }
 
                 html += `
-                    <tr>
-                        <td class="text-center" style="position:sticky; left:0; z-index:5; background:var(--bg-card);">
+                    <tr class="${isChecked ? 'selected' : ''}">
+                        <td class="text-center" style="position:sticky; left:0; z-index:5;">
                             <input type="checkbox" class="chk-nirs-item" ${isChecked ? 'checked' : ''} onchange="app.toggleNirsTemplateSelect('${item.id}', this.checked)">
                         </td>
-                        <td style="position:sticky; left:36px; z-index:5; background:var(--bg-card); font-family:monospace; font-size:11.5px; font-weight:600; color:#8B5CF6;">${item.id}</td>
-                        <td style="position:sticky; left:141px; z-index:5; background:var(--bg-card);" class="artifact-name-column sticky-artifact-name">
-                            <div style="font-size:13px; font-weight:600; color:var(--text-primary); line-height:1.4;">${item.artifactName}</div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:3px; line-height:1.4;">${item.category} · ${item.stage} ${item.description ? ' | ' + item.description : ''}</div>
+                        <td style="position:sticky; left:36px; z-index:5; font-family:monospace; font-size:11.5px; font-weight:600; color:#8B5CF6;">${item.id}</td>
+                        <td style="position:sticky; left:141px; z-index:5;" class="artifact-name-column sticky-artifact-name">
+                            <div style="font-size:13px; font-weight:600; color:var(--tbl-text-primary); line-height:1.4;">${item.artifactName}</div>
+                            <div style="font-size:11px; color:var(--tbl-text-muted); margin-top:3px; line-height:1.4;">${item.category} · ${item.stage} ${item.description ? ' | ' + item.description : ''}</div>
                         </td>
                         <td class="text-center">${fileBadgeHtml}</td>
                         <td>${fileInfoHtml}</td>
-                        <td class="text-center" style="font-size:11.5px; color:var(--text-muted);">${versionHtml}</td>
+                        <td class="text-center" style="font-size:11.5px; color:var(--tbl-text-muted);">${versionHtml}</td>
                         <td class="text-center">${managerHtml}</td>
                         <td class="text-center">${authorHtml}</td>
-                        <td class="text-center">${subBadge}</td>
-                        <td class="text-center">${offBadge}</td>
-                        <td class="text-center">${appBadge}</td>
-                        <td class="text-center">${sealBadge}</td>
-                        <td class="text-center" style="font-size:11.5px; color:var(--text-muted);">${item.submissionTiming || '-'}</td>
-                        <td class="text-center" style="position:sticky; right:0; z-index:5; background:var(--bg-card);">
+                        <td class="text-center" style="white-space:nowrap;">${subBadge}</td>
+                        <td class="text-center" style="white-space:nowrap;">${offBadge}</td>
+                        <td class="text-center" style="white-space:nowrap;">${appBadge}</td>
+                        <td class="text-center" style="white-space:nowrap;">${sealBadge}</td>
+                        <td class="text-center" style="font-size:11.5px; color:var(--tbl-text-muted); white-space:nowrap;">${item.submissionTiming || '-'}</td>
+                        <td class="text-center" style="position:sticky; right:0; z-index:5;">
                             <div class="nirs-action-btn-group" style="display:flex; gap:4px; justify-content:center;">
                                 ${downloadBtn}
                                 ${uploadBtn}
