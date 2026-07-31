@@ -141,30 +141,30 @@
                 </a>
 
                 <div class="nav-item-wrapper" id="nav-wrapper-artifacts">
-                    <a href="#artifacts" class="nav-item" data-view="artifacts" data-tooltip="표준·템플릿 관리">
+                    <a href="#artifacts/org-catalog" class="nav-item" id="menu-standard-templates-root" data-view="artifacts" data-tooltip="표준·템플릿 관리" onclick="app.switchArtifactSubView('org-catalog')">
                         <i data-lucide="file-check"></i>
                         <span>표준·템플릿 관리</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
                     </a>
                     <div class="nav-submenu" id="artifacts-submenu">
-                        <a href="#artifacts/org-catalog" class="submenu-item active" id="subitem-org-catalog" data-subview="org-catalog" onclick="app.switchArtifactSubView('org-catalog')">
+                        <a href="#artifacts/org-catalog" class="submenu-item active" id="menu-institution-standard-artifacts" data-subview="org-catalog" onclick="app.switchArtifactSubView('org-catalog')">
                             <span>├ 🏢 기관별 표준 산출물</span>
                         </a>
-                        <a href="#artifacts/project-templates" class="submenu-item" id="subitem-project-templates" data-subview="project-templates" onclick="app.switchArtifactSubView('project-templates')">
+                        <a href="#artifacts/project-templates" class="submenu-item" id="menu-project-common-templates" data-subview="project-templates" onclick="app.switchArtifactSubView('project-templates')">
                             <span>├ 📁 프로젝트 공통 템플릿</span>
                         </a>
-                        <div style="padding-left:14px; font-size:11px; color:var(--text-muted); display:flex; flex-direction:column; gap:2px; margin-bottom:4px;">
-                            <a href="#artifacts/initiation" class="submenu-item" id="subitem-initiation" data-subview="initiation" onclick="app.switchArtifactSubView('initiation')">
-                                <span>│  ├ 착수단계 템플릿 (10)</span>
+                        <div style="padding-left:12px; font-size:11.5px; display:flex; flex-direction:column; gap:2px;">
+                            <a href="#artifacts/initiation" class="submenu-item sidebar-submenu-item" id="subitem-initiation" data-subview="initiation" onclick="app.switchArtifactSubView('initiation')">
+                                <span>│  ├ 착수단계 템플릿</span>
                             </a>
-                            <a href="#artifacts/execution" class="submenu-item" id="subitem-execution" data-subview="execution" onclick="app.switchArtifactSubView('execution')">
-                                <span>│  ├ 수행단계 템플릿 (16)</span>
+                            <a href="#artifacts/execution" class="submenu-item sidebar-submenu-item" id="subitem-execution" data-subview="execution" onclick="app.switchArtifactSubView('execution')">
+                                <span>│  ├ 수행단계 템플릿</span>
                             </a>
-                            <a href="#artifacts/closing" class="submenu-item" id="subitem-closing" data-subview="closing" onclick="app.switchArtifactSubView('closing')">
-                                <span>│  └ 종료단계 템플릿 (8)</span>
+                            <a href="#artifacts/closing" class="submenu-item sidebar-submenu-item" id="subitem-closing" data-subview="closing" onclick="app.switchArtifactSubView('closing')">
+                                <span>│  └ 종료단계 템플릿</span>
                             </a>
                         </div>
-                        <a href="#artifacts/file-management" class="submenu-item" id="subitem-file-management" data-subview="file-management" onclick="app.switchArtifactSubView('file-management')">
+                        <a href="#artifacts/file-management" class="submenu-item" id="menu-template-files" data-subview="file-management" onclick="app.switchArtifactSubView('file-management')">
                             <span>└ 📄 양식 파일 관리</span>
                         </a>
                     </div>
@@ -1541,174 +1541,209 @@
                                 <!-- 5. GLOBAL ARTIFACTS TEMPLATES VIEW (3RD PHASE MULTI-ORG ARCHITECTURE) -->
                                 <!-- 5. GLOBAL ARTIFACTS TEMPLATES VIEW (4TH PHASE MULTI-BUSINESS-TYPE EXPANSION) -->
                                 <!-- 5. GLOBAL ARTIFACTS TEMPLATES VIEW (5TH PHASE UI/UX OVERHAUL) -->
+                                <!-- 5-A. INSTITUTION STANDARD ARTIFACTS VIEW (MULTI-ORG CATALOG) -->
                 <section id="view-artifacts" class="content-view">
-                    <div class="view-header">
-                        <div>
-                            <h1>기관별 표준 산출물 관리</h1>
-                            <p class="subtitle">발주기관 및 사업유형별 표준체계 마스터 체계를 관리하고 산출물 양식을 다운로드합니다.</p>
-                        </div>
-                        <div class="header-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                            <!-- Explicit Labeled Selectors -->
-                            <div style="display:flex; align-items:center; gap:6px;">
-                                <label style="font-size:12px; font-weight:700; color:var(--text-secondary); white-space:nowrap;">발주기관</label>
-                                <select id="select-nirs-org-main" class="form-select organization-select" style="min-width:180px; font-weight:700; height:36px; border-color:var(--primary-color);" onchange="app.handleOrgChange(this.value)">
-                                    <option value="NIRS">국가정보자원관리원</option>
-                                    <option value="KLID">한국지역정보개발원</option>
-                                    <option value="NTS">국세청</option>
-                                </select>
+                    <div id="container-org-catalog-view">
+                        <div class="view-header">
+                            <div>
+                                <h1>기관별 표준 산출물 관리</h1>
+                                <p class="subtitle">발주기관 및 사업유형별 표준체계 마스터 체계를 관리하고 산출물 양식을 다운로드합니다.</p>
                             </div>
+                            <div class="header-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                                <!-- Explicit Labeled Selectors -->
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); white-space:nowrap;">발주기관</label>
+                                    <select id="select-nirs-org-main" class="form-select organization-select" style="min-width:180px; font-weight:700; height:36px; border-color:var(--primary-color);" onchange="app.handleOrgChange(this.value)">
+                                        <option value="NIRS">국가정보자원관리원</option>
+                                        <option value="KLID">한국지역정보개발원</option>
+                                        <option value="NTS">국세청</option>
+                                    </select>
+                                </div>
 
-                            <div style="display:flex; align-items:center; gap:6px;">
-                                <label style="font-size:12px; font-weight:700; color:var(--text-secondary); white-space:nowrap;">사업유형</label>
-                                <select id="select-nirs-biz-type-main" class="form-select business-type-select" style="min-width:170px; font-weight:700; height:36px; border-color:var(--primary-color);" onchange="app.handleBizTypeChange(this.value)">
-                                    <option value="all">전체 사업유형</option>
-                                    <option value="RESOURCE_INTEGRATION">자원통합사업 (179)</option>
-                                    <option value="OPERATION_MAINTENANCE">운영·유지관리사업 (0)</option>
-                                </select>
-                            </div>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-secondary); white-space:nowrap;">사업유형</label>
+                                    <select id="select-nirs-biz-type-main" class="form-select business-type-select" style="min-width:170px; font-weight:700; height:36px; border-color:var(--primary-color);" onchange="app.handleBizTypeChange(this.value)">
+                                        <option value="RESOURCE_INTEGRATION">자원통합사업 (179)</option>
+                                        <option value="OPERATION_MAINTENANCE">운영·유지관리사업 (0)</option>
+                                        <option value="all">전체 사업유형</option>
+                                    </select>
+                                </div>
 
-                            <label class="checkbox-label" id="lbl-include-drafts" style="display:none; font-size:11.5px; margin:0 4px; cursor:pointer;" title="관리자용: 설계 중인 분류안 포함">
-                                <input type="checkbox" id="chk-include-drafts" onchange="app.toggleIncludeDrafts(this.checked)"> 분류안 포함
-                            </label>
+                                <label class="checkbox-label" id="lbl-include-drafts" style="display:none; font-size:11.5px; margin:0 4px; cursor:pointer;" title="관리자용: 설계 중인 분류안 포함">
+                                    <input type="checkbox" id="chk-include-drafts" onchange="app.toggleIncludeDrafts(this.checked)"> 분류안 포함
+                                </label>
 
-                            <button class="btn btn-outline-primary" id="btn-bulk-download-templates" onclick="app.downloadSelectedNirsTemplates()" disabled style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; padding:6px 12px; height:36px;">
-                                <i data-lucide="download-cloud" style="width:14px; height:14px;"></i> 선택 산출물 다운로드 <span id="selected-templates-count"></span>
-                            </button>
-                            <button class="btn btn-primary" id="btn-add-global-template" onclick="app.openUploadNirsModal()" style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; padding:6px 12px; height:36px;">
-                                <i data-lucide="upload-cloud" style="width:14px; height:14px;"></i> <span id="lbl-btn-register-template">표준 산출물 등록</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Dynamic Top Summary KPI Cards -->
-                    <div class="nirs-summary-kpi-grid" id="kpi-cards-container" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; margin-bottom:16px;">
-                        <!-- Dynamically populated -->
-                    </div>
-
-                    <!-- Filter Bar & Pagination Selector -->
-                    <div class="artifacts-filter-bar dashboard-card" style="margin-bottom:14px; padding:10px 14px;">
-                        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
-                            <div class="search-input-wrapper" style="flex:1; min-width:220px; position:relative;">
-                                <i data-lucide="search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); width:14px; height:14px; color:var(--text-muted);"></i>
-                                <input type="text" id="nirs-template-search" class="form-control" style="padding-left:32px; font-size:12.5px; height:34px;" placeholder="코드, 산출물명, 단계, 관리자, 작성자, 제출시기 검색..." oninput="app.handleNirsSearchInput(this.value)">
-                            </div>
-                            <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-                                <select id="filter-nirs-category" class="form-select" style="min-width:120px; font-size:12px; height:34px;" onchange="app.handleNirsFilterChange()">
-                                    <option value="all">업무영역: 전체</option>
-                                    <option value="사업관리">사업관리</option>
-                                    <option value="통합구축">통합구축</option>
-                                    <option value="업무전환">업무전환</option>
-                                </select>
-                                <select id="filter-nirs-stage" class="form-select" style="min-width:120px; font-size:12px; height:34px;" onchange="app.handleNirsFilterChange()">
-                                    <option value="all">단계: 전체</option>
-                                    <option value="착수 준비">착수 준비</option>
-                                    <option value="착수">착수</option>
-                                    <option value="계획">계획</option>
-                                    <option value="설계">설계</option>
-                                    <option value="구축">구축</option>
-                                    <option value="수행 및 통제">수행 및 통제</option>
-                                    <option value="안정화">안정화</option>
-                                    <option value="종료">종료</option>
-                                </select>
-                                <select id="filter-nirs-file-status" class="form-select" style="min-width:110px; font-size:12px; height:34px;" onchange="app.handleNirsFilterChange()">
-                                    <option value="all">파일상태: 전체</option>
-                                    <option value="registered">🟢 등록완료</option>
-                                    <option value="unregistered">⚪ 미등록</option>
-                                </select>
-                                <select id="select-nirs-page-size" class="form-select" style="min-width:100px; font-size:12px; height:34px;" onchange="app.handlePageSizeChange(this.value)">
-                                    <option value="25">25개씩 보기</option>
-                                    <option value="50">50개씩 보기</option>
-                                    <option value="100">100개씩 보기</option>
-                                    <option value="1000">전체 보기</option>
-                                </select>
-                                <button type="button" class="btn btn-sm btn-outline" id="btn-nirs-more-filters" onclick="app.toggleNirsMoreFilters()" style="font-size:12px; height:34px; padding:0 10px; display:inline-flex; align-items:center; gap:4px;">
-                                    <i data-lucide="filter" style="width:13px; height:13px;"></i> 더보기 ▼
+                                <button class="btn btn-outline-primary" id="btn-bulk-download-templates" onclick="app.downloadSelectedNirsTemplates()" disabled style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; padding:6px 12px; height:36px;">
+                                    <i data-lucide="download-cloud" style="width:14px; height:14px;"></i> 선택 산출물 다운로드 <span id="selected-templates-count"></span>
+                                </button>
+                                <button class="btn btn-primary" id="btn-add-global-template" onclick="app.openUploadNirsModal()" style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; padding:6px 12px; height:36px;">
+                                    <i data-lucide="upload-cloud" style="width:14px; height:14px;"></i> <span id="lbl-btn-register-template">표준 산출물 등록</span>
                                 </button>
                             </div>
                         </div>
 
-                        <!-- Collapsible Secondary Filters -->
-                        <div id="nirs-more-filters-row" style="display:none; gap:8px; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border-color); flex-wrap:wrap;">
-                            <select id="filter-nirs-official" class="form-select" style="min-width:110px; font-size:12px; height:32px;" onchange="app.handleNirsFilterChange()">
-                                <option value="all">공문: 전체</option>
-                                <option value="required">📄 공문필수</option>
-                                <option value="none">미해당</option>
-                            </select>
-                            <select id="filter-nirs-approval" class="form-select" style="min-width:110px; font-size:12px; height:32px;" onchange="app.handleNirsFilterChange()">
-                                <option value="all">승인: 전체</option>
-                                <option value="required">✔ 승인필수</option>
-                                <option value="none">미해당</option>
-                            </select>
-                            <select id="filter-nirs-seal" class="form-select" style="min-width:110px; font-size:12px; height:32px;" onchange="app.handleNirsFilterChange()">
-                                <option value="all">인감: 전체</option>
-                                <option value="required">🔴 인감필수</option>
-                                <option value="none">미해당</option>
-                            </select>
+                        <!-- Dynamic Top Summary KPI Cards Grid -->
+                        <div class="nirs-summary-kpi-grid" id="kpi-cards-container" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:16px;">
+                            <!-- Dynamically populated -->
+                        </div>
+
+                        <!-- Filter Bar & Pagination Selector -->
+                        <div class="artifacts-filter-bar dashboard-card" style="margin-bottom:14px; padding:10px 14px;">
+                            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                                <div class="search-input-wrapper" style="flex:1; min-width:220px; position:relative;">
+                                    <i data-lucide="search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); width:14px; height:14px; color:var(--text-muted);"></i>
+                                    <input type="text" id="nirs-template-search" class="form-control" style="padding-left:32px; font-size:12.5px; height:34px;" placeholder="코드, 산출물명, 단계, 관리자, 작성자, 제출시기 검색..." oninput="app.handleNirsSearchInput(this.value)">
+                                </div>
+                                <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+                                    <select id="filter-nirs-category" class="form-select" style="min-width:120px; font-size:12px; height:34px;" onchange="app.handleNirsFilterChange()">
+                                        <option value="all">업무영역: 전체</option>
+                                        <option value="사업관리">사업관리</option>
+                                        <option value="통합구축">통합구축</option>
+                                        <option value="업무전환">업무전환</option>
+                                    </select>
+                                    <select id="filter-nirs-stage" class="form-select" style="min-width:120px; font-size:12px; height:34px;" onchange="app.handleNirsFilterChange()">
+                                        <option value="all">단계: 전체</option>
+                                        <option value="착수 준비">착수 준비</option>
+                                        <option value="착수">착수</option>
+                                        <option value="계획">계획</option>
+                                        <option value="설계">설계</option>
+                                        <option value="구축">구축</option>
+                                        <option value="수행 및 통제">수행 및 통제</option>
+                                        <option value="안정화">안정화</option>
+                                        <option value="종료">종료</option>
+                                    </select>
+                                    <select id="filter-nirs-file-status" class="form-select" style="min-width:110px; font-size:12px; height:34px;" onchange="app.handleNirsFilterChange()">
+                                        <option value="all">파일상태: 전체</option>
+                                        <option value="registered">🟢 등록완료</option>
+                                        <option value="unregistered">⚪ 미등록</option>
+                                    </select>
+                                    <select id="select-nirs-page-size" class="form-select" style="min-width:100px; font-size:12px; height:34px;" onchange="app.handlePageSizeChange(this.value)">
+                                        <option value="25">25개씩 보기</option>
+                                        <option value="50">50개씩 보기</option>
+                                        <option value="100">100개씩 보기</option>
+                                        <option value="1000">전체 보기</option>
+                                    </select>
+                                    <button type="button" class="btn btn-sm btn-outline" id="btn-nirs-more-filters" onclick="app.toggleNirsMoreFilters()" style="font-size:12px; height:34px; padding:0 10px; display:inline-flex; align-items:center; gap:4px;">
+                                        <i data-lucide="filter" style="width:13px; height:13px;"></i> 더보기 ▼
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Collapsible Secondary Filters -->
+                            <div id="nirs-more-filters-row" style="display:none; gap:8px; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border-color); flex-wrap:wrap;">
+                                <select id="filter-nirs-official" class="form-select" style="min-width:110px; font-size:12px; height:32px;" onchange="app.handleNirsFilterChange()">
+                                    <option value="all">공문: 전체</option>
+                                    <option value="required">📄 공문필수</option>
+                                    <option value="none">미해당</option>
+                                </select>
+                                <select id="filter-nirs-approval" class="form-select" style="min-width:110px; font-size:12px; height:32px;" onchange="app.handleNirsFilterChange()">
+                                    <option value="all">승인: 전체</option>
+                                    <option value="required">✔ 승인필수</option>
+                                    <option value="none">미해당</option>
+                                </select>
+                                <select id="filter-nirs-seal" class="form-select" style="min-width:110px; font-size:12px; height:32px;" onchange="app.handleNirsFilterChange()">
+                                    <option value="all">인감: 전체</option>
+                                    <option value="required">🔴 인감필수</option>
+                                    <option value="none">미해당</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="artifacts-layout" style="display:grid; grid-template-columns: 265px 1fr; gap:14px;">
+                            <!-- 좌측: 4-Level 동적 트리 (Single Clean Lucide Icon Only!) -->
+                            <div class="artifacts-sidebar dashboard-card" style="padding:14px;">
+                                <div class="sidebar-header-custom" style="margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--border-color);">
+                                    <h3 style="font-size:13.5px; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                                        <i data-lucide="book-open" style="width:15px; height:15px; color:var(--primary-color);"></i> 표준 산출물
+                                    </h3>
+                                </div>
+                                <div id="artifact-category-tree" class="category-tree">
+                                    <!-- Dynamic Tree -->
+                                </div>
+                            </div>
+
+                            <!-- 우측: 템플릿 목록 및 상세 내역 -->
+                            <div class="artifacts-main-content" style="display:flex; flex-direction:column; gap:10px;">
+                                <div class="artifacts-content-header dashboard-card" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px;">
+                                    <div class="path-info" style="display:flex; align-items:center; font-size:13px; color:var(--text-secondary);">
+                                        <span id="nirs-breadcrumb-root" style="font-weight:700; color:var(--text-primary); cursor:pointer;" onclick="app.handleOrgChange('NIRS')">국가정보자원관리원</span>
+                                        <span id="nirs-breadcrumb-sub" style="display:inline-flex; align-items:center;">
+                                            <i data-lucide="chevron-right" style="width:12px; height:12px; margin:0 4px; color:var(--text-muted);"></i>
+                                            <span class="text-primary font-bold">자원통합사업</span>
+                                        </span>
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:12px;">
+                                        <div class="text-muted font-sm">
+                                            조회 <strong id="nirs-list-count" class="text-primary" style="font-size:14px;">179</strong>건
+                                        </div>
+                                        <div id="nirs-pagination-controls" style="display:flex; gap:4px; align-items:center;">
+                                            <!-- Dynamic Pagination -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Table Container -->
+                                <div class="dashboard-card" style="padding:0; overflow:hidden;">
+                                    <div class="table-container" style="max-height:680px; overflow:auto;">
+                                        <table class="data-table data-table-compact data-table-sticky" style="width:100%; border-collapse:collapse;">
+                                            <thead>
+                                                <tr style="background:var(--bg-card-header); position:sticky; top:0; z-index:10;">
+                                                    <th style="width:36px; position:sticky; left:0; z-index:11; background:var(--bg-card-header);" class="text-center">
+                                                        <input type="checkbox" id="th-nirs-select-all" onchange="app.toggleAllNirsTemplates(this.checked)">
+                                                    </th>
+                                                    <th style="width:105px; position:sticky; left:36px; z-index:11; background:var(--bg-card-header);">코드</th>
+                                                    <th class="artifact-name-column sticky-artifact-name" style="min-width:320px; width:28%; position:sticky; left:141px; z-index:11; background:var(--bg-card-header);">산출물명</th>
+                                                    <th style="width:85px;" class="text-center">파일상태</th>
+                                                    <th style="width:140px;">파일명</th>
+                                                    <th style="width:55px;" class="text-center">버전</th>
+                                                    <th style="width:85px;" class="text-center">관리자</th>
+                                                    <th style="width:100px;" class="text-center">작성담당자</th>
+                                                    <th style="width:50px;" class="text-center">제출</th>
+                                                    <th style="width:50px;" class="text-center">공문</th>
+                                                    <th style="width:50px;" class="text-center">승인</th>
+                                                    <th style="width:50px;" class="text-center">인감</th>
+                                                    <th style="width:110px;" class="text-center">제출시기</th>
+                                                    <th style="width:75px; position:sticky; right:0; z-index:11; background:var(--bg-card-header);" class="text-center">관리</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="global-templates-tbody">
+                                                <!-- Dynamic Rows -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="artifacts-layout" style="display:grid; grid-template-columns: 260px 1fr; gap:14px;">
-                        <!-- 좌측: 4-Level 동적 트리 -->
-                        <div class="artifacts-sidebar dashboard-card" style="padding:14px;">
-                            <div class="sidebar-header-custom" style="margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--border-color);">
-                                <h3 style="font-size:13.5px; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
-                                    <i data-lucide="book-open" style="width:15px; height:15px; color:var(--primary-color);"></i> 📚 표준 산출물
-                                </h3>
+                    <!-- 5-B. PROJECT COMMON TEMPLATES CONTAINER (LEGACY INITIATION / EXECUTION / CLOSING) -->
+                    <div id="container-project-templates-view" style="display:none;">
+                        <div class="view-header">
+                            <div>
+                                <h1>프로젝트 공통 템플릿</h1>
+                                <p class="subtitle">프로젝트 수행 시 공통으로 사용하는 단계별 템플릿(착수, 수행, 종료)을 관리합니다.</p>
                             </div>
-                            <div id="artifact-category-tree" class="category-tree">
-                                <!-- Dynamic Tree -->
+                            <div class="header-actions">
+                                <button class="btn btn-outline-primary" onclick="app.switchArtifactSubView('org-catalog')">
+                                    <i data-lucide="building-2"></i> 기관별 표준 산출물 관리로 이동
+                                </button>
                             </div>
                         </div>
 
-                        <!-- 우측: 템플릿 목록 및 상세 내역 -->
-                        <div class="artifacts-main-content" style="display:flex; flex-direction:column; gap:10px;">
-                            <div class="artifacts-content-header dashboard-card" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px;">
-                                <div class="path-info" style="display:flex; align-items:center; font-size:13px; color:var(--text-secondary);">
-                                    <span id="nirs-breadcrumb-root" style="font-weight:700; color:var(--text-primary); cursor:pointer;" onclick="app.handleOrgChange('NIRS')">국가정보자원관리원</span>
-                                    <span id="nirs-breadcrumb-sub" style="display:inline-flex; align-items:center;">
-                                        <i data-lucide="chevron-right" style="width:12px; height:12px; margin:0 4px; color:var(--text-muted);"></i>
-                                        <span class="text-primary font-bold">자원통합사업</span>
-                                    </span>
-                                </div>
-                                <div style="display:flex; align-items:center; gap:12px;">
-                                    <div class="text-muted font-sm">
-                                        조회 <strong id="nirs-list-count" class="text-primary" style="font-size:14px;">179</strong>건
-                                    </div>
-                                    <div id="nirs-pagination-controls" style="display:flex; gap:4px; align-items:center;">
-                                        <!-- Dynamic Pagination -->
-                                    </div>
-                                </div>
+                        <!-- Sub-tab Filter Bar -->
+                        <div class="dashboard-card" style="margin-bottom:16px; padding:12px 16px;">
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <button class="btn btn-sm" id="btn-tab-project-all" onclick="app.filterProjectTemplates('all')" style="font-weight:700;">전체 보기</button>
+                                <button class="btn btn-sm btn-outline" id="btn-tab-project-initiation" onclick="app.filterProjectTemplates('initiation')">착수단계 템플릿 (10)</button>
+                                <button class="btn btn-sm btn-outline" id="btn-tab-project-execution" onclick="app.filterProjectTemplates('execution')">수행단계 템플릿 (16)</button>
+                                <button class="btn btn-sm btn-outline" id="btn-tab-project-closing" onclick="app.filterProjectTemplates('closing')">종료단계 템플릿 (8)</button>
                             </div>
+                        </div>
 
-                            <!-- Table Container (Sticky Columns with Shadows & 16-20 rows density) -->
-                            <div class="dashboard-card" style="padding:0; overflow:hidden;">
-                                <div class="table-container" style="max-height:680px; overflow:auto;">
-                                    <table class="data-table data-table-compact data-table-sticky" style="width:100%; border-collapse:collapse;">
-                                        <thead>
-                                            <tr style="background:var(--bg-card-header); position:sticky; top:0; z-index:10;">
-                                                <th style="width:36px; position:sticky; left:0; z-index:11; background:var(--bg-card-header);" class="text-center">
-                                                    <input type="checkbox" id="th-nirs-select-all" onchange="app.toggleAllNirsTemplates(this.checked)">
-                                                </th>
-                                                <th style="width:105px; position:sticky; left:36px; z-index:11; background:var(--bg-card-header);">코드</th>
-                                                <th class="artifact-name-column sticky-artifact-name" style="min-width:320px; width:28%; position:sticky; left:141px; z-index:11; background:var(--bg-card-header);">산출물명</th>
-                                                <th style="width:85px;" class="text-center">파일상태</th>
-                                                <th style="width:140px;">파일명</th>
-                                                <th style="width:55px;" class="text-center">버전</th>
-                                                <th style="width:85px;" class="text-center">관리자</th>
-                                                <th style="width:100px;" class="text-center">작성담당자</th>
-                                                <th style="width:50px;" class="text-center">제출</th>
-                                                <th style="width:50px;" class="text-center">공문</th>
-                                                <th style="width:50px;" class="text-center">승인</th>
-                                                <th style="width:50px;" class="text-center">인감</th>
-                                                <th style="width:110px;" class="text-center">제출시기</th>
-                                                <th style="width:75px; position:sticky; right:0; z-index:11; background:var(--bg-card-header);" class="text-center">관리</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="global-templates-tbody">
-                                            <!-- Dynamic Rows -->
-                                        </tbody>
-                                    </table>
-                                </div>
+                        <!-- Project Common Templates Content -->
+                        <div class="dashboard-card" style="padding:20px;">
+                            <div id="project-common-templates-content">
+                                <!-- Rendered dynamically -->
                             </div>
                         </div>
                     </div>
