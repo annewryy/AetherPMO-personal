@@ -1528,19 +1528,27 @@
                                 <!-- 5. GLOBAL ARTIFACTS TEMPLATES VIEW (NIRS IA OVERHAUL) -->
                                 <!-- 5. GLOBAL ARTIFACTS TEMPLATES VIEW (NIRS IA 2ND OVERHAUL) -->
                                 <!-- 5. GLOBAL ARTIFACTS TEMPLATES VIEW (3RD PHASE MULTI-ORG ARCHITECTURE) -->
+                                <!-- 5. GLOBAL ARTIFACTS TEMPLATES VIEW (4TH PHASE MULTI-BUSINESS-TYPE EXPANSION) -->
                 <section id="view-artifacts" class="content-view">
                     <div class="view-header">
                         <div>
                             <h1>기관별 표준 산출물 관리</h1>
-                            <p class="subtitle">발주기관별 표준체계 및 사업유형 마스터 체계를 관리하고 산출물 양식을 다운로드합니다.</p>
+                            <p class="subtitle">발주기관 및 사업유형별 표준체계 마스터 체계를 관리하고 산출물 양식을 다운로드합니다.</p>
                         </div>
                         <div class="header-actions" style="display:flex; gap:8px; align-items:center;">
-                            <select id="select-nirs-org-main" class="form-select" style="min-width:170px; font-weight:700; height:36px; border-color:var(--primary-color);" onchange="app.handleOrgChange(this.value)">
-                                <option value="NIRS">🏢 국가정보자원관리원 (179)</option>
-                                <option value="KLID">🏢 한국지역정보개발원 (0)</option>
-                                <option value="NTS">🏢 국세청 (0)</option>
-                                <option value="OTHER">🏢 기타 기관 (0)</option>
+                            <!-- Dual Selectors: Organization & Business Type -->
+                            <select id="select-nirs-org-main" class="form-select" style="min-width:160px; font-weight:700; height:36px; border-color:var(--primary-color);" onchange="app.handleOrgChange(this.value)">
+                                <option value="NIRS">🏢 국가정보자원관리원</option>
+                                <option value="KLID">🏢 한국지역정보개발원</option>
+                                <option value="NTS">🏢 국세청</option>
                             </select>
+
+                            <select id="select-nirs-biz-type-main" class="form-select" style="min-width:165px; font-weight:700; height:36px; border-color:var(--primary-color);" onchange="app.handleBizTypeChange(this.value)">
+                                <option value="all">📐 전체 사업유형</option>
+                                <option value="RESOURCE_INTEGRATION">📐 자원통합사업 (179)</option>
+                                <option value="OPERATION_MAINTENANCE">📐 운영·유지관리사업 (0)</option>
+                            </select>
+
                             <button class="btn btn-outline-primary" id="btn-bulk-download-templates" onclick="app.downloadSelectedNirsTemplates()" disabled style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; padding:6px 12px; height:36px;">
                                 <i data-lucide="download-cloud" style="width:14px; height:14px;"></i> 선택 산출물 다운로드 <span id="selected-templates-count"></span>
                             </button>
@@ -1550,40 +1558,9 @@
                         </div>
                     </div>
 
-                    <!-- Top Summary KPI Cards (Wording Fix: 'N개 단계') -->
-                    <div class="nirs-summary-kpi-grid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; margin-bottom:16px;">
-                        <div class="kpi-card nirs-summary-card active" id="kpi-card-all" onclick="app.selectNirsCategoryFilter('all')" style="cursor:pointer; transition:all 0.2s ease;">
-                            <div class="kpi-icon icon-purple"><i data-lucide="layers"></i></div>
-                            <div class="kpi-content">
-                                <div class="kpi-label" style="font-weight:700;">전체 산출물</div>
-                                <div class="kpi-value" id="kpi-nirs-total" style="font-size:22px; font-weight:800;">179건</div>
-                                <div class="kpi-sub">표준 마스터 카탈로그</div>
-                            </div>
-                        </div>
-                        <div class="kpi-card nirs-summary-card" id="kpi-card-pm" onclick="app.selectNirsCategoryFilter('사업관리')" style="cursor:pointer; transition:all 0.2s ease;">
-                            <div class="kpi-icon icon-blue"><i data-lucide="briefcase"></i></div>
-                            <div class="kpi-content">
-                                <div class="kpi-label" style="font-weight:700;">사업관리</div>
-                                <div class="kpi-value" id="kpi-nirs-pm" style="font-size:22px; font-weight:800;">136건</div>
-                                <div class="kpi-sub">6개 단계</div>
-                            </div>
-                        </div>
-                        <div class="kpi-card nirs-summary-card" id="kpi-card-infra" onclick="app.selectNirsCategoryFilter('통합구축')" style="cursor:pointer; transition:all 0.2s ease;">
-                            <div class="kpi-icon icon-teal"><i data-lucide="server"></i></div>
-                            <div class="kpi-content">
-                                <div class="kpi-label" style="font-weight:700;">통합구축</div>
-                                <div class="kpi-value" id="kpi-nirs-infra" style="font-size:22px; font-weight:800;">32건</div>
-                                <div class="kpi-sub">4개 단계</div>
-                            </div>
-                        </div>
-                        <div class="kpi-card nirs-summary-card" id="kpi-card-app" onclick="app.selectNirsCategoryFilter('업무전환')" style="cursor:pointer; transition:all 0.2s ease;">
-                            <div class="kpi-icon icon-orange"><i data-lucide="refresh-cw"></i></div>
-                            <div class="kpi-content">
-                                <div class="kpi-label" style="font-weight:700;">업무전환</div>
-                                <div class="kpi-value" id="kpi-nirs-app" style="font-size:22px; font-weight:800;">11건</div>
-                                <div class="kpi-sub">4개 단계</div>
-                            </div>
-                        </div>
+                    <!-- Dynamic Top Summary KPI Cards -->
+                    <div class="nirs-summary-kpi-grid" id="kpi-cards-container" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; margin-bottom:16px;">
+                        <!-- Dynamically populated based on selected Org & Business Type -->
                     </div>
 
                     <!-- Filter Bar & Pagination Selector -->
@@ -1649,7 +1626,7 @@
                     </div>
 
                     <div class="artifacts-layout" style="display:grid; grid-template-columns: 260px 1fr; gap:14px;">
-                        <!-- 좌측: 4-Level 발주기관/표준체계 동적 트리 -->
+                        <!-- 좌측: 4-Level 발주기관/사업유형/업무영역/단계 동적 트리 -->
                         <div class="artifacts-sidebar dashboard-card" style="padding:14px;">
                             <div class="sidebar-header-custom" style="margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--border-color);">
                                 <h3 style="font-size:13.5px; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
@@ -1657,7 +1634,7 @@
                                 </h3>
                             </div>
                             <div id="artifact-category-tree" class="category-tree">
-                                <!-- 4-Level Multi-Org Dynamic Tree -->
+                                <!-- 4-Level Multi-Business-Type Dynamic Tree -->
                             </div>
                         </div>
 
@@ -1668,7 +1645,7 @@
                                     <span id="nirs-breadcrumb-root" style="font-weight:700; color:var(--text-primary);">국가정보자원관리원</span>
                                     <span id="nirs-breadcrumb-sub" style="display:inline-flex; align-items:center;">
                                         <i data-lucide="chevron-right" style="width:12px; height:12px; margin:0 4px; color:var(--text-muted);"></i>
-                                        <span class="text-primary font-bold">전체 산출물</span>
+                                        <span class="text-primary font-bold">자원통합사업</span>
                                     </span>
                                 </div>
                                 <div style="display:flex; align-items:center; gap:12px;">
@@ -1676,7 +1653,7 @@
                                         조회 <strong id="nirs-list-count" class="text-primary" style="font-size:14px;">179</strong>건
                                     </div>
                                     <div id="nirs-pagination-controls" style="display:flex; gap:4px; align-items:center;">
-                                        <!-- Dynamic Pagination Buttons -->
+                                        <!-- Dynamic Pagination Controls -->
                                     </div>
                                 </div>
                             </div>
