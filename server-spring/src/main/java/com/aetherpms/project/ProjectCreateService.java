@@ -46,18 +46,15 @@ public class ProjectCreateService {
     private final ProjectCodeService projectCodeService;
     private final AuditWriter audit;
     private final TailoringExpansionService tailoringExpansion;
-    private final com.aetherpms.person.MemberAutoService memberAuto;
 
     public ProjectCreateService(JdbcTemplate jdbc, ProjectRepository projectRepository,
                                 ProjectCodeService projectCodeService, AuditWriter audit,
-                                TailoringExpansionService tailoringExpansion,
-                                com.aetherpms.person.MemberAutoService memberAuto) {
+                                TailoringExpansionService tailoringExpansion) {
         this.jdbc = jdbc;
         this.projectRepository = projectRepository;
         this.projectCodeService = projectCodeService;
         this.audit = audit;
         this.tailoringExpansion = tailoringExpansion;
-        this.memberAuto = memberAuto;
     }
 
     // pms_project CHECK 값들 — 생성 시 기본은 입찰 프리셋, 입력 허용 시 검증용.
@@ -154,15 +151,9 @@ public class ProjectCreateService {
         TailoringExpansionService.ExpansionResult expansion =
                 tailoringExpansion.expand(projectId, b.get("tailoring"));
 
-        // 0031: 생성 시 지정한 책임자(pm_name)·담당조직 → 참여인력 자동 등록(책임자만 PM 플래그)
-        if (created.get("pm_name") != null) {
-            memberAuto.ensureMember(projectId, created.get("pm_name").toString(), true, actor);
-        }
-        for (String ownerCol : List.of("sales_owner", "proposal_owner", "proposal_pm", "business_manager", "contract_owner", "legal_owner")) {
-            if (created.get(ownerCol) != null) {
-                memberAuto.ensureMember(projectId, created.get(ownerCol).toString(), false, actor);
-            }
-        }
+        // 2026-07-31 사용자 결정 — 생성 폼의 책임자(pm_name)·담당조직 지정은 "담당 연락처"일 뿐,
+        //   참여인력(pms_project_member)에 자동 등록하지 않는다(0031 자동 등록 폐기).
+        //   참여인력은 참여인력 화면에서 투입 정보와 함께 별도 등록한다.
 
         String reason = (expansion.createdTasks() + expansion.createdDeliverables()) > 0
                 ? "프로젝트 신규 생성(테일러링 전개)" : "프로젝트 신규 생성";

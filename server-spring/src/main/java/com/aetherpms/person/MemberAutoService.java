@@ -11,9 +11,10 @@ import com.aetherpms.common.Actor;
 import com.aetherpms.common.AuditWriter;
 
 /**
- * 0031 — 담당자 지정 시 참여인력 자동 등록.
- * 태스크 담당자(assignee_name)·프로젝트 책임자(pm_name)로 지정된 사람이
- * pms_project_member에 없으면 자동 등록한다(너울님 2026-07-26 요구).
+ * 0031 — 태스크 담당자 지정 시 참여인력 자동 등록.
+ * 태스크 담당자(assignee_name)로 지정된 사람이 pms_project_member에 없으면 자동 등록한다.
+ * (2026-07-31 축소: 프로젝트 폼의 책임자·담당조직 지정은 "담당 연락처"라 자동 등록 대상에서 제외 —
+ *  프로젝트 생성/수정/전환 경로의 호출을 모두 제거했고, 태스크 담당자 경로(WorkSurfaceService)만 남았다.)
  *  - 내부/외부 추정: 아마란스 미러(pms_org_member)에 동명이 있으면 INTERNAL, 없으면 EXTERNAL.
  *  - 사람 마스터(pms_person) 동명이 정확히 1명이면 person_id·고용형태·소속을 연결(모호하면 미연결).
  *  - 이미 있으면 중복 등록하지 않는다(PM 지정이면 is_project_manager만 승격).

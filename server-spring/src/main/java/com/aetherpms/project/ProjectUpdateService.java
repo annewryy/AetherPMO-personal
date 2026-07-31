@@ -35,7 +35,6 @@ import com.aetherpms.common.WriteSupport;
 public class ProjectUpdateService {
 
     private final JdbcTemplate jdbc;
-    private final com.aetherpms.person.MemberAutoService memberAuto;
     private final ProjectRepository projectRepository;
     private final ProjectCompanyRepository companyRepository;
     private final AuditWriter audit;
@@ -43,13 +42,11 @@ public class ProjectUpdateService {
 
     public ProjectUpdateService(JdbcTemplate jdbc, ProjectRepository projectRepository,
                                 ProjectCompanyRepository companyRepository, AuditWriter audit,
-                                com.aetherpms.person.MemberAutoService memberAuto,
                                 ProjectCodeService projectCodeService) {
         this.jdbc = jdbc;
         this.projectRepository = projectRepository;
         this.companyRepository = companyRepository;
         this.audit = audit;
-        this.memberAuto = memberAuto;
         this.projectCodeService = projectCodeService;
     }
 
@@ -151,16 +148,9 @@ public class ProjectUpdateService {
         Map<String, Object> after = WriteSupport.updateReturning(
                 jdbc, "pms_project", "project_id", id, fields, false);
 
-        // 0039 재개정 — 프로젝트 폼에 입력한 인물은 모두 참여인력에 등록한다(사용자 요청).
-        //   PM은 PM 플래그까지 부여. 투입 M/M·지분 등 세부는 참여인력 화면에서 별도 관리.
-        if (fields.containsKey("pm_name") && after.get("pm_name") != null) {
-            memberAuto.ensureMember(id, after.get("pm_name").toString(), true, actor);
-        }
-        for (String ownerCol : List.of("sales_owner", "proposal_owner", "proposal_pm", "business_manager", "contract_owner", "legal_owner")) {
-            if (fields.containsKey(ownerCol) && after.get(ownerCol) != null) {
-                memberAuto.ensureMember(id, after.get(ownerCol).toString(), false, actor);
-            }
-        }
+        // 2026-07-31 사용자 결정 — 폼의 책임자·담당조직 지정은 "담당 연락처"일 뿐,
+        //   참여인력(pms_project_member) 자동 등록을 하지 않는다(0039 재개정 폐기).
+        //   참여인력은 참여인력 화면에서 투입 정보와 함께 별도 등록한다.
 
         List<String> cols = new ArrayList<>(fields.keySet());
         audit.write("PROJECT", id, id, "UPDATE", cols,

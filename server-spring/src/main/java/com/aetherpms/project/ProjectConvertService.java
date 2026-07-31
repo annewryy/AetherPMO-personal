@@ -12,7 +12,6 @@ import java.util.LinkedHashMap;
 import com.aetherpms.common.Actor;
 import com.aetherpms.common.ApiException;
 import com.aetherpms.common.AuditWriter;
-import com.aetherpms.person.MemberAutoService;
 
 /**
  * 0033 — 입찰 → 수행 전환(스폰). 설계 0001 데이터 경계 그대로:
@@ -30,17 +29,15 @@ public class ProjectConvertService {
     private final ProjectCodeService codeService;
     private final ProjectUpdateService updateService; // detailShape 재사용 대신 조회용 아님 — 미사용 시 제거
     private final AuditWriter audit;
-    private final MemberAutoService memberAuto;
     private final TailoringExpansionService tailoringExpansion;
 
     public ProjectConvertService(JdbcTemplate jdbc, ProjectCodeService codeService,
                                  ProjectUpdateService updateService, AuditWriter audit,
-                                 MemberAutoService memberAuto, TailoringExpansionService tailoringExpansion) {
+                                 TailoringExpansionService tailoringExpansion) {
         this.jdbc = jdbc;
         this.codeService = codeService;
         this.updateService = updateService;
         this.audit = audit;
-        this.memberAuto = memberAuto;
         this.tailoringExpansion = tailoringExpansion;
     }
 
@@ -159,11 +156,8 @@ public class ProjectConvertService {
         // 입찰 원본: 수주·완료 처리(stage는 BIDDING 유지 — 0001)
         jdbc.update("UPDATE pms_project SET bid_status = '수주', status = '완료' WHERE project_id = ?", sourceId);
 
-        // PM 참여인력 자동 등록(0031 규칙 재사용, 오버라이드 우선)
-        Object pmName = overrides.getOrDefault("pm_name", src.get("pm_name"));
-        if (pmName != null) {
-            memberAuto.ensureMember(newId, pmName.toString(), true, actor);
-        }
+        // 2026-07-31 사용자 결정 — 폼 입력 책임자(pm_name)의 참여인력 자동 등록 폐기.
+        //   참여인력은 위의 원본 프로젝트 승계(복사)와 참여인력 화면 수동 등록으로만 관리한다.
 
         String expansionNote = (expansion.createdTasks() + expansion.createdDeliverables()) > 0
                 ? " · 테일러링 전개(태스크 " + expansion.createdTasks() + "·산출물 " + expansion.createdDeliverables() + ")"
