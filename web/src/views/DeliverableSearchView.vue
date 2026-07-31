@@ -103,21 +103,15 @@ const countByPhase = computed(() => {
   return m;
 });
 
-// 블록 순서: 탭 방법론 단계(입찰→수행) 먼저, 그 아래 사업관리(OPMS) 단계(입찰→수행).
-function stageGroupsOf(list: CatalogNode[], keyPrefix: string) {
-  return STAGE_GROUPS
+// 그룹 순서: 입찰 먼저, 그 다음 수행. 각 그룹 안에서는 탭 방법론 단계 → 사업관리(OPMS) 단계 순.
+const phaseGroups = computed(() =>
+  STAGE_GROUPS
     .map((g) => ({
-      key: `${keyPrefix}-${g.key}`,
-      stage: g.key,               // CSS 색상 클래스(stage-BIDDING/-EXECUTION)용 원본 키
-      label: g.label,
-      phases: list.filter((p) => (p.stage ?? 'EXECUTION') === g.key),
+      ...g,
+      stage: g.key, // CSS 색상 클래스(stage-BIDDING/-EXECUTION)용
+      phases: filteredPhases.value.filter((p) => (p.stage ?? 'EXECUTION') === g.key),
     }))
-    .filter((g) => g.phases.length > 0);
-}
-const phaseGroups = computed(() => [
-  ...stageGroupsOf(ownPhases.value, 'own'),
-  ...stageGroupsOf(opmsPhases.value, 'opms'),
-]);
+    .filter((g) => g.phases.length > 0));
 
 const selectedPhase = computed(() =>
   filteredPhases.value.find((p) => p.id === selectedPhaseId.value) ?? null);

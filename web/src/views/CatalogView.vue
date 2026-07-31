@@ -74,25 +74,19 @@ function selectCategory(code: string) {
 
 // 0039 — 단계(PHASE) 위에 입찰/수행 구분을 둔다. 사업준비(PRR)만 입찰, 나머지는 수행.
 //   stage가 비어 있는 과도기 데이터는 '수행'으로 묶어 목록에서 사라지지 않게 한다.
-//   블록 순서: 탭 방법론 단계(입찰→수행) 먼저, 그 아래 사업관리(OPMS) 단계(입찰→수행).
+//   그룹 순서: 입찰 먼저, 그 다음 수행. 각 그룹 안에서는 탭 방법론 단계 → 사업관리(OPMS) 단계 순.
 const STAGE_GROUPS: { key: string; label: string }[] = [
   { key: 'BIDDING', label: '입찰' },
   { key: 'EXECUTION', label: '수행' },
 ];
-function stageGroupsOf(list: CatalogNode[], keyPrefix: string) {
-  return STAGE_GROUPS
+const phaseGroups = computed(() =>
+  STAGE_GROUPS
     .map((g) => ({
-      key: `${keyPrefix}-${g.key}`,
-      stage: g.key,               // CSS 색상 클래스(stage-BIDDING/-EXECUTION)용 원본 키
-      label: g.label,
-      phases: list.filter((p) => (p.stage ?? 'EXECUTION') === g.key),
+      ...g,
+      stage: g.key, // CSS 색상 클래스(stage-BIDDING/-EXECUTION)용
+      phases: filteredPhases.value.filter((p) => (p.stage ?? 'EXECUTION') === g.key),
     }))
-    .filter((g) => g.phases.length > 0);
-}
-const phaseGroups = computed(() => [
-  ...stageGroupsOf(ownPhases.value, 'own'),
-  ...stageGroupsOf(opmsPhases.value, 'opms'),
-]);
+    .filter((g) => g.phases.length > 0));
 
 function selectMethodology(key: string) {
   methodologyTab.value = key;
