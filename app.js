@@ -27466,7 +27466,7 @@ class AetherPMO {
                     <td class="text-center">${t.is_active !== false ? '<span class="badge badge-primary">사용중</span>' : '<span class="badge badge-subtle">중지</span>'}</td>
                     <td class="text-center" style="font-size:11.5px; color:var(--text-muted);">${(t.updated_at || t.updatedAt || '').slice(0, 10)}</td>
                     <td class="text-center">
-                        <button class="btn btn-sm btn-outline" onclick="app.openSalaryTemplateEditModal('${t.id}')">수정</button>
+                        <button class="btn btn-sm btn-outline" onclick="event.preventDefault(); event.stopPropagation(); app.openSalaryTemplateModal('${t.id}');">수정</button>
                     </td>
                 </tr>
             `;

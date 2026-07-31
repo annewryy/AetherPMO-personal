@@ -8490,8 +8490,9 @@ body.dark-mode .badge-status-cancelled {
 
 
 
+
 /* ============================================================================
-   STATIC SALARY TEMPLATE EDIT MODAL CLEAN V8 IS-OPEN STATE CSS
+   STATIC SALARY TEMPLATE EDIT MODAL FINAL V9 CLEAN PRODUCTION CSS
    ============================================================================ */
 #salary-template-modal {
     position: fixed !important;
@@ -8511,7 +8512,7 @@ body.dark-mode .badge-status-cancelled {
     align-items: center !important;
     justify-content: center !important;
     padding: 20px !important;
-    background: rgba(3, 7, 18, 0.85) !important;
+    background: rgba(3, 7, 18, 0.75) !important;
     backdrop-filter: blur(6px) !important;
 }
 
@@ -8537,9 +8538,9 @@ body.dark-mode .badge-status-cancelled {
     flex-direction: column !important;
     background: #ffffff !important;
     color: #111827 !important;
-    border: 5px solid red !important;
+    border: 1px solid #e5e7eb !important;
     border-radius: 16px !important;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35) !important;
     visibility: visible !important;
     opacity: 1 !important;
     z-index: 1000001 !important;
