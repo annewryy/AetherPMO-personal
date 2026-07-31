@@ -1047,34 +1047,6 @@ export interface OrgPick {
   employmentType: string | null;     // 외부 기존 person의 인력구분(있으면)
 }
 
-// 자사화 전환(0019). 비자사(project_contract/turnkey/freelancer) → insourced.
-// 요청→(공문 발신)→승인→반영. 공문 발신·승인은 아마란스 결재 위임 영역.
-export type InsourcingStatus =
-  | 'REQUESTED'   // 전환 요청됨
-  | 'DOC_SENT'    // 공문 발신 표시(아마란스)
-  | 'APPROVED'    // 승인 → 자사화 반영 완료
-  | 'REJECTED'    // 반려
-  | 'CANCELED';   // 취소
-
-export interface InsourcingTransition {
-  transitionId: number;
-  personId: number;
-  personName: string | null;
-  companyName: string | null;
-  fromType: string;                  // 전환 시점 employment_type(비자사)
-  toType: string;                    // 'insourced'
-  status: InsourcingStatus | string;
-  reason: string | null;
-  officialDocRef: string | null;     // 아마란스 공문 번호
-  decisionNote: string | null;
-  requestedBy: string | null;
-  requestedAt: string | null;
-  docSentAt: string | null;
-  decidedBy: string | null;
-  decidedAt: string | null;
-  updatedAt: string | null;
-}
-
 // GET /api/persons/{id}/projects 한 항목 — 참여 이력(시간순). pms_project_member→pms_project.
 export interface PersonProjectHistory {
   projectId: number;

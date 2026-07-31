@@ -6,10 +6,8 @@
 //  - 행 클릭 → 우측 상세 패널(기본 정보 + 참여 이력).
 import { ref, computed, onMounted } from 'vue';
 import { dataClient } from '../lib/dataClient';
-import {
-  EMPLOYMENT_TYPES, employmentTypeLabel, sourceLabel, insourcingStatusLabel,
-} from '../lib/personLabels';
-import type { Person, PersonFilters, InsourcingTransition } from '../types';
+import { EMPLOYMENT_TYPES, employmentTypeLabel, sourceLabel } from '../lib/personLabels';
+import type { Person, PersonFilters } from '../types';
 import PersonDetailPanel from '../components/PersonDetailPanel.vue';
 import PersonFormModal from '../components/PersonFormModal.vue';
 import PersonNavigator, { type PersonScope } from '../components/PersonNavigator.vue';
@@ -114,29 +112,9 @@ function reset() {
   void search();
 }
 
-// --- 자사화 전환 현황(0019 전용 전환관리) — 인력관리 내 토글 목록 ---
-const showTransitions = ref(false);
-const transitions = ref<InsourcingTransition[]>([]);
-const txLoading = ref(false);
-const fmtDate = (v: string | null | undefined) => (v ? String(v).split('T')[0] : '—');
-
-async function loadTransitions() {
-  if (!apiMode.value) return;
-  txLoading.value = true;
-  try {
-    transitions.value = await dataClient.insourcingTransitions.list();
-  } finally {
-    txLoading.value = false;
-  }
-}
-function toggleTransitions() {
-  showTransitions.value = !showTransitions.value;
-  if (showTransitions.value) void loadTransitions();
-}
-// 상세 패널에서 자사화 반영(employment_type 변경) 시 목록·전환현황 동시 갱신.
+// 상세 패널에서 인력 정보 변경 시 목록 갱신.
 function onPersonChanged() {
   void search();
-  if (showTransitions.value) void loadTransitions();
 }
 
 onMounted(() => {
@@ -150,35 +128,8 @@ onMounted(() => {
     <div class="head-row">
       <div>
         <h1 class="title">인력관리</h1>
-        <p class="sub">전사 인력 마스터 조회 — 인력구분·검색으로 필터하고, 행을 클릭하면 상세·참여 이력·자사화 전환을 봅니다.</p>
+        <p class="sub">전사 인력 마스터 조회 — 인력구분·검색으로 필터하고, 행을 클릭하면 상세·참여 이력을 봅니다.</p>
       </div>
-      <button v-if="apiMode" class="btn-toggle" :class="{ on: showTransitions }" @click="toggleTransitions">
-        자사화 전환 현황 {{ showTransitions ? '▲' : '▼' }}
-      </button>
-    </div>
-
-    <!-- 자사화 전환 현황(0019 전용 전환관리) -->
-    <div v-if="showTransitions" class="tx-panel">
-      <div v-if="txLoading" class="notice">불러오는 중…</div>
-      <div v-else-if="transitions.length === 0" class="notice">진행/완료된 자사화 전환이 없습니다.</div>
-      <table v-else class="grid">
-        <thead>
-          <tr>
-            <th>성명</th><th>소속회사</th><th>전환</th><th>상태</th><th>요청일</th><th>처리일</th><th>사유</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="t in transitions" :key="t.transitionId">
-            <td class="name">{{ t.personName || `#${t.personId}` }}</td>
-            <td>{{ t.companyName || '—' }}</td>
-            <td>{{ employmentTypeLabel(t.fromType) }} → 자사화</td>
-            <td><span class="tx-chip" :class="'tx-' + t.status">{{ insourcingStatusLabel(t.status) }}</span></td>
-            <td class="muted">{{ fmtDate(t.requestedAt) }}</td>
-            <td class="muted">{{ fmtDate(t.decidedAt) }}</td>
-            <td class="muted">{{ t.reason || '—' }}</td>
-          </tr>
-        </tbody>
-      </table>
     </div>
 
     <div class="body-cols">

@@ -24,7 +24,7 @@ import type {
   IssueCreateInput, ActionItemCreateInput, MeetingMinuteCreateInput, MeetingMinuteUpdateInput,
   ConsortiumPayload, ConsortiumMemberInput, VrbInfoInput,
   ProjectMemberRef, ProjectMemberDetail, ProjectMemberInput, ProjectMemberAssignment, AppNotification, AppSetting,
-  Person, PersonInput, PersonProjectHistory, PersonFilters, ProjectRole, InsourcingTransition, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput, ProjectConvertInput,
+  Person, PersonInput, PersonProjectHistory, PersonFilters, ProjectRole, OrgDept, OrgMember, OrgExternalMember, ProjectFilters, ProjectCreateInput, ProjectUpdateInput, ProjectConvertInput,
   BidAgency, BidNoticeFilters, BidNoticeResult, BidNoticeDetail,
 } from '../types';
 
@@ -820,37 +820,6 @@ export const dataClient = {
     async projects(id: number): Promise<PersonProjectHistory[]> {
       if (!apiBase()) return [];
       return apiGet<PersonProjectHistory[]>(`/api/persons/${id}/projects`);
-    },
-  },
-
-  // 자사화 전환(0019 — 비자사 → insourced). 백엔드 전용(레거시엔 인력 마스터 없음).
-  insourcingTransitions: {
-    async list(params: { status?: string; personId?: number } = {}): Promise<InsourcingTransition[]> {
-      if (!apiBase()) return [];
-      const qs = new URLSearchParams();
-      if (params.status) qs.set('status', params.status);
-      if (params.personId != null) qs.set('personId', String(params.personId));
-      const q = qs.toString();
-      return apiGet<InsourcingTransition[]>(`/api/insourcing-transitions${q ? `?${q}` : ''}`);
-    },
-    // 인력의 진행중 전환(없으면 204 → null). apiGet는 204에서 json() 실패 → 직접 처리.
-    async openForPerson(personId: number): Promise<InsourcingTransition | null> {
-      if (!apiBase()) return null;
-      const res = await fetch(`${apiBase()}/api/persons/${personId}/insourcing-transition`, {
-        headers: userHeader(),
-      });
-      if (res.status === 204) return null;
-      if (!res.ok) throw new Error(`전환 조회 실패: ${res.status}`);
-      return res.json() as Promise<InsourcingTransition>;
-    },
-    async request(personId: number, reason?: string): Promise<InsourcingTransition> {
-      return apiSend<InsourcingTransition>('POST', '/api/insourcing-transitions',
-        { personId, ...(reason ? { reason } : {}) });
-    },
-    async act(id: number, action: 'doc_sent' | 'approve' | 'reject' | 'cancel', note?: string):
-        Promise<InsourcingTransition> {
-      return apiSend<InsourcingTransition>('PATCH', `/api/insourcing-transitions/${id}`,
-        { action, ...(note ? { note } : {}) });
     },
   },
 
