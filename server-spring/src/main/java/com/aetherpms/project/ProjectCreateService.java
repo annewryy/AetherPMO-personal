@@ -97,7 +97,14 @@ public class ProjectCreateService {
         // ---- 고정 기본값(미지정 시) --------------------------------------
         String stage = optInList("stage", b.get("stage"), STAGES, "BIDDING");
         fields.put("project_stage", stage);
-        fields.put("status", optInList("status", b.get("status"), STATUSES, "입찰"));
+        // 0044 §A — 기본 상태는 단계를 따른다(입찰=입찰, 수행=진행중, 완료=완료).
+        //   생성 마법사가 상태 미선택 시 "기본(진행중)"을 약속하는데 stage 무관 '입찰'로 저장되던 버그 수정.
+        String defaultStatus = switch (stage) {
+            case "EXECUTION" -> "진행중";
+            case "COMPLETED" -> "완료";
+            default -> "입찰";
+        };
+        fields.put("status", optInList("status", b.get("status"), STATUSES, defaultStatus));
         fields.put("bid_status", optInList("bidStatus", b.get("bidStatus"), BID_STATUSES, "제안준비중"));
         fields.put("progress_rate", 0);
         // source_project_id 는 null(미설정) — 신규 입찰은 파생이 아님.

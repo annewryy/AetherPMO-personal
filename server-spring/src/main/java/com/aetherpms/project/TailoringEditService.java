@@ -26,7 +26,7 @@ import com.aetherpms.common.WriteSupport;
  *    · add    — 미선택 노드 증분 전개(TASK→pms_task, DELIVERABLE→부모 태스크의 pms_deliverable,
  *               PHASE/ACTIVITY는 tailoring 기록만). 부모 태스크는 기존 전개분을 재사용한다.
  *    · remove — 철회. **미착수만 허용**(작업 이력 보호 — 0044 수용 기준):
- *               산출물=DRAFT·파일 없음·v1 이하·관련항목 링크 없음,
+ *               산출물=DRAFT·파일 없음·관련항목 링크 없음,
  *               태스크=TODO·진척 0·하위 산출물이 전부 이번 remove에 포함,
  *               단계/활동=선택된 하위가 전부 이번 remove에 포함. 위반 시 409(사유 명시).
  *               생성물은 삭제하고 tailoring 행은 is_selected=0으로 남긴다(이력).
@@ -173,7 +173,7 @@ public class TailoringEditService {
                         + "ORDER BY deliverable_id DESC LIMIT 1", projectId, nodeId);
         if (id == null) return;   // 생성물 없음 — 기록만 철회
         Map<String, Object> d = jdbc.queryForList(
-                "SELECT status, file_name, version_no, deliverable_name FROM pms_deliverable WHERE deliverable_id = ?", id)
+                "SELECT status, file_name, deliverable_name FROM pms_deliverable WHERE deliverable_id = ?", id)
                 .stream().findFirst().orElse(null);
         if (d == null) return;
         String name = str(d.get("deliverable_name"));
