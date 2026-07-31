@@ -56,6 +56,12 @@ type TabKey =
   | 'wbs' | 'gantt'                                             // 배치20 WBS/일정 · 0031 간트차트
   | 'artifacts' | 'meeting-minutes' | 'issues' | 'action-items' | 'official-docs'; // EXECUTION
 
+// 사업상태 영문 코드 → 한글(ProjectListView와 동일 매핑). 한글이 그대로 저장된 데이터는 통과.
+const PROJECT_STATUS_LABELS: Record<string, string> = {
+  Bidding: '입찰', 'In Progress': '진행중', Delay: '지연', 'On Hold': '보류', Completed: '완료',
+};
+const projectStatusLabel = (s: string | null | undefined) => (s ? (PROJECT_STATUS_LABELS[s] ?? s) : '—');
+
 const TAB_LABELS: Record<TabKey, string> = {
   overview: '개요', activity: '활동로그',
   members: '참여인력',
@@ -601,7 +607,7 @@ watch(() => route.query.meeting, applyMeetingQuery);
         <div class="kpi"><span class="kpi-k">사업책임자</span><span class="kpi-v">{{ project.manager || '—' }}</span></div>
         <div class="kpi"><span class="kpi-k">사업기간</span><span class="kpi-v">{{ fmtDate(project.startDate) }} ~ {{ fmtDate(project.endDate) }}</span></div>
         <div class="kpi"><span class="kpi-k">계약금액</span><span class="kpi-v">{{ fmtAmount(project.projectBudget) }}</span></div>
-        <div class="kpi"><span class="kpi-k">사업상태</span><span class="kpi-v">{{ project.status || '—' }}</span></div>
+        <div class="kpi"><span class="kpi-k">사업상태</span><span class="kpi-v">{{ projectStatusLabel(project.status) }}</span></div>
         <div class="kpi">
           <span class="kpi-k">진척률</span>
           <span class="kpi-v kpi-progress"><ProgressBar :value="progress ? progress.overall : project.progress" /></span>
@@ -648,7 +654,7 @@ watch(() => route.query.meeting, applyMeetingQuery);
                   <div><dt>입찰상태</dt><dd>{{ project.bidStatus || '—' }}</dd></div>
                 </template>
                 <template v-else>
-                  <div><dt>상태</dt><dd>{{ project.status || '—' }}</dd></div>
+                  <div><dt>상태</dt><dd>{{ projectStatusLabel(project.status) }}</dd></div>
                   <div><dt>사업유형</dt><dd>{{ project.businessType || '—' }}</dd></div>
                   <div><dt>고객사</dt><dd>{{ project.customerName || '—' }}</dd></div>
                   <div><dt>수행장소</dt><dd>{{ project.location || '—' }}</dd></div>
