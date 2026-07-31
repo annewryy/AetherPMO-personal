@@ -94,7 +94,7 @@ async function submit() {
       v-else
       :tree="tree"
       :selected="selected"
-      :contract-amount="project.contractAmount ?? null"
+      :contract-amount="project.projectBudget ?? null"
       :stage="project.stage"
       :disabled="submitting"
       @toggle="onToggle"

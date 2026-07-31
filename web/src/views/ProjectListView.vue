@@ -8,7 +8,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
 import type { Project, ProjectLocationFilter } from '../types';
-import ProjectFormModal from '../components/ProjectFormModal.vue';
+import ProjectCreateWizard from '../components/ProjectCreateWizard.vue';
 import ProgressBar from '../components/ProgressBar.vue';
 import PageSizeSelect from '../components/PageSizeSelect.vue';
 import Pager from '../components/Pager.vue';
@@ -221,10 +221,10 @@ onMounted(() => { void load(); });
       <button class="btn btn-primary" @click="showCreateForm = true">+ 신규 프로젝트</button>
     </div>
 
-    <ProjectFormModal
+    <!-- 0044 §A — 신규 생성도 마법사(나라장터→입찰·입찰→수행과 동일 골격) -->
+    <ProjectCreateWizard
       v-if="showCreateForm"
-      mode="create"
-      @saved="onProjectCreated"
+      @created="onProjectCreated"
       @close="showCreateForm = false"
     />
 
