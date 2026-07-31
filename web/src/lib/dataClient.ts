@@ -222,6 +222,15 @@ export const dataClient = {
       if (!apiBase()) return null;
       return apiGet<ProjectWbs>(`/api/projects/${projectId}/wbs`);
     },
+    // 0044 §C — 테일러링 전개 후 편집(추가/삭제). 현재 선택 집합 조회 + diff 전송.
+    async tailoringState(projectId: number): Promise<{ projectId: number; selectedNodeIds: number[] }> {
+      return apiGet(`/api/projects/${projectId}/tailoring`);
+    },
+    async editTailoring(projectId: number, input: { add: number[]; remove: number[] }): Promise<{
+      addedTasks: number; addedDeliverables: number; removedTasks: number; removedDeliverables: number;
+    }> {
+      return apiSend('POST', `/api/projects/${projectId}/tailoring`, input);
+    },
     // 배치18: 프로젝트 부분수정(PATCH /api/projects/{id}). camelCase 화이트리스트 부분수정.
     //   불변 필드(projectCode·sourceProjectId·clientCompanyId·clientAgencyCode·tailoring)를
     //   넘기면 백엔드 400. 미지원키 400·없으면 404 — apiSend가 {message} 그대로 던진다.

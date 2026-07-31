@@ -36,6 +36,7 @@ import WbsGantt from '../components/WbsGantt.vue';
 import ProjectFormModal from '../components/ProjectFormModal.vue';
 import ProjectMembers from '../components/ProjectMembers.vue';
 import ExecConvertWizard from '../components/ExecConvertWizard.vue';
+import TailoringEditModal from '../components/TailoringEditModal.vue';
 
 const props = defineProps<{ id: string }>();
 const route = useRoute();
@@ -473,6 +474,12 @@ async function onMeetingCreated() { showMeetingForm.value = false; await reloadM
 
 // ---- 0033 개정: 입찰 → 수행 전환 마법사(정보 보완 + 테일러링 선택) -------------
 const showConvertWizard = ref(false);
+// 0044 §C — 테일러링 편집 모달(WBS 탭). 저장 시 WBS 리로드.
+const showTailoringEdit = ref(false);
+async function onTailoringSaved() {
+  showTailoringEdit.value = false;
+  wbs.value = await dataClient.projects.wbs(projectId.value);
+}
 function onConverted(created: Project) {
   showConvertWizard.value = false;
   router.push(`/projects/${created.id}`);
@@ -943,8 +950,14 @@ watch(() => route.query.meeting, applyMeetingQuery);
           <div v-if="!apiMode" class="card-empty">
             WBS/일정은 백엔드(API_BASE) 연결 후 표시됩니다.
           </div>
-          <WbsSchedule v-else-if="wbs" :wbs="wbs" />
-          <div v-else class="card-empty">WBS 데이터를 불러올 수 없습니다.</div>
+          <template v-else>
+            <!-- 0044 §C — 전개 후 테일러링 편집(추가/삭제) -->
+            <div class="tab-toolbar">
+              <button class="btn btn-sm" @click="showTailoringEdit = true">테일러링 편집</button>
+            </div>
+            <WbsSchedule v-if="wbs" :wbs="wbs" />
+            <div v-else class="card-empty">WBS 전개 전입니다 — '테일러링 편집'으로 태스크·산출물을 전개하세요.</div>
+          </template>
         </template>
 
         <!-- 0031: 간트차트 — 계획·실적 이중 바(기존 WBS 탭 유지, 별도 탭) -->
@@ -1128,6 +1141,14 @@ watch(() => route.query.meeting, applyMeetingQuery);
       <ProjectFormModal
         v-if="showEditForm" mode="edit" :project="project"
         @saved="onProjectSaved" @close="showEditForm = false"
+      />
+
+      <!-- 0044 §C — 테일러링 편집(전개 후 추가/삭제) -->
+      <TailoringEditModal
+        v-if="showTailoringEdit && project"
+        :project="project"
+        @saved="onTailoringSaved"
+        @close="showTailoringEdit = false"
       />
     </template>
   </div>
