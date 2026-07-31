@@ -49,6 +49,7 @@ const METHODOLOGY_TABS = [
   { key: 'ODS', label: 'ODS 시스템구축' },
   { key: 'OMS', label: 'OMS 유지관리' },
   { key: 'BIS', label: 'BIS ISP컨설팅' },
+  { key: 'ECR', label: 'ECR 정보자원 도입' }, // 0043 — NIRS 인프라 납품 산출물
 ] as const;
 const tab = ref<string>('OPMS');
 

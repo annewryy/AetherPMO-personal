@@ -107,7 +107,7 @@ const form = ref({
 
 const docTemplates = ref<DocTemplate[]>([]);
 
-const METHODOLOGIES = ['OPMS', 'ODS', 'OMS', 'BIS'] as const;
+const METHODOLOGIES = ['OPMS', 'ODS', 'OMS', 'BIS', 'ECR'] as const;
 
 function selectNode(n: CatalogNode) {
   selectedId.value = n.id;

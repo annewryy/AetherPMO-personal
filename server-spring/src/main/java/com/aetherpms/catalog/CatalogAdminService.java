@@ -61,7 +61,7 @@ public class CatalogAdminService {
             Map.entry("fileNameBase", "file_name_base"), Map.entry("docTemplateId", "doc_template_id"),
             Map.entry("clientCategory", "client_category"));
 
-    private static final List<String> METHODOLOGIES = List.of("OPMS", "ODS", "OMS", "BIS");
+    private static final List<String> METHODOLOGIES = List.of("OPMS", "ODS", "OMS", "BIS", "ECR"); // ECR: 0043 정보자원 도입
 
     @Transactional
     public Map<String, Object> createNode(Map<String, Object> body, Actor actor) {
