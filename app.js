@@ -9044,6 +9044,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-001",
         "sequenceNo": 1,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "착수 준비",
         "subStage": "계약",
@@ -9060,6 +9064,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-002",
         "sequenceNo": 2,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "착수 준비",
         "subStage": "계약",
@@ -9076,6 +9084,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-003",
         "sequenceNo": 3,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "착수 준비",
         "subStage": "사무환경",
@@ -9092,6 +9104,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-004",
         "sequenceNo": 4,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "착수 준비",
         "subStage": "사무환경",
@@ -9108,6 +9124,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-005",
         "sequenceNo": 5,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "착수",
         "subStage": "사무환경",
@@ -9124,6 +9144,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-006",
         "sequenceNo": 6,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "착수",
         "subStage": "사무환경",
@@ -9140,6 +9164,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-007",
         "sequenceNo": 7,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "착수",
         "subStage": "사무환경",
@@ -9156,6 +9184,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-008",
         "sequenceNo": 8,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "착수",
         "subStage": "사무환경",
@@ -9172,6 +9204,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-009",
         "sequenceNo": 9,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "착수",
         "subStage": "사무환경",
@@ -9188,6 +9224,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-010",
         "sequenceNo": 10,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "착수",
         "subStage": "착수계",
@@ -9204,6 +9244,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-011",
         "sequenceNo": 11,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "착수",
         "subStage": "착수계",
@@ -9220,6 +9264,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-012",
         "sequenceNo": 12,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "착수",
         "subStage": "착수계",
@@ -9236,6 +9284,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-013",
         "sequenceNo": 13,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "착수",
         "subStage": "착수계",
@@ -9252,8 +9304,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-014",
         "sequenceNo": 14,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(착수계 붙임) 보안 서약서(대표자)",
         "managerRole": "사업관리",
@@ -9268,8 +9324,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-015",
         "sequenceNo": 15,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(착수계 붙임) 사용인감계",
         "managerRole": "사업관리",
@@ -9284,8 +9344,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-016",
         "sequenceNo": 16,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(착수계 붙임) 사업수행계획서",
         "managerRole": "사업관리",
@@ -9300,8 +9364,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-017",
         "sequenceNo": 17,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 산출내역서",
         "managerRole": "사업관리",
@@ -9316,8 +9384,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-018",
         "sequenceNo": 18,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 도입장비 비교표",
         "managerRole": "사업관리",
@@ -9332,8 +9404,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-019",
         "sequenceNo": 19,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 제품별 증설 단가표",
         "managerRole": "사업관리",
@@ -9348,8 +9424,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-020",
         "sequenceNo": 20,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 납품계획서",
         "managerRole": "사업관리",
@@ -9364,8 +9444,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-021",
         "sequenceNo": 21,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 설치계획서",
         "managerRole": "사업관리",
@@ -9380,8 +9464,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-022",
         "sequenceNo": 22,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 산출물 목록",
         "managerRole": "품질관리",
@@ -9396,8 +9484,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-023",
         "sequenceNo": 23,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 품질관리계획서",
         "managerRole": "품질관리",
@@ -9412,8 +9504,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-024",
         "sequenceNo": 24,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 위험/이슈관리계획서",
         "managerRole": "사업관리",
@@ -9428,8 +9524,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-025",
         "sequenceNo": 25,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 보안관리계획서",
         "managerRole": "사업관리",
@@ -9444,8 +9544,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-026",
         "sequenceNo": 26,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 보안 서약서(참여자)",
         "managerRole": "사업관리",
@@ -9460,8 +9564,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-027",
         "sequenceNo": 27,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 근로기준법 준수확인서",
         "managerRole": "사업관리",
@@ -9476,8 +9584,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-028",
         "sequenceNo": 28,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 기술지원확약서",
         "managerRole": "사업관리",
@@ -9492,8 +9604,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-029",
         "sequenceNo": 29,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 악의적인 백도어 미설치 확인서",
         "managerRole": "사업관리",
@@ -9508,8 +9624,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-030",
         "sequenceNo": 30,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 국제사회 제재대상 제품 교체 확약서",
         "managerRole": "사업관리",
@@ -9524,8 +9644,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-031",
         "sequenceNo": 31,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 기술적용 계획표",
         "managerRole": "사업관리",
@@ -9540,8 +9664,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-032",
         "sequenceNo": 32,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 조직도",
         "managerRole": "사업관리",
@@ -9556,8 +9684,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-033",
         "sequenceNo": 33,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(사업수행계획서 별첨) 투입인력 프로필",
         "managerRole": "사업관리",
@@ -9572,8 +9704,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-034",
         "sequenceNo": 34,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "착수계",
         "artifactName": "(투입인력) 증빙자료",
         "managerRole": "사업관리",
@@ -9588,8 +9724,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-035",
         "sequenceNo": 35,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "하도급",
         "artifactName": "(공문) 소프트웨어사업 하도급 계약 승인 신청의 건",
         "managerRole": "사업관리",
@@ -9604,8 +9744,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-036",
         "sequenceNo": 36,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "하도급",
         "artifactName": "(공문 붙임) 소프트웨어사업 하도급 계약 승인서",
         "managerRole": "사업관리",
@@ -9620,8 +9764,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-037",
         "sequenceNo": 37,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "하도급",
         "artifactName": "(하도급 신청 붙임) 하도급계약서",
         "managerRole": "사업관리",
@@ -9636,8 +9784,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-038",
         "sequenceNo": 38,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "하도급",
         "artifactName": "(하도급 신청 붙임) 하도급사업수행계획서",
         "managerRole": "사업관리",
@@ -9652,8 +9804,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-039",
         "sequenceNo": 39,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "하도급",
         "artifactName": "(하도급 신청 붙임) 하도급적정성 판단 자기평가표",
         "managerRole": "사업관리",
@@ -9668,8 +9824,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-040",
         "sequenceNo": 40,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "하도급",
         "artifactName": "(하도급 신청 붙임) 소프트웨어사업 하도급 계획서(계약체결 시)",
         "managerRole": "사업관리",
@@ -9684,8 +9844,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-041",
         "sequenceNo": 41,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "하도급",
         "artifactName": "(하도급 신청 붙임) 기타증빙서류",
         "managerRole": "사업관리",
@@ -9700,8 +9864,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-042",
         "sequenceNo": 42,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "선금",
         "artifactName": "(공문) 선금 신청의 건",
         "managerRole": "사업관리",
@@ -9716,8 +9884,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-043",
         "sequenceNo": 43,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "선금",
         "artifactName": "(공문 붙임) 선금 신청서",
         "managerRole": "사업관리",
@@ -9732,8 +9904,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-044",
         "sequenceNo": 44,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "선금",
         "artifactName": "(선금 붙임) 선금급이행보증보험증권",
         "managerRole": "사업관리",
@@ -9748,8 +9924,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-045",
         "sequenceNo": 45,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "선금",
         "artifactName": "(선금 붙임) 전자세금계산서",
         "managerRole": "사업관리",
@@ -9764,8 +9944,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-046",
         "sequenceNo": 46,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "선금",
         "artifactName": "(선금 붙임) 통장사본",
         "managerRole": "사업관리",
@@ -9780,8 +9964,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-047",
         "sequenceNo": 47,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "선금",
         "artifactName": "(선금 붙임) 국세 및 지방세 완납 증명서",
         "managerRole": "사업관리",
@@ -9796,8 +9984,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-048",
         "sequenceNo": 48,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "선금",
         "artifactName": "(선금 붙임) 4대 보험 완납 증명서",
         "managerRole": "사업관리",
@@ -9812,8 +10004,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-049",
         "sequenceNo": 49,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "착수",
+        "stage": "계획",
         "subStage": "선금",
         "artifactName": "(선금 붙임) 사업자 등록증",
         "managerRole": "사업관리",
@@ -9828,6 +10024,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-050",
         "sequenceNo": 50,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "계획",
         "subStage": "하도급",
@@ -9844,6 +10044,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-051",
         "sequenceNo": 51,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "계획",
         "subStage": "하도급",
@@ -9860,6 +10064,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-052",
         "sequenceNo": 52,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "계획",
         "subStage": "하도급",
@@ -9876,6 +10084,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-053",
         "sequenceNo": 53,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "계획",
         "subStage": "하도급",
@@ -9892,6 +10104,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-054",
         "sequenceNo": 54,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "계획",
         "subStage": "선금",
@@ -9908,6 +10124,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-055",
         "sequenceNo": 55,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "계획",
         "subStage": "선금",
@@ -9924,6 +10144,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-056",
         "sequenceNo": 56,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "계획",
         "subStage": "선금",
@@ -9940,8 +10164,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-057",
         "sequenceNo": 57,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "선금",
         "artifactName": "(별첨) 급여지급 증빙(인건비인 경우)",
         "managerRole": "사업관리",
@@ -9956,8 +10184,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-058",
         "sequenceNo": 58,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "선금",
         "artifactName": "(별첨) 거래명세서·지출증빙",
         "managerRole": "사업관리",
@@ -9972,8 +10204,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-059",
         "sequenceNo": 59,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "선금",
         "artifactName": "(별첨) 선금 정산서",
         "managerRole": "사업관리",
@@ -9988,8 +10224,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-060",
         "sequenceNo": 60,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "프로젝트 표준수립",
         "artifactName": "산출물 테일러링 결과서",
         "managerRole": "사업관리",
@@ -10004,8 +10244,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-061",
         "sequenceNo": 61,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "프로젝트 표준수립",
         "artifactName": "산출물 문서 표준지침",
         "managerRole": "품질관리",
@@ -10020,8 +10264,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-062",
         "sequenceNo": 62,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "프로젝트 표준수립",
         "artifactName": "산출물 목록표",
         "managerRole": "품질관리",
@@ -10036,8 +10284,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-063",
         "sequenceNo": 63,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "요구사항정의",
         "artifactName": "요구사항정의서",
         "managerRole": "품질관리",
@@ -10052,8 +10304,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-064",
         "sequenceNo": 64,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "요구사항정의",
         "artifactName": "과업대비표",
         "managerRole": "품질관리",
@@ -10068,8 +10324,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-065",
         "sequenceNo": 65,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "계획수립",
         "artifactName": "범위관리 계획서",
         "managerRole": "사업관리",
@@ -10084,8 +10344,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-066",
         "sequenceNo": 66,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "계획수립",
         "artifactName": "변경관리 계획서",
         "managerRole": "사업관리",
@@ -10100,8 +10364,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-067",
         "sequenceNo": 67,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "계획수립",
         "artifactName": "일정관리 계획서",
         "managerRole": "사업관리",
@@ -10116,8 +10384,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-068",
         "sequenceNo": 68,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "계획수립",
         "artifactName": "인력관리 계획서",
         "managerRole": "사업관리",
@@ -10132,8 +10404,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-069",
         "sequenceNo": 69,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "계획수립",
         "artifactName": "품질관리 계획서",
         "managerRole": "품질관리",
@@ -10148,8 +10424,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-070",
         "sequenceNo": 70,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "계획수립",
         "artifactName": "의사소통관리 계획서",
         "managerRole": "사업관리",
@@ -10164,8 +10444,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-071",
         "sequenceNo": 71,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "계획수립",
         "artifactName": "위험이슈관리 계획서",
         "managerRole": "사업관리",
@@ -10180,8 +10464,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-072",
         "sequenceNo": 72,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "계획수립",
         "artifactName": "보안관리 계획서",
         "managerRole": "보안관리",
@@ -10196,8 +10484,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-073",
         "sequenceNo": 73,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "계획수립",
         "artifactName": "안전보건관리 계획서",
         "managerRole": "사업관리",
@@ -10212,8 +10504,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-074",
         "sequenceNo": 74,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "계획수립",
         "artifactName": "산출물관리 계획서",
         "managerRole": "사업관리",
@@ -10228,8 +10524,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-075",
         "sequenceNo": 75,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "계획",
+        "stage": "수행 및 통제",
         "subStage": "계획수립",
         "artifactName": "교육 계획서",
         "managerRole": "사업관리",
@@ -10244,6 +10544,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-076",
         "sequenceNo": 76,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "상호협약",
@@ -10260,6 +10564,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-077",
         "sequenceNo": 77,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "범위관리",
@@ -10276,6 +10584,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-078",
         "sequenceNo": 78,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "범위관리",
@@ -10292,6 +10604,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-079",
         "sequenceNo": 79,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "변경관리",
@@ -10308,6 +10624,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-080",
         "sequenceNo": 80,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "변경관리",
@@ -10324,6 +10644,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-081",
         "sequenceNo": 81,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "일정관리",
@@ -10340,6 +10664,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-082",
         "sequenceNo": 82,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "품질관리",
@@ -10356,6 +10684,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-083",
         "sequenceNo": 83,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "의사소통관리",
@@ -10372,6 +10704,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-084",
         "sequenceNo": 84,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "의사소통관리",
@@ -10388,6 +10724,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-085",
         "sequenceNo": 85,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "의사소통관리",
@@ -10404,6 +10744,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-086",
         "sequenceNo": 86,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "의사소통관리",
@@ -10420,6 +10764,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-087",
         "sequenceNo": 87,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "의사소통관리",
@@ -10436,6 +10784,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-088",
         "sequenceNo": 88,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "위험이슈관리",
@@ -10452,6 +10804,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-089",
         "sequenceNo": 89,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "보안관리",
@@ -10468,6 +10824,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-090",
         "sequenceNo": 90,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "보안관리",
@@ -10484,6 +10844,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-091",
         "sequenceNo": 91,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "보안관리",
@@ -10500,6 +10864,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-092",
         "sequenceNo": 92,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "보안관리",
@@ -10516,6 +10884,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-093",
         "sequenceNo": 93,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "보안관리",
@@ -10532,6 +10904,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-094",
         "sequenceNo": 94,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "보안관리",
@@ -10548,6 +10924,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-095",
         "sequenceNo": 95,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "보안관리",
@@ -10564,6 +10944,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-096",
         "sequenceNo": 96,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "안전보건관리",
@@ -10580,6 +10964,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-097",
         "sequenceNo": 97,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "안전보건관리",
@@ -10596,6 +10984,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-098",
         "sequenceNo": 98,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "안전보건관리",
@@ -10612,6 +11004,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-099",
         "sequenceNo": 99,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "산출물관리",
@@ -10628,6 +11024,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-100",
         "sequenceNo": 100,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "교육관리",
@@ -10644,6 +11044,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-101",
         "sequenceNo": 101,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "교육관리",
@@ -10660,6 +11064,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-102",
         "sequenceNo": 102,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "감리",
@@ -10676,6 +11084,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-103",
         "sequenceNo": 103,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "수행 및 통제",
         "subStage": "감리",
@@ -10692,8 +11104,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-104",
         "sequenceNo": 104,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "종료",
+        "stage": "수행 및 통제",
         "subStage": "감리",
         "artifactName": "종료 단계 감리 결과서",
         "managerRole": "품질관리",
@@ -10708,8 +11124,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-105",
         "sequenceNo": 105,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "종료",
+        "stage": "수행 및 통제",
         "subStage": "인수인계",
         "artifactName": "인수인계 계획서",
         "managerRole": "사업관리",
@@ -10724,8 +11144,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-106",
         "sequenceNo": 106,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "종료",
+        "stage": "수행 및 통제",
         "subStage": "인수인계",
         "artifactName": "업무자료 인계인수대장(사업완료)",
         "managerRole": "사업관리",
@@ -10740,8 +11164,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-107",
         "sequenceNo": 107,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "종료",
+        "stage": "수행 및 통제",
         "subStage": "인수인계",
         "artifactName": "인수인계 결과서",
         "managerRole": "사업관리",
@@ -10756,8 +11184,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-108",
         "sequenceNo": 108,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "종료",
+        "stage": "수행 및 통제",
         "subStage": "하자보수계획 수립",
         "artifactName": "하자보수계획서",
         "managerRole": "사업관리",
@@ -10772,8 +11204,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-109",
         "sequenceNo": 109,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "종료",
+        "stage": "수행 및 통제",
         "subStage": "참여인력 보안조치",
         "artifactName": "대표명의의 보안확약서",
         "managerRole": "사업관리",
@@ -10788,8 +11224,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-110",
         "sequenceNo": 110,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "종료",
+        "stage": "수행 및 통제",
         "subStage": "참여인력 보안조치",
         "artifactName": "보안확약서(참여자)",
         "managerRole": "사업관리",
@@ -10804,8 +11244,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-111",
         "sequenceNo": 111,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "종료",
+        "stage": "수행 및 통제",
         "subStage": "참여인력 보안조치",
         "artifactName": "완전삭제확인서(사진 등)",
         "managerRole": "사업관리",
@@ -10820,8 +11264,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-112",
         "sequenceNo": 112,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "종료",
+        "stage": "수행 및 통제",
         "subStage": "검사 및 사업종료",
         "artifactName": "완료보고서",
         "managerRole": "사업관리",
@@ -10836,8 +11284,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-113",
         "sequenceNo": 113,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "종료",
+        "stage": "수행 및 통제",
         "subStage": "검사 및 사업종료",
         "artifactName": "검사계획(안)",
         "managerRole": "사업관리",
@@ -10852,8 +11304,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-114",
         "sequenceNo": 114,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "종료",
+        "stage": "수행 및 통제",
         "subStage": "검사 및 사업종료",
         "artifactName": "감독조서",
         "managerRole": "사업관리",
@@ -10868,8 +11324,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-115",
         "sequenceNo": 115,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "종료",
+        "stage": "수행 및 통제",
         "subStage": "검사 및 사업종료",
         "artifactName": "검사조서",
         "managerRole": "사업관리",
@@ -10884,8 +11344,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-116",
         "sequenceNo": 116,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "종료",
+        "stage": "수행 및 통제",
         "subStage": "검사 및 사업종료",
         "artifactName": "(공문) 검수요청서",
         "managerRole": "사업관리",
@@ -10900,8 +11364,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-117",
         "sequenceNo": 117,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "종료",
+        "stage": "수행 및 통제",
         "subStage": "검사 및 사업종료",
         "artifactName": "검수요청서",
         "managerRole": "사업관리",
@@ -10916,8 +11384,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-118",
         "sequenceNo": 118,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "종료",
+        "stage": "수행 및 통제",
         "subStage": "검사 및 사업종료",
         "artifactName": "준공검사확인서(공문 접수)",
         "managerRole": "사업관리",
@@ -10932,8 +11404,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-119",
         "sequenceNo": 119,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "안정화",
+        "stage": "수행 및 통제",
         "subStage": "잔금",
         "artifactName": "(공문) 잔금 신청의 건",
         "managerRole": "사업관리",
@@ -10948,6 +11424,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-120",
         "sequenceNo": 120,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "안정화",
         "subStage": "잔금",
@@ -10964,6 +11444,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-121",
         "sequenceNo": 121,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "안정화",
         "subStage": "잔금",
@@ -10980,6 +11464,10 @@ class AetherPMO {
     {
         "id": "NIRS-PM-122",
         "sequenceNo": 122,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
         "stage": "안정화",
         "subStage": "잔금",
@@ -10996,8 +11484,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-123",
         "sequenceNo": 123,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "안정화",
+        "stage": "종료",
         "subStage": "잔금",
         "artifactName": "(잔금 붙임) 통장사본",
         "managerRole": "사업관리",
@@ -11012,8 +11504,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-124",
         "sequenceNo": 124,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "안정화",
+        "stage": "종료",
         "subStage": "잔금",
         "artifactName": "(잔금 붙임) 국세 및 지방세 완납 증명서",
         "managerRole": "사업관리",
@@ -11028,8 +11524,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-125",
         "sequenceNo": 125,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "안정화",
+        "stage": "종료",
         "subStage": "잔금",
         "artifactName": "(잔금 붙임) 4대 보험 완납 증명서",
         "managerRole": "사업관리",
@@ -11044,8 +11544,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-126",
         "sequenceNo": 126,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "안정화",
+        "stage": "종료",
         "subStage": "잔금",
         "artifactName": "(잔금 붙임) 사업자 등록증",
         "managerRole": "사업관리",
@@ -11060,8 +11564,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-127",
         "sequenceNo": 127,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "안정화",
+        "stage": "종료",
         "subStage": "하도급",
         "artifactName": "(공문) 소프트웨어사업 하도급계약 준수 실태 보고(잔금)의 건",
         "managerRole": "사업관리",
@@ -11076,8 +11584,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-128",
         "sequenceNo": 128,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "안정화",
+        "stage": "종료",
         "subStage": "하도급",
         "artifactName": "(공문 붙임) 소프트웨어사업 하도급계약 준수 실태 보고서",
         "managerRole": "사업관리",
@@ -11092,8 +11604,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-129",
         "sequenceNo": 129,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "안정화",
+        "stage": "종료",
         "subStage": "하도급",
         "artifactName": "(별첨) 하도급계약서",
         "managerRole": "사업관리",
@@ -11108,8 +11624,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-130",
         "sequenceNo": 130,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "안정화",
+        "stage": "종료",
         "subStage": "하도급",
         "artifactName": "(별첨) 하도급 계약 준수사항 이행 증빙서류",
         "managerRole": "사업관리",
@@ -11124,8 +11644,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-131",
         "sequenceNo": 131,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "안정화",
+        "stage": "종료",
         "subStage": "잔금",
         "artifactName": "(공문) 잔금 사용내역서 제출의 건",
         "managerRole": "사업관리",
@@ -11140,8 +11664,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-132",
         "sequenceNo": 132,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "안정화",
+        "stage": "종료",
         "subStage": "잔금",
         "artifactName": "(별첨) 잔금 사용내역서",
         "managerRole": "사업관리",
@@ -11156,8 +11684,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-133",
         "sequenceNo": 133,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "안정화",
+        "stage": "종료",
         "subStage": "잔금",
         "artifactName": "(별첨) 세금계산서·계좌이체증",
         "managerRole": "사업관리",
@@ -11172,8 +11704,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-134",
         "sequenceNo": 134,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "안정화",
+        "stage": "종료",
         "subStage": "잔금",
         "artifactName": "(별첨) 급여지급 증빙(인건비인 경우)",
         "managerRole": "사업관리",
@@ -11188,8 +11724,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-135",
         "sequenceNo": 135,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "안정화",
+        "stage": "종료",
         "subStage": "잔금",
         "artifactName": "(별첨) 거래명세서·지출증빙",
         "managerRole": "사업관리",
@@ -11204,8 +11744,12 @@ class AetherPMO {
     {
         "id": "NIRS-PM-136",
         "sequenceNo": 136,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "사업관리",
-        "stage": "안정화",
+        "stage": "종료",
         "subStage": "잔금",
         "artifactName": "(별첨) 잔금 정산서",
         "managerRole": "사업관리",
@@ -11220,6 +11764,10 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-001",
         "sequenceNo": 1,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
         "stage": "착수",
         "subStage": "정보자원 기술검증",
@@ -11236,6 +11784,10 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-002",
         "sequenceNo": 2,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
         "stage": "착수",
         "subStage": "정보자원 기술검증",
@@ -11252,8 +11804,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-003",
         "sequenceNo": 3,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "종료",
+        "stage": "착수",
         "subStage": "정보자원 기술검증",
         "artifactName": "기술기준검증결과서",
         "managerRole": "PL",
@@ -11268,6 +11824,10 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-004",
         "sequenceNo": 4,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
         "stage": "착수",
         "subStage": "정보자원 납품",
@@ -11284,6 +11844,10 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-005",
         "sequenceNo": 5,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
         "stage": "착수",
         "subStage": "정보자원 납품",
@@ -11300,6 +11864,10 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-006",
         "sequenceNo": 6,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
         "stage": "착수",
         "subStage": "요구사항 정의",
@@ -11316,8 +11884,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-007",
         "sequenceNo": 7,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "설계",
+        "stage": "착수",
         "subStage": "설치계획",
         "artifactName": "정보수집서",
         "managerRole": "PL",
@@ -11332,8 +11904,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-008",
         "sequenceNo": 8,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "설계",
+        "stage": "착수",
         "subStage": "설치계획",
         "artifactName": "정보자원제원조사서",
         "managerRole": "PL",
@@ -11348,8 +11924,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-009",
         "sequenceNo": 9,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "설계",
+        "stage": "착수",
         "subStage": "프로젝트 지원",
         "artifactName": "자산/구성(nTOPS정보입력 자료)",
         "managerRole": "PL",
@@ -11364,8 +11944,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-010",
         "sequenceNo": 10,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "설계",
+        "stage": "착수",
         "subStage": "정보자원 설치",
         "artifactName": "설치계획서",
         "managerRole": "PL",
@@ -11380,6 +11964,10 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-011",
         "sequenceNo": 11,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
         "stage": "설계",
         "subStage": "정보자원 납품",
@@ -11396,6 +11984,10 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-012",
         "sequenceNo": 12,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
         "stage": "설계",
         "subStage": "정보자원 납품",
@@ -11412,8 +12004,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-013",
         "sequenceNo": 13,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "구축",
+        "stage": "설계",
         "subStage": "정보자원 납품",
         "artifactName": "인증필 정보보호제품 납품확인서",
         "managerRole": "PL",
@@ -11428,8 +12024,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-014",
         "sequenceNo": 14,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "구축",
+        "stage": "설계",
         "subStage": "정보자원 설치",
         "artifactName": "작업계획서",
         "managerRole": "PL",
@@ -11444,8 +12044,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-015",
         "sequenceNo": 15,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "구축",
+        "stage": "설계",
         "subStage": "정보자원 설치",
         "artifactName": "작업결과서",
         "managerRole": "PL",
@@ -11460,8 +12064,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-016",
         "sequenceNo": 16,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "구축",
+        "stage": "설계",
         "subStage": "설치",
         "artifactName": "설치결과서(USB브로커 설치 포함)",
         "managerRole": "PL",
@@ -11476,8 +12084,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-017",
         "sequenceNo": 17,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "구축",
+        "stage": "설계",
         "subStage": "정보자원 납품",
         "artifactName": "납품결과서",
         "managerRole": "PL",
@@ -11492,6 +12104,10 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-018",
         "sequenceNo": 18,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
         "stage": "설계",
         "subStage": "클라우드",
@@ -11508,6 +12124,10 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-019",
         "sequenceNo": 19,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
         "stage": "설계",
         "subStage": "클라우드",
@@ -11524,8 +12144,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-020",
         "sequenceNo": 20,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "종료",
+        "stage": "설계",
         "subStage": "클라우드",
         "artifactName": "구축결과서",
         "managerRole": "PL",
@@ -11540,8 +12164,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-021",
         "sequenceNo": 21,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "종료",
+        "stage": "설계",
         "subStage": "클라우드",
         "artifactName": "클라우드 아키텍처결과서",
         "managerRole": "PL",
@@ -11556,8 +12184,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-022",
         "sequenceNo": 22,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "종료",
+        "stage": "설계",
         "subStage": "클라우드",
         "artifactName": "부하‧성능 테스트 계획서",
         "managerRole": "PL",
@@ -11572,8 +12204,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-023",
         "sequenceNo": 23,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "종료",
+        "stage": "설계",
         "subStage": "클라우드",
         "artifactName": "부하‧성능 테스트 결과서",
         "managerRole": "PL",
@@ -11588,8 +12224,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-024",
         "sequenceNo": 24,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "종료",
+        "stage": "구축",
         "subStage": "정보자원 납품",
         "artifactName": "설치시험결과서",
         "managerRole": "PL",
@@ -11604,8 +12244,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-025",
         "sequenceNo": 25,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "종료",
+        "stage": "구축",
         "subStage": "정보자원 납품",
         "artifactName": "운영매뉴얼",
         "managerRole": "PL",
@@ -11620,8 +12264,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-026",
         "sequenceNo": 26,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "종료",
+        "stage": "구축",
         "subStage": "제조사 기술지원",
         "artifactName": "기술지원확약서",
         "managerRole": "PL",
@@ -11636,8 +12284,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-027",
         "sequenceNo": 27,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "종료",
+        "stage": "구축",
         "subStage": "증서",
         "artifactName": "SW인증서",
         "managerRole": "PL",
@@ -11652,8 +12304,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-028",
         "sequenceNo": 28,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "종료",
+        "stage": "구축",
         "subStage": "라이선스 증서 등 납품",
         "artifactName": "라이선스 증서",
         "managerRole": "PL",
@@ -11668,6 +12324,10 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-029",
         "sequenceNo": 29,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
         "stage": "종료",
         "subStage": "라이선스 증서 등 납품",
@@ -11684,6 +12344,10 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-030",
         "sequenceNo": 30,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
         "stage": "종료",
         "subStage": "라이선스 증서 등 납품",
@@ -11700,6 +12364,10 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-031",
         "sequenceNo": 31,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
         "stage": "종료",
         "subStage": "라이선스 증서 등 납품",
@@ -11716,8 +12384,12 @@ class AetherPMO {
     {
         "id": "NIRS-INFRA-032",
         "sequenceNo": 32,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "통합구축",
-        "stage": "착수",
+        "stage": "종료",
         "subStage": "라이선스 증서 등 납품",
         "artifactName": "보안기능확인서",
         "managerRole": "PL",
@@ -11732,6 +12404,10 @@ class AetherPMO {
     {
         "id": "NIRS-APP-001",
         "sequenceNo": 1,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "업무전환",
         "stage": "착수",
         "subStage": "현황분석",
@@ -11748,6 +12424,10 @@ class AetherPMO {
     {
         "id": "NIRS-APP-002",
         "sequenceNo": 2,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "업무전환",
         "stage": "착수",
         "subStage": "현황분석",
@@ -11764,6 +12444,10 @@ class AetherPMO {
     {
         "id": "NIRS-APP-003",
         "sequenceNo": 3,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "업무전환",
         "stage": "착수",
         "subStage": "현황분석",
@@ -11780,6 +12464,10 @@ class AetherPMO {
     {
         "id": "NIRS-APP-004",
         "sequenceNo": 4,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "업무전환",
         "stage": "착수",
         "subStage": "현황분석",
@@ -11796,6 +12484,10 @@ class AetherPMO {
     {
         "id": "NIRS-APP-005",
         "sequenceNo": 5,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "업무전환",
         "stage": "설계",
         "subStage": "현황분석",
@@ -11812,6 +12504,10 @@ class AetherPMO {
     {
         "id": "NIRS-APP-006",
         "sequenceNo": 6,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "업무전환",
         "stage": "설계",
         "subStage": "설계",
@@ -11828,6 +12524,10 @@ class AetherPMO {
     {
         "id": "NIRS-APP-007",
         "sequenceNo": 7,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "업무전환",
         "stage": "구축",
         "subStage": "구축",
@@ -11844,6 +12544,10 @@ class AetherPMO {
     {
         "id": "NIRS-APP-008",
         "sequenceNo": 8,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "업무전환",
         "stage": "구축",
         "subStage": "구축",
@@ -11860,6 +12564,10 @@ class AetherPMO {
     {
         "id": "NIRS-APP-009",
         "sequenceNo": 9,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "업무전환",
         "stage": "구축",
         "subStage": "구축",
@@ -11876,6 +12584,10 @@ class AetherPMO {
     {
         "id": "NIRS-APP-010",
         "sequenceNo": 10,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "업무전환",
         "stage": "구축",
         "subStage": "구축",
@@ -11892,6 +12604,10 @@ class AetherPMO {
     {
         "id": "NIRS-APP-011",
         "sequenceNo": 11,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
         "category": "업무전환",
         "stage": "종료",
         "subStage": "종료",
@@ -12185,6 +12901,32 @@ class AetherPMO {
         if (window.lucide) lucide.createIcons();
     }
 
+    
+    handleOrgChange(orgCode) {
+        this.activeOrgCode = orgCode || 'NIRS';
+        this.activeNirsCategory = 'all';
+        this.activeNirsStage = 'all';
+        this.nirsCurrentPage = 1;
+
+        const catSelect = document.getElementById('filter-nirs-category');
+        const stageSelect = document.getElementById('filter-nirs-stage');
+        if (catSelect) catSelect.value = 'all';
+        if (stageSelect) stageSelect.value = 'all';
+
+        this.renderArtifacts();
+    }
+
+    handlePageSizeChange(sizeStr) {
+        this.nirsPageSize = parseInt(sizeStr) || 25;
+        this.nirsCurrentPage = 1;
+        this.renderArtifacts();
+    }
+
+    changeNirsPage(newPage) {
+        this.nirsCurrentPage = newPage;
+        this.renderArtifacts();
+    }
+
     selectNirsCategoryFilter(cat) {
         this.activeNirsCategory = cat;
         this.activeNirsStage = 'all';
@@ -12308,6 +13050,7 @@ class AetherPMO {
     renderArtifacts() {
         if (!this.selectedNirsTemplateIds) this.selectedNirsTemplateIds = new Set();
         
+        const currentOrg = this.activeOrgCode || 'NIRS';
         const catFilter  = this.activeNirsCategory || 'all';
         const stageFilter = this.activeNirsStage || 'all';
         const fileStatusFilter = this.activeNirsFileStatus || 'all';
@@ -12315,27 +13058,40 @@ class AetherPMO {
         const appFilter  = this.activeNirsApproval || 'all';
         const sealFilter = this.activeNirsSeal || 'all';
         const query      = (this.nirsSearchQuery || '').toLowerCase();
+        
+        const pageSize = this.nirsPageSize || 25;
+        const currentPage = this.nirsCurrentPage || 1;
 
         // ── 1. 전체 마스터 데이타셋 가져오기 (DB/State 기반) ──────────────
-        const fullList = this.state.nirsStandardTemplates || this.getDefaultNirsTemplates();
+        const fullDataset = this.state.nirsStandardTemplates || this.getDefaultNirsTemplates();
         const filesList = this.state.nirsTemplateFiles || [];
 
-        // ── 2. 동적 건수 집계 (Dynamic COUNT Computation - No Hardcoding!) ──
+        // Filter dataset by selected organization (NIRS default)
+        const fullList = currentOrg === 'NIRS' ? fullDataset : [];
+
+        // ── 2. 동적 건수 집계 (Dynamic COUNT Computation - Reconciled!) ─────
         const totalCount = fullList.length;
         const pmList = fullList.filter(t => t.category === '사업관리');
         const infraList = fullList.filter(t => t.category === '통합구축');
         const appList = fullList.filter(t => t.category === '업무전환');
 
-        // ── 3. 상단 요약 KPI 카드 수치 동적 업데이트 & 하이라이트 ─────────────
+        // ── 3. 상단 요약 KPI 카드 수치 및 문구 갱신 (Wording: N개 단계) ─────────
         const kpiTotal = document.getElementById('kpi-nirs-total');
         const kpiPm = document.getElementById('kpi-nirs-pm');
         const kpiInfra = document.getElementById('kpi-nirs-infra');
         const kpiApp = document.getElementById('kpi-nirs-app');
+        const btnRegisterLbl = document.getElementById('lbl-btn-register-template');
 
         if (kpiTotal) kpiTotal.textContent = `${totalCount}건`;
         if (kpiPm) kpiPm.textContent = `${pmList.length}건`;
         if (kpiInfra) kpiInfra.textContent = `${infraList.length}건`;
         if (kpiApp) kpiApp.textContent = `${appList.length}건`;
+
+        if (btnRegisterLbl) {
+            btnRegisterLbl.textContent = (catFilter !== 'all' || stageFilter !== 'all') 
+                ? `NIRS 자원통합사업 표준 산출물 등록` 
+                : `표준 산출물 등록`;
+        }
 
         // 카드 하이라이트 Sync
         ['all', '사업관리', '통합구축', '업무전환'].forEach(c => {
@@ -12347,71 +13103,87 @@ class AetherPMO {
             }
         });
 
-        // ── 4. 좌측 NIRS 표준 산출물 전용 동적 트리 생성 (기존 구조 완전 폐기) ──
+        // ── 4. 좌측 4-Level 기관/표준체계/업무영역/단계 동적 트리 생성 ─────────
         const treeContainer = document.getElementById('artifact-category-tree');
         if (treeContainer) {
             let treeHtml = '';
 
-            const categoriesDef = [
-                { key: '사업관리', name: '사업관리', icon: 'briefcase', items: pmList, defaultStages: ['착수 준비', '착수', '계획', '수행 및 통제', '안정화', '종료'] },
-                { key: '통합구축', name: '통합구축', icon: 'server', items: infraList, defaultStages: ['착수', '설계', '구축', '종료'] },
-                { key: '업무전환', name: '업무전환', icon: 'refresh-cw', items: appList, defaultStages: ['착수', '설계', '구축', '종료'] }
+            const orgsDef = [
+                { code: 'NIRS', name: '국가정보자원관리원', count: totalCount, bizName: '자원통합사업' },
+                { code: 'KLID', name: '한국지역정보개발원', count: 0, bizName: '지방행정정보화' },
+                { code: 'NTS', name: '국세청', count: 0, bizName: '정보시스템 구축' }
             ];
 
-            // Root Node
-            const isRootActive = (catFilter === 'all' && stageFilter === 'all');
-            treeHtml += `
-                <div class="tree-cat-header ${isRootActive ? 'active' : ''}" onclick="app.selectNirsCategoryFilter('all')">
-                    <span style="display:flex; align-items:center; gap:6px;">
-                        <i data-lucide="book-open" style="width:15px; height:15px; color:var(--primary-color);"></i>
-                        <strong>국가정보자원관리원</strong>
-                    </span>
-                    <span class="badge badge-primary" style="font-size:11px;">${totalCount}</span>
-                </div>
-                <div style="margin-top:8px; display:flex; flex-direction:column; gap:10px; padding-left:4px;">
-            `;
-
-            categoriesDef.forEach(catDef => {
-                const isCatActive = (catFilter === catDef.key && stageFilter === 'all');
-                
-                // Group stages dynamically for this category
-                const stageCounts = {};
-                catDef.items.forEach(item => {
-                    const stg = item.stage || '미지정';
-                    stageCounts[stg] = (stageCounts[stg] || 0) + 1;
-                });
-
+            orgsDef.forEach(org => {
+                const isOrgActive = (currentOrg === org.code);
                 treeHtml += `
-                    <div class="tree-node-type">
-                        <div class="tree-cat-header ${isCatActive ? 'active' : ''}" onclick="app.selectNirsCategoryFilter('${catDef.key}')">
+                    <div class="tree-node-type" style="margin-bottom:8px;">
+                        <div class="tree-cat-header ${isOrgActive ? 'active' : ''}" onclick="app.handleOrgChange('${org.code}')">
                             <span style="display:flex; align-items:center; gap:6px;">
-                                <i data-lucide="${catDef.icon}" style="width:14px; height:14px; color:var(--text-muted);"></i>
-                                ${catDef.name}
+                                <i data-lucide="${isOrgActive ? 'folder-open' : 'folder'}" style="width:15px; height:15px; color:${isOrgActive ? 'var(--primary-color)' : 'var(--text-muted)'};"></i>
+                                <strong>${org.name}</strong>
                             </span>
-                            <span class="badge badge-outline" style="font-size:11px;">${catDef.items.length}</span>
+                            <span class="badge ${isOrgActive ? 'badge-primary' : 'badge-subtle'}" style="font-size:11px;">${org.count}</span>
                         </div>
-                        <div class="tree-node-stages" style="padding-left:14px; margin-left:6px; border-left:1px dashed var(--border-color); display:flex; flex-direction:column; gap:3px; margin-top:4px;">
                 `;
 
-                catDef.defaultStages.forEach(stgName => {
-                    const count = stageCounts[stgName] || 0;
-                    const isStgActive = (catFilter === catDef.key && stageFilter === stgName);
+                if (isOrgActive && org.count > 0) {
                     treeHtml += `
-                        <div class="tree-node-stage-item ${isStgActive ? 'active' : ''}" onclick="event.stopPropagation(); app.activeNirsCategory='${catDef.key}'; app.activeNirsStage='${stgName}'; app.renderArtifacts();">
-                            <i data-lucide="circle" style="width:6px; height:6px; color:${isStgActive ? 'var(--primary-color)' : 'var(--text-muted)'};"></i>
-                            <span>${stgName}</span>
-                            <span style="margin-left:auto; font-size:11px; color:var(--text-muted);">(${count})</span>
-                        </div>
+                        <div style="padding-left:12px; margin-left:6px; border-left:1px solid var(--border-color); margin-top:4px;">
+                            <div style="font-size:12px; font-weight:700; color:var(--text-secondary); padding:4px 6px; display:flex; align-items:center; gap:4px;">
+                                <i data-lucide="corner-down-right" style="width:12px; height:12px; color:var(--primary-color);"></i>
+                                ${org.bizName} (${org.count})
+                            </div>
+                            <div style="padding-left:10px; display:flex; flex-direction:column; gap:8px; margin-top:4px;">
                     `;
-                });
 
-                treeHtml += `
-                        </div>
-                    </div>
-                `;
+                    const categoriesDef = [
+                        { key: '사업관리', name: '사업관리', icon: 'briefcase', items: pmList, defaultStages: ['착수 준비', '착수', '계획', '수행 및 통제', '안정화', '종료'] },
+                        { key: '통합구축', name: '통합구축', icon: 'server', items: infraList, defaultStages: ['착수', '설계', '구축', '종료'] },
+                        { key: '업무전환', name: '업무전환', icon: 'refresh-cw', items: appList, defaultStages: ['착수', '설계', '구축', '종료'] }
+                    ];
+
+                    categoriesDef.forEach(catDef => {
+                        const isCatActive = (catFilter === catDef.key && stageFilter === 'all');
+                        const stageCounts = {};
+                        catDef.items.forEach(item => {
+                            const stg = item.stage || '미지정';
+                            stageCounts[stg] = (stageCounts[stg] || 0) + 1;
+                        });
+
+                        treeHtml += `
+                            <div class="tree-node-type">
+                                <div class="tree-cat-header ${isCatActive ? 'active' : ''}" onclick="event.stopPropagation(); app.selectNirsCategoryFilter('${catDef.key}')">
+                                    <span style="display:flex; align-items:center; gap:6px;">
+                                        <i data-lucide="${catDef.icon}" style="width:13px; height:13px; color:var(--text-muted);"></i>
+                                        ${catDef.name}
+                                    </span>
+                                    <span class="badge badge-outline" style="font-size:10.5px;">${catDef.items.length}</span>
+                                </div>
+                                <div class="tree-node-stages" style="padding-left:12px; margin-left:6px; border-left:1px dashed var(--border-color); display:flex; flex-direction:column; gap:2px; margin-top:3px;">
+                        `;
+
+                        catDef.defaultStages.forEach(stgName => {
+                            const count = stageCounts[stgName] || 0;
+                            const isStgActive = (catFilter === catDef.key && stageFilter === stgName);
+                            treeHtml += `
+                                <div class="tree-node-stage-item ${isStgActive ? 'active' : ''}" onclick="event.stopPropagation(); app.activeNirsCategory='${catDef.key}'; app.activeNirsStage='${stgName}'; app.renderArtifacts();">
+                                    <i data-lucide="circle" style="width:5px; height:5px; color:${isStgActive ? 'var(--primary-color)' : 'var(--text-muted)'};"></i>
+                                    <span>${stgName}</span>
+                                    <span style="margin-left:auto; font-size:10.5px; color:var(--text-muted);">(${count})</span>
+                                </div>
+                            `;
+                        });
+
+                        treeHtml += `</div></div>`;
+                    });
+
+                    treeHtml += `</div></div>`;
+                }
+
+                treeHtml += `</div>`;
             });
 
-            treeHtml += `</div>`;
             treeContainer.innerHTML = treeHtml;
         }
 
@@ -12453,9 +13225,19 @@ class AetherPMO {
 
         this.currentFilteredNirsList = filtered;
 
-        // ── 6. Breadcrumb 갱신 ─────────────────────────────────────────────
+        // ── 6. 페이지네이션 슬라이싱 ─────────────────────────────────────────
+        const totalRows = filtered.length;
+        const totalPages = Math.ceil(totalRows / pageSize) || 1;
+        const validPage = Math.min(Math.max(1, currentPage), totalPages);
+        this.nirsCurrentPage = validPage;
+
+        const startIndex = (validPage - 1) * pageSize;
+        const pagedList = filtered.slice(startIndex, startIndex + pageSize);
+
+        // ── 7. Breadcrumb 및 페이지네이션 컨트롤 UI 갱신 ─────────────────────
         const breadSub = document.getElementById('nirs-breadcrumb-sub');
         const listCount = document.getElementById('nirs-list-count');
+        const paginCont = document.getElementById('nirs-pagination-controls');
 
         if (breadSub) {
             if (catFilter === 'all' && stageFilter === 'all') {
@@ -12477,22 +13259,35 @@ class AetherPMO {
                 `;
             }
         }
-        if (listCount) listCount.textContent = filtered.length;
 
-        // ── 7. 우측 컴팩트 테이블 렌더링 (14 컬럼 레이아웃) ─────────────────────
+        if (listCount) listCount.textContent = totalRows;
+
+        if (paginCont) {
+            if (totalPages > 1 && pageSize < 1000) {
+                paginCont.innerHTML = `
+                    <button class="btn btn-sm btn-ghost" ${validPage <= 1 ? 'disabled' : ''} onclick="app.changeNirsPage(${validPage - 1})" style="padding:2px 6px;">◀</button>
+                    <span style="font-size:12px; color:var(--text-muted); padding:0 4px;">${validPage} / ${totalPages} 페이지</span>
+                    <button class="btn btn-sm btn-ghost" ${validPage >= totalPages ? 'disabled' : ''} onclick="app.changeNirsPage(${validPage + 1})" style="padding:2px 6px;">▶</button>
+                `;
+            } else {
+                paginCont.innerHTML = '';
+            }
+        }
+
+        // ── 8. 우측 Sticky 테이블 렌더링 (14 컬럼 레이아웃) ─────────────────────
         const tbody = document.getElementById('global-templates-tbody');
         if (!tbody) return;
 
         const isAdmin = this.currentUser?.role === 'SYS_ADMIN' || this.currentUser?.role === 'EXEC_ADMIN';
         let html = '';
 
-        if (filtered.length === 0) {
+        if (pagedList.length === 0) {
             html = `<tr><td colspan="14" class="text-center" style="padding: 50px 0; color: var(--text-muted);">
                 <i data-lucide="file-x" style="width:36px; height:36px; stroke-width:1.5; margin-bottom:8px; opacity:0.5;"></i>
                 <div style="font-size:14px;">조건에 일치하는 표준 산출물이 없습니다.</div>
             </td></tr>`;
         } else {
-            filtered.forEach(item => {
+            pagedList.forEach(item => {
                 const fileRec = filesList.find(f => f.templateId === item.id);
                 const isChecked = this.selectedNirsTemplateIds.has(item.id);
 
@@ -12544,11 +13339,11 @@ class AetherPMO {
 
                 html += `
                     <tr>
-                        <td class="text-center">
+                        <td class="text-center" style="position:sticky; left:0; z-index:5; background:var(--bg-card);">
                             <input type="checkbox" class="chk-nirs-item" ${isChecked ? 'checked' : ''} onchange="app.toggleNirsTemplateSelect('${item.id}', this.checked)">
                         </td>
-                        <td style="font-family:monospace; font-size:11.5px; font-weight:600; color:var(--primary-color);">${item.id}</td>
-                        <td>
+                        <td style="position:sticky; left:34px; z-index:5; background:var(--bg-card); font-family:monospace; font-size:11.5px; font-weight:600; color:var(--primary-color);">${item.id}</td>
+                        <td style="position:sticky; left:129px; z-index:5; background:var(--bg-card);">
                             <strong style="color:var(--text-primary); font-size:13px;">${item.artifactName}</strong>
                             ${item.description ? `<div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${item.description}</div>` : ''}
                         </td>
@@ -12562,7 +13357,7 @@ class AetherPMO {
                         <td class="text-center">${appBadge}</td>
                         <td class="text-center">${sealBadge}</td>
                         <td class="text-center" style="font-size:11.5px; color:var(--text-muted);">${item.submissionTiming || '-'}</td>
-                        <td class="text-center">
+                        <td class="text-center" style="position:sticky; right:0; z-index:5; background:var(--bg-card);">
                             <div class="nirs-action-btn-group">
                                 ${downloadBtn}
                                 ${uploadBtn}
