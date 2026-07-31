@@ -7862,3 +7862,103 @@ body.dark-theme .portal-copilot-task-item {
     background: #1A2640;
     color: #F8FAFC;
 }
+
+/* ============================================================================
+   AETHERPMO 2ND PHASE PRESENTATION-QUALITY DESIGN SYSTEM
+   ============================================================================ */
+
+/* Expand Sidebar Width by +20px (240px -> 260px) */
+.sidebar, .artifacts-sidebar {
+    width: 260px !important;
+    min-width: 260px !important;
+}
+
+/* Single Unified Primary Accent: Purple/Indigo (#6366F1) */
+:root {
+    --primary-indigo: #6366F1;
+    --primary-purple: #8B5CF6;
+    --bg-dark-body: #0B1020;
+    --bg-dark-sidebar: #101827;
+    --bg-dark-card: #131C2E;
+    --bg-dark-header: #182338;
+    --border-dark-slate: #27324A;
+}
+
+/* KPI Cards: Quiet Default Border, Accent ONLY on Hover */
+.nirs-summary-card {
+    min-height: 94px !important;
+    padding: 16px 20px !important;
+    background: var(--bg-card-dark, #131C2E) !important;
+    border: 1px solid var(--border-color, #27324A) !important;
+    border-radius: 12px !important;
+    transition: all 0.2s ease-in-out !important;
+}
+.nirs-summary-card:hover {
+    border-color: #6366F1 !important;
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.15) !important;
+    transform: translateY(-2px);
+}
+.nirs-summary-card.active {
+    border-color: #6366F1 !important;
+    background: #1E293B !important;
+}
+
+/* Dark Mode Table Contrast (#182338 Header vs #131C2E Body) */
+[data-theme="dark"] .data-table-sticky thead tr,
+body.dark-mode .data-table-sticky thead tr {
+    background: #182338 !important;
+    height: 46px !important;
+}
+[data-theme="dark"] .data-table-sticky th,
+body.dark-mode .data-table-sticky th {
+    background: #182338 !important;
+    color: #F8FAFC !important;
+    border-bottom: 1px solid #27324A !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+}
+
+/* White Mode Table Header & Card Colors (#F7F9FC Header vs #FFFFFF Body) */
+[data-theme="light"] .data-table-sticky thead tr,
+body:not(.dark-mode) .data-table-sticky thead tr {
+    background: #F1F5F9 !important;
+    height: 46px !important;
+}
+[data-theme="light"] .data-table-sticky th,
+body:not(.dark-mode) .data-table-sticky th {
+    background: #F1F5F9 !important;
+    color: #1E293B !important;
+    border-bottom: 1px solid #E2E8F0 !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+}
+
+/* Compact Table Row Height (44px for high presentation density) */
+.data-table-compact tbody tr {
+    height: 44px !important;
+}
+.data-table-compact td {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+}
+
+/* Tree Indentation & Hierarchy Improvements */
+.tree-node-level-1 { font-size: 13px !important; font-weight: 700 !important; padding-left: 0px; }
+.tree-node-level-2 { font-size: 12.5px !important; font-weight: 600 !important; padding-left: 16px; margin-top: 4px; }
+.tree-node-level-3 { font-size: 12px !important; font-weight: 500 !important; padding-left: 28px; margin-top: 3px; }
+.tree-node-level-4 { font-size: 11.5px !important; color: #94A3B8 !important; padding-left: 42px; margin-top: 2px; }
+
+.tree-cat-header.active {
+    background: #1E293B !important;
+    color: #F8FAFC !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
+    border-left: none !important;
+}
+
+/* Prominent Breadcrumb */
+.nirs-breadcrumb-container {
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    color: var(--text-primary) !important;
+}

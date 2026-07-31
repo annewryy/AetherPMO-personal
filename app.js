@@ -13252,7 +13252,7 @@ class AetherPMO {
         const infraList = fullList.filter(t => t.category === '통합구축');
         const appList = fullList.filter(t => t.category === '업무전환');
 
-        // ── 3. KPI Cards with Accent Color Top Borders & Large 26px Numbers ───
+        // ── 3. TOP 1: KPI Cards Typography & Quiet Default Border ─────────────
         const kpiGridContainer = document.getElementById('kpi-cards-container');
         const btnRegisterLbl = document.getElementById('lbl-btn-register-template');
 
@@ -13268,127 +13268,145 @@ class AetherPMO {
 
         if (kpiGridContainer) {
             let kpiHtml = '';
+            const iconBgStyle = "background:rgba(99,102,241,0.12); color:#6366F1;";
+
             if (currentOrg === 'KLID') {
                 kpiHtml = `
-                    <div class="kpi-card nirs-summary-card active" style="border-top: 3px solid var(--accent-purple);">
-                        <div class="kpi-icon" style="background:rgba(139,92,246,0.15); color:var(--accent-purple);"><i data-lucide="building-2"></i></div>
+                    <div class="kpi-card nirs-summary-card active">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="building-2"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:26px; font-weight:800; color:var(--text-primary);">0</div>
-                            <div class="kpi-sub" style="font-size:11.5px; color:var(--text-muted);">표준 산출물 (KLID)</div>
+                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">0</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">전체 산출물</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">한국지역정보개발원</div>
                         </div>
                     </div>
-                    <div class="kpi-card nirs-summary-card" style="border-top: 3px solid var(--accent-blue);">
-                        <div class="kpi-icon" style="background:rgba(59,130,246,0.15); color:var(--accent-blue);"><i data-lucide="layers"></i></div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="layers"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:26px; font-weight:800; color:var(--text-primary);">5</div>
-                            <div class="kpi-sub" style="font-size:11.5px; color:var(--text-muted);">사업유형 (분류안)</div>
+                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">5</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">사업유형</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">분류안 구성완료</div>
                         </div>
                     </div>
-                    <div class="kpi-card nirs-summary-card" style="border-top: 3px solid var(--accent-cyan);">
-                        <div class="kpi-icon" style="background:rgba(6,182,212,0.15); color:var(--accent-cyan);"><i data-lucide="folder-tree"></i></div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="folder-tree"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:26px; font-weight:800; color:var(--text-primary);">51</div>
-                            <div class="kpi-sub" style="font-size:11.5px; color:var(--text-muted);">업무영역 (분류안)</div>
+                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">51</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">업무영역</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">분류안 구성완료</div>
                         </div>
                     </div>
-                    <div class="kpi-card nirs-summary-card" style="border-top: 3px solid var(--accent-orange);">
-                        <div class="kpi-icon" style="background:rgba(249,115,22,0.15); color:var(--accent-orange);"><i data-lucide="clock"></i></div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="clock"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:20px; font-weight:800; color:var(--accent-orange);">DRAFT</div>
-                            <div class="kpi-sub" style="font-size:11.5px; color:var(--text-muted);">표준체계 설계 중</div>
+                            <div style="font-size:22px; font-weight:800; color:#6366F1; margin-bottom:2px;">DRAFT</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">분류 상태</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">표준체계 설계 중</div>
                         </div>
                     </div>
                 `;
             } else if (currentOrg === 'NTS') {
                 kpiHtml = `
-                    <div class="kpi-card nirs-summary-card active" style="border-top: 3px solid var(--accent-purple);">
-                        <div class="kpi-icon" style="background:rgba(139,92,246,0.15); color:var(--accent-purple);"><i data-lucide="landmark"></i></div>
+                    <div class="kpi-card nirs-summary-card active">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="landmark"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:26px; font-weight:800; color:var(--text-primary);">0</div>
-                            <div class="kpi-sub" style="font-size:11.5px; color:var(--text-muted);">표준 산출물 (NTS)</div>
+                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">0</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">전체 산출물</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">국세청</div>
                         </div>
                     </div>
-                    <div class="kpi-card nirs-summary-card" style="border-top: 3px solid var(--accent-blue);">
-                        <div class="kpi-icon" style="background:rgba(59,130,246,0.15); color:var(--accent-blue);"><i data-lucide="layers"></i></div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="layers"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:26px; font-weight:800; color:var(--text-primary);">6</div>
-                            <div class="kpi-sub" style="font-size:11.5px; color:var(--text-muted);">사업유형 (분류안)</div>
+                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">6</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">사업유형</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">분류안 구성완료</div>
                         </div>
                     </div>
-                    <div class="kpi-card nirs-summary-card" style="border-top: 3px solid var(--accent-cyan);">
-                        <div class="kpi-icon" style="background:rgba(6,182,212,0.15); color:var(--accent-cyan);"><i data-lucide="folder-tree"></i></div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="folder-tree"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:26px; font-weight:800; color:var(--text-primary);">63</div>
-                            <div class="kpi-sub" style="font-size:11.5px; color:var(--text-muted);">업무영역 (분류안)</div>
+                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">63</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">업무영역</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">분류안 구성완료</div>
                         </div>
                     </div>
-                    <div class="kpi-card nirs-summary-card" style="border-top: 3px solid var(--accent-orange);">
-                        <div class="kpi-icon" style="background:rgba(249,115,22,0.15); color:var(--accent-orange);"><i data-lucide="clock"></i></div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="clock"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:20px; font-weight:800; color:var(--accent-orange);">DRAFT</div>
-                            <div class="kpi-sub" style="font-size:11.5px; color:var(--text-muted);">표준체계 설계 중</div>
+                            <div style="font-size:22px; font-weight:800; color:#6366F1; margin-bottom:2px;">DRAFT</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">분류 상태</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">표준체계 설계 중</div>
                         </div>
                     </div>
                 `;
             } else if (currentBizType === 'RESOURCE_INTEGRATION' || currentBizType === 'all') {
                 kpiHtml = `
-                    <div class="kpi-card nirs-summary-card ${catFilter === 'all' ? 'active' : ''}" style="border-top: 3px solid var(--accent-purple);" onclick="app.selectNirsCategoryFilter('all')">
-                        <div class="kpi-icon" style="background:rgba(139,92,246,0.15); color:var(--accent-purple);"><i data-lucide="layers"></i></div>
+                    <div class="kpi-card nirs-summary-card ${catFilter === 'all' ? 'active' : ''}" onclick="app.selectNirsCategoryFilter('all')">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="layers"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:26px; font-weight:800; color:var(--text-primary);">179</div>
-                            <div class="kpi-sub" style="font-size:11.5px; color:var(--text-muted);">전체 표준 산출물</div>
+                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">179</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">전체 산출물</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">NIRS 자원통합사업</div>
                         </div>
                     </div>
-                    <div class="kpi-card nirs-summary-card ${catFilter === '사업관리' ? 'active' : ''}" style="border-top: 3px solid var(--accent-blue);" onclick="app.selectNirsCategoryFilter('사업관리')">
-                        <div class="kpi-icon" style="background:rgba(59,130,246,0.15); color:var(--accent-blue);"><i data-lucide="briefcase"></i></div>
+                    <div class="kpi-card nirs-summary-card ${catFilter === '사업관리' ? 'active' : ''}" onclick="app.selectNirsCategoryFilter('사업관리')">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="briefcase"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:26px; font-weight:800; color:var(--text-primary);">136</div>
-                            <div class="kpi-sub" style="font-size:11.5px; color:var(--text-muted);">사업관리 (6개 단계)</div>
+                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">136</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">사업관리</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">6개 수행단계</div>
                         </div>
                     </div>
-                    <div class="kpi-card nirs-summary-card ${catFilter === '통합구축' ? 'active' : ''}" style="border-top: 3px solid var(--accent-cyan);" onclick="app.selectNirsCategoryFilter('통합구축')">
-                        <div class="kpi-icon" style="background:rgba(6,182,212,0.15); color:var(--accent-cyan);"><i data-lucide="server"></i></div>
+                    <div class="kpi-card nirs-summary-card ${catFilter === '통합구축' ? 'active' : ''}" onclick="app.selectNirsCategoryFilter('통합구축')">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="server"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:26px; font-weight:800; color:var(--text-primary);">32</div>
-                            <div class="kpi-sub" style="font-size:11.5px; color:var(--text-muted);">통합구축 (4개 단계)</div>
+                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">32</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">통합구축</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">4개 수행단계</div>
                         </div>
                     </div>
-                    <div class="kpi-card nirs-summary-card ${catFilter === '업무전환' ? 'active' : ''}" style="border-top: 3px solid var(--accent-orange);" onclick="app.selectNirsCategoryFilter('업무전환')">
-                        <div class="kpi-icon" style="background:rgba(249,115,22,0.15); color:var(--accent-orange);"><i data-lucide="refresh-cw"></i></div>
+                    <div class="kpi-card nirs-summary-card ${catFilter === '업무전환' ? 'active' : ''}" onclick="app.selectNirsCategoryFilter('업무전환')">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="refresh-cw"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:26px; font-weight:800; color:var(--text-primary);">11</div>
-                            <div class="kpi-sub" style="font-size:11.5px; color:var(--text-muted);">업무전환 (4개 단계)</div>
+                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">11</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">업무전환</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">4개 수행단계</div>
                         </div>
                     </div>
                 `;
             } else if (currentBizType === 'OPERATION_MAINTENANCE') {
                 kpiHtml = `
-                    <div class="kpi-card nirs-summary-card active" style="border-top: 3px solid var(--accent-purple);">
-                        <div class="kpi-icon" style="background:rgba(139,92,246,0.15); color:var(--accent-purple);"><i data-lucide="settings"></i></div>
+                    <div class="kpi-card nirs-summary-card active">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="settings"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:26px; font-weight:800; color:var(--text-primary);">0</div>
-                            <div class="kpi-sub" style="font-size:11.5px; color:var(--text-muted);">운영·유지관리 (NIRS)</div>
+                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">0</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">운영·유지관리</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">국가정보자원관리원</div>
                         </div>
                     </div>
-                    <div class="kpi-card nirs-summary-card" style="border-top: 3px solid var(--accent-blue);">
-                        <div class="kpi-icon" style="background:rgba(59,130,246,0.15); color:var(--accent-blue);"><i data-lucide="wrench"></i></div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="wrench"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:26px; font-weight:800; color:var(--text-primary);">10</div>
-                            <div class="kpi-sub" style="font-size:11.5px; color:var(--text-muted);">업무영역 (분류안)</div>
+                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">10</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">업무영역</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">분류안 구성완료</div>
                         </div>
                     </div>
-                    <div class="kpi-card nirs-summary-card" style="border-top: 3px solid var(--accent-cyan);">
-                        <div class="kpi-icon" style="background:rgba(6,182,212,0.15); color:var(--accent-cyan);"><i data-lucide="shield-alert"></i></div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="shield-alert"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:26px; font-weight:800; color:var(--text-primary);">0</div>
-                            <div class="kpi-sub" style="font-size:11.5px; color:var(--text-muted);">장애·문제관리</div>
+                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">0</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">장애·문제관리</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">분류안 구성완료</div>
                         </div>
                     </div>
-                    <div class="kpi-card nirs-summary-card" style="border-top: 3px solid var(--accent-orange);">
-                        <div class="kpi-icon" style="background:rgba(249,115,22,0.15); color:var(--accent-orange);"><i data-lucide="file-check-2"></i></div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="file-check-2"></i></div>
                         <div class="kpi-content">
-                            <div style="font-size:26px; font-weight:800; color:var(--text-primary);">0</div>
-                            <div class="kpi-sub" style="font-size:11.5px; color:var(--text-muted);">SLA 수준관리</div>
+                            <div style="font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:2px;">0</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">SLA 수준관리</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">분류안 구성완료</div>
                         </div>
                     </div>
                 `;
@@ -13396,103 +13414,99 @@ class AetherPMO {
             kpiGridContainer.innerHTML = kpiHtml;
         }
 
-        // ── 4. 좌측 4-Level 동적 트리 생성 (Colored Folder Icons & Selected Accent Border) ─
+        // ── 4. TOP 2: Left Tree Indentation & Clean Hierarchy (No Redundant Number Badges) ─
         const treeContainer = document.getElementById('artifact-category-tree');
         if (treeContainer) {
             let treeHtml = '';
 
             const orgsDef = [
                 {
-                    code: 'NIRS', name: '국가정보자원관리원', count: 179,
+                    code: 'NIRS', name: '국가정보자원관리원',
                     bizTypes: [
-                        { code: 'RESOURCE_INTEGRATION', name: '자원통합사업', count: 179 },
+                        { code: 'RESOURCE_INTEGRATION', name: '자원통합사업' },
                         {
-                            code: 'OPERATION_MAINTENANCE', name: '운영·유지관리사업', count: 0, isDraft: true,
+                            code: 'OPERATION_MAINTENANCE', name: '운영·유지관리사업', isDraft: true,
                             categories: ['사업관리', '운영관리', '유지보수관리', '서비스 수준관리', '장애·문제관리', '변경·배포관리', '보안관리', '인력관리', '보고 및 회의체', '사업종료']
                         }
                     ]
                 },
                 {
-                    code: 'KLID', name: '한국지역정보개발원', count: 0,
+                    code: 'KLID', name: '한국지역정보개발원',
                     bizTypes: [
                         {
-                            code: 'KLID_SYSTEM_BUILD', name: '정보시스템 구축사업', count: 0, isDraft: true,
+                            code: 'KLID_SYSTEM_BUILD', name: '정보시스템 구축사업', isDraft: true,
                             categories: ['사업관리', '분석', '설계', '개발', '데이터 전환', '시험·품질관리', '교육·사용자 지원', '이행·안정화', '사업종료']
                         },
                         {
-                            code: 'KLID_SYSTEM_OM', name: '정보시스템 운영·유지관리사업', count: 0, isDraft: true,
+                            code: 'KLID_SYSTEM_OM', name: '정보시스템 운영·유지관리사업', isDraft: true,
                             categories: ['사업관리', '응용시스템 운영', '유지보수', '서비스데스크', '장애·문제관리', '변경·배포관리', '성능·용량관리', '데이터·연계관리', '보안관리', '보고·회의체', '사업종료']
                         },
                         {
-                            code: 'KLID_INFRA_BUILD', name: '정보인프라 구축사업', count: 0, isDraft: true,
+                            code: 'KLID_INFRA_BUILD', name: '정보인프라 구축사업', isDraft: true,
                             categories: ['사업관리', '인프라 설계', '장비·소프트웨어 조달', '설치·구축', '구성관리', '연계·전환', '시험·검수', '안정화', '사업종료']
                         },
                         {
-                            code: 'KLID_INFRA_OM', name: '정보인프라 운영·유지관리사업', count: 0, isDraft: true,
+                            code: 'KLID_INFRA_OM', name: '정보인프라 운영·유지관리사업', isDraft: true,
                             categories: ['사업관리', '시스템 운영', '네트워크 운영', 'DB·미들웨어 운영', '클라우드 운영', '백업·복구', '재해복구', '성능·용량관리', '장애·문제관리', '보안관리', '사업종료']
                         },
                         {
-                            code: 'KLID_SECURITY_OM', name: '정보보호·보안운영사업', count: 0, isDraft: true,
+                            code: 'KLID_SECURITY_OM', name: '정보보호·보안운영사업', isDraft: true,
                             categories: ['사업관리', '보안관제', '침해사고 대응', '취약점 점검', '보안장비 운영', '접근권한 관리', '개인정보보호', '정보보호 교육', '보안실태 점검', '보고·회의체', '사업종료']
                         }
                     ]
                 },
                 {
-                    code: 'NTS', name: '국세청', count: 0,
+                    code: 'NTS', name: '국세청',
                     bizTypes: [
-                        { code: 'NTS_SYSTEM_BUILD', name: '정보시스템 구축·고도화사업', count: 0, isDraft: true, categories: ['사업관리', '업무분석', '요구사항관리', '설계', '개발', '데이터 전환', '연계', '시험·품질관리', '사용자 교육', '이행·안정화', '사업종료'] },
-                        { code: 'NTS_SYSTEM_OM', name: '정보시스템 운영·유지관리사업', count: 0, isDraft: true, categories: ['사업관리', '응용시스템 운영', '유지보수', '서비스데스크', '장애·문제관리', '변경·배포관리', '데이터 처리', '연계관리', '성능·용량관리', '보안관리', '보고·회의체', '사업종료'] },
-                        { code: 'NTS_INFRA_OM', name: '정보인프라 운영·유지관리사업', count: 0, isDraft: true, categories: ['사업관리', '서버 운영', '네트워크 운영', 'DB 운영', '미들웨어 운영', '스토리지·백업', '재해복구', '성능·용량관리', '구성관리', '장애·문제관리', '보안관리', '사업종료'] },
-                        { code: 'NTS_DATA_ANALYTICS', name: '데이터·빅데이터 사업', count: 0, isDraft: true, categories: ['사업관리', '데이터 수집', '데이터 정제', '데이터 품질관리', '데이터 표준화', '분석모델 개발', '분석과제 수행', '데이터 제공·활용', '보안·비식별', '성과관리', '사업종료'] },
-                        { code: 'NTS_AI', name: 'AI·지능정보화 사업', count: 0, isDraft: true, categories: ['사업관리', 'AI 과제기획', '데이터 준비', '모델 개발', '모델 검증', '서비스 구현', '성능평가', '배포·운영', 'AI 품질·윤리관리', '성과관리', '사업종료'] },
-                        { code: 'NTS_SECURITY_NETWORK', name: '정보보호·통신망 사업', count: 0, isDraft: true, categories: ['사업관리', '보안정책', '통신망 운영', '보안장비 운영', '접근통제', '취약점 점검', '침해사고 대응', '개인정보보호', '보안실태 점검', '보고·회의체', '사업종료'] }
+                        { code: 'NTS_SYSTEM_BUILD', name: '정보시스템 구축·고도화사업', isDraft: true, categories: ['사업관리', '업무분석', '요구사항관리', '설계', '개발', '데이터 전환', '연계', '시험·품질관리', '사용자 교육', '이행·안정화', '사업종료'] },
+                        { code: 'NTS_SYSTEM_OM', name: '정보시스템 운영·유지관리사업', isDraft: true, categories: ['사업관리', '응용시스템 운영', '유지보수', '서비스데스크', '장애·문제관리', '변경·배포관리', '데이터 처리', '연계관리', '성능·용량관리', '보안관리', '보고·회의체', '사업종료'] },
+                        { code: 'NTS_INFRA_OM', name: '정보인프라 운영·유지관리사업', isDraft: true, categories: ['사업관리', '서버 운영', '네트워크 운영', 'DB 운영', '미들웨어 운영', '스토리지·백업', '재해복구', '성능·용량관리', '구성관리', '장애·문제관리', '보안관리', '사업종료'] },
+                        { code: 'NTS_DATA_ANALYTICS', name: '데이터·빅데이터 사업', isDraft: true, categories: ['사업관리', '데이터 수집', '데이터 정제', '데이터 품질관리', '데이터 표준화', '분석모델 개발', '분석과제 수행', '데이터 제공·활용', '보안·비식별', '성과관리', '사업종료'] },
+                        { code: 'NTS_AI', name: 'AI·지능정보화 사업', isDraft: true, categories: ['사업관리', 'AI 과제기획', '데이터 준비', '모델 개발', '모델 검증', '서비스 구현', '성능평가', '배포·운영', 'AI 품질·윤리관리', '성과관리', '사업종료'] },
+                        { code: 'NTS_SECURITY_NETWORK', name: '정보보호·통신망 사업', isDraft: true, categories: ['사업관리', '보안정책', '통신망 운영', '보안장비 운영', '접근통제', '취약점 점검', '침해사고 대응', '개인정보보호', '보안실태 점검', '보고·회의체', '사업종료'] }
                     ]
                 }
             ];
 
             orgsDef.forEach(org => {
                 const isOrgActive = (currentOrg === org.code);
-                const orgBadgeHtml = org.count > 0 ? `<span class="badge badge-primary" style="font-size:10.5px; border-radius:9999px; padding:2px 8px;">${org.count}건</span>` : `<span style="font-size:10px; color:var(--text-muted);">분류안</span>`;
 
                 treeHtml += `
-                    <div class="tree-node-type" style="margin-bottom:8px;">
-                        <div class="tree-cat-header ${isOrgActive ? 'active' : ''}" onclick="app.handleOrgChange('${org.code}')">
+                    <div class="tree-node-type" style="margin-bottom:6px;">
+                        <div class="tree-cat-header tree-node-level-1 ${isOrgActive ? 'active' : ''}" onclick="app.handleOrgChange('${org.code}')">
                             <span style="display:flex; align-items:center; gap:6px;">
-                                <i data-lucide="${isOrgActive ? 'folder-open' : 'folder'}" style="width:15px; height:15px; color:${isOrgActive ? 'var(--accent-purple)' : 'var(--text-muted)'};"></i>
-                                <strong>🏢 ${org.name}</strong>
+                                <i data-lucide="${isOrgActive ? 'folder-open' : 'folder'}" style="width:15px; height:15px; color:${isOrgActive ? '#6366F1' : 'var(--text-muted)'};"></i>
+                                <span>${org.name}</span>
                             </span>
-                            ${orgBadgeHtml}
                         </div>
                 `;
 
                 if (isOrgActive) {
-                    treeHtml += `<div style="padding-left:12px; margin-left:6px; border-left:1px solid var(--border-color); margin-top:4px; display:flex; flex-direction:column; gap:6px;">`;
+                    treeHtml += `<div style="display:flex; flex-direction:column; gap:4px; margin-top:2px;">`;
 
                     org.bizTypes.forEach(biz => {
                         if (biz.isDraft && !showDrafts) return;
 
                         const isBizActive = (currentBizType === biz.code || (currentBizType === 'all' && biz.code === 'RESOURCE_INTEGRATION'));
-                        const bizBadgeHtml = biz.count > 0 ? `<span class="badge badge-outline" style="font-size:10px; border-radius:9999px; padding:1px 6px;">${biz.count}건</span>` : `<span style="font-size:9.5px; color:var(--text-muted);">분류안</span>`;
 
                         treeHtml += `
                             <div>
-                                <div class="tree-cat-header ${currentBizType === biz.code ? 'active' : ''}" style="font-size:12px;" onclick="event.stopPropagation(); app.handleBizTypeChange('${biz.code}')">
+                                <div class="tree-cat-header tree-node-level-2 ${currentBizType === biz.code ? 'active' : ''}" onclick="event.stopPropagation(); app.handleBizTypeChange('${biz.code}')">
                                     <span style="display:flex; align-items:center; gap:5px;">
                                         <i data-lucide="layers" style="width:13px; height:13px; color:var(--text-muted);"></i>
                                         ${biz.name}
                                     </span>
-                                    ${bizBadgeHtml}
                                 </div>
                         `;
 
                         if (isBizActive) {
-                            treeHtml += `<div style="padding-left:10px; display:flex; flex-direction:column; gap:4px; margin-top:4px;">`;
+                            treeHtml += `<div style="display:flex; flex-direction:column; gap:3px; margin-top:2px;">`;
 
                             if (biz.code === 'RESOURCE_INTEGRATION') {
                                 const categoriesDef = [
-                                    { key: '사업관리', name: '사업관리', icon: 'briefcase', color: 'var(--accent-blue)', items: pmList, defaultStages: ['착수 준비', '착수', '계획', '수행 및 통제', '안정화', '종료'] },
-                                    { key: '통합구축', name: '통합구축', icon: 'server', color: 'var(--accent-green)', items: infraList, defaultStages: ['착수', '설계', '구축', '종료'] },
-                                    { key: '업무전환', name: '업무전환', icon: 'refresh-cw', color: 'var(--accent-orange)', items: appList, defaultStages: ['착수', '설계', '구축', '종료'] }
+                                    { key: '사업관리', name: '사업관리', items: pmList, defaultStages: ['착수 준비', '착수', '계획', '수행 및 통제', '안정화', '종료'] },
+                                    { key: '통합구축', name: '통합구축', items: infraList, defaultStages: ['착수', '설계', '구축', '종료'] },
+                                    { key: '업무전환', name: '업무전환', items: appList, defaultStages: ['착수', '설계', '구축', '종료'] }
                                 ];
 
                                 categoriesDef.forEach(catDef => {
@@ -13505,24 +13519,22 @@ class AetherPMO {
 
                                     treeHtml += `
                                         <div class="tree-node-type">
-                                            <div class="tree-cat-header ${isCatActive ? 'active' : ''}" onclick="event.stopPropagation(); app.activeNirsCategory='${catDef.key}'; app.activeNirsStage='all'; app.renderArtifacts();">
-                                                <span style="display:flex; align-items:center; gap:6px;">
-                                                    <i data-lucide="${catDef.icon}" style="width:13px; height:13px; color:${catDef.color};"></i>
-                                                    <strong>${catDef.name}</strong>
+                                            <div class="tree-cat-header tree-node-level-3 ${isCatActive ? 'active' : ''}" onclick="event.stopPropagation(); app.activeNirsCategory='${catDef.key}'; app.activeNirsStage='all'; app.renderArtifacts();">
+                                                <span style="display:flex; align-items:center; gap:5px;">
+                                                    <i data-lucide="folder" style="width:12px; height:12px; color:var(--text-muted);"></i>
+                                                    ${catDef.name}
                                                 </span>
-                                                <span class="badge badge-outline" style="font-size:10px; border-radius:9999px; padding:1px 6px;">${catDef.items.length}</span>
                                             </div>
-                                            <div class="tree-node-stages" style="padding-left:12px; margin-left:6px; border-left:1px dashed var(--border-color); display:flex; flex-direction:column; gap:2px; margin-top:2px;">
+                                            <div class="tree-node-stages" style="display:flex; flex-direction:column; gap:2px; margin-top:1px;">
                                     `;
 
                                     catDef.defaultStages.forEach(stgName => {
                                         const count = stageCounts[stgName] || 0;
                                         const isStgActive = (catFilter === catDef.key && stageFilter === stgName);
                                         treeHtml += `
-                                            <div class="tree-node-stage-item ${isStgActive ? 'active' : ''}" onclick="event.stopPropagation(); app.activeNirsCategory='${catDef.key}'; app.activeNirsStage='${stgName}'; app.renderArtifacts();">
-                                                <i data-lucide="circle" style="width:5px; height:5px; color:${isStgActive ? 'var(--accent-purple)' : 'var(--text-muted)'};"></i>
-                                                <span>${stgName}</span>
-                                                <span style="margin-left:auto; font-size:10px; color:var(--text-muted);">(${count})</span>
+                                            <div class="tree-node-stage-item tree-node-level-4 ${isStgActive ? 'active' : ''}" onclick="event.stopPropagation(); app.activeNirsCategory='${catDef.key}'; app.activeNirsStage='${stgName}'; app.renderArtifacts();">
+                                                <span>• ${stgName}</span>
+                                                <span style="margin-left:auto; font-size:10.5px; color:var(--text-muted);">(${count})</span>
                                             </div>
                                         `;
                                     });
@@ -13530,15 +13542,14 @@ class AetherPMO {
                                     treeHtml += `</div></div>`;
                                 });
                             } else if (biz.categories) {
-                                // Render DRAFT Categories as Child Nodes for KLID / NTS / NIRS OM
+                                // Render DRAFT Categories for KLID / NTS / NIRS OM
                                 biz.categories.forEach(catName => {
                                     treeHtml += `
-                                        <div class="tree-cat-header" style="font-size:11.5px; opacity:0.85; padding:3px 6px;">
-                                            <span style="display:flex; align-items:center; gap:5px;">
-                                                <i data-lucide="folder-git-2" style="width:12px; height:12px; color:var(--text-muted);"></i>
+                                        <div class="tree-cat-header tree-node-level-3" style="opacity:0.75;">
+                                            <span style="display:flex; align-items:center; gap:4px;">
+                                                <i data-lucide="folder-git-2" style="width:11px; height:11px; color:var(--text-muted);"></i>
                                                 ${catName}
                                             </span>
-                                            <span style="font-size:9px; color:var(--text-muted);">DRAFT</span>
                                         </div>
                                     `;
                                 });
@@ -13606,7 +13617,7 @@ class AetherPMO {
         const startIndex = (validPage - 1) * pageSize;
         const pagedList = filtered.slice(startIndex, startIndex + pageSize);
 
-        // ── 7. Interactive Breadcrumb & Numeric Pagination UI ──────────────
+        // ── 7. Prominent Breadcrumb & Numeric Pagination UI ──────────────────
         const breadRoot = document.getElementById('nirs-breadcrumb-root');
         const breadSub = document.getElementById('nirs-breadcrumb-sub');
         const listCount = document.getElementById('nirs-list-count');
@@ -13620,25 +13631,25 @@ class AetherPMO {
             
             if (catFilter === 'all' && stageFilter === 'all') {
                 breadSub.innerHTML = `
-                    <i data-lucide="chevron-right" style="width:12px; height:12px; margin:0 4px; color:var(--text-muted);"></i>
+                    <i data-lucide="chevron-right" style="width:14px; height:14px; margin:0 4px; color:var(--text-muted);"></i>
                     <span style="cursor:pointer;" onclick="app.handleBizTypeChange('${currentBizType}')">${bizText}</span>
-                    <i data-lucide="chevron-right" style="width:12px; height:12px; margin:0 4px; color:var(--text-muted);"></i>
+                    <i data-lucide="chevron-right" style="width:14px; height:14px; margin:0 4px; color:var(--text-muted);"></i>
                     <span class="text-primary font-bold">전체 산출물</span>
                 `;
             } else if (stageFilter === 'all') {
                 breadSub.innerHTML = `
-                    <i data-lucide="chevron-right" style="width:12px; height:12px; margin:0 4px; color:var(--text-muted);"></i>
+                    <i data-lucide="chevron-right" style="width:14px; height:14px; margin:0 4px; color:var(--text-muted);"></i>
                     <span style="cursor:pointer;" onclick="app.handleBizTypeChange('${currentBizType}')">${bizText}</span>
-                    <i data-lucide="chevron-right" style="width:12px; height:12px; margin:0 4px; color:var(--text-muted);"></i>
+                    <i data-lucide="chevron-right" style="width:14px; height:14px; margin:0 4px; color:var(--text-muted);"></i>
                     <span class="text-primary font-bold" style="cursor:pointer;" onclick="app.activeNirsCategory='${catFilter}'; app.activeNirsStage='all'; app.renderArtifacts();">${catFilter}</span>
                 `;
             } else {
                 breadSub.innerHTML = `
-                    <i data-lucide="chevron-right" style="width:12px; height:12px; margin:0 4px; color:var(--text-muted);"></i>
+                    <i data-lucide="chevron-right" style="width:14px; height:14px; margin:0 4px; color:var(--text-muted);"></i>
                     <span style="cursor:pointer;" onclick="app.handleBizTypeChange('${currentBizType}')">${bizText}</span>
-                    <i data-lucide="chevron-right" style="width:12px; height:12px; margin:0 4px; color:var(--text-muted);"></i>
+                    <i data-lucide="chevron-right" style="width:14px; height:14px; margin:0 4px; color:var(--text-muted);"></i>
                     <span style="cursor:pointer;" onclick="app.activeNirsCategory='${catFilter}'; app.activeNirsStage='all'; app.renderArtifacts();">${catFilter}</span>
-                    <i data-lucide="chevron-right" style="width:12px; height:12px; margin:0 4px; color:var(--text-muted);"></i>
+                    <i data-lucide="chevron-right" style="width:14px; height:14px; margin:0 4px; color:var(--text-muted);"></i>
                     <span class="text-primary font-bold">${stageFilter}</span>
                 `;
             }
@@ -13671,7 +13682,7 @@ class AetherPMO {
             }
         }
 
-        // ── 8. Filled Badges & 2-Line Deliverable Name Cells ──────────────
+        // ── 8. Table 44px Rows & Deliverable Name Cell Typography (line-height 1.4) ─
         const tbody = document.getElementById('global-templates-tbody');
         if (!tbody) return;
 
@@ -13685,7 +13696,7 @@ class AetherPMO {
                 if (isAdmin) {
                     html = `<tr><td colspan="14" class="text-center" style="padding: 70px 20px;">
                         <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; max-width:520px; margin:0 auto; text-align:center;">
-                            <i data-lucide="layers" style="width:48px; height:48px; color:var(--accent-purple); stroke-width:1.5; margin-bottom:14px;"></i>
+                            <i data-lucide="layers" style="width:48px; height:48px; color:#6366F1; stroke-width:1.5; margin-bottom:14px;"></i>
                             <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">${orgLabel} 표준 산출물이 아직 등록되지 않았습니다.</h3>
                             <p style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom:20px;">${bizCountLabel}이 등록되어 있습니다.<br/>새 표준 양식을 직접 등록하거나 CSV 파일로 일괄 등록할 수 있습니다.</p>
                             <div style="display:flex; gap:10px; justify-content:center;">
@@ -13718,7 +13729,6 @@ class AetherPMO {
                 const fileRec = filesList.find(f => f.templateId === item.id);
                 const isChecked = this.selectedNirsTemplateIds.has(item.id);
 
-                // Filled Badges (Sleek Filled Pill Style)
                 const subBadge = item.requiresSubmission ? '<span class="badge-filled-blue" title="발주처 제출 필수">📥 제출</span>' : '<span style="color:var(--text-muted); font-size:11px;">-</span>';
                 const offBadge = item.requiresOfficialLetter ? '<span class="badge-filled-purple" title="공문 발신 필수">📄 공문</span>' : '<span style="color:var(--text-muted); font-size:11px;">-</span>';
                 const appBadge = item.requiresClientApproval ? '<span class="badge-filled-green" title="발주처 서면 승인 필수">✔ 승인</span>' : '<span style="color:var(--text-muted); font-size:11px;">-</span>';
@@ -13736,10 +13746,10 @@ class AetherPMO {
                 if (fileRec) {
                     const ext = (fileRec.fileExtension || 'file').toUpperCase();
                     const kbSize = fileRec.fileSize ? (fileRec.fileSize / 1024).toFixed(1) + ' KB' : '';
-                    fileBadgeHtml = `<span class="badge badge-success" style="font-size:11px; border-radius:9999px;">🟢 등록완료</span>`;
-                    fileInfoHtml = `<div style="display:flex; flex-direction:column; gap:2px;">
+                    fileBadgeHtml = `<span class="badge badge-success" style="font-size:10.5px; border-radius:9999px;">🟢 등록완료</span>`;
+                    fileInfoHtml = `<div style="display:flex; flex-direction:column; gap:1px;">
                         <strong style="font-size:12px; color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:140px;" title="${fileRec.originalFileName}">${fileRec.originalFileName}</strong>
-                        <div style="font-size:11px; color:var(--text-muted);"><span class="badge badge-outline" style="font-size:9.5px; padding:1px 4px;">${ext}</span> ${kbSize}</div>
+                        <div style="font-size:10.5px; color:var(--text-muted);"><span class="badge badge-outline" style="font-size:9px; padding:1px 4px;">${ext}</span> ${kbSize}</div>
                     </div>`;
                     versionHtml = `v${fileRec.fileVersion || '1.0'}`;
                     downloadBtn = `
@@ -13748,7 +13758,7 @@ class AetherPMO {
                         </button>
                     `;
                 } else {
-                    fileBadgeHtml = `<span class="badge badge-secondary" style="font-size:11px; border-radius:9999px;">⚪ 미등록</span>`;
+                    fileBadgeHtml = `<span class="badge badge-secondary" style="font-size:10.5px; border-radius:9999px;">⚪ 미등록</span>`;
                     downloadBtn = `
                         <button class="btn btn-sm btn-ghost" disabled title="등록된 표준 양식 파일이 없습니다.">
                             <i data-lucide="download" style="width:12px; height:12px; opacity:0.4;"></i>
@@ -13770,10 +13780,10 @@ class AetherPMO {
                         <td class="text-center" style="position:sticky; left:0; z-index:5; background:var(--bg-card);">
                             <input type="checkbox" class="chk-nirs-item" ${isChecked ? 'checked' : ''} onchange="app.toggleNirsTemplateSelect('${item.id}', this.checked)">
                         </td>
-                        <td style="position:sticky; left:36px; z-index:5; background:var(--bg-card); font-family:monospace; font-size:11.5px; font-weight:600; color:var(--accent-purple);">${item.id}</td>
+                        <td style="position:sticky; left:36px; z-index:5; background:var(--bg-card); font-family:monospace; font-size:11.5px; font-weight:600; color:#6366F1;">${item.id}</td>
                         <td style="position:sticky; left:141px; z-index:5; background:var(--bg-card);" class="artifact-name-column sticky-artifact-name">
-                            <div class="artifact-name-primary" style="font-size:13px; font-weight:600; color:var(--text-primary);">${item.artifactName}</div>
-                            <div class="artifact-name-secondary" style="font-size:11px; color:var(--text-muted); margin-top:2px;">${item.category} · ${item.stage} ${item.description ? ' | ' + item.description : ''}</div>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-primary); line-height:1.4;">${item.artifactName}</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-top:3px; line-height:1.4;">${item.category} · ${item.stage} ${item.description ? ' | ' + item.description : ''}</div>
                         </td>
                         <td class="text-center">${fileBadgeHtml}</td>
                         <td>${fileInfoHtml}</td>
