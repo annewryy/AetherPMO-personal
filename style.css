@@ -8489,8 +8489,9 @@ body.dark-mode .badge-status-cancelled {
 }
 
 
+
 /* ============================================================================
-   STATIC SALARY TEMPLATE EDIT MODAL DIAGNOSTIC V7 CSS (RED BORDER TEST)
+   STATIC SALARY TEMPLATE EDIT MODAL CLEAN V8 IS-OPEN STATE CSS
    ============================================================================ */
 #salary-template-modal {
     position: fixed !important;
@@ -8502,10 +8503,20 @@ body.dark-mode .badge-status-cancelled {
     width: 100vw !important;
     height: 100vh !important;
     z-index: 1000000 !important;
-    display: flex !important;
+
+    display: none;
+    visibility: hidden;
+    opacity: 0;
+
     align-items: center !important;
     justify-content: center !important;
-    background: rgba(15, 23, 42, 0.85) !important;
+    padding: 20px !important;
+    background: rgba(3, 7, 18, 0.85) !important;
+    backdrop-filter: blur(6px) !important;
+}
+
+#salary-template-modal.is-open {
+    display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
 }
