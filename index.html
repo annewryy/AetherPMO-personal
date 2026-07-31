@@ -141,33 +141,10 @@
                 </a>
 
                 <div class="nav-item-wrapper" id="nav-wrapper-artifacts">
-                    <a href="#artifacts/org-catalog" class="nav-item" id="menu-standard-templates-root" data-view="artifacts" data-tooltip="표준·템플릿 관리" onclick="app.switchArtifactSubView('org-catalog')">
+                    <a href="#artifacts" class="nav-item active" id="menu-institution-standard-artifacts" data-view="artifacts" data-tooltip="기관별 표준 산출물 관리" onclick="app.resetStandardArtifactView()">
                         <i data-lucide="file-check"></i>
-                        <span>표준·템플릿 관리</span>
-                        <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
+                        <span>기관별 표준 산출물 관리</span>
                     </a>
-                    <div class="nav-submenu" id="artifacts-submenu">
-                        <a href="#artifacts/org-catalog" class="submenu-item active" id="menu-institution-standard-artifacts" data-subview="org-catalog" onclick="app.switchArtifactSubView('org-catalog')">
-                            <span>├ 🏢 기관별 표준 산출물</span>
-                        </a>
-                        <a href="#artifacts/project-templates" class="submenu-item" id="menu-project-common-templates" data-subview="project-templates" onclick="app.switchArtifactSubView('project-templates')">
-                            <span>├ 📁 프로젝트 공통 템플릿</span>
-                        </a>
-                        <div style="padding-left:12px; font-size:11.5px; display:flex; flex-direction:column; gap:2px;">
-                            <a href="#artifacts/initiation" class="submenu-item sidebar-submenu-item" id="subitem-initiation" data-subview="initiation" onclick="app.switchArtifactSubView('initiation')">
-                                <span>│  ├ 착수단계 템플릿</span>
-                            </a>
-                            <a href="#artifacts/execution" class="submenu-item sidebar-submenu-item" id="subitem-execution" data-subview="execution" onclick="app.switchArtifactSubView('execution')">
-                                <span>│  ├ 수행단계 템플릿</span>
-                            </a>
-                            <a href="#artifacts/closing" class="submenu-item sidebar-submenu-item" id="subitem-closing" data-subview="closing" onclick="app.switchArtifactSubView('closing')">
-                                <span>│  └ 종료단계 템플릿</span>
-                            </a>
-                        </div>
-                        <a href="#artifacts/file-management" class="submenu-item" id="menu-template-files" data-subview="file-management" onclick="app.switchArtifactSubView('file-management')">
-                            <span>└ 📄 양식 파일 관리</span>
-                        </a>
-                    </div>
                 </div>
 
                 <div class="nav-item-wrapper" id="nav-wrapper-resources">

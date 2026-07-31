@@ -7659,3 +7659,56 @@ body.dark-theme .portal-copilot-task-item {
 .sticky-artifact-name {
     box-shadow: 6px 0 8px -8px rgba(0, 0, 0, 0.35);
 }
+
+/* 7th Phase Stabilization CSS: Eliminate Table Internal Scrollbar & Expand KPI Height */
+.nirs-summary-kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 14px !important;
+}
+
+.nirs-summary-card {
+    min-height: 92px !important;
+    padding: 18px 20px !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.standard-artifact-table-card {
+    min-height: calc(100vh - 310px) !important;
+    min-height: 540px !important;
+    height: auto !important;
+}
+
+.table-container {
+    max-height: none !important;
+    overflow-y: visible !important;
+    overflow-x: auto !important;
+}
+
+.data-table-compact tbody tr {
+    min-height: 46px !important;
+    height: auto !important;
+}
+
+.data-table-compact td {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+    vertical-align: middle !important;
+}
+
+.artifact-name-primary {
+    font-size: 12.5px !important;
+    line-height: 1.45 !important;
+    font-weight: 600 !important;
+    color: var(--text-primary) !important;
+    word-break: keep-all !important;
+    overflow-wrap: anywhere !important;
+}
+
+.artifact-name-secondary {
+    font-size: 10.5px !important;
+    line-height: 1.4 !important;
+    color: var(--text-muted) !important;
+    margin-top: 2px !important;
+}
