@@ -141,32 +141,10 @@
                 </a>
 
                 <div class="nav-item-wrapper" id="nav-wrapper-artifacts">
-                    <a href="#artifacts" class="nav-item active" id="menu-institution-standard-artifacts" data-view="artifacts" data-tooltip="기관별 표준 산출물 관리" onclick="app.resetStandardArtifactView()">
+                    <a href="#artifacts" class="nav-item active" id="menu-institution-standard-artifacts" data-view="artifacts" data-tooltip="표준 산출물 관리" onclick="app.resetStandardArtifactView()">
                         <i data-lucide="file-check"></i>
-                        <span>기관별 표준 산출물 관리</span>
+                        <span>표준 산출물 관리</span>
                     </a>
-                </div>
-
-                <div class="nav-item-wrapper" id="nav-wrapper-resources">
-                    <a href="#resources" class="nav-item" data-view="resources" data-tooltip="인력관리">
-                        <i data-lucide="users"></i>
-                        <span>인력관리</span>
-                        <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
-                    </a>
-                    <div class="nav-submenu" id="resources-submenu">
-                        <a href="#resources" class="submenu-item" data-subview="resources">
-                            <i data-lucide="user-cog" style="width:14px; height:14px; margin-right:6px; display:inline-block; vertical-align:middle;"></i>
-                            <span>참여인력</span>
-                        </a>
-                        <a href="#contracts" class="submenu-item" data-subview="contracts" style="display: none;">
-                            <i data-lucide="file-text" style="width:14px; height:14px; margin-right:6px; display:inline-block; vertical-align:middle;"></i>
-                            <span>계약 관리</span>
-                        </a>
-                        <a href="#salaries" class="submenu-item" data-subview="salaries" style="display: none;">
-                            <i data-lucide="wallet" style="width:14px; height:14px; margin-right:6px; display:inline-block; vertical-align:middle;"></i>
-                            <span>월급여 관리</span>
-                        </a>
-                    </div>
                 </div>
 
                 <a href="#official-docs" class="nav-item" data-view="official-docs" data-tooltip="공문 관리" style="display: none;">
@@ -1565,46 +1543,66 @@
                         </div>
 
                         <!-- Filter Bar & Pagination Selector -->
-                        <div class="artifacts-filter-bar dashboard-card" style="margin-bottom:14px; padding:10px 14px;">
-                            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
-                                <div class="search-input-wrapper" style="flex:1; min-width:220px; position:relative;">
-                                    <i data-lucide="search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); width:14px; height:14px; color:var(--text-muted);"></i>
-                                    <input type="text" id="nirs-template-search" class="form-control" style="padding-left:32px; font-size:12.5px; height:34px;" placeholder="코드, 산출물명, 단계, 관리자, 작성자, 제출시기 검색..." oninput="app.handleNirsSearchInput(this.value)">
-                                </div>
-                                <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-                                    <select id="filter-nirs-category" class="form-select" style="min-width:120px; font-size:12px; height:34px;" onchange="app.handleNirsFilterChange()">
-                                        <option value="all">업무영역: 전체</option>
-                                        <option value="사업관리">사업관리</option>
-                                        <option value="통합구축">통합구축</option>
-                                        <option value="업무전환">업무전환</option>
-                                    </select>
-                                    <select id="filter-nirs-stage" class="form-select" style="min-width:120px; font-size:12px; height:34px;" onchange="app.handleNirsFilterChange()">
-                                        <option value="all">단계: 전체</option>
-                                        <option value="착수 준비">착수 준비</option>
-                                        <option value="착수">착수</option>
-                                        <option value="계획">계획</option>
-                                        <option value="설계">설계</option>
-                                        <option value="구축">구축</option>
-                                        <option value="수행 및 통제">수행 및 통제</option>
-                                        <option value="안정화">안정화</option>
-                                        <option value="종료">종료</option>
-                                    </select>
-                                    <select id="filter-nirs-file-status" class="form-select" style="min-width:110px; font-size:12px; height:34px;" onchange="app.handleNirsFilterChange()">
-                                        <option value="all">파일상태: 전체</option>
-                                        <option value="registered">🟢 등록완료</option>
-                                        <option value="unregistered">⚪ 미등록</option>
-                                    </select>
-                                    <select id="select-nirs-page-size" class="form-select" style="min-width:100px; font-size:12px; height:34px;" onchange="app.handlePageSizeChange(this.value)">
-                                        <option value="25">25개씩 보기</option>
-                                        <option value="50">50개씩 보기</option>
-                                        <option value="100">100개씩 보기</option>
-                                        <option value="1000">전체 보기</option>
-                                    </select>
-                                    <button type="button" class="btn btn-sm btn-outline" id="btn-nirs-more-filters" onclick="app.toggleNirsMoreFilters()" style="font-size:12px; height:34px; padding:0 10px; display:inline-flex; align-items:center; gap:4px;">
-                                        <i data-lucide="filter" style="width:13px; height:13px;"></i> 더보기 ▼
-                                    </button>
-                                </div>
+                        <div class="artifacts-filter-bar dashboard-card" style="margin-bottom:16px; padding:12px 16px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:10px;">
+                        <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+                            <div class="search-input-wrapper" style="flex:1; min-width:240px; position:relative;">
+                                <i data-lucide="search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); width:15px; height:15px; color:var(--text-muted);"></i>
+                                <input type="text" id="nirs-template-search" class="form-control" style="padding-left:36px; font-size:12.5px; height:38px; border-radius:8px; border-color:var(--border-color); background:var(--bg-card-header);" placeholder="코드, 산출물명, 단계, 작성자, 제출시기 검색..." oninput="app.handleNirsSearchInput(this.value)">
                             </div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                                <select id="filter-nirs-category" class="form-select" style="min-width:130px; font-size:12.5px; height:38px; border-radius:8px; border-color:var(--border-color); background:var(--bg-card-header);" onchange="app.handleNirsFilterChange()">
+                                    <option value="all">업무영역: 전체</option>
+                                    <option value="사업관리">사업관리</option>
+                                    <option value="통합구축">통합구축</option>
+                                    <option value="업무전환">업무전환</option>
+                                </select>
+                                <select id="filter-nirs-stage" class="form-select" style="min-width:130px; font-size:12.5px; height:38px; border-radius:8px; border-color:var(--border-color); background:var(--bg-card-header);" onchange="app.handleNirsFilterChange()">
+                                    <option value="all">단계: 전체</option>
+                                    <option value="착수 준비">착수 준비</option>
+                                    <option value="착수">착수</option>
+                                    <option value="계획">계획</option>
+                                    <option value="설계">설계</option>
+                                    <option value="구축">구축</option>
+                                    <option value="수행 및 통제">수행 및 통제</option>
+                                    <option value="안정화">안정화</option>
+                                    <option value="종료">종료</option>
+                                </select>
+                                <select id="filter-nirs-file-status" class="form-select" style="min-width:120px; font-size:12.5px; height:38px; border-radius:8px; border-color:var(--border-color); background:var(--bg-card-header);" onchange="app.handleNirsFilterChange()">
+                                    <option value="all">파일상태: 전체</option>
+                                    <option value="registered">🟢 등록완료</option>
+                                    <option value="unregistered">⚪ 미등록</option>
+                                </select>
+                                <select id="select-nirs-page-size" class="form-select" style="min-width:110px; font-size:12.5px; height:38px; border-radius:8px; border-color:var(--border-color); background:var(--bg-card-header);" onchange="app.handlePageSizeChange(this.value)">
+                                    <option value="25">25개씩 보기</option>
+                                    <option value="50">50개씩 보기</option>
+                                    <option value="100">100개씩 보기</option>
+                                    <option value="1000">전체 보기</option>
+                                </select>
+                                <button type="button" class="btn btn-sm btn-outline" id="btn-nirs-more-filters" onclick="app.toggleNirsMoreFilters()" style="font-size:12px; height:38px; padding:0 12px; border-radius:8px; display:inline-flex; align-items:center; gap:4px;">
+                                    <i data-lucide="filter" style="width:13px; height:13px;"></i> 더보기 ▼
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Collapsible Secondary Filters -->
+                        <div id="nirs-more-filters-row" style="display:none; gap:10px; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border-color); flex-wrap:wrap;">
+                            <select id="filter-nirs-official" class="form-select" style="min-width:120px; font-size:12px; height:34px; border-radius:6px;" onchange="app.handleNirsFilterChange()">
+                                <option value="all">공문: 전체</option>
+                                <option value="required">📄 공문필수</option>
+                                <option value="none">미해당</option>
+                            </select>
+                            <select id="filter-nirs-approval" class="form-select" style="min-width:120px; font-size:12px; height:34px; border-radius:6px;" onchange="app.handleNirsFilterChange()">
+                                <option value="all">승인: 전체</option>
+                                <option value="required">✔ 승인필수</option>
+                                <option value="none">미해당</option>
+                            </select>
+                            <select id="filter-nirs-seal" class="form-select" style="min-width:120px; font-size:12px; height:34px; border-radius:6px;" onchange="app.handleNirsFilterChange()">
+                                <option value="all">인감: 전체</option>
+                                <option value="required">🔴 인감필수</option>
+                                <option value="none">미해당</option>
+                            </select>
+                        </div>
+                    </div>
 
                             <!-- Collapsible Secondary Filters -->
                             <div id="nirs-more-filters-row" style="display:none; gap:8px; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border-color); flex-wrap:wrap;">

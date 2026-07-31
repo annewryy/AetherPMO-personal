@@ -7712,3 +7712,153 @@ body.dark-theme .portal-copilot-task-item {
     color: var(--text-muted) !important;
     margin-top: 2px !important;
 }
+
+/* ============================================================================
+   AETHERPMO PREMIUM DARK MODE DESIGN SYSTEM TOKENS & CATALOG STYLES
+   ============================================================================ */
+:root {
+    --bg-body-dark: #0B1020;
+    --bg-sidebar-dark: #101827;
+    --bg-card-dark: #131C2E;
+    --bg-card-header-dark: #101827;
+    --bg-hover-dark: #1A2640;
+    --bg-active-dark: #1E293B;
+    --border-dark: #27324A;
+    --border-focus-dark: #4F6BFF;
+    --text-primary-dark: #F8FAFC;
+    --text-secondary-dark: #CBD5E1;
+    --text-muted-dark: #94A3B8;
+
+    --accent-purple: #8B5CF6;
+    --accent-blue: #3B82F6;
+    --accent-cyan: #06B6D4;
+    --accent-green: #10B981;
+    --accent-orange: #F97316;
+    --accent-red: #EF4444;
+}
+
+[data-theme="dark"], body.dark-mode {
+    background-color: var(--bg-body-dark) !important;
+    color: var(--text-secondary-dark) !important;
+}
+
+[data-theme="dark"] .dashboard-card,
+[data-theme="dark"] .artifacts-sidebar,
+[data-theme="dark"] .artifacts-content-header {
+    background: var(--bg-card-dark) !important;
+    border-color: var(--border-dark) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 52px Table Header & Premium Dark Table Styles */
+.data-table-sticky thead tr {
+    height: 52px !important;
+    background: #101827 !important;
+}
+.data-table-sticky th {
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.01em !important;
+    color: #F8FAFC !important;
+    border-bottom: 1px solid #27324A !important;
+    vertical-align: middle !important;
+    background: #101827 !important;
+}
+
+/* Table Row Hover & Heights */
+.data-table-compact tbody tr {
+    min-height: 48px !important;
+    height: auto !important;
+    transition: background-color 0.15s ease !important;
+}
+.data-table-compact tbody tr:hover {
+    background-color: #1A2640 !important;
+}
+.data-table-compact td {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+    vertical-align: middle !important;
+    border-bottom: 1px solid #1E293B !important;
+}
+
+/* Filled Badges: Submission, Official Letter, Approval, Seal */
+.badge-filled-blue {
+    background: rgba(59, 130, 246, 0.15) !important;
+    color: #60A5FA !important;
+    border: 1px solid rgba(59, 130, 246, 0.3) !important;
+    padding: 3px 8px !important;
+    border-radius: 9999px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+}
+.badge-filled-purple {
+    background: rgba(139, 92, 246, 0.15) !important;
+    color: #C084FC !important;
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    padding: 3px 8px !important;
+    border-radius: 9999px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+}
+.badge-filled-green {
+    background: rgba(16, 185, 129, 0.15) !important;
+    color: #34D399 !important;
+    border: 1px solid rgba(16, 185, 129, 0.3) !important;
+    padding: 3px 8px !important;
+    border-radius: 9999px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+}
+.badge-filled-red {
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: #F87171 !important;
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
+    padding: 3px 8px !important;
+    border-radius: 9999px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+}
+
+/* Tree Selected State: Left Accent Border & Background */
+.category-tree .tree-cat-header.active {
+    background: #1E293B !important;
+    border-left: 4px solid #6366F1 !important;
+    font-weight: 600 !important;
+    color: #F8FAFC !important;
+    border-radius: 0 6px 6px 0 !important;
+}
+.category-tree .tree-cat-header:hover {
+    background: #1A2640 !important;
+}
+
+/* Dropdown Action Menu (⋮ Vertical Dots) */
+.action-dropdown-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 100;
+    background: #131C2E;
+    border: 1px solid #27324A;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    min-width: 150px;
+    padding: 4px 0;
+    display: none;
+}
+.action-dropdown-menu.show {
+    display: block;
+}
+.action-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    font-size: 12px;
+    color: #CBD5E1;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.action-dropdown-item:hover {
+    background: #1A2640;
+    color: #F8FAFC;
+}
