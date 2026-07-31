@@ -622,6 +622,11 @@ class AetherPMO {
     }
 
     applyRolePermissions() {
+        const hrMenu = document.getElementById('nav-wrapper-hr');
+        if (hrMenu) hrMenu.style.display = 'flex';
+        const salaryMenu = document.getElementById('nav-wrapper-salaries');
+        if (salaryMenu) salaryMenu.style.display = 'flex';
+    
         const session = this.currentUser;
         if (!session) return;
 
@@ -4379,196 +4384,75 @@ class AetherPMO {
      * Switch view display block/none
      */
     async switchView(viewName, params = null) {
-        console.log('[switchView:start]', {
-            requestedView: viewName,
-            targetElement: document.getElementById(`view-${viewName}`)
-        });
+        console.log('[switchView:start]', { requestedView: viewName, params });
 
+        const routes = {
+            'dashboard': 'view-dashboard',
+            'projects': 'view-projects',
+            'projects-g2b': 'view-projects-g2b',
+            'project-detail': 'view-project-detail',
+            'tailoring': 'view-tailoring',
+            'artifacts': 'view-artifacts',
+            'resources': 'view-resources',
+            'salaries': 'view-salaries',
+            'backup': 'view-backup',
+            'my-account': 'view-my-account',
+            'issues': 'view-issues',
+            'action-items': 'view-action-items',
+            'official-docs': 'view-official-docs',
+            'meeting-minutes': 'view-meeting-minutes'
+        };
+
+        const targetId = routes[viewName] || `view-${viewName}`;
+        const targetView = document.getElementById(targetId);
+
+        if (!targetView) {
+            console.error('[ROUTE] Target view element not found:', viewName, targetId);
+            return;
+        }
+
+        // 1. Hide all content views
         document.querySelectorAll('.content-view').forEach(view => {
             view.classList.remove('active');
+            view.classList.add('hidden');
+            view.style.display = 'none';
         });
 
+        // 2. Display target view
+        targetView.classList.remove('hidden');
+        targetView.classList.add('active');
+        targetView.style.display = 'block';
+
+        // 3. Update sidebar nav active states
         document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
             item.classList.remove('active');
-            if (item.getAttribute('data-view') === viewName) {
-                item.classList.add('active');
-            }
-            if ((viewName === 'project-detail' || viewName === 'projects-g2b') && item.getAttribute('data-view') === 'projects') {
-                item.classList.add('active');
-            }
-            if ((viewName === 'contracts' || viewName === 'salaries') && item.getAttribute('data-view') === 'resources') {
+            const navView = item.getAttribute('data-view');
+            if (navView === viewName) {
                 item.classList.add('active');
             }
         });
 
-        // Update submenu items active state
-        document.querySelectorAll('.submenu-item').forEach(subItem => {
-            subItem.classList.remove('active');
-        });
-
-        const biddingSubmenu = document.getElementById('bidding-sub-items');
-        const artifactsSubmenu = document.getElementById('artifacts-submenu');
-        const resourcesSubmenu = document.getElementById('resources-submenu');
-
-        if (viewName === 'projects') {
-            const currentSub = this.activeProjectStageFilter.toLowerCase();
-            const activeSubItem = document.querySelector(`.nav-submenu .submenu-item[data-subview="${currentSub}"]`);
-            if (activeSubItem) {
-                activeSubItem.classList.add('active');
-            }
-            if (biddingSubmenu) {
-                biddingSubmenu.style.display = (this.activeProjectStageFilter === 'Bidding') ? 'flex' : 'none';
-            }
-            if (artifactsSubmenu) {
-                artifactsSubmenu.style.display = 'none';
-            }
-            if (resourcesSubmenu) {
-                resourcesSubmenu.style.display = 'none';
-            }
-        } else if (viewName === 'projects-g2b') {
-            const activeSubItem = document.querySelector(`.nav-submenu .submenu-item[data-subview="g2b"]`);
-            if (activeSubItem) {
-                activeSubItem.classList.add('active');
-            }
-            if (biddingSubmenu) {
-                biddingSubmenu.style.display = 'none';
-            }
-            if (artifactsSubmenu) {
-                artifactsSubmenu.style.display = 'none';
-            }
-            if (resourcesSubmenu) {
-                resourcesSubmenu.style.display = 'none';
-            }
-        } else if (viewName === 'artifacts') {
-            const activeSubItem = document.querySelector(`.nav-submenu .submenu-item[data-subview="${this.activeGlobalTemplateStage}"]`);
-            if (activeSubItem) {
-                activeSubItem.classList.add('active');
-            }
-            if (biddingSubmenu) {
-                biddingSubmenu.style.display = 'none';
-            }
-            if (artifactsSubmenu) {
-                artifactsSubmenu.style.display = 'flex';
-            }
-            if (resourcesSubmenu) {
-                resourcesSubmenu.style.display = 'none';
-            }
-        } else if (viewName === 'resources' || viewName === 'contracts' || viewName === 'salaries') {
-            const currentSub = viewName;
-            const activeSubItem = document.querySelector(`.nav-submenu .submenu-item[data-subview="${currentSub}"]`);
-            if (activeSubItem) {
-                activeSubItem.classList.add('active');
-            }
-            if (biddingSubmenu) {
-                biddingSubmenu.style.display = 'none';
-            }
-            if (artifactsSubmenu) {
-                artifactsSubmenu.style.display = 'none';
-            }
-            if (resourcesSubmenu) {
-                resourcesSubmenu.style.display = 'flex';
-            }
-        } else {
-            if (biddingSubmenu) {
-                biddingSubmenu.style.display = 'none';
-            }
-            if (artifactsSubmenu) {
-                artifactsSubmenu.style.display = 'none';
-            }
-            if (resourcesSubmenu) {
-                resourcesSubmenu.style.display = 'none';
-            }
+        // 4. Update window location hash quietly
+        if (window.location.hash !== `#${viewName}`) {
+            history.pushState(null, '', `#${viewName}`);
         }
 
-        // Collapse/Expand wrappers based on active viewName routing
-        const wrapProj = document.getElementById('nav-wrapper-projects');
-        const wrapRes = document.getElementById('nav-wrapper-resources');
-        const wrapArt = document.getElementById('nav-wrapper-artifacts');
-
-        const isProjectRoute = (viewName === 'projects' || viewName === 'projects-g2b' || viewName === 'project-detail');
-        const isResourceRoute = (viewName === 'resources' || viewName === 'contracts' || viewName === 'salaries');
-        const isArtifactRoute = (viewName === 'artifacts');
-
-        if (isProjectRoute) {
-            if (wrapProj && this._lastActiveRouteGroup !== 'projects') {
-                wrapProj.classList.remove('collapsed');
-            }
-            if (wrapRes) wrapRes.classList.add('collapsed');
-            if (wrapArt) wrapArt.classList.add('collapsed');
-            this._lastActiveRouteGroup = 'projects';
-        } else if (isResourceRoute) {
-            if (wrapRes && this._lastActiveRouteGroup !== 'resources') {
-                wrapRes.classList.remove('collapsed');
-            }
-            if (wrapProj) wrapProj.classList.add('collapsed');
-            if (wrapArt) wrapArt.classList.add('collapsed');
-            this._lastActiveRouteGroup = 'resources';
-        } else if (isArtifactRoute) {
-            if (wrapArt && this._lastActiveRouteGroup !== 'artifacts') {
-                wrapArt.classList.remove('collapsed');
-            }
-            if (wrapProj) wrapProj.classList.add('collapsed');
-            if (wrapRes) wrapRes.classList.add('collapsed');
-            this._lastActiveRouteGroup = 'artifacts';
-        } else {
-            if (wrapProj) wrapProj.classList.add('collapsed');
-            if (wrapRes) wrapRes.classList.add('collapsed');
-            if (wrapArt) wrapArt.classList.add('collapsed');
-            this._lastActiveRouteGroup = 'other';
-        }
-
-        const targetView = document.getElementById(`view-${viewName}`);
-        if (targetView) {
-            targetView.classList.add('active');
-        }
-
-        // View controllers
+        // 5. Invoke view renderers
         if (viewName === 'dashboard') {
             this.renderDashboard();
             this.renderPersonalizedDashboard();
-        } else if (viewName === 'projects') {
-            if (this.useSupabase) {
-                await this.loadStateFromSupabase();
-            }
-            console.log('[Active Stage Debug]', {
-                currentProjectId: this.currentProjectId,
-                selectedProject: this.state?.projects?.find(
-                    p => p.id === this.currentProjectId
-                )
-            });
-            this.renderProjects();
-        } else if (viewName === 'projects-g2b') {
-            this.initG2BSearchView();
-        } else if (viewName === 'project-detail' && params) {
-            this.renderProjectDetail(params);
-        } else if (viewName === 'tailoring') {
-            this.renderTailoringView();
-        } else if (viewName === 'artifacts') {
-            this.renderArtifacts();
-        } else if (viewName === 'issues') {
-            this.renderIssues();
-        } else if (viewName === 'action-items') {
-            this.renderActionItems();
-        } else if (viewName === 'official-docs') {
-            this.renderOfficialDocs();
-        } else if (viewName === 'meeting-minutes') {
-            this.renderMeetingMinutes();
-        } else if (viewName === 'resources') {
-            this.renderResourcesView();
-        } else if (viewName === 'contracts') {
-            this.renderContractsView();
-        } else if (viewName === 'salaries') {
-            this.renderResourcesView();
         } else if (viewName === 'resources') {
             this.renderResourcesView();
         } else if (viewName === 'salaries') {
             this.switchSalarySubTab('target');
+        } else if (viewName === 'projects') {
+            this.renderProjects();
+        } else if (viewName === 'artifacts') {
+            this.renderArtifacts();
         } else if (viewName === 'backup') {
             this.renderUserManagementTable();
         } else if (viewName === 'my-account') {
             this.renderMyAccountCenter();
-        } else if (viewName === 'board') {
-            this.renderBoardView();
         }
 
         this.updateNotifications();

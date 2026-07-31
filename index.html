@@ -149,13 +149,13 @@
 
                 <!-- 인력 및 월급여 관리 그룹 -->
                 <div class="nav-item-wrapper" id="nav-wrapper-hr">
-                    <a href="#resources" class="nav-item" data-view="resources" data-tooltip="참여인력 관리">
+                    <a href="#resources" class="nav-item" data-view="resources" data-tooltip="참여인력 관리" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('resources');">
                         <i data-lucide="users"></i>
                         <span>참여인력 관리</span>
                     </a>
                 </div>
                 <div class="nav-item-wrapper" id="nav-wrapper-salaries">
-                    <a href="#salaries" class="nav-item" data-view="salaries" data-tooltip="월급여 관리">
+                    <a href="#salaries" class="nav-item" data-view="salaries" data-tooltip="월급여 관리" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('salaries');">
                         <i data-lucide="banknote"></i>
                         <span>월급여 관리</span>
                     </a>
@@ -5126,7 +5126,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=9cf4059_v10_app_fix"></script>
+    <script src="app.js?v=9cf4059_v11_routing_fix"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
