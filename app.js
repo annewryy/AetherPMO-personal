@@ -12171,6 +12171,127 @@ class AetherPMO {
         if (window.lucide) lucide.createIcons();
     }
 
+    
+    selectNirsCategoryFilter(cat) {
+        this.activeNirsCategory = cat;
+        this.activeNirsStage = 'all';
+        const catSelect = document.getElementById('filter-nirs-category');
+        const stageSelect = document.getElementById('filter-nirs-stage');
+        if (catSelect) catSelect.value = cat;
+        if (stageSelect) stageSelect.value = 'all';
+        this.renderArtifacts();
+    }
+
+    handleNirsSearchInput(val) {
+        this.nirsSearchQuery = val ? val.trim() : '';
+        this.renderArtifacts();
+    }
+
+    handleNirsFilterChange() {
+        const catSelect = document.getElementById('filter-nirs-category');
+        const stageSelect = document.getElementById('filter-nirs-stage');
+        const fileStatusSelect = document.getElementById('filter-nirs-file-status');
+        const offSelect = document.getElementById('filter-nirs-official');
+        const appSelect = document.getElementById('filter-nirs-approval');
+        const sealSelect = document.getElementById('filter-nirs-seal');
+
+        if (catSelect) this.activeNirsCategory = catSelect.value;
+        if (stageSelect) this.activeNirsStage = stageSelect.value;
+        if (fileStatusSelect) this.activeNirsFileStatus = fileStatusSelect.value;
+        if (offSelect) this.activeNirsOfficial = offSelect.value;
+        if (appSelect) this.activeNirsApproval = appSelect.value;
+        if (sealSelect) this.activeNirsSeal = sealSelect.value;
+
+        this.renderArtifacts();
+    }
+
+    toggleAllNirsTemplates(checked) {
+        if (!this.selectedNirsTemplateIds) this.selectedNirsTemplateIds = new Set();
+        const currentList = this.currentFilteredNirsList || [];
+        if (checked) {
+            currentList.forEach(item => this.selectedNirsTemplateIds.add(item.id));
+        } else {
+            this.selectedNirsTemplateIds.clear();
+        }
+        this.updateNirsBulkDownloadBtnState();
+        document.querySelectorAll('.chk-nirs-item').forEach(chk => chk.checked = checked);
+    }
+
+    toggleNirsTemplateSelect(id, checked) {
+        if (!this.selectedNirsTemplateIds) this.selectedNirsTemplateIds = new Set();
+        if (checked) {
+            this.selectedNirsTemplateIds.add(id);
+        } else {
+            this.selectedNirsTemplateIds.delete(id);
+        }
+        this.updateNirsBulkDownloadBtnState();
+    }
+
+    updateNirsBulkDownloadBtnState() {
+        const btn = document.getElementById('btn-bulk-download-templates');
+        const countSpan = document.getElementById('selected-templates-count');
+        const selectedCount = this.selectedNirsTemplateIds ? this.selectedNirsTemplateIds.size : 0;
+
+        if (countSpan) {
+            countSpan.textContent = selectedCount > 0 ? `(${selectedCount})` : '';
+        }
+
+        if (!btn) return;
+        if (selectedCount === 0) {
+            btn.disabled = true;
+            btn.title = '선택된 산출물이 없습니다.';
+        } else {
+            btn.disabled = false;
+            btn.title = selectedCount === 1 ? '선택한 1개 파일 다운로드' : `선택한 ${selectedCount}개 파일 묶음 다운로드`;
+        }
+    }
+
+    async downloadSelectedNirsTemplates() {
+        const selectedIds = Array.from(this.selectedNirsTemplateIds || []);
+        if (selectedIds.length === 0) {
+            this.showToast('선택된 산출물이 없습니다.', 'warning');
+            return;
+        }
+
+        if (selectedIds.length === 1) {
+            await this.downloadNirsTemplateFile(selectedIds[0]);
+            return;
+        }
+
+        this.showToast(`[일괄 다운로드] 선택한 ${selectedIds.length}개 파일 다운로드를 시작합니다.`, 'info');
+        let successCnt = 0;
+        for (const id of selectedIds) {
+            const files = this.state.nirsTemplateFiles || [];
+            const fileRec = files.find(f => f.templateId === id);
+            if (fileRec) {
+                await this.downloadNirsTemplateFile(id);
+                successCnt++;
+            }
+        }
+        if (successCnt === 0) {
+            this.showToast('선택한 항목 중 다운로드 가능한 파일이 없습니다.', 'warning');
+        }
+    }
+
+    openUploadNirsModal() {
+        const role = this.currentUser?.role;
+        if (role !== 'SYS_ADMIN' && role !== 'EXEC_ADMIN') {
+            this.showToast('권한이 없습니다. 시스템 관리자만 표준 양식을 등록할 수 있습니다.', 'error');
+            return;
+        }
+        // Trigger generic file upload modal or prompt
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.hwp,.hwpx,.docx,.xlsx,.pdf,.zip';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                this.showToast(`[표준 양식 등록] ${file.name} 등록을 완료하려면 산출물 목록에서 해당 항목의 업로드(Upload) 버튼을 눌러주세요.`, 'info');
+            }
+        };
+        input.click();
+    }
+
     renderArtifacts() {
         const type  = this.activeGlobalTemplateType  || 'operation';
         const stage = this.activeGlobalTemplateStage || 'initiation';

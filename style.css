@@ -7510,3 +7510,49 @@ body.dark-theme .portal-copilot-task-item {
 }
 
 
+
+/* NIRS IA Overhaul Custom Styles */
+.nirs-summary-card {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-card);
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.nirs-summary-card:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+}
+.nirs-summary-card.active {
+    border-color: var(--primary-color);
+    background: rgba(139, 92, 246, 0.08);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+}
+.flag-check {
+    color: #10b981;
+    font-weight: 700;
+}
+.flag-dash {
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+.tree-cat-header {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 13px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.tree-cat-header:hover {
+    background: var(--bg-hover);
+}
+.tree-cat-header.active {
+    color: var(--primary-color);
+    background: rgba(139, 92, 246, 0.1);
+}
