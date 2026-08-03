@@ -6577,6 +6577,15 @@ class AetherPMO {
     }
 
     renderProjects() {
+        if (Array.isArray(this.state?.projects)) {
+            const uniqueMap = new Map();
+            this.state.projects.forEach(p => {
+                if (p && p.id) {
+                    uniqueMap.set(p.id, p);
+                }
+            });
+            this.state.projects = Array.from(uniqueMap.values());
+        }
         console.log('[renderProjects:start]', {
             activeProjectStageFilter: this.activeProjectStageFilter,
             totalProjects: this.state?.projects?.length
@@ -17275,6 +17284,12 @@ class AetherPMO {
     }
 
     async saveProjectForm() {
+        if (this.isSavingProject) {
+            console.warn('[saveProjectForm] Save operation already in progress. Ignoring duplicate click/submit.');
+            return;
+        }
+        this.isSavingProject = true;
+        try {
         // Ensure all key state arrays are fully initialized to prevent 'Cannot read properties of undefined' errors
         this.state = this.state || {};
         this.state.projects = this.state.projects || [];
@@ -17758,10 +17773,25 @@ class AetherPMO {
             // Show Success Notification
             this.showToast(id ? '사업 정보가 성공적으로 수정되었습니다.' : '신규 사업이 성공적으로 등록되었습니다.', 'success');
 
+        } // Ensure state.projects has no duplicate IDs
+            if (Array.isArray(this.state.projects)) {
+                const uniqueMap = new Map();
+                this.state.projects.forEach(p => {
+                    if (p && p.id) {
+                        uniqueMap.set(p.id, p);
+                    }
+                });
+                this.state.projects = Array.from(uniqueMap.values());
+            }
+
+            this.showToast(id ? '사업 정보가 성공적으로 수정되었습니다.' : '신규 사업이 성공적으로 등록되었습니다.', 'success');
         } catch (dbError) {
             console.error('[Project Save Failed]', dbError);
             const errMsg = dbError?.message || dbError?.details || '데이터베이스 저장 중 오류가 발생했습니다.';
-            alert(`프로젝트 저장 실패: ${errMsg}\n(입력 데이터를 확인하시고 다시 시도해주세요.)`);
+            alert(`프로젝트 저장 실패: ${errMsg}`);
+        } finally {
+            this.isSavingProject = false;
+        }\n(입력 데이터를 확인하시고 다시 시도해주세요.)`);
             return;
         }
     }
