@@ -4460,6 +4460,14 @@ class AetherPMO {
             this.renderUserManagementTable();
         } else if (viewName === 'my-account') {
             this.renderMyAccountCenter();
+        } else if (viewName === 'project-detail') {
+            const projId = params || this.activeProjectId || (window.location.hash.includes('/') ? window.location.hash.split('/')[1] : null);
+            if (projId) {
+                this.renderProjectDetail(projId);
+            } else {
+                console.error('[switchView] No projectId provided for project-detail');
+                this.showToast?.('프로젝트 ID 정보를 찾을 수 없습니다.', 'error');
+            }
         }
 
         this.updateNotifications();
@@ -4485,6 +4493,8 @@ class AetherPMO {
         const display = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const dateSpan = document.getElementById('current-date-display');
         if (dateSpan) dateSpan.textContent = display;
+        const detailDateSpan = document.getElementById('detail-current-date-txt');
+        if (detailDateSpan) detailDateSpan.textContent = display;
     }
 
     getFormattedDateTime() {
