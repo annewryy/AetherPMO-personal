@@ -28664,7 +28664,7 @@ class AetherPMO {
                 `<span class="badge badge-primary" style="background:#6366F1; color:#fff; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">★ 기본양식</span>` :
                 `<span style="color:var(--text-muted); font-size:12px;">일반</span>`;
 
-            # Render buttons with ONLY data-action attributes and NO inline onclick to avoid double execution
+            // Render buttons with ONLY data-action attributes and NO inline onclick to avoid double execution
             html += `
                 <tr style="border-bottom: 1px solid var(--border-color); font-size: 13.5px;">
                     <td class="text-center" style="padding: 12px 14px; font-weight: 700; border-right: 1px solid var(--border-color);">${index + 1}</td>
