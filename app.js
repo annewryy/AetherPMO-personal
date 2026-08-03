@@ -28105,6 +28105,369 @@ class AetherPMO {
         this.exportSalaryHistoryToExcel();
     }
 
+
+
+
+    // ── SALARY TEMPLATE MANAGEMENT METHODS ──────────────────────────────────────
+    renderSalaryTemplatesTable() {
+        const tbody = document.getElementById('salary-templates-tbody');
+        if (!tbody) return;
+
+        // Ensure state array initialized with default templates if empty
+        if (!Array.isArray(this.state.salaryTemplates) || this.state.salaryTemplates.length === 0) {
+            this.state.salaryTemplates = [
+                {
+                    id: 'TMPL-001',
+                    name: '월급여 지급 품의서 (자사화/계약직 표준형)',
+                    title: '[지급품의] {YYYY}년 {MM}월 참여인력 급여 지급의 건',
+                    content: '<p>1. 귀사의 일일 일신을 기원합니다.</p><p>2. {YYYY}년 {MM}월 참여인력 급여를 다음과 같이 지급하고자 품의합니다.</p>',
+                    targetType: '자사화 및 계약직',
+                    isActive: true,
+                    isDefault: true,
+                    memo: '기본 월급여 지급 품의 양식',
+                    updatedAt: '2026-08-01'
+                },
+                {
+                    id: 'TMPL-002',
+                    name: '프로젝트 특별 일할조정 급여 품의서',
+                    title: '[특별품의] {YYYY}년 {MM}월 프로젝트 계약직 일할조정 지급의 건',
+                    content: '<p>1. 프로젝트 계약직 인력의 중도 입퇴사 일할조정 내역을 다음과 같이 품의합니다.</p>',
+                    targetType: '프로젝트 계약직',
+                    isActive: true,
+                    isDefault: false,
+                    memo: '중도 입/퇴사자 일할조정용',
+                    updatedAt: '2026-08-02'
+                }
+            ];
+        }
+
+        const templates = this.state.salaryTemplates;
+        if (templates.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding:40px; color:var(--text-muted);">등록된 품의서 양식이 없습니다. [신규 양식 등록] 버튼을 눌러 양식을 추가하세요.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        templates.forEach((t, index) => {
+            const activeBadge = t.isActive !== false ?
+                `<span class="badge badge-success" style="background:#10B981; color:#fff; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">사용중</span>` :
+                `<span class="badge badge-secondary" style="background:#6B7280; color:#fff; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">중지</span>`;
+
+            const defaultBadge = t.isDefault ?
+                `<span class="badge badge-primary" style="background:#6366F1; color:#fff; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">★ 기본양식</span>` :
+                `<span style="color:var(--text-muted); font-size:12px;">일반</span>`;
+
+            html += `
+                <tr style="border-bottom: 1px solid var(--border-color); font-size: 13.5px;">
+                    <td class="text-center" style="padding: 12px 14px; font-weight: 700; border-right: 1px solid var(--border-color);">${index + 1}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--border-color);">
+                        <div style="font-weight: 700; color: var(--text-primary);">${this.escapeHtml(t.name || '')}</div>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">${this.escapeHtml(t.title || '')}</div>
+                    </td>
+                    <td class="text-center" style="padding: 12px 14px; border-right: 1px solid var(--border-color); color: var(--text-muted);">${this.escapeHtml(t.targetType || '전체 인력')}</td>
+                    <td class="text-center" style="padding: 12px 14px; border-right: 1px solid var(--border-color);">${defaultBadge}</td>
+                    <td class="text-center" style="padding: 12px 14px; border-right: 1px solid var(--border-color); font-size: 12px; color: var(--text-muted);">${t.updatedAt || '2026-08-03'}</td>
+                    <td class="text-center" style="padding: 12px 14px;">
+                        <div style="display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-sm btn-outline" data-action="edit-template" data-template-id="${t.id}" onclick="app.openSalaryTemplateModal('${t.id}')" title="양식 수정" style="padding:3px 8px; font-size:12px;">수정</button>
+                            <button type="button" class="btn btn-sm btn-outline" data-action="preview-template" data-template-id="${t.id}" onclick="app.previewSalaryTemplate('${t.id}')" title="미리보기" style="padding:3px 8px; font-size:12px;">미리보기</button>
+                            <button type="button" class="btn btn-sm btn-outline" data-action="clone-template" data-template-id="${t.id}" onclick="app.cloneSalaryTemplate('${t.id}')" title="양식 복제" style="padding:3px 8px; font-size:12px;">복제</button>
+                            ${!t.isDefault ? `<button type="button" class="btn btn-sm btn-outline" data-action="default-template" data-template-id="${t.id}" onclick="app.setDefaultSalaryTemplate('${t.id}')" title="기본 양식으로 지정" style="padding:3px 8px; font-size:12px;">기본지정</button>` : ''}
+                            <button type="button" class="btn btn-sm btn-outline" data-action="delete-template" data-template-id="${t.id}" onclick="app.deleteSalaryTemplate('${t.id}')" title="양식 삭제" style="padding:3px 8px; font-size:12px; color:#ef4444; border-color:#fca5a5;">삭제</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        this.bindSalaryTemplateEvents();
+    }
+
+    bindSalaryTemplateEvents() {
+        const tbody = document.getElementById('salary-templates-tbody');
+        if (!tbody || tbody.dataset.eventsBound === 'true') return;
+
+        tbody.dataset.eventsBound = 'true';
+        tbody.addEventListener('click', (event) => {
+            const editBtn = event.target.closest('[data-action="edit-template"]');
+            if (editBtn && editBtn.dataset.templateId) {
+                this.openSalaryTemplateModal(editBtn.dataset.templateId);
+                return;
+            }
+
+            const cloneBtn = event.target.closest('[data-action="clone-template"]');
+            if (cloneBtn && cloneBtn.dataset.templateId) {
+                this.cloneSalaryTemplate(cloneBtn.dataset.templateId);
+                return;
+            }
+
+            const prevBtn = event.target.closest('[data-action="preview-template"]');
+            if (prevBtn && prevBtn.dataset.templateId) {
+                this.previewSalaryTemplate(prevBtn.dataset.templateId);
+                return;
+            }
+
+            const defBtn = event.target.closest('[data-action="default-template"]');
+            if (defBtn && defBtn.dataset.templateId) {
+                this.setDefaultSalaryTemplate(defBtn.dataset.templateId);
+                return;
+            }
+
+            const delBtn = event.target.closest('[data-action="delete-template"]');
+            if (delBtn && delBtn.dataset.templateId) {
+                this.deleteSalaryTemplate(delBtn.dataset.templateId);
+                return;
+            }
+        });
+    }
+
+    openSalaryTemplateModal(templateId = null) {
+        console.log('[openSalaryTemplateModal]', templateId);
+        const modal = document.getElementById('modal-salary-template');
+        if (!modal) {
+            this.showToast('품의서 양식 모달을 찾을 수 없습니다.', 'error');
+            return;
+        }
+
+        const label = document.getElementById('salary-template-title-label');
+        const idInput = document.getElementById('salary-template-id');
+        const nameInput = document.getElementById('salary-template-name');
+        const titleInput = document.getElementById('salary-template-title');
+        const contentInput = document.getElementById('salary-template-content');
+        const activeSelect = document.getElementById('salary-template-active');
+        const defaultSelect = document.getElementById('salary-template-default');
+        const memoInput = document.getElementById('salary-template-memo');
+
+        if (templateId) {
+            const templates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+            const target = templates.find(t => t.id === templateId);
+
+            if (!target) {
+                this.showToast('수정할 품의서 양식을 찾을 수 없습니다.', 'warning');
+                return;
+            }
+
+            this.salaryTemplateModalMode = 'edit';
+            this.editingSalaryTemplateId = templateId;
+
+            if (label) label.textContent = '품의서 양식 수정';
+            if (idInput) idInput.value = target.id;
+            if (nameInput) nameInput.value = target.name || '';
+            if (titleInput) titleInput.value = target.title || '';
+            if (contentInput) contentInput.value = target.content || '';
+            if (activeSelect) activeSelect.value = target.isActive !== false ? 'true' : 'false';
+            if (defaultSelect) defaultSelect.value = target.isDefault ? 'true' : 'false';
+            if (memoInput) memoInput.value = target.memo || '';
+        } else {
+            this.salaryTemplateModalMode = 'create';
+            this.editingSalaryTemplateId = null;
+
+            if (label) label.textContent = '신규 품의서 양식 등록';
+            if (idInput) idInput.value = '';
+            if (nameInput) nameInput.value = '';
+            if (titleInput) titleInput.value = '[품의] {YYYY}년 {MM}월 참여인력 급여 지급의 건';
+            if (contentInput) contentInput.value = '<p>1. 귀사의 일일 일신을 기원합니다.</p><p>2. {YYYY}년 {MM}월 참여인력 급여를 다음과 같이 지급하고자 품의합니다.</p>';
+            if (activeSelect) activeSelect.value = 'true';
+            if (defaultSelect) defaultSelect.value = 'false';
+            if (memoInput) memoInput.value = '';
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    openSalaryTemplateEditModal(templateId = null) {
+        this.openSalaryTemplateModal(templateId);
+    }
+
+    closeSalaryTemplateModal() {
+        const modal = document.getElementById('modal-salary-template');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async saveSalaryTemplate() {
+        const idInput = document.getElementById('salary-template-id');
+        const nameInput = document.getElementById('salary-template-name');
+        const titleInput = document.getElementById('salary-template-title');
+        const contentInput = document.getElementById('salary-template-content');
+        const activeSelect = document.getElementById('salary-template-active');
+        const defaultSelect = document.getElementById('salary-template-default');
+        const memoInput = document.getElementById('salary-template-memo');
+
+        const nameVal = nameInput ? nameInput.value.trim() : '';
+        const titleVal = titleInput ? titleInput.value.trim() : '';
+        const contentVal = contentInput ? contentInput.value : '';
+        const isActiveVal = activeSelect ? activeSelect.value === 'true' : true;
+        const isDefaultVal = defaultSelect ? defaultSelect.value === 'true' : false;
+        const memoVal = memoInput ? memoInput.value.trim() : '';
+
+        if (!nameVal || !titleVal) {
+            this.showToast('양식명과 품의 제목을 입력해 주세요.', 'warning');
+            return;
+        }
+
+        // Rule 8: Inactive template cannot be set as default
+        if (!isActiveVal && isDefaultVal) {
+            this.showToast('사용 중지된 양식은 기본 양식으로 설정할 수 없습니다.', 'warning');
+            return;
+        }
+
+        this.state.salaryTemplates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+
+        // Rule 8: If setting as default, clear default flag on all other templates
+        if (isDefaultVal) {
+            this.state.salaryTemplates.forEach(t => t.isDefault = false);
+        }
+
+        const isEdit = this.salaryTemplateModalMode === 'edit' && idInput && idInput.value;
+        const templateId = isEdit ? idInput.value : ('TMPL-' + Date.now());
+
+        const record = {
+            id: templateId,
+            name: nameVal,
+            title: titleVal,
+            content: contentVal,
+            targetType: '자사화 및 계약직',
+            isActive: isActiveVal,
+            isDefault: isDefaultVal,
+            memo: memoVal,
+            updatedAt: new Date().toISOString().slice(0, 10)
+        };
+
+        if (isEdit) {
+            const idx = this.state.salaryTemplates.findIndex(t => t.id === templateId);
+            if (idx !== -1) {
+                this.state.salaryTemplates[idx] = record;
+            } else {
+                this.state.salaryTemplates.push(record);
+            }
+        } else {
+            this.state.salaryTemplates.push(record);
+        }
+
+        // Persist to Supabase DB & LocalStorage across page reloads (F5)
+        await this.saveState('salary_templates_upsert', record);
+
+        this.closeSalaryTemplateModal();
+        this.renderSalaryTemplatesTable();
+        this.showToast(`품의서 양식('${nameVal}')이 성공적으로 저장되었습니다.`, 'success');
+    }
+
+    async deleteSalaryTemplate(templateId) {
+        if (!templateId) return;
+
+        this.state.salaryTemplates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+        const idx = this.state.salaryTemplates.findIndex(t => t.id === templateId);
+
+        if (idx === -1) {
+            this.showToast('삭제할 품의서 양식을 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        const target = this.state.salaryTemplates[idx];
+        if (target.isDefault) {
+            this.showToast('기본 양식은 삭제할 수 없습니다. 다른 양식을 기본 양식으로 지정 후 삭제해 주세요.', 'warning');
+            return;
+        }
+
+        const name = target.name;
+        this.state.salaryTemplates.splice(idx, 1);
+        await this.saveState('salary_template_delete', { id: templateId });
+
+        this.renderSalaryTemplatesTable();
+        this.showToast(`품의서 양식('${name}')이 삭제되었습니다.`, 'info');
+    }
+
+    async cloneSalaryTemplate(templateId) {
+        if (!templateId) return;
+
+        this.state.salaryTemplates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+        const target = this.state.salaryTemplates.find(t => t.id === templateId);
+
+        if (!target) {
+            this.showToast('복제할 품의서 양식을 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        const clonedRecord = {
+            ...target,
+            id: 'TMPL-COPY-' + Date.now(),
+            name: target.name + ' (복사본)',
+            isDefault: false,
+            updatedAt: new Date().toISOString().slice(0, 10)
+        };
+
+        this.state.salaryTemplates.push(clonedRecord);
+        await this.saveState('salary_templates_upsert', clonedRecord);
+
+        this.renderSalaryTemplatesTable();
+        this.showToast(`품의서 양식('${target.name}')이 복제되었습니다.`, 'success');
+    }
+
+    previewSalaryTemplate(templateId) {
+        if (!templateId) return;
+
+        this.state.salaryTemplates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+        const target = this.state.salaryTemplates.find(t => t.id === templateId);
+
+        if (!target) {
+            this.showToast('미리볼 품의서 양식을 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        const modal = document.getElementById('modal-salary-template-preview');
+        const nameEl = document.getElementById('prev-template-name');
+        const titleEl = document.getElementById('prev-template-title');
+        const contentEl = document.getElementById('prev-template-content');
+
+        if (nameEl) nameEl.textContent = `[미리보기] ${target.name}`;
+        if (titleEl) titleEl.textContent = target.title || '';
+        if (contentEl) contentEl.innerHTML = target.content || '<p class="text-muted">본문 내용이 없습니다.</p>';
+
+        if (modal) modal.style.display = 'flex';
+    }
+
+    async setDefaultSalaryTemplate(templateId) {
+        if (!templateId) return;
+
+        this.state.salaryTemplates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+        const target = this.state.salaryTemplates.find(t => t.id === templateId);
+
+        if (!target) {
+            this.showToast('기본 지정할 품의서 양식을 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        if (target.isActive === false) {
+            this.showToast('사용 중지된 양식은 기본 양식으로 설정할 수 없습니다.', 'warning');
+            return;
+        }
+
+        this.state.salaryTemplates.forEach(t => t.isDefault = (t.id === templateId));
+        await this.saveState('salary_template_set_default', { id: templateId });
+
+        this.renderSalaryTemplatesTable();
+        this.showToast(`'${target.name}' 양식이 기본 품의서 양식으로 지정되었습니다.`, 'success');
+    }
+
+    async toggleSalaryTemplateActive(templateId) {
+        if (!templateId) return;
+
+        this.state.salaryTemplates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+        const target = this.state.salaryTemplates.find(t => t.id === templateId);
+
+        if (!target) return;
+
+        target.isActive = !target.isActive;
+        if (!target.isActive && target.isDefault) {
+            target.isDefault = false;
+        }
+
+        await this.saveState('salary_templates_upsert', target);
+        this.renderSalaryTemplatesTable();
+        this.showToast(`'${target.name}' 양식의 사용 여부가 변경되었습니다.`, 'info');
+    }
+
 }
 
 
@@ -28173,4 +28536,17 @@ if (typeof window !== 'undefined') {
             });
         }
     });
+}
+
+
+if (typeof window !== 'undefined' && window.app) {
+    window.app.openSalaryTemplateModal = window.app.openSalaryTemplateModal.bind(window.app);
+    window.app.openSalaryTemplateEditModal = window.app.openSalaryTemplateEditModal.bind(window.app);
+    window.app.closeSalaryTemplateModal = window.app.closeSalaryTemplateModal.bind(window.app);
+    window.app.saveSalaryTemplate = window.app.saveSalaryTemplate.bind(window.app);
+    window.app.deleteSalaryTemplate = window.app.deleteSalaryTemplate.bind(window.app);
+    window.app.cloneSalaryTemplate = window.app.cloneSalaryTemplate.bind(window.app);
+    window.app.previewSalaryTemplate = window.app.previewSalaryTemplate.bind(window.app);
+    window.app.setDefaultSalaryTemplate = window.app.setDefaultSalaryTemplate.bind(window.app);
+    window.app.toggleSalaryTemplateActive = window.app.toggleSalaryTemplateActive.bind(window.app);
 }
