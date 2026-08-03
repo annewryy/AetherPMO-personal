@@ -5377,7 +5377,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v22_save_project_syntax_fixed"></script>
+    <script src="app.js?v=v23_single_instance_request_key_delete_system"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
@@ -5766,6 +5766,41 @@
             </div>
             <div class="modal-footer" style="padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
                 <button type="button" class="btn btn-outline" onclick="document.getElementById('modal-salary-template-preview').style.display='none'">닫기</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- PROJECT DELETE CONFIRMATION MODAL -->
+    <div class="modal-overlay" id="modal-project-delete" data-app-modal data-modal-size="md" style="display: none;">
+        <div class="modal-dialog">
+            <div class="modal-header" style="background: var(--danger-glow, rgba(239,68,68,0.1)); border-bottom: 1px solid var(--danger, #ef4444);">
+                <h3 style="color: var(--danger, #ef4444); display: flex; align-items: center; gap: 8px; margin: 0;">
+                    <i data-lucide="alert-triangle" style="width: 20px; height: 20px;"></i>
+                    프로젝트 삭제 확인
+                </h3>
+                <button type="button" class="close-btn" onclick="app.closeModal('modal-project-delete')">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <p style="font-size: 14px; font-weight: 600; color: var(--text-primary);">
+                    다음 프로젝트를 삭제하시겠습니까?
+                </p>
+                <div style="background: var(--bg-hover-item, #f8fafc); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; padding: 12px; margin: 12px 0;">
+                    <div style="font-weight: 700; font-size: 15px;" id="delete-target-project-name">-</div>
+                    <div style="font-size: 13px; color: var(--text-muted);" id="delete-target-project-code">-</div>
+                </div>
+                <div style="background: rgba(239,68,68,0.08); border-left: 4px solid var(--danger, #ef4444); padding: 10px 14px; border-radius: 4px; font-size: 12px; color: var(--danger, #ef4444); margin-bottom: 16px;">
+                    ⚠️ 연결된 산출물, 참여인력, 회의록, Action Item, 이슈·리스크 등 하위 데이터 조회가 보관 처리되며 목록에서 제외됩니다.
+                </div>
+                <label for="delete-project-code-input" style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">
+                    오삭제 방지를 위해 프로젝트 코드를 똑같이 입력하세요:
+                </label>
+                <input type="text" id="delete-project-code-input" placeholder="프로젝트 코드 입력" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);" oninput="app.validateDeleteProjectCodeInput(this.value)">
+                <input type="hidden" id="delete-target-project-id">
+            </div>
+            <div class="modal-footer" style="padding: 12px 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-color);">
+                <button type="button" class="btn btn-outline" onclick="app.closeModal('modal-project-delete')">취소</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-delete-project" disabled onclick="app.confirmDeleteProject()">최종 삭제</button>
             </div>
         </div>
     </div>

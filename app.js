@@ -45,6 +45,11 @@ const OPMS_STATUS_PROGRESS = {
 };
 
 class AetherPMO {
+    constructor() {
+        console.count('[AetherPMO constructor]');
+        this.instanceId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'inst-' + Date.now();
+        console.log('[AetherPMO constructor] Instance created:', this.instanceId);
+    }
     isAdminRole(role) {
         return role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
     }
@@ -4156,12 +4161,14 @@ class AetherPMO {
         if (aStat) aStat.addEventListener('change', () => this.renderArtifacts());
         if (aSearch) aSearch.addEventListener('input', () => this.renderArtifacts());
 
-        // Forms Submissions
+        // Forms Submissions (Single Event Binding)
         const projectForm = document.getElementById('project-form');
-        if (projectForm) {
-            projectForm.addEventListener('submit', (e) => {
+        if (projectForm && !projectForm.dataset.submitBound) {
+            projectForm.dataset.submitBound = 'true';
+            projectForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                this.saveProjectForm();
+                e.stopPropagation();
+                await this.saveProjectForm(e);
             });
         }
 
@@ -6554,6 +6561,9 @@ class AetherPMO {
                     <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.openEditProjectModal('${p.id}')">
                         <i data-lucide="edit-3" style="width:12px; height:12px;"></i> 수정
                     </button>
+                    <button class="btn btn-xs btn-outline-danger" onclick="event.stopPropagation(); app.openDeleteProjectModal('${p.id}')" style="padding: 2px 6px; font-size: 11px; margin-left: 4px; border-color: var(--danger, #ef4444); color: var(--danger, #ef4444);">
+                        <i data-lucide="trash-2" style="width:12px; height:12px;"></i> 삭제
+                    </button>
                 </div>
             `;
         }
@@ -6912,6 +6922,8 @@ class AetherPMO {
 
                 // Map database columns back to camelCase properties for state.projects
                 const newProject = {
+                    request_key: this.currentProjectRequestKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'req-' + Date.now()),
+                    requestKey: this.currentProjectRequestKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'req-' + Date.now()),
                     id: insertedProj.id,
                     name: insertedProj.project_name,
                     desc: insertedProj.desc,
@@ -17013,6 +17025,8 @@ class AetherPMO {
        CRUD OPERATIONS: PROJECTS
        ========================================================================== */
     openNewProjectModal() {
+        this.currentProjectRequestKey = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'req-' + Date.now();
+        console.log('[openNewProjectModal] Generated fresh requestKey:', this.currentProjectRequestKey);
         document.getElementById('project-modal-title').textContent = '신규 사업 등록';
         document.getElementById('project-form').reset();
         document.getElementById('project-id-field').value = '';
@@ -17275,6 +17289,14 @@ class AetherPMO {
     }
 
     async saveProjectForm() {
+        console.trace('[PROJECT_SAVE_CALL]', {
+            instanceId: this.instanceId,
+            formId: document.getElementById('project-form')?.id,
+            editingProjectId: document.getElementById('project-id-field')?.value || '',
+            isSavingProject: this.isSavingProject,
+            requestKey: this.currentProjectRequestKey,
+            timestamp: Date.now()
+        });
         if (this.isSavingProject) {
             console.warn('[saveProjectForm] 저장 작업이 진행 중입니다. 중복 요청을 무시합니다.');
             return;
@@ -17618,6 +17640,12 @@ class AetherPMO {
                 // Sync to Supabase
                 if (this.useSupabase) {
                     // 1. Insert Project
+                    console.trace('[PROJECT_DB_INSERT]', {
+                        projectId: newProject.id,
+                        projectCode: newProject.projectCode,
+                        requestKey: newProject.request_key,
+                        instanceId: this.instanceId
+                    });
                     await this.syncDb('project_upsert', newProject);
 
                     // 2. Insert PM Member
@@ -29118,6 +29146,155 @@ class AetherPMO {
         return true;
     }
 
+
+
+
+    // ── PROJECT SOFT DELETE & DUPLICATE AUDIT SYSTEM ─────────────────────────
+    openDeleteProjectModal(projectId) {
+        console.log('[openDeleteProjectModal]', projectId);
+        if (!projectId) return;
+
+        const role = this.currentUser ? (this.currentUser.role || 'WORKER') : 'WORKER';
+        const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN' || this.isAdminRole(role);
+        if (!isAdmin) {
+            this.showToast('프로젝트 삭제 권한이 없습니다. (관리자 전용)', 'error');
+            return;
+        }
+
+        const project = (this.state.projects || []).find(p => p.id === projectId);
+        if (!project) {
+            this.showToast('삭제할 프로젝트를 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        this.deletingProjectId = projectId;
+        this.deletingProjectCode = project.projectCode || project.code || '';
+
+        const nameEl = document.getElementById('delete-target-project-name');
+        const codeEl = document.getElementById('delete-target-project-code');
+        const inputEl = document.getElementById('delete-project-code-input');
+        const btnConfirm = document.getElementById('btn-confirm-delete-project');
+        const idInput = document.getElementById('delete-target-project-id');
+
+        if (nameEl) nameEl.textContent = project.name;
+        if (codeEl) codeEl.textContent = `코드: ${this.deletingProjectCode}`;
+        if (inputEl) inputEl.value = '';
+        if (idInput) idInput.value = projectId;
+        if (btnConfirm) btnConfirm.disabled = true;
+
+        this.openModal('modal-project-delete');
+    }
+
+    validateDeleteProjectCodeInput(val) {
+        const btnConfirm = document.getElementById('btn-confirm-delete-project');
+        if (!btnConfirm) return;
+        const targetCode = (this.deletingProjectCode || '').trim();
+        const inputCode = (val || '').trim();
+        btnConfirm.disabled = (targetCode !== inputCode);
+    }
+
+    async confirmDeleteProject() {
+        const projectId = this.deletingProjectId || document.getElementById('delete-target-project-id')?.value;
+        if (!projectId) return;
+
+        await this.deleteProject(projectId);
+        this.closeModal('modal-project-delete');
+    }
+
+    async deleteProject(projectId) {
+        console.log('[deleteProject]', projectId);
+        const role = this.currentUser ? (this.currentUser.role || 'WORKER') : 'WORKER';
+        const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN' || this.isAdminRole(role);
+        if (!isAdmin) {
+            this.showToast('프로젝트 삭제 권한이 없습니다. (관리자 전용)', 'error');
+            return false;
+        }
+
+        const index = (this.state.projects || []).findIndex(p => p.id === projectId);
+        if (index === -1) {
+            this.showToast('삭제할 프로젝트가 존재하지 않습니다.', 'warning');
+            return false;
+        }
+
+        const project = this.state.projects[index];
+        const deletedAt = new Date().toISOString();
+        const deletedBy = this.currentUser ? (this.currentUser.id || this.currentUser.email) : 'admin';
+
+        project.deletedAt = deletedAt;
+        project.deleted_at = deletedAt;
+        project.deletedBy = deletedBy;
+        project.deleted_by = deletedBy;
+
+        // Supabase Soft Delete Update
+        if (this.useSupabase) {
+            try {
+                const { error } = await this.supabase
+                    .from('projects')
+                    .update({ deleted_at: deletedAt, deleted_by: deletedBy })
+                    .eq('id', projectId);
+                if (error) console.error('[Supabase Delete Error]', error);
+            } catch (err) {
+                console.error('[deleteProject Supabase Exception]', err);
+            }
+        }
+
+        this.addActivityLog(projectId, project.name, 'project', `프로젝트 보관/삭제 처리: "${project.name}" (${project.projectCode})`);
+
+        // Sync to local storage
+        if (!this.demoMode) {
+            try {
+                localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+            } catch (e) {
+                console.warn('[LocalStorage Save Error]', e);
+            }
+        }
+
+        this.showToast(`프로젝트 "${project.name}"이(가) 삭제 처리되었습니다.`, 'success');
+
+        // Route back to projects list if currently viewing deleted project
+        if (this.activeView === 'project-detail' && this.currentProjectId === projectId) {
+            window.location.hash = 'projects/active';
+            await this.switchView('projects');
+        } else {
+            this.renderProjects();
+        }
+
+        return true;
+    }
+
+    auditDuplicateProjects() {
+        console.log('=== AUDITING DUPLICATE PROJECTS ===');
+        const projects = (this.state.projects || []).filter(p => !p.deletedAt && !p.deleted_at);
+        const duplicatesGrouped = {};
+
+        projects.forEach(p => {
+            const key = `${p.projectCode || p.code || ''}_${p.name || ''}_${p.manager || ''}`;
+            if (!duplicatesGrouped[key]) duplicatesGrouped[key] = [];
+            duplicatesGrouped[key].push(p);
+        });
+
+        const duplicateCandidates = [];
+        Object.entries(duplicatesGrouped).forEach(([key, group]) => {
+            if (group.length > 1) {
+                // Sort by creation time
+                group.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+                const targetToKeep = group[0];
+                const candidatesToDelete = group.slice(1);
+
+                duplicateCandidates.push({
+                    key,
+                    targetToKeepId: targetToKeep.id,
+                    candidatesToDelete: candidatesToDelete.map(c => c.id),
+                    groupSize: group.length,
+                    details: group.map(g => ({ id: g.id, code: g.projectCode, name: g.name, manager: g.manager }))
+                });
+            }
+        });
+
+        console.log('[Duplicate Project Audit Results]', duplicateCandidates);
+        return duplicateCandidates;
+    }
+
 }
 
 
@@ -29134,16 +29311,21 @@ if (typeof window !== 'undefined') {
 
 let app;
 
-try {
-    console.log('[BOOT] STEP1 - Instantiating AetherPMOApp');
-    app = new AetherPMOApp();
+if (typeof window !== 'undefined' && window.app) {
+    app = window.app;
+    console.log('[BOOT] Existing window.app instance re-used');
+} else {
+    try {
+        console.log('[BOOT] STEP1 - Instantiating AetherPMOApp');
+        app = new AetherPMOApp();
 
-    if (typeof window !== 'undefined') {
-        window.app = app;
-        console.log('[BOOT] STEP2 - Global window.app assigned successfully:', typeof window.app);
+        if (typeof window !== 'undefined') {
+            window.app = app;
+            console.log('[BOOT] STEP2 - Global window.app assigned successfully:', typeof window.app);
+        }
+    } catch (err) {
+        console.error('[BOOT] App instantiation error:', err);
     }
-} catch (err) {
-    console.error('[BOOT] App instantiation error:', err);
 }
 
 if (typeof document !== 'undefined') {
