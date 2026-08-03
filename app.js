@@ -1657,7 +1657,7 @@ class AetherPMO {
                 { data: resources, error: errRes },
                 { data: profiles, error: errProf }
             ] = await Promise.all([
-                this.supabase.from('projects').select('*'),
+                this.supabase.from('projects').select('*').is('deleted_at', null),
                 this.supabase.from('artifacts').select('*'),
                 this.supabase.from('checklists').select('*'),
                 this.supabase.from('activity_logs').select('*'),
@@ -6375,21 +6375,25 @@ class AetherPMO {
     }
 
     updateProjectStageCounts() {
-        const projects = this.state.projects || [];
+        const rawProjects = Array.isArray(this.state?.projects) ? this.state.projects : [];
+        const validProjects = rawProjects.filter(p => !p.deletedAt && !p.deleted_at);
 
-        const biddingCount = projects.filter(p => {
+        const biddingCount = validProjects.filter(p => {
+            const lc = (p.lifecycle_status || p.lifecycleStatus || '').toUpperCase();
             const s = (p.status || '').trim();
-            return s === 'Bidding' || p.is_bidding_project || p.isBiddingProject;
+            return lc === 'BIDDING' || s === 'Bidding' || p.is_bidding_project || p.isBiddingProject;
         }).length;
 
-        const activeCount = projects.filter(p => {
+        const activeCount = validProjects.filter(p => {
+            const lc = (p.lifecycle_status || p.lifecycleStatus || '').toUpperCase();
             const s = (p.status || '').trim();
-            return ['In Progress', 'On Hold', 'Delay', '수행중', '보류', '지연'].includes(s);
+            return lc === 'EXECUTION' || ['In Progress', 'On Hold', 'Delay', '수행중', '보류', '지연', '진행중'].includes(s);
         }).length;
 
-        const completedCount = projects.filter(p => {
+        const completedCount = validProjects.filter(p => {
+            const lc = (p.lifecycle_status || p.lifecycleStatus || '').toUpperCase();
             const s = (p.status || '').trim();
-            return ['Completed', '종료'].includes(s);
+            return lc === 'COMPLETED' || ['Completed', '종료'].includes(s);
         }).length;
 
         const elBidding = document.getElementById('count-stage-bidding');
