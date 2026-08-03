@@ -29157,19 +29157,19 @@ class AetherPMO {
 
     // ── PROJECT SOFT DELETE & DUPLICATE AUDIT SYSTEM ─────────────────────────
     openDeleteProjectModal(projectId) {
-        console.log('[openDeleteProjectModal]', projectId);
+        performance.mark('openDeleteModal_start');
         if (!projectId) return;
 
         const role = this.currentUser ? (this.currentUser.role || 'WORKER') : 'WORKER';
-        const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN' || this.isAdminRole(role);
+        const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN' || (typeof this.isAdminRole === 'function' && this.isAdminRole(role));
         if (!isAdmin) {
-            this.showToast('프로젝트 삭제 권한이 없습니다. (관리자 전용)', 'error');
+            this.showToast?.('프로젝트 삭제 권한이 없습니다. (관리자 전용)', 'error');
             return;
         }
 
-        const project = (this.state.projects || []).find(p => p.id === projectId);
+        const project = (this.state?.projects || []).find(p => p.id === projectId);
         if (!project) {
-            this.showToast('삭제할 프로젝트를 찾을 수 없습니다.', 'warning');
+            this.showToast?.('삭제할 프로젝트를 찾을 수 없습니다.', 'warning');
             return;
         }
 
@@ -29182,13 +29182,17 @@ class AetherPMO {
         const btnConfirm = document.getElementById('btn-confirm-delete-project');
         const idInput = document.getElementById('delete-target-project-id');
 
-        if (nameEl) nameEl.textContent = project.name;
+        if (nameEl) nameEl.textContent = project.name || '';
         if (codeEl) codeEl.textContent = `코드: ${this.deletingProjectCode}`;
         if (inputEl) inputEl.value = '';
         if (idInput) idInput.value = projectId;
         if (btnConfirm) btnConfirm.disabled = true;
 
         this.openModal('modal-project-delete');
+        performance.mark('openDeleteModal_end');
+        performance.measure('INP: openDeleteProjectModal', 'openDeleteModal_start', 'openDeleteModal_end');
+        const measure = performance.getEntriesByName('INP: openDeleteProjectModal').pop();
+        console.log(`[PERF] openDeleteProjectModal INP: ${measure?.duration.toFixed(2)}ms`);
     }
 
     validateDeleteProjectCodeInput(val) {
