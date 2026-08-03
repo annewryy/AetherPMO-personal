@@ -8680,3 +8680,59 @@ body.dark-mode .badge-status-cancelled {
     width: 100% !important;
     margin-bottom: 24px !important;
 }
+
+/* ============================================================================
+   MAIN CONTENT & VIEW-RESOURCES FLEX-GROW FULL WIDTH FIX
+   ============================================================================ */
+.main-content,
+.app-content,
+.content-area {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    width: calc(100% - 260px) !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.content-view {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+#view-resources {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    box-sizing: border-box !important;
+    padding: 24px !important;
+    display: block !important;
+}
+
+#view-resources > * {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+
+/* Standard Content View Layout Reset */
+.content-view {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    float: none !important;
+    transform: none !important;
+    box-sizing: border-box !important;
+}
+
+.content-view.hidden {
+    display: none !important;
+}

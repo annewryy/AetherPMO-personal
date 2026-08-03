@@ -1708,7 +1708,6 @@
                                         </table>
                                     </div>
                                 </div>
-                            </div>
                         </div>
                     </div>
 
@@ -2037,60 +2036,114 @@
                 </section>
 
                 <!-- 7.5. RESOURCE MANAGEMENT VIEW (스프레드시트 엑셀 그리드 형태) -->
+                <!-- 7.5.1. PARTICIPATING RESOURCES MASTER VIEW -->
                 <section id="view-resources" class="content-view">
                     <div class="view-header">
                         <div>
-                            <h1>참여인력 관리</h1>
-                            <p class="subtitle">프로젝트에 투입된 전체 인력 현황을 조회하고 엑셀 스프레드시트 형태로 인라인 편집하여 일목요연하게 관리합니다.</p>
+                            <h1>참여인력관리 (인력 마스터)</h1>
+                            <p class="subtitle">프로젝트 수행단계 세부내용으로 등록된 전체 참여인력 정보 및 배치 현황을 통합 관리합니다.</p>
                         </div>
                     </div>
 
-                    <!-- Summary Banner -->
-                    <div class="resources-summary-banner" style="margin-bottom: 20px; padding: 12px 20px; border-radius: 12px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); color: var(--text-main); font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="info" style="width: 16px; height: 16px; color: var(--primary);"></i>
-                        <span id="resources-summary-text">전체 프로젝트 0건이며, 총 자사화/프로젝트 계약직 0명 근무중입니다.</span>
+                    <!-- Summary Banner & KPI Cards -->
+                    <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                        <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">총 등록 인력</span>
+                                <i data-lucide="users" style="width: 18px; height: 18px; color: #6366F1;"></i>
+                            </div>
+                            <div class="stat-card-value" id="res-stat-total" style="font-size: 24px; font-weight: 800; color: var(--text-main); margin-top: 8px;">0명</div>
+                        </div>
+
+                        <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">수행단계 투입 인력</span>
+                                <i data-lucide="user-check" style="width: 18px; height: 18px; color: #10B981;"></i>
+                            </div>
+                            <div class="stat-card-value" id="res-stat-working" style="font-size: 24px; font-weight: 800; color: #10B981; margin-top: 8px;">0명</div>
+                        </div>
+
+                        <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">자사화 인력</span>
+                                <i data-lucide="briefcase" style="width: 18px; height: 18px; color: #8B5CF6;"></i>
+                            </div>
+                            <div class="stat-card-value" id="res-stat-insourced" style="font-size: 24px; font-weight: 800; color: #8B5CF6; margin-top: 8px;">0명</div>
+                        </div>
+
+                        <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">프로젝트 계약직</span>
+                                <i data-lucide="user-plus" style="width: 18px; height: 18px; color: #06B6D4;"></i>
+                            </div>
+                            <div class="stat-card-value" id="res-stat-contractor" style="font-size: 24px; font-weight: 800; color: #06B6D4; margin-top: 8px;">0명</div>
+                        </div>
+
+                        <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">투입 프로젝트 수</span>
+                                <i data-lucide="folder-kanban" style="width: 18px; height: 18px; color: #F59E0B;"></i>
+                            </div>
+                            <div class="stat-card-value" id="res-stat-projects" style="font-size: 24px; font-weight: 800; color: #F59E0B; margin-top: 8px;">0건</div>
+                        </div>
+                    </div>
+
+                    <!-- Summary Info Alert -->
+                    <div class="resources-summary-banner" style="margin-bottom: 20px; padding: 12px 20px; border-radius: 12px; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2); color: var(--text-main); font-size: 13.5px; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i data-lucide="info" style="width: 18px; height: 18px; color: #6366F1;"></i>
+                            <span id="resources-summary-text">전체 인력 마스터 0명 중 수행단계 투입 인력 0명 및 자사화/계약직 인력을 연동 관리 중입니다.</span>
+                        </div>
                     </div>
 
                     <!-- Filter & Control Bar -->
                     <div class="view-filters card" style="margin-bottom: 24px; padding: 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
                         <div class="filters-row" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
-                            <div class="filter-group" style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 6px;">
-                                <label for="resources-filter-project" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">프로젝트 필터</label>
+                            <div class="filter-group" style="flex: 1.2; min-width: 200px; display: flex; flex-direction: column; gap: 6px;">
+                                <label for="resources-filter-project" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">수행 프로젝트</label>
                                 <select id="resources-filter-project" onchange="app.renderResourcesView()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
                                     <option value="all">전체 프로젝트</option>
-                                    <!-- Dynamic options -->
                                 </select>
                             </div>
-                            <div class="filter-group" style="flex: 2.5; min-width: 420px; display: flex; flex-direction: column; gap: 6px;">
-                                <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">인력구분 필터 (다중선택)</span>
-                                <div style="display: flex; gap: 12px; align-items: center; height: 38px; flex-wrap: wrap; background: var(--bg-input); border: 1px solid var(--bg-card-border); padding: 0 12px; border-radius: 8px;">
-                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 0;">
-                                        <input type="checkbox" id="res-type-all" checked onchange="app.handleResourceAllTypesChange(this)" style="width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer;">
+                            <div class="filter-group" style="flex: 2; min-width: 320px; display: flex; flex-direction: column; gap: 6px;">
+                                <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">인력구분 (다중 필터)</span>
+                                <div style="display: flex; gap: 14px; align-items: center; height: 38px; flex-wrap: wrap; background: var(--bg-input); border: 1px solid var(--bg-card-border); border-radius: 8px; padding: 0 14px;">
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main);">
+                                        <input type="checkbox" id="res-type-all" checked onchange="app.handleResourceAllTypesChange(this.checked)" style="width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer;">
                                         <span>전체</span>
                                     </label>
-                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 0;">
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main);">
                                         <input type="checkbox" class="res-type-checkbox" value="regular" checked onchange="app.handleResourceSubTypesChange()" style="width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer;">
                                         <span>정규직</span>
                                     </label>
-                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 0;">
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main);">
                                         <input type="checkbox" class="res-type-checkbox" value="outsourcing" checked onchange="app.handleResourceSubTypesChange()" style="width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer;">
                                         <span>자사화</span>
                                     </label>
-                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 0;">
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main);">
                                         <input type="checkbox" class="res-type-checkbox" value="project_contract" checked onchange="app.handleResourceSubTypesChange()" style="width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer;">
                                         <span>프로젝트 계약직</span>
                                     </label>
-                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 0;">
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main);">
                                         <input type="checkbox" class="res-type-checkbox" value="turnkey" checked onchange="app.handleResourceSubTypesChange()" style="width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer;">
-                                        <span>외부(턴키)</span>
+                                        <span>외주(턴키)</span>
                                     </label>
                                 </div>
                             </div>
-                            <div class="filter-group" style="flex: 2; min-width: 250px; display: flex; flex-direction: column; gap: 6px;">
-                                <label for="resources-search-input" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">검색</label>
+                            <div class="filter-group" style="flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: 6px;">
+                                <label for="resource-filter-status" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">투입 상태</label>
+                                <select id="resource-filter-status" onchange="app.renderResourcesView()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                    <option value="all">전체 상태</option>
+                                    <option value="ACTIVE" selected>투입중 (활동)</option>
+                                    <option value="STANDBY">대기</option>
+                                    <option value="OFFBOARDED">종료 / 퇴사</option>
+                                </select>
+                            </div>
+                            <div class="filter-group" style="flex: 1.8; min-width: 220px; display: flex; flex-direction: column; gap: 6px;">
+                                <label for="resources-search-input" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">통합 검색</label>
                                 <div class="search-input-wrapper" style="position: relative;">
                                     <i data-lucide="search" style="position: absolute; left: 12px; top: 11px; width: 16px; height: 16px; color: var(--text-muted);"></i>
-                                    <input type="text" id="resources-search-input" placeholder="이름, 참여 역할, 직급으로 검색..." oninput="app.renderResourcesView()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px 0 36px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                    <input type="text" id="resources-search-input" placeholder="성명, 부서, 역할, 기술로 검색..." oninput="app.renderResourcesView()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px 0 36px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
                                 </div>
                             </div>
                             <div class="filter-actions" style="display: flex; gap: 8px; margin-left: auto;">
@@ -2098,35 +2151,33 @@
                                     <i data-lucide="download" style="width: 14px; height: 14px;"></i>
                                     <span>엑셀 내보내기</span>
                                 </button>
-                                <button type="button" class="btn btn-primary" onclick="app.addNewResourceRow()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
+                                <button type="button" class="btn btn-primary" onclick="app.openResourceModal()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
                                     <i data-lucide="user-plus" style="width: 14px; height: 14px;"></i>
-                                    <span>인력 추가</span>
+                                    <span>신규 인력 등록</span>
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Excel Spreadsheet View Grid -->
+                    <!-- Resource Master Spreadsheet Grid (1 Row Per Person) -->
                     <div class="card" style="padding: 0; overflow-x: auto; border: 1px solid var(--bg-card-border); border-radius: 12px; background: var(--bg-card);">
-                        <table class="excel-grid-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+                        <table class="excel-grid-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px;">
                             <thead>
                                 <tr style="background: var(--bg-hover-item); border-bottom: 2px solid var(--bg-card-border);">
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 60px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border); text-align: center;">번호</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 370px; min-width: 320px; border-right: 1px solid var(--bg-card-border);">프로젝트</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 110px; min-width: 90px; border-right: 1px solid var(--bg-card-border); text-align: center;">성명</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 120px; min-width: 110px; border-right: 1px solid var(--bg-card-border); text-align: center;">인력구분</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 140px; min-width: 130px; border-right: 1px solid var(--bg-card-border); text-align: center;">소속본부/부서</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 80px; min-width: 70px; border-right: 1px solid var(--bg-card-border); text-align: center;">직급</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 120px; min-width: 110px; border-right: 1px solid var(--bg-card-border); text-align: center;">참여역할</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 80px; min-width: 75px; text-align: center; border-right: 1px solid var(--bg-card-border);">PM 여부</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 110px; min-width: 100px; border-right: 1px solid var(--bg-card-border); text-align: center;">투입시작일</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 110px; min-width: 100px; border-right: 1px solid var(--bg-card-border); text-align: center;">투입종료일</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 60px; min-width: 60px; border-right: 1px solid var(--bg-card-border);">비고 (메모)</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 90px; text-align: center;">관리</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 50px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border); text-align: center;">번호</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 110px; min-width: 90px; border-right: 1px solid var(--bg-card-border); text-align: center;">성명</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 120px; min-width: 110px; border-right: 1px solid var(--bg-card-border); text-align: center;">인력구분</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 130px; min-width: 110px; border-right: 1px solid var(--bg-card-border); text-align: center;">소속본부/부서</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 120px; min-width: 100px; border-right: 1px solid var(--bg-card-border); text-align: center;">직급/역할</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 320px; min-width: 250px; border-right: 1px solid var(--bg-card-border);">수행단계 참여 프로젝트 (배지)</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 170px; min-width: 150px; border-right: 1px solid var(--bg-card-border); text-align: center;">투입기간</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 100px; min-width: 90px; border-right: 1px solid var(--bg-card-border); text-align: center;">총 투입률</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 130px; min-width: 110px; border-right: 1px solid var(--bg-card-border); text-align: right;">세전 월지급액/단가</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 90px; min-width: 80px; border-right: 1px solid var(--bg-card-border); text-align: center;">상태</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 110px; text-align: center;">관리</th>
                                 </tr>
                             </thead>
                             <tbody id="resources-table-body">
-                                <!-- Dynamic spreadsheet rows (inline editable) -->
                             </tbody>
                         </table>
                     </div>
@@ -2209,64 +2260,264 @@
                 </section>
 
                 <!-- 7.5.3. SALARY MANAGEMENT VIEW -->
+                <!-- 7.5.3. MONTHLY SALARY MANAGEMENT VIEW -->
                 <section id="view-salaries" class="content-view">
                     <div class="view-header">
                         <div>
                             <h1>월급여 관리</h1>
-                            <p class="subtitle">인력별 월 급여 지급 명세 및 결재 상태를 관리합니다.</p>
+                            <p class="subtitle">참여인력 중 '자사화' 및 '프로젝트 계약직' 인력의 월급여 산출, 지급 품의 상신(매월 20일까지) 및 급여 지급(매달 말일) 현황을 통합 관리합니다.</p>
                         </div>
                     </div>
 
-                    <!-- Filter Bar -->
-                    <div class="view-filters card" style="margin-bottom: 24px; padding: 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
-                        <div class="filters-row" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
-                            <div class="filter-group" style="flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: 6px;">
-                                <label for="salaries-filter-month" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">귀속년월</label>
-                                <select id="salaries-filter-month" onchange="app.renderSalariesView()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
-                                    <option value="all">전체 내역</option>
-                                    <option value="2026-07" selected>2026년 07월</option>
-                                    <option value="2026-06">2026년 06월</option>
-                                    <option value="2026-05">2026년 05월</option>
-                                </select>
-                            </div>
-                            <div class="filter-group" style="flex: 1.5; min-width: 250px; display: flex; flex-direction: column; gap: 6px;">
-                                <label for="salaries-search-input" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">검색</label>
-                                <div class="search-input-wrapper" style="position: relative;">
-                                    <i data-lucide="search" style="position: absolute; left: 12px; top: 11px; width: 16px; height: 16px; color: var(--text-muted);"></i>
-                                    <input type="text" id="salaries-search-input" placeholder="성명, 부서명으로 검색..." oninput="app.renderSalariesView()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px 0 36px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                    <!-- Notice Banner: Schedule & Rules -->
+                    <div class="card" style="margin-bottom: 20px; padding: 16px 20px; border-radius: 12px; background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(16, 185, 129, 0.05)); border: 1px solid rgba(99, 102, 241, 0.2);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(99, 102, 241, 0.15); display: flex; align-items: center; justify-content: center; color: #6366F1;">
+                                    <i data-lucide="calendar-clock" style="width: 22px; height: 22px;"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size: 15px; font-weight: 700; color: var(--text-main);">
+                                        📌 매월 20일까지 지급 품의 상신 ➔ 매달 말일 급여 지급 예정
+                                    </div>
+                                    <div style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px;">
+                                        ※ 매월 20일이 휴일인 경우 마감일/지급일 별도 조정 가능 | 공제 미포함 '세전 지급 예정액'으로 품의서가 생성됩니다.
+                                    </div>
                                 </div>
                             </div>
-                            <div class="filter-actions" style="display: flex; gap: 8px; margin-left: auto;">
-                                <button type="button" class="btn btn-primary" onclick="app.addNewSalaryRow()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
-                                    <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
-                                    <span>급여대장 등록</span>
-                                </button>
+                            <div id="salary-schedule-dday-badge" style="padding: 6px 14px; border-radius: 20px; background: #6366F1; color: #ffffff; font-size: 13px; font-weight: 700;">
+                                귀속 2026-08 | 상신 마감 D-17
                             </div>
                         </div>
                     </div>
 
-                    <!-- Salaries Grid Table -->
-                    <div class="card" style="padding: 0; overflow-x: auto; border: 1px solid var(--bg-card-border); border-radius: 12px; background: var(--bg-card);">
-                        <table class="excel-grid-table salaries-grid-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
-                            <thead>
-                                <tr style="background: var(--bg-hover-item); border-bottom: 2px solid var(--bg-card-border);">
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 60px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border); text-align: center;">번호</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 100px; min-width: 90px; border-right: 1px solid var(--bg-card-border); text-align: center;">귀속년월</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 110px; min-width: 90px; border-right: 1px solid var(--bg-card-border); text-align: center;">성명</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 120px; min-width: 110px; border-right: 1px solid var(--bg-card-border); text-align: center;">인력구분</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 140px; min-width: 120px; border-right: 1px solid var(--bg-card-border); text-align: center;">소속본부/부서</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 120px; min-width: 100px; border-right: 1px solid var(--bg-card-border); text-align: right;">기본급</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 100px; min-width: 90px; border-right: 1px solid var(--bg-card-border); text-align: right;">식대</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 110px; min-width: 90px; border-right: 1px solid var(--bg-card-border); text-align: right;">차량유지비</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 120px; min-width: 100px; border-right: 1px solid var(--bg-card-border); text-align: right;">실지급액</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 110px; min-width: 100px; border-right: 1px solid var(--bg-card-border); text-align: center;">지급일</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 90px; min-width: 80px; border-right: 1px solid var(--bg-card-border); text-align: center;">상태</th>
-                                    <th style="padding: 12px 16px; font-weight: 700; width: 90px; text-align: center;">관리</th>
-                                </tr>
-                            </thead>
-                            <tbody id="salaries-table-body">
-                            </tbody>
-                        </table>
+                    <!-- Salary Subtabs Navigation Bar -->
+                    <div class="salary-tabs-nav" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 8px;">
+                        <button class="salary-tab-btn active" data-salary-tab="target" onclick="app.switchSalarySubTab('target')" style="padding: 10px 18px; border-radius: 8px; border: none; background: var(--primary); color: #ffffff; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="calculator" style="width: 16px; height: 16px;"></i>
+                            <span>급여 계산 및 지급 품의</span>
+                        </button>
+                        <button class="salary-tab-btn" data-salary-tab="approvals" onclick="app.switchSalarySubTab('approvals')" style="padding: 10px 18px; border-radius: 8px; border: 1px solid var(--bg-card-border); background: var(--bg-card); color: var(--text-muted); font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="file-check" style="width: 16px; height: 16px;"></i>
+                            <span>지급 품의 / 결재 내역</span>
+                        </button>
+                        <button class="salary-tab-btn" data-salary-tab="templates" onclick="app.switchSalarySubTab('templates')" style="padding: 10px 18px; border-radius: 8px; border: 1px solid var(--bg-card-border); background: var(--bg-card); color: var(--text-muted); font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="file-code" style="width: 16px; height: 16px;"></i>
+                            <span>품의서 양식 관리</span>
+                        </button>
+                        <button class="salary-tab-btn" data-salary-tab="history" onclick="app.switchSalarySubTab('history')" style="padding: 10px 18px; border-radius: 8px; border: 1px solid var(--bg-card-border); background: var(--bg-card); color: var(--text-muted); font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="history" style="width: 16px; height: 16px;"></i>
+                            <span>월별 급여 이력 및 엑셀</span>
+                        </button>
+                    </div>
+
+                    <!-- TAB 1: SALARY TARGET CALCULATION & APPROVAL GENERATION -->
+                    <div id="salary-tab-content-target" class="salary-tab-pane" style="display: block;">
+                        <!-- Filter & Control Bar -->
+                        <div class="view-filters card" style="margin-bottom: 20px; padding: 18px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div class="filters-row" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+                                <div class="filter-group" style="flex: 1; min-width: 140px; display: flex; flex-direction: column; gap: 6px;">
+                                    <label for="salary-target-month" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">귀속년월</label>
+                                    <input type="month" id="salary-target-month" onchange="app.renderSalaryTargetsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                </div>
+                                <div class="filter-group" style="flex: 1.5; min-width: 220px; display: flex; flex-direction: column; gap: 6px;">
+                                    <label for="salary-target-project" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">프로젝트 선택</label>
+                                    <select id="salary-target-project" onchange="app.renderSalaryTargetsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                        <option value="">전체 프로젝트 (통합 품의)</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group" style="flex: 1.5; min-width: 200px; display: flex; flex-direction: column; gap: 6px;">
+                                    <label for="salary-target-search" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">검색</label>
+                                    <div class="search-input-wrapper" style="position: relative;">
+                                        <i data-lucide="search" style="position: absolute; left: 12px; top: 11px; width: 16px; height: 16px; color: var(--text-muted);"></i>
+                                        <input type="text" id="salary-target-search" placeholder="성명, 부서명 검색..." oninput="app.renderSalaryTargetsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px 0 36px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                    </div>
+                                </div>
+                                <div class="filter-actions" style="display: flex; gap: 8px; margin-left: auto;">
+                                    <button type="button" class="btn btn-primary" onclick="app.createSalaryPaymentApproval()" style="height: 38px; display: flex; align-items: center; gap: 6px; padding: 0 18px; font-weight: 700;">
+                                        <i data-lucide="file-plus" style="width: 16px; height: 16px;"></i>
+                                        <span>지급 품의 생성</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Target Summary KPI Cards -->
+                        <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px;">
+                            <div class="card" style="padding: 14px 18px; border-radius: 10px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                                <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">대상 인원 (자사화/계약직)</span>
+                                <div id="target-kpi-count" style="font-size: 20px; font-weight: 800; color: var(--text-main); margin-top: 4px;">0명</div>
+                            </div>
+                            <div class="card" style="padding: 14px 18px; border-radius: 10px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                                <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">총 기본급</span>
+                                <div id="target-kpi-base" style="font-size: 20px; font-weight: 800; color: var(--text-main); margin-top: 4px;">0원</div>
+                            </div>
+                            <div class="card" style="padding: 14px 18px; border-radius: 10px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                                <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">총 수당 (식대/차량 등)</span>
+                                <div id="target-kpi-allowance" style="font-size: 20px; font-weight: 800; color: var(--text-main); margin-top: 4px;">0원</div>
+                            </div>
+                            <div class="card" style="padding: 14px 18px; border-radius: 10px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                                <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">세전 지급 예정액 총계</span>
+                                <div id="target-kpi-total" style="font-size: 20px; font-weight: 800; color: #6366F1; margin-top: 4px;">0원</div>
+                            </div>
+                        </div>
+
+                        <!-- Target Calculation Table -->
+                        <div class="card" style="padding: 0; overflow-x: auto; border: 1px solid var(--bg-card-border); border-radius: 12px; background: var(--bg-card);">
+                            <table class="excel-grid-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px;">
+                                <thead>
+                                    <tr style="background: var(--bg-hover-item); border-bottom: 2px solid var(--bg-card-border);">
+                                        <th style="padding: 12px; width: 40px; text-align: center; border-right: 1px solid var(--bg-card-border);">
+                                            <input type="checkbox" id="salary-target-select-all" onclick="app.toggleSalaryTargetSelectAll(this.checked)" style="width: 16px; height: 16px; cursor: pointer;">
+                                        </th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 90px; text-align: center; border-right: 1px solid var(--bg-card-border);">귀속년월</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 140px; border-right: 1px solid var(--bg-card-border);">프로젝트</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 100px; text-align: center; border-right: 1px solid var(--bg-card-border);">성명</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 110px; text-align: center; border-right: 1px solid var(--bg-card-border);">인력구분</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 130px; text-align: center; border-right: 1px solid var(--bg-card-border);">소속부서</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 110px; text-align: right; border-right: 1px solid var(--bg-card-border);">기본급</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 90px; text-align: right; border-right: 1px solid var(--bg-card-border);">식대</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 100px; text-align: right; border-right: 1px solid var(--bg-card-border);">기타수당</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 100px; text-align: right; border-right: 1px solid var(--bg-card-border);">일할/조정액</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 120px; text-align: right; border-right: 1px solid var(--bg-card-border); color: #6366F1;">세전 지급 예정액</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 110px; text-align: center; border-right: 1px solid var(--bg-card-border);">지급 예정일</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 120px; text-align: center;">구분 / 비고</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="salary-targets-tbody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: PAYMENT APPROVAL HISTORY & ACTIONS -->
+                    <div id="salary-tab-content-approvals" class="salary-tab-pane" style="display: none;">
+                        <div class="view-filters card" style="margin-bottom: 20px; padding: 18px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div class="filters-row" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+                                <div class="filter-group" style="flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 6px;">
+                                    <label for="salary-approval-filter-status" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">결재 상태</label>
+                                    <select id="salary-approval-filter-status" onchange="app.renderSalaryApprovalsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                        <option value="all">전체 상태</option>
+                                        <option value="DRAFT">작성중 (초안)</option>
+                                        <option value="SUBMITTED">결재대기 (상신완료)</option>
+                                        <option value="APPROVED">승인완료</option>
+                                        <option value="PAID">지급완료</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group" style="flex: 2; min-width: 240px; display: flex; flex-direction: column; gap: 6px;">
+                                    <label for="salary-approval-search" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">검색</label>
+                                    <div class="search-input-wrapper" style="position: relative;">
+                                        <i data-lucide="search" style="position: absolute; left: 12px; top: 11px; width: 16px; height: 16px; color: var(--text-muted);"></i>
+                                        <input type="text" id="salary-approval-search" placeholder="품의번호, 제목, 귀속월 검색..." oninput="app.renderSalaryApprovalsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px 0 36px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card" style="padding: 0; overflow-x: auto; border: 1px solid var(--bg-card-border); border-radius: 12px; background: var(--bg-card);">
+                            <table class="excel-grid-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px;">
+                                <thead>
+                                    <tr style="background: var(--bg-hover-item); border-bottom: 2px solid var(--bg-card-border);">
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 140px; border-right: 1px solid var(--bg-card-border);">품의번호</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 280px; border-right: 1px solid var(--bg-card-border);">품의제목</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 90px; text-align: center; border-right: 1px solid var(--bg-card-border);">귀속년월</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 80px; text-align: center; border-right: 1px solid var(--bg-card-border);">대상인원</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 130px; text-align: right; border-right: 1px solid var(--bg-card-border);">세전 지급 예정액</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 120px; text-align: center; border-right: 1px solid var(--bg-card-border);">상신일시</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 110px; text-align: center; border-right: 1px solid var(--bg-card-border);">지급 예정일</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 100px; text-align: center; border-right: 1px solid var(--bg-card-border);">결재상태</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 150px; text-align: center;">관리</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="salary-approvals-tbody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: SALARY DRAFT TEMPLATES MANAGEMENT -->
+                    <div id="salary-tab-content-templates" class="salary-tab-pane" style="display: none;">
+                        <div class="card" style="padding: 18px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+                            <div>
+                                <h3 style="font-size: 15px; font-weight: 700; margin: 0;">지급 품의서 양식 (A4 템플릿)</h3>
+                                <p style="font-size: 12.5px; color: var(--text-muted); margin: 4px 0 0 0;">지급 품의서 및 결재서류 생성 시 사용되는 Mustache/HTML 양식을 구성합니다.</p>
+                            </div>
+                            <button type="button" class="btn btn-outline" onclick="app.openSalaryTemplateEditModal()" style="height: 36px; display: flex; align-items: center; gap: 6px;">
+                                <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                                <span>신규 양식 등록</span>
+                            </button>
+                        </div>
+
+                        <div class="card" style="padding: 0; overflow-x: auto; border: 1px solid var(--bg-card-border); border-radius: 12px; background: var(--bg-card);">
+                            <table class="excel-grid-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px;">
+                                <thead>
+                                    <tr style="background: var(--bg-hover-item); border-bottom: 2px solid var(--bg-card-border);">
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 60px; text-align: center; border-right: 1px solid var(--bg-card-border);">번호</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 220px; border-right: 1px solid var(--bg-card-border);">양식명</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 140px; text-align: center; border-right: 1px solid var(--bg-card-border);">적용 인력구분</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 90px; text-align: center; border-right: 1px solid var(--bg-card-border);">기본 여부</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 130px; text-align: center; border-right: 1px solid var(--bg-card-border);">최종 수정일</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 120px; text-align: center;">관리</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="salary-templates-tbody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB 4: SALARY HISTORY & EXCEL EXPORT -->
+                    <div id="salary-tab-content-history" class="salary-tab-pane" style="display: none;">
+                        <div class="view-filters card" style="margin-bottom: 20px; padding: 18px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div class="filters-row" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+                                <div class="filter-group" style="flex: 1; min-width: 140px; display: flex; flex-direction: column; gap: 6px;">
+                                    <label for="salaries-filter-month" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">귀속년월</label>
+                                    <select id="salaries-filter-month" onchange="app.renderSalariesView()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                        <option value="all">전체 내역</option>
+                                        <option value="2026-08">2026년 08월</option>
+                                        <option value="2026-07" selected>2026년 07월</option>
+                                        <option value="2026-06">2026년 06월</option>
+                                        <option value="2026-05">2026년 05월</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group" style="flex: 2; min-width: 220px; display: flex; flex-direction: column; gap: 6px;">
+                                    <label for="salaries-search-input" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">통합 검색</label>
+                                    <div class="search-input-wrapper" style="position: relative;">
+                                        <i data-lucide="search" style="position: absolute; left: 12px; top: 11px; width: 16px; height: 16px; color: var(--text-muted);"></i>
+                                        <input type="text" id="salaries-search-input" placeholder="성명, 부서명으로 검색..." oninput="app.renderSalariesView()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px 0 36px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                    </div>
+                                </div>
+                                <div class="filter-actions" style="display: flex; gap: 8px; margin-left: auto;">
+                                    <button type="button" class="btn btn-outline" onclick="app.exportSalaryHistoryToExcel()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
+                                        <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                                        <span>엑셀 내보내기</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card" style="padding: 0; overflow-x: auto; border: 1px solid var(--bg-card-border); border-radius: 12px; background: var(--bg-card);">
+                            <table class="excel-grid-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px;">
+                                <thead>
+                                    <tr style="background: var(--bg-hover-item); border-bottom: 2px solid var(--bg-card-border);">
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 60px; text-align: center; border-right: 1px solid var(--bg-card-border);">번호</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 90px; text-align: center; border-right: 1px solid var(--bg-card-border);">귀속년월</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 110px; text-align: center; border-right: 1px solid var(--bg-card-border);">성명</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 110px; text-align: center; border-right: 1px solid var(--bg-card-border);">인력구분</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 130px; text-align: center; border-right: 1px solid var(--bg-card-border);">소속본부/부서</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 110px; text-align: right; border-right: 1px solid var(--bg-card-border);">기본급</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 90px; text-align: right; border-right: 1px solid var(--bg-card-border);">식대</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 100px; text-align: right; border-right: 1px solid var(--bg-card-border);">차량유지비</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 120px; text-align: right; border-right: 1px solid var(--bg-card-border); color: #6366F1;">세전 지급 예정액</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 110px; text-align: center; border-right: 1px solid var(--bg-card-border);">급여 지급일</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 90px; text-align: center; border-right: 1px solid var(--bg-card-border);">상태</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 90px; text-align: center;">관리</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="salaries-table-body">
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </section>
 
@@ -5126,7 +5377,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=9cf4059_v12_width_stats_fix"></script>
+    <script src="app.js?v=v14_deploy_resources_salaries"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
@@ -5352,6 +5603,54 @@
             <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border-color); padding-top: 12px;">
                 <button type="button" class="btn btn-outline" onclick="app.closeResourceModal()">취소</button>
                 <button type="button" class="btn btn-primary" onclick="app.saveResource()">저장</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- RESOURCE DETAIL POPUP MODAL (Project-by-Project Deployment Details) -->
+    <div id="modal-resource-detail" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 720px; border-radius: 16px;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(99, 102, 241, 0.12); display: flex; align-items: center; justify-content: center; color: #6366F1;">
+                        <i data-lucide="user-check" style="width: 20px; height: 20px;"></i>
+                    </div>
+                    <div>
+                        <h3 style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin: 0;" id="res-detail-name">인력 상세 정보</h3>
+                        <span style="font-size: 12px; color: var(--text-muted);" id="res-detail-subtitle">프로젝트별 투입 기간 및 상세 참여 이력</span>
+                    </div>
+                </div>
+                <button type="button" class="close-btn" onclick="app.closeResourceDetailModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted);">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px 0;">
+                <!-- Profile summary box -->
+                <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+                    <div><span style="color:var(--text-muted); font-size:12px;">성명/구분:</span> <strong id="res-detail-name-type">-</strong></div>
+                    <div><span style="color:var(--text-muted); font-size:12px;">소속부서/직급:</span> <strong id="res-detail-dept-pos">-</strong></div>
+                    <div><span style="color:var(--text-muted); font-size:12px;">세전 월지급액:</span> <strong id="res-detail-salary" style="color:#6366F1;">-</strong></div>
+                    <div><span style="color:var(--text-muted); font-size:12px;">총 투입률:</span> <strong id="res-detail-total-ratio">-</strong></div>
+                </div>
+
+                <h4 style="font-size: 14px; font-weight: 700; margin-bottom: 10px; color: var(--text-primary);">📌 프로젝트별 수행단계 투입 상세 내역</h4>
+                <div class="card" style="padding: 0; overflow-x: auto; border: 1px solid var(--border-color); border-radius: 8px;">
+                    <table class="excel-grid-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+                        <thead>
+                            <tr style="background: var(--bg-hover-item); border-bottom: 1px solid var(--border-color);">
+                                <th style="padding: 10px 12px; font-weight: 700; width: 180px;">프로젝트명</th>
+                                <th style="padding: 10px 12px; font-weight: 700; width: 110px; text-align: center;">수행단계/역할</th>
+                                <th style="padding: 10px 12px; font-weight: 700; width: 170px; text-align: center;">투입기간 (시작~종료)</th>
+                                <th style="padding: 10px 12px; font-weight: 700; width: 80px; text-align: center;">투입률</th>
+                                <th style="padding: 10px 12px; font-weight: 700; width: 80px; text-align: center;">상태</th>
+                            </tr>
+                        </thead>
+                        <tbody id="res-detail-projects-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
+                <button type="button" class="btn btn-outline" onclick="app.closeResourceDetailModal()">닫기</button>
             </div>
         </div>
     </div>

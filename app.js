@@ -4422,6 +4422,7 @@ class AetherPMO {
         targetView.classList.remove('hidden');
         targetView.classList.add('active');
         targetView.style.display = 'block';
+        window.scrollTo(0, 0);
 
         // 3. Update sidebar nav active states
         document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
@@ -27139,6 +27140,708 @@ class AetherPMO {
         a.download = `AetherPMO_Salary_History_${new Date().toISOString().slice(0,10)}.csv`;
         a.click();
     }
+
+
+
+    // ── RESOURCE & SALARY UTILITIES & BUSINESS LOGIC ─────────────────────────────
+    getLastDayOfMonth(yearMonth) {
+        if (!yearMonth) return '';
+        const parts = yearMonth.split('-').map(Number);
+        const y = parts[0];
+        const m = parts[1];
+        const lastDayObj = new Date(y, m, 0);
+        const yyyy = lastDayObj.getFullYear();
+        const mm = String(lastDayObj.getMonth() + 1).padStart(2, '0');
+        const dd = String(lastDayObj.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    calculateSalaryScheduleInfo(yearMonth) {
+        const now = new Date();
+        const targetMonth = yearMonth || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const [y, m] = targetMonth.split('-').map(Number);
+        const lastDay = this.getLastDayOfMonth(targetMonth);
+        const deadlineStr = `${y}-${String(m).padStart(2, '0')}-20`;
+        
+        return {
+            targetMonth,
+            deadlineStr,
+            lastDayStr: lastDay,
+            displayNotice: `귀속 ${targetMonth} | 상신마감 20일까지 / 말일(${lastDay.split('-')[2]}일) 급여 지급 예정`
+        };
+    }
+
+    // ── PARTICIPATING RESOURCES (RESOURCE MASTER) MANAGEMENT ────────────────────
+    renderResourcesView() {
+        console.log('[renderResourcesView] Rendering participating members master view...');
+
+        const resources = Array.isArray(this.state.resources) ? this.state.resources : [];
+        const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
+        const projectMembers = Array.isArray(this.state.projectMembers) ? this.state.projectMembers : [];
+
+        // 1. Populate Project Filter Select
+        const projSelect = document.getElementById('resources-filter-project');
+        if (projSelect) {
+            const curVal = projSelect.value || 'all';
+            let options = '<option value="all">전체 프로젝트</option>';
+            projects.forEach(p => {
+                options += `<option value="${p.id}" ${p.id === curVal ? 'selected' : ''}>${p.name} (${p.code || p.id.slice(0, 6)})</option>`;
+            });
+            projSelect.innerHTML = options;
+        }
+
+        // 2. Synchronized Stats Calculations
+        const totalResourcesCount = resources.length;
+        const workingCount = resources.filter(r => {
+            const st = String(r.status || r.employment_status || 'ACTIVE').toUpperCase();
+            return r.isActive !== false && st !== 'OFFBOARDED' && st !== 'INACTIVE' && st !== '퇴사';
+        }).length;
+
+        const insourcedCount = resources.filter(r => {
+            const t = String(r.employmentType || r.employment_type || '').toLowerCase();
+            return t === 'outsourcing' || t === 'insourced_contractor';
+        }).length;
+
+        const contractorCount = resources.filter(r => {
+            const t = String(r.employmentType || r.employment_type || '').toLowerCase();
+            return t === 'project_contract' || t === 'contract';
+        }).length;
+
+        const projSet = new Set();
+        projectMembers.forEach(pm => {
+            if (pm.projectId || pm.project_id) projSet.add(pm.projectId || pm.project_id);
+        });
+        const totalProjectsCount = projSet.size || projects.length;
+
+        // Update Stat Cards
+        const statMap = {
+            'res-stat-total': `${totalResourcesCount}명`,
+            'res-stat-working': `${workingCount}명`,
+            'res-stat-insourced': `${insourcedCount}명`,
+            'res-stat-contractor': `${contractorCount}명`,
+            'res-stat-projects': `${totalProjectsCount}건`
+        };
+
+        for (const [id, val] of Object.entries(statMap)) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        }
+
+        const summaryEl = document.getElementById('resources-summary-text');
+        if (summaryEl) {
+            summaryEl.textContent = `전체 인력 마스터 ${totalResourcesCount}명 중 수행단계 투입 인력 ${workingCount}명(자사화 ${insourcedCount}명, 계약직 ${contractorCount}명)을 통합 연동 관리 중입니다.`;
+        }
+
+        // 3. Render Master Table (1 Row Per Person)
+        this.renderResourcesTable();
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    renderResourcesTable() {
+        const tbody = document.getElementById('resources-table-body');
+        if (!tbody) return;
+
+        const resources = Array.isArray(this.state.resources) ? this.state.resources : [];
+        const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
+        const projectMembers = Array.isArray(this.state.projectMembers) ? this.state.projectMembers : [];
+
+        const projFilter = document.getElementById('resources-filter-project')?.value || 'all';
+        const statusFilter = document.getElementById('resource-filter-status')?.value || 'all';
+        const keyword = (document.getElementById('resources-search-input')?.value || '').toLowerCase().trim();
+
+        const checkedTypes = Array.from(document.querySelectorAll('.res-type-checkbox:checked')).map(c => c.value);
+
+        let filtered = resources.filter(r => {
+            const empType = String(r.employmentType || r.employment_type || 'regular').toLowerCase();
+            const normalizedType = empType.includes('insourced') ? 'outsourcing' : (empType.includes('contract') ? 'project_contract' : empType);
+            if (checkedTypes.length > 0 && !checkedTypes.includes(normalizedType) && !checkedTypes.includes(empType)) {
+                return false;
+            }
+
+            const st = String(r.status || r.employment_status || 'ACTIVE').toUpperCase();
+            if (statusFilter === 'ACTIVE' && (r.isActive === false || st === 'OFFBOARDED' || st === 'INACTIVE' || st === '퇴사')) return false;
+            if (statusFilter === 'STANDBY' && st !== 'STANDBY') return false;
+            if (statusFilter === 'OFFBOARDED' && (r.isActive !== false && st !== 'OFFBOARDED' && st !== 'INACTIVE' && st !== '퇴사')) return false;
+
+            if (keyword) {
+                const matchName = (r.name || '').toLowerCase().includes(keyword);
+                const matchDept = (r.department || '').toLowerCase().includes(keyword);
+                const matchPos = (r.position || '').toLowerCase().includes(keyword);
+                const matchRole = (r.roleName || r.participationRole || '').toLowerCase().includes(keyword);
+                if (!matchName && !matchDept && !matchPos && !matchRole) return false;
+            }
+
+            return true;
+        });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 40px; color: var(--text-muted);">조건에 해당하는 참여 인력이 없습니다.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        filtered.forEach((r, idx) => {
+            const assignedMembers = projectMembers.filter(pm => 
+                (pm.resourceId && pm.resourceId === r.id) ||
+                (pm.userId && r.userId && pm.userId === r.userId) ||
+                (pm.name === r.name)
+            );
+
+            if (projFilter !== 'all') {
+                const hasProj = assignedMembers.some(pm => (pm.projectId || pm.project_id) === projFilter);
+                if (!hasProj) return;
+            }
+
+            let projBadgesHtml = '';
+            let totalInputRatio = 0;
+            let minStartDate = '2026-03-01';
+            let maxEndDate = '2026-12-31';
+
+            if (assignedMembers.length > 0) {
+                const badges = [];
+                assignedMembers.forEach(pm => {
+                    const p = projects.find(proj => proj.id === (pm.projectId || pm.project_id));
+                    const projName = p ? p.name : '프로젝트';
+                    const stage = pm.stage || pm.participationRole || '수행';
+                    badges.push(`<span class="badge badge-indigo" style="margin-right: 4px; margin-bottom: 2px;">${projName} (${stage})</span>`);
+
+                    const ratio = parseFloat(pm.inputRatio || pm.participationRate || 100);
+                    totalInputRatio += ratio;
+
+                    if (pm.startDate && pm.startDate < minStartDate) minStartDate = pm.startDate;
+                    if (pm.endDate && pm.endDate > maxEndDate) maxEndDate = pm.endDate;
+                });
+                projBadgesHtml = badges.join(' ');
+            } else {
+                projBadgesHtml = '<span style="color: var(--text-muted); font-size: 12px;">미배치 (대기)</span>';
+                totalInputRatio = 0;
+            }
+
+            let ratioBadge = `<span style="font-weight: 700;">${totalInputRatio}%</span>`;
+            if (totalInputRatio > 100) {
+                ratioBadge = `<span class="badge badge-warning" style="font-weight: 700;" title="여러 프로젝트 투입률 합계가 100%를 초과하였습니다.">⚠️ ${totalInputRatio}% (초과)</span>`;
+            } else if (totalInputRatio === 0) {
+                ratioBadge = `<span style="color: var(--text-muted);">0%</span>`;
+            }
+
+            let typeBadge = '';
+            const t = String(r.employmentType || r.employment_type || 'regular').toLowerCase();
+            if (t === 'regular') typeBadge = '<span class="badge badge-primary">정규직</span>';
+            else if (t === 'outsourcing' || t === 'insourced_contractor') typeBadge = '<span class="badge badge-indigo">자사화</span>';
+            else if (t === 'project_contract' || t === 'contract') typeBadge = '<span class="badge badge-teal">프로젝트 계약직</span>';
+            else if (t === 'turnkey') typeBadge = '<span class="badge badge-secondary">외주(턴키)</span>';
+            else typeBadge = `<span class="badge badge-secondary">${r.employmentType || '기타'}</span>`;
+
+            const isOffboarded = r.isActive === false || String(r.status || '').toUpperCase() === 'OFFBOARDED';
+            const statusBadge = isOffboarded ? 
+                '<span class="badge badge-secondary">종료</span>' : 
+                (assignedMembers.length > 0 ? '<span class="badge badge-success">투입중</span>' : '<span class="badge badge-warning">대기</span>');
+
+            const salaryVal = (r.baseSalary || r.monthlySalary || r.payRate || 0).toLocaleString();
+
+            html += `
+                <tr style="border-bottom: 1px solid var(--bg-card-border); transition: background 0.15s;">
+                    <td style="padding: 12px 14px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                        <a href="javascript:void(0)" onclick="app.openResourceDetailModal('${r.id}')" style="font-weight: 700; color: var(--primary); text-decoration: underline;">
+                            ${r.name || '미상'}
+                        </a>
+                    </td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">${typeBadge}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">${r.department || '-'}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                        <span style="font-weight: 600;">${r.position || '-'}</span> / <span style="color: var(--text-muted); font-size: 12px;">${r.roleName || r.participationRole || '멤버'}</span>
+                    </td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border);">${projBadgesHtml}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; font-size: 12px; color: var(--text-muted);">
+                        ${assignedMembers.length > 0 ? `${minStartDate} ~ ${maxEndDate}` : '-'}
+                    </td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">${ratioBadge}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: right; font-weight: 700; color: #6366F1;">${salaryVal}원</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">${statusBadge}</td>
+                    <td style="padding: 12px 14px; text-align: center;">
+                        <div style="display: flex; gap: 4px; justify-content: center;">
+                            <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceDetailModal('${r.id}')" title="상세보기">
+                                <i data-lucide="eye" style="width: 12px; height: 12px;"></i>
+                            </button>
+                            <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceModal('${r.id}')" title="수정">
+                                <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i>
+                            </button>
+                            <button type="button" class="btn btn-xs btn-outline-danger" onclick="app.deleteResource('${r.id}')" title="삭제/종료">
+                                <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    handleResourceAllTypesChange(checked) {
+        document.querySelectorAll('.res-type-checkbox').forEach(cb => cb.checked = checked);
+        this.renderResourcesView();
+    }
+
+    handleResourceSubTypesChange() {
+        const allCb = document.getElementById('res-type-all');
+        const checkboxes = Array.from(document.querySelectorAll('.res-type-checkbox'));
+        const allChecked = checkboxes.every(cb => cb.checked);
+        if (allCb) allCb.checked = allChecked;
+        this.renderResourcesView();
+    }
+
+    openResourceDetailModal(resourceId) {
+        const modal = document.getElementById('modal-resource-detail');
+        if (!modal) return;
+
+        const resources = this.state.resources || [];
+        const r = resources.find(item => item.id === resourceId);
+        if (!r) return;
+
+        const projects = this.state.projects || [];
+        const projectMembers = this.state.projectMembers || [];
+
+        const nameEl = document.getElementById('res-detail-name');
+        if (nameEl) nameEl.textContent = `${r.name} (${r.position || '직급미정'}) 상세 정보`;
+
+        const nameTypeEl = document.getElementById('res-detail-name-type');
+        if (nameTypeEl) nameTypeEl.textContent = `${r.name} / ${r.employmentType || '자사화'}`;
+
+        const deptPosEl = document.getElementById('res-detail-dept-pos');
+        if (deptPosEl) deptPosEl.textContent = `${r.department || '-'} / ${r.position || '-'}`;
+
+        const salaryEl = document.getElementById('res-detail-salary');
+        if (salaryEl) salaryEl.textContent = `${(r.baseSalary || r.monthlySalary || 0).toLocaleString()}원 (세전월지급액)`;
+
+        const assigned = projectMembers.filter(pm => 
+            (pm.resourceId && pm.resourceId === r.id) ||
+            (pm.userId && r.userId && pm.userId === r.userId) ||
+            (pm.name === r.name)
+        );
+
+        let totalRatio = 0;
+        const tbody = document.getElementById('res-detail-projects-tbody');
+        if (tbody) {
+            if (assigned.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">현재 수행단계에 배치된 프로젝트가 없습니다.</td></tr>`;
+            } else {
+                let rowsHtml = '';
+                assigned.forEach(pm => {
+                    const p = projects.find(proj => proj.id === (pm.projectId || pm.project_id));
+                    const ratio = parseFloat(pm.inputRatio || pm.participationRate || 100);
+                    totalRatio += ratio;
+
+                    rowsHtml += `
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 10px 12px; font-weight:700;">${p ? p.name : '프로젝트'}</td>
+                            <td style="padding: 10px 12px; text-align:center;">${pm.stage || pm.participationRole || '수행'} / ${pm.roleName || '멤버'}</td>
+                            <td style="padding: 10px 12px; text-align:center; font-size:12px; color:var(--text-muted);">${pm.startDate || '2026-03-01'} ~ ${pm.endDate || '2026-12-31'}</td>
+                            <td style="padding: 10px 12px; text-align:center; font-weight:700;">${ratio}%</td>
+                            <td style="padding: 10px 12px; text-align:center;"><span class="badge badge-success">투입중</span></td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = rowsHtml;
+            }
+        }
+
+        const totalRatioEl = document.getElementById('res-detail-total-ratio');
+        if (totalRatioEl) {
+            totalRatioEl.innerHTML = totalRatio > 100 ? `<span style="color:#ef4444; font-weight:800;">⚠️ ${totalRatio}% (초과)</span>` : `${totalRatio}%`;
+        }
+
+        modal.style.display = 'flex';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    closeResourceDetailModal() {
+        const modal = document.getElementById('modal-resource-detail');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async deleteResource(resourceId) {
+        const resources = this.state.resources || [];
+        const idx = resources.findIndex(r => r.id === resourceId);
+        if (idx === -1) return;
+
+        const r = resources[idx];
+        const projectMembers = this.state.projectMembers || [];
+        const salaries = this.state.salaries || [];
+        const salaryApprovals = this.state.salaryApprovals || [];
+
+        const hasProjectHistory = projectMembers.some(pm => pm.resourceId === r.id || pm.name === r.name);
+        const hasSalaryHistory = salaries.some(s => s.employeeName === r.name) || salaryApprovals.some(sa => (sa.items || []).some(item => item.memberName === r.name));
+
+        if (hasProjectHistory || hasSalaryHistory) {
+            r.isActive = false;
+            r.status = 'OFFBOARDED';
+            r.employment_status = 'OFFBOARDED';
+
+            await this.saveState('resource_upsert', r);
+            this.renderResourcesView();
+            this.showToast(`'${r.name}' 님은 연계 프로젝트 및 급여 이력이 존재하여 '종료/비활성' 상태로 안전하게 전환되었습니다.`, 'info');
+        } else {
+            if (confirm(`'${r.name}' 님은 연계 이력이 없는 신규 등록 인력입니다. 정말로 삭제하시겠습니까?`)) {
+                resources.splice(idx, 1);
+                await this.saveState('resource_delete', { id: resourceId });
+                this.renderResourcesView();
+                this.showToast(`'${r.name}' 님이 삭제되었습니다.`, 'success');
+            }
+        }
+    }
+
+    // ── MONTHLY SALARY MANAGEMENT (월급여 관리 4대 서브탭 로직) ────────────────────
+    switchSalarySubTab(tabName) {
+        console.log('[switchSalarySubTab]', tabName);
+        const btns = document.querySelectorAll('.salary-tab-btn');
+        btns.forEach(b => {
+            if (b.getAttribute('data-salary-tab') === tabName) {
+                b.classList.add('active');
+                b.style.background = 'var(--primary)';
+                b.style.color = '#ffffff';
+            } else {
+                b.classList.remove('active');
+                b.style.background = 'var(--bg-card)';
+                b.style.color = 'var(--text-muted)';
+            }
+        });
+
+        const panes = document.querySelectorAll('.salary-tab-pane');
+        panes.forEach(p => {
+            p.style.display = 'none';
+        });
+
+        const targetPane = document.getElementById(`salary-tab-content-${tabName}`);
+        if (targetPane) targetPane.style.display = 'block';
+
+        if (tabName === 'target') {
+            this.initSalaryTargetTab();
+            this.renderSalaryTargetsTable();
+        } else if (tabName === 'approvals') {
+            this.renderSalaryApprovalsTable();
+        } else if (tabName === 'templates') {
+            this.renderSalaryTemplatesTable();
+        } else if (tabName === 'history') {
+            this.renderSalariesView();
+        }
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    initSalaryTargetTab() {
+        const monthInput = document.getElementById('salary-target-month');
+        if (monthInput && !monthInput.value) {
+            const now = new Date();
+            monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        const projSelect = document.getElementById('salary-target-project');
+        if (projSelect) {
+            const projects = this.state.projects || [];
+            let options = `<option value="">전체 프로젝트 (통합 품의)</option>`;
+            projects.forEach(p => {
+                options += `<option value="${p.id}">${p.name} (${p.code || p.id.slice(0, 6)})</option>`;
+            });
+            projSelect.innerHTML = options;
+        }
+    }
+
+    renderSalaryTargetsTable() {
+        const tbody = document.getElementById('salary-targets-tbody');
+        if (!tbody) return;
+
+        const monthVal = document.getElementById('salary-target-month')?.value || new Date().toISOString().slice(0, 7);
+        const projId = document.getElementById('salary-target-project')?.value;
+        const searchKw = (document.getElementById('salary-target-search')?.value || '').toLowerCase().trim();
+
+        const sched = this.calculateSalaryScheduleInfo(monthVal);
+        const ddayBadge = document.getElementById('salary-schedule-dday-badge');
+        if (ddayBadge) {
+            ddayBadge.textContent = `${sched.displayNotice}`;
+        }
+
+        const resources = Array.isArray(this.state.resources) ? this.state.resources : [];
+        const projectMembers = Array.isArray(this.state.projectMembers) ? this.state.projectMembers : [];
+        const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
+
+        const monthStart = `${monthVal}-01`;
+        const monthEnd = sched.lastDayStr;
+
+        let targets = [];
+        resources.forEach(r => {
+            const empType = String(r.employmentType || r.employment_type || '').toLowerCase();
+            const isInsourced = empType === 'outsourcing' || empType === 'insourced_contractor';
+            const isContractor = empType === 'project_contract' || empType === 'contract';
+
+            if (!isInsourced && !isContractor) return;
+
+            const assignedMembers = projectMembers.filter(pm => 
+                (pm.resourceId && pm.resourceId === r.id) ||
+                (pm.userId && r.userId && pm.userId === r.userId) ||
+                (pm.name === r.name)
+            );
+
+            let projName = '본사/자사화';
+            let startDate = '2026-03-01';
+            let endDate = '2026-12-31';
+
+            if (assignedMembers.length > 0) {
+                const firstPm = assignedMembers[0];
+                const p = projects.find(proj => proj.id === (firstPm.projectId || firstPm.project_id));
+                if (p) projName = p.name;
+                if (firstPm.startDate) startDate = firstPm.startDate;
+                if (firstPm.endDate) endDate = firstPm.endDate;
+
+                if (projId && !assignedMembers.some(pm => (pm.projectId || pm.project_id) === projId)) {
+                    return;
+                }
+            } else if (projId) {
+                return;
+            }
+
+            if (startDate > monthEnd || endDate < monthStart) {
+                return;
+            }
+
+            const isMidMonth = (startDate > monthStart) || (endDate < monthEnd);
+
+            if (searchKw) {
+                const matchName = (r.name || '').toLowerCase().includes(searchKw);
+                const matchDept = (r.department || '').toLowerCase().includes(searchKw);
+                if (!matchName && !matchDept) return;
+            }
+
+            const baseSalary = r.baseSalary || r.monthlySalary || 4500000;
+            const mealAllowance = r.mealAllowance || 200000;
+            const otherAllowance = r.carAllowance || r.otherAllowance || 100000;
+            const adjustmentAmount = r.adjustmentAmount || 0;
+
+            targets.push({
+                resourceId: r.id,
+                memberName: r.name,
+                employmentType: isInsourced ? '자사화' : '프로젝트 계약직',
+                department: r.department || 'SI사업본부',
+                projectName: projName,
+                baseSalary,
+                mealAllowance,
+                otherAllowance,
+                adjustmentAmount,
+                totalPayment: baseSalary + mealAllowance + otherAllowance + adjustmentAmount,
+                isMidMonth,
+                startDate,
+                endDate,
+                selected: true
+            });
+        });
+
+        this.currentSalaryTargets = targets;
+
+        let totalCount = targets.length;
+        let sumBase = 0, sumAllowance = 0, sumTotal = 0;
+        targets.forEach(t => {
+            sumBase += t.baseSalary;
+            sumAllowance += (t.mealAllowance + t.otherAllowance);
+            sumTotal += t.totalPayment;
+        });
+
+        const cntEl = document.getElementById('target-kpi-count');
+        if (cntEl) cntEl.textContent = `${totalCount}명`;
+        const baseEl = document.getElementById('target-kpi-base');
+        if (baseEl) baseEl.textContent = `${sumBase.toLocaleString()}원`;
+        const allowEl = document.getElementById('target-kpi-allowance');
+        if (allowEl) allowEl.textContent = `${sumAllowance.toLocaleString()}원`;
+        const totEl = document.getElementById('target-kpi-total');
+        if (totEl) totEl.textContent = `${sumTotal.toLocaleString()}원`;
+
+        if (targets.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:40px; color:var(--text-muted);">귀속년월(${monthVal}) 기준 급여 지급 대상자(자사화·프로젝트 계약직)가 없습니다.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        targets.forEach((t, idx) => {
+            const empBadge = t.employmentType === '자사화' ? 
+                '<span class="badge badge-indigo">자사화</span>' : '<span class="badge badge-teal">프로젝트 계약직</span>';
+
+            const midMonthBadge = t.isMidMonth ?
+                '<span class="badge badge-warning" title="월 중 입·퇴사자로서 담당자 검토 및 일할조정액 직접 입력이 필요합니다.">⚠️ 월중 입·퇴사자</span>' :
+                '<span class="badge badge-success">정상</span>';
+
+            html += `
+                <tr style="border-bottom: 1px solid var(--bg-card-border);">
+                    <td style="padding: 10px; text-align: center; border-right: 1px solid var(--bg-card-border);">
+                        <input type="checkbox" class="chk-salary-target-item" data-idx="${idx}" ${t.selected ? 'checked' : ''} onchange="app.currentSalaryTargets[${idx}].selected = this.checked;" style="width: 15px; height: 15px; cursor: pointer;" />
+                    </td>
+                    <td style="padding: 10px 12px; text-align: center; border-right: 1px solid var(--bg-card-border); font-weight: 600;">${monthVal}</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); font-weight: 600;">${t.projectName}</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: center; font-weight: 700; color: var(--text-main);">${t.memberName}</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">${empBadge}</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">${t.department}</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: right; font-weight: 600;">${t.baseSalary.toLocaleString()}원</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">${t.mealAllowance.toLocaleString()}원</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">${t.otherAllowance.toLocaleString()}원</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">
+                        <input type="number" value="${t.adjustmentAmount}" onchange="app.updateTargetAdjustment(${idx}, this.value)" style="width: 85px; text-align: right; height: 30px; padding: 0 6px; font-size: 12px; border-radius: 4px; border: 1px solid var(--bg-card-border); background: var(--bg-input); color: var(--text-main); font-weight: 600;" placeholder="0" />
+                    </td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: right; font-weight: 800; color: #6366F1;" id="target-total-${idx}">${t.totalPayment.toLocaleString()}원</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: center; font-size: 12px; font-weight: 700; color: var(--text-muted);">${sched.lastDayStr}</td>
+                    <td style="padding: 10px 12px; text-align: center;">${midMonthBadge}</td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    updateTargetAdjustment(idx, val) {
+        if (!this.currentSalaryTargets || !this.currentSalaryTargets[idx]) return;
+        const target = this.currentSalaryTargets[idx];
+        const numVal = parseInt(val, 10) || 0;
+        target.adjustmentAmount = numVal;
+        target.totalPayment = target.baseSalary + target.mealAllowance + target.otherAllowance + numVal;
+
+        const cell = document.getElementById(`target-total-${idx}`);
+        if (cell) cell.textContent = `${target.totalPayment.toLocaleString()}원`;
+
+        let sumTotal = 0;
+        this.currentSalaryTargets.forEach(t => sumTotal += t.totalPayment);
+        const totEl = document.getElementById('target-kpi-total');
+        if (totEl) totEl.textContent = `${sumTotal.toLocaleString()}원`;
+    }
+
+    toggleSalaryTargetSelectAll(checked) {
+        if (!this.currentSalaryTargets) return;
+        this.currentSalaryTargets.forEach(t => t.selected = checked);
+        document.querySelectorAll('.chk-salary-target-item').forEach(chk => chk.checked = checked);
+    }
+
+    async createSalaryPaymentApproval() {
+        const monthVal = document.getElementById('salary-target-month')?.value;
+        const projId = document.getElementById('salary-target-project')?.value;
+
+        if (!monthVal) {
+            this.showToast('귀속년월을 선택해주세요.', 'warning');
+            return;
+        }
+
+        const selectedTargets = (this.currentSalaryTargets || []).filter(t => t.selected);
+        if (selectedTargets.length === 0) {
+            this.showToast('지급 품의 대상 인력을 최소 1명 이상 선택해주세요.', 'warning');
+            return;
+        }
+
+        const sched = this.calculateSalaryScheduleInfo(monthVal);
+        const existingApprovals = this.state.salaryApprovals || [];
+        
+        const activeDuplicate = existingApprovals.find(a =>
+            a.paymentMonth === monthVal && 
+            (projId ? a.projectId === projId : (!a.projectId || a.projectId === 'ALL')) && 
+            a.status !== 'CANCELLED'
+        );
+
+        if (activeDuplicate) {
+            this.showToast(`이미 귀속년월(${monthVal})에 작성중/결재대기/승인완료 상태의 지급 품의서(${activeDuplicate.approvalNo})가 존재합니다.`, 'error');
+            return;
+        }
+
+        const project = (this.state.projects || []).find(p => p.id === projId) || { name: '전체 프로젝트 통합' };
+        
+        const seq = String(existingApprovals.length + 1).padStart(3, '0');
+        const approvalNo = `SPA-${monthVal.replace('-', '')}-${seq}`;
+        const title = `[급여] ${project.name} ${monthVal} 월급여 지급 품의서`;
+
+        let totalPaymentSum = 0;
+        selectedTargets.forEach(t => totalPaymentSum += t.totalPayment);
+
+        const record = {
+            id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'appr-' + Date.now(),
+            approvalNo,
+            title,
+            paymentMonth: monthVal,
+            projectId: projId || 'ALL',
+            projectName: project.name,
+            targetCount: selectedTargets.length,
+            totalPayment: totalPaymentSum,
+            status: 'SUBMITTED',
+            submittedAt: new Date().toISOString().slice(0, 10),
+            paymentDueDate: sched.lastDayStr,
+            items: selectedTargets,
+            createdAt: new Date().toISOString()
+        };
+
+        this.state.salaryApprovals = this.state.salaryApprovals || [];
+        this.state.salaryApprovals.unshift(record);
+
+        await this.saveState('salary_approval_create', record);
+        this.showToast(`지급 품의서(${approvalNo})가 생성되어 결재함에 정상 제출되었습니다.`, 'success');
+        this.switchSalarySubTab('approvals');
+    }
+
+    renderSalaryApprovalsTable() {
+        const tbody = document.getElementById('salary-approvals-tbody');
+        if (!tbody) return;
+
+        const statusFilter = document.getElementById('salary-approval-filter-status')?.value || 'all';
+        const searchKw = (document.getElementById('salary-approval-search')?.value || '').toLowerCase().trim();
+
+        let list = [...(this.state.salaryApprovals || [])];
+
+        if (statusFilter !== 'all') {
+            list = list.filter(a => a.status === statusFilter);
+        }
+
+        if (searchKw) {
+            list = list.filter(a =>
+                (a.approvalNo || '').toLowerCase().includes(searchKw) ||
+                (a.title || '').toLowerCase().includes(searchKw) ||
+                (a.paymentMonth || '').toLowerCase().includes(searchKw)
+            );
+        }
+
+        if (list.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 40px; color: var(--text-muted);">등록되거나 진행 중인 지급 품의 결재 내역이 없습니다.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        list.forEach((a, idx) => {
+            let statusBadge = '<span class="badge badge-warning">결재대기</span>';
+            if (a.status === 'DRAFT') statusBadge = '<span class="badge badge-secondary">작성중</span>';
+            else if (a.status === 'APPROVED') statusBadge = '<span class="badge badge-success">승인완료</span>';
+            else if (a.status === 'PAID') statusBadge = '<span class="badge badge-primary">지급완료</span>';
+
+            html += `
+                <tr style="border-bottom: 1px solid var(--bg-card-border);">
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); font-family: monospace; font-weight: 700; color: var(--primary);">${a.approvalNo}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); font-weight: 700;">${a.title}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; font-weight: 600;">${a.paymentMonth}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; font-weight: 700;">${a.targetCount || (a.items ? a.items.length : 0)}명</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: right; font-weight: 800; color: #6366F1;">${(a.totalPayment || 0).toLocaleString()}원</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; font-size: 12px; color: var(--text-muted);">${(a.submittedAt || a.createdAt || '').slice(0, 10)}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; font-size: 12px; font-weight: 700; color: var(--text-muted);">${a.paymentDueDate || '-'}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">${statusBadge}</td>
+                    <td style="padding: 12px 14px; text-align: center;">
+                        <div style="display: flex; gap: 4px; justify-content: center;">
+                            <button type="button" class="btn btn-xs btn-outline" onclick="app.openSalaryApprovalDetailModal('${a.id}')" title="품의서 상세/출력">
+                                <i data-lucide="file-text" style="width: 12px; height: 12px;"></i> 상세
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
 }
 
 
