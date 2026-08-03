@@ -45,11 +45,6 @@ const OPMS_STATUS_PROGRESS = {
 };
 
 class AetherPMO {
-    constructor() {
-        console.count('[AetherPMO constructor]');
-        this.instanceId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'inst-' + Date.now();
-        console.log('[AetherPMO constructor] Instance created:', this.instanceId);
-    }
     isAdminRole(role) {
         return role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
     }
@@ -106,6 +101,10 @@ class AetherPMO {
     }
 
     constructor() {
+        console.count('[AetherPMO constructor]');
+        this.instanceId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'inst-' + Date.now();
+        this.isSavingProject = false;
+        console.log('[AetherPMO constructor] Single instance initialized:', this.instanceId);
         this.state = {
             projects: [],
             g2bAnnouncements: [], // G2B announcements list (bidding split panel use)
@@ -6560,9 +6559,6 @@ class AetherPMO {
                     </span>
                     <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.openEditProjectModal('${p.id}')">
                         <i data-lucide="edit-3" style="width:12px; height:12px;"></i> 수정
-                    </button>
-                    <button class="btn btn-xs btn-outline-danger" onclick="event.stopPropagation(); app.openDeleteProjectModal('${p.id}')" style="padding: 2px 6px; font-size: 11px; margin-left: 4px; border-color: var(--danger, #ef4444); color: var(--danger, #ef4444);">
-                        <i data-lucide="trash-2" style="width:12px; height:12px;"></i> 삭제
                     </button>
                 </div>
             `;
@@ -29240,7 +29236,6 @@ class AetherPMO {
 
         this.addActivityLog(projectId, project.name, 'project', `프로젝트 보관/삭제 처리: "${project.name}" (${project.projectCode})`);
 
-        // Sync to local storage
         if (!this.demoMode) {
             try {
                 localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
@@ -29251,7 +29246,6 @@ class AetherPMO {
 
         this.showToast(`프로젝트 "${project.name}"이(가) 삭제 처리되었습니다.`, 'success');
 
-        // Route back to projects list if currently viewing deleted project
         if (this.activeView === 'project-detail' && this.currentProjectId === projectId) {
             window.location.hash = 'projects/active';
             await this.switchView('projects');
@@ -29276,7 +29270,6 @@ class AetherPMO {
         const duplicateCandidates = [];
         Object.entries(duplicatesGrouped).forEach(([key, group]) => {
             if (group.length > 1) {
-                // Sort by creation time
                 group.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
                 const targetToKeep = group[0];
                 const candidatesToDelete = group.slice(1);
