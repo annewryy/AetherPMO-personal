@@ -1845,6 +1845,32 @@ class AetherPMO {
                 consortiumMembers: [],
                 vrbInfo: null
             }));
+        // Auto Sync/Upsert 9 Standard Execution Projects by Project Code
+        if (this.useSupabase) {
+            const standardProjects = [{"code": "OP-25-0825", "customer": "국가정보자원관리원 광주센터", "name": "2025년 국가정보자원관리원 광주센터 정보시스템 1군 운영유지관리", "startDate": "2025-04-01", "endDate": "2026-12-31", "id": "7fb83430-bef2-5f62-b08c-f9cf8349384d"}, {"code": "OP-25-0021", "customer": "국가정보자원관리원 대전본원", "name": "대전본원 정보시스템1군 운영·유지관리(2025년~2026년)", "startDate": "2025-04-01", "endDate": "2026-12-31", "id": "07805587-c11e-5695-bb1c-6d6068fdef5e"}, {"code": "OP-25-0895", "customer": "국가정보자원관리원 대구센터", "name": "2026년 국가정보자원관리원 대구센터 클라우드 자원풀 운영·유지관리 사업", "startDate": "2026-01-01", "endDate": "2026-12-31", "id": "33aa98d9-8582-5689-84da-d1243dcad785"}, {"code": "OP-25-0820", "customer": "한국지역정보개발원", "name": "2026년 표준지방인사정보시스템 등 유지관리", "startDate": "2026-01-01", "endDate": "2026-12-31", "id": "cca12c28-a9af-56cf-a0a4-7129ba148c9c"}, {"code": "OP-25-1040", "customer": "행정안전부", "name": "2026년 긴급신고통합시스템 유지관리 사업", "startDate": "2025-02-21", "endDate": "2026-12-31", "id": "0d4c26c3-d995-5d2a-92cd-d1b1005a1d79"}, {"code": "OP-26-0222", "customer": "전라남도청", "name": "2026년 전남광주통합특별시 정보시스템통합 컨설팅 용역", "startDate": "2026-06-01", "endDate": "2026-11-30", "id": "25a85e0b-261e-5476-ac69-e99d7ed56ebc"}, {"code": "OP-26-0154", "customer": "국가정보자원관리원 대전본원", "name": "2026년 정보보호인프라보강 사업(HW)", "startDate": "2026-07-01", "endDate": "2026-12-31", "id": "63e509cc-8482-56eb-bd44-9c9844c26129"}, {"code": "OP-26-0826", "customer": "국가정보자원관리원 대전본원", "name": "2026년 제1차 정보자원 통합구축 HW3", "startDate": "2026-07-13", "endDate": "2027-02-12", "id": "17e71021-9f1d-5147-b1f3-0a6c38982c4e"}, {"code": "OP-26-0061", "customer": "국가정보자원관리원 대전본원", "name": "2026년 제1차 정보자원 통합구축 HW5", "startDate": "2026-07-20", "endDate": "2026-12-31", "id": "01d18a2b-c850-5536-b65d-b7f242d50eb0"}];
+            try {
+                for (const sp of standardProjects) {
+                    const existing = (this.state.projects || []).find(p => p.projectCode === sp.code || p.code === sp.code);
+                    const targetId = existing ? existing.id : sp.id;
+                    const dbRecord = {
+                        id: targetId,
+                        project_code: sp.code,
+                        project_name: sp.name,
+                        customer: sp.customer,
+                        customer_name: sp.customer,
+                        start_date: sp.startDate,
+                        end_date: sp.endDate,
+                        status: 'In Progress',
+                        lifecycle_status: 'EXECUTION',
+                        deleted_at: null
+                    };
+                    await this.supabase.from('projects').upsert(dbRecord, { onConflict: 'project_code' });
+                }
+            } catch (err) {
+                console.warn('[Standard Projects Upsert Warning]', err);
+            }
+        }
+
 
             const [ { data: consortium }, { data: vrb } ] = await Promise.all([
                 this.supabase.from('consortium_members').select('*'),
