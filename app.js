@@ -28999,16 +28999,25 @@ class AetherPMO {
             return;
         }
 
-        const modal = document.getElementById('modal-salary-template-preview');
-        const nameEl = document.getElementById('prev-template-name');
-        const titleEl = document.getElementById('prev-template-title');
-        const contentEl = document.getElementById('prev-template-content');
+        const modal    = document.getElementById('modal-salary-template-preview');
+        const nameEl   = document.getElementById('salary-template-preview-name');
+        const titleEl  = document.getElementById('salary-template-preview-title');
+        const contentEl = document.getElementById('salary-template-preview-body');
 
-        if (nameEl) nameEl.textContent = `[미리보기] ${target.name}`;
-        if (titleEl) titleEl.textContent = target.title || '';
-        if (contentEl) contentEl.innerHTML = target.content || '<p class="text-muted">본문 내용이 없습니다.</p>';
+        if (nameEl)   nameEl.textContent  = `[미리보기] ${target.name}`;
+        if (titleEl)  titleEl.textContent = target.title || target.name || '';
 
-        this.openModal('modal-salary-template-preview');
+        // HTML 형태로 본문 렌더링
+        if (contentEl) {
+            const rawHtml = target.content || '';
+            if (rawHtml.trim()) {
+                contentEl.innerHTML = rawHtml;
+            } else {
+                contentEl.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:24px 0;">본문 내용이 없습니다.</p>';
+            }
+        }
+
+        if (modal) modal.style.display = 'flex';
     }
 
 
