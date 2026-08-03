@@ -28731,6 +28731,177 @@ class AetherPMO {
         this.duplicateSalaryTemplate(templateId);
     }
 
+
+
+
+    // ── UNIFIED BODY-LEVEL MODAL HELPERS ──────────────────────────────────────
+    openModal(modalId) {
+        console.log('[openModal]', modalId);
+        const modal = document.getElementById(modalId);
+        if (!modal) {
+            this.showToast?.('모달 요소를 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        // Ensure modal is a direct child of document.body to prevent parent clipping/transform bugs
+        if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+
+        modal.classList.add('is-open', 'active');
+        modal.style.display = 'flex';
+        document.body.classList.add('modal-open');
+        if (window.lucide) lucide.createIcons();
+    }
+
+    closeModal(modalId) {
+        console.log('[closeModal]', modalId);
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.remove('is-open', 'active');
+            modal.style.display = 'none';
+        }
+
+        const openModals = document.querySelectorAll('.modal.is-open, .modal.active, .modal-overlay.is-open, .modal-overlay.active');
+        if (openModals.length === 0) {
+            document.body.classList.remove('modal-open');
+        }
+    }
+
+    // ── SALARY SUBTAB SELECTION & RENDERING STYLING ────────────────────────────
+    switchSalarySubTab(tabName) {
+        this.activeSalaryTab = tabName;
+        console.log('[switchSalarySubTab:active-state]', tabName);
+
+        const allSubtabs = document.querySelectorAll('.salary-tab-btn, .salary-subtab');
+        allSubtabs.forEach(tab => {
+            tab.classList.remove('active', 'is-active');
+            tab.setAttribute('aria-selected', 'false');
+        });
+
+        const activeTabs = document.querySelectorAll(
+            `.salary-tab-btn[data-salary-tab="${tabName}"], .salary-tab-btn[data-tab="${tabName}"], .salary-subtab[data-salary-tab="${tabName}"], .salary-subtab[data-tab="${tabName}"]`
+        );
+
+        activeTabs.forEach(activeTab => {
+            activeTab.classList.add('active', 'is-active');
+            activeTab.setAttribute('aria-selected', 'true');
+        });
+
+        const panes = document.querySelectorAll('.salary-tab-pane');
+        panes.forEach(pane => {
+            if (pane.id === `salary-tab-content-${tabName}`) {
+                pane.style.display = 'block';
+            } else {
+                pane.style.display = 'none';
+            }
+        });
+
+        switch (tabName) {
+            case 'target':
+            case 'targets':
+                this.initSalaryTargetTab();
+                this.renderSalaryTargetsTable();
+                break;
+            case 'approvals':
+                this.renderSalaryApprovalsTable();
+                break;
+            case 'templates':
+                this.renderSalaryTemplatesTable();
+                break;
+            case 'history':
+                this.renderSalaryHistoryView();
+                break;
+        }
+
+        if (typeof this.initTableResizers === 'function') {
+            this.initTableResizers('view-salaries');
+        }
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    openSalaryTemplateModal(templateId = null) {
+        console.log('[openSalaryTemplateModal]', templateId);
+        const modal = document.getElementById('modal-salary-template');
+        if (!modal) {
+            this.showToast('품의서 양식 모달을 찾을 수 없습니다.', 'error');
+            return;
+        }
+
+        const label = document.getElementById('salary-template-title-label');
+        const idInput = document.getElementById('salary-template-id');
+        const nameInput = document.getElementById('salary-template-name');
+        const titleInput = document.getElementById('salary-template-title');
+        const contentInput = document.getElementById('salary-template-content');
+        const activeSelect = document.getElementById('salary-template-active');
+        const defaultSelect = document.getElementById('salary-template-default');
+        const memoInput = document.getElementById('salary-template-memo');
+
+        if (templateId) {
+            const templates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+            const target = templates.find(t => t.id === templateId);
+
+            if (!target) {
+                this.showToast('수정할 품의서 양식을 찾을 수 없습니다.', 'warning');
+                return;
+            }
+
+            this.salaryTemplateModalMode = 'edit';
+            this.editingSalaryTemplateId = templateId;
+
+            if (label) label.textContent = '품의서 양식 수정';
+            if (idInput) idInput.value = target.id;
+            if (nameInput) nameInput.value = target.name || '';
+            if (titleInput) titleInput.value = target.title || '';
+            if (contentInput) contentInput.value = target.content || '';
+            if (activeSelect) activeSelect.value = target.isActive !== false ? 'true' : 'false';
+            if (defaultSelect) defaultSelect.value = target.isDefault ? 'true' : 'false';
+            if (memoInput) memoInput.value = target.memo || '';
+        } else {
+            this.salaryTemplateModalMode = 'create';
+            this.editingSalaryTemplateId = null;
+
+            if (label) label.textContent = '신규 품의서 양식 등록';
+            if (idInput) idInput.value = '';
+            if (nameInput) nameInput.value = '';
+            if (titleInput) titleInput.value = '[품의] {YYYY}년 {MM}월 참여인력 급여 지급의 건';
+            if (contentInput) contentInput.value = '<p>1. 귀사의 일일 일신을 기원합니다.</p><p>2. {YYYY}년 {MM}월 참여인력 급여를 다음과 같이 지급하고자 품의합니다.</p>';
+            if (activeSelect) activeSelect.value = 'true';
+            if (defaultSelect) defaultSelect.value = 'false';
+            if (memoInput) memoInput.value = '';
+        }
+
+        this.openModal('modal-salary-template');
+    }
+
+    closeSalaryTemplateModal() {
+        this.closeModal('modal-salary-template');
+    }
+
+    previewSalaryTemplate(templateId) {
+        if (!templateId) return;
+
+        this.state.salaryTemplates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+        const target = this.state.salaryTemplates.find(t => t.id === templateId);
+
+        if (!target) {
+            this.showToast('미리볼 품의서 양식을 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        const modal = document.getElementById('modal-salary-template-preview');
+        const nameEl = document.getElementById('prev-template-name');
+        const titleEl = document.getElementById('prev-template-title');
+        const contentEl = document.getElementById('prev-template-content');
+
+        if (nameEl) nameEl.textContent = `[미리보기] ${target.name}`;
+        if (titleEl) titleEl.textContent = target.title || '';
+        if (contentEl) contentEl.innerHTML = target.content || '<p class="text-muted">본문 내용이 없습니다.</p>';
+
+        this.openModal('modal-salary-template-preview');
+    }
+
 }
 
 
@@ -28818,4 +28989,10 @@ if (typeof window !== 'undefined' && window.app) {
 if (typeof window !== 'undefined' && window.app) {
     window.app.initTableResizers = window.app.initTableResizers ? window.app.initTableResizers.bind(window.app) : function(cid) { if (window.app && typeof window.app.initTableResizers === 'function') window.app.initTableResizers(cid); };
     window.app.duplicateSalaryTemplate = window.app.duplicateSalaryTemplate ? window.app.duplicateSalaryTemplate.bind(window.app) : function(id) { if (window.app && typeof window.app.duplicateSalaryTemplate === 'function') window.app.duplicateSalaryTemplate(id); };
+}
+
+
+if (typeof window !== 'undefined' && window.app) {
+    window.app.openModal = window.app.openModal ? window.app.openModal.bind(window.app) : function(id) { if (window.app && typeof window.app.openModal === 'function') window.app.openModal(id); };
+    window.app.closeModal = window.app.closeModal ? window.app.closeModal.bind(window.app) : function(id) { if (window.app && typeof window.app.closeModal === 'function') window.app.closeModal(id); };
 }

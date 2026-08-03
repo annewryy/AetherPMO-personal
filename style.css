@@ -8744,3 +8744,199 @@ body.dark-mode .badge-status-cancelled {
     visibility: hidden !important;
     opacity: 0 !important;
 }
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SALARY MANAGEMENT SUBTAB BUTTON & ACTIVE STYLING
+   ───────────────────────────────────────────────────────────────────────────── */
+.salary-tab-btn,
+.salary-subtab {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 10px 18px !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    color: var(--text-secondary, #475569) !important;
+    background: #ffffff !important;
+    border: 1px solid var(--border-color, #cbd5e1) !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+.salary-tab-btn svg,
+.salary-tab-btn i,
+.salary-tab-btn .icon,
+.salary-subtab svg,
+.salary-subtab i,
+.salary-subtab .icon {
+    color: var(--text-secondary, #475569) !important;
+    stroke: currentColor !important;
+    fill: none !important;
+    width: 16px !important;
+    height: 16px !important;
+}
+
+.salary-tab-btn.active,
+.salary-tab-btn.is-active,
+.salary-subtab.active,
+.salary-subtab.is-active {
+    background: var(--primary-color, #4f46e5) !important;
+    color: #ffffff !important;
+    border-color: var(--primary-color, #4f46e5) !important;
+    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25) !important;
+}
+
+.salary-tab-btn.active svg,
+.salary-tab-btn.active i,
+.salary-tab-btn.active .icon,
+.salary-tab-btn.is-active svg,
+.salary-tab-btn.is-active i,
+.salary-tab-btn.is-active .icon,
+.salary-subtab.active svg,
+.salary-subtab.active i,
+.salary-subtab.active .icon,
+.salary-subtab.is-active svg,
+.salary-subtab.is-active i,
+.salary-subtab.is-active .icon {
+    color: #ffffff !important;
+    stroke: currentColor !important;
+    fill: none !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   UNIFIED VIEWPORT MODAL OVERLAY & DIALOG CSS (BODY DIRECT CHILD)
+   ───────────────────────────────────────────────────────────────────────────── */
+.modal,
+.modal-overlay {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 24px !important;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.55) !important;
+    backdrop-filter: blur(4px);
+    z-index: 10000 !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+}
+
+.modal.is-open,
+.modal.active,
+.modal-overlay.is-open,
+.modal-overlay.active {
+    display: flex !important;
+}
+
+.modal-content,
+.modal-dialog {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: min(960px, calc(100vw - 48px)) !important;
+    max-width: 960px !important;
+    max-height: calc(100vh - 48px) !important;
+    margin: auto !important;
+    transform: none !important;
+    float: none !important;
+    background: var(--bg-card, #ffffff);
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    box-sizing: border-box !important;
+}
+
+#modal-salary-template-preview .modal-content,
+#salary-template-preview-modal .modal-dialog {
+    width: min(1100px, calc(100vw - 48px)) !important;
+    max-width: 1100px !important;
+}
+
+.modal-body {
+    max-height: calc(100vh - 180px) !important;
+    overflow-y: auto !important;
+}
+
+body.modal-open {
+    overflow: hidden !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   EXACT USER REQUESTED VIEWPORT MODAL OVERLAY & DIALOG CSS
+   ───────────────────────────────────────────────────────────────────────────── */
+.modal,
+.modal-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 24px !important;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.55) !important;
+    backdrop-filter: blur(4px);
+    z-index: 10000 !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+}
+
+.modal.is-open,
+.modal.active,
+.modal-overlay.is-open,
+.modal-overlay.active {
+    display: flex !important;
+}
+
+.modal-dialog,
+.modal-content {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: min(960px, calc(100vw - 48px)) !important;
+    max-width: 960px !important;
+    max-height: calc(100vh - 48px) !important;
+    margin: auto !important;
+    transform: none !important;
+    float: none !important;
+    background: #ffffff !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+}
+
+#modal-salary-template-preview .modal-dialog,
+#modal-salary-template-preview .modal-content,
+#salary-template-preview-modal .modal-dialog,
+#salary-template-preview-modal .modal-content {
+    width: min(1100px, calc(100vw - 48px)) !important;
+    max-width: 1100px !important;
+}
+
+.modal-body {
+    max-height: calc(100vh - 180px) !important;
+    overflow-y: auto !important;
+}
+
+body.modal-open {
+    overflow: hidden !important;
+}
