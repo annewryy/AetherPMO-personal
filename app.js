@@ -28186,9 +28186,9 @@ class AetherPMO {
 
     bindSalaryTemplateEvents() {
         const tbody = document.getElementById('salary-templates-tbody');
-        if (!tbody || tbody.dataset.eventsBound === 'true') return;
+        if (!tbody || tbody.dataset.listenerBound === 'true') return;
 
-        tbody.dataset.eventsBound = 'true';
+        tbody.dataset.listenerBound = 'true';
         tbody.addEventListener('click', (event) => {
             const editBtn = event.target.closest('[data-action="edit-template"]');
             if (editBtn && editBtn.dataset.templateId) {
@@ -28468,6 +28468,269 @@ class AetherPMO {
         this.showToast(`'${target.name}' 양식의 사용 여부가 변경되었습니다.`, 'info');
     }
 
+
+
+
+    // ── TABLE COLUMN RESIZER METHOD ──────────────────────────────────────────
+    initTableResizers(containerId = null) {
+        try {
+            console.log('[initTableResizers] Initializing resizable columns for tables...');
+            const selector = containerId ? `#${containerId} table.excel-grid-table` : 'table.excel-grid-table';
+            const tables = document.querySelectorAll(selector);
+
+            tables.forEach(table => {
+                if (table.dataset.resizersInitialized === 'true') return;
+                table.dataset.resizersInitialized = 'true';
+
+                const headers = table.querySelectorAll('th');
+                headers.forEach(th => {
+                    th.style.position = th.style.position || 'relative';
+                    const grip = document.createElement('div');
+                    grip.className = 'table-resizer-grip';
+                    grip.style.cssText = 'position:absolute; top:0; right:0; width:6px; cursor:col-resize; user-select:none; height:100%; z-index:2;';
+
+                    let startX = 0;
+                    let startWidth = 0;
+
+                    const onMouseMove = (e) => {
+                        const width = Math.max(40, startWidth + (e.pageX - startX));
+                        th.style.width = width + 'px';
+                    };
+
+                    const onMouseUp = () => {
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+                    };
+
+                    grip.addEventListener('mousedown', (e) => {
+                        startX = e.pageX;
+                        startWidth = th.offsetWidth;
+                        document.addEventListener('mousemove', onMouseMove);
+                        document.addEventListener('mouseup', onMouseUp);
+                        e.preventDefault();
+                    });
+
+                    th.appendChild(grip);
+                });
+            });
+        } catch (err) {
+            console.warn('[initTableResizers Safe Catch]', err);
+        }
+    }
+
+    // ── SALARY SUBTAB CLEAN ARCHITECTURE ──────────────────────────────────────
+    switchSalarySubTab(tabName) {
+        this.activeSalaryTab = tabName;
+        console.log('[switchSalarySubTab]', tabName);
+
+        const tabs = document.querySelectorAll('.salary-tab-btn');
+        tabs.forEach(btn => {
+            if (btn.dataset.salaryTab === tabName) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        const panes = document.querySelectorAll('.salary-tab-pane');
+        panes.forEach(pane => {
+            if (pane.id === `salary-tab-content-${tabName}`) {
+                pane.style.display = 'block';
+            } else {
+                pane.style.display = 'none';
+            }
+        });
+
+        switch (tabName) {
+            case 'target':
+            case 'targets':
+                this.initSalaryTargetTab();
+                this.renderSalaryTargetsTable();
+                break;
+            case 'approvals':
+                this.renderSalaryApprovalsTable();
+                break;
+            case 'templates':
+                this.renderSalaryTemplatesTable();
+                break;
+            case 'history':
+                this.renderSalaryHistoryView();
+                break;
+        }
+
+        if (typeof this.initTableResizers === 'function') {
+            this.initTableResizers('view-salaries');
+        }
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    renderSalaryHistoryView() {
+        const tbody = document.getElementById('salary-history-tbody');
+        if (!tbody) return;
+
+        const approvals = Array.isArray(this.state.salaryApprovals) ? this.state.salaryApprovals : [];
+        if (approvals.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center" style="padding:40px; color:var(--text-muted);">등록된 월별 급여 이력이 없습니다.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        let rowNum = 1;
+
+        approvals.forEach(a => {
+            const items = a.items || [];
+            if (items.length === 0) {
+                html += `
+                    <tr style="border-bottom:1px solid var(--border-color);">
+                        <td class="text-center" style="padding:12px;">${rowNum++}</td>
+                        <td class="text-center" style="padding:12px;">${this.escapeHtml(a.paymentMonth || '')}</td>
+                        <td class="text-center" style="padding:12px; font-weight:700;">${this.escapeHtml(a.approvalNo || '')}</td>
+                        <td style="padding:12px;">${this.escapeHtml(a.title || '월급여 지급 품의')}</td>
+                        <td class="text-center" style="padding:12px;">전체 (${a.targetCount || 0}명)</td>
+                        <td class="text-right" style="padding:12px; font-weight:700; color:var(--primary-color);">${(a.totalPayment || 0).toLocaleString()}원</td>
+                        <td class="text-center" style="padding:12px;"><span class="badge badge-success">${this.escapeHtml(a.status || 'SUBMITTED')}</span></td>
+                        <td class="text-center" style="padding:12px;">${a.paymentDueDate || ''}</td>
+                        <td class="text-center" style="padding:12px;"><button class="btn btn-sm btn-outline" onclick="app.exportSalaryHistoryToExcel()">엑셀</button></td>
+                    </tr>
+                `;
+            } else {
+                items.forEach(item => {
+                    html += `
+                        <tr style="border-bottom:1px solid var(--border-color);">
+                            <td class="text-center" style="padding:12px;">${rowNum++}</td>
+                            <td class="text-center" style="padding:12px;">${this.escapeHtml(a.paymentMonth || '')}</td>
+                            <td class="text-center" style="padding:12px; font-weight:700;">${this.escapeHtml(a.approvalNo || '')}</td>
+                            <td style="padding:12px;">${this.escapeHtml(item.memberName || '')} (${this.escapeHtml(item.employmentType || '')})</td>
+                            <td class="text-center" style="padding:12px;">${this.escapeHtml(item.projectName || a.projectId || '-')}</td>
+                            <td class="text-right" style="padding:12px; font-weight:700; color:var(--primary-color);">${(item.totalPayment || 0).toLocaleString()}원</td>
+                            <td class="text-center" style="padding:12px;"><span class="badge badge-success">${this.escapeHtml(a.status || 'SUBMITTED')}</span></td>
+                            <td class="text-center" style="padding:12px;">${a.paymentDueDate || ''}</td>
+                            <td class="text-center" style="padding:12px;"><button class="btn btn-sm btn-outline" onclick="app.exportSalaryHistoryToExcel()">엑셀</button></td>
+                        </tr>
+                    `;
+                });
+            }
+        });
+
+        tbody.innerHTML = html;
+    }
+
+    // ── UNIFIED SALARY TEMPLATES RENDER & DELEGATION ────────────────────────────
+    renderSalaryTemplatesTable() {
+        const tbody = document.getElementById('salary-templates-tbody');
+        if (!tbody) return;
+
+        if (!Array.isArray(this.state.salaryTemplates) || this.state.salaryTemplates.length === 0) {
+            this.state.salaryTemplates = [
+                {
+                    id: 'TMPL-001',
+                    name: '월급여 지급 품의서 (자사화/계약직 표준형)',
+                    title: '[지급품의] {YYYY}년 {MM}월 참여인력 급여 지급의 건',
+                    content: '<p>1. 귀사의 일일 일신을 기원합니다.</p><p>2. {YYYY}년 {MM}월 참여인력 급여를 다음과 같이 지급하고자 품의합니다.</p>',
+                    targetType: '자사화 및 계약직',
+                    isActive: true,
+                    isDefault: true,
+                    memo: '기본 월급여 지급 품의 양식',
+                    updatedAt: '2026-08-01'
+                },
+                {
+                    id: 'TMPL-002',
+                    name: '프로젝트 특별 일할조정 급여 품의서',
+                    title: '[특별품의] {YYYY}년 {MM}월 프로젝트 계약직 일할조정 지급의 건',
+                    content: '<p>1. 프로젝트 계약직 인력의 중도 입퇴사 일할조정 내역을 다음과 같이 품의합니다.</p>',
+                    targetType: '프로젝트 계약직',
+                    isActive: true,
+                    isDefault: false,
+                    memo: '중도 입/퇴사자 일할조정용',
+                    updatedAt: '2026-08-02'
+                }
+            ];
+        }
+
+        const templates = this.state.salaryTemplates;
+        if (templates.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding:40px; color:var(--text-muted);">등록된 품의서 양식이 없습니다. [신규 양식 등록] 버튼을 눌러 양식을 추가하세요.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        templates.forEach((t, index) => {
+            const activeBadge = t.isActive !== false ?
+                `<span class="badge badge-success" style="background:#10B981; color:#fff; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">사용중</span>` :
+                `<span class="badge badge-secondary" style="background:#6B7280; color:#fff; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">중지</span>`;
+
+            const defaultBadge = t.isDefault ?
+                `<span class="badge badge-primary" style="background:#6366F1; color:#fff; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">★ 기본양식</span>` :
+                `<span style="color:var(--text-muted); font-size:12px;">일반</span>`;
+
+            # Render buttons with ONLY data-action attributes and NO inline onclick to avoid double execution
+            html += `
+                <tr style="border-bottom: 1px solid var(--border-color); font-size: 13.5px;">
+                    <td class="text-center" style="padding: 12px 14px; font-weight: 700; border-right: 1px solid var(--border-color);">${index + 1}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--border-color);">
+                        <div style="font-weight: 700; color: var(--text-primary);">${this.escapeHtml(t.name || '')}</div>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">${this.escapeHtml(t.title || '')}</div>
+                    </td>
+                    <td class="text-center" style="padding: 12px 14px; border-right: 1px solid var(--border-color); color: var(--text-muted);">${this.escapeHtml(t.targetType || '전체 인력')}</td>
+                    <td class="text-center" style="padding: 12px 14px; border-right: 1px solid var(--border-color);">${defaultBadge}</td>
+                    <td class="text-center" style="padding: 12px 14px; border-right: 1px solid var(--border-color); font-size: 12px; color: var(--text-muted);">${t.updatedAt || '2026-08-03'}</td>
+                    <td class="text-center" style="padding: 12px 14px;">
+                        <div style="display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-sm btn-outline" data-action="edit-template" data-template-id="${t.id}" title="양식 수정" style="padding:3px 8px; font-size:12px;">수정</button>
+                            <button type="button" class="btn btn-sm btn-outline" data-action="preview-template" data-template-id="${t.id}" title="미리보기" style="padding:3px 8px; font-size:12px;">미리보기</button>
+                            <button type="button" class="btn btn-sm btn-outline" data-action="duplicate-template" data-template-id="${t.id}" title="양식 복제" style="padding:3px 8px; font-size:12px;">복제</button>
+                            ${!t.isDefault ? `<button type="button" class="btn btn-sm btn-outline" data-action="default-template" data-template-id="${t.id}" title="기본 양식으로 지정" style="padding:3px 8px; font-size:12px;">기본지정</button>` : ''}
+                            <button type="button" class="btn btn-sm btn-outline" data-action="delete-template" data-template-id="${t.id}" title="양식 삭제" style="padding:3px 8px; font-size:12px; color:#ef4444; border-color:#fca5a5;">삭제</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        this.bindSalaryTemplateEvents();
+    }
+
+    duplicateSalaryTemplate(templateId) {
+        if (!templateId) return;
+
+        this.state.salaryTemplates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+        const target = this.state.salaryTemplates.find(t => t.id === templateId);
+
+        if (!target) {
+            this.showToast('복제할 품의서 양식을 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        const baseName = target.name.replace(/(\s*-\s*복사본(\s*\(\d+\))?)+$/g, '').trim();
+        let copyName = `${baseName} - 복사본`;
+        let counter = 1;
+
+        while (this.state.salaryTemplates.some(t => t.name === copyName)) {
+            counter++;
+            copyName = `${baseName} - 복사본 (${counter})`;
+        }
+
+        const clonedRecord = {
+            ...target,
+            id: 'TMPL-COPY-' + Date.now(),
+            name: copyName,
+            isDefault: false,
+            updatedAt: new Date().toISOString().slice(0, 10)
+        };
+
+        this.state.salaryTemplates.push(clonedRecord);
+        this.saveState('salary_templates_upsert', clonedRecord);
+
+        this.renderSalaryTemplatesTable();
+        this.showToast(`품의서 양식('${copyName}')이 복제되었습니다.`, 'success');
+    }
+
+    cloneSalaryTemplate(templateId) {
+        this.duplicateSalaryTemplate(templateId);
+    }
+
 }
 
 
@@ -28549,4 +28812,10 @@ if (typeof window !== 'undefined' && window.app) {
     window.app.previewSalaryTemplate = window.app.previewSalaryTemplate.bind(window.app);
     window.app.setDefaultSalaryTemplate = window.app.setDefaultSalaryTemplate.bind(window.app);
     window.app.toggleSalaryTemplateActive = window.app.toggleSalaryTemplateActive.bind(window.app);
+}
+
+
+if (typeof window !== 'undefined' && window.app) {
+    window.app.initTableResizers = window.app.initTableResizers ? window.app.initTableResizers.bind(window.app) : function(cid) { if (window.app && typeof window.app.initTableResizers === 'function') window.app.initTableResizers(cid); };
+    window.app.duplicateSalaryTemplate = window.app.duplicateSalaryTemplate ? window.app.duplicateSalaryTemplate.bind(window.app) : function(id) { if (window.app && typeof window.app.duplicateSalaryTemplate === 'function') window.app.duplicateSalaryTemplate(id); };
 }
