@@ -27842,6 +27842,269 @@ class AetherPMO {
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
+
+
+
+    // ── RESOURCE MODAL & PERSISTENT SAVE ─────────────────────────────────────────
+    openResourceModal(resourceId = null) {
+        console.log('[openResourceModal]', resourceId);
+        const modal = document.getElementById('modal-resource-edit');
+        if (!modal) return;
+
+        const title = document.getElementById('res-modal-title');
+        const idInput = document.getElementById('res-edit-id');
+        const nameInput = document.getElementById('res-edit-name');
+        const typeSelect = document.getElementById('res-edit-employment-type');
+        const deptInput = document.getElementById('res-edit-department');
+        const posInput = document.getElementById('res-edit-position');
+        const phoneInput = document.getElementById('res-edit-phone');
+        const emailInput = document.getElementById('res-edit-email');
+        const startDateInput = document.getElementById('res-edit-start-date');
+        const endDateInput = document.getElementById('res-edit-end-date');
+        const salaryInput = document.getElementById('res-edit-base-salary');
+        const statusSelect = document.getElementById('res-edit-status');
+        const memoInput = document.getElementById('res-edit-memo');
+
+        if (resourceId) {
+            const r = (this.state.resources || []).find(res => res.id === resourceId);
+            if (r) {
+                if (title) title.textContent = '참여인력 정보 수정';
+                if (idInput) idInput.value = r.id;
+                if (nameInput) nameInput.value = r.name || '';
+                if (typeSelect) typeSelect.value = r.employmentType || r.employment_type || 'outsourcing';
+                if (deptInput) deptInput.value = r.department || r.company || '';
+                if (posInput) posInput.value = r.position || r.roleName || '';
+                if (phoneInput) phoneInput.value = r.phone || r.contact || '';
+                if (emailInput) emailInput.value = r.email || '';
+                if (startDateInput) startDateInput.value = r.startDate || r.start_date || '';
+                if (endDateInput) endDateInput.value = r.endDate || r.end_date || '';
+                if (salaryInput) salaryInput.value = r.baseSalary || r.monthlySalary || '';
+                if (statusSelect) statusSelect.value = r.status || (r.isActive !== false ? 'ACTIVE' : 'OFFBOARDED');
+                if (memoInput) memoInput.value = r.memo || r.notes || '';
+            }
+        } else {
+            if (title) title.textContent = '신규 인력 등록';
+            if (idInput) idInput.value = '';
+            if (nameInput) nameInput.value = '';
+            if (typeSelect) typeSelect.value = 'outsourcing';
+            if (deptInput) deptInput.value = '';
+            if (posInput) posInput.value = '';
+            if (phoneInput) phoneInput.value = '';
+            if (emailInput) emailInput.value = '';
+            if (startDateInput) startDateInput.value = '2026-03-01';
+            if (endDateInput) endDateInput.value = '2026-12-31';
+            if (salaryInput) salaryInput.value = '4500000';
+            if (statusSelect) statusSelect.value = 'ACTIVE';
+            if (memoInput) memoInput.value = '';
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    closeResourceModal() {
+        const modal = document.getElementById('modal-resource-edit');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async saveResource() {
+        const idInput = document.getElementById('res-edit-id');
+        const nameInput = document.getElementById('res-edit-name');
+        const typeSelect = document.getElementById('res-edit-employment-type');
+        const deptInput = document.getElementById('res-edit-department');
+        const posInput = document.getElementById('res-edit-position');
+        const phoneInput = document.getElementById('res-edit-phone');
+        const emailInput = document.getElementById('res-edit-email');
+        const startDateInput = document.getElementById('res-edit-start-date');
+        const endDateInput = document.getElementById('res-edit-end-date');
+        const salaryInput = document.getElementById('res-edit-base-salary');
+        const statusSelect = document.getElementById('res-edit-status');
+        const memoInput = document.getElementById('res-edit-memo');
+
+        const nameVal = nameInput ? nameInput.value.trim() : '';
+        const typeVal = typeSelect ? typeSelect.value : 'outsourcing';
+
+        if (!nameVal) {
+            this.showToast('성명을 입력해 주세요.', 'warning');
+            return;
+        }
+
+        const isNew = !idInput || !idInput.value;
+        const resourceId = isNew ? (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'res-' + Date.now()) : idInput.value;
+
+        const stVal = statusSelect ? statusSelect.value : 'ACTIVE';
+        const isAct = stVal === 'ACTIVE' || stVal === 'STANDBY';
+
+        const record = {
+            id: resourceId,
+            name: nameVal,
+            employmentType: typeVal,
+            employment_type: typeVal,
+            department: deptInput ? deptInput.value.trim() : '',
+            company: deptInput ? deptInput.value.trim() : '',
+            position: posInput ? posInput.value.trim() : '',
+            phone: phoneInput ? phoneInput.value.trim() : '',
+            contact: phoneInput ? phoneInput.value.trim() : '',
+            email: emailInput ? emailInput.value.trim() : '',
+            startDate: startDateInput ? startDateInput.value : '',
+            endDate: endDateInput ? endDateInput.value : '',
+            baseSalary: parseInt(salaryInput ? salaryInput.value : 0, 10) || 0,
+            monthlySalary: parseInt(salaryInput ? salaryInput.value : 0, 10) || 0,
+            status: stVal,
+            employment_status: stVal,
+            isActive: isAct,
+            is_active: isAct,
+            memo: memoInput ? memoInput.value.trim() : '',
+            updatedAt: new Date().toISOString()
+        };
+
+        this.state.resources = this.state.resources || [];
+        if (isNew) {
+            this.state.resources.push(record);
+        } else {
+            const idx = this.state.resources.findIndex(r => r.id === resourceId);
+            if (idx !== -1) this.state.resources[idx] = record;
+        }
+
+        // Persist to Supabase DB & LocalStorage across page reloads (F5)
+        await this.saveState('resource_upsert', record);
+        
+        this.closeResourceModal();
+        this.renderResourcesView();
+        this.showToast(`인력 정보('${nameVal}')가 성공적으로 저장되었습니다.`, 'success');
+    }
+
+    // ── EXCEL EXPORT METHODS & DEFENSIVE LOGIC ──────────────────────────────────
+    exportResourcesToExcel() {
+        console.log('[exportResourcesToExcel] Generating participating resources CSV/Excel export...');
+        try {
+            const resources = Array.isArray(this.state.resources) ? this.state.resources : [];
+            const projectMembers = Array.isArray(this.state.projectMembers) ? this.state.projectMembers : [];
+            const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
+
+            if (resources.length === 0) {
+                this.showToast('내보낼 참여인력 데이터가 없습니다.', 'info');
+                return;
+            }
+
+            const headers = ['성명', '인력구분', '소속회사/부서', '연락처', '이메일', '계약기간', '재직상태', '참여 프로젝트', '투입기간', '투입률', '월 계약금액'];
+            const rows = [headers];
+
+            resources.forEach(r => {
+                const assignedMembers = projectMembers.filter(pm => 
+                    (pm.resourceId && pm.resourceId === r.id) ||
+                    (pm.userId && r.userId && pm.userId === r.userId) ||
+                    (pm.name === r.name)
+                );
+
+                let projNames = [];
+                let totalRatio = 0;
+                let minStartDate = r.startDate || '2026-03-01';
+                let maxEndDate = r.endDate || '2026-12-31';
+
+                assignedMembers.forEach(pm => {
+                    const p = projects.find(proj => proj.id === (pm.projectId || pm.project_id));
+                    if (p) projNames.push(p.name);
+                    const ratio = parseFloat(pm.inputRatio || pm.participationRate || 100);
+                    totalRatio += ratio;
+                    if (pm.startDate && pm.startDate < minStartDate) minStartDate = pm.startDate;
+                    if (pm.endDate && pm.endDate > maxEndDate) maxEndDate = pm.endDate;
+                });
+
+                const empTypeLabel = r.employmentType === 'outsourcing' ? '자사화' :
+                    (r.employmentType === 'project_contract' ? '프로젝트 계약직' : (r.employmentType === 'regular' ? '정규직' : '외주/턴키'));
+
+                const statusLabel = r.isActive !== false ? '재직' : '종료';
+
+                rows.push([
+                    `"${r.name || ''}"`,
+                    `"${empTypeLabel}"`,
+                    `"${r.department || r.company || ''}"`,
+                    `"${r.phone || r.contact || ''}"`,
+                    `"${r.email || ''}"`,
+                    `"${r.startDate || ''} ~ ${r.endDate || ''}"`,
+                    `"${statusLabel}"`,
+                    `"${projNames.join(', ') || '미배치'}"`,
+                    `"${assignedMembers.length > 0 ? `${minStartDate} ~ ${maxEndDate}` : '-'}"`,
+                    `"${totalRatio}%"`,
+                    `"${(r.baseSalary || r.monthlySalary || 0).toLocaleString()}원"`
+                ]);
+            });
+
+            const csvContent = "\ufeff" + rows.map(e => e.join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            a.download = `참여인력목록_${dateStr}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            this.showToast('참여인력목록 엑셀(CSV) 파일이 성공적으로 다운로드되었습니다.', 'success');
+        } catch (err) {
+            console.error('[exportResourcesToExcel Error]', err);
+            this.showToast('엑셀 내보내기 중 오류가 발생하였습니다.', 'error');
+        }
+    }
+
+    exportSalaryHistoryToExcel() {
+        console.log('[exportSalaryHistoryToExcel] Generating monthly salary history CSV/Excel export...');
+        try {
+            const approvals = Array.isArray(this.state.salaryApprovals) ? this.state.salaryApprovals : [];
+
+            if (approvals.length === 0) {
+                this.showToast('내보낼 월별 급여 이력 데이터가 없습니다.', 'info');
+                return;
+            }
+
+            const headers = ['귀속년월', '품의번호', '프로젝트명', '프로젝트 코드', '성명', '인력구분', '계약기간', '월 계약금액', '일할조정액', '세전 지급 예정액', '품의상태', '지급예정일'];
+            const rows = [headers];
+
+            approvals.forEach(a => {
+                const items = a.items || [];
+                items.forEach(item => {
+                    rows.push([
+                        `"${a.paymentMonth || ''}"`,
+                        `"${a.approvalNo || ''}"`,
+                        `"${a.projectName || item.projectName || '통합품의'}"`,
+                        `"${a.projectId || ''}"`,
+                        `"${item.memberName || ''}"`,
+                        `"${item.employmentType || ''}"`,
+                        `"${item.startDate || ''} ~ ${item.endDate || ''}"`,
+                        `"${(item.baseSalary || 0).toLocaleString()}원"`,
+                        `"${(item.adjustmentAmount || 0).toLocaleString()}원"`,
+                        `"${(item.totalPayment || 0).toLocaleString()}원"`,
+                        `"${a.status || 'SUBMITTED'}"`,
+                        `"${a.paymentDueDate || ''}"`
+                    ]);
+                });
+            });
+
+            const csvContent = "\ufeff" + rows.map(e => e.join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const dateStr = new Date().toISOString().slice(0, 7).replace('-', '');
+            a.download = `월별급여이력_${dateStr}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            this.showToast('월별 급여 이력 엑셀(CSV) 파일이 성공적으로 다운로드되었습니다.', 'success');
+        } catch (err) {
+            console.error('[exportSalaryHistoryToExcel Error]', err);
+            this.showToast('엑셀 내보내기 중 오류가 발생하였습니다.', 'error');
+        }
+    }
+
+    exportMonthlySalaryToExcel() {
+        this.exportSalaryHistoryToExcel();
+    }
+
 }
 
 
@@ -27888,4 +28151,26 @@ if (typeof document !== 'undefined') {
     } else {
         initApp();
     }
+}
+
+// Ensure Global Window App Instance Bindings & Event Listeners
+if (typeof window !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', () => {
+        const btnResExport = document.getElementById('btn-export-resources');
+        if (btnResExport) {
+            btnResExport.addEventListener('click', () => {
+                if (window.app && typeof window.app.exportResourcesToExcel === 'function') {
+                    window.app.exportResourcesToExcel();
+                }
+            });
+        }
+        const btnSalExport = document.getElementById('btn-export-salaries');
+        if (btnSalExport) {
+            btnSalExport.addEventListener('click', () => {
+                if (window.app && typeof window.app.exportSalaryHistoryToExcel === 'function') {
+                    window.app.exportSalaryHistoryToExcel();
+                }
+            });
+        }
+    });
 }

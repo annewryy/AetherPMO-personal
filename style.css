@@ -8656,15 +8656,7 @@ body.dark-mode .badge-status-cancelled {
 /* ============================================================================
    VIEW-RESOURCES FULL-WIDTH & LAYOUT FIX
    ============================================================================ */
-#view-resources {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    flex: 1 1 auto !important;
-    box-sizing: border-box !important;
-    padding: 24px !important;
-    display: block !important;
-}
+
 
 #view-resources .content-container,
 #view-resources .resource-management-container {
@@ -8701,15 +8693,7 @@ body.dark-mode .badge-status-cancelled {
     box-sizing: border-box !important;
 }
 
-#view-resources {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    flex: 1 1 auto !important;
-    box-sizing: border-box !important;
-    padding: 24px !important;
-    display: block !important;
-}
+
 
 #view-resources > * {
     width: 100% !important;
@@ -8735,4 +8719,28 @@ body.dark-mode .badge-status-cancelled {
 
 .content-view.hidden {
     display: none !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   STRICT VIEW ISOLATION & SEPARATION CSS
+   ───────────────────────────────────────────────────────────────────────────── */
+.content-view {
+    display: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+}
+
+.content-view.active {
+    display: block !important;
+}
+
+.content-view.hidden,
+.content-view:not(.active) {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
 }
