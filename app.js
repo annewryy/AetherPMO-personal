@@ -142,9 +142,9 @@ class AetherPMO {
         this.selectedTemplateIds = new Set(); // 다중 선택 템플릿 ID 보관
         this.prevGlobalTemplateType = null;
         this.prevGlobalTemplateStage = null;
-        
+
         this.projectListViewMode = 'card'; // card | list
-        
+
         // 동적 문서 유형 목록 설정 객체 (사업유형별)
         this.globalTemplateCategories = {
             default: [
@@ -195,7 +195,7 @@ class AetherPMO {
         const supabaseUrl = window.SUPABASE_CONFIG?.url || window.__ENV__?.SUPABASE_URL;
         const supabaseKey = window.SUPABASE_CONFIG?.anonKey || window.__ENV__?.SUPABASE_ANON_KEY;
 
-        const hasSupabaseConfig = supabaseUrl && 
+        const hasSupabaseConfig = supabaseUrl &&
                                   supabaseUrl !== 'YOUR_SUPABASE_PROJECT_URL' &&
                                   supabaseKey &&
                                   supabaseKey !== 'YOUR_SUPABASE_ANON_KEY' &&
@@ -236,10 +236,10 @@ class AetherPMO {
 
     async init() {
         this.setupEventListeners();
-        
+
         // Check authentication state first
         const isAuthenticated = await this.checkAuth();
-        
+
         if (isAuthenticated) {
             await this.loadState();
         } else {
@@ -250,21 +250,21 @@ class AetherPMO {
                 await this.loadState();
             }
         }
-        
+
         await this.handleRouting();
         this.updateCurrentDateDisplay();
-        
+
         this.updateNotifications();
-        
+
         // Reapply dynamic role permissions to newly rendered elements
         this.applyRolePermissions();
-        
+
         // Initialize sidebar mode
         this.initSidebarMode();
-        
+
         // Initialize demo and presentation modes
         this.initDemoAndPresentation();
-        
+
         // Initialise Lucide icons
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -403,9 +403,9 @@ class AetherPMO {
             } else {
                 this.currentUser = parsedSession;
             }
-            
+
             this.state.userRole = (this.currentUser.role === 'SYS_ADMIN') ? 'Admin' : this.currentUser.role;
-            
+
             if (loginSection) loginSection.style.display = 'none';
             if (appSection) appSection.style.display = 'grid';
             if (aiChatWidget) aiChatWidget.style.display = 'block';
@@ -626,7 +626,7 @@ class AetherPMO {
         if (hrMenu) hrMenu.style.display = 'flex';
         const salaryMenu = document.getElementById('nav-wrapper-salaries');
         if (salaryMenu) salaryMenu.style.display = 'flex';
-    
+
         const session = this.currentUser;
         if (!session) return;
 
@@ -705,8 +705,8 @@ class AetherPMO {
             // Disable all inputs except allowed comments/memos fields
             document.querySelectorAll('input, select, textarea').forEach(el => {
                 if (el.id && !el.id.toLowerCase().includes('search') && !el.id.toLowerCase().includes('filter') && el.id !== 'global-search' && !el.className.includes('search')) {
-                    const isAllowedField = el.id === 'project-remarks-input' || 
-                                           el.id === 'issue-review-comment' || 
+                    const isAllowedField = el.id === 'project-remarks-input' ||
+                                           el.id === 'issue-review-comment' ||
                                            el.id === 'action-item-confirm-comment';
                     if (!isAllowedField) {
                         el.disabled = true;
@@ -1182,7 +1182,7 @@ class AetherPMO {
                         updated_at: new Date().toISOString()
                     };
                     if (pa.dbId && this.isUuid(pa.dbId)) paData.id = pa.dbId;
-                    
+
                     const { error } = await this.supabase.from('project_artifacts').upsert(paData, { onConflict: 'project_id, name' });
                     if (error) console.error('[Supabase Sync] project_artifact_upsert error:', error, 'payload:', paData);
                     break;
@@ -2476,10 +2476,10 @@ class AetherPMO {
         this.state.globalTemplates.sort((a, b) => {
             const aOrder = a.displayOrder;
             const bOrder = b.displayOrder;
-            
+
             const hasA = aOrder !== null && aOrder !== undefined && !isNaN(aOrder);
             const hasB = bOrder !== null && bOrder !== undefined && !isNaN(bOrder);
-            
+
             if (hasA && hasB) {
                 if (aOrder !== bOrder) {
                     return aOrder - bOrder;
@@ -2489,7 +2489,7 @@ class AetherPMO {
             } else if (!hasA && hasB) {
                 return 1;  // displayOrder가 있는 b를 앞으로
             }
-            
+
             // 둘 다 없거나 같은 경우 -> name 가나다(오름차순) 정렬
             return (a.name || '').localeCompare(b.name || '', 'ko');
         });
@@ -2497,35 +2497,35 @@ class AetherPMO {
 
     initTemplateRowDragAndDrop() {
         if (!this.checkTemplatePermission()) return;
-        
+
         const tbody = document.getElementById('global-templates-tbody');
         if (!tbody) return;
-        
+
         const rows = tbody.querySelectorAll('tr');
         if (rows.length <= 1) return; // 데이터가 없거나 1개인 경우 동작 제외
-        
+
         let dragSrcEl = null;
-        
+
         rows.forEach(row => {
             const tempId = row.getAttribute('data-id');
             if (!tempId) return; // placeholder 등 방어
-            
+
             row.setAttribute('draggable', 'true');
-            
+
             row.addEventListener('dragstart', (e) => {
                 row.classList.add('dragging');
                 dragSrcEl = row;
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', tempId);
             });
-            
+
             row.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
-                
+
                 const bounding = row.getBoundingClientRect();
                 const offset = e.clientY - bounding.top;
-                
+
                 // 가이드 라인 색상은 보라색(#4338CA) 적용
                 if (offset < bounding.height / 2) {
                     row.style.borderTop = '2px solid #4338CA';
@@ -2535,25 +2535,25 @@ class AetherPMO {
                     row.style.borderBottom = '2px solid #4338CA';
                 }
             });
-            
+
             row.addEventListener('dragleave', () => {
                 row.style.borderTop = '';
                 row.style.borderBottom = '';
             });
-            
+
             row.addEventListener('drop', async (e) => {
                 e.preventDefault();
                 row.style.borderTop = '';
                 row.style.borderBottom = '';
-                
+
                 const targetId = row.getAttribute('data-id');
                 const sourceId = e.dataTransfer.getData('text/plain');
-                
+
                 if (sourceId && targetId && sourceId !== targetId) {
                     await this.reorderTemplates(sourceId, targetId);
                 }
             });
-            
+
             row.addEventListener('dragend', () => {
                 row.classList.remove('dragging');
                 rows.forEach(r => {
@@ -2567,27 +2567,27 @@ class AetherPMO {
     async reorderTemplates(sourceId, targetId) {
         const type = this.activeGlobalTemplateType || 'operation';
         const stage = this.activeGlobalTemplateStage || 'initiation';
-        
+
         // 현재 노출된 템플릿 목록 (필터 적용 및 정렬 기준에 맞춰진 상태)
         const currentTemplates = (this.state.globalTemplates || []).filter(t =>
             t.stage === stage && (t.projectType === type || (!t.projectType && type === 'operation'))
         );
-        
+
         const sourceIndex = currentTemplates.findIndex(t => t.id === sourceId);
         const targetIndex = currentTemplates.findIndex(t => t.id === targetId);
-        
+
         if (sourceIndex === -1 || targetIndex === -1) return;
-        
+
         // 배열 내 순서 이동
         const [moved] = currentTemplates.splice(sourceIndex, 1);
         currentTemplates.splice(targetIndex, 0, moved);
-        
+
         // 순서에 따른 displayOrder 재배정 (1부터 순차적으로 부여)
         const updates = [];
         currentTemplates.forEach((temp, i) => {
             const newOrder = i + 1;
             temp.displayOrder = newOrder;
-            
+
             if (this.useSupabase) {
                 updates.push(
                     this.supabase
@@ -2597,7 +2597,7 @@ class AetherPMO {
                 );
             }
         });
-        
+
         if (updates.length > 0) {
             try {
                 await Promise.all(updates);
@@ -2606,7 +2606,7 @@ class AetherPMO {
                 this.showToast('데이터베이스 순서 저장 실패: ' + err.message, 'error');
             }
         }
-        
+
         this.sortGlobalTemplates();
         this.saveState();
         this.renderArtifacts();
@@ -2615,24 +2615,24 @@ class AetherPMO {
 
     async moveTemplateOrder(id, direction) {
         if (!this.checkTemplatePermission()) return;
-        
+
         const type = this.activeGlobalTemplateType || 'operation';
         const stage = this.activeGlobalTemplateStage || 'initiation';
-        
+
         const currentTemplates = (this.state.globalTemplates || []).filter(t =>
             t.stage === stage && (t.projectType === type || (!t.projectType && type === 'operation'))
         );
-        
+
         const index = currentTemplates.findIndex(t => t.id === id);
         if (index === -1) return;
-        
+
         let targetIndex = -1;
         if (direction === 'up' && index > 0) {
             targetIndex = index - 1;
         } else if (direction === 'down' && index < currentTemplates.length - 1) {
             targetIndex = index + 1;
         }
-        
+
         if (targetIndex !== -1) {
             const targetId = currentTemplates[targetIndex].id;
             await this.reorderTemplates(id, targetId);
@@ -2898,29 +2898,29 @@ class AetherPMO {
                 }
                 stateUpdated = true;
             }
-            if (!p.projectCode) { 
-                p.projectCode = p.id === 'proj-2' ? 'PRJ-2026-001' : `PRJ-2026-${p.id.replace('proj-', '').padStart(3, '0')}`; 
-                stateUpdated = true; 
+            if (!p.projectCode) {
+                p.projectCode = p.id === 'proj-2' ? 'PRJ-2026-001' : `PRJ-2026-${p.id.replace('proj-', '').padStart(3, '0')}`;
+                stateUpdated = true;
             }
-            if (!p.bizType) { 
-                p.bizType = p.id === 'proj-2' ? 'ISP / BPR' : 'SI 구축'; 
-                stateUpdated = true; 
+            if (!p.bizType) {
+                p.bizType = p.id === 'proj-2' ? 'ISP / BPR' : 'SI 구축';
+                stateUpdated = true;
             }
-            if (!p.contractDate) { 
-                p.contractDate = p.startDate || '2026-06-02'; 
-                stateUpdated = true; 
+            if (!p.contractDate) {
+                p.contractDate = p.startDate || '2026-06-02';
+                stateUpdated = true;
             }
-            if (!p.location) { 
-                p.location = p.id === 'proj-2' ? '정부대전청사 특허청' : '정부서울청사'; 
-                stateUpdated = true; 
+            if (!p.location) {
+                p.location = p.id === 'proj-2' ? '정부대전청사 특허청' : '정부서울청사';
+                stateUpdated = true;
             }
-            if (!p.relatedBiz) { 
-                p.relatedBiz = p.id === 'proj-2' ? '차세대 지식재산행정시스템 구축 사업' : '통합 행정 정보 시스템 고도화 사업'; 
-                stateUpdated = true; 
+            if (!p.relatedBiz) {
+                p.relatedBiz = p.id === 'proj-2' ? '차세대 지식재산행정시스템 구축 사업' : '통합 행정 정보 시스템 고도화 사업';
+                stateUpdated = true;
             }
-            if (!p.riskLevel) { 
-                p.riskLevel = p.status === 'Delay' ? '보통' : '낮음'; 
-                stateUpdated = true; 
+            if (!p.riskLevel) {
+                p.riskLevel = p.status === 'Delay' ? '보통' : '낮음';
+                stateUpdated = true;
             }
             if (!p.wbs) {
                 p.wbs = {
@@ -2945,7 +2945,7 @@ class AetherPMO {
                 ];
                 stateUpdated = true;
             }
-            
+
             // Recalculate progress based on weighted WBS stages
             if (p.wbs && p.wbs.stages) {
                 let weightedProgress = 0;
@@ -4061,12 +4061,12 @@ class AetherPMO {
                 const targetView = item.getAttribute('data-nested-view');
                 this.activeProjectStageFilter = 'Bidding';
                 window.location.hash = 'projects/bidding';
-                
+
                 // Highlight corresponding panel after rendering completes
                 setTimeout(() => {
                     this.focusBiddingPanel(targetView);
                 }, 100);
-                
+
                 // Close sidebar on mobile after clicking
                 document.querySelector('.sidebar').classList.remove('open');
             });
@@ -4114,7 +4114,7 @@ class AetherPMO {
                 if (userMenu && !userMenu.contains(e.target) && (!userHeaderInfo || !userHeaderInfo.contains(e.target))) {
                     userMenu.classList.remove('open');
                 }
-                
+
                 const sidebarMenu = document.getElementById('sidebar-user-menu-panel');
                 const sidebarBadge = document.getElementById('sidebar-user-badge');
                 if (sidebarMenu && !sidebarMenu.contains(e.target) && (!sidebarBadge || !sidebarBadge.contains(e.target))) {
@@ -4244,12 +4244,12 @@ class AetherPMO {
             statusSelect.addEventListener('change', (e) => {
                 const isBidding = e.target.value === 'Bidding';
                 bidStatusGroup.style.display = isBidding ? 'block' : 'none';
-                
+
                 const biddingFields = document.getElementById('project-bidding-fields');
                 if (biddingFields) {
                     biddingFields.style.display = isBidding ? 'block' : 'none';
                 }
-                
+
                 if (isBidding) {
                     const codeInput = document.getElementById('project-code');
                     if (codeInput && !codeInput.value) {
@@ -4506,8 +4506,8 @@ class AetherPMO {
             document.getElementById('artifact-search-input').value = query;
             this.renderArtifacts();
         } else if (currentView === 'dashboard') {
-            const filteredProjs = this.state.projects.filter(p => 
-                this.safeText(p.name).includes(lowercaseQuery) || 
+            const filteredProjs = this.state.projects.filter(p =>
+                this.safeText(p.name).includes(lowercaseQuery) ||
                 this.safeText(p.manager).includes(lowercaseQuery) ||
                 this.safeText(p.customer).includes(lowercaseQuery)
             );
@@ -4541,10 +4541,10 @@ class AetherPMO {
                 console.warn('[updateNotifications] Error fetching notifications from Supabase:', e);
             }
         }
-        
+
         // Local fallback for dbNotifications if offline or guest mode
         if (dbNotifs.length === 0 && this.state.dbNotifications && currentUserId) {
-            dbNotifs = (this.state.dbNotifications || []).filter(n => 
+            dbNotifs = (this.state.dbNotifications || []).filter(n =>
                 n.recipient_user_id === currentUserId && !n.is_read
             );
         }
@@ -4604,7 +4604,7 @@ class AetherPMO {
             itemDiv.addEventListener('click', async () => {
                 const notifPanel = document.getElementById('notif-panel');
                 if (notifPanel) notifPanel.classList.remove('open');
-                
+
                 notif.is_read = true;
                 if (this.useSupabase && this.supabase) {
                     try {
@@ -4658,10 +4658,10 @@ class AetherPMO {
             due.setHours(0,0,0,0);
             today.setHours(0,0,0,0);
             const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-            
+
             const itemDiv = document.createElement('div');
             itemDiv.className = 'notif-item';
-            
+
             let statusText = '';
             let bgClass = 'bg-warning-glow';
             let iconColor = 'text-warning';
@@ -5232,7 +5232,7 @@ class AetherPMO {
         if (p.status === 'Delay') {
             score -= 25;
         }
-        
+
         const projIssues = (this.state.issues || []).filter(i => i.projectId === p.id && (i.status === '발생' || i.status === '조치중'));
         projIssues.forEach(issue => {
             if (issue.priority === 'Critical') score -= 15;
@@ -5362,7 +5362,7 @@ class AetherPMO {
             let prob = 45;
             let severity = 'Warning';
             let reason = '디바이스 사양 및 WBS 검수 주기 단축 필요';
-            
+
             if (p.status === 'Delay') {
                 riskTitle = '인프라 장비 및 칩셋 물류 지연';
                 prob = 92;
@@ -5490,7 +5490,7 @@ class AetherPMO {
         const score = this.calculateProjectHealthScore(project);
         const projectNameEl = document.getElementById('drawer-project-name');
         if (projectNameEl) projectNameEl.textContent = project.name;
-        
+
         const scoreBadge = document.getElementById('drawer-health-score-badge');
         if (scoreBadge) {
             scoreBadge.textContent = `${score}점`;
@@ -5509,7 +5509,7 @@ class AetherPMO {
             const xCoords = [30, 130, 230, 330];
             const yCoords = points.map(p => 20 + (100 - p) * 0.8);
             const pathData = `M ${xCoords[0]} ${yCoords[0]} L ${xCoords[1]} ${yCoords[1]} L ${xCoords[2]} ${yCoords[2]} L ${xCoords[3]} ${yCoords[3]}`;
-            
+
             chartWrapper.innerHTML = `
                 <svg viewBox="0 0 360 120" style="width:100%; height:100%; overflow:visible;">
                     <line x1="30" y1="20" x2="330" y2="20" stroke="rgba(255,255,255,0.05)" stroke-dasharray="3,3" />
@@ -5565,7 +5565,7 @@ class AetherPMO {
         const backdropEl = document.getElementById('ai-copilot-drawer-backdrop');
         if (drawerEl) drawerEl.classList.add('open');
         if (backdropEl) backdropEl.classList.add('open');
-        
+
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
@@ -5582,7 +5582,7 @@ class AetherPMO {
         const executeAction = async () => {
             const project = this.state.projects.find(p => p.id === projectId);
             if (!project) return;
-            
+
             if (type === 'engineer') {
                 project.resources = (project.resources || 0) + 1;
                 const newAction = {
@@ -5698,13 +5698,13 @@ class AetherPMO {
 
             let reply = '';
             const lowerText = text.toLowerCase();
-            
+
             const totalProjs = this.state.projects.length;
             const activeProjs = this.state.projects.filter(p => p.status === 'In Progress' || p.status === 'Delay').length;
             const delayedProjs = this.state.projects.filter(p => p.status === 'Delay').length;
             const unresolvedRisks = (this.state.issues || []).filter(i => i.status === '발생' || i.status === '조치중').length;
             const actionItemsLeft = (this.state.actionItems || []).filter(a => a.status !== '완료' && a.status !== 'Completed').length;
-            
+
             if (lowerText.includes('briefing') || lowerText.includes('브리핑') || lowerText.includes('안녕') || lowerText.includes('시작')) {
                 reply = `📊 **전체 프로젝트 현황 분석 리포트**<br><br>
                 현재 관리 중인 총 **${totalProjs}개**의 사업 중 활성화된 프로젝트는 **${activeProjs}개**이며, 이 중 **${delayedProjs}개**의 사업에서 병목에 따른 공식 지연이 감지되었습니다.<br><br>
@@ -5734,20 +5734,20 @@ class AetherPMO {
     appendPortalChatBubble(content, sender) {
         const chatMsgsEl = document.getElementById('portal-chat-messages');
         if (!chatMsgsEl) return;
-        
+
         const row = document.createElement('div');
         row.className = `portal-chat-msg-row ${sender}`;
         row.style.width = '100%';
         row.style.margin = '4px 0';
         row.style.display = 'flex';
         row.style.justifyContent = sender === 'user' ? 'flex-end' : 'flex-start';
-        
+
         const bubble = document.createElement('div');
         bubble.className = 'portal-chat-bubble';
         // 마크다운 렌더링: **bold**, __bold__, - list, * list, \n 처리
         const rendered = this._renderMarkdown(content);
         bubble.innerHTML = rendered;
-        
+
         row.appendChild(bubble);
         chatMsgsEl.appendChild(row);
         chatMsgsEl.scrollTop = chatMsgsEl.scrollHeight;
@@ -5757,29 +5757,29 @@ class AetherPMO {
     _renderMarkdown(text) {
         if (!text) return '';
         let html = String(text);
-        
+
         // <br> 태그를 임시로 개행 문자로 통일하여 줄 단위 정규식 일치율 확보
         html = html.replace(/<br\s*\/?>/gi, '\n');
-        
+
         // **bold** 또는 __bold__
         html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
         html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
-        
+
         // *italic* 또는 _italic_
         html = html.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
         html = html.replace(/_([^_\n]+)_/g, '<em>$1</em>');
-        
+
         // 리스트 아이템: 줄 시작부분에 - 또는 * 가 있는 경우
         html = html.replace(/^\s*[\-\*]\s+(.+)$/gm, '<li style="margin:4px 0 4px 18px; list-style:disc;">$1</li>');
-        
+
         // 연속된 li 그룹들을 하나의 ul로 올바르게 묶기
         html = html.replace(/(<li[^>]*>.*?<\/li>\s*)+/gs, (match) => {
             return `<ul style="margin:8px 0; padding-left:0; list-style:none;">${match.replace(/\r?\n/g, '')}</ul>`;
         });
-        
+
         // 줄바꿈 → <br>
         html = html.trim().replace(/\n/g, '<br>');
-        
+
         // 연속 <br> 방지 및 정리
         html = html.replace(/(<br>){3,}/g, '<br><br>');
         return html;
@@ -5815,8 +5815,8 @@ class AetherPMO {
                 if (p.manager && currentUserName && p.manager === currentUserName) return true;
 
                 // 2. Is member in projectMembers
-                const isMember = (this.state.projectMembers || []).some(m => 
-                    m.projectId === p.id && 
+                const isMember = (this.state.projectMembers || []).some(m =>
+                    m.projectId === p.id &&
                     m.isActive !== false &&
                     (
                         (m.userId && m.userId === currentUserId) ||
@@ -5834,8 +5834,8 @@ class AetherPMO {
         }
 
         if (targetProjects.length === 0) {
-            const emptyMsg = isAdmin 
-                ? '진행 중인 프로젝트가 없습니다.' 
+            const emptyMsg = isAdmin
+                ? '진행 중인 프로젝트가 없습니다.'
                 : '할당된 진행 중인 프로젝트가 없습니다.';
             container.innerHTML = `<div class="empty-state" style="padding:40px 0; text-align:center; color:var(--text-muted); font-size:12px;">${emptyMsg}</div>`;
             return;
@@ -5884,7 +5884,7 @@ class AetherPMO {
         const group = document.getElementById('donut-business-type-segments-group');
         const centerValue = document.getElementById('chart-business-type-center-value');
         const legendContainer = document.getElementById('chart-business-type-legend');
-        
+
         if (!group || !centerValue || !legendContainer) return;
 
         centerValue.textContent = total;
@@ -5907,14 +5907,14 @@ class AetherPMO {
             } else if (bt === 'AI' || bt.includes('AI') || bt.includes('인공지능')) {
                 bt = 'AI';
             }
-            
+
             counts[bt] = (counts[bt] || 0) + 1;
             if (bt !== '미분류') knownCount++;
         });
 
         if (total === 0 || Object.keys(counts).length === 0) {
             group.innerHTML = `
-                <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" 
+                <circle cx="21" cy="21" r="15.91549430918954" fill="transparent"
                         stroke="var(--bg-card-border)" stroke-width="4" stroke-dasharray="100 0" stroke-dashoffset="0"></circle>
             `;
             legendContainer.innerHTML = `
@@ -5962,11 +5962,11 @@ class AetherPMO {
         segments.forEach(seg => {
             const strokeDash = `${seg.pct} ${100 - seg.pct}`;
             const strokeOffset = -accumulatedOffset;
-            
+
             svgHtml += `
-                <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" 
-                        stroke="${seg.color}" stroke-width="4" 
-                        stroke-dasharray="${strokeDash}" 
+                <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent"
+                        stroke="${seg.color}" stroke-width="4"
+                        stroke-dasharray="${strokeDash}"
                         stroke-dashoffset="${strokeOffset}"
                         style="transition: stroke-dashoffset 0.5s ease;">
                 </circle>
@@ -6195,7 +6195,7 @@ class AetherPMO {
         tableBody.innerHTML = '';
         projectsList.forEach(p => {
             const pRisksCount = (this.state.issues || []).filter(i => i.projectId === p.id && i.status !== '완료').length;
-            
+
             const tr = document.createElement('tr');
             tr.style.cursor = 'pointer';
             tr.addEventListener('click', (e) => {
@@ -6235,7 +6235,7 @@ class AetherPMO {
         const group = document.getElementById('donut-segments-group');
         const centerValue = document.getElementById('chart-center-value');
         const legendContainer = document.getElementById('chart-status-legend');
-        
+
         if (!group || !centerValue || !legendContainer) return;
 
         centerValue.textContent = total;
@@ -6250,7 +6250,7 @@ class AetherPMO {
 
         if (total === 0) {
             group.innerHTML = `
-                <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" 
+                <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent"
                         stroke="var(--bg-card-border)" stroke-width="4" stroke-dasharray="100 0" stroke-dashoffset="0"></circle>
             `;
             legendContainer.innerHTML = `
@@ -6275,11 +6275,11 @@ class AetherPMO {
             if (seg.count > 0) {
                 const strokeDash = `${seg.pct} ${100 - seg.pct}`;
                 const strokeOffset = -accumulatedOffset;
-                
+
                 svgHtml += `
-                    <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" 
-                            stroke="${seg.color}" stroke-width="4" 
-                            stroke-dasharray="${strokeDash}" 
+                    <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent"
+                            stroke="${seg.color}" stroke-width="4"
+                            stroke-dasharray="${strokeDash}"
                             stroke-dashoffset="${strokeOffset}"
                             style="transition: stroke-dashoffset 0.5s ease;">
                     </circle>
@@ -6314,21 +6314,21 @@ class AetherPMO {
        ========================================================================== */
     setProjectListViewMode(mode) {
         this.projectListViewMode = mode;
-        
+
         // Update toggle buttons UI active state
         document.querySelectorAll('.view-mode-toggle .view-mode-btn').forEach(btn => {
             btn.classList.remove('active');
             btn.style.background = 'transparent';
             btn.style.color = 'var(--text-muted)';
         });
-        
+
         const activeBtn = document.getElementById(`view-mode-${mode}`);
         if (activeBtn) {
             activeBtn.classList.add('active');
             activeBtn.style.background = 'var(--primary)';
             activeBtn.style.color = 'white';
         }
-        
+
         this.renderProjects();
     }
 
@@ -6399,7 +6399,7 @@ class AetherPMO {
 
     setProjectStageFilter(stage) {
         this.activeProjectStageFilter = stage;
-        
+
         document.querySelectorAll('.project-stage-tab').forEach(tab => {
             tab.classList.remove('active');
             if (tab.getAttribute('data-stage') === stage) {
@@ -6427,7 +6427,7 @@ class AetherPMO {
         const pArtifacts = (this.state.artifacts || []).filter(a => a.projectId === p.id || a.project_id === p.id);
         const approved = pArtifacts.filter(a => a.status === 'Approved').length;
         const review = pArtifacts.filter(a => a.status === 'Under Review').length;
-        
+
         // 실시간 투입인력 수 계산 (isActive !== false인 멤버들의 개수)
         const activeMembersCount = (this.state.projectMembers || []).filter(
             m => (m.projectId === p.id || m.project_id === p.id) && m.isActive !== false
@@ -6435,7 +6435,7 @@ class AetherPMO {
 
         const isList = this.projectListViewMode === 'list';
         const element = document.createElement('div');
-        
+
         if (isList) {
             element.className = 'project-list-row';
             element.setAttribute('style', `
@@ -6451,7 +6451,7 @@ class AetherPMO {
                 gap: 16px;
                 flex-wrap: wrap;
             `);
-            
+
             element.addEventListener('mouseenter', () => {
                 element.style.borderColor = 'var(--primary)';
                 element.style.background = 'var(--bg-hover-item)';
@@ -6476,7 +6476,7 @@ class AetherPMO {
                     <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 4px 0 0 0; letter-spacing: -0.3px;">${p.name || '무제 프로젝트'}</h3>
                     <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; line-height: 1.4;">${p.desc || p.remarks || '설명이 없습니다.'}</p>
                 </div>
-                
+
                 <div style="flex: 1.2; min-width: 180px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted);">
                     <div style="display:flex; justify-content:space-between;">
                         <span>PM: <strong style="color: var(--text-main);">${p.manager || p.pmName || '미정'}</strong></span>
@@ -6525,7 +6525,7 @@ class AetherPMO {
                 </div>
                 <h3 class="project-card-title">${p.name || '무제 프로젝트'}</h3>
                 <p class="project-card-desc">${p.desc || p.remarks || '설명이 없습니다.'}</p>
-                
+
                 <div class="project-card-details">
                     <div class="detail-row">
                         <span>매니저 (PM)</span>
@@ -6577,15 +6577,6 @@ class AetherPMO {
     }
 
     renderProjects() {
-        if (Array.isArray(this.state?.projects)) {
-            const uniqueMap = new Map();
-            this.state.projects.forEach(p => {
-                if (p && p.id) {
-                    uniqueMap.set(p.id, p);
-                }
-            });
-            this.state.projects = Array.from(uniqueMap.values());
-        }
         console.log('[renderProjects:start]', {
             activeProjectStageFilter: this.activeProjectStageFilter,
             totalProjects: this.state?.projects?.length
@@ -6824,8 +6815,8 @@ class AetherPMO {
 
 
     async registerBiddingProjectFromG2B(announcementNo) {
-        const ann = this.g2bAnnouncementsMap[announcementNo] || 
-                    (this.state.g2bOriginalItems || []).find(a => a.announcementNo === announcementNo) || 
+        const ann = this.g2bAnnouncementsMap[announcementNo] ||
+                    (this.state.g2bOriginalItems || []).find(a => a.announcementNo === announcementNo) ||
                     (this.state.g2bAnnouncements || []).find(a => a.announcementNo === announcementNo);
         if (!ann) {
             alert('공고 정보를 찾을 수 없습니다.');
@@ -6833,15 +6824,15 @@ class AetherPMO {
         }
 
         // Check if already exists in projects (using name, code or sourceReferenceNo)
-        const exists = this.state.projects.some(p => 
-            p.projectCode === announcementNo || 
-            p.bidNumber === announcementNo || 
+        const exists = this.state.projects.some(p =>
+            p.projectCode === announcementNo ||
+            p.bidNumber === announcementNo ||
             p.sourceReferenceNo === announcementNo
         );
         if (exists) {
-            const existingProj = this.state.projects.find(p => 
-                p.projectCode === announcementNo || 
-                p.bidNumber === announcementNo || 
+            const existingProj = this.state.projects.find(p =>
+                p.projectCode === announcementNo ||
+                p.bidNumber === announcementNo ||
                 p.sourceReferenceNo === announcementNo
             );
             alert(`이미 등록된 프로젝트입니다. (프로젝트명: ${existingProj.name})`);
@@ -6864,9 +6855,9 @@ class AetherPMO {
         // project_code(내부 프로젝트 코드)와 bid_number(나라장터 공고번호)의 역할 분리
         // 내부 코드가 없다면 자동 생성하여 UNIQUE 제약조건 충족시킴
         const tempProjectCode = this.generateNextProjectCode();
-        
+
         const isPre = ann.announcementType === 'pre';
-        const projectDesc = isPre 
+        const projectDesc = isPre
             ? `${ann.announcementNo} 나라장터 연계 사전규격 검토 프로젝트`
             : `${ann.announcementNo} 나라장터 연계 입찰 참여 프로젝트`;
         const projectStatus = isPre ? 'PRE_REVIEW' : 'Bidding';
@@ -7783,7 +7774,7 @@ class AetherPMO {
         modalDiv.id = 'bid-result-modal';
         modalDiv.className = 'modal';
         modalDiv.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(4px);';
-        
+
         modalDiv.innerHTML = `
             <div class="modal-content" style="width: 100%; max-width: 480px; border-radius: 16px; padding: 24px; background: var(--bg-card); border: 1px solid var(--bg-card-border); box-shadow: var(--shadow-xl); color: var(--text-main);">
                 <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 16px; margin-bottom: 20px;">
@@ -8207,8 +8198,8 @@ class AetherPMO {
         const announcements = this.state.g2bAnnouncements || [];
 
         const filtered = announcements.filter(ann => {
-            const matchSearch = !searchVal || 
-                this.safeText(ann.name).includes(searchVal) || 
+            const matchSearch = !searchVal ||
+                this.safeText(ann.name).includes(searchVal) ||
                 this.safeText(ann.customer).includes(searchVal) ||
                 this.safeText(ann.announcementNo).includes(searchVal);
             return matchSearch;
@@ -8252,9 +8243,9 @@ class AetherPMO {
             }
 
             // Check if already registered (using name, projectCode, or sourceReferenceNo)
-            const isRegistered = this.state.projects.some(p => 
-                p.name === ann.name || 
-                p.projectCode === ann.announcementNo || 
+            const isRegistered = this.state.projects.some(p =>
+                p.name === ann.name ||
+                p.projectCode === ann.announcementNo ||
                 p.sourceReferenceNo === ann.announcementNo
             );
 
@@ -8265,7 +8256,7 @@ class AetherPMO {
                 ? 'background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.35);'
                 : 'background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.35);';
 
-            const actionBtn = isRegistered 
+            const actionBtn = isRegistered
                 ? `<button class="btn btn-xs btn-outline" disabled style="opacity:0.6; cursor:not-allowed; width: 85px; justify-content: center; font-size:11px; padding: 2px 4px;"><i data-lucide="check" style="width:11px; height:11px; margin-right:4px;"></i>완료</button>`
                 : (ann.announcementType === 'pre'
                     ? `<button class="btn btn-xs btn-primary" onclick="app.registerBiddingProjectFromG2B('${ann.announcementNo}')" style="background-color:#8b5cf6; border-color:#8b5cf6; width: 85px; justify-content: center; font-size:11px; padding: 2px 4px;"><i data-lucide="plus" style="width:11px; height:11px; margin-right:4px;"></i>검토</button>`
@@ -8326,15 +8317,15 @@ class AetherPMO {
         this.g2bPageNo = page;
 
         // options에서 인자를 받거나, 대메뉴 필터 엘리먼트에서 획득
-        const bidNtceNm = options.bidNtceNm !== undefined 
-            ? options.bidNtceNm 
+        const bidNtceNm = options.bidNtceNm !== undefined
+            ? options.bidNtceNm
             : (document.getElementById('g2b-filter-title')?.value?.trim() || '');
-            
+
         // 검색어가 1글자인 경우 API 호출 차단 (최소 2글자 제한)
         if (bidNtceNm && bidNtceNm.length === 1) {
             alert('검색어는 최소 2글자 이상 입력해 주세요.');
             this.g2bLoading = false;
-            
+
             const _isBidPanel = options.isBiddingPanel || false;
             const tbody = _isBidPanel
                 ? document.getElementById('g2b-announcements-tbody')
@@ -8363,12 +8354,12 @@ class AetherPMO {
             }
         }
 
-        let bgngDt = options.bgngDt !== undefined 
-            ? options.bgngDt 
+        let bgngDt = options.bgngDt !== undefined
+            ? options.bgngDt
             : (document.getElementById('g2b-filter-start-date')?.value || '');
-            
-        let endDt = options.endDt !== undefined 
-            ? options.endDt 
+
+        let endDt = options.endDt !== undefined
+            ? options.endDt
             : (document.getElementById('g2b-filter-end-date')?.value || '');
 
         // 공고유형: 'pre'(사전규격), 'bid'(본공고), 'all'(전체)
@@ -8392,7 +8383,7 @@ class AetherPMO {
             endDt = formatDate(today);
         }
 
-        const tbody = isBiddingPanel 
+        const tbody = isBiddingPanel
             ? document.getElementById('g2b-announcements-tbody')
             : document.getElementById('g2b-view-announcements-tbody');
 
@@ -8414,20 +8405,20 @@ class AetherPMO {
         if (!isBiddingPanel && bgngDt && endDt) {
             const cleanBgn = bgngDt.replace(/-/g, '').trim();
             const cleanEnd = endDt.replace(/-/g, '').trim();
-            
+
             const sYear = parseInt(cleanBgn.substring(0, 4));
             const sMonth = parseInt(cleanBgn.substring(4, 6)) - 1;
             const sDay = parseInt(cleanBgn.substring(6, 8));
             const eYear = parseInt(cleanEnd.substring(0, 4));
             const eMonth = parseInt(cleanEnd.substring(4, 6)) - 1;
             const eDay = parseInt(cleanEnd.substring(6, 8));
-            
+
             const startDate = new Date(sYear, sMonth, sDay);
             const endDate = new Date(eYear, eMonth, eDay);
-            
+
             const diffTime = endDate.getTime() - startDate.getTime();
             const diffDays = diffTime / (1000 * 60 * 60 * 24);
-            
+
             if (diffDays > 186) {
                 alert('나라장터 공고 검색은 응답 지연 방지를 위해 최대 6개월 이내 기간만 조회할 수 있습니다.');
                 if (tbody) {
@@ -8528,7 +8519,7 @@ class AetherPMO {
                     this.g2bAnnouncementsMap[ann.announcementNo] = ann;
                 }
             });
-            
+
             if (isBiddingPanel) {
                 // 입찰단계 우측 패널 렌더러 호출
                 this.renderG2BAnnouncements();
@@ -8545,9 +8536,9 @@ class AetherPMO {
             console.error('Failed to fetch G2B announcements:', e);
             this.state.g2bOriginalItems = [];
             this.state.g2bFilteredItems = [];
-            
+
             const errDetail = e.message || '공공데이터포털(data.go.kr) 서비스 장애 또는 일시적 네트워크 에러';
-            
+
             if (tbody) {
                 const colspan = isBiddingPanel ? 7 : 9;
                 tbody.innerHTML = `
@@ -8625,9 +8616,9 @@ class AetherPMO {
             }
 
             // Check if already registered (using announcementNo)
-            const isRegistered = this.state.projects.some(p => 
-                p.projectCode === ann.announcementNo || 
-                p.bidNumber === ann.announcementNo || 
+            const isRegistered = this.state.projects.some(p =>
+                p.projectCode === ann.announcementNo ||
+                p.bidNumber === ann.announcementNo ||
                 p.sourceReferenceNo === ann.announcementNo
             );
 
@@ -8672,7 +8663,7 @@ class AetherPMO {
         });
 
         this.applyRolePermissions();
-        
+
         // Render pagination controls (filtered count)
         this.renderG2BPagination(filtered.length, this.g2bPageNo || 1);
 
@@ -8684,11 +8675,11 @@ class AetherPMO {
     renderG2BPagination(totalCount, currentPage) {
         const container = document.getElementById('g2b-pagination-container');
         if (!container) return;
-        
+
         const totalPages = Math.ceil(totalCount / 10) || 1;
         const hasNext = currentPage < totalPages;
         const hasPrev = currentPage > 1;
-        
+
         container.innerHTML = `
             <div style="font-size: 13px; color: var(--text-muted);">
                 총 <span class="font-bold text-primary" style="color:var(--primary); font-weight:700;">${totalCount}</span> 건 검색됨
@@ -8703,7 +8694,7 @@ class AetherPMO {
                 </button>
             </div>
         `;
-        
+
         if (window.lucide) {
             window.lucide.createIcons();
         }
@@ -8824,14 +8815,14 @@ class AetherPMO {
             // Default to last 30 days
             const today = new Date();
             const past = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-            
+
             const formatDate = (d) => {
                 const yyyy = d.getFullYear();
                 const mm = String(d.getMonth() + 1).padStart(2, '0');
                 const dd = String(d.getDate()).padStart(2, '0');
                 return `${yyyy}-${mm}-${dd}`;
             };
-            
+
             startDateInput.value = formatDate(past);
             endDateInput.value = formatDate(today);
         }
@@ -8858,7 +8849,7 @@ class AetherPMO {
         }
     }
 
-    
+
     /* ==========================================================================
        STANDARD TEMPLATES SINGLE SOURCE FILTERING & SEED MERGE MODULE
        ========================================================================== */
@@ -8918,7 +8909,7 @@ class AetherPMO {
         });
 
         console.log(`[mergeStandardTemplateSeeds] Merged ${addedCount} new template seeds. Total: ${this.state.globalTemplates.length}`);
-        
+
         console.table({
             total: (this.state.globalTemplates || []).length,
             operationInitiation: this.getFilteredTemplates('OPERATION', 'INITIATION').length,
@@ -8936,7 +8927,7 @@ class AetherPMO {
     }
 
 
-    
+
     getDefaultNirsTemplates() {
         return [
     {
@@ -12532,7 +12523,7 @@ class AetherPMO {
         }
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
-            list = list.filter(t => 
+            list = list.filter(t =>
                 (t.artifactName && t.artifactName.toLowerCase().includes(q)) ||
                 (t.subStage && t.subStage.toLowerCase().includes(q)) ||
                 (t.authorRole && t.authorRole.toLowerCase().includes(q)) ||
@@ -12542,8 +12533,8 @@ class AetherPMO {
         return list;
     }
 
-    
-    
+
+
     async downloadNirsTemplateFile(templateId) {
         if (this.isDownloadingNirsFile) return;
 
@@ -12701,7 +12692,7 @@ class AetherPMO {
         if (!tbody) return;
 
         const list = this.getFilteredNirsTemplates(categoryFilter, 'all', searchQuery);
-        
+
         let html = '';
         if (list.length === 0) {
             html = `<tr><td colspan="9" class="text-center" style="padding: 40px 0; color: var(--text-muted);">조회된 NIRS 표준 산출물 템플릿이 없습니다.</td></tr>`;
@@ -12711,7 +12702,7 @@ class AetherPMO {
                 const offBadge = item.requiresOfficialLetter ? '<span class="badge badge-warning" style="font-size:11px; padding:2px 6px;">공문</span>' : '<span style="color:var(--text-muted); font-size:11px;">-</span>';
                 const appBadge = item.requiresClientApproval ? '<span class="badge badge-success" style="font-size:11px; padding:2px 6px;">승인</span>' : '<span style="color:var(--text-muted); font-size:11px;">-</span>';
                 const sealBadge = item.requiresSeal ? '<span class="badge badge-danger" style="font-size:11px; padding:2px 6px;">인감</span>' : '<span style="color:var(--text-muted); font-size:11px;">-</span>';
-                
+
                 const categoryBadge = item.category === '사업관리' ? '<span class="badge badge-info">사업관리</span>' :
                                       item.category === '통합구축' ? '<span class="badge badge-purple">통합구축</span>' :
                                       '<span class="badge badge-warning">업무전환</span>';
@@ -12785,8 +12776,8 @@ class AetherPMO {
         if (window.lucide) lucide.createIcons();
     }
 
-    
-    
+
+
     toggleNirsMoreFilters() {
         const row = document.getElementById('nirs-more-filters-row');
         const btn = document.getElementById('btn-nirs-more-filters');
@@ -12799,8 +12790,8 @@ class AetherPMO {
         if (window.lucide) lucide.createIcons();
     }
 
-    
-    
+
+
     getStandardTemplates({ organizationCode = 'NIRS', businessTypeCode = 'RESOURCE_INTEGRATION', categoryCode, stageCode } = {}) {
         const fullDataset = this.state.nirsStandardTemplates || this.getDefaultNirsTemplates();
         return fullDataset.filter(item => {
@@ -12826,10 +12817,10 @@ class AetherPMO {
         this.renderArtifacts();
     }
 
-    
-    
-    
-    
+
+
+
+
         resetStandardArtifactView({ organizationCode = 'NIRS', businessTypeCode = 'RESOURCE_INTEGRATION' } = {}) {
         this.featureFlags = this.featureFlags || { projectCommonTemplates: false, templateFileManagement: false };
         this.activeOrgCode = organizationCode;
@@ -13108,7 +13099,7 @@ class AetherPMO {
 
     renderArtifacts() {
         if (!this.selectedNirsTemplateIds) this.selectedNirsTemplateIds = new Set();
-        
+
         const currentOrg = this.activeOrgCode || 'NIRS';
         const currentBizType = this.activeBizTypeCode || (currentOrg === 'NIRS' ? 'RESOURCE_INTEGRATION' : 'all');
         const catFilter  = this.activeNirsCategory || 'all';
@@ -13118,7 +13109,7 @@ class AetherPMO {
         const appFilter  = this.activeNirsApproval || 'all';
         const sealFilter = this.activeNirsSeal || 'all';
         const query      = (this.nirsSearchQuery || '').toLowerCase();
-        
+
         const pageSize = this.nirsPageSize || 25;
         const currentPage = this.nirsCurrentPage || 1;
         const isAdmin = this.currentUser?.role === 'SYS_ADMIN' || this.currentUser?.role === 'EXEC_ADMIN';
@@ -13536,7 +13527,7 @@ class AetherPMO {
 
         if (breadSub) {
             const bizText = currentBizType === 'OPERATION_MAINTENANCE' ? '운영·유지관리사업' : currentBizType === 'RESOURCE_INTEGRATION' ? '자원통합사업' : '전체 사업유형';
-            
+
             if (catFilter === 'all' && stageFilter === 'all') {
                 breadSub.innerHTML = `
                     <i data-lucide="chevron-right" style="width:14px; height:14px; margin:0 4px; color:var(--text-muted);"></i>
@@ -13824,17 +13815,17 @@ class AetherPMO {
     /* ==========================================================================
        OPMS METHODOLOGY MODULE & CONTROLLER
        ========================================================================== */
-    
+
     /* ==========================================================================
        AETHER PMO BID READINESS CENTER (입찰 준비센터) CLASS METHODS
        ========================================================================== */
 
-    
+
     /* ==========================================================================
        AETHER PMO BIDDING SCHEDULE (제안 Task, WBS, 간트) SINGLE SOURCE MODULE
        ========================================================================== */
 
-    
+
     /* ==========================================================================
        BIDDING TASKS STATUS AUTO-SYNC ON PROPOSAL SUBMISSION MODULE
        ========================================================================== */
@@ -13942,7 +13933,7 @@ class AetherPMO {
         if (task) {
             if (newStatus !== undefined) task.status = newStatus;
             if (newProgress !== undefined) task.progress = Number(newProgress);
-            
+
             try {
                 localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
             } catch(e) {}
@@ -14425,7 +14416,7 @@ class AetherPMO {
                                                 </select>
                                             </td>
                                             <td style="padding:6px 10px; text-align:center;">
-                                                ${hasFile 
+                                                ${hasFile
                                                     ? '<span class="badge badge-info" style="font-size:11px; font-weight:700;">📎 첨부완료</span>'
                                                     : '<span class="badge badge-secondary" style="font-size:11px; font-weight:700;">❌ 미첨부</span>'}
                                             </td>
@@ -14996,7 +14987,7 @@ class AetherPMO {
 
             <!-- Main Split Layout (Left: 63%, Right: 37%) -->
             <div class="methodology-container methodology-content-layout ${isSummaryOpen ? 'summary-open' : 'summary-closed'}">
-                
+
                 <!-- Left Main Body (6-Stage Accordions) -->
                 <div class="methodology-main-body methodology-detail-panel">
         `;
@@ -15465,7 +15456,7 @@ class AetherPMO {
         this.updateProjectsOverdueStatus();
         this.activeProjectId = projectId;
         const project = this.state.projects.find(p => p.id === projectId);
-        
+
         if (!project) {
             alert('해당 프로젝트를 찾을 수 없습니다.');
             window.location.hash = 'projects';
@@ -15569,7 +15560,7 @@ class AetherPMO {
                             </button>
                         </div>
                     </div>
-                    
+
                     <!-- Top KPI Summary Cards -->
                     <div class="detail-kpi-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 16px; border-top:1px solid var(--bg-card-border); padding-top:16px;">
                         <!-- 1. 발주기관 -->
@@ -15632,7 +15623,7 @@ class AetherPMO {
         }
         const artifactsBtn = document.querySelector('#detail-tab-content-artifacts .btn-primary');
         if (artifactsBtn) {
-            artifactsBtn.innerHTML = isBidding 
+            artifactsBtn.innerHTML = isBidding
                 ? `<i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 제안준비서류 등록`
                 : `<i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 산출물 등록`;
         }
@@ -15663,7 +15654,7 @@ class AetherPMO {
 
     renderProjectDetailOverview(project) {
         const isBidding = this.isBiddingProject(project);
-        
+
         // 1. 기본 정보
         const basicFields = document.getElementById('detail-overview-basic-fields');
         if (basicFields) {
@@ -15786,7 +15777,7 @@ class AetherPMO {
         const wbsFields = document.getElementById('detail-overview-wbs-fields');
         const wbsCardTitle = document.getElementById('wbs-card-title');
         const wbsCardLink = document.getElementById('wbs-card-link');
-        
+
         if (isBidding) {
             if (wbsCardTitle) {
                 wbsCardTitle.innerHTML = `<i data-lucide="users" style="width:16px; height:16px; display:inline-block; vertical-align:middle; margin-right:6px; color:var(--success);"></i>담당조직 정보`;
@@ -15857,7 +15848,7 @@ class AetherPMO {
         const resFields = document.getElementById('detail-overview-resources-fields');
         const allMembers = (this.state.projectMembers || []).filter(m => m.projectId === project.id);
         const activeMembers = allMembers.filter(m => m.isActive === true);
-        
+
         if (resFields) {
             const showInactiveChk = document.getElementById('chk-show-inactive-members');
             const showInactive = showInactiveChk ? showInactiveChk.checked : false;
@@ -15880,11 +15871,11 @@ class AetherPMO {
                 resFields.innerHTML = displayMembers.map(res => {
                     const initials = getInitials(res.name);
                     const color = getResourceColor(res.participationRole);
-                    const statusBadge = res.isActive 
-                        ? '' 
+                    const statusBadge = res.isActive
+                        ? ''
                         : ' <span class="badge badge-xs" style="background:var(--bg-card-border); color:var(--text-muted); font-size:9px; padding:0 4px; margin-left:4px;">제외</span>';
                     const deptText = res.department ? ` • ${res.department}` : '';
-                    
+
                     const typeLabel = this.translateEmploymentType(res.employmentType);
                     const typeColorMap = {
                         regular: { bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.3)', text: '#10b981' },
@@ -15912,7 +15903,7 @@ class AetherPMO {
                     `;
                 }).join('');
             }
-            
+
             const countLabel = document.getElementById('detail-resources-count-label');
             if (countLabel) {
                 countLabel.textContent = `현재 투입 ${activeMembers.length}명 (총 ${allMembers.length}명)`;
@@ -15930,7 +15921,7 @@ class AetherPMO {
                 let iconColor = 'var(--text-light)';
                 let labelClass = 'text-muted';
                 let bgGlow = 'rgba(255,255,255,0.05)';
-                
+
                 if (stage.progress === 100) {
                     icon = 'check-circle2';
                     iconColor = 'var(--success)';
@@ -15942,7 +15933,7 @@ class AetherPMO {
                     labelClass = 'text-warning font-bold';
                     bgGlow = 'var(--warning-glow)';
                 }
-                
+
                 return `
                     <div class="timeline-milestone-item" style="display:flex; align-items:flex-start; gap:16px; margin-bottom:16px; position:relative; z-index:2;">
                         <div class="timeline-milestone-icon" style="width:24px; height:24px; border-radius:50%; background:${bgGlow}; border:2px solid ${iconColor}; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-left:8px;">
@@ -15971,9 +15962,9 @@ class AetherPMO {
                     let markerClass = '';
                     if (act.type === 'project') { iconName = 'folder'; markerClass = 'text-primary'; }
                     else if (act.type === 'artifact') { iconName = 'file-text'; markerClass = 'text-info'; }
-                    else if (act.type === 'review') { 
-                        iconName = act.text.includes('승인') ? 'check-circle' : 'x-circle'; 
-                        markerClass = act.text.includes('승인') ? 'text-success' : 'text-danger'; 
+                    else if (act.type === 'review') {
+                        iconName = act.text.includes('승인') ? 'check-circle' : 'x-circle';
+                        markerClass = act.text.includes('승인') ? 'text-success' : 'text-danger';
                     }
                     return `
                         <div style="display:flex; gap:10px; align-items:flex-start; font-size:11px;">
@@ -16093,18 +16084,18 @@ class AetherPMO {
         tbody.innerHTML = '';
         members.forEach(mem => {
             const tr = document.createElement('tr');
-            const statusBadge = mem.isActive !== false 
+            const statusBadge = mem.isActive !== false
                 ? '<span class="status-badge status-resolved">참여중</span>'
                 : '<span class="status-badge status-occurred">제외됨</span>';
-            
+
             const empType = mem.employmentType || mem.employment_type || 'UNKNOWN';
             const empLabel = this.translateEmploymentType(empType);
-            
+
             let empCss = 'employment-unknown';
             if (empType === 'REGULAR_EMPLOYEE' || empType === 'regular') empCss = 'employment-regular';
             else if (empType === 'INSOURCED_CONTRACTOR' || empType === 'outsourcing') empCss = 'employment-insourced';
             else if (empType === 'PROJECT_CONTRACTOR' || empType === 'project_contract') empCss = 'employment-project';
-            
+
             const empBadge = `<span class="employment-badge ${empCss}">${empLabel}</span>`;
 
             tr.innerHTML = `
@@ -16248,7 +16239,7 @@ class AetherPMO {
         const checklists = this.state.checklists.filter(c => c.projectId === this.activeProjectId);
         const container = document.getElementById('project-checklists-tbody');
         const countSpan = document.getElementById('checklist-count-label');
-        
+
         if (!container) return;
 
         if (checklists.length === 0) {
@@ -16278,7 +16269,7 @@ class AetherPMO {
             `;
             container.appendChild(tr);
         });
-        
+
         this.applyRolePermissions();
     }
 
@@ -16286,13 +16277,13 @@ class AetherPMO {
         const idx = this.state.checklists.findIndex(c => c.id === id);
         if (idx !== -1) {
             this.state.checklists[idx].checked = checked;
-            
+
             // Auto recalculate progress rate of project based on checked checklists proportion
             const projectId = this.state.checklists[idx].projectId;
             const projectChecklists = this.state.checklists.filter(c => c.projectId === projectId);
             const total = projectChecklists.length;
             const completed = projectChecklists.filter(c => c.checked).length;
-            
+
             const projIdx = this.state.projects.findIndex(p => p.id === projectId);
             if (projIdx !== -1 && total > 0) {
                 const calculatedProgress = Math.round((completed / total) * 100);
@@ -16350,7 +16341,7 @@ class AetherPMO {
         if (!tbody) return;
 
         const slots = this.state.templateSlots.filter(t => t.projectId === this.activeProjectId && t.stage === this.activeTemplateFolder);
-        
+
         if (slots.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">해당 단계의 산출물 템플릿 정보가 없습니다.</td></tr>';
             return;
@@ -16372,7 +16363,7 @@ class AetherPMO {
             }
 
             const isApproved = slot.fileName ? true : false;
-            const actionBtn = isApproved 
+            const actionBtn = isApproved
                 ? `<button class="btn btn-xs btn-outline" onclick="app.submitTemplateAsArtifact('${slot.id}')"><i data-lucide="send" style="width:10px; height:10px;"></i> 정식 산출물로 제출</button>`
                 : `<button class="btn btn-xs btn-primary" onclick="app.triggerTemplateUpload('${slot.id}')"><i data-lucide="upload" style="width:10px; height:10px;"></i> 템플릿 등록 (업로드)</button>`;
 
@@ -16414,7 +16405,7 @@ class AetherPMO {
                 this.state.templateSlots[slotIndex].fileName = file.name;
                 this.state.templateSlots[slotIndex].fileSize = sizeStr;
                 this.state.templateSlots[slotIndex].createdDate = this.getFormattedDateTime().split(' ')[0];
-                
+
                 this.addActivityLog(this.activeProjectId, null, 'artifact', `산출물 템플릿 파일 [${file.name}]이 등록되었습니다.`);
                 this.saveState();
                 this.renderProjectTemplatesPage();
@@ -16549,7 +16540,7 @@ class AetherPMO {
 
         artifacts.forEach(art => {
             const tr = document.createElement('tr');
-            
+
             const stageLabel = stageNames[art.stageCode] || art.stageCode || 'PRP';
             const stageBadgeClass = stageBadges[art.stageCode] || 'cat-etc';
 
@@ -17025,23 +17016,23 @@ class AetherPMO {
         document.getElementById('project-modal-title').textContent = '신규 사업 등록';
         document.getElementById('project-form').reset();
         document.getElementById('project-id-field').value = '';
-        
+
         // Reset custom dept field
         document.getElementById('project-dept').value = '개발팀';
         document.getElementById('project-dept-custom').style.display = 'none';
         document.getElementById('project-dept-custom').value = '';
-        
+
         const today = new Date();
         const future = new Date();
         future.setMonth(today.getMonth() + 3);
-        
+
         document.getElementById('project-start-date').value = today.toISOString().split('T')[0];
         document.getElementById('project-end-date').value = future.toISOString().split('T')[0];
         document.getElementById('project-inspection-date').value = future.toISOString().split('T')[0];
         document.getElementById('project-progress').value = 0;
         document.getElementById('project-resources').value = 0;
         this.populateProjectManagerSelect(this.currentUser ? (this.currentUser.id || this.currentUser.email) : '');
-        
+
         document.getElementById('project-customer').value = '';
         document.getElementById('project-budget').value = '';
         document.getElementById('project-milestones').value = '';
@@ -17086,7 +17077,7 @@ class AetherPMO {
             document.getElementById(`wbs-progress-${s.id}`).value = 0;
             document.getElementById(`wbs-weight-${s.id}`).value = s.weight;
         });
-        
+
         document.getElementById('project-modal').classList.add('open');
     }
 
@@ -17101,7 +17092,7 @@ class AetherPMO {
         this.setFieldValue('project-id-field', project.id);
         this.setFieldValue('project-name', project.name);
         this.setFieldValue('project-desc', project.desc);
-        
+
         const deptValue = project.dept || '개발팀';
         const defaultDepts = ['개발팀', '기획팀', '디자인팀', '품질관리팀'];
         if (defaultDepts.includes(deptValue)) {
@@ -17113,7 +17104,7 @@ class AetherPMO {
             const deptCustom = document.getElementById('project-dept-custom');
             if (deptCustom) { deptCustom.style.display = 'block'; deptCustom.value = deptValue; }
         }
-        
+
         this.populateProjectManagerSelect(project.managerId || project.manager);
         this.setFieldValue('project-customer', project.customer || project.customerName);
         this.setFieldValue('project-budget', project.budget ? this.formatNumberWithCommas(project.budget) : '');
@@ -17130,7 +17121,7 @@ class AetherPMO {
         this.setFieldValue('project-milestones', project.milestones);
         this.setFieldValue('project-remarks', project.remarks);
         this.setFieldValue('project-code', project.projectCode);
-        
+
         const currBizType = project.businessType || project.business_type || project.bizType || '공공 SI';
         const standardTypes = ['공공 SI', '유지관리', 'ISP', '컨설팅', 'AI'];
         const bizSelect = document.getElementById('project-biz-type-select');
@@ -17153,7 +17144,7 @@ class AetherPMO {
         // Step 2: Set Participation Type & Toggle Conditional Sections
         const partType = project.participationType || project.participation_type || 'PRIME_CONTRACTOR';
         this.setFieldValue('project-participation-type', partType);
-        
+
         // Step 3: Handle Conditional Section Visibility
         this.handleParticipationTypeChange(partType);
 
@@ -17161,7 +17152,7 @@ class AetherPMO {
         this.setFieldValue('project-prime-contractor-name', project.primeContractorName || project.prime_contractor_name);
         this.setFieldValue('project-total-contract-amount', project.totalContractAmount ? this.formatNumberWithCommas(project.totalContractAmount) : '');
         this.setFieldValue('project-company-share-rate', (project.companyShareRate !== undefined && project.companyShareRate !== null) ? project.companyShareRate : '');
-        
+
         const compAmount = project.companyContractAmount || project.company_contract_amount || project.contract_amount || project.budget || 0;
         this.setFieldValue('project-company-contract-amount', compAmount ? this.formatNumberWithCommas(compAmount) : '');
 
@@ -17184,7 +17175,7 @@ class AetherPMO {
         this.setFieldValue('project-bid-number', project.bidNumber);
         this.setFieldValue('project-customer-name', project.customerName);
         this.setFieldValue('project-budget-bidding', project.projectBudget ? this.formatNumberWithCommas(project.projectBudget) : '');
-        
+
         const biddingSelect = document.getElementById('project-business-type');
         const biddingCustom = document.getElementById('project-business-type-custom');
         if (biddingSelect) {
@@ -17217,7 +17208,7 @@ class AetherPMO {
             loadedMembers = (this.state.consortiumMembers || []).filter(c => c.projectId === project.id);
         }
         this.modalConsortiumMembers = JSON.parse(JSON.stringify(loadedMembers || []));
-        
+
         this.checkManualContractAmount();
         this.renderModalConsortiumTable();
 
@@ -17285,11 +17276,16 @@ class AetherPMO {
 
     async saveProjectForm() {
         if (this.isSavingProject) {
-            console.warn('[saveProjectForm] Save operation already in progress. Ignoring duplicate click/submit.');
+            console.warn('[saveProjectForm] 저장 작업이 진행 중입니다. 중복 요청을 무시합니다.');
             return;
         }
+
         this.isSavingProject = true;
+        const saveBtn = document.querySelector('#project-form button[type="submit"]');
+        if (saveBtn) saveBtn.disabled = true;
+
         try {
+
         // Ensure all key state arrays are fully initialized to prevent 'Cannot read properties of undefined' errors
         this.state = this.state || {};
         this.state.projects = this.state.projects || [];
@@ -17305,10 +17301,10 @@ class AetherPMO {
         const id = document.getElementById('project-id-field')?.value || '';
         const name = document.getElementById('project-name')?.value?.trim() || '';
         const desc = document.getElementById('project-desc')?.value?.trim() || '';
-        
+
         const deptSelect = document.getElementById('project-dept')?.value || '';
         const dept = deptSelect === 'custom' ? (document.getElementById('project-dept-custom')?.value?.trim() || '') : deptSelect;
-        
+
         if (deptSelect === 'custom' && !dept) {
             alert('필수값을 먼저 입력해주세요.');
             return;
@@ -17348,7 +17344,7 @@ class AetherPMO {
 
         // Retrieve new fields
         const projectCode = document.getElementById('project-code')?.value?.trim() || '';
-        
+
         const bizSelectVal = document.getElementById('project-biz-type-select')?.value || '';
         const bizCustomVal = document.getElementById('project-biz-type-custom')?.value?.trim() || '';
         const rawBizType = (bizSelectVal === 'custom') ? bizCustomVal : bizSelectVal;
@@ -17514,8 +17510,8 @@ class AetherPMO {
                     }
                 }
 
-                const updatedProject = { 
-                    ...old, 
+                const updatedProject = {
+                    ...old,
                     name, desc, dept, manager, managerId, startDate, endDate,
                     status: targetStatus,
                     project_status: targetStatus,
@@ -17550,7 +17546,7 @@ class AetherPMO {
                         });
                         if (histError) console.error('Error inserting PM history:', histError);
                     }
-                    
+
                     // Main Projects upsert
                     await this.syncDb('project_upsert', updatedProject);
                 }
@@ -17581,7 +17577,7 @@ class AetherPMO {
                     { name: '김철수', role: '수석컨설턴트', type: 'SC' }
                 ];
 
-                const newProject = { 
+                const newProject = {
                     id: newId, name, desc, dept, manager, startDate, endDate, status, bidStatus: status === 'Bidding' ? bidStatus : '', progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
                     projectCode: projectCode || (status === 'Bidding' ? this.generateNextProjectCode() : `PRJ-2026-${String(Date.now()).substring(7)}`),
                     bizType: bizType || 'SI 구축',
@@ -17769,30 +17765,26 @@ class AetherPMO {
                 }
                 this.renderProjects();
             }
-            
+
             // Show Success Notification
             this.showToast(id ? '사업 정보가 성공적으로 수정되었습니다.' : '신규 사업이 성공적으로 등록되었습니다.', 'success');
 
-        } // Ensure state.projects has no duplicate IDs
-            if (Array.isArray(this.state.projects)) {
-                const uniqueMap = new Map();
-                this.state.projects.forEach(p => {
-                    if (p && p.id) {
-                        uniqueMap.set(p.id, p);
-                    }
-                });
-                this.state.projects = Array.from(uniqueMap.values());
-            }
-
-            this.showToast(id ? '사업 정보가 성공적으로 수정되었습니다.' : '신규 사업이 성공적으로 등록되었습니다.', 'success');
         } catch (dbError) {
             console.error('[Project Save Failed]', dbError);
             const errMsg = dbError?.message || dbError?.details || '데이터베이스 저장 중 오류가 발생했습니다.';
-            alert(`프로젝트 저장 실패: ${errMsg}`);
+            alert(`프로젝트 저장 실패: ${errMsg}\n(입력 데이터를 확인하시고 다시 시도해주세요.)`);
+            return;
+        }
+
+        } catch (error) {
+            console.error('[saveProjectForm] 저장 실패:', error);
+            this.showToast?.(
+                error?.message || '프로젝트 저장 중 오류가 발생했습니다.',
+                'error'
+            );
         } finally {
             this.isSavingProject = false;
-        }\n(입력 데이터를 확인하시고 다시 시도해주세요.)`);
-            return;
+            if (saveBtn) saveBtn.disabled = false;
         }
     }
 
@@ -17812,7 +17804,7 @@ class AetherPMO {
                 const arrayBuffer = e.target.result;
                 const text = this.smartDecode(arrayBuffer);
                 const csvLines = this.parseCsv(text);
-                
+
                 if (csvLines.length < 2) {
                     alert('가져올 데이터가 없는 빈 CSV 파일입니다.');
                     return;
@@ -17820,7 +17812,7 @@ class AetherPMO {
 
                 // 1. Map Headers to indices
                 const headers = csvLines[0].map(h => h.trim().toLowerCase());
-                
+
                 const codeIdx = headers.findIndex(h => h.includes('code') || h.includes('코드'));
                 const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('명') || h.includes('이름'));
                 const custIdx = headers.findIndex(h => h.includes('customer') || h.includes('고객') || h.includes('발주처'));
@@ -17860,7 +17852,7 @@ class AetherPMO {
                         const pmVal = pmIdx !== -1 ? (row[pmIdx]?.trim() || '') : '안유경';
                         const startVal = startIdx !== -1 ? (row[startIdx]?.trim() || '') : '';
                         const endVal = endIdx !== -1 ? (row[endIdx]?.trim() || '') : '';
-                        
+
                         let statusVal = statusIdx !== -1 ? (row[statusIdx]?.trim() || '') : 'In Progress';
                         // Convert status text to system standard
                         if (statusVal.includes('수행') || statusVal.toLowerCase().includes('progress') || statusVal.toLowerCase().includes('exec')) {
@@ -17896,9 +17888,9 @@ class AetherPMO {
                             }
                         } else {
                             // Find match based on Name + Customer + StartDate
-                            const match = (this.state.projects || []).find(p => 
-                                p.name === nameVal && 
-                                (p.customer === customerVal || p.customerName === customerVal) && 
+                            const match = (this.state.projects || []).find(p =>
+                                p.name === nameVal &&
+                                (p.customer === customerVal || p.customerName === customerVal) &&
                                 p.startDate === startVal
                             );
                             if (match) {
@@ -17997,7 +17989,7 @@ class AetherPMO {
     smartDecode(arrayBuffer) {
         const decoderUtf8 = new TextDecoder('utf-8', { fatal: true });
         const decoderEucKr = new TextDecoder('euc-kr', { fatal: true });
-        
+
         try {
             // Try decoding as UTF-8 (Strict Mode)
             return decoderUtf8.decode(arrayBuffer);
@@ -18017,11 +18009,11 @@ class AetherPMO {
         const lines = [];
         let row = [""];
         let inQuotes = false;
-        
+
         for (let i = 0; i < text.length; i++) {
             const c = text[i];
             const next = text[i + 1];
-            
+
             if (c === '"') {
                 if (inQuotes && next === '"') {
                     row[row.length - 1] += '"';
@@ -18044,7 +18036,7 @@ class AetherPMO {
         if (row.length > 1 || row[0] !== "") {
             lines.push(row);
         }
-        
+
         // Trim headers and fields to clean up whitespace / Carriage returns
         return lines.map(r => r.map(cell => cell.trim().replace(/^"|"$/g, '')));
     }
@@ -18080,14 +18072,14 @@ class AetherPMO {
         document.getElementById('artifact-modal-title').textContent = '신규 산출물 등록';
         document.getElementById('artifact-form').reset();
         document.getElementById('artifact-id-field').value = '';
-        
+
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 7);
         document.getElementById('artifact-due-date').value = tomorrow.toISOString().split('T')[0];
-        
+
         const projSelect = document.getElementById('artifact-project-select');
         const projWrapper = document.getElementById('artifact-project-selection-wrapper');
-        
+
         projSelect.innerHTML = '';
         this.state.projects.forEach(p => {
             const opt = document.createElement('option');
@@ -18143,10 +18135,10 @@ class AetherPMO {
 
         document.getElementById('artifact-modal-title').textContent = '산출물 정보 수정';
         document.getElementById('artifact-id-field').value = art.id;
-        
+
         const projSelect = document.getElementById('artifact-project-select');
         const projWrapper = document.getElementById('artifact-project-selection-wrapper');
-        
+
         projSelect.innerHTML = '';
         this.state.projects.forEach(p => {
             const opt = document.createElement('option');
@@ -18154,7 +18146,7 @@ class AetherPMO {
             opt.textContent = p.name;
             projSelect.appendChild(opt);
         });
-        
+
         projSelect.value = art.projectId;
         projSelect.disabled = true;
         projWrapper.style.display = 'none';
@@ -18261,7 +18253,7 @@ class AetherPMO {
             const index = this.state.artifacts.findIndex(a => a.id === id);
             if (index !== -1) {
                 const old = this.state.artifacts[index];
-                
+
                 // If status changed to Approved, automatically update matching checklist item
                 if (status === 'Approved' && old.status !== 'Approved') {
                     this.autoCompleteChecklistItem(projectId, category, name);
@@ -18291,20 +18283,20 @@ class AetherPMO {
                     });
                 }
 
-                this.state.artifacts[index] = { 
-                    ...old, 
-                    projectId, 
-                    name, 
-                    category, 
-                    version, 
-                    description, 
-                    author, 
-                    reviewer, 
-                    approver, 
-                    dueDate, 
-                    submitDate: submitDate || (status === 'Approved' ? this.getFormattedDateTime().split(' ')[0] : ''), 
-                    status, 
-                    fileName, 
+                this.state.artifacts[index] = {
+                    ...old,
+                    projectId,
+                    name,
+                    category,
+                    version,
+                    description,
+                    author,
+                    reviewer,
+                    approver,
+                    dueDate,
+                    submitDate: submitDate || (status === 'Approved' ? this.getFormattedDateTime().split(' ')[0] : ''),
+                    status,
+                    fileName,
                     fileSize,
                     history,
                     reviews
@@ -18355,12 +18347,12 @@ class AetherPMO {
         if (chk) {
             chk.checked = true;
             this.addActivityLog(projectId, artifactName, 'review', `[자동 연동] 산출물 승인에 의해 체크리스트 "${chk.title}" 항목이 완료 처리되었습니다.`);
-            
+
             // Re-calculate project progress
             const projectChecklists = this.state.checklists.filter(c => c.projectId === projectId);
             const total = projectChecklists.length;
             const completed = projectChecklists.filter(c => c.checked).length;
-            
+
             const projIdx = this.state.projects.findIndex(p => p.id === projectId);
             if (projIdx !== -1 && total > 0) {
                 this.state.projects[projIdx].progress = Math.round((completed / total) * 100);
@@ -18386,7 +18378,7 @@ class AetherPMO {
 
         this.activeArtifactIdForDetail = art.id;
         const project = this.state.projects.find(p => p.id === art.projectId);
-        
+
         document.getElementById('det-art-name').textContent = art.name;
         document.getElementById('det-art-project').textContent = project ? project.name : '-';
         document.getElementById('det-art-category').textContent = this.translateCategory(art.category);
@@ -18472,7 +18464,7 @@ class AetherPMO {
         const projFilter = document.getElementById('issue-filter-project');
         const statFilter = document.getElementById('issue-filter-status');
         const searchInput = document.getElementById('issue-search-input');
-        
+
         if (!tbody) return;
 
         // Sync projects dropdown options
@@ -18498,8 +18490,8 @@ class AetherPMO {
 
             const matchProj = filterProj === 'all' ? isProjectActive : iss.projectId === filterProj;
             const matchStat = filterStat === 'all' || iss.status === filterStat;
-            const matchQuery = !query || 
-                this.safeText(iss.title).includes(query) || 
+            const matchQuery = !query ||
+                this.safeText(iss.title).includes(query) ||
                 this.safeText(iss.owner).includes(query);
 
             return matchProj && matchStat && matchQuery;
@@ -18551,7 +18543,7 @@ class AetherPMO {
         document.getElementById('issue-modal-title').textContent = '새 이슈/리스크 등록';
         document.getElementById('issue-form').reset();
         document.getElementById('issue-id-field').value = '';
-        
+
         const projSelect = document.getElementById('issue-project-select');
         projSelect.innerHTML = '';
         this.state.projects.forEach(p => {
@@ -18579,7 +18571,7 @@ class AetherPMO {
 
         document.getElementById('issue-modal-title').textContent = '이슈/리스크 정보 수정';
         document.getElementById('issue-id-field').value = iss.id;
-        
+
         const projSelect = document.getElementById('issue-project-select');
         projSelect.innerHTML = '';
         this.state.projects.forEach(p => {
@@ -18629,11 +18621,11 @@ class AetherPMO {
         if (id) {
             const idx = this.state.issues.findIndex(i => i.id === id);
             if (idx !== -1) {
-                this.state.issues[idx] = { 
-                    ...this.state.issues[idx], 
-                    projectId, title, type, priority, owner, status, reportedDate, 
-                    resolvedDate: status === '완료' ? (resolvedDate || this.getFormattedDateTime().split(' ')[0]) : '', 
-                    actionPlan, remarks 
+                this.state.issues[idx] = {
+                    ...this.state.issues[idx],
+                    projectId, title, type, priority, owner, status, reportedDate,
+                    resolvedDate: status === '완료' ? (resolvedDate || this.getFormattedDateTime().split(' ')[0]) : '',
+                    actionPlan, remarks
                 };
                 this.addActivityLog(projectId, title, 'review', `리스크 수정: "${title}" (${status})`);
             }
@@ -18704,7 +18696,7 @@ class AetherPMO {
         const projFilter = document.getElementById('action-filter-project');
         const statFilter = document.getElementById('action-filter-status');
         const searchInput = document.getElementById('action-search-input');
-        
+
         if (!tbody) return;
 
         // Sync projects dropdown options
@@ -18732,12 +18724,12 @@ class AetherPMO {
             const matchProj = filterProj === 'all' ? isProjectActive : actProjectId === filterProj;
             const normStatus = this.normalizeActionItemStatus(act.status);
             const matchStat = filterStat === 'all' || normStatus === filterStat || act.status === filterStat;
-            
+
             const assigneeName = this.getActionItemAssigneeName(act);
             const projName = this.getActionItemProjectName(act);
 
-            const matchQuery = !query || 
-                this.safeText(act.title).toLowerCase().includes(query) || 
+            const matchQuery = !query ||
+                this.safeText(act.title).toLowerCase().includes(query) ||
                 this.safeText(assigneeName).toLowerCase().includes(query) ||
                 this.safeText(projName).toLowerCase().includes(query);
 
@@ -18825,7 +18817,7 @@ class AetherPMO {
         }
 
         // 3. Name match (Single match ONLY to prevent ambiguity)
-        const nameMatches = users.filter(u => 
+        const nameMatches = users.filter(u =>
             String(u.name || u.full_name || u.user_name || '').trim().toLowerCase() === normalized
         );
 
@@ -19085,7 +19077,7 @@ class AetherPMO {
         if (!row) return null;
         const projId = row.project_id || row.projectId || null;
         const assigneeId = this.isUuid(row.assignee_id || row.assigneeId) ? (row.assignee_id || row.assigneeId) : null;
-        
+
         const user = assigneeId
             ? (this.state.users || []).find(u =>
                 String(u.id || '') === String(assigneeId) ||
@@ -19312,7 +19304,7 @@ class AetherPMO {
 
         // Helper: Find matching resource for a user profile
         const findMatchingResource = (u) => {
-            return resourcesList.find(r => 
+            return resourcesList.find(r =>
                 r.isActive !== false && (
                     (r.userId && (r.userId === u.id || r.userId === u.email)) ||
                     (r.email && u.email && r.email.toLowerCase() === u.email.toLowerCase()) ||
@@ -19323,7 +19315,7 @@ class AetherPMO {
 
         // Helper: Find matching user profile for a resource
         const findMatchingUser = (r) => {
-            return usersList.find(u => 
+            return usersList.find(u =>
                 (r.userId && (u.id === r.userId || u.email === r.userId)) ||
                 (r.email && u.email && r.email.toLowerCase() === u.email.toLowerCase()) ||
                 (r.name && u.name && r.name.trim() === u.name.trim())
@@ -19341,7 +19333,7 @@ class AetherPMO {
                 addedKeys.add(dedupeKey);
 
                 const matchedRes = findMatchingResource(u);
-                
+
                 // Formulate merged label: e.g. "안유경 PM (PM · SI사업본부)" or "김철수 (WORKER · 인프라솔루션팀)"
                 let labelParts = [];
                 const roleOrDivision = u.role || u.division;
@@ -19435,8 +19427,8 @@ class AetherPMO {
         // 4. Resolve selected value
         let actualName = selectedOwnerNameOrId || '';
         if (selectedOwnerNameOrId && this.state.users) {
-            const matchedUser = this.state.users.find(u => 
-                u.id === selectedOwnerNameOrId || 
+            const matchedUser = this.state.users.find(u =>
+                u.id === selectedOwnerNameOrId ||
                 u.email === selectedOwnerNameOrId ||
                 u.name === selectedOwnerNameOrId ||
                 u.full_name === selectedOwnerNameOrId ||
@@ -19503,7 +19495,7 @@ class AetherPMO {
         document.getElementById('action-item-modal-title').textContent = '새 Action Item 등록';
         document.getElementById('action-item-form').reset();
         document.getElementById('action-item-id-field').value = '';
-        
+
         const projSelect = document.getElementById('action-item-project-select');
         if (projSelect) {
             projSelect.innerHTML = '';
@@ -19544,7 +19536,7 @@ class AetherPMO {
 
         document.getElementById('action-item-modal-title').textContent = 'Action Item 정보 수정';
         document.getElementById('action-item-id-field').value = act.id;
-        
+
         const projSelect = document.getElementById('action-item-project-select');
         if (projSelect) {
             projSelect.innerHTML = '';
@@ -19559,7 +19551,7 @@ class AetherPMO {
         }
 
         document.getElementById('action-item-title').value = act.title || '';
-        
+
         this.populateActionItemOwnerSelect(act.owner_user_id || act.ownerId || act.owner || act.assignee || '');
 
         // Required Debugging logs (Checkpoint 7):
@@ -19584,7 +19576,7 @@ class AetherPMO {
         const id = document.getElementById('action-item-id-field').value;
         const projectId = document.getElementById('action-item-project-select').value;
         const title = document.getElementById('action-item-title').value.trim();
-        
+
         const ownerSelect = document.getElementById('action-item-owner-select');
         const ownerSelectVal = ownerSelect ? ownerSelect.value : '';
         const customInput = document.getElementById('action-item-owner-custom');
@@ -19706,10 +19698,10 @@ class AetherPMO {
         if (isAccountLinked) {
             const projObj = (this.state.projects || []).find(p => p.id === projectId);
             const projName = projObj ? projObj.name : '';
-            
+
             // Stable deterministic dedup_key without Date.now()
             const dedupKey = `ACTION_ITEM_ASSIGNED:${actObj.id}:${ownerId}`;
-            
+
             const notifObj = {
                 id: this.generateUuid(),
                 recipient_user_id: ownerId,
@@ -19742,7 +19734,7 @@ class AetherPMO {
         } else {
             this.showToast(`Action Item이 저장되었습니다.`, 'success');
         }
-        
+
         await this.refreshActionItemDependencies();
         this.closeActionItemModal();
         this.handleRouting();
@@ -19811,7 +19803,7 @@ class AetherPMO {
         const projFilter = document.getElementById('doc-filter-project');
         const statFilter = document.getElementById('doc-filter-status');
         const searchInput = document.getElementById('doc-search-input');
-        
+
         if (!tbody) return;
 
         // Sync projects dropdown options
@@ -19837,9 +19829,9 @@ class AetherPMO {
 
             const matchProj = filterProj === 'all' ? isProjectActive : doc.projectId === filterProj;
             const matchStat = filterStat === 'all' || doc.approvalStatus === filterStat || doc.status === filterStat;
-            const matchQuery = !query || 
-                this.safeText(doc.title).includes(query) || 
-                this.safeText(doc.docNo).includes(query) || 
+            const matchQuery = !query ||
+                this.safeText(doc.title).includes(query) ||
+                this.safeText(doc.docNo).includes(query) ||
                 this.safeText(doc.receiver).includes(query) ||
                 this.safeText(doc.drafter).includes(query);
 
@@ -20279,7 +20271,7 @@ class AetherPMO {
         const container = document.getElementById('meeting-minutes-list');
         const projFilter = document.getElementById('meet-filter-project');
         const searchInput = document.getElementById('meet-search-input');
-        
+
         if (!container) return;
 
         // Sync projects dropdown options
@@ -20310,11 +20302,11 @@ class AetherPMO {
 
             const matchProj = filterProj === 'all' ? isProjectActive : meet.projectId === filterProj;
 
-            const matchQuery = !query || 
+            const matchQuery = !query ||
 
-                this.safeText(meet.title).includes(query) || 
+                this.safeText(meet.title).includes(query) ||
 
-                this.safeText(meet.agenda).includes(query) || 
+                this.safeText(meet.agenda).includes(query) ||
 
                 this.safeText(meet.location).includes(query);
 
@@ -20445,7 +20437,7 @@ class AetherPMO {
 
         document.getElementById('meeting-minutes-modal-title').textContent = '회의록 정보 수정';
         document.getElementById('meeting-minutes-id-field').value = meet.id;
-        
+
         const projSelect = document.getElementById('meeting-minutes-project-select');
         projSelect.innerHTML = '';
         this.state.projects.forEach(p => {
@@ -20491,9 +20483,9 @@ class AetherPMO {
         if (id) {
             const idx = this.state.meetingMinutes.findIndex(m => m.id === id);
             if (idx !== -1) {
-                this.state.meetingMinutes[idx] = { 
-                    ...this.state.meetingMinutes[idx], 
-                    projectId, title, meetDate, location, attendees, agenda, decisions, remarks 
+                this.state.meetingMinutes[idx] = {
+                    ...this.state.meetingMinutes[idx],
+                    projectId, title, meetDate, location, attendees, agenda, decisions, remarks
                 };
                 this.addActivityLog(projectId, title, 'review', `회의록 수정: "${title}"`);
             }
@@ -20550,7 +20542,7 @@ class AetherPMO {
        ========================================================================== */
     setBoardCategoryFilter(category) {
         this.activeBoardCategoryFilter = category;
-        
+
         // Update tab buttons active state
         document.querySelectorAll('#view-board .project-stage-tab').forEach(tab => {
             if (tab.getAttribute('data-board-category') === category) {
@@ -20559,7 +20551,7 @@ class AetherPMO {
                 tab.classList.remove('active');
             }
         });
-        
+
         this.renderBoardView();
     }
 
@@ -20687,7 +20679,7 @@ class AetherPMO {
         document.getElementById('board-post-category').value = post.category;
         document.getElementById('board-post-title').value = post.title;
         document.getElementById('board-post-content').value = post.content;
-        
+
         this.editingBoardPostId = id;
         document.getElementById('board-form-modal').classList.add('open');
     }
@@ -20748,7 +20740,7 @@ class AetherPMO {
         if (confirm('이 문의글을 정말 삭제하시겠습니까? 관련 답변 및 댓글도 함께 삭제됩니다.')) {
             this.state.boardPosts = this.state.boardPosts.filter(p => p.id !== id);
             this.state.boardReplies = this.state.boardReplies.filter(r => r.postId !== id);
-            
+
             this.saveState('board_post_delete', id);
             this.renderBoardView();
         }
@@ -21126,12 +21118,12 @@ class AetherPMO {
     setUserRole(role) {
         this.state.userRole = role;
         this.saveState();
-        
+
         const avatar = document.getElementById('user-role-avatar');
         if (avatar) {
             avatar.textContent = role === 'Admin' ? 'AD' : 'PM';
         }
-        
+
         const hash = window.location.hash.substring(1) || 'dashboard';
         const mainRoute = hash.split('/')[0];
         if (mainRoute === 'artifacts') {
@@ -21158,7 +21150,7 @@ class AetherPMO {
             if (dropZone) dropZone.classList.remove('has-file');
             return;
         }
-        
+
         const allowedExts = ['docx', 'xlsx', 'pptx', 'pdf', 'hwp', 'hwpx'];
         const fileExt = file.name.split('.').pop().toLowerCase();
         if (!allowedExts.includes(fileExt)) {
@@ -21274,7 +21266,7 @@ class AetherPMO {
             // ⑤ 다운로드 성공 시 download_count를 +1 증가시킵니다.
             const newCount = (temp.downloadCount || 0) + 1;
             temp.downloadCount = newCount;
-            
+
             // DB 비동기 업데이트
             try {
                 const { error: dbErr } = await supabase
@@ -21557,7 +21549,7 @@ class AetherPMO {
         document.getElementById('global-template-modal-title').textContent = '표준 템플릿 양식 등록';
         document.getElementById('global-template-form').reset();
         document.getElementById('global-template-id-field').value = '';
-        
+
         const projectType = this.activeGlobalTemplateType || 'operation';
         document.getElementById('global-template-type').value = projectType;
         document.getElementById('global-template-stage').value = this.activeGlobalTemplateStage || 'initiation';
@@ -21606,13 +21598,13 @@ class AetherPMO {
         const projectType = temp.projectType || 'operation';
         document.getElementById('global-template-type').value = projectType;
         document.getElementById('global-template-stage').value = temp.stage;
-        
+
         this.updateTemplateCategorySelect(projectType, temp.category);
-        
+
         const categories = this.getTemplateCategories(projectType);
         const isStandard = categories.some(cat => cat.value === temp.category);
         const customInput = document.getElementById('global-template-custom-category');
-        
+
         if (!isStandard || temp.category === 'Custom') {
             document.getElementById('global-template-category').value = 'Custom';
             this.handleTemplateCategoryChange();
@@ -21731,14 +21723,14 @@ class AetherPMO {
             }
 
             const authorName = this.currentUser ? (this.currentUser.name || this.currentUser.email.split('@')[0]) : '시스템';
-            
+
             let nextOrder = null;
             if (id) {
                 const oldTemp = this.state.globalTemplates.find(t => t.id === id);
                 nextOrder = oldTemp && oldTemp.displayOrder !== undefined ? oldTemp.displayOrder : null;
             } else {
                 // 신규 등록 시 동일 stage, projectType 내의 최대 displayOrder + 1
-                const stageTemplates = (this.state.globalTemplates || []).filter(t => 
+                const stageTemplates = (this.state.globalTemplates || []).filter(t =>
                     t.stage === stage && t.projectType === projectType
                 );
                 let maxOrder = 0;
@@ -21795,9 +21787,9 @@ class AetherPMO {
                 if (index !== -1) {
                     const oldTemp = this.state.globalTemplates[index];
                     this.state.globalTemplates[index] = {
-                        id, name, stage, projectType, category, version, 
-                        fileName: finalFileName, fileSize: finalFileSize, 
-                        filePath: dbData.file_path, mimeType: dbData.mime_type, 
+                        id, name, stage, projectType, category, version,
+                        fileName: finalFileName, fileSize: finalFileSize,
+                        filePath: dbData.file_path, mimeType: dbData.mime_type,
                         author: authorName,
                         downloadCount: oldTemp ? (oldTemp.downloadCount || 0) : 0,
                         modifiedDate,
@@ -21828,9 +21820,9 @@ class AetherPMO {
                     this.state.globalTemplates = [];
                 }
                 this.state.globalTemplates.push({
-                    id: newId, name, stage, projectType, category, version, 
-                    fileName: finalFileName, fileSize: finalFileSize, 
-                    filePath: dbData.file_path, mimeType: dbData.mime_type, 
+                    id: newId, name, stage, projectType, category, version,
+                    fileName: finalFileName, fileSize: finalFileSize,
+                    filePath: dbData.file_path, mimeType: dbData.mime_type,
                     author: authorName,
                     downloadCount: 0,
                     modifiedDate,
@@ -21919,7 +21911,7 @@ class AetherPMO {
                 const modal = document.getElementById('pdf-preview-modal');
                 const iframe = document.getElementById('pdf-preview-iframe');
                 const title = document.getElementById('pdf-preview-modal-title');
-                
+
                 if (title) title.textContent = `PDF 미리보기 - ${temp.name}`;
                 if (iframe) iframe.src = data.signedUrl;
                 if (modal) modal.classList.add('active');
@@ -21942,7 +21934,7 @@ class AetherPMO {
     initTemplateDragAndDrop() {
         const dropZone = document.getElementById('template-drop-zone');
         const fileInput = document.getElementById('global-template-file-input');
-        
+
         if (!dropZone || !fileInput) return;
 
         // 기존 리스너 중복 방지를 위해 이벤트 리스너 재설정
@@ -21988,7 +21980,7 @@ class AetherPMO {
 
         select.innerHTML = '';
         const categories = this.getTemplateCategories(projectType);
-        
+
         let hasSelected = false;
         if (selectedValue) {
             hasSelected = categories.some(cat => cat.value === selectedValue);
@@ -22020,7 +22012,7 @@ class AetherPMO {
         const select = document.getElementById('global-template-category');
         const customGroup = document.getElementById('global-template-custom-category-group');
         const customInput = document.getElementById('global-template-custom-category');
-        
+
         if (!select || !customGroup) return;
 
         if (select.value === 'Custom') {
@@ -22300,7 +22292,7 @@ class AetherPMO {
             // Close notification panel if open
             const notifPanel = document.getElementById('notif-panel');
             if (notifPanel) notifPanel.classList.remove('open');
-            
+
             // Close sidebar user menu if open
             const sidebarMenu = document.getElementById('sidebar-user-menu-panel');
             if (sidebarMenu) sidebarMenu.classList.remove('open');
@@ -22315,7 +22307,7 @@ class AetherPMO {
             // Close notification panel if open
             const notifPanel = document.getElementById('notif-panel');
             if (notifPanel) notifPanel.classList.remove('open');
-            
+
             // Close header menu if open
             const headerMenu = document.getElementById('user-menu-panel');
             if (headerMenu) headerMenu.classList.remove('open');
@@ -22332,7 +22324,7 @@ class AetherPMO {
         const updateAvatar = (el) => {
             if (!el) return;
             el.innerHTML = '';
-            
+
             // Clean classes but keep avatar
             el.className = 'avatar';
             el.classList.add(`role-${user.role}`);
@@ -22440,7 +22432,7 @@ class AetherPMO {
 
         // Trigger preview refresh
         this.updateProfileModalPreview();
-        
+
         // Re-trigger Lucide icons in modal if any
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -22568,7 +22560,7 @@ class AetherPMO {
         user.profileImage = this.tempProfileImage;
         user.avatarType = this.tempAvatarType;
         user.profileColor = this.tempProfileColor;
-        
+
         // Derive initials
         user.initials = nameVal.substring(0, 2);
 
@@ -22593,7 +22585,7 @@ class AetherPMO {
                 role: user.role,
                 name: user.name
             }));
-            
+
             // Re-render auth and layout components
             this.checkAuth();
         }
@@ -22613,14 +22605,14 @@ class AetherPMO {
         if (!tbody) return;
 
         tbody.innerHTML = '';
-        
+
         if (!this.state.users) {
             this.state.users = this.getDefaultUsers();
         }
 
         this.state.users.forEach(u => {
             const tr = document.createElement('tr');
-            
+
             // Generate avatar preview markup
             let avatarContent = '';
             if (u.avatarType === 'image' && u.profileImage) {
@@ -23483,7 +23475,7 @@ class AetherPMO {
             console.error('[Sidebar Mode Toggle] Menu or button element not found in DOM!');
             return;
         }
-        
+
         const isOpen = menu.style.display === 'block';
         if (isOpen) {
             menu.style.display = 'none';
@@ -23553,7 +23545,7 @@ class AetherPMO {
             const el = document.getElementById(`smi-${m}`);
             if (el) el.classList.toggle('active', m === mode);
         });
-        
+
         // Update mode button icon
         const btn = document.getElementById('sidebar-mode-btn');
         if (btn) {
@@ -23615,14 +23607,14 @@ class AetherPMO {
             const enterHandler = (e) => {
                 const appContainer = document.getElementById('app-section');
                 if (!appContainer || !appContainer.classList.contains('sidebar-compact')) return;
-                
+
                 // Do not show flyout if sidebar is hovered-expanded in autohide mode
                 const sidebar = document.querySelector('.sidebar');
                 if (sidebar && sidebar.classList.contains('expanded')) return;
 
                 const rect = navLink.getBoundingClientRect();
                 const items = submenu.querySelectorAll('.submenu-item');
-                
+
                 // Construct flyout HTML
                 flyout.innerHTML = `
                     <div class="compact-flyout-header">${navLink.querySelector('span')?.textContent || ''}</div>
@@ -23633,7 +23625,7 @@ class AetherPMO {
                         return `<a href="${href}" class="compact-flyout-item ${activeClass}" onclick="document.getElementById('compact-flyout').classList.remove('visible')">${label}</a>`;
                     }).join('')}
                 `;
-                
+
                 // Position flyout
                 flyout.style.top = `${rect.top}px`;
                 flyout.style.left = `${rect.right + 12}px`; /* 12px offset */
@@ -23679,7 +23671,7 @@ class AetherPMO {
         if (userMenu && userMenu.classList.contains('open')) {
             return true;
         }
-        
+
         return false;
     }
 
@@ -23692,9 +23684,9 @@ class AetherPMO {
         }
         if (project.status === 'Bidding') return true;
         const biddingStatuses = [
-            '제안준비중', '제안 준비중', 
-            '제안제출', '제안 제출', 
-            '결과대기', '결과 대기', 
+            '제안준비중', '제안 준비중',
+            '제안제출', '제안 제출',
+            '결과대기', '결과 대기',
             '수주', '실패'
         ];
         return biddingStatuses.includes(project.status) || biddingStatuses.includes(project.bidStatus);
@@ -23841,7 +23833,7 @@ class AetherPMO {
         const m = project.consortiumMembers[idx];
         document.getElementById('consortium-modal-title').textContent = '컨소시엄 구성원 수정';
         document.getElementById('consortium-id-field').value = idx;
-        
+
         document.getElementById('consortium-company-name').value = m.companyName;
         document.getElementById('consortium-role').value = m.role;
         document.getElementById('consortium-share-rate').value = m.shareRate;
@@ -24059,7 +24051,7 @@ class AetherPMO {
     onMemberUserSelectChange() {
         const userSelect = document.getElementById('member-user-select');
         const selectedOption = userSelect.options[userSelect.selectedIndex];
-        
+
         if (selectedOption && selectedOption.value) {
             const userId = selectedOption.value;
             const user = this.state.users.find(u => (u.id === userId || u.email === userId));
@@ -24158,15 +24150,15 @@ class AetherPMO {
 
         container.innerHTML = members.map(m => {
             const roleBadgeClass = m.isActive ? 'status-badge status-bidding' : 'status-badge status-onhold';
-            const activeStatusText = m.isActive 
-                ? '<span class="status-badge status-completed" style="font-size:10px; padding:2px 6px;">투입중</span>' 
+            const activeStatusText = m.isActive
+                ? '<span class="status-badge status-completed" style="font-size:10px; padding:2px 6px;">투입중</span>'
                 : '<span class="status-badge status-onhold" style="font-size:10px; padding:2px 6px;">제외됨</span>';
 
             // Buttons based on role permissions
             let actionButtons = '';
             if (hasWriteAccess) {
                 actionButtons += `<button type="button" class="btn btn-xs btn-outline" onclick="app.editMemberClick('${m.id}')" style="padding:1px 6px; font-size:10px; height:auto; min-height:auto;">수정</button>`;
-                
+
                 if (m.isActive) {
                     actionButtons += `<button type="button" class="btn btn-xs btn-outline btn-warning" onclick="app.deactivateMemberClick('${m.id}')" style="padding:1px 6px; font-size:10px; height:auto; min-height:auto; margin-left:4px;">제외</button>`;
                 } else {
@@ -24179,7 +24171,7 @@ class AetherPMO {
             }
 
             const deptInfo = [m.department, m.position].filter(Boolean).join(' / ') || '소속 미지정';
-            const durationText = (m.startDate || m.endDate) 
+            const durationText = (m.startDate || m.endDate)
                 ? `${m.startDate || ''} ~ ${m.endDate || ''}`
                 : '기간 미지정';
 
@@ -24276,8 +24268,8 @@ class AetherPMO {
             existingRes = (this.state.resources || []).find(r => r.userId === userId);
         }
         if (!existingRes) {
-            existingRes = (this.state.resources || []).find(r => 
-                this.safeText(r.name) === this.safeText(name) && 
+            existingRes = (this.state.resources || []).find(r =>
+                this.safeText(r.name) === this.safeText(name) &&
                 r.employmentType === employmentType
             );
         }
@@ -24346,7 +24338,7 @@ class AetherPMO {
             project.managerId = userId;
             project.manager = name;
             const changedBy = this.currentUser ? this.currentUser.id : null;
-            
+
             // Insert manager change history locally
             if (!this.state.projectManagerHistory) this.state.projectManagerHistory = [];
             const historyObj = {
@@ -24359,7 +24351,7 @@ class AetherPMO {
                 reason: '참여인력 관리에서 PM 지정'
             };
             this.state.projectManagerHistory.push(historyObj);
-            
+
             this.saveState('project_upsert', project);
             if (this.useSupabase) {
                 await this.supabase.from('project_manager_history').insert({
@@ -24377,7 +24369,7 @@ class AetherPMO {
         alert(isNew ? '참여 인력이 추가되었습니다.' : '참여 인력 정보가 수정되었습니다.');
         this.resetMemberForm();
         this.renderMembersModalList();
-        
+
         // Refresh project detail view
         const currentHash = window.location.hash.substring(1) || 'dashboard';
         if (currentHash.startsWith('project-detail/')) {
@@ -24398,7 +24390,7 @@ class AetherPMO {
             member.isActive = false;
             await this.saveState('member_upsert', member);
             this.renderMembersModalList();
-            
+
             const currentHash = window.location.hash.substring(1) || 'dashboard';
             if (currentHash.startsWith('project-detail/')) {
                 this.renderProjectDetail(this.activeProjectId);
@@ -24414,7 +24406,7 @@ class AetherPMO {
         member.isActive = true;
         this.saveState('member_upsert', member);
         this.renderMembersModalList();
-        
+
         const currentHash = window.location.hash.substring(1) || 'dashboard';
         if (currentHash.startsWith('project-detail/')) {
             this.renderProjectDetail(this.activeProjectId);
@@ -24430,7 +24422,7 @@ class AetherPMO {
             this.state.projectMembers = this.state.projectMembers.filter(m => m.id !== id);
             this.saveState('member_delete', id);
             this.renderMembersModalList();
-            
+
             const currentHash = window.location.hash.substring(1) || 'dashboard';
             if (currentHash.startsWith('project-detail/')) {
                 this.renderProjectDetail(this.activeProjectId);
@@ -24590,10 +24582,10 @@ class AetherPMO {
         console.log('[SaaS Demo] Initializing presentation controls...');
         const watermark = document.getElementById('demo-watermark');
         if (watermark) watermark.style.display = 'none';
-        
+
         const tourConsole = document.getElementById('presentation-tour-console');
         if (tourConsole) tourConsole.classList.remove('active');
-        
+
         window.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') {
                 e.preventDefault();
@@ -24610,15 +24602,15 @@ class AetherPMO {
         const toggleBtn = document.getElementById('demo-mode-toggle-btn');
         const icon = document.getElementById('demo-mode-icon');
         const label = document.getElementById('demo-mode-label');
-        
+
         if (!this.demoMode) {
             this.demoMode = true;
             this._savedUseSupabase = this.useSupabase;
             this.useSupabase = false;
             this._savedState = JSON.parse(JSON.stringify(this.state));
-            
+
             this.loadDemoDatabase();
-            
+
             if (toggleBtn) toggleBtn.classList.add('active');
             if (icon) {
                 icon.setAttribute('data-lucide', 'sparkles');
@@ -24632,14 +24624,14 @@ class AetherPMO {
         } else {
             this.demoMode = false;
             this.useSupabase = this._savedUseSupabase;
-            
+
             if (this._savedState) {
                 this.state = this._savedState;
                 this._savedState = null;
             } else {
                 this.loadState();
             }
-            
+
             if (toggleBtn) toggleBtn.classList.remove('active');
             if (icon) {
                 icon.setAttribute('data-lucide', 'play');
@@ -24651,14 +24643,14 @@ class AetherPMO {
             }
             this.showToast('데모 모드가 비활성화되었습니다. (실제 데이터 복구 완료)', 'info');
         }
-        
+
         if (window.lucide) window.lucide.createIcons();
         this.handleRouting();
     }
 
     loadDemoDatabase() {
         console.log('[SaaS Demo] Populating high-fidelity demo database...');
-        
+
         const projects = [
             {
                 id: 'proj-1',
@@ -24933,7 +24925,7 @@ class AetherPMO {
             const statusVal = (i % 3 === 0) ? 'Completed' : ((i % 3 === 1) ? 'In Progress' : 'Pending');
             const priorityVal = (i % 4 === 0) ? 'Critical' : ((i % 4 === 1) ? 'High' : ((i % 4 === 2) ? 'Medium' : 'Low'));
             const dateOffset = i * 2;
-            
+
             actionItems.push({
                 id: `act-${i}`,
                 projectId: proj.id,
@@ -24960,11 +24952,11 @@ class AetherPMO {
                 const category = artCategories[catIdx];
                 const stage = artStages[(a - 1) % artStages.length];
                 const ext = artExtensions[(pIdx + a) % artExtensions.length];
-                
+
                 const artId = `art-${artIdCounter++}`;
                 let fileName = '';
                 let title = '';
-                
+
                 switch(category) {
                     case 'Requirements':
                         title = `${proj.name} - 요구사항 정의서 v1.${a}`;
@@ -25007,7 +24999,7 @@ class AetherPMO {
                 }
 
                 const fileSizes = ['1.2 MB', '4.5 MB', '15.8 MB', '8.9 MB', '24.1 MB'];
-                
+
                 artifacts.push({
                     id: artId,
                     projectId: proj.id,
@@ -25086,15 +25078,15 @@ class AetherPMO {
         const body = document.body;
         const tourConsole = document.getElementById('presentation-tour-console');
         const watermark = document.getElementById('demo-watermark');
-        
+
         if (!this.presentationMode) {
             this.presentationMode = true;
             body.classList.add('presentation-mode-active');
             if (tourConsole) tourConsole.classList.add('active');
             if (watermark) watermark.style.display = 'block';
-            
+
             this.setSidebarMode('compact');
-            
+
             this.tourStep = 1;
             this.applyTourStep();
             this.showToast('발표 모드가 시작되었습니다. 하단 콘솔의 시나리오 가이드를 확인하세요.', 'success');
@@ -25103,7 +25095,7 @@ class AetherPMO {
             body.classList.remove('presentation-mode-active');
             if (tourConsole) tourConsole.classList.remove('active');
             if (watermark) watermark.style.display = 'none';
-            
+
             this.setSidebarMode('expanded');
             this.showToast('발표 모드가 종료되었습니다.', 'info');
         }
@@ -25112,7 +25104,7 @@ class AetherPMO {
     setSidebarMode(mode) {
         const smiCompact = document.getElementById('smi-compact');
         const smiExpanded = document.getElementById('smi-expanded');
-        
+
         if (mode === 'compact' && smiCompact) {
             smiCompact.click();
         } else if (mode === 'expanded' && smiExpanded) {
@@ -25140,11 +25132,11 @@ class AetherPMO {
         const stepTitle = document.getElementById('tour-step-title');
         const stepDesc = document.getElementById('tour-step-description');
         const stepIndicator = document.getElementById('tour-step-indicator');
-        
+
         if (!stepTitle || !stepDesc || !stepIndicator) return;
-        
+
         stepIndicator.textContent = `${this.tourStep} / 4`;
-        
+
         const chatPanel = document.getElementById('ai-chat-panel');
         if (chatPanel && this.tourStep !== 4) {
             chatPanel.classList.remove('open');
@@ -25170,7 +25162,7 @@ class AetherPMO {
             case 4:
                 stepTitle.textContent = "4단계: AI 어시스턴트 협업 및 지능형 회의록 분석";
                 stepDesc.textContent = "발표 멘트: 마지막으로 AI 협업 기능입니다. 우측 하단의 AI 어시스턴트 챗봇을 통해 자연어로 현황 파악이 가능하며, 회의록 상세 창에서 클릭 한번으로 생성된 AI 요약을 기반으로 핵심 Action Item을 표준 DB에 즉시 등록 및 전파합니다.";
-                
+
                 setTimeout(() => {
                     if (this.tourStep === 4) {
                         const panel = document.getElementById('ai-chat-panel');
@@ -25188,7 +25180,7 @@ class AetherPMO {
     toggleAIChat() {
         const panel = document.getElementById('ai-chat-panel');
         if (!panel) return;
-        
+
         if (!this.aiChatOpen) {
             panel.classList.add('open');
             this.aiChatOpen = true;
@@ -25206,21 +25198,21 @@ class AetherPMO {
     sendAIMessage() {
         const input = document.getElementById('ai-chat-input');
         if (!input || !input.value.trim()) return;
-        
+
         const query = input.value.trim();
         this.addUserMessage(query);
         input.value = '';
-        
+
         this.generateAIResponse(query);
     }
 
     addUserMessage(text) {
         const container = document.getElementById('ai-chat-messages');
         if (!container) return;
-        
+
         const presets = document.getElementById('ai-presets-container');
         if (presets) presets.remove();
-        
+
         const msgDiv = document.createElement('div');
         msgDiv.className = 'ai-message user';
         msgDiv.textContent = text;
@@ -25231,7 +25223,7 @@ class AetherPMO {
     addBotMessage(text) {
         const container = document.getElementById('ai-chat-messages');
         if (!container) return;
-        
+
         const msgDiv = document.createElement('div');
         msgDiv.className = 'ai-message bot';
         msgDiv.innerHTML = this._renderMarkdown(text);
@@ -25242,7 +25234,7 @@ class AetherPMO {
     showTypingIndicator() {
         const container = document.getElementById('ai-chat-messages');
         if (!container) return null;
-        
+
         const indicator = document.createElement('div');
         indicator.className = 'ai-message bot typing-indicator';
         indicator.id = 'ai-typing-indicator';
@@ -25254,23 +25246,23 @@ class AetherPMO {
 
     generateAIResponse(query) {
         const indicator = this.showTypingIndicator();
-        
+
         setTimeout(() => {
             if (indicator) indicator.remove();
-            
+
             let response = '';
             const projects = this.state.projects || [];
             const issues = this.state.issues || [];
             const actionItems = this.state.actionItems || [];
-            
+
             const activeProjectsCount = projects.filter(p => p.status !== 'Completed').length;
             const completedCount = projects.filter(p => p.status === 'Completed').length;
             const delayedProjects = projects.filter(p => p.status === 'Delay');
-            
+
             if (query.includes('현황 요약') || query.includes('프로젝트 현황')) {
                 const totalProgress = projects.reduce((sum, p) => sum + p.progress, 0);
                 const avgProgress = projects.length > 0 ? (totalProgress / projects.length).toFixed(1) : 0;
-                
+
                 response = `📊 **전사 프로젝트 현황 요약 분석**\n\n` +
                            `현재 총 **${projects.length}개**의 프로젝트가 등록되어 있습니다.\n` +
                            `- **수행 중 (미완료)**: ${activeProjectsCount}개\n` +
@@ -25309,9 +25301,9 @@ class AetherPMO {
                            `현재 데모 모드 인메모리 엔진이 활성화되어 있으며, 총 **${projects.length}개** 프로젝트 및 **${issues.length}개** 리스크 이슈의 컨텍스트를 실시간 학습하고 있습니다.\n\n` +
                            `추가로 지원해 드릴 업무가 있으시면 말씀해 주세요.`;
             }
-            
+
             this.addBotMessage(response);
-            
+
             const container = document.getElementById('ai-chat-messages');
             if (container) {
                 const presetsDiv = document.createElement('div');
@@ -25331,12 +25323,12 @@ class AetherPMO {
     aiSummarizeMeetingMinutes() {
         const container = document.getElementById('meet-ai-summary-container');
         const btn = document.getElementById('btn-ai-summarize-minutes');
-        
+
         if (!container) return;
-        
+
         if (btn) btn.disabled = true;
         container.style.display = 'block';
-        
+
         // Render dynamic loading screen
         container.innerHTML = `
             <div id="ai-summary-loading" class="ai-summary-loading" style="display:flex; align-items:center; gap:10px; padding:20px; background:rgba(67, 56, 202, 0.05); border:1px dashed var(--primary); border-radius:8px; justify-content:center; color:var(--primary); font-weight:500;">
@@ -25344,7 +25336,7 @@ class AetherPMO {
                 <span>AI 요약 분석 보고서 생성 중...</span>
             </div>
         `;
-        
+
         setTimeout(() => {
             // Render AI Summary Report Card
             container.innerHTML = `
@@ -25378,7 +25370,7 @@ class AetherPMO {
                     </div>
                 </div>
             `;
-            
+
             if (btn) btn.disabled = false;
             if (window.lucide) window.lucide.createIcons();
             this.showToast('AI 요약 보고서 및 추천 Action Item이 정상 생성되었습니다.', 'success');
@@ -25389,7 +25381,7 @@ class AetherPMO {
         const projectId = this.activeProjectId || 'proj-1';
         const projects = this.state.projects || [];
         const activeProj = projects.find(p => p.id === projectId) || projects[0] || { name: '차세대 스마트홈 IoT 플랫폼 구축', id: 'proj-1' };
-        
+
         const itemsToRegister = [
             {
                 id: 'ai-act-' + this.generateUuid().substring(0, 8),
@@ -25428,15 +25420,15 @@ class AetherPMO {
                 completedDate: null
             }
         ];
-        
+
         for (const item of itemsToRegister) {
             this.state.actionItems.unshift(item);
             await this.saveState('action_upsert', item);
         }
-        
+
         this.showToast('추천 Action Item 3건이 프로젝트에 즉시 등록 및 동기화되었습니다.', 'success');
         this.handleRouting();
-        
+
         const detailModal = document.getElementById('meeting-minutes-detail-modal');
         if (detailModal) detailModal.classList.remove('open');
     }
@@ -25631,7 +25623,7 @@ class AetherPMO {
             const projectDisplay = project ? (project.projectCode ? `[${project.projectCode}] ${project.name}` : project.name) : '-';
 
             if (isEditing) {
-                const projOptions = (this.state.projects || []).map(p => 
+                const projOptions = (this.state.projects || []).map(p =>
                     `<option value="${p.id}" ${p.id === c.projectId ? 'selected' : ''}>${p.projectCode ? `[${p.projectCode}] ` : ''}${p.name}</option>`
                 ).join('');
 
@@ -25703,8 +25695,8 @@ class AetherPMO {
                     </tr>
                 `;
             } else {
-                const statusBadge = c.status === 'active' 
-                    ? '<span class="status-badge status-inprogress" style="padding:2px 6px; font-size:11px;">진행중</span>' 
+                const statusBadge = c.status === 'active'
+                    ? '<span class="status-badge status-inprogress" style="padding:2px 6px; font-size:11px;">진행중</span>'
                     : (c.status === 'completed' ? '<span class="status-badge status-completed" style="padding:2px 6px; font-size:11px;">완료</span>' : '<span class="status-badge" style="background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; font-size:11px;">대기</span>');
 
                 let typeBadge = '';
@@ -25851,7 +25843,7 @@ class AetherPMO {
         }
 
         if (keyword) {
-            list = list.filter(s => 
+            list = list.filter(s =>
                 (s.employeeName || '').toLowerCase().includes(keyword) ||
                 (s.department || '').toLowerCase().includes(keyword)
             );
@@ -25932,8 +25924,8 @@ class AetherPMO {
                 const badgeStyle = typeColorMap[s.employmentType || 'regular'] || typeColorMap.regular;
                 const typeBadge = `<span class="badge" style="background:${badgeStyle.bg}; color:${badgeStyle.text}; border:1px solid ${badgeStyle.border}; font-size:12px; padding:2px 8px; border-radius:4px; font-weight:700;">${typeLabel}</span>`;
 
-                const statusBadge = s.status === 'paid' 
-                    ? '<span class="status-badge status-completed" style="padding:2px 6px; font-size:11px;">지급완료</span>' 
+                const statusBadge = s.status === 'paid'
+                    ? '<span class="status-badge status-completed" style="padding:2px 6px; font-size:11px;">지급완료</span>'
                     : (s.status === 'pending' ? '<span class="status-badge status-inprogress" style="padding:2px 6px; font-size:11px;">결재대기</span>' : '<span class="status-badge" style="background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; font-size:11px;">미지급</span>');
 
                 html += `
@@ -27192,7 +27184,7 @@ class AetherPMO {
         const [y, m] = targetMonth.split('-').map(Number);
         const lastDay = this.getLastDayOfMonth(targetMonth);
         const deadlineStr = `${y}-${String(m).padStart(2, '0')}-20`;
-        
+
         return {
             targetMonth,
             deadlineStr,
@@ -27314,7 +27306,7 @@ class AetherPMO {
 
         let html = '';
         filtered.forEach((r, idx) => {
-            const assignedMembers = projectMembers.filter(pm => 
+            const assignedMembers = projectMembers.filter(pm =>
                 (pm.resourceId && pm.resourceId === r.id) ||
                 (pm.userId && r.userId && pm.userId === r.userId) ||
                 (pm.name === r.name)
@@ -27366,8 +27358,8 @@ class AetherPMO {
             else typeBadge = `<span class="badge badge-secondary">${r.employmentType || '기타'}</span>`;
 
             const isOffboarded = r.isActive === false || String(r.status || '').toUpperCase() === 'OFFBOARDED';
-            const statusBadge = isOffboarded ? 
-                '<span class="badge badge-secondary">종료</span>' : 
+            const statusBadge = isOffboarded ?
+                '<span class="badge badge-secondary">종료</span>' :
                 (assignedMembers.length > 0 ? '<span class="badge badge-success">투입중</span>' : '<span class="badge badge-warning">대기</span>');
 
             const salaryVal = (r.baseSalary || r.monthlySalary || r.payRate || 0).toLocaleString();
@@ -27449,7 +27441,7 @@ class AetherPMO {
         const salaryEl = document.getElementById('res-detail-salary');
         if (salaryEl) salaryEl.textContent = `${(r.baseSalary || r.monthlySalary || 0).toLocaleString()}원 (세전월지급액)`;
 
-        const assigned = projectMembers.filter(pm => 
+        const assigned = projectMembers.filter(pm =>
             (pm.resourceId && pm.resourceId === r.id) ||
             (pm.userId && r.userId && pm.userId === r.userId) ||
             (pm.name === r.name)
@@ -27611,7 +27603,7 @@ class AetherPMO {
 
             if (!isInsourced && !isContractor) return;
 
-            const assignedMembers = projectMembers.filter(pm => 
+            const assignedMembers = projectMembers.filter(pm =>
                 (pm.resourceId && pm.resourceId === r.id) ||
                 (pm.userId && r.userId && pm.userId === r.userId) ||
                 (pm.name === r.name)
@@ -27696,7 +27688,7 @@ class AetherPMO {
 
         let html = '';
         targets.forEach((t, idx) => {
-            const empBadge = t.employmentType === '자사화' ? 
+            const empBadge = t.employmentType === '자사화' ?
                 '<span class="badge badge-indigo">자사화</span>' : '<span class="badge badge-teal">프로젝트 계약직</span>';
 
             const midMonthBadge = t.isMidMonth ?
@@ -27769,10 +27761,10 @@ class AetherPMO {
 
         const sched = this.calculateSalaryScheduleInfo(monthVal);
         const existingApprovals = this.state.salaryApprovals || [];
-        
+
         const activeDuplicate = existingApprovals.find(a =>
-            a.paymentMonth === monthVal && 
-            (projId ? a.projectId === projId : (!a.projectId || a.projectId === 'ALL')) && 
+            a.paymentMonth === monthVal &&
+            (projId ? a.projectId === projId : (!a.projectId || a.projectId === 'ALL')) &&
             a.status !== 'CANCELLED'
         );
 
@@ -27782,7 +27774,7 @@ class AetherPMO {
         }
 
         const project = (this.state.projects || []).find(p => p.id === projId) || { name: '전체 프로젝트 통합' };
-        
+
         const seq = String(existingApprovals.length + 1).padStart(3, '0');
         const approvalNo = `SPA-${monthVal.replace('-', '')}-${seq}`;
         const title = `[급여] ${project.name} ${monthVal} 월급여 지급 품의서`;
@@ -27997,7 +27989,7 @@ class AetherPMO {
 
         // Persist to Supabase DB & LocalStorage across page reloads (F5)
         await this.saveState('resource_upsert', record);
-        
+
         this.closeResourceModal();
         this.renderResourcesView();
         this.showToast(`인력 정보('${nameVal}')가 성공적으로 저장되었습니다.`, 'success');
@@ -28020,7 +28012,7 @@ class AetherPMO {
             const rows = [headers];
 
             resources.forEach(r => {
-                const assignedMembers = projectMembers.filter(pm => 
+                const assignedMembers = projectMembers.filter(pm =>
                     (pm.resourceId && pm.resourceId === r.id) ||
                     (pm.userId && r.userId && pm.userId === r.userId) ||
                     (pm.name === r.name)
