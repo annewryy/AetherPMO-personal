@@ -29214,13 +29214,13 @@ class AetherPMO {
     async deleteProject(projectId) {
         console.log('[deleteProject]', projectId);
         const role = this.currentUser ? (this.currentUser.role || 'WORKER') : 'WORKER';
-        const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN' || this.isAdminRole(role);
+        const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN' || (typeof this.isAdminRole === 'function' && this.isAdminRole(role));
         if (!isAdmin) {
             this.showToast('프로젝트 삭제 권한이 없습니다. (관리자 전용)', 'error');
             return false;
         }
 
-        const index = (this.state.projects || []).findIndex(p => p.id === projectId);
+        const index = (this.state.projects || []).findIndex(p => String(p.id) === String(projectId));
         if (index === -1) {
             this.showToast('삭제할 프로젝트가 존재하지 않습니다.', 'warning');
             return false;
@@ -29228,25 +29228,39 @@ class AetherPMO {
 
         const project = this.state.projects[index];
         const deletedAt = new Date().toISOString();
-        const deletedBy = this.currentUser ? (this.currentUser.id || this.currentUser.email) : 'admin';
+        const deletedBy = this.currentUser && this.isUuid(this.currentUser.id) ? this.currentUser.id : null;
 
-        project.deletedAt = deletedAt;
-        project.deleted_at = deletedAt;
-        project.deletedBy = deletedBy;
-        project.deleted_by = deletedBy;
-
-        // Supabase Soft Delete Update
         if (this.useSupabase) {
             try {
-                const { error } = await this.supabase
+                const { data, error } = await this.supabase
                     .from('projects')
-                    .update({ deleted_at: deletedAt, deleted_by: deletedBy })
-                    .eq('id', projectId);
-                if (error) console.error('[Supabase Delete Error]', error);
+                    .update({
+                        deleted_at: deletedAt,
+                        deleted_by: deletedBy
+                    })
+                    .eq('id', projectId)
+                    .select('id, deleted_at, deleted_by');
+
+                if (error) {
+                    console.error('[Supabase Delete Error]', error);
+                    this.showToast(`DB 삭제 오류: ${error.message || error.details}`, 'error');
+                    return false;
+                }
+
+                if (!data || data.length === 0) {
+                    console.error('[Supabase Delete No Rows Changed]', projectId);
+                    this.showToast('삭제 대상 프로젝트가 DB에서 변경되지 않았거나 RLS 권한이 없습니다.', 'error');
+                    return false;
+                }
             } catch (err) {
                 console.error('[deleteProject Supabase Exception]', err);
+                this.showToast(`프로젝트 삭제 처리 실패: ${err.message || '서버 오류'}`, 'error');
+                return false;
             }
         }
+
+        // Update Local State ONLY on DB Success
+        this.state.projects = (this.state.projects || []).filter(p => String(p.id) !== String(projectId));
 
         this.addActivityLog(projectId, project.name, 'project', `프로젝트 보관/삭제 처리: "${project.name}" (${project.projectCode})`);
 
@@ -29258,9 +29272,9 @@ class AetherPMO {
             }
         }
 
-        this.showToast(`프로젝트 "${project.name}"이(가) 삭제 처리되었습니다.`, 'success');
+        this.showToast(`프로젝트 "${project.name}"이(가) 삭제되었습니다.`, 'success');
 
-        if (this.activeView === 'project-detail' && this.currentProjectId === projectId) {
+        if (this.activeView === 'project-detail' && String(this.currentProjectId) === String(projectId)) {
             window.location.hash = 'projects/active';
             await this.switchView('projects');
         } else {
