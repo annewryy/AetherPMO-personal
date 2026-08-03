@@ -28902,6 +28902,200 @@ class AetherPMO {
         this.openModal('modal-salary-template-preview');
     }
 
+
+
+
+    // ── GLOBAL ENTERPRISE MODAL MANAGER SYSTEM ──────────────────────────────
+    initGlobalModalManager() {
+        if (document.body.dataset.modalManagerBound === 'true') {
+            return;
+        }
+
+        document.body.dataset.modalManagerBound = 'true';
+
+        document.addEventListener('click', event => {
+            const closeButton = event.target.closest('[data-modal-close], .close-btn');
+
+            if (closeButton) {
+                const modal = closeButton.closest('.app-modal-overlay, .modal-overlay, .modal');
+
+                if (modal) {
+                    this.closeModal(modal);
+                }
+
+                return;
+            }
+
+            // Backdrop click to close
+            const overlay = event.target.closest('.app-modal-overlay, .modal-overlay, .modal');
+
+            if (
+                overlay &&
+                event.target === overlay &&
+                overlay.dataset.backdropClose !== 'false'
+            ) {
+                this.closeModal(overlay);
+            }
+        });
+
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') return;
+
+            const stack = this.modalStack || [];
+            const topModal = stack[stack.length - 1];
+
+            if (
+                topModal &&
+                topModal.dataset.escapeClose !== 'false'
+            ) {
+                this.closeModal(topModal);
+            }
+        });
+
+        this.normalizeAllModals();
+    }
+
+    normalizeAllModals() {
+        const modalElements = document.querySelectorAll('[data-app-modal], .modal-overlay, .modal');
+
+        modalElements.forEach(modal => {
+            if (modal.parentElement && modal.parentElement !== document.body) {
+                document.body.appendChild(modal);
+            }
+
+            modal.classList.add('app-modal-overlay');
+            modal.setAttribute('aria-hidden', 'true');
+            modal.setAttribute('data-app-modal', 'true');
+
+            const dialog = modal.querySelector(
+                '.app-modal-dialog, .modal-dialog, .modal-content, .modal-card, :scope > div'
+            );
+
+            if (dialog) {
+                dialog.classList.add('app-modal-dialog');
+                const size = modal.dataset.modalSize || 'md';
+                if (!dialog.classList.contains(`app-modal-${size}`)) {
+                    dialog.classList.add(`app-modal-${size}`);
+                }
+            }
+        });
+    }
+
+    openModal(modalOrId, options = {}) {
+        const modal = typeof modalOrId === 'string'
+            ? document.getElementById(modalOrId)
+            : modalOrId;
+
+        if (!modal) {
+            console.error('[ModalManager] Modal not found:', modalOrId);
+            this.showToast?.('화면을 열 수 없습니다.', 'error');
+            return false;
+        }
+
+        // Direct child of body to prevent sidebar / view / table clipping & transform bugs
+        if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+
+        // Clear inline position styles
+        Object.assign(modal.style, {
+            position: '',
+            top: '',
+            left: '',
+            right: '',
+            bottom: '',
+            width: '',
+            height: '',
+            margin: '',
+            transform: ''
+        });
+
+        modal.classList.add('app-modal-overlay', 'is-open', 'active');
+        modal.setAttribute('aria-hidden', 'false');
+
+        if (!modal.hasAttribute('role')) {
+            modal.setAttribute('role', 'dialog');
+        }
+
+        if (!modal.hasAttribute('aria-modal')) {
+            modal.setAttribute('aria-modal', 'true');
+        }
+
+        document.body.classList.add('app-modal-open');
+
+        // Manage modal stack
+        this.modalStack = this.modalStack || [];
+
+        if (!this.modalStack.includes(modal)) {
+            this.modalStack.push(modal);
+        }
+
+        // Apply modal size
+        const dialog = modal.querySelector(
+            '.app-modal-dialog, .modal-dialog, .modal-content, .modal-card'
+        );
+
+        if (dialog) {
+            dialog.classList.add('app-modal-dialog');
+
+            dialog.classList.remove(
+                'app-modal-sm',
+                'app-modal-md',
+                'app-modal-lg',
+                'app-modal-xl',
+                'app-modal-full'
+            );
+
+            const size = options.size || modal.dataset.modalSize || 'md';
+            dialog.classList.add(`app-modal-${size}`);
+        }
+
+        // Focus first interactive element
+        requestAnimationFrame(() => {
+            const focusTarget = modal.querySelector(
+                '[autofocus], button:not([disabled]), input:not([disabled]), ' +
+                'select:not([disabled]), textarea:not([disabled]), ' +
+                '[tabindex]:not([tabindex="-1"])'
+            );
+
+            focusTarget?.focus();
+        });
+
+        if (window.lucide) lucide.createIcons();
+        return true;
+    }
+
+    closeModal(modalOrId) {
+        const modal = typeof modalOrId === 'string'
+            ? document.getElementById(modalOrId)
+            : modalOrId;
+
+        if (!modal) return false;
+
+        modal.classList.remove('is-open', 'active');
+        modal.setAttribute('aria-hidden', 'true');
+        modal.style.display = 'none';
+
+        this.modalStack = (this.modalStack || [])
+            .filter(item => item !== modal);
+
+        if (this.modalStack.length === 0) {
+            document.body.classList.remove('app-modal-open');
+        } else {
+            const previousModal =
+                this.modalStack[this.modalStack.length - 1];
+
+            const focusTarget = previousModal?.querySelector(
+                'button:not([disabled]), input:not([disabled]), ' +
+                'select:not([disabled]), textarea:not([disabled])'
+            );
+
+            focusTarget?.focus();
+        }
+
+        return true;
+    }
+
 }
 
 

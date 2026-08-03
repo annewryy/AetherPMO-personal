@@ -8940,3 +8940,145 @@ body.modal-open {
 body.modal-open {
     overflow: hidden !important;
 }
+
+
+/* =========================================================
+   AetherPMO Global Modal System
+   ========================================================= */
+
+body.app-modal-open {
+    overflow: hidden !important;
+}
+
+[data-app-modal] {
+    position: fixed !important;
+    inset: 0 !important;
+    margin-left: 0 !important;
+    padding-left: clamp(12px, 2vw, 28px) !important;
+    max-width: none !important;
+    transform: none !important;
+}
+
+.app-modal-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+
+    width: 100vw !important;
+    height: 100dvh !important;
+    min-width: 0 !important;
+    max-width: none !important;
+
+    margin: 0 !important;
+    padding: clamp(12px, 2vw, 28px) !important;
+
+    display: none !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+
+    background: rgba(15, 23, 42, 0.48) !important;
+    backdrop-filter: blur(2px);
+
+    transform: none !important;
+    float: none !important;
+
+    z-index: 10000 !important;
+}
+
+.app-modal-overlay.is-open,
+.app-modal-overlay.active {
+    display: flex !important;
+}
+
+.app-modal-dialog {
+    position: relative !important;
+
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+
+    flex: 0 1 auto !important;
+    width: min(100%, 720px);
+    min-width: 0 !important;
+
+    max-height: calc(100dvh - 48px) !important;
+    margin: auto !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+
+    background: var(--surface-color, #fff);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 14px;
+    box-shadow:
+        0 24px 64px rgba(15, 23, 42, 0.22),
+        0 8px 24px rgba(15, 23, 42, 0.12);
+
+    transform: none !important;
+}
+
+/* 모달 크기 표준 */
+.app-modal-sm {
+    width: min(100%, 480px) !important;
+}
+
+.app-modal-md {
+    width: min(100%, 720px) !important;
+}
+
+.app-modal-lg {
+    width: min(100%, 960px) !important;
+}
+
+.app-modal-xl {
+    width: min(100%, 1200px) !important;
+}
+
+.app-modal-full {
+    width: calc(100vw - 48px) !important;
+    height: calc(100dvh - 48px) !important;
+}
+
+/* 헤더와 푸터는 고정, 본문만 스크롤 */
+.app-modal-dialog .modal-header,
+.app-modal-dialog .app-modal-header {
+    flex: 0 0 auto;
+}
+
+.app-modal-dialog .modal-body,
+.app-modal-dialog .app-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+.app-modal-dialog .modal-footer,
+.app-modal-dialog .app-modal-footer {
+    flex: 0 0 auto;
+}
+
+/* 작은 화면 */
+@media (max-width: 768px) {
+    .app-modal-overlay {
+        padding: 10px !important;
+        align-items: flex-end !important;
+    }
+
+    .app-modal-dialog,
+    .app-modal-sm,
+    .app-modal-md,
+    .app-modal-lg,
+    .app-modal-xl {
+        width: 100% !important;
+        max-height: calc(100dvh - 20px) !important;
+        border-radius: 14px 14px 0 0;
+    }
+}
