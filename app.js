@@ -967,7 +967,7 @@ class AetherPMO {
                         inspection_date: p.inspectionDate || null,
                         remarks: p.remarks,
                         status: p.status,
-                        lifecycle_status: p.status,
+
                         bid_status: cleanBidStatus,
                         progress: p.progress,
                         resources: p.resources,
@@ -1008,7 +1008,25 @@ class AetherPMO {
 
                     console.log('[Project Upsert Final DB Payload]', JSON.parse(JSON.stringify(dbPayload)));
 
-                    const { error } = await this.supabase.from('projects').upsert(dbPayload);
+                    // INSERT vs UPDATE 분기 — 반환 행으로 영속 저장 검증
+                    const _isNew = p._isNew === true;
+                    let _dbResult;
+                    if (_isNew) {
+                        _dbResult = await this.supabase
+                            .from('projects')
+                            .insert(dbPayload)
+                            .select()
+                            .single();
+                    } else {
+                        const { id: _dropId, ..._updateFields } = dbPayload;
+                        _dbResult = await this.supabase
+                            .from('projects')
+                            .update(_updateFields)
+                            .eq('id', p.id)
+                            .select()
+                            .single();
+                    }
+                    const { data: _savedRow, error } = _dbResult;
                     if (error) {
                         console.error('[Supabase Sync] project_upsert error details:', {
                             code: error.code,
@@ -1018,7 +1036,10 @@ class AetherPMO {
                         });
                         throw error;
                     }
-                    break;
+                    if (!_savedRow) {
+                        throw new Error(`[Supabase] project_upsert: 0 rows ${_isNew ? 'inserted' : 'updated'} for id=${p.id}. RLS 정책 또는 컬럼 제약을 확인하세요.`);
+                    }
+                    return _savedRow;
                 }
                 case 'project_delete': {
                     if (!this.isUuid(data)) {
@@ -17636,6 +17657,7 @@ class AetherPMO {
                 ];
 
                 const newProject = {
+                    _isNew: true, // Supabase INSERT 분기용 플래그
                     id: newId, name, desc, dept, manager, startDate, endDate, status, bidStatus: status === 'Bidding' ? bidStatus : '', progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
                     projectCode: projectCode || (status === 'Bidding' ? this.generateNextProjectCode() : `PRJ-2026-${String(Date.now()).substring(7)}`),
                     bizType: bizType || 'SI 구축',
@@ -17968,6 +17990,7 @@ class AetherPMO {
 
                         // Build payload compatible with DB sync
                         const projectObj = {
+                            _isNew: !existingId, // Supabase INSERT/UPDATE 분기용 플래그
                             id: finalId,
                             name: nameVal,
                             desc: `${nameVal} - CSV 일괄 등록 프로젝트`,
