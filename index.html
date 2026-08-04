@@ -2630,6 +2630,47 @@
                     </div>
                 </section>
 
+                <!-- SYSTEM MENU SETTINGS VIEW -->
+                <section id="view-menu-settings" class="content-view">
+                    <div class="view-header">
+                        <div>
+                            <h1>메뉴 설정</h1>
+                            <p class="subtitle">사이드바 메뉴의 노출 여부와 표시 순서를 관리합니다. (SYS_ADMIN 전용)</p>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <button class="btn btn-outline" onclick="app.loadSystemMenus().then(() => app.renderMenuSettings())">
+                                <i data-lucide="refresh-cw"></i> 새로고침
+                            </button>
+                            <button class="btn btn-primary" onclick="app.openMenuFormModal(null)">
+                                <i data-lucide="plus"></i> 메뉴 추가
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 메뉴 트리 테이블 -->
+                    <div class="card" style="border-radius:12px; overflow:hidden;">
+                        <div style="overflow-x:auto;">
+                            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                                <thead>
+                                    <tr style="background:var(--bg-hover-item); border-bottom:1px solid var(--border-color);">
+                                        <th style="padding:10px 14px; text-align:left; font-weight:700; white-space:nowrap;">메뉴명</th>
+                                        <th style="padding:10px 14px; text-align:left; font-weight:700; white-space:nowrap;">코드</th>
+                                        <th style="padding:10px 14px; text-align:left; font-weight:700; white-space:nowrap;">유형</th>
+                                        <th style="padding:10px 14px; text-align:left; font-weight:700; white-space:nowrap;">라우트</th>
+                                        <th style="padding:10px 14px; text-align:center; font-weight:700; white-space:nowrap;">순서</th>
+                                        <th style="padding:10px 14px; text-align:center; font-weight:700; white-space:nowrap;">활성</th>
+                                        <th style="padding:10px 14px; text-align:center; font-weight:700; white-space:nowrap;">노출 역할</th>
+                                        <th style="padding:10px 14px; text-align:center; font-weight:700; white-space:nowrap;">관리</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="menu-settings-tbody">
+                                    <tr><td colspan="8" style="text-align:center; padding:32px; color:var(--text-muted);">로딩 중...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- MY ACCOUNT CENTER VIEW -->
                 <section id="view-my-account" class="content-view">
                     <div class="view-header">
@@ -5396,7 +5437,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v35_sidebar_layout_redesign"></script>
+    <script src="app.js?v=v36_menu_settings_view_position_fix"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
@@ -5824,44 +5865,6 @@
         </div>
     </div>
 
-
-    <!-- ═══════════════════════════════════════════════════════
-         VIEW: 메뉴 설정 (SYS_ADMIN 전용)
-    ═══════════════════════════════════════════════════════ -->
-    <div id="view-menu-settings" class="content-view hidden" style="display:none; padding: 24px;">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px;">
-            <div>
-                <h2 style="font-size:20px; font-weight:800; color:var(--text-primary); margin:0;">메뉴 설정</h2>
-                <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0;">사이드바 메뉴 구조를 관리합니다. SYS_ADMIN 전용</p>
-            </div>
-            <button class="btn btn-primary" onclick="app.openMenuFormModal(null)" style="display:flex;align-items:center;gap:6px;font-size:13px;">
-                <i data-lucide="plus" style="width:14px;height:14px;"></i> 메뉴 추가
-            </button>
-        </div>
-
-        <!-- 메뉴 트리 테이블 -->
-        <div class="card" style="border-radius:12px; overflow:hidden;">
-            <div style="overflow-x:auto;">
-                <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                    <thead>
-                        <tr style="background:var(--bg-hover-item); border-bottom:1px solid var(--border-color);">
-                            <th style="padding:10px 14px; text-align:left; font-weight:700; white-space:nowrap;">메뉴명</th>
-                            <th style="padding:10px 14px; text-align:left; font-weight:700; white-space:nowrap;">코드</th>
-                            <th style="padding:10px 14px; text-align:left; font-weight:700; white-space:nowrap;">유형</th>
-                            <th style="padding:10px 14px; text-align:left; font-weight:700; white-space:nowrap;">라우트</th>
-                            <th style="padding:10px 14px; text-align:center; font-weight:700; white-space:nowrap;">순서</th>
-                            <th style="padding:10px 14px; text-align:center; font-weight:700; white-space:nowrap;">활성</th>
-                            <th style="padding:10px 14px; text-align:center; font-weight:700; white-space:nowrap;">노출 역할</th>
-                            <th style="padding:10px 14px; text-align:center; font-weight:700; white-space:nowrap;">관리</th>
-                        </tr>
-                    </thead>
-                    <tbody id="menu-settings-tbody">
-                        <tr><td colspan="8" style="text-align:center; padding:32px; color:var(--text-muted);">로딩 중...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
 
     <!-- ═══════════════════════════════════════════════════════
          MODAL: 메뉴 등록/수정
