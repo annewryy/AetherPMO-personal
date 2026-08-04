@@ -16092,6 +16092,420 @@ class AetherPMO {
         if (countIss) countIss.textContent = `${this.state.issues.filter(i => i.projectId === project.id).length}건`;
         if (countAct) countAct.textContent = `${this.state.actionItems.filter(a => a.projectId === project.id).length}건`;
         if (countDoc) countDoc.textContent = `${this.state.officialDocs.filter(d => d.projectId === project.id).length}건`;
+
+        // 7. 컨소시엄 구성 및 지분율 카드 렌더링
+        this.renderProjectConsortiumCard(project);
+    }
+
+    // ── 컨소시엄 구성 및 지분율 관리 기능 ─────────────────────────────────────
+
+    getInitialConsortiumData(project) {
+        if (project.consortium && project.consortium.length > 0) {
+            return project.consortium;
+        }
+        const isMember = project.participationType === 'CONSORTIUM_MEMBER';
+        const totAmt = project.totalContractAmount || project.total_contract_amount || project.budget || 1000000000;
+        const myRate = (project.companyShareRate !== undefined && project.companyShareRate !== null) ? Number(project.companyShareRate) : (isMember ? 40 : 60);
+        const partnerRate = 100 - myRate;
+        const myAmount = Math.round(totAmt * (myRate / 100));
+        const partnerAmount = totAmt - myAmount;
+
+        const defaultList = [
+            {
+                id: 'c-main',
+                companyName: isMember ? (project.primeContractorName || '(주)주사업자테크') : '(주)에이더PMO',
+                roleType: isMember ? 'MEMBER' : 'PRIME',
+                shareRate: isMember ? partnerRate : myRate,
+                contractAmount: isMember ? partnerAmount : myAmount,
+                ceoName: isMember ? '김대표' : '안유경',
+                managerName: isMember ? '이팀장' : '김철수',
+                managerContact: '010-1234-5678'
+            }
+        ];
+
+        if (partnerRate > 0) {
+            defaultList.push({
+                id: 'c-partner-1',
+                companyName: isMember ? '(주)에이더PMO' : '(주)한국소프트웨어',
+                roleType: isMember ? 'PRIME' : 'MEMBER',
+                shareRate: isMember ? myRate : partnerRate,
+                contractAmount: isMember ? myAmount : partnerAmount,
+                ceoName: isMember ? '안유경' : '홍길동',
+                managerName: isMember ? '김철수' : '이영희',
+                managerContact: '010-9876-5432'
+            });
+        }
+        return defaultList;
+    }
+
+    renderProjectConsortiumCard(project) {
+        const container = document.getElementById('detail-overview-consortium-fields');
+        if (!container) return;
+
+        const list = this.getInitialConsortiumData(project);
+        if (!project.consortium) {
+            project.consortium = list;
+        }
+
+        const histories = project.consortiumHistory || [];
+        const latestHistory = histories.length > 0 ? histories[histories.length - 1] : null;
+
+        // 지분율 Visual Bar 색상 팔레트
+        const colors = ['var(--primary, #6366f1)', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'];
+
+        let barSegmentsHtml = '';
+        let totalShareCheck = 0;
+
+        list.forEach((item, idx) => {
+            const rate = Number(item.shareRate) || 0;
+            totalShareCheck += rate;
+            const color = colors[idx % colors.length];
+            barSegmentsHtml += `<div style="width:${rate}%; background:${color}; height:100%;" title="${item.companyName}: ${rate}%"></div>`;
+        });
+
+        let rowsHtml = list.map((item, idx) => {
+            const color = colors[idx % colors.length];
+            const isPrime = item.roleType === 'PRIME';
+            const roleBadge = isPrime 
+                ? '<span style="font-size:10px; background:rgba(99,102,241,0.15); color:var(--primary); padding:2px 6px; border-radius:4px; font-weight:700;">주계약자(주간사)</span>'
+                : '<span style="font-size:10px; background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; border-radius:4px; font-weight:600;">참여사</span>';
+
+            const amtText = item.contractAmount ? `${Number(item.contractAmount).toLocaleString()} 원` : '-';
+
+            return `
+                <tr style="border-bottom:1px solid var(--bg-card-border);">
+                    <td style="padding:10px 12px; font-weight:700;">
+                        <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${color}; margin-right:8px;"></span>
+                        ${item.companyName}
+                    </td>
+                    <td style="padding:10px 12px;">${roleBadge}</td>
+                    <td style="padding:10px 12px; font-weight:800; color:var(--text-main); font-size:13px;">${item.shareRate}%</td>
+                    <td style="padding:10px 12px; color:var(--success); font-weight:700;">${amtText}</td>
+                    <td style="padding:10px 12px; color:var(--text-muted);">${item.ceoName || '-'}</td>
+                    <td style="padding:10px 12px; color:var(--text-muted);">${item.managerName || '-'} ${item.managerContact ? `(${item.managerContact})` : ''}</td>
+                </tr>
+            `;
+        }).join('');
+
+        let historyBannerHtml = '';
+        if (latestHistory) {
+            historyBannerHtml = `
+                <div style="margin-top:12px; padding:10px 12px; background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.2); border-radius:8px; display:flex; justify-content:space-between; align-items:center; font-size:11px;">
+                    <span style="color:var(--primary); font-weight:600;">
+                        <i data-lucide="clock" style="width:12px; height:12px; vertical-align:middle; margin-right:4px;"></i>
+                        최근 지분율 변경 (${latestHistory.changeDate}): <strong>${latestHistory.reason || '사유 미입력'}</strong>
+                    </span>
+                    <button class="btn btn-xs btn-link" onclick="app.openConsortiumHistoryModal()" style="font-size:11px; padding:0; color:var(--primary); font-weight:700;">전체 이력 (${histories.length}건) &rarr;</button>
+                </div>
+            `;
+        }
+
+        container.innerHTML = `
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <!-- 지분율 Visual Bar -->
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:6px; color:var(--text-muted); font-weight:700;">
+                        <span>지분율 구성 비율</span>
+                        <span>총 지분율: ${totalShareCheck}%</span>
+                    </div>
+                    <div style="height:10px; border-radius:5px; overflow:hidden; background:var(--bg-hover-item); display:flex; width:100%;">
+                        ${barSegmentsHtml}
+                    </div>
+                </div>
+
+                <!-- 컨소시엄 구성사 테이블 -->
+                <div style="overflow-x:auto;">
+                    <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">
+                        <thead>
+                            <tr style="background:var(--bg-hover-item); border-bottom:1px solid var(--bg-card-border); color:var(--text-muted);">
+                                <th style="padding:8px 12px; font-weight:700;">구성사명</th>
+                                <th style="padding:8px 12px; font-weight:700;">역할 구분</th>
+                                <th style="padding:8px 12px; font-weight:700;">지분율</th>
+                                <th style="padding:8px 12px; font-weight:700;">계약금액</th>
+                                <th style="padding:8px 12px; font-weight:700;">대표자</th>
+                                <th style="padding:8px 12px; font-weight:700;">담당자</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                </div>
+
+                ${historyBannerHtml}
+            </div>
+        `;
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    openConsortiumEditModal() {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project) return;
+
+        const modal = document.getElementById('modal-consortium-edit');
+        const tbody = document.getElementById('consortium-edit-tbody');
+        const reasonInput = document.getElementById('consortium-change-reason');
+        if (!modal || !tbody) return;
+
+        if (reasonInput) reasonInput.value = '';
+
+        const list = this.getInitialConsortiumData(project);
+        tbody.innerHTML = '';
+        list.forEach(item => {
+            this.addConsortiumEditRow(item);
+        });
+
+        this.updateConsortiumTotalShare();
+        modal.style.display = 'flex';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    closeConsortiumEditModal() {
+        const modal = document.getElementById('modal-consortium-edit');
+        if (modal) modal.style.display = 'none';
+    }
+
+    addConsortiumEditRow(data = {}) {
+        const tbody = document.getElementById('consortium-edit-tbody');
+        if (!tbody) return;
+
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid var(--border-color)';
+        tr.innerHTML = `
+            <td style="padding:6px 8px;">
+                <input type="text" class="c-edit-company" value="${data.companyName || ''}" placeholder="(주)회사명" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
+            </td>
+            <td style="padding:6px 8px;">
+                <select class="c-edit-role" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
+                    <option value="PRIME" ${data.roleType === 'PRIME' ? 'selected' : ''}>주계약자(주간사)</option>
+                    <option value="MEMBER" ${data.roleType !== 'PRIME' ? 'selected' : ''}>참여사</option>
+                </select>
+            </td>
+            <td style="padding:6px 8px;">
+                <input type="number" class="c-edit-rate" value="${data.shareRate !== undefined ? data.shareRate : 0}" step="0.1" min="0" max="100" oninput="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px; font-weight:700; text-align:right;">
+            </td>
+            <td style="padding:6px 8px;">
+                <input type="number" class="c-edit-amount" value="${data.contractAmount || 0}" step="100000" placeholder="0" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px; text-align:right;">
+            </td>
+            <td style="padding:6px 8px;">
+                <input type="text" class="c-edit-ceo" value="${data.ceoName || ''}" placeholder="대표자명" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
+            </td>
+            <td style="padding:6px 8px;">
+                <input type="text" class="c-edit-manager" value="${data.managerName || ''}" placeholder="담당자명" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
+            </td>
+            <td style="padding:6px 8px; text-align:center;">
+                <button type="button" class="btn-icon" onclick="app.deleteConsortiumEditRow(this)" style="color:var(--danger);"><i data-lucide="trash-2" style="width:14px; height:14px;"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+        this.updateConsortiumTotalShare();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    deleteConsortiumEditRow(btn) {
+        const tr = btn.closest('tr');
+        if (tr) {
+            tr.remove();
+            this.updateConsortiumTotalShare();
+        }
+    }
+
+    updateConsortiumTotalShare() {
+        const rates = document.querySelectorAll('.c-edit-rate');
+        let total = 0;
+        rates.forEach(input => {
+            total += Number(input.value) || 0;
+        });
+        total = Math.round(total * 100) / 100;
+
+        const label = document.getElementById('consortium-total-share-label');
+        if (label) {
+            label.textContent = `${total}%`;
+            if (total === 100) {
+                label.style.color = 'var(--success, #10b981)';
+            } else {
+                label.style.color = 'var(--danger, #ef4444)';
+            }
+        }
+    }
+
+    saveConsortiumEdit() {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project) return;
+
+        const rows = document.querySelectorAll('#consortium-edit-tbody tr');
+        const newList = [];
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const comp = row.querySelector('.c-edit-company')?.value?.trim();
+            const role = row.querySelector('.c-edit-role')?.value;
+            const rate = Number(row.querySelector('.c-edit-rate')?.value) || 0;
+            const amt = Number(row.querySelector('.c-edit-amount')?.value) || 0;
+            const ceo = row.querySelector('.c-edit-ceo')?.value?.trim();
+            const mgr = row.querySelector('.c-edit-manager')?.value?.trim();
+
+            if (!comp) {
+                this.showToast('모든 구성사의 회사명을 입력해 주세요.', 'warning');
+                return;
+            }
+
+            newList.push({
+                id: `c-${Date.now()}-${i}`,
+                companyName: comp,
+                roleType: role,
+                shareRate: rate,
+                contractAmount: amt,
+                ceoName: ceo,
+                managerName: mgr
+            });
+        }
+
+        if (newList.length === 0) {
+            this.showToast('최소 1개 이상의 컨소시엄사를 입력해야 합니다.', 'warning');
+            return;
+        }
+
+        // 지분율 변경사항 감지 및 히스토리 자동 기록
+        const oldList = project.consortium || [];
+        const changeReason = document.getElementById('consortium-change-reason')?.value?.trim();
+
+        let isShareChanged = false;
+        const changeDetails = [];
+
+        newList.forEach(item => {
+            const oldItem = oldList.find(o => o.companyName === item.companyName);
+            const oldRate = oldItem ? oldItem.shareRate : 0;
+            if (oldRate !== item.shareRate) {
+                isShareChanged = true;
+                changeDetails.push({
+                    companyName: item.companyName,
+                    beforeRate: oldRate,
+                    afterRate: item.shareRate
+                });
+            }
+        });
+
+        oldList.forEach(oldItem => {
+            if (!newList.find(n => n.companyName === oldItem.companyName)) {
+                isShareChanged = true;
+                changeDetails.push({
+                    companyName: oldItem.companyName,
+                    beforeRate: oldItem.shareRate,
+                    afterRate: 0
+                });
+            }
+        });
+
+        if (isShareChanged) {
+            if (!project.consortiumHistory) project.consortiumHistory = [];
+            const today = new Date().toISOString().split('T')[0];
+            project.consortiumHistory.push({
+                id: `ch-${Date.now()}`,
+                changeDate: today,
+                reason: changeReason || '컨소시엄 지분율 변경 및 구성사 재조정',
+                changes: changeDetails,
+                createdAt: new Date().toISOString()
+            });
+        }
+
+        project.consortium = newList;
+
+        // 당사 지분율 및 계약금액 업데이트 (에이더PMO 또는 주간사)
+        const myComp = newList.find(n => n.companyName.includes('에이더PMO') || n.roleType === 'PRIME');
+        if (myComp) {
+            project.companyShareRate = myComp.shareRate;
+            if (myComp.contractAmount) {
+                project.companyContractAmount = myComp.contractAmount;
+            }
+        }
+
+        this.saveState('project_upsert', project);
+        this.renderProjectDetailOverview(project);
+        this.closeConsortiumEditModal();
+        this.showToast('컨소시엄 구성 및 지분율 정보가 저장되었습니다.', 'success');
+    }
+
+    openConsortiumHistoryModal() {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project) return;
+
+        const modal = document.getElementById('modal-consortium-history');
+        const body = document.getElementById('consortium-history-body');
+        if (!modal || !body) return;
+
+        const histories = project.consortiumHistory || [];
+
+        if (histories.length === 0) {
+            body.innerHTML = `
+                <div style="text-align:center; padding:40px 20px; color:var(--text-muted);">
+                    <i data-lucide="history" style="width:36px; height:36px; margin-bottom:10px; opacity:0.5; display:block; margin-left:auto; margin-right:auto;"></i>
+                    <div style="font-size:14px; font-weight:700;">기록된 지분율 변경 히스토리가 없습니다.</div>
+                    <div style="font-size:12px; margin-top:4px;">[컨소시엄 수정] 버튼을 클릭하여 지분율을 변경하면 변경 이력이 자동 기록됩니다.</div>
+                </div>
+            `;
+        } else {
+            const sorted = [...histories].reverse();
+            body.innerHTML = sorted.map((h) => {
+                const changeRows = (h.changes || []).map(c => {
+                    const diff = Math.round((c.afterRate - c.beforeRate) * 100) / 100;
+                    const diffTag = diff > 0 
+                        ? `<span style="color:var(--success); font-weight:700;">+${diff}% ▲</span>`
+                        : diff < 0 
+                            ? `<span style="color:var(--danger); font-weight:700;">${diff}% ▼</span>`
+                            : `<span style="color:var(--text-muted);">변동없음</span>`;
+
+                    return `
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px dashed var(--border-color); font-size:12px;">
+                            <span style="font-weight:600;">${c.companyName}</span>
+                            <span>${c.beforeRate}% &rarr; <strong style="color:var(--primary);">${c.afterRate}%</strong> (${diffTag})</span>
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div style="background:var(--bg-hover-item); border:1px solid var(--border-color); border-radius:10px; padding:16px; margin-bottom:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <span style="font-size:12px; font-weight:800; color:var(--primary); background:rgba(99,102,241,0.15); padding:2px 8px; border-radius:4px;">
+                                📅 변경일자: ${h.changeDate}
+                            </span>
+                            <button type="button" class="btn-icon" onclick="app.deleteConsortiumHistoryItem('${h.id}')" title="이력 삭제" style="color:var(--danger);">
+                                <i data-lucide="trash-2" style="width:13px; height:13px;"></i>
+                            </button>
+                        </div>
+                        <div style="font-size:13px; font-weight:700; margin-bottom:10px; color:var(--text-main);">
+                            사유: ${h.reason || '변경 사유 미입력'}
+                        </div>
+                        <div style="background:var(--bg-card); padding:10px 12px; border-radius:6px;">
+                            <div style="font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:6px;">지분율 변동 내역:</div>
+                            ${changeRows}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        modal.style.display = 'flex';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    closeConsortiumHistoryModal() {
+        const modal = document.getElementById('modal-consortium-history');
+        if (modal) modal.style.display = 'none';
+    }
+
+    deleteConsortiumHistoryItem(historyId) {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project || !project.consortiumHistory) return;
+
+        if (!confirm('이 지분율 변경 이력 기록을 삭제하시겠습니까?')) return;
+
+        project.consortiumHistory = project.consortiumHistory.filter(h => h.id !== historyId);
+        this.saveState('project_upsert', project);
+        this.openConsortiumHistoryModal();
+        this.renderProjectDetailOverview(project);
+        this.showToast('지분율 변경 이력이 삭제되었습니다.', 'info');
     }
 
     copyProjectOverviewInfo() {

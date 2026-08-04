@@ -1196,6 +1196,29 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Grid Row 3: 컨소시엄 구성 및 지분율 관리 카드 -->
+                        <div class="detail-overview-row row-3" style="margin-top: 20px;">
+                            <div class="dashboard-card project-overview-consortium-card">
+                                <div class="card-header-actions" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px;">
+                                    <h3 style="margin:0; display:flex; align-items:center; gap:8px;">
+                                        <i data-lucide="building-2" style="width:16px; height:16px; color:var(--primary);"></i>
+                                        컨소시엄 구성 및 지분율 관리
+                                    </h3>
+                                    <div style="display:flex; gap:8px;">
+                                        <button class="btn btn-xs btn-outline" onclick="app.openConsortiumHistoryModal()">
+                                            <i data-lucide="history" style="width:12px; height:12px; margin-right:4px;"></i>지분율 변경 이력
+                                        </button>
+                                        <button class="btn btn-xs btn-primary" onclick="app.openConsortiumEditModal()">
+                                            <i data-lucide="edit-3" style="width:12px; height:12px; margin-right:4px;"></i>컨소시엄 수정
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="detail-overview-consortium-fields">
+                                    <!-- Rendered dynamically by JS -->
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- TAB 2: 산출물 (Artifacts) -->
@@ -5437,7 +5460,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v36_menu_settings_view_position_fix"></script>
+    <script src="app.js?v=v37_consortium_share_history_feature"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
@@ -5950,6 +5973,85 @@
             <div class="modal-footer" style="padding:14px 20px; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end; gap:10px;">
                 <button type="button" class="btn btn-outline" onclick="app.closeMenuFormModal()">취소</button>
                 <button type="button" class="btn btn-primary" onclick="app.saveMenuForm()">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL: 컨소시엄 구성 편집 & 지분율 변경
+    ═══════════════════════════════════════════════════════ -->
+    <div id="modal-consortium-edit" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; align-items:center; justify-content:center;">
+        <div class="modal-dialog" style="background:var(--bg-card); border-radius:16px; width:min(840px,95vw); max-height:90vh; display:flex; flex-direction:column; box-shadow:var(--shadow-lg);">
+            <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:18px 20px; border-bottom:1px solid var(--border-color);">
+                <h3 style="font-size:16px; font-weight:700; margin:0; display:flex; align-items:center; gap:8px;">
+                    <i data-lucide="building-2" style="color:var(--primary); width:18px; height:18px;"></i> 컨소시엄 구성 및 지분율 관리
+                </h3>
+                <button type="button" onclick="app.closeConsortiumEditModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-muted);">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:20px; overflow-y:auto; flex:1;">
+                <div style="margin-bottom:16px; background:var(--bg-hover-item); padding:12px 14px; border-radius:8px; border:1px solid var(--border-color); font-size:12px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
+                    <span>💡 컨소시엄 구성사를 등록하고 각 참여사별 지분율을 입력하세요. 총 지분율 합계는 <strong>100%</strong>이어야 합니다.</span>
+                    <button type="button" class="btn btn-xs btn-primary" onclick="app.addConsortiumEditRow()">
+                        <i data-lucide="plus" style="width:12px; height:12px; margin-right:4px;"></i>구성사 추가
+                    </button>
+                </div>
+
+                <!-- 지분율 변경 사유 입력 필드 -->
+                <div style="margin-bottom:16px; padding:14px; background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.2); border-radius:8px;">
+                    <label style="font-size:12px; font-weight:700; display:block; margin-bottom:6px; color:var(--primary);">
+                        <i data-lucide="history" style="width:14px; height:14px; vertical-align:middle; margin-right:4px;"></i>지분율 변경 사유 (히스토리 추적용)
+                    </label>
+                    <input type="text" id="consortium-change-reason" placeholder="예: 사업수행범위 재조정에 따른 당사 및 참여사 지분율 변경" style="width:100%; padding:8px 11px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-card); font-size:12px;">
+                    <span style="font-size:11px; color:var(--text-muted); margin-top:4px; display:block;">* 지분율이 변경될 때 위 입력한 변경 사유가 이력 추적용 히스토리에 자동으로 기록됩니다.</span>
+                </div>
+
+                <div style="overflow-x:auto;">
+                    <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                        <thead>
+                            <tr style="background:var(--bg-hover-item); border-bottom:1px solid var(--border-color); text-align:left;">
+                                <th style="padding:8px 10px; width:22%;">회사명 <span style="color:var(--danger)">*</span></th>
+                                <th style="padding:8px 10px; width:15%;">구분</th>
+                                <th style="padding:8px 10px; width:14%;">지분율 (%) <span style="color:var(--danger)">*</span></th>
+                                <th style="padding:8px 10px; width:18%;">계약금액(원)</th>
+                                <th style="padding:8px 10px; width:13%;">대표자</th>
+                                <th style="padding:8px 10px; width:13%;">담당자</th>
+                                <th style="padding:8px 10px; width:5%; text-align:center;">삭제</th>
+                            </tr>
+                        </thead>
+                        <tbody id="consortium-edit-tbody">
+                            <!-- JS dynamic rows -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top:16px; display:flex; justify-content:space-between; align-items:center; padding:12px; background:var(--bg-hover-item); border-radius:8px;">
+                    <span style="font-size:13px; font-weight:700;">지분율 합계:</span>
+                    <span id="consortium-total-share-label" style="font-size:15px; font-weight:800; color:var(--primary);">0%</span>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding:14px 20px; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" class="btn btn-outline" onclick="app.closeConsortiumEditModal()">취소</button>
+                <button type="button" class="btn btn-primary" onclick="app.saveConsortiumEdit()">저장하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL: 컨소시엄 지분율 변경 히스토리 모달
+    ═══════════════════════════════════════════════════════ -->
+    <div id="modal-consortium-history" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; align-items:center; justify-content:center;">
+        <div class="modal-dialog" style="background:var(--bg-card); border-radius:16px; width:min(740px,95vw); max-height:85vh; display:flex; flex-direction:column; box-shadow:var(--shadow-lg);">
+            <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:18px 20px; border-bottom:1px solid var(--border-color);">
+                <h3 style="font-size:16px; font-weight:700; margin:0; display:flex; align-items:center; gap:8px;">
+                    <i data-lucide="history" style="color:var(--primary); width:18px; height:18px;"></i> 컨소시엄 지분율 변경 히스토리
+                </h3>
+                <button type="button" onclick="app.closeConsortiumHistoryModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-muted);">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:20px; overflow-y:auto; flex:1;" id="consortium-history-body">
+                <!-- JS dynamic history timeline -->
+            </div>
+            <div class="modal-footer" style="padding:14px 20px; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end;">
+                <button type="button" class="btn btn-primary" onclick="app.closeConsortiumHistoryModal()">확인</button>
             </div>
         </div>
     </div>
