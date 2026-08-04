@@ -2506,6 +2506,11 @@ class AetherPMO {
                     await this.loadStateFromSupabase();
                 }
             }
+
+            // 메뉴 설정 동적 로드 (실패해도 정적 사이드바로 폴백)
+            await this.loadSystemMenus();
+            this.renderDynamicSidebar();
+
         } catch (e) {
             console.error('[Supabase DB Error] Critical failure loading state from Supabase database:', e.message || e, e);
             console.error('[Supabase DB Error Traceback]', e.stack || e);
@@ -4359,6 +4364,11 @@ class AetherPMO {
             window.location.hash = 'dashboard';
             return;
         }
+        if (mainRoute === 'menu-settings' && role !== 'SYS_ADMIN') {
+            alert('메뉴 설정은 시스템 관리자만 접근할 수 있습니다.');
+            window.location.hash = 'dashboard';
+            return;
+        }
         if (mainRoute === 'official-docs' && role === 'WORKER') {
             alert('공문 관리 메뉴에 접근할 권한이 없습니다.');
             window.location.hash = 'dashboard';
@@ -4453,7 +4463,8 @@ class AetherPMO {
             'issues': 'view-issues',
             'action-items': 'view-action-items',
             'official-docs': 'view-official-docs',
-            'meeting-minutes': 'view-meeting-minutes'
+            'meeting-minutes': 'view-meeting-minutes',
+            'menu-settings': 'view-menu-settings'
         };
 
         const targetId = routes[viewName] || `view-${viewName}`;
@@ -4505,6 +4516,15 @@ class AetherPMO {
             this.renderArtifacts();
         } else if (viewName === 'backup') {
             this.renderUserManagementTable();
+        } else if (viewName === 'menu-settings') {
+            // SYS_ADMIN 접근 차단 재검증
+            if (!this.currentUser || this.currentUser.role !== 'SYS_ADMIN') {
+                this.showToast('메뉴 설정은 SYS_ADMIN만 접근할 수 있습니다.', 'warning');
+                this.switchView('dashboard');
+                return;
+            }
+            if (!this.state.systemMenus) await this.loadSystemMenus();
+            this.renderMenuSettings();
         } else if (viewName === 'my-account') {
             this.renderMyAccountCenter();
         } else if (viewName === 'project-detail') {
@@ -29021,7 +29041,440 @@ class AetherPMO {
     }
 
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // ── SYSTEM MENU MANAGEMENT ───────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
 
+    /** Supabase에서 메뉴 + 역할 데이터 로드 후 state 저장 */
+    async loadSystemMenus() {
+        if (!this.useSupabase || !this.supabase) return;
+        try {
+            const { data: menus, error: mErr } = await this.supabase
+                .from('system_menus')
+                .select('*')
+                .order('sort_order', { ascending: true });
+            if (mErr) throw mErr;
+
+            const { data: roles, error: rErr } = await this.supabase
+                .from('system_menu_roles')
+                .select('*');
+            if (rErr) throw rErr;
+
+            this.state.systemMenus = menus || [];
+            this.state.systemMenuRoles = roles || [];
+        } catch (e) {
+            console.warn('[loadSystemMenus] 로드 실패 — 정적 사이드바 사용:', e.message);
+            this.state.systemMenus = null; // null = 정적 폴백 신호
+        }
+    }
+
+    /** 역할 허용 메뉴만 필터링 */
+    _getVisibleMenus() {
+        const menus = this.state.systemMenus;
+        if (!menus || !menus.length) return null; // 폴백 신호
+        const roles  = this.state.systemMenuRoles || [];
+        const role   = this.currentUser?.role || '';
+
+        return menus
+            .filter(m => m.is_active)
+            .filter(m => {
+                const rolesForMenu = roles.filter(r => r.menu_id === m.id);
+                if (!rolesForMenu.length) return true; // 권한 미설정 = 전체 허용
+                return rolesForMenu.some(r => r.role_code === role && r.can_view);
+            })
+            .sort((a, b) => a.sort_order - b.sort_order);
+    }
+
+    /** 사이드바 동적 렌더링 (폴백: 정적 HTML 유지) */
+    renderDynamicSidebar() {
+        const nav = document.getElementById('sidebar-nav-dynamic');
+        if (!nav) return;
+
+        const visible = this._getVisibleMenus();
+        if (!visible) return; // null = 정적 HTML 폴백 유지
+
+        const topMenus = visible.filter(m => !m.parent_id);
+
+        const typeIcon = {
+            GROUP: 'chevron-down', SCREEN: '', EXTERNAL: 'external-link', DISABLED: 'clock'
+        };
+
+        let html = '';
+        topMenus.forEach(m => {
+            const children = visible.filter(c => c.parent_id === m.id);
+            const icon = m.icon ? `<i data-lucide="${m.icon}"></i>` : '';
+            const route = m.route || '#';
+
+            if (children.length > 0) {
+                // 그룹 메뉴 (아코디언)
+                html += `
+                <div class="nav-item-wrapper" id="nav-wrapper-${m.menu_code.toLowerCase()}">
+                    <a href="${route}" class="nav-item" data-view="${m.view_id?.replace('view-','') || m.menu_code.toLowerCase()}" data-tooltip="${m.menu_name}"
+                       onclick="event.preventDefault();event.stopPropagation();window.app?.switchView?.('${m.view_id?.replace('view-','') || m.menu_code.toLowerCase()}')">
+                        ${icon}
+                        <span>${m.menu_name}</span>
+                        <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
+                    </a>
+                    <div class="nav-submenu">`;
+                children.forEach(c => {
+                    const cIcon = c.icon ? `<i data-lucide="${c.icon}"></i>` : '';
+                    const cRoute = c.route || '#';
+                    html += `
+                        <a href="${cRoute}" class="submenu-item" data-subview="${c.menu_code.toLowerCase()}">
+                            ${cIcon}<span>${c.menu_name}</span>
+                        </a>`;
+                });
+                html += `
+                    </div>
+                </div>`;
+            } else if (m.menu_type === 'EXTERNAL') {
+                html += `
+                <a href="${route}" class="nav-item" target="_blank" rel="noopener" data-tooltip="${m.menu_name}">
+                    ${icon}<span>${m.menu_name}</span>
+                    <i data-lucide="external-link" style="width:12px;height:12px;margin-left:auto;"></i>
+                </a>`;
+            } else if (m.menu_type === 'DISABLED') {
+                html += `
+                <a href="#" class="nav-item" style="opacity:0.45;cursor:not-allowed;" data-tooltip="${m.menu_name} (준비 중)">
+                    ${icon}<span>${m.menu_name}</span>
+                </a>`;
+            } else {
+                const viewKey = m.view_id?.replace('view-','') || m.menu_code.toLowerCase();
+                html += `
+                <a href="${route}" class="nav-item" data-view="${viewKey}" data-tooltip="${m.menu_name}"
+                   onclick="event.preventDefault();event.stopPropagation();window.app?.switchView?.('${viewKey}')">
+                    ${icon}<span>${m.menu_name}</span>
+                </a>`;
+            }
+        });
+
+        nav.innerHTML = html;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // ── 메뉴 설정 화면 렌더링 ────────────────────────────────────────────────
+
+    renderMenuSettings() {
+        const tbody = document.getElementById('menu-settings-tbody');
+        if (!tbody) return;
+
+        const menus = this.state.systemMenus;
+        if (!menus || !menus.length) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted);">등록된 메뉴가 없습니다.</td></tr>';
+            return;
+        }
+
+        const roles  = this.state.systemMenuRoles || [];
+        const sorted = [...menus].sort((a, b) => a.sort_order - b.sort_order);
+        const topMenus = sorted.filter(m => !m.parent_id);
+
+        const ROLE_LABELS = {
+            SYS_ADMIN:'SYS', EXEC_ADMIN:'EXEC', PM:'PM', PL:'PL', DEV:'DEV', QA:'QA', VIEWER:'VIEW'
+        };
+        const TYPE_BADGE = {
+            GROUP:'그룹', SCREEN:'화면', EXTERNAL:'외부', DISABLED:'준비중'
+        };
+
+        const renderRow = (m, isChild) => {
+            const indent = isChild ? 'padding-left:28px;' : '';
+            const activeText = m.is_active
+                ? '<span style="color:var(--success,#22c55e);font-weight:700;">●</span>'
+                : '<span style="color:var(--text-muted);font-weight:700;">○</span>';
+            const sysTag = m.is_system ? '<span style="font-size:10px;background:rgba(99,102,241,0.15);color:var(--primary);padding:1px 5px;border-radius:3px;margin-left:4px;">필수</span>' : '';
+
+            const menuRoles = roles.filter(r => r.menu_id === m.id && r.can_view).map(r => ROLE_LABELS[r.role_code] || r.role_code);
+            const roleHtml = menuRoles.length
+                ? menuRoles.map(r => `<span style="font-size:10px;background:var(--bg-hover-item);border:1px solid var(--border-color);padding:1px 5px;border-radius:3px;">${r}</span>`).join(' ')
+                : '<span style="color:var(--text-muted);font-size:11px;">없음</span>';
+
+            const delBtn = m.is_system
+                ? `<button class="btn-icon" title="시스템 메뉴 삭제 불가" disabled style="opacity:0.35;"><i data-lucide="trash-2" style="width:13px;height:13px;"></i></button>`
+                : `<button class="btn-icon" title="삭제" onclick="app.deleteSystemMenu('${m.id}')" style="color:var(--danger);"><i data-lucide="trash-2" style="width:13px;height:13px;"></i></button>`;
+
+            return `
+            <tr style="border-bottom:1px solid var(--border-color);">
+                <td style="padding:10px 14px;${indent}font-weight:${isChild?'500':'600'};">
+                    ${isChild ? '<span style="color:var(--text-muted);margin-right:4px;">└</span>' : ''}
+                    ${m.icon ? `<i data-lucide="${m.icon}" style="width:13px;height:13px;vertical-align:middle;margin-right:4px;"></i>` : ''}
+                    ${m.menu_name}${sysTag}
+                </td>
+                <td style="padding:10px 14px;color:var(--text-muted);font-size:11px;font-family:monospace;">${m.menu_code}</td>
+                <td style="padding:10px 14px;"><span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--bg-hover-item);border:1px solid var(--border-color);">${TYPE_BADGE[m.menu_type]||m.menu_type}</span></td>
+                <td style="padding:10px 14px;font-size:11px;color:var(--text-muted);font-family:monospace;">${m.route||''}</td>
+                <td style="padding:10px 14px;text-align:center;">
+                    <button onclick="app.reorderMenuSettings('${m.id}','up')" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--text-muted);" title="위"><i data-lucide="chevron-up" style="width:13px;height:13px;"></i></button>
+                    <span style="font-size:11px;color:var(--text-muted);">${m.sort_order}</span>
+                    <button onclick="app.reorderMenuSettings('${m.id}','down')" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--text-muted);" title="아래"><i data-lucide="chevron-down" style="width:13px;height:13px;"></i></button>
+                </td>
+                <td style="padding:10px 14px;text-align:center;">
+                    <button onclick="app.toggleMenuActive('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:16px;">${activeText}</button>
+                </td>
+                <td style="padding:10px 14px;text-align:center;">${roleHtml}</td>
+                <td style="padding:10px 14px;text-align:center;white-space:nowrap;">
+                    <button class="btn-icon" onclick="app.openMenuFormModal('${m.id}')" title="수정" style="margin-right:4px;"><i data-lucide="pencil" style="width:13px;height:13px;"></i></button>
+                    ${delBtn}
+                </td>
+            </tr>`;
+        };
+
+        let rows = '';
+        topMenus.forEach(m => {
+            rows += renderRow(m, false);
+            sorted.filter(c => c.parent_id === m.id).forEach(c => {
+                rows += renderRow(c, true);
+            });
+        });
+
+        tbody.innerHTML = rows;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // ── 메뉴 등록/수정 모달 ──────────────────────────────────────────────────
+
+    openMenuFormModal(menuId = null) {
+        const modal = document.getElementById('modal-menu-form');
+        if (!modal) return;
+
+        const menus = this.state.systemMenus || [];
+        const ROLES = ['SYS_ADMIN','EXEC_ADMIN','PM','PL','DEV','QA','VIEWER'];
+        const ROLE_KO = {SYS_ADMIN:'SYS',EXEC_ADMIN:'EXEC',PM:'PM',PL:'PL',DEV:'DEV',QA:'QA',VIEWER:'VIEW'};
+
+        // 상위 메뉴 select 채우기
+        const parentSel = document.getElementById('menu-form-parent');
+        if (parentSel) {
+            parentSel.innerHTML = '<option value="">─ 최상위 메뉴 ─</option>';
+            menus.filter(m => !m.parent_id && m.menu_type === 'GROUP').forEach(m => {
+                parentSel.innerHTML += `<option value="${m.id}">${m.menu_name}</option>`;
+            });
+        }
+
+        // 역할 체크박스 채우기
+        const rolesDiv = document.getElementById('menu-form-roles');
+        if (rolesDiv) {
+            rolesDiv.innerHTML = ROLES.map(r =>
+                `<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;">
+                    <input type="checkbox" class="menu-form-role-chk" data-role="${r}" style="cursor:pointer;">
+                    <span>${ROLE_KO[r]}</span>
+                </label>`
+            ).join('');
+        }
+
+        const title = document.getElementById('menu-form-title');
+
+        if (menuId) {
+            // 수정 모드
+            const target = menus.find(m => m.id === menuId);
+            if (!target) return;
+            if (title) title.textContent = '메뉴 수정';
+            document.getElementById('menu-form-id').value    = target.id;
+            document.getElementById('menu-form-name').value  = target.menu_name;
+            document.getElementById('menu-form-code').value  = target.menu_code;
+            document.getElementById('menu-form-type').value  = target.menu_type;
+            document.getElementById('menu-form-route').value = target.route || '';
+            document.getElementById('menu-form-view-id').value = target.view_id || '';
+            document.getElementById('menu-form-icon').value  = target.icon || '';
+            document.getElementById('menu-form-sort').value  = target.sort_order;
+            document.getElementById('menu-form-active').checked = !!target.is_active;
+            document.getElementById('menu-form-desc').value  = target.description || '';
+            if (parentSel) parentSel.value = target.parent_id || '';
+
+            // 역할 체크
+            const menuRoles = (this.state.systemMenuRoles||[]).filter(r => r.menu_id === menuId && r.can_view).map(r => r.role_code);
+            document.querySelectorAll('.menu-form-role-chk').forEach(chk => {
+                chk.checked = menuRoles.includes(chk.dataset.role);
+            });
+        } else {
+            // 신규 모드
+            if (title) title.textContent = '메뉴 추가';
+            ['menu-form-id','menu-form-name','menu-form-code','menu-form-route','menu-form-view-id','menu-form-icon','menu-form-desc'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            document.getElementById('menu-form-sort').value = 10;
+            document.getElementById('menu-form-active').checked = true;
+            document.getElementById('menu-form-type').value = 'SCREEN';
+            // 신규: 전체 역할 체크
+            document.querySelectorAll('.menu-form-role-chk').forEach(chk => { chk.checked = true; });
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    closeMenuFormModal() {
+        const modal = document.getElementById('modal-menu-form');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async saveMenuForm() {
+        const menuId   = document.getElementById('menu-form-id')?.value?.trim() || null;
+        const menuName = document.getElementById('menu-form-name')?.value?.trim();
+        const menuCode = document.getElementById('menu-form-code')?.value?.trim().toUpperCase();
+        const menuType = document.getElementById('menu-form-type')?.value;
+        const route    = document.getElementById('menu-form-route')?.value?.trim() || null;
+        const viewId   = document.getElementById('menu-form-view-id')?.value?.trim() || null;
+        const icon     = document.getElementById('menu-form-icon')?.value?.trim() || null;
+        const sortOrder = parseInt(document.getElementById('menu-form-sort')?.value) || 10;
+        const isActive = document.getElementById('menu-form-active')?.checked ?? true;
+        const desc     = document.getElementById('menu-form-desc')?.value?.trim() || null;
+        const parentId = document.getElementById('menu-form-parent')?.value || null;
+
+        // 유효성 검증
+        if (!menuName) { this.showToast('메뉴명을 입력하세요.', 'warning'); return; }
+        if (!menuCode) { this.showToast('메뉴 코드를 입력하세요.', 'warning'); return; }
+        if (!/^[A-Z0-9_]+$/.test(menuCode)) { this.showToast('메뉴 코드는 영문 대문자, 숫자, 언더스코어만 허용됩니다.', 'warning'); return; }
+
+        // 코드 중복 검사
+        const menus = this.state.systemMenus || [];
+        const dup = menus.find(m => m.menu_code === menuCode && m.id !== menuId);
+        if (dup) { this.showToast(`'${menuCode}' 코드가 이미 존재합니다.`, 'warning'); return; }
+
+        // 외부 링크 URL 검증
+        if (menuType === 'EXTERNAL' && route) {
+            if (!/^https?:\/\//.test(route)) { this.showToast('외부 링크는 https:// 또는 http://로 시작해야 합니다.', 'warning'); return; }
+        }
+
+        // 역할 수집
+        const selectedRoles = [];
+        document.querySelectorAll('.menu-form-role-chk:checked').forEach(chk => {
+            selectedRoles.push(chk.dataset.role);
+        });
+
+        const payload = {
+            menu_code: menuCode, menu_name: menuName, menu_type: menuType,
+            parent_id: parentId || null, route, view_id: viewId, icon,
+            sort_order: sortOrder, is_active: isActive, description: desc
+        };
+
+        try {
+            let savedId = menuId;
+            if (this.useSupabase && this.supabase) {
+                if (menuId) {
+                    // UPDATE
+                    const { data, error } = await this.supabase.from('system_menus').update(payload).eq('id', menuId).select().single();
+                    if (error) throw error;
+                    // state 업데이트
+                    const idx = menus.findIndex(m => m.id === menuId);
+                    if (idx !== -1) this.state.systemMenus[idx] = data;
+                } else {
+                    // INSERT
+                    const { data, error } = await this.supabase.from('system_menus').insert(payload).select().single();
+                    if (error) throw error;
+                    savedId = data.id;
+                    this.state.systemMenus = [...(this.state.systemMenus || []), data];
+                }
+
+                // 역할 권한 저장 (기존 삭제 후 재삽입)
+                await this.supabase.from('system_menu_roles').delete().eq('menu_id', savedId);
+                if (selectedRoles.length > 0) {
+                    const roleRows = selectedRoles.map(r => ({ menu_id: savedId, role_code: r, can_view: true }));
+                    const { error: rErr } = await this.supabase.from('system_menu_roles').insert(roleRows);
+                    if (rErr) console.warn('[saveMenuForm] 역할 저장 실패:', rErr.message);
+                }
+                // state 역할 갱신
+                this.state.systemMenuRoles = (this.state.systemMenuRoles || []).filter(r => r.menu_id !== savedId);
+                selectedRoles.forEach(r => {
+                    this.state.systemMenuRoles.push({ menu_id: savedId, role_code: r, can_view: true });
+                });
+
+                this.logActivity(`메뉴 ${menuId ? '수정' : '추가'}: ${menuName} (${menuCode})`);
+            } else {
+                // 로컬 전용 처리
+                if (menuId) {
+                    const idx = menus.findIndex(m => m.id === menuId);
+                    if (idx !== -1) this.state.systemMenus[idx] = { ...menus[idx], ...payload };
+                } else {
+                    const newMenu = { id: crypto.randomUUID(), ...payload, is_system: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+                    this.state.systemMenus = [...(this.state.systemMenus || []), newMenu];
+                }
+            }
+
+            this.closeMenuFormModal();
+            this.renderMenuSettings();
+            this.renderDynamicSidebar(); // 사이드바 즉시 갱신
+            this.showToast(`메뉴 '${menuName}'이(가) ${menuId ? '수정' : '추가'}되었습니다.`, 'success');
+        } catch (e) {
+            console.error('[saveMenuForm] 저장 실패:', e);
+            this.showToast('저장 실패: ' + (e.message || e), 'error');
+        }
+    }
+
+    async deleteSystemMenu(menuId) {
+        if (!menuId) return;
+        const menu = (this.state.systemMenus || []).find(m => m.id === menuId);
+        if (!menu) return;
+        if (menu.is_system) { this.showToast('시스템 필수 메뉴는 삭제할 수 없습니다.', 'warning'); return; }
+
+        if (!confirm(`'${menu.menu_name}' 메뉴를 삭제하시겠습니까?\n하위 메뉴가 있으면 상위 메뉴 연결이 해제됩니다.`)) return;
+
+        try {
+            if (this.useSupabase && this.supabase) {
+                const { error } = await this.supabase.from('system_menus').delete().eq('id', menuId);
+                if (error) throw error;
+                this.logActivity(`메뉴 삭제: ${menu.menu_name} (${menu.menu_code})`);
+            }
+            this.state.systemMenus = (this.state.systemMenus || []).filter(m => m.id !== menuId);
+            this.state.systemMenuRoles = (this.state.systemMenuRoles || []).filter(r => r.menu_id !== menuId);
+            this.renderMenuSettings();
+            this.renderDynamicSidebar();
+            this.showToast(`'${menu.menu_name}' 메뉴가 삭제되었습니다.`, 'info');
+        } catch (e) {
+            this.showToast('삭제 실패: ' + (e.message || e), 'error');
+        }
+    }
+
+    async toggleMenuActive(menuId) {
+        const menu = (this.state.systemMenus || []).find(m => m.id === menuId);
+        if (!menu) return;
+        if (menu.is_system && !menu.is_active) {
+            this.showToast('시스템 메뉴는 비활성화할 수 없습니다.', 'warning'); return;
+        }
+        const newVal = !menu.is_active;
+        try {
+            if (this.useSupabase && this.supabase) {
+                const { error } = await this.supabase.from('system_menus').update({ is_active: newVal }).eq('id', menuId);
+                if (error) throw error;
+            }
+            menu.is_active = newVal;
+            this.renderMenuSettings();
+            this.renderDynamicSidebar();
+            this.showToast(`'${menu.menu_name}' 메뉴가 ${newVal ? '활성화' : '비활성화'}되었습니다.`, 'info');
+        } catch (e) {
+            this.showToast('변경 실패: ' + (e.message || e), 'error');
+        }
+    }
+
+    async reorderMenuSettings(menuId, direction) {
+        const menus = this.state.systemMenus || [];
+        const menu = menus.find(m => m.id === menuId);
+        if (!menu) return;
+
+        // 같은 부모 내에서 정렬
+        const siblings = menus
+            .filter(m => m.parent_id === menu.parent_id)
+            .sort((a, b) => a.sort_order - b.sort_order);
+
+        const idx = siblings.findIndex(m => m.id === menuId);
+        const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (swapIdx < 0 || swapIdx >= siblings.length) return;
+
+        const swapMenu = siblings[swapIdx];
+        const tempOrder = menu.sort_order;
+        menu.sort_order = swapMenu.sort_order;
+        swapMenu.sort_order = tempOrder;
+
+        try {
+            if (this.useSupabase && this.supabase) {
+                await Promise.all([
+                    this.supabase.from('system_menus').update({ sort_order: menu.sort_order }).eq('id', menu.id),
+                    this.supabase.from('system_menus').update({ sort_order: swapMenu.sort_order }).eq('id', swapMenu.id)
+                ]);
+            }
+            this.renderMenuSettings();
+            this.renderDynamicSidebar();
+        } catch (e) {
+            this.showToast('순서 변경 실패: ' + (e.message || e), 'error');
+        }
+    }
 
     // ── GLOBAL ENTERPRISE MODAL MANAGER SYSTEM ──────────────────────────────
     initGlobalModalManager() {
@@ -29476,4 +29929,15 @@ if (typeof window !== 'undefined' && window.app) {
 if (typeof window !== 'undefined' && window.app) {
     window.app.openModal = window.app.openModal ? window.app.openModal.bind(window.app) : function(id) { if (window.app && typeof window.app.openModal === 'function') window.app.openModal(id); };
     window.app.closeModal = window.app.closeModal ? window.app.closeModal.bind(window.app) : function(id) { if (window.app && typeof window.app.closeModal === 'function') window.app.closeModal(id); };
+}
+
+// ── MENU MANAGEMENT GLOBAL BINDINGS ──────────────────────────────────────────
+if (typeof window !== 'undefined' && window.app) {
+    ['loadSystemMenus','renderDynamicSidebar','renderMenuSettings',
+     'openMenuFormModal','closeMenuFormModal','saveMenuForm',
+     'deleteSystemMenu','toggleMenuActive','reorderMenuSettings'].forEach(fn => {
+        if (typeof window.app[fn] === 'function') {
+            window.app[fn] = window.app[fn].bind(window.app);
+        }
+    });
 }

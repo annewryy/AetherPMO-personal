@@ -103,7 +103,7 @@
                 </div>
             </div>
 
-            <nav class="sidebar-nav">
+            <nav class="sidebar-nav" id="sidebar-nav-dynamic">
                 <a href="#dashboard" class="nav-item active" data-view="dashboard" data-tooltip="홈">
                     <i data-lucide="home"></i>
                     <span>홈</span>
@@ -5377,7 +5377,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v32_salary_template_preview_fix"></script>
+    <script src="app.js?v=v33_menu_settings_impl"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
@@ -5801,6 +5801,133 @@
             <div class="modal-footer" style="padding: 12px 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-color);">
                 <button type="button" class="btn btn-outline" onclick="app.closeModal('modal-project-delete')">취소</button>
                 <button type="button" class="btn btn-danger" id="btn-confirm-delete-project" disabled onclick="app.confirmDeleteProject()">최종 삭제</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         VIEW: 메뉴 설정 (SYS_ADMIN 전용)
+    ═══════════════════════════════════════════════════════ -->
+    <div id="view-menu-settings" class="content-view hidden" style="display:none; padding: 24px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px;">
+            <div>
+                <h2 style="font-size:20px; font-weight:800; color:var(--text-primary); margin:0;">메뉴 설정</h2>
+                <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0;">사이드바 메뉴 구조를 관리합니다. SYS_ADMIN 전용</p>
+            </div>
+            <button class="btn btn-primary" onclick="app.openMenuFormModal(null)" style="display:flex;align-items:center;gap:6px;font-size:13px;">
+                <i data-lucide="plus" style="width:14px;height:14px;"></i> 메뉴 추가
+            </button>
+        </div>
+
+        <!-- 메뉴 트리 테이블 -->
+        <div class="card" style="border-radius:12px; overflow:hidden;">
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                        <tr style="background:var(--bg-hover-item); border-bottom:1px solid var(--border-color);">
+                            <th style="padding:10px 14px; text-align:left; font-weight:700; white-space:nowrap;">메뉴명</th>
+                            <th style="padding:10px 14px; text-align:left; font-weight:700; white-space:nowrap;">코드</th>
+                            <th style="padding:10px 14px; text-align:left; font-weight:700; white-space:nowrap;">유형</th>
+                            <th style="padding:10px 14px; text-align:left; font-weight:700; white-space:nowrap;">라우트</th>
+                            <th style="padding:10px 14px; text-align:center; font-weight:700; white-space:nowrap;">순서</th>
+                            <th style="padding:10px 14px; text-align:center; font-weight:700; white-space:nowrap;">활성</th>
+                            <th style="padding:10px 14px; text-align:center; font-weight:700; white-space:nowrap;">노출 역할</th>
+                            <th style="padding:10px 14px; text-align:center; font-weight:700; white-space:nowrap;">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody id="menu-settings-tbody">
+                        <tr><td colspan="8" style="text-align:center; padding:32px; color:var(--text-muted);">로딩 중...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL: 메뉴 등록/수정
+    ═══════════════════════════════════════════════════════ -->
+    <div id="modal-menu-form" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; align-items:center; justify-content:center;">
+        <div class="modal-dialog" style="background:var(--bg-card); border-radius:16px; width:min(580px,95vw); max-height:90vh; overflow-y:auto; box-shadow:var(--shadow-lg);">
+            <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:18px 20px; border-bottom:1px solid var(--border-color);">
+                <h3 id="menu-form-title" style="font-size:16px; font-weight:700; margin:0;">메뉴 추가</h3>
+                <button type="button" onclick="app.closeMenuFormModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-muted);">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <input type="hidden" id="menu-form-id">
+                <div style="display:grid; gap:14px;">
+                    <!-- 메뉴명 / 코드 -->
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                        <div>
+                            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">메뉴명 <span style="color:var(--danger)">*</span></label>
+                            <input type="text" id="menu-form-name" placeholder="홈" style="width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-input);font-size:13px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">메뉴 코드 <span style="color:var(--danger)">*</span></label>
+                            <input type="text" id="menu-form-code" placeholder="DASHBOARD" style="width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-input);font-size:13px;text-transform:uppercase;">
+                        </div>
+                    </div>
+                    <!-- 유형 / 상위 메뉴 -->
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                        <div>
+                            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">메뉴 유형</label>
+                            <select id="menu-form-type" style="width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-input);font-size:13px;">
+                                <option value="SCREEN">기존 화면 연결</option>
+                                <option value="GROUP">메뉴 그룹</option>
+                                <option value="EXTERNAL">외부 링크</option>
+                                <option value="DISABLED">준비 중</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">상위 메뉴</label>
+                            <select id="menu-form-parent" style="width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-input);font-size:13px;">
+                                <option value="">─ 최상위 메뉴 ─</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- 라우트 / 뷰ID / 아이콘 -->
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                        <div>
+                            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">라우트 (route)</label>
+                            <input type="text" id="menu-form-route" placeholder="#dashboard" style="width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-input);font-size:13px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">화면 ID (view_id)</label>
+                            <input type="text" id="menu-form-view-id" placeholder="view-dashboard" style="width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-input);font-size:13px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">아이콘 (Lucide)</label>
+                            <input type="text" id="menu-form-icon" placeholder="home" style="width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-input);font-size:13px;">
+                        </div>
+                    </div>
+                    <!-- 정렬 / 활성 -->
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:center;">
+                        <div>
+                            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">정렬 순서</label>
+                            <input type="number" id="menu-form-sort" value="10" min="1" style="width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-input);font-size:13px;">
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px; margin-top:18px;">
+                            <input type="checkbox" id="menu-form-active" checked style="width:16px;height:16px;cursor:pointer;">
+                            <label for="menu-form-active" style="font-size:13px;font-weight:600;cursor:pointer;">활성화</label>
+                        </div>
+                    </div>
+                    <!-- 역할별 노출 권한 -->
+                    <div>
+                        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:8px;">역할별 노출 권한</label>
+                        <div id="menu-form-roles" style="display:flex; flex-wrap:wrap; gap:8px;">
+                            <!-- JS로 채워짐 -->
+                        </div>
+                    </div>
+                    <!-- 설명 -->
+                    <div>
+                        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">설명 (관리용)</label>
+                        <input type="text" id="menu-form-desc" placeholder="관리자 전용 설명" style="width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-input);font-size:13px;">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding:14px 20px; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" class="btn btn-outline" onclick="app.closeMenuFormModal()">취소</button>
+                <button type="button" class="btn btn-primary" onclick="app.saveMenuForm()">저장</button>
             </div>
         </div>
     </div>
