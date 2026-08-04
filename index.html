@@ -186,24 +186,29 @@
                     </div>
                 </div>
 
-                <!-- Hidden from sidebar for presentation simplicity -->
-                <a href="#issues" class="nav-item" data-view="issues" data-tooltip="이슈/리스크 관리" style="display: none;">
-                    <i data-lucide="alert-triangle"></i>
-                    <span>이슈/리스크 관리</span>
-                </a>
-                <a href="#action-items" class="nav-item" data-view="action-items" data-tooltip="Action Item 관리" style="display: none;">
-                    <i data-lucide="check-square"></i>
-                    <span>Action Item 관리</span>
-                </a>
-                <a href="#meeting-minutes" class="nav-item" data-view="meeting-minutes" data-tooltip="회의록 관리" style="display: none;">
-                    <i data-lucide="presentation"></i>
-                    <span>회의록 관리</span>
-                </a>
-                <a href="#board" class="nav-item" data-view="board" data-tooltip="게시판" style="display: none;">
-                    <i data-lucide="messages-square"></i>
-                    <span>게시판</span>
-                </a>
+                <!-- 관리자 설정 (nav 스크롤 영역 최하단, SYS_ADMIN 전용) -->
+                <div class="sidebar-admin-section" id="sidebar-admin-section" style="display:none;">
+                    <button class="sidebar-group-toggle" id="sidebar-admin-toggle"
+                            onclick="this.closest('.sidebar-admin-section').classList.toggle('open')">
+                        <span class="sidebar-menu-icon"><i data-lucide="settings"></i></span>
+                        <span class="sidebar-menu-label">관리자 설정</span>
+                        <i data-lucide="chevron-down" class="sidebar-menu-chevron"></i>
+                    </button>
+                    <div class="sidebar-submenu">
+                        <button class="sidebar-menu-item" id="nav-user-mgmt-btn" data-view="backup"
+                                onclick="window.app?.switchView?.('backup')">
+                            <i data-lucide="user-cog" style="width:15px;height:15px;flex-shrink:0;"></i>
+                            <span>사용자 관리</span>
+                        </button>
+                        <button class="sidebar-menu-item" id="nav-menu-settings-btn" data-view="menu-settings"
+                                onclick="window.app?.switchView?.('menu-settings')">
+                            <i data-lucide="layout-list" style="width:15px;height:15px;flex-shrink:0;"></i>
+                            <span>메뉴 설정</span>
+                        </button>
+                    </div>
+                </div>
             </nav>
+
 
             <div class="sidebar-footer">
                 <div class="theme-toggle-container">
@@ -5391,7 +5396,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v34_menu_settings_sidebar_fix"></script>
+    <script src="app.js?v=v35_sidebar_layout_redesign"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->

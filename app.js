@@ -642,19 +642,14 @@ class AetherPMO {
         const projectId = this.activeProjectId;
         const project = projectId ? this.state.projects.find(p => p.id === projectId) : null;
 
-        // 1. Sidebar menu visibility
-        const backupWrapper = document.getElementById('nav-wrapper-system-settings');
-        const backupMenu = document.querySelector('.sidebar-nav .nav-item[data-view="backup"]');
-        const menuSettingsLink = document.getElementById('nav-menu-settings-link');
-        if (role === 'SYS_ADMIN') {
-            if (backupWrapper) backupWrapper.style.display = 'flex';
-            if (backupMenu) backupMenu.style.display = 'flex';
-            if (menuSettingsLink) menuSettingsLink.style.display = 'flex';
-        } else {
-            if (backupWrapper) backupWrapper.style.display = 'none';
-            if (backupMenu) backupMenu.style.display = 'none';
-            if (menuSettingsLink) menuSettingsLink.style.display = 'none';
+        // 1. Sidebar menu visibility — 관리자 섹션 (sidebar-admin-section)
+        const adminSection = document.getElementById('sidebar-admin-section');
+        if (adminSection) {
+            adminSection.style.display = (role === 'SYS_ADMIN') ? 'flex' : 'none';
         }
+        // 호환: 이전 구조 잔재 제거 보호
+        const legacyBackupWrapper = document.getElementById('nav-wrapper-system-settings');
+        if (legacyBackupWrapper) legacyBackupWrapper.style.display = 'none';
 
         const officialDocsMenu = document.querySelector('.sidebar-nav .nav-item[data-view="official-docs"]');
         if (officialDocsMenu) {
@@ -4501,11 +4496,14 @@ class AetherPMO {
         window.scrollTo(0, 0);
 
         // 3. Update sidebar nav active states
-        document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
+        document.querySelectorAll('.sidebar-nav .nav-item, .sidebar-submenu .sidebar-menu-item').forEach(item => {
             item.classList.remove('active');
             const navView = item.getAttribute('data-view');
             if (navView === viewName) {
                 item.classList.add('active');
+                // 상위 관리자 섹션이 있는 경우 자동 펼침
+                const adminSec = item.closest('.sidebar-admin-section');
+                if (adminSec) adminSec.classList.add('open');
             }
         });
 
@@ -29167,77 +29165,131 @@ class AetherPMO {
     // ── 메뉴 설정 화면 렌더링 ────────────────────────────────────────────────
 
     renderMenuSettings() {
+        try {
+            const container = document.getElementById('view-menu-settings');
+            if (!container) {
+                console.warn('[MenuSettings] #view-menu-settings 컨테이너를 찾을 수 없습니다.');
+                return;
+            }
+
+            const tbody = document.getElementById('menu-settings-tbody');
+            if (!tbody) {
+                console.warn('[MenuSettings] #menu-settings-tbody 를 찾을 수 없습니다.');
+                return;
+            }
+
+            const menus = this.state.systemMenus;
+
+            // 데이터 없음 상태
+            if (!menus) {
+                tbody.innerHTML = `
+                    <tr><td colspan="8" style="text-align:center;padding:40px;">
+                        <div style="color:var(--text-muted);">
+                            <i data-lucide="database" style="width:32px;height:32px;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;"></i>
+                            <div style="font-size:14px;font-weight:600;margin-bottom:6px;">메뉴 설정 정보를 불러오지 못했습니다.</div>
+                            <div style="font-size:12px;">Supabase에 <code>system_menus</code> 테이블이 없거나 권한이 없을 수 있습니다.</div>
+                            <div style="font-size:11px;margin-top:6px;color:var(--text-muted);">콘솔 오류와 <code>supabase_menu_tables.sql</code> 실행 여부를 확인해주세요.</div>
+                        </div>
+                    </td></tr>`;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                return;
+            }
+
+            if (!menus.length) {
+                tbody.innerHTML = `
+                    <tr><td colspan="8" style="text-align:center;padding:40px;">
+                        <div style="color:var(--text-muted);">
+                            <i data-lucide="layout-list" style="width:32px;height:32px;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;"></i>
+                            <div style="font-size:14px;font-weight:600;">등록된 메뉴 정보가 없습니다.</div>
+                            <div style="font-size:12px;margin-top:4px;">우측 상단 [메뉴 추가] 버튼으로 첫 번째 메뉴를 등록하세요.</div>
+                        </div>
+                    </td></tr>`;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                return;
+            }
+
+            const roles  = this.state.systemMenuRoles || [];
+            const sorted = [...menus].sort((a, b) => a.sort_order - b.sort_order);
+            const topMenus = sorted.filter(m => !m.parent_id);
+
+            const ROLE_LABELS = {
+                SYS_ADMIN:'SYS', EXEC_ADMIN:'EXEC', PM:'PM', PL:'PL', DEV:'DEV', QA:'QA', VIEWER:'VIEW'
+            };
+            const TYPE_BADGE = {
+                GROUP:'그룹', SCREEN:'화면', EXTERNAL:'외부', DISABLED:'준비중'
+            };
+
+            const renderRow = (m, isChild) => {
+                const indent = isChild ? 'padding-left:28px;' : '';
+                const activeText = m.is_active
+                    ? '<span style="color:var(--success,#22c55e);font-weight:700;">●</span>'
+                    : '<span style="color:var(--text-muted);font-weight:700;">○</span>';
+                const sysTag = m.is_system ? '<span style="font-size:10px;background:rgba(99,102,241,0.15);color:var(--primary);padding:1px 5px;border-radius:3px;margin-left:4px;">필수</span>' : '';
+
+                const menuRoles = roles.filter(r => r.menu_id === m.id && r.can_view).map(r => ROLE_LABELS[r.role_code] || r.role_code);
+                const roleHtml = menuRoles.length
+                    ? menuRoles.map(r => `<span style="font-size:10px;background:var(--bg-hover-item);border:1px solid var(--border-color);padding:1px 5px;border-radius:3px;">${r}</span>`).join(' ')
+                    : '<span style="color:var(--text-muted);font-size:11px;">없음</span>';
+
+                const delBtn = m.is_system
+                    ? `<button class="btn-icon" title="시스템 메뉴 삭제 불가" disabled style="opacity:0.35;"><i data-lucide="trash-2" style="width:13px;height:13px;"></i></button>`
+                    : `<button class="btn-icon" title="삭제" onclick="app.deleteSystemMenu('${m.id}')" style="color:var(--danger);"><i data-lucide="trash-2" style="width:13px;height:13px;"></i></button>`;
+
+                return `
+                <tr style="border-bottom:1px solid var(--border-color);">
+                    <td style="padding:10px 14px;${indent}font-weight:${isChild?'500':'600'};">
+                        ${isChild ? '<span style="color:var(--text-muted);margin-right:4px;">└</span>' : ''}
+                        ${m.icon ? `<i data-lucide="${m.icon}" style="width:13px;height:13px;vertical-align:middle;margin-right:4px;"></i>` : ''}
+                        ${m.menu_name}${sysTag}
+                    </td>
+                    <td style="padding:10px 14px;color:var(--text-muted);font-size:11px;font-family:monospace;">${m.menu_code}</td>
+                    <td style="padding:10px 14px;"><span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--bg-hover-item);border:1px solid var(--border-color);">${TYPE_BADGE[m.menu_type]||m.menu_type}</span></td>
+                    <td style="padding:10px 14px;font-size:11px;color:var(--text-muted);font-family:monospace;">${m.route||''}</td>
+                    <td style="padding:10px 14px;text-align:center;">
+                        <button onclick="app.reorderMenuSettings('${m.id}','up')" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--text-muted);" title="위"><i data-lucide="chevron-up" style="width:13px;height:13px;"></i></button>
+                        <span style="font-size:11px;color:var(--text-muted);">${m.sort_order}</span>
+                        <button onclick="app.reorderMenuSettings('${m.id}','down')" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--text-muted);" title="아래"><i data-lucide="chevron-down" style="width:13px;height:13px;"></i></button>
+                    </td>
+                    <td style="padding:10px 14px;text-align:center;">
+                        <button onclick="app.toggleMenuActive('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:16px;">${activeText}</button>
+                    </td>
+                    <td style="padding:10px 14px;text-align:center;">${roleHtml}</td>
+                    <td style="padding:10px 14px;text-align:center;white-space:nowrap;">
+                        <button class="btn-icon" onclick="app.openMenuFormModal('${m.id}')" title="수정" style="margin-right:4px;"><i data-lucide="pencil" style="width:13px;height:13px;"></i></button>
+                        ${delBtn}
+                    </td>
+                </tr>`;
+            };
+
+            let rows = '';
+            topMenus.forEach(m => {
+                rows += renderRow(m, false);
+                sorted.filter(c => c.parent_id === m.id).forEach(c => {
+                    rows += renderRow(c, true);
+                });
+            });
+
+            tbody.innerHTML = rows;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        } catch (error) {
+            console.error('[MenuSettings] render failed:', error);
+            this.renderMenuSettingsErrorState(error);
+        }
+    }
+
+    renderMenuSettingsErrorState(error) {
         const tbody = document.getElementById('menu-settings-tbody');
         if (!tbody) return;
-
-        const menus = this.state.systemMenus;
-        if (!menus || !menus.length) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted);">등록된 메뉴가 없습니다.</td></tr>';
-            return;
-        }
-
-        const roles  = this.state.systemMenuRoles || [];
-        const sorted = [...menus].sort((a, b) => a.sort_order - b.sort_order);
-        const topMenus = sorted.filter(m => !m.parent_id);
-
-        const ROLE_LABELS = {
-            SYS_ADMIN:'SYS', EXEC_ADMIN:'EXEC', PM:'PM', PL:'PL', DEV:'DEV', QA:'QA', VIEWER:'VIEW'
-        };
-        const TYPE_BADGE = {
-            GROUP:'그룹', SCREEN:'화면', EXTERNAL:'외부', DISABLED:'준비중'
-        };
-
-        const renderRow = (m, isChild) => {
-            const indent = isChild ? 'padding-left:28px;' : '';
-            const activeText = m.is_active
-                ? '<span style="color:var(--success,#22c55e);font-weight:700;">●</span>'
-                : '<span style="color:var(--text-muted);font-weight:700;">○</span>';
-            const sysTag = m.is_system ? '<span style="font-size:10px;background:rgba(99,102,241,0.15);color:var(--primary);padding:1px 5px;border-radius:3px;margin-left:4px;">필수</span>' : '';
-
-            const menuRoles = roles.filter(r => r.menu_id === m.id && r.can_view).map(r => ROLE_LABELS[r.role_code] || r.role_code);
-            const roleHtml = menuRoles.length
-                ? menuRoles.map(r => `<span style="font-size:10px;background:var(--bg-hover-item);border:1px solid var(--border-color);padding:1px 5px;border-radius:3px;">${r}</span>`).join(' ')
-                : '<span style="color:var(--text-muted);font-size:11px;">없음</span>';
-
-            const delBtn = m.is_system
-                ? `<button class="btn-icon" title="시스템 메뉴 삭제 불가" disabled style="opacity:0.35;"><i data-lucide="trash-2" style="width:13px;height:13px;"></i></button>`
-                : `<button class="btn-icon" title="삭제" onclick="app.deleteSystemMenu('${m.id}')" style="color:var(--danger);"><i data-lucide="trash-2" style="width:13px;height:13px;"></i></button>`;
-
-            return `
-            <tr style="border-bottom:1px solid var(--border-color);">
-                <td style="padding:10px 14px;${indent}font-weight:${isChild?'500':'600'};">
-                    ${isChild ? '<span style="color:var(--text-muted);margin-right:4px;">└</span>' : ''}
-                    ${m.icon ? `<i data-lucide="${m.icon}" style="width:13px;height:13px;vertical-align:middle;margin-right:4px;"></i>` : ''}
-                    ${m.menu_name}${sysTag}
-                </td>
-                <td style="padding:10px 14px;color:var(--text-muted);font-size:11px;font-family:monospace;">${m.menu_code}</td>
-                <td style="padding:10px 14px;"><span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--bg-hover-item);border:1px solid var(--border-color);">${TYPE_BADGE[m.menu_type]||m.menu_type}</span></td>
-                <td style="padding:10px 14px;font-size:11px;color:var(--text-muted);font-family:monospace;">${m.route||''}</td>
-                <td style="padding:10px 14px;text-align:center;">
-                    <button onclick="app.reorderMenuSettings('${m.id}','up')" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--text-muted);" title="위"><i data-lucide="chevron-up" style="width:13px;height:13px;"></i></button>
-                    <span style="font-size:11px;color:var(--text-muted);">${m.sort_order}</span>
-                    <button onclick="app.reorderMenuSettings('${m.id}','down')" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--text-muted);" title="아래"><i data-lucide="chevron-down" style="width:13px;height:13px;"></i></button>
-                </td>
-                <td style="padding:10px 14px;text-align:center;">
-                    <button onclick="app.toggleMenuActive('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:16px;">${activeText}</button>
-                </td>
-                <td style="padding:10px 14px;text-align:center;">${roleHtml}</td>
-                <td style="padding:10px 14px;text-align:center;white-space:nowrap;">
-                    <button class="btn-icon" onclick="app.openMenuFormModal('${m.id}')" title="수정" style="margin-right:4px;"><i data-lucide="pencil" style="width:13px;height:13px;"></i></button>
-                    ${delBtn}
-                </td>
-            </tr>`;
-        };
-
-        let rows = '';
-        topMenus.forEach(m => {
-            rows += renderRow(m, false);
-            sorted.filter(c => c.parent_id === m.id).forEach(c => {
-                rows += renderRow(c, true);
-            });
-        });
-
-        tbody.innerHTML = rows;
+        tbody.innerHTML = `
+            <tr><td colspan="8" style="text-align:center;padding:40px;">
+                <div style="color:var(--danger,#ef4444);">
+                    <i data-lucide="alert-triangle" style="width:32px;height:32px;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;"></i>
+                    <div style="font-size:14px;font-weight:600;margin-bottom:6px;">메뉴 설정 렌더링에 실패했습니다.</div>
+                    <div style="font-size:12px;color:var(--text-muted);">${error?.message || String(error)}</div>
+                    <div style="font-size:11px;margin-top:8px;color:var(--text-muted);">콘솔 오류와 데이터 저장 구조를 확인해주세요.</div>
+                </div>
+            </td></tr>`;
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
