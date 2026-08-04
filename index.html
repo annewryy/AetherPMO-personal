@@ -166,11 +166,25 @@
                     <span>공문 관리</span>
                 </a>
 
-                <!-- 관리자 설정 (사이드바 최하단 위치) -->
-                <a href="#backup" class="nav-item" data-view="backup" data-tooltip="관리자 설정">
-                    <i data-lucide="settings"></i>
-                    <span>관리자 설정</span>
-                </a>
+                <!-- 관리자 설정 (사이드바 최하단 위치, SYS_ADMIN 전용) -->
+                <div class="nav-item-wrapper" id="nav-wrapper-system-settings" style="display:none;">
+                    <a href="#backup" class="nav-item" data-view="backup" data-tooltip="관리자 설정"
+                       onclick="event.preventDefault();event.stopPropagation();window.app?.switchView?.('backup')">
+                        <i data-lucide="settings"></i>
+                        <span>관리자 설정</span>
+                        <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
+                    </a>
+                    <div class="nav-submenu">
+                        <a href="#backup" class="submenu-item" data-subview="user-mgmt"
+                           onclick="event.preventDefault();event.stopPropagation();window.app?.switchView?.('backup')">
+                            <i data-lucide="user-cog"></i><span>사용자 관리</span>
+                        </a>
+                        <a href="#menu-settings" class="submenu-item" id="nav-menu-settings-link" data-subview="menu-settings"
+                           onclick="event.preventDefault();event.stopPropagation();window.app?.switchView?.('menu-settings')">
+                            <i data-lucide="layout-list"></i><span>메뉴 설정</span>
+                        </a>
+                    </div>
+                </div>
 
                 <!-- Hidden from sidebar for presentation simplicity -->
                 <a href="#issues" class="nav-item" data-view="issues" data-tooltip="이슈/리스크 관리" style="display: none;">
@@ -5377,7 +5391,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v33_menu_settings_impl"></script>
+    <script src="app.js?v=v34_menu_settings_sidebar_fix"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->

@@ -263,6 +263,10 @@ class AetherPMO {
         // Reapply dynamic role permissions to newly rendered elements
         this.applyRolePermissions();
 
+        // 동적 사이드바 갱신 (메뉴 설정 DB 반영 / 역할 필터링)
+        await this.loadSystemMenus();
+        this.renderDynamicSidebar();
+
         // Initialize sidebar mode
         this.initSidebarMode();
 
@@ -639,9 +643,17 @@ class AetherPMO {
         const project = projectId ? this.state.projects.find(p => p.id === projectId) : null;
 
         // 1. Sidebar menu visibility
+        const backupWrapper = document.getElementById('nav-wrapper-system-settings');
         const backupMenu = document.querySelector('.sidebar-nav .nav-item[data-view="backup"]');
-        if (backupMenu) {
-            backupMenu.style.display = (role === 'SYS_ADMIN') ? 'flex' : 'none';
+        const menuSettingsLink = document.getElementById('nav-menu-settings-link');
+        if (role === 'SYS_ADMIN') {
+            if (backupWrapper) backupWrapper.style.display = 'flex';
+            if (backupMenu) backupMenu.style.display = 'flex';
+            if (menuSettingsLink) menuSettingsLink.style.display = 'flex';
+        } else {
+            if (backupWrapper) backupWrapper.style.display = 'none';
+            if (backupMenu) backupMenu.style.display = 'none';
+            if (menuSettingsLink) menuSettingsLink.style.display = 'none';
         }
 
         const officialDocsMenu = document.querySelector('.sidebar-nav .nav-item[data-view="official-docs"]');
