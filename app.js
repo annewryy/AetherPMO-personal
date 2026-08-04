@@ -16181,36 +16181,58 @@ class AetherPMO {
         const histories = project.consortiumHistory || [];
         const latestHistory = histories.length > 0 ? histories[histories.length - 1] : null;
 
-        // 지분율 Visual Bar 색상 팔레트
-        const colors = ['var(--primary, #6366f1)', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'];
+        // 지분율 계산 및 오케스트로 강조 판단
+        const okestroColor = '#4f46e5';
+        const otherColors = ['#0ea5e9', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#64748b', '#06b6d4'];
 
-        let barSegmentsHtml = '';
+        let colorIndex = 0;
         let totalShareCheck = 0;
 
-        list.forEach((item, idx) => {
+        const processedList = list.map((item) => {
             const rate = Number(item.shareRate) || 0;
             totalShareCheck += rate;
-            const color = colors[idx % colors.length];
-            barSegmentsHtml += `<div style="width:${rate}%; background:${color}; height:100%;" title="${item.companyName}: ${rate}%"></div>`;
+            const lowerName = (item.companyName || '').toLowerCase();
+            const isOkestro = lowerName.includes('오케스트로') || lowerName.includes('okestro');
+            let color = okestroColor;
+            if (!isOkestro) {
+                color = otherColors[colorIndex % otherColors.length];
+                colorIndex++;
+            }
+            return {
+                ...item,
+                shareRate: rate,
+                isOkestro,
+                color
+            };
         });
 
-        let rowsHtml = list.map((item, idx) => {
-            const color = colors[idx % colors.length];
-            const isPrime = item.roleType === 'PRIME';
+        totalShareCheck = Math.round(totalShareCheck * 100) / 100;
+
+        // 지분율 Visual Bar
+        let barSegmentsHtml = '';
+        processedList.forEach(item => {
+            barSegmentsHtml += `<div style="width:${item.shareRate}%; background:${item.color}; height:100%;" title="${item.companyName}: ${item.shareRate}%"></div>`;
+        });
+
+        // 좌측 구성사 테이블 Rows
+        let rowsHtml = processedList.map((item) => {
+            const isPrime = item.roleType === 'PRIME' || item.role === 'PRIME';
             const roleBadge = isPrime 
                 ? '<span style="font-size:10px; background:rgba(99,102,241,0.15); color:var(--primary); padding:2px 6px; border-radius:4px; font-weight:700;">주사업자</span>'
                 : '<span style="font-size:10px; background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; border-radius:4px; font-weight:600;">공동수급사(부사업자)</span>';
 
             const amtText = item.contractAmount ? `${Number(item.contractAmount).toLocaleString()} 원` : '-';
+            const okestroBadge = item.isOkestro ? '<span style="font-size:10px; background:var(--primary); color:#fff; padding:1px 5px; border-radius:3px; margin-left:4px;">당사</span>' : '';
 
             return `
-                <tr style="border-bottom:1px solid var(--bg-card-border);">
+                <tr style="border-bottom:1px solid var(--bg-card-border); ${item.isOkestro ? 'background:rgba(79, 70, 229, 0.04);' : ''}">
                     <td style="padding:10px 12px; font-weight:700;">
-                        <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${color}; margin-right:8px;"></span>
-                        ${item.companyName}
+                        <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${item.color}; margin-right:8px;"></span>
+                        <span style="${item.isOkestro ? 'color:var(--primary); font-weight:800;' : ''}">${item.companyName}</span>
+                        ${okestroBadge}
                     </td>
                     <td style="padding:10px 12px;">${roleBadge}</td>
-                    <td style="padding:10px 12px; font-weight:800; color:var(--text-main); font-size:13px;">${item.shareRate}%</td>
+                    <td style="padding:10px 12px; font-weight:800; color:${item.isOkestro ? 'var(--primary)' : 'var(--text-main)'}; font-size:13px;">${item.shareRate}%</td>
                     <td style="padding:10px 12px; color:var(--success); font-weight:700;">${amtText}</td>
                     <td style="padding:10px 12px; color:var(--text-muted);">${item.ceoName || '-'}</td>
                     <td style="padding:10px 12px; color:var(--text-muted);">${item.managerName || '-'} ${item.managerContact ? `(${item.managerContact})` : ''}</td>
@@ -16221,7 +16243,7 @@ class AetherPMO {
         let historyBannerHtml = '';
         if (latestHistory) {
             historyBannerHtml = `
-                <div style="margin-top:12px; padding:10px 12px; background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.2); border-radius:8px; display:flex; justify-content:space-between; align-items:center; font-size:11px;">
+                <div style="margin-top:10px; padding:10px 12px; background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.2); border-radius:8px; display:flex; justify-content:space-between; align-items:center; font-size:11px;">
                     <span style="color:var(--primary); font-weight:600;">
                         <i data-lucide="clock" style="width:12px; height:12px; vertical-align:middle; margin-right:4px;"></i>
                         최근 지분율 변경 (${latestHistory.changeDate}): <strong>${latestHistory.reason || '사유 미입력'}</strong>
@@ -16231,39 +16253,155 @@ class AetherPMO {
             `;
         }
 
+        // 🏆 우측 SVG Donut Chart & 오케스트로 강조 데이터 렌더링
+        const radius = 38;
+        const circumference = 2 * Math.PI * radius;
+        let strokeDashoffset = 0;
+
+        let svgHtml = `
+            <svg viewBox="0 0 100 100" style="width:100%; height:100%; transform: rotate(-90deg); border-radius:50%;">
+                <circle cx="50" cy="50" r="${radius}" fill="none" stroke="var(--bg-card-border)" stroke-width="14" opacity="0.3"></circle>
+        `;
+
+        if (totalShareCheck > 0) {
+            processedList.forEach(item => {
+                const sliceRatio = item.shareRate / (totalShareCheck > 100 ? totalShareCheck : 100);
+                const strokeDasharray = `${sliceRatio * circumference} ${circumference}`;
+                const strokeWidth = item.isOkestro ? 16 : 13;
+                const filterAttr = item.isOkestro ? `filter="drop-shadow(0px 0px 4px rgba(79, 70, 229, 0.6))"` : '';
+
+                svgHtml += `
+                    <circle cx="50" cy="50" r="${radius}" fill="none" 
+                            stroke="${item.color}" 
+                            stroke-width="${strokeWidth}" 
+                            stroke-dasharray="${strokeDasharray}" 
+                            stroke-dashoffset="-${strokeDashoffset}"
+                            ${filterAttr}
+                            style="transition: all 0.3s ease;">
+                    </circle>
+                `;
+                strokeDashoffset += sliceRatio * circumference;
+            });
+        }
+        svgHtml += `</svg>`;
+
+        const okestroItem = processedList.find(i => i.isOkestro);
+        const okestroShare = okestroItem ? okestroItem.shareRate : 0;
+
+        svgHtml += `
+            <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; pointer-events:none;">
+                <span style="font-size:10px; color:var(--text-muted); font-weight:700;">오케스트로</span>
+                <span style="font-size:20px; font-weight:800; color:var(--primary); line-height:1.1;">${okestroShare}%</span>
+            </div>
+        `;
+
+        // Legend (범례)
+        let legendHtml = processedList.map(item => `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:${item.isOkestro ? 'rgba(79, 70, 229, 0.08)' : 'transparent'}; padding: 4px 8px; border-radius: 6px; border:${item.isOkestro ? '1px solid rgba(79, 70, 229, 0.25)' : 'none'};">
+                <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+                    <span style="width:10px; height:10px; border-radius:3px; background:${item.color}; flex-shrink:0;"></span>
+                    <span style="font-size:12px; font-weight:${item.isOkestro ? '800' : '600'}; color:${item.isOkestro ? 'var(--primary)' : 'var(--text-main)'}; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+                        ${item.companyName} ${item.isOkestro ? '<span style="font-size:9px; background:var(--primary); color:#fff; padding:1px 4px; border-radius:3px; margin-left:2px;">당사</span>' : ''}
+                    </span>
+                </div>
+                <span style="font-size:12px; font-weight:700; font-family:monospace; color:${item.isOkestro ? 'var(--primary)' : 'var(--text-main)'};">${item.shareRate}%</span>
+            </div>
+        `).join('');
+
+        // 🏆 오케스트로 강조 하이라이트 카드
+        let okestroHighlightHtml = '';
+        if (okestroItem) {
+            const formattedAmt = okestroItem.contractAmount ? Number(okestroItem.contractAmount).toLocaleString() + ' 원' : '미정';
+            const roleBadge = (okestroItem.roleType === 'PRIME' || okestroItem.role === 'PRIME') ? '주사업자 (대표사)' : '공동수급사 (부사업자)';
+
+            okestroHighlightHtml = `
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                    <span style="font-size:11px; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:4px;">
+                        <i data-lucide="award" style="width:14px; height:14px;"></i> 당사(${okestroItem.companyName}) 지분 현황
+                    </span>
+                    <span style="font-size:10px; background:var(--primary); color:#fff; padding:2px 6px; border-radius:4px; font-weight:700;">${roleBadge}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                    <div>
+                        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">당사 지분 계약금액</div>
+                        <div style="font-size:14px; font-weight:800; color:var(--success); line-height:1.2;">${formattedAmt}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">지분율</div>
+                        <div style="font-size:18px; font-weight:800; color:var(--primary); line-height:1.2;">${okestroItem.shareRate}%</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            okestroHighlightHtml = `
+                <div style="text-align:center; font-size:11px; color:var(--text-muted); padding:4px;">
+                    컨소시엄 구성 목록에 '오케스트로' 지분이 등록되어 있지 않습니다.
+                </div>
+            `;
+        }
+
         container.innerHTML = `
-            <div style="display:flex; flex-direction:column; gap:12px;">
-                <!-- 지분율 Visual Bar -->
-                <div>
-                    <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:6px; color:var(--text-muted); font-weight:700;">
-                        <span>지분율 구성 비율</span>
-                        <span>총 지분율: ${totalShareCheck}%</span>
+            <div style="display:grid; grid-template-columns: 1fr 340px; gap:20px; align-items:start;">
+                <!-- 좌측: 비주얼 바 & 테이블 & 이력 -->
+                <div style="display:flex; flex-direction:column; gap:12px; min-width:0;">
+                    <!-- 지분율 Visual Bar -->
+                    <div>
+                        <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:6px; color:var(--text-muted); font-weight:700;">
+                            <span>지분율 구성 비율</span>
+                            <span>총 지분율: ${totalShareCheck}%</span>
+                        </div>
+                        <div style="height:10px; border-radius:5px; overflow:hidden; background:var(--bg-hover-item); display:flex; width:100%;">
+                            ${barSegmentsHtml}
+                        </div>
                     </div>
-                    <div style="height:10px; border-radius:5px; overflow:hidden; background:var(--bg-hover-item); display:flex; width:100%;">
-                        ${barSegmentsHtml}
+
+                    <!-- 컨소시엄 구성사 테이블 -->
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">
+                            <thead>
+                                <tr style="background:var(--bg-hover-item); border-bottom:1px solid var(--bg-card-border); color:var(--text-muted);">
+                                    <th style="padding:8px 12px; font-weight:700;">구성사명</th>
+                                    <th style="padding:8px 12px; font-weight:700;">역할 구분</th>
+                                    <th style="padding:8px 12px; font-weight:700;">지분율</th>
+                                    <th style="padding:8px 12px; font-weight:700;">계약금액</th>
+                                    <th style="padding:8px 12px; font-weight:700;">대표자</th>
+                                    <th style="padding:8px 12px; font-weight:700;">담당자</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                        </table>
                     </div>
+
+                    ${historyBannerHtml}
                 </div>
 
-                <!-- 컨소시엄 구성사 테이블 -->
-                <div style="overflow-x:auto;">
-                    <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">
-                        <thead>
-                            <tr style="background:var(--bg-hover-item); border-bottom:1px solid var(--bg-card-border); color:var(--text-muted);">
-                                <th style="padding:8px 12px; font-weight:700;">구성사명</th>
-                                <th style="padding:8px 12px; font-weight:700;">역할 구분</th>
-                                <th style="padding:8px 12px; font-weight:700;">지분율</th>
-                                <th style="padding:8px 12px; font-weight:700;">계약금액</th>
-                                <th style="padding:8px 12px; font-weight:700;">대표자</th>
-                                <th style="padding:8px 12px; font-weight:700;">담당자</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${rowsHtml}
-                        </tbody>
-                    </table>
-                </div>
+                <!-- 우측: 원형 차트 & 범례 & 오케스트로 강조 패널 -->
+                <div style="background:var(--bg-hover-item); border:1px solid var(--bg-card-border); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:14px;">
+                    <div style="font-size:13px; font-weight:800; color:var(--text-main); display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:8px;">
+                        <span style="display:flex; align-items:center; gap:6px;">
+                            <i data-lucide="pie-chart" style="width:15px; height:15px; color:var(--primary);"></i> 컨소시엄 지분율 현황
+                        </span>
+                        <span style="font-size:11px; font-weight:700; color:var(--primary);">총 ${totalShareCheck}%</span>
+                    </div>
 
-                ${historyBannerHtml}
+                    <div style="display:flex; align-items:center; gap:14px;">
+                        <!-- SVG Donut Chart -->
+                        <div style="position:relative; width:110px; height:110px; flex-shrink:0;">
+                            ${svgHtml}
+                        </div>
+                        <!-- 범례 Legend -->
+                        <div style="flex:1; display:flex; flex-direction:column; gap:4px; max-height:120px; overflow-y:auto; padding-right:2px;">
+                            ${legendHtml}
+                        </div>
+                    </div>
+
+                    <!-- 🏆 오케스트로 강조 하이라이트 카드 -->
+                    <div style="background: linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(59,130,246,0.12) 100%); border:1px solid rgba(99,102,241,0.3); border-radius:10px; padding:12px;">
+                        ${okestroHighlightHtml}
+                    </div>
+                </div>
             </div>
         `;
 
