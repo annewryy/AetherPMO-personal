@@ -16612,12 +16612,22 @@ class AetherPMO {
 
             const empBadge = `<span class="employment-badge ${empCss}">${empLabel}</span>`;
 
+            // 자사화 투입 365일 이상 시 퇴직금 발생 뱃지 표시
+            let severanceBadge = '';
+            const isInsourced = (empType === 'INSOURCED_CONTRACTOR' || empType === 'outsourcing');
+            if (isInsourced && mem.startDate && mem.endDate) {
+                const days = Math.floor((new Date(mem.endDate) - new Date(mem.startDate)) / (1000 * 60 * 60 * 24)) + 1;
+                if (days >= 365) {
+                    severanceBadge = `<span class="badge-severance" style="font-size:10px; background:rgba(234,179,8,0.15); color:#d97706; border:1px solid rgba(234,179,8,0.3); padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:3px; margin-left:4px;" title="자사화 인력 투입 365일 이상 (${days}일)"><i data-lucide="coins" style="width:11px; height:11px;"></i> 퇴직금 대상</span>`;
+                }
+            }
+
             tr.innerHTML = `
                 <td class="font-bold text-xs">${this.escapeHtml(mem.name || mem.memberName || '-')} ${mem.isPm ? '<span class="badge badge-primary" style="font-size:10px; margin-left:4px;">PM</span>' : ''}</td>
                 <td><span class="badge-cat cat-etc">${this.escapeHtml(mem.role || mem.roleName || '수행원')}</span></td>
                 <td class="text-xs font-bold">${this.escapeHtml(mem.department || '-')}</td>
                 <td class="text-xs font-bold">${this.escapeHtml(mem.position || '연구원')}</td>
-                <td>${empBadge}</td>
+                <td>${empBadge} ${severanceBadge}</td>
                 <td class="text-xs text-muted font-bold">${mem.startDate || '-'}</td>
                 <td class="text-xs text-muted font-bold">${mem.endDate || '-'}</td>
                 <td>${statusBadge}</td>
@@ -16629,6 +16639,7 @@ class AetherPMO {
             `;
             tbody.appendChild(tr);
         });
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     renderTailoringView() {
@@ -24628,6 +24639,66 @@ class AetherPMO {
         }
     }
 
+    checkMemberSeveranceStatus() {
+        const empType = document.getElementById('member-employment-type')?.value;
+        const startDate = document.getElementById('member-start-date')?.value;
+        const endDate = document.getElementById('member-end-date')?.value;
+        const box = document.getElementById('member-severance-notice-box');
+        const notice = document.getElementById('member-severance-notice');
+
+        if (!box || !notice) return;
+
+        // 자사화(INSOURCED_CONTRACTOR) 인력인 경우 투입기간 검사
+        if (empType === 'INSOURCED_CONTRACTOR' || empType === 'outsourcing') {
+            if (startDate && endDate) {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                const diffDays = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+                box.style.display = 'block';
+                if (diffDays >= 365) {
+                    notice.style.background = 'rgba(234, 179, 8, 0.12)';
+                    notice.style.color = '#d97706';
+                    notice.style.border = '1px solid rgba(234, 179, 8, 0.3)';
+                    notice.innerHTML = `
+                        <span style="display:flex; align-items:center; gap:6px;">
+                            <i data-lucide="coins" style="width:14px; height:14px;"></i>
+                            <strong>💰 퇴직금 발생 대상 (자사화 투입 1년 이상)</strong>
+                        </span>
+                        <span style="font-size:10px; font-weight:800; background:#d97706; color:#fff; padding:2px 6px; border-radius:4px;">총 ${diffDays}일 투입</span>
+                    `;
+                } else {
+                    notice.style.background = 'var(--bg-hover-item)';
+                    notice.style.color = 'var(--text-muted)';
+                    notice.style.border = '1px solid var(--border-color)';
+                    notice.innerHTML = `
+                        <span style="display:flex; align-items:center; gap:6px;">
+                            <i data-lucide="info" style="width:14px; height:14px;"></i>
+                            자사화 인력 (투입기간 365일 미만)
+                        </span>
+                        <span style="font-size:10px; font-weight:700;">${diffDays > 0 ? diffDays + '일 투입 (퇴직금 미발생)' : '기간 확인 필요'}</span>
+                    `;
+                }
+            } else {
+                box.style.display = 'block';
+                notice.style.background = 'var(--bg-hover-item)';
+                notice.style.color = 'var(--text-muted)';
+                notice.style.border = '1px solid var(--border-color)';
+                notice.innerHTML = `
+                    <span style="display:flex; align-items:center; gap:6px;">
+                        <i data-lucide="info" style="width:14px; height:14px;"></i>
+                        자사화 인력 퇴직금 확인
+                    </span>
+                    <span style="font-size:10px;">투입 시작일과 종료일을 입력하면 퇴직금 대상 여부가 자동 계산됩니다.</span>
+                `;
+            }
+        } else {
+            box.style.display = 'none';
+        }
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
     resetMemberForm() {
         document.getElementById('member-id').value = '';
         document.getElementById('member-user-select').value = '';
@@ -24648,6 +24719,7 @@ class AetherPMO {
         document.getElementById('member-memo').value = '';
         document.getElementById('member-form-title').textContent = '참여 인력 추가';
         document.getElementById('btn-save-member').textContent = '추가';
+        this.checkMemberSeveranceStatus();
     }
 
     renderMembersModalList() {
@@ -24714,13 +24786,24 @@ class AetherPMO {
             else if (m.employmentType === 'PROJECT_CONTRACTOR' || m.employmentType === 'project_contract') empCss = 'employment-project';
             const typeBadge = `<span class="employment-badge ${empCss}" style="font-size:10px; padding:2px 6px;">${typeLabel}</span>`;
 
+            // 퇴직금 발생 여부 체크 (자사화 365일 이상 투입)
+            let severanceBadge = '';
+            const isInsourced = (m.employmentType === 'INSOURCED_CONTRACTOR' || m.employmentType === 'outsourcing');
+            if (isInsourced && m.startDate && m.endDate) {
+                const days = Math.floor((new Date(m.endDate) - new Date(m.startDate)) / (1000 * 60 * 60 * 24)) + 1;
+                if (days >= 365) {
+                    severanceBadge = `<span class="badge-severance" style="font-size:10px; background:rgba(234,179,8,0.15); color:#d97706; border:1px solid rgba(234,179,8,0.3); padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:3px;" title="자사화 인력 투입 365일 이상 (${days}일)"><i data-lucide="coins" style="width:11px; height:11px;"></i> 퇴직금 대상</span>`;
+                }
+            }
+
             return `
                 <div class="dashboard-card" style="margin-bottom:10px; padding:12px; background: var(--bg-card-hover); border-color: ${m.isActive ? 'var(--bg-card-border)' : 'transparent'}; opacity: ${m.isActive ? 1 : 0.65};">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                         <div>
-                            <div style="display:flex; align-items:center; gap:8px;">
+                            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                                 <span style="font-size:13px; font-weight:700;">${m.name}</span>
                                 ${typeBadge}
+                                ${severanceBadge}
                                 <span class="${roleBadgeClass}" style="font-size:10px; padding:2px 6px;">${roleLabels[m.participationRole] || m.participationRole}</span>
                                 ${activeStatusText}
                             </div>
@@ -24765,6 +24848,7 @@ class AetherPMO {
 
         document.getElementById('member-form-title').textContent = '참여 인력 수정';
         document.getElementById('btn-save-member').textContent = '수정';
+        this.checkMemberSeveranceStatus();
     }
 
     async saveMemberForm() {
@@ -24898,8 +24982,23 @@ class AetherPMO {
 
         await this.saveState('member_upsert', memberObj);
 
-        alert(isNew ? '참여 인력이 추가되었습니다.' : '참여 인력 정보가 수정되었습니다.');
-        this.resetMemberForm();
+        if (isNew) {
+            // 이름과 선택연동만 비우고 나머지 폼 조건 유지 (연속 등록 모드)
+            document.getElementById('member-id').value = '';
+            document.getElementById('member-user-select').value = '';
+            if (document.getElementById('member-resource-select')) {
+                document.getElementById('member-resource-select').value = '';
+            }
+            document.getElementById('member-name').value = '';
+            this.showToast('참여 인력이 추가되었습니다. (이름 수정 후 연속 등록 가능)', 'success');
+            setTimeout(() => {
+                document.getElementById('member-name')?.focus();
+            }, 100);
+        } else {
+            this.showToast('참여 인력 정보가 수정되었습니다.', 'success');
+            this.resetMemberForm();
+        }
+
         this.renderMembersModalList();
 
         // Refresh project detail view
@@ -24909,6 +25008,7 @@ class AetherPMO {
         }
         this.renderProjects();
     }
+
 
     toggleInactiveMembers(checked) {
         this.renderProjectDetail(this.activeProjectId);

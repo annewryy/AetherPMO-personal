@@ -5194,7 +5194,7 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="member-employment-type">고용형태</label>
-                                    <select id="member-employment-type">
+                                    <select id="member-employment-type" onchange="app.checkMemberSeveranceStatus()">
                                         <option value="REGULAR_EMPLOYEE" selected>정규직</option>
                                         <option value="INSOURCED_CONTRACTOR">자사화</option>
                                         <option value="PROJECT_CONTRACTOR">프로젝트 계약직</option>
@@ -5238,15 +5238,20 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="member-start-date">투입 시작일</label>
-                                    <input type="date" id="member-start-date">
+                                    <input type="date" id="member-start-date" onchange="app.checkMemberSeveranceStatus()">
                                 </div>
                                 <div class="form-group">
                                     <label for="member-end-date">투입 종료일</label>
-                                    <input type="date" id="member-end-date">
+                                    <input type="date" id="member-end-date" onchange="app.checkMemberSeveranceStatus()">
                                 </div>
                                 <div class="form-group span-2">
                                     <label for="member-memo">투입 메모</label>
                                     <textarea id="member-memo" rows="2" placeholder="투입 관련 참고사항 또는 담당 영역 기술"></textarea>
+                                </div>
+                                <!-- 퇴직금 발생 안내 요소 -->
+                                <div class="form-group span-2" id="member-severance-notice-box" style="display:none; margin-top:4px;">
+                                    <div id="member-severance-notice" style="padding: 8px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: space-between;">
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -5460,7 +5465,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v38_consortium_role_name_update"></script>
+    <script src="app.js?v=v39_member_form_continuous_entry_and_severance_notice"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
