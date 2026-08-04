@@ -4561,14 +4561,28 @@ class AetherPMO {
         }
     }
 
+    toggleTheme() {
+        const currentTheme = this.state?.theme || (document.body.classList.contains('dark-theme') ? 'dark' : 'light');
+        const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        if (!this.state) this.state = {};
+        this.state.theme = nextTheme;
+        this.applyTheme(nextTheme);
+        if (typeof this.saveState === 'function') {
+            this.saveState('theme_toggle', { theme: nextTheme });
+        }
+    }
+
     applyTheme(theme) {
         const body = document.body;
+        const themeBtn = document.getElementById('theme-toggle-btn');
         if (theme === 'light') {
             body.classList.remove('dark-theme');
             body.classList.add('light-theme');
+            if (themeBtn) themeBtn.classList.remove('active');
         } else {
             body.classList.remove('light-theme');
             body.classList.add('dark-theme');
+            if (themeBtn) themeBtn.classList.add('active');
         }
     }
 
@@ -18020,7 +18034,7 @@ class AetherPMO {
             if (deptCustom) { deptCustom.style.display = 'block'; deptCustom.value = deptValue; }
         }
 
-        this.populateProjectManagerSelect(project.managerId || project.manager);
+        this.populateProjectManagerSelect(project.manager, project.managerId);
         this.setFieldValue('project-customer', project.customer || project.customerName);
         this.setFieldValue('project-budget', project.budget ? this.formatNumberWithCommas(project.budget) : '');
         this.setFieldValue('project-start-date', project.startDate);
@@ -18251,6 +18265,7 @@ class AetherPMO {
                 alert('필수값을 먼저 입력해주세요.');
                 return;
             }
+            managerId = null;
         } else {
             manager = selectVal;
             const matchedUser = this.state.users ? this.state.users.find(u => u.name === manager || u.id === manager || u.email === manager) : null;
@@ -25488,7 +25503,7 @@ class AetherPMO {
         }
     }
 
-    populateProjectManagerSelect(selectedIdOrName = '') {
+    populateProjectManagerSelect(selectedNameOrId = '', fallbackId = '') {
         const select = document.getElementById('project-manager-select');
         if (!select) return;
 
@@ -25509,18 +25524,20 @@ class AetherPMO {
 
         const customInput = document.getElementById('project-manager-custom');
 
-        // Set selected value
-        if (selectedIdOrName) {
-            // Check if selectedIdOrName corresponds to a profile ID/email first
-            let actualName = selectedIdOrName;
-            const matchedUser = this.state.users ? this.state.users.find(u => u.id === selectedIdOrName || u.email === selectedIdOrName) : null;
-            if (matchedUser) {
-                actualName = matchedUser.name;
-            }
+        let targetName = selectedNameOrId || fallbackId;
 
-            const exists = defaultPms.includes(actualName);
+        // If targetName looks like a UUID or email, check if there's a matching user name
+        if (targetName && this.state.users) {
+            const matchedUser = this.state.users.find(u => u.id === targetName || u.email === targetName);
+            if (matchedUser) {
+                targetName = matchedUser.name;
+            }
+        }
+
+        if (targetName) {
+            const exists = defaultPms.includes(targetName);
             if (exists) {
-                select.value = actualName;
+                select.value = targetName;
                 if (customInput) {
                     customInput.style.display = 'none';
                     customInput.value = '';
@@ -25529,7 +25546,7 @@ class AetherPMO {
                 select.value = 'custom';
                 if (customInput) {
                     customInput.style.display = 'block';
-                    customInput.value = actualName;
+                    customInput.value = targetName;
                 }
             }
         } else {
