@@ -6571,7 +6571,6 @@ class AetherPMO {
                         ${p.isOverdue && p.status !== 'Completed' ? `<span class="status-badge status-overdue" style="font-size: 10px; padding: 2px 8px;">기간초과</span>` : ''}
                     </div>
                     <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 4px 0 0 0; letter-spacing: -0.3px;">${p.name || '무제 프로젝트'}</h3>
-                    <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; line-height: 1.4;">${p.desc || p.remarks || '설명이 없습니다.'}</p>
                 </div>
 
                 <div style="flex: 1.2; min-width: 180px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted);">
@@ -6621,7 +6620,6 @@ class AetherPMO {
                     </div>
                 </div>
                 <h3 class="project-card-title">${p.name || '무제 프로젝트'}</h3>
-                <p class="project-card-desc">${p.desc || p.remarks || '설명이 없습니다.'}</p>
 
                 <div class="project-card-details">
                     <div class="detail-row">
@@ -15643,8 +15641,12 @@ class AetherPMO {
                                 <span class="status-badge" style="font-size:11px; font-weight:700; padding:4px 10px; background:var(--primary-glow); color:var(--primary); border:1px solid rgba(99, 102, 241, 0.3); border-radius:6px;">${dDayText}</span>
                                 <span class="status-badge" style="font-size:11px; font-weight:700; padding:4px 10px; background:${riskGlow}; color:${riskColor}; border:1px solid rgba(255, 255, 255, 0.1); border-radius:6px;">위험도: ${project.riskLevel || '보통'}</span>
                             </div>
-                            <h2 style="font-size:24px; font-weight:800; margin-top:12px; margin-bottom:6px; color:var(--text-main); letter-spacing:-0.5px;">${project.name}</h2>
-                            <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">${project.desc || '상세 설명이 등록되지 않은 프로젝트입니다.'}</p>
+                            <div class="project-detail-desc-container" style="margin-top:6px;">
+                                <p id="project-detail-desc-text" class="project-detail-desc-clamp" style="font-size:13px; color:var(--text-muted); line-height:1.5; margin:0; transition: all 0.2s ease;">${project.desc || '상세 설명이 등록되지 않은 프로젝트입니다.'}</p>
+                                <button id="project-detail-desc-toggle-btn" type="button" onclick="app.toggleProjectDetailDesc()" style="background:none; border:none; color:var(--primary); font-size:12px; font-weight:700; cursor:pointer; padding:4px 0 0 0; display:inline-flex; align-items:center; gap:3px;">
+                                    ▼ 더보기
+                                </button>
+                            </div>
                         </div>
                         <div class="project-header-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; overflow:visible;">
                             <button id="btn-back-project-list" type="button" class="btn btn-sm btn-outline" onclick="event.stopPropagation(); app.goBackToProjectList()" aria-label="목록으로 복귀" title="목록으로 이동합니다.">
@@ -15749,6 +15751,35 @@ class AetherPMO {
         });
 
         this.setDetailTab('overview');
+
+        setTimeout(() => {
+            const textEl = document.getElementById('project-detail-desc-text');
+            const btnEl = document.getElementById('project-detail-desc-toggle-btn');
+            if (textEl && btnEl) {
+                if (textEl.scrollHeight <= 44) {
+                    btnEl.style.display = 'none';
+                } else {
+                    btnEl.style.display = 'inline-flex';
+                }
+            }
+        }, 60);
+    }
+
+    toggleProjectDetailDesc() {
+        const textEl = document.getElementById('project-detail-desc-text');
+        const btnEl = document.getElementById('project-detail-desc-toggle-btn');
+        if (!textEl || !btnEl) return;
+
+        const isClamped = textEl.classList.contains('project-detail-desc-clamp');
+        if (isClamped) {
+            textEl.classList.remove('project-detail-desc-clamp');
+            textEl.classList.add('project-detail-desc-expanded');
+            btnEl.innerHTML = '▲ 접기';
+        } else {
+            textEl.classList.remove('project-detail-desc-expanded');
+            textEl.classList.add('project-detail-desc-clamp');
+            btnEl.innerHTML = '▼ 더보기';
+        }
     }
 
     renderProjectDetailOverview(project) {
