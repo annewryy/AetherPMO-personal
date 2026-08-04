@@ -81,20 +81,34 @@ On-prem 단일테넌트는 고객 운영팀이 인프라를 떠안는다. 풀 MS
 단일 배포(모듈러 모놀리스)가 유리. "모놀리스로 시작, 필요 시 서비스 추출"(Fowler).
 
 ### B-2. 커스텀 seam = Port/Adapter (납품처별 교체)
-납품 시 커스터마이즈 확률이 높은 3곳을 인터페이스로 격리, 설정으로 어댑터 선택:
+납품 시 커스터마이즈 확률이 높은 지점을 인터페이스로 격리, 설정으로 어댑터 선택.
+**(2026-08-04 세분화)** 종전 `UserPort`는 "로그인"과 "조직 동기화"라는 성격이 다른 두 seam을
+안고 있어 분리 — "자체 로그인 + 아마란스 조직 동기화"(현행), "고객 AD SSO + AD 동기화"(납품)
+같은 조합을 자유롭게 하기 위함:
 ```
-UserPort      → LocalAccountAdapter(기본) | AmaranthSyncAdapter(선택 동기화) | CustomerAdAdapter
-FilePort      → NasAdapter(기본) | S3Adapter | AmaranthOnechamberAdapter
-ApprovalPort  → AmaranthApprovalAdapter(아마란스 필수) | NoopAdapter
+AuthenticationPort → LocalPasswordAdapter(기본) | OidcSamlAdapter | LdapAdAdapter   # 로그인 방식
+OrgDirectoryPort   → AmaranthSyncAdapter(현행 org view 미러) | AdSyncAdapter | 수동/CSV  # 인력·부서 동기화
+FilePort           → S3Adapter(MinIO/NAS-S3) | NfsAdapter(NFS/SMB 마운트) | AmaranthOnechamberAdapter(특정 납품 옵션)
+ApprovalPort       → AmaranthApprovalAdapter(아마란스 필수) | NoopAdapter
 ```
 - 코어 도메인(프로젝트·태스크·산출물·이슈·워크플로·신호·코멘트)은 Port만 의존, 어댑터 구현 모름.
 - 기본 = in-process 어댑터(모놀리스 내 모듈). **특정 납품의 통합이 무거우면 그 어댑터만
-  별도 마이크로서비스로 분리**(REST/gRPC) — 코어 무변경.
-- **자체완결 반영(0005, 2026-07-09 전환)**: UserPort 기본은 **로컬 계정/DB**(PMS 자체 로그인,
+  별도 마이크로서비스로 분리**(REST/gRPC) — 코어 무변경. 지금 서비스로 쪼개지 않는다
+  (교체 가능성은 배포 형태가 아니라 인터페이스 규율이 보장).
+- **자체완결 반영(0005, 2026-07-09 전환)**: 인증 기본은 **로컬 계정/DB**(PMS 자체 로그인,
   인력 정보 우리 DB 소유). `AmaranthSyncAdapter`는 내부 인력 정보를 **pull→upsert 하는 선택적
   동기화**(SSO 위임 아님) — 연동이 끊겨도 코어는 저장값으로 동작. `ApprovalPort`(결재)만 아마란스
   필수 게이트(NoopAdapter면 결재 기능만 비활성).
-- 모듈 경계: Spring Modulith 또는 Gradle 멀티모듈로 강제(도메인↔어댑터 의존 방향 검증).
+
+**포트 규율 (2026-08-04 — 솔루션화 전제, 위반 시 seam 무효)**
+1. **벤더 개념 유출 금지(anti-corruption)**: Port 시그니처는 PMS 도메인 언어(사용자·부서·파일 키)로만
+   정의. 아마란스 사번 체계·원챔버 문서ID 등 벤더 식별자·포맷은 어댑터 내부에서 변환·흡수.
+2. **의존 방향 빌드 강제**: Spring Modulith 또는 Gradle 멀티모듈로 "코어 → 어댑터 참조 불가"를
+   빌드에서 검증. 규율은 도구 없이는 시간이 지나며 반드시 무너진다.
+3. **인가는 코어 내부**: 외부 시스템에서 가져오는 것은 **신원·조직 데이터까지**(누구인가, 어느 부서인가).
+   "이 사용자가 이 리소스를 볼 수 있나"라는 **인가 판단은 PMS 자체 모델(프로젝트 멤버/역할, 0041)이
+   수행** — 외부 위임 금지. 인가까지 외부 의존하면 고객사마다 권한 시스템을 요구하게 돼 솔루션화가
+   역행한다.
 
 ### B-3. 커스터마이즈 전략(납품 시)
 - **설정 주입**: 어댑터 선택·엔드포인트·정책을 외부 설정(application-{customer}.yml, 환경변수).
@@ -145,7 +159,7 @@ file   : NAS/오브젝트 스토리지 — 산출물 등 파일                 
 1. **계약 고정**: 현행 Node API의 계약 테스트/OpenAPI 스냅샷 작성(프론트 types.ts 기준).
 2. **스키마 이식**: pms_*.sql → MariaDB(Flyway). Testcontainers로 검증.
 3. **Spring 코어**: 읽기 API → 쓰기/전이 → 진척·신호 → 코멘트·알림 순 포팅(계약 테스트 통과 기준).
-4. **Port/Adapter**: UserPort/FilePort/ApprovalPort 인터페이스 + 아마란스·로컬 어댑터.
+4. **Port/Adapter**: AuthenticationPort/OrgDirectoryPort/FilePort/ApprovalPort 인터페이스 + 아마란스·로컬 어댑터.
 5. **컨테이너화**: Dockerfile(web·app) + compose + Flyway 마이그레이션 이미지.
 6. **개발서버 배포**: compose 기동, 프론트 API_BASE 전환, E2E 스모크.
 7. **납품 패키징**: 설정 템플릿·설치 가이드·업그레이드 절차 문서화.
@@ -153,6 +167,6 @@ file   : NAS/오브젝트 스토리지 — 산출물 등 파일                 
 ## 수용 기준(설계 확정 시)
 - [ ] Node API 계약 스냅샷(엔드포인트·필드·오류) 확정 — Spring 회귀 기준
 - [ ] MariaDB 스키마 이식 매핑표 완성(위 A-2) + Flyway 초기 마이그레이션
-- [ ] 헥사고날 모듈 경계 정의(코어 vs 어댑터), Port 3종 인터페이스 시그니처
+- [ ] 헥사고날 모듈 경계 정의(코어 vs 어댑터), Port 4종 인터페이스 시그니처
 - [ ] Docker Compose(web·app·db) + 설정 주입 규약
 - [ ] 이행 계획: 동료 레거시 동거/분리, 프론트 무변경 확인

@@ -35,7 +35,8 @@
   - dev: nginx가 `sub_filter`로 `window.API_BASE=location.origin` 주입([deploy/nginx.conf](../deploy/nginx.conf)). Vercel: 미주입 → 폴백.
 - **백엔드**: Spring Boot 3 + Spring Data JPA(엔티티 읽기) + **JdbcTemplate**(쓰기·복잡 조회) + Flyway(마이그레이션). MariaDB 11.
   - 응답은 **camelCase 도메인 DTO**(프론트 계약과 일치). JPA `ddl-auto=validate`(스키마는 Flyway 소유).
-  - 헥사고날 포트(설계 0013 §B-2, 일부 계획): UserPort/FilePort/ApprovalPort.
+  - 헥사고날 포트(설계 0013 §B-2, 일부 계획): AuthenticationPort/OrgDirectoryPort/FilePort/ApprovalPort
+    (2026-08-04: 종전 UserPort를 로그인/조직동기화 seam으로 분리, 인가는 항상 코어 내부 — 0005 §I).
 - **배포 아티팩트**: `docker-compose.dev.yml`(web+app+db), `deploy/k8s/dev/*`, `Jenkinsfile`(thin CI), `deploy/web.Dockerfile`·`server-spring/Dockerfile`.
 
 ---
@@ -160,7 +161,7 @@ docs/requirements/  (동료 소유 · "무엇")   →   docs/design/  (우리 �
 | 0015 | 프로젝트 목록 뷰 | DRAFT | 구현됨 |
 | 0016 | 나라장터 공고조회 | DRAFT | 구현됨 |
 | 0017 | 나라장터→입찰 프로젝트 | DRAFT | 구현됨 |
-| 0018 | 파일저장 NAS(FilePort) | DRAFT | **계획만**(개발서버 확정 시) |
+| 0018 | 파일저장 NAS(FilePort) | DRAFT | **계획만** — NAS 실사 완료(§J: Synology·SMB만·개발서버→NAS 차단, 방화벽 오픈 대기) |
 | 0019 | 자사화 전환 프로세스 | IMPLEMENTED | 구현됨 |
 | 0020 | 아마란스 조직 동기화 + 조직도 선택 모달 | IMPLEMENTED | 구현됨 |
 | 0021 | 참여인력 수정/삭제 | IMPLEMENTED | 구현됨 |
