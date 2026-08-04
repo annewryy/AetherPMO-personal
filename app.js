@@ -17714,7 +17714,10 @@ class AetherPMO {
                 if (biddingCustom) { biddingCustom.style.display = 'block'; biddingCustom.value = currBizType; }
             }
         }
-        this.setFieldValue('project-sales-owner', project.salesOwner);
+        this.setFieldValue('project-sales-owner', project.salesOwner || project.sales_owner || '');
+        this.setFieldValue('project-bd-manager', project.bdManager || project.bd_manager || '');
+        this.setFieldValue('project-internal-pm', project.internalPm || project.internal_pm || '');
+        this.setFieldValue('project-pmo-manager', project.pmoManager || project.pmo_manager || '');
         this.setFieldValue('project-proposal-owner', project.proposalOwner);
         this.setFieldValue('project-proposal-pm', project.proposalPm);
         this.setFieldValue('project-business-manager', project.businessManager);
@@ -17952,6 +17955,9 @@ class AetherPMO {
         const customerName = document.getElementById('project-customer-name')?.value?.trim() || '';
         const projectBudget = this.parseNumberFromCommas(document.getElementById('project-budget-bidding')?.value);
         const salesOwner = document.getElementById('project-sales-owner')?.value?.trim() || '';
+        const bdManager = document.getElementById('project-bd-manager')?.value?.trim() || '';
+        const internalPm = document.getElementById('project-internal-pm')?.value?.trim() || '';
+        const pmoManager = document.getElementById('project-pmo-manager')?.value?.trim() || '';
         const proposalOwner = document.getElementById('project-proposal-owner')?.value?.trim() || '';
         const proposalPm = document.getElementById('project-proposal-pm')?.value?.trim() || '';
         const businessManager = document.getElementById('project-business-manager')?.value?.trim() || '';
@@ -18058,7 +18064,11 @@ class AetherPMO {
                     progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
                     projectCode, bizType, contractDate, location, relatedBiz, riskLevel, wbs,
                     bidNumber, customerName, projectBudget, businessType,
-                    salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
+                    salesOwner, sales_owner: salesOwner,
+                    bdManager, bd_manager: bdManager,
+                    internalPm, internal_pm: internalPm,
+                    pmoManager, pmo_manager: pmoManager,
+                    proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
                     participationType, totalContractAmount, companyShareRate, companyContractAmount, primeContractorName,
                     originalProjectName, subcontractProjectName, subcontractPrimeContractor, subcontractClientName, originalContractAmount, originalProjectCode,
                     consortiumMembers
@@ -18126,7 +18136,11 @@ class AetherPMO {
                     managerId: managerId || (this.currentUser ? (this.currentUser.id || this.currentUser.email) : 'pm@aetherpmo.com'),
                     memberIds: [managerId || 'pm@aetherpmo.com', 'worker@aetherpmo.com'],
                     bidNumber, customerName, projectBudget, businessType,
-                    salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
+                    salesOwner, sales_owner: salesOwner,
+                    bdManager, bd_manager: bdManager,
+                    internalPm, internal_pm: internalPm,
+                    pmoManager, pmo_manager: pmoManager,
+                    proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
                     consortiumMembers: [],
                     vrbInfo: {
                         status: '미상신', plannedDate: '', submittedDate: '', approvedDate: '', vrbNumber: '', memo: ''

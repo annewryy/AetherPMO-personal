@@ -3330,35 +3330,28 @@
                             <input type="text" inputmode="numeric" id="project-company-contract-amount" placeholder="예: 1,031,802,750" oninput="app.formatInputWithCommas(this); app.checkManualContractAmount();">
                         </div>
 
-                        <!-- ③ 공동수급체 구성 영역 (주사업자/공동수급사) -->
-                        <div class="form-group span-2" id="project-consortium-section" style="margin-top: 15px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 6px; margin-bottom: 10px;">
-                                <h4 style="font-size:14px; color:var(--primary); font-weight:700; margin:0;">공동수급체 구성</h4>
-                                <button type="button" class="btn btn-xs btn-outline" id="btn-add-consortium-member" onclick="app.addConsortiumMemberRow()">
-                                    <i data-lucide="plus" style="width:12px; height:12px; margin-right:4px;"></i> 참여사 추가
-                                </button>
-                            </div>
-                            <div id="consortium-validation-warning" style="display:none; background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); color: var(--warning); padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 10px;">
-                                공동수급체 지분율 합계가 100%가 아닙니다.
-                            </div>
-                            <div style="overflow-x: auto;">
-                                <table class="table" style="width:100%; font-size:12px; border:1px solid var(--bg-card-border);">
-                                    <thead>
-                                        <tr style="background:var(--bg-hover-item);">
-                                            <th style="padding:6px 8px; text-align:left;">회사명</th>
-                                            <th style="padding:6px 8px; text-align:center; width:110px;">참여 구분</th>
-                                            <th style="padding:6px 8px; text-align:right; width:80px;">지분율(%)</th>
-                                            <th style="padding:6px 8px; text-align:right; width:130px;">계약금액(원)</th>
-                                            <th style="padding:6px 8px; text-align:center; width:60px;">대표사</th>
-                                            <th style="padding:6px 8px; text-align:center; width:60px;">당사</th>
-                                            <th style="padding:6px 8px; text-align:left;">비고</th>
-                                            <th style="padding:6px 8px; text-align:center; width:50px;">삭제</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="project-consortium-tbody">
-                                        <!-- Rendered dynamically by app.js -->
-                                    </tbody>
-                                </table>
+                        <!-- ③ 사업 담당자 정보 영역 -->
+                        <div class="form-group span-2" id="project-business-managers-section" style="margin-top: 15px;">
+                            <h4 style="border-bottom: 1px solid var(--bg-card-border); padding-bottom: 6px; font-size:14px; color:var(--primary); font-weight:700; margin-bottom: 10px;">
+                                사업 담당자 정보
+                            </h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div class="form-group">
+                                    <label for="project-sales-owner">영업 담당자</label>
+                                    <input type="text" id="project-sales-owner" placeholder="예: 홍길동 팀장">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-bd-manager">BD (사업개발)</label>
+                                    <input type="text" id="project-bd-manager" placeholder="예: 김철수 수석">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-internal-pm">내부 PM</label>
+                                    <input type="text" id="project-internal-pm" placeholder="예: 이영희 이사">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-pmo-manager">PMO</label>
+                                    <input type="text" id="project-pmo-manager" placeholder="예: 박민수 수석">
+                                </div>
                             </div>
                         </div>
 
@@ -5465,7 +5458,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v40_include_project_contractor_severance_check"></script>
+    <script src="app.js?v=v41_project_edit_modal_business_managers"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
