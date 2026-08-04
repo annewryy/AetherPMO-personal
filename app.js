@@ -1004,6 +1004,9 @@ class AetherPMO {
                         contract_owner: p.contractOwner,
                         legal_owner: p.legalOwner,
                         location: p.location || '',
+                        main_features: p.mainFeatures || p.main_features || '',
+                        risk_mitigation: p.riskAndMitigation || p.risk_mitigation || '',
+                        related_projects: p.relatedProjects || p.related_projects || '',
                         wbs: p.wbs || { stages: [] },
                         resources_list: p.resourcesList || [],
                         member_ids: p.memberIds || []
@@ -1758,7 +1761,8 @@ class AetherPMO {
                     memo: m.memo || '',
                     employmentType: m.employment_type || r.employment_type || 'regular',
                     resourceId: m.resource_id,
-                    participationRate: m.participation_rate || 100
+                    participationRate: m.participation_rate || 100,
+                    isSeveranceEligible: m.is_severance_eligible ?? m.isSeveranceEligible ?? null
                 };
             });
 
@@ -1851,6 +1855,9 @@ class AetherPMO {
                 riskLevel: p.risk_level || p.riskLevel || '보통',
                 contractDate: p.contract_date || p.contractDate || p.start_date,
                 relatedBiz: p.related_biz || p.relatedBiz || '',
+                mainFeatures: p.main_features || p.mainFeatures || '',
+                riskAndMitigation: p.risk_mitigation || p.riskAndMitigation || '',
+                relatedProjects: p.related_projects || p.relatedProjects || '',
                 participationType: p.participation_type || p.participationType || 'PRIME_CONTRACTOR',
                 totalContractAmount: p.total_contract_amount ? Number(p.total_contract_amount) : null,
                 companyShareRate: p.company_share_rate !== null && p.company_share_rate !== undefined ? Number(p.company_share_rate) : null,
@@ -6571,6 +6578,7 @@ class AetherPMO {
                         ${p.isOverdue && p.status !== 'Completed' ? `<span class="status-badge status-overdue" style="font-size: 10px; padding: 2px 8px;">기간초과</span>` : ''}
                     </div>
                     <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 4px 0 0 0; letter-spacing: -0.3px;">${p.name || '무제 프로젝트'}</h3>
+                    <p style="font-size:12px; color:var(--text-muted); line-height:1.4; margin:4px 0 0 0; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; text-overflow:ellipsis;">${p.desc || p.remarks || '등록된 설명이 없습니다.'}</p>
                 </div>
 
                 <div style="flex: 1.2; min-width: 180px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted);">
@@ -6620,6 +6628,7 @@ class AetherPMO {
                     </div>
                 </div>
                 <h3 class="project-card-title">${p.name || '무제 프로젝트'}</h3>
+                <p class="project-card-desc" style="font-size:12px; color:var(--text-muted); line-height:1.4; margin:6px 0 10px 0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; text-overflow:ellipsis;">${p.desc || p.remarks || '등록된 프로젝트 설명이 없습니다.'}</p>
 
                 <div class="project-card-details">
                     <div class="detail-row">
@@ -7983,11 +7992,12 @@ class AetherPMO {
                         <span style="font-size:14px; font-weight:800; color:var(--text-main); font-family:monospace;">${budgetText}</span>
                     </div>
 
-                    <h3 class="bidding-project-title" style="margin: 8px 0; font-size:15px; font-weight:700;">
+                    <h3 class="bidding-project-title" style="margin: 8px 0 4px 0; font-size:15px; font-weight:700;">
                         <a href="#" class="project-name-link" onclick="event.preventDefault(); event.stopPropagation(); app.openBiddingProjectDetail('${projectId}')">
                             ${this.escapeHtml(p.name)}
                         </a>
                     </h3>
+                    <p class="project-card-desc" style="margin:2px 0 8px 0;">${this.escapeHtml(p.desc || p.remarks || '등록된 프로젝트 설명이 없습니다.')}</p>
 
                     <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted); margin-bottom: 8px;">
                         <span>🏛️ ${this.escapeHtml(p.customer || '발주처 미정')}</span>
@@ -15560,6 +15570,12 @@ class AetherPMO {
             return;
         }
 
+        // Set breadcrumb title to project name
+        const activeBreadcrumb = document.querySelector('#view-project-detail .active-breadcrumb');
+        if (activeBreadcrumb) {
+            activeBreadcrumb.textContent = project.name;
+        }
+
         // D-Day Offset
         const end = new Date(project.endDate);
         const today = new Date();
@@ -15641,6 +15657,7 @@ class AetherPMO {
                                 <span class="status-badge" style="font-size:11px; font-weight:700; padding:4px 10px; background:var(--primary-glow); color:var(--primary); border:1px solid rgba(99, 102, 241, 0.3); border-radius:6px;">${dDayText}</span>
                                 <span class="status-badge" style="font-size:11px; font-weight:700; padding:4px 10px; background:${riskGlow}; color:${riskColor}; border:1px solid rgba(255, 255, 255, 0.1); border-radius:6px;">위험도: ${project.riskLevel || '보통'}</span>
                             </div>
+                            <h2 style="font-size:24px; font-weight:800; margin-top:12px; margin-bottom:6px; color:var(--text-main); letter-spacing:-0.5px;">${project.name}</h2>
                             <div class="project-detail-desc-container" style="margin-top:6px;">
                                 <p id="project-detail-desc-text" class="project-detail-desc-clamp" style="font-size:13px; color:var(--text-muted); line-height:1.5; margin:0; transition: all 0.2s ease;">${project.desc || '상세 설명이 등록되지 않은 프로젝트입니다.'}</p>
                                 <button id="project-detail-desc-toggle-btn" type="button" onclick="app.toggleProjectDetailDesc()" style="background:none; border:none; color:var(--primary); font-size:12px; font-weight:700; cursor:pointer; padding:4px 0 0 0; display:inline-flex; align-items:center; gap:3px;">
@@ -15793,7 +15810,7 @@ class AetherPMO {
                     <div style="display:flex; flex-direction:column; gap:10px; font-size:12px; margin-top:8px;">
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
                             <span style="color:var(--text-muted); font-weight:700;">사업명</span>
-                            <span style="font-weight:700; text-align:right; max-width: 160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${project.name}">${project.name}</span>
+                            <span style="font-weight:700; text-align:right; max-width: 70%; word-break: keep-all; line-height: 1.4;" title="${project.name}">${project.name}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
                             <span style="color:var(--text-muted); font-weight:700;">프로젝트 코드</span>
@@ -15838,7 +15855,7 @@ class AetherPMO {
                     <div style="display:flex; flex-direction:column; gap:10px; font-size:12px; margin-top:8px;">
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
                             <span style="color:var(--text-muted); font-weight:700;">사업명</span>
-                            <span style="font-weight:700; text-align:right; max-width: 160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${project.name}">${project.name}</span>
+                            <span style="font-weight:700; text-align:right; max-width: 70%; word-break: keep-all; line-height: 1.4;" title="${project.name}">${project.name}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
                             <span style="color:var(--text-muted); font-weight:700;">발주기관</span>
@@ -16124,7 +16141,58 @@ class AetherPMO {
         if (countAct) countAct.textContent = `${this.state.actionItems.filter(a => a.projectId === project.id).length}건`;
         if (countDoc) countDoc.textContent = `${this.state.officialDocs.filter(d => d.projectId === project.id).length}건`;
 
-        // 7. 컨소시엄 구성 및 지분율 카드 렌더링
+        // 7. 본사업 주요특징, 위험요소 및 대응방안, 연관사업 설명 카드 렌더링
+        const businessContainer = document.getElementById('detail-overview-business-fields');
+        if (businessContainer) {
+            const mainFeaturesText = project.mainFeatures || project.main_features || '';
+            const riskMitigationText = project.riskAndMitigation || project.risk_mitigation || '';
+            const relatedProjectsText = project.relatedProjects || project.related_projects || '';
+
+            businessContainer.innerHTML = `
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap:18px;">
+                    <!-- 📌 본사업 주요특징 -->
+                    <div class="dashboard-card" style="display:flex; flex-direction:column; gap:10px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:10px;">
+                            <h4 style="font-size:14px; font-weight:700; color:var(--text-main); margin:0; display:flex; align-items:center; gap:6px;">
+                                <i data-lucide="sparkles" style="width:16px; height:16px; color:var(--primary);"></i> 본사업 주요특징
+                            </h4>
+                            <span style="font-size:11px; background:rgba(99,102,241,0.1); color:var(--primary); padding:2px 8px; border-radius:4px; font-weight:700;">Key Features</span>
+                        </div>
+                        <div style="font-size:13px; color:${mainFeaturesText ? 'var(--text-main)' : 'var(--text-muted)'}; line-height:1.6; white-space:pre-wrap; word-break:break-word;">
+                            ${mainFeaturesText || '<span style="font-style:italic; opacity:0.8;">등록된 본사업 주요특징이 없습니다. 상단 [사업 정보 수정] 버튼에서 입력할 수 있습니다.</span>'}
+                        </div>
+                    </div>
+
+                    <!-- ⚠️ 위험요소 및 대응방안 -->
+                    <div class="dashboard-card" style="display:flex; flex-direction:column; gap:10px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:10px;">
+                            <h4 style="font-size:14px; font-weight:700; color:var(--text-main); margin:0; display:flex; align-items:center; gap:6px;">
+                                <i data-lucide="shield-alert" style="width:16px; height:16px; color:var(--warning, #f59e0b);"></i> 위험요소 및 대응방안
+                            </h4>
+                            <span style="font-size:11px; background:rgba(245,158,11,0.1); color:var(--warning, #f59e0b); padding:2px 8px; border-radius:4px; font-weight:700;">Risk & Mitigation</span>
+                        </div>
+                        <div style="font-size:13px; color:${riskMitigationText ? 'var(--text-main)' : 'var(--text-muted)'}; line-height:1.6; white-space:pre-wrap; word-break:break-word;">
+                            ${riskMitigationText || '<span style="font-style:italic; opacity:0.8;">등록된 위험요소 및 대응방안 정보가 없습니다. 상단 [사업 정보 수정] 버튼에서 입력할 수 있습니다.</span>'}
+                        </div>
+                    </div>
+
+                    <!-- 🔗 연관사업 설명 (해당시) -->
+                    <div class="dashboard-card" style="display:flex; flex-direction:column; gap:10px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:10px;">
+                            <h4 style="font-size:14px; font-weight:700; color:var(--text-main); margin:0; display:flex; align-items:center; gap:6px;">
+                                <i data-lucide="link-2" style="width:16px; height:16px; color:var(--info, #06b6d4);"></i> 연관사업 설명 (해당시)
+                            </h4>
+                            <span style="font-size:11px; background:rgba(6,182,212,0.1); color:var(--info, #06b6d4); padding:2px 8px; border-radius:4px; font-weight:700;">Related Projects</span>
+                        </div>
+                        <div style="font-size:13px; color:${relatedProjectsText ? 'var(--text-main)' : 'var(--text-muted)'}; line-height:1.6; white-space:pre-wrap; word-break:break-word;">
+                            ${relatedProjectsText || '<span style="font-style:italic; opacity:0.8;">등록된 연관사업 설명이 없습니다. 상단 [사업 정보 수정] 버튼에서 입력할 수 있습니다.</span>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 8. 컨소시엄 구성 및 지분율 카드 렌더링
         this.renderProjectConsortiumCard(project);
     }
 
@@ -16900,7 +16968,7 @@ class AetherPMO {
 
         const members = (this.state.projectMembers || []).filter(m => m.projectId === projectId);
         if (members.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">등록된 참여인력이 없습니다.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">등록된 참여인력이 없습니다.</td></tr>';
             return;
         }
 
@@ -16921,14 +16989,20 @@ class AetherPMO {
 
             const empBadge = `<span class="employment-badge ${empCss}">${empLabel}</span>`;
 
-            // 자사화/계약직 투입 365일 이상 시 퇴직금 발생 뱃지 표시
-            let severanceBadge = '';
+            // 퇴직금 대상 여부 속성 판정 및 셀 HTML 생성
             const isContractor = (empType === 'INSOURCED_CONTRACTOR' || empType === 'outsourcing' || empType === 'PROJECT_CONTRACTOR' || empType === 'project_contract');
-            if (isContractor && mem.startDate && mem.endDate) {
-                const days = Math.floor((new Date(mem.endDate) - new Date(mem.startDate)) / (1000 * 60 * 60 * 24)) + 1;
-                if (days >= 365) {
-                    severanceBadge = `<span class="badge-severance" style="font-size:10px; background:rgba(234,179,8,0.15); color:#d97706; border:1px solid rgba(234,179,8,0.3); padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:3px; margin-left:4px;" title="자사화/계약직 투입 365일 이상 (${days}일)"><i data-lucide="coins" style="width:11px; height:11px;"></i> 퇴직금 대상</span>`;
-                }
+            let isSeveranceEligible = mem.isSeveranceEligible ?? mem.is_severance_eligible;
+            let days = 0;
+            if (mem.startDate && mem.endDate) {
+                days = Math.floor((new Date(mem.endDate) - new Date(mem.startDate)) / (1000 * 60 * 60 * 24)) + 1;
+            }
+            if (isSeveranceEligible === undefined || isSeveranceEligible === null) {
+                isSeveranceEligible = isContractor && days >= 365;
+            }
+
+            let severanceCellHtml = '<span class="text-xs text-muted">비대상</span>';
+            if (isSeveranceEligible) {
+                severanceCellHtml = `<span class="badge-severance" style="font-size:10px; background:rgba(234,179,8,0.15); color:#d97706; border:1px solid rgba(234,179,8,0.3); padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:3px;" title="자사화/계약직 투입 365일 이상 (${days}일)"><i data-lucide="coins" style="width:11px; height:11px;"></i> 대상 ${days ? `(${days}일)` : ''}</span>`;
             }
 
             tr.innerHTML = `
@@ -16936,7 +17010,8 @@ class AetherPMO {
                 <td><span class="badge-cat cat-etc">${this.escapeHtml(mem.role || mem.roleName || '수행원')}</span></td>
                 <td class="text-xs font-bold">${this.escapeHtml(mem.department || '-')}</td>
                 <td class="text-xs font-bold">${this.escapeHtml(mem.position || '연구원')}</td>
-                <td>${empBadge} ${severanceBadge}</td>
+                <td>${empBadge}</td>
+                <td>${severanceCellHtml}</td>
                 <td class="text-xs text-muted font-bold">${mem.startDate || '-'}</td>
                 <td class="text-xs text-muted font-bold">${mem.endDate || '-'}</td>
                 <td>${statusBadge}</td>
@@ -17882,6 +17957,10 @@ class AetherPMO {
         document.getElementById('project-related-biz').value = '';
         document.getElementById('project-risk-level').value = '보통';
 
+        if (document.getElementById('project-main-features')) document.getElementById('project-main-features').value = '';
+        if (document.getElementById('project-risk-mitigation')) document.getElementById('project-risk-mitigation').value = '';
+        if (document.getElementById('project-related-projects')) document.getElementById('project-related-projects').value = '';
+
         // Reset bid status
         document.getElementById('project-bid-status-group').style.display = 'none';
         document.getElementById('project-bid-status').value = '제안 준비중';
@@ -17957,6 +18036,10 @@ class AetherPMO {
         this.setFieldValue('project-milestones', project.milestones);
         this.setFieldValue('project-remarks', project.remarks);
         this.setFieldValue('project-code', project.projectCode);
+
+        this.setFieldValue('project-main-features', project.mainFeatures || project.main_features || '');
+        this.setFieldValue('project-risk-mitigation', project.riskAndMitigation || project.risk_mitigation || '');
+        this.setFieldValue('project-related-projects', project.relatedProjects || project.related_projects || '');
 
         const currBizType = project.businessType || project.business_type || project.bizType || '공공 SI';
         const standardTypes = ['공공 SI', '유지관리', 'ISP', '컨설팅', 'AI'];
@@ -18188,6 +18271,9 @@ class AetherPMO {
             : 0;
         const milestones = document.getElementById('project-milestones')?.value?.trim() || '';
         const remarks = document.getElementById('project-remarks')?.value?.trim() || '';
+        const mainFeatures = document.getElementById('project-main-features')?.value?.trim() || '';
+        const riskAndMitigation = document.getElementById('project-risk-mitigation')?.value?.trim() || '';
+        const relatedProjects = document.getElementById('project-related-projects')?.value?.trim() || '';
 
         // Retrieve new fields
         const projectCode = document.getElementById('project-code')?.value?.trim() || '';
@@ -18371,6 +18457,9 @@ class AetherPMO {
                     bidStatus: normBidStatus || null,
                     is_bidding_project: Boolean(old.is_bidding_project || old.status === 'Bidding'),
                     progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
+                    mainFeatures, main_features: mainFeatures,
+                    riskAndMitigation, risk_mitigation: riskAndMitigation,
+                    relatedProjects, related_projects: relatedProjects,
                     projectCode, bizType, contractDate, location, relatedBiz, riskLevel, wbs,
                     bidNumber, customerName, projectBudget, businessType,
                     salesOwner, sales_owner: salesOwner,
@@ -18434,6 +18523,9 @@ class AetherPMO {
                 const newProject = {
                     _isNew: true, // Supabase INSERT 분기용 플래그
                     id: newId, name, desc, dept, manager, startDate, endDate, status, bidStatus: status === 'Bidding' ? bidStatus : '', progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
+                    mainFeatures, main_features: mainFeatures,
+                    riskAndMitigation, risk_mitigation: riskAndMitigation,
+                    relatedProjects, related_projects: relatedProjects,
                     projectCode: projectCode || (status === 'Bidding' ? this.generateNextProjectCode() : `PRJ-2026-${String(Date.now()).substring(7)}`),
                     bizType: bizType || 'SI 구축',
                     contractDate: contractDate || startDate,
@@ -25243,6 +25335,12 @@ class AetherPMO {
 
         const isNew = !memberId;
         const finalId = isNew ? this.generateUuid() : memberId;
+        const isContractor = (employmentType === 'INSOURCED_CONTRACTOR' || employmentType === 'outsourcing' || employmentType === 'PROJECT_CONTRACTOR' || employmentType === 'project_contract');
+        let calcDays = 0;
+        if (startDate && endDate) {
+            calcDays = Math.floor((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
+        }
+        const isSeveranceEligible = isContractor && calcDays >= 365;
 
         const memberObj = {
             id: finalId,
@@ -25260,7 +25358,9 @@ class AetherPMO {
             isProjectManager: participationRole === 'PM',
             employmentType,
             resourceId,
-            participationRate: 100
+            participationRate: 100,
+            isSeveranceEligible,
+            is_severance_eligible: isSeveranceEligible
         };
 
         if (isNew) {
