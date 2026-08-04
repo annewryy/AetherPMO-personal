@@ -16167,8 +16167,8 @@ class AetherPMO {
             const color = colors[idx % colors.length];
             const isPrime = item.roleType === 'PRIME';
             const roleBadge = isPrime 
-                ? '<span style="font-size:10px; background:rgba(99,102,241,0.15); color:var(--primary); padding:2px 6px; border-radius:4px; font-weight:700;">주계약자(주간사)</span>'
-                : '<span style="font-size:10px; background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; border-radius:4px; font-weight:600;">참여사</span>';
+                ? '<span style="font-size:10px; background:rgba(99,102,241,0.15); color:var(--primary); padding:2px 6px; border-radius:4px; font-weight:700;">주사업자</span>'
+                : '<span style="font-size:10px; background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; border-radius:4px; font-weight:600;">공동수급사(부사업자)</span>';
 
             const amtText = item.contractAmount ? `${Number(item.contractAmount).toLocaleString()} 원` : '-';
 
@@ -16278,10 +16278,11 @@ class AetherPMO {
             </td>
             <td style="padding:6px 8px;">
                 <select class="c-edit-role" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
-                    <option value="PRIME" ${data.roleType === 'PRIME' ? 'selected' : ''}>주계약자(주간사)</option>
-                    <option value="MEMBER" ${data.roleType !== 'PRIME' ? 'selected' : ''}>참여사</option>
+                    <option value="PRIME" ${data.roleType === 'PRIME' ? 'selected' : ''}>주사업자</option>
+                    <option value="MEMBER" ${data.roleType !== 'PRIME' ? 'selected' : ''}>공동수급사(부사업자)</option>
                 </select>
             </td>
+
             <td style="padding:6px 8px;">
                 <input type="number" class="c-edit-rate" value="${data.shareRate !== undefined ? data.shareRate : 0}" step="0.1" min="0" max="100" oninput="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px; font-weight:700; text-align:right;">
             </td>
