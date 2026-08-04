@@ -16274,10 +16274,10 @@ class AetherPMO {
         tr.style.borderBottom = '1px solid var(--border-color)';
         tr.innerHTML = `
             <td style="padding:6px 8px;">
-                <input type="text" class="c-edit-company" value="${data.companyName || ''}" placeholder="(주)회사명" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
+                <input type="text" class="c-edit-company" value="${data.companyName || ''}" placeholder="(주)회사명" oninput="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
             </td>
             <td style="padding:6px 8px;">
-                <select class="c-edit-role" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
+                <select class="c-edit-role" onchange="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
                     <option value="PRIME" ${data.roleType === 'PRIME' ? 'selected' : ''}>주사업자</option>
                     <option value="MEMBER" ${data.roleType !== 'PRIME' ? 'selected' : ''}>공동수급사(부사업자)</option>
                 </select>
@@ -16287,7 +16287,7 @@ class AetherPMO {
                 <input type="number" class="c-edit-rate" value="${data.shareRate !== undefined ? data.shareRate : 0}" step="0.1" min="0" max="100" oninput="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px; font-weight:700; text-align:right;">
             </td>
             <td style="padding:6px 8px;">
-                <input type="number" class="c-edit-amount" value="${data.contractAmount || 0}" step="100000" placeholder="0" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px; text-align:right;">
+                <input type="number" class="c-edit-amount" value="${data.contractAmount || 0}" step="100000" placeholder="0" oninput="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px; text-align:right;">
             </td>
             <td style="padding:6px 8px;">
                 <input type="text" class="c-edit-ceo" value="${data.ceoName || ''}" placeholder="대표자명" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
@@ -16328,6 +16328,146 @@ class AetherPMO {
             } else {
                 label.style.color = 'var(--danger, #ef4444)';
             }
+        }
+        this.renderConsortiumShareChart();
+    }
+
+    renderConsortiumShareChart() {
+        const chartContainer = document.getElementById('consortium-chart-container');
+        const legendContainer = document.getElementById('consortium-chart-legend');
+        const highlightCard = document.getElementById('consortium-okestro-highlight-card');
+        if (!chartContainer || !legendContainer || !highlightCard) return;
+
+        const rows = document.querySelectorAll('#consortium-edit-tbody tr');
+        const items = [];
+        let totalShare = 0;
+
+        rows.forEach(tr => {
+            const companyName = tr.querySelector('.c-edit-company')?.value?.trim() || '(미입력)';
+            const role = tr.querySelector('.c-edit-role')?.value || 'MEMBER';
+            const shareRate = parseFloat(tr.querySelector('.c-edit-rate')?.value) || 0;
+            const contractAmount = parseFloat(tr.querySelector('.c-edit-amount')?.value) || 0;
+
+            const lowerName = companyName.toLowerCase();
+            const isOkestro = lowerName.includes('오케스트로') || lowerName.includes('okestro');
+
+            items.push({
+                companyName,
+                role,
+                shareRate,
+                contractAmount,
+                isOkestro
+            });
+            totalShare += shareRate;
+        });
+
+        // 1. 색상 팔레트 설정 (오케스트로는 시그니처 인디고/네온 블루 강조)
+        const okestroColor = '#4f46e5';
+        const otherColors = ['#0ea5e9', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#64748b', '#06b6d4'];
+
+        let colorIndex = 0;
+        items.forEach(item => {
+            if (item.isOkestro) {
+                item.color = okestroColor;
+            } else {
+                item.color = otherColors[colorIndex % otherColors.length];
+                colorIndex++;
+            }
+        });
+
+        // 2. SVG Donut Chart 렌더링
+        const radius = 38;
+        const circumference = 2 * Math.PI * radius;
+        let strokeDashoffset = 0;
+
+        let svgHtml = `
+            <svg viewBox="0 0 100 100" style="width:100%; height:100%; transform: rotate(-90deg); border-radius:50%;">
+                <circle cx="50" cy="50" r="${radius}" fill="none" stroke="var(--border-color)" stroke-width="14" opacity="0.3"></circle>
+        `;
+
+        if (totalShare > 0) {
+            items.forEach(item => {
+                const sliceRatio = item.shareRate / (totalShare > 100 ? totalShare : 100);
+                const strokeDasharray = `${sliceRatio * circumference} ${circumference}`;
+                const strokeWidth = item.isOkestro ? 16 : 13;
+                const filterAttr = item.isOkestro ? `filter="drop-shadow(0px 0px 4px rgba(79, 70, 229, 0.6))"` : '';
+
+                svgHtml += `
+                    <circle cx="50" cy="50" r="${radius}" fill="none" 
+                            stroke="${item.color}" 
+                            stroke-width="${strokeWidth}" 
+                            stroke-dasharray="${strokeDasharray}" 
+                            stroke-dashoffset="-${strokeDashoffset}"
+                            ${filterAttr}
+                            style="transition: all 0.3s ease;">
+                    </circle>
+                `;
+                strokeDashoffset += sliceRatio * circumference;
+            });
+        }
+
+        svgHtml += `</svg>`;
+
+        const okestroItem = items.find(i => i.isOkestro);
+        const okestroShare = okestroItem ? okestroItem.shareRate : 0;
+
+        svgHtml += `
+            <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; pointer-events:none;">
+                <span style="font-size:10px; color:var(--text-muted); font-weight:600; text-transform:uppercase;">오케스트로</span>
+                <span style="font-size:20px; font-weight:800; color:var(--primary); line-height:1.1;">${okestroShare}%</span>
+            </div>
+        `;
+
+        chartContainer.innerHTML = svgHtml;
+
+        // 3. Legend (범례) 렌더링
+        if (items.length === 0) {
+            legendContainer.innerHTML = `<div style="text-align:center; color:var(--text-muted); padding:10px;">등록된 구성사가 없습니다.</div>`;
+        } else {
+            legendContainer.innerHTML = items.map(item => `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:${item.isOkestro ? 'rgba(79, 70, 229, 0.08)' : 'transparent'}; padding: 4px 8px; border-radius: 6px; border:${item.isOkestro ? '1px solid rgba(79, 70, 229, 0.25)' : 'none'};">
+                    <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+                        <span style="width:10px; height:10px; border-radius:3px; background:${item.color}; flex-shrink:0;"></span>
+                        <span style="font-weight:${item.isOkestro ? '800' : '600'}; color:${item.isOkestro ? 'var(--primary)' : 'var(--text-main)'}; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+                            ${item.companyName} ${item.isOkestro ? '<span style="font-size:10px; background:var(--primary); color:#fff; padding:1px 4px; border-radius:3px; margin-left:2px;">당사</span>' : ''}
+                        </span>
+                    </div>
+                    <span style="font-weight:700; font-family:monospace; color:${item.isOkestro ? 'var(--primary)' : 'var(--text-main)'};">${item.shareRate}%</span>
+                </div>
+            `).join('');
+        }
+
+        // 4. 🏆 오케스트로 지분율 강조 카드 렌더링
+        if (okestroItem) {
+            const formattedAmt = okestroItem.contractAmount ? Number(okestroItem.contractAmount).toLocaleString() + ' 원' : '미정';
+            const roleBadge = okestroItem.role === 'PRIME' ? '주사업자 (대표사)' : '공동수급사 (부사업자)';
+
+            highlightCard.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+                    <div>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+                            <span style="font-size:11px; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px;">당사 지분 하이라이트</span>
+                            <span style="font-size:10px; background:rgba(16, 185, 129, 0.15); color:var(--success, #10b981); padding:1px 6px; border-radius:4px; font-weight:700;">${roleBadge}</span>
+                        </div>
+                        <h5 style="margin:0; font-size:14px; font-weight:800; color:var(--text-main);">${okestroItem.companyName}</h5>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="font-size:22px; font-weight:900; color:var(--primary); font-family:sans-serif; letter-spacing:-0.5px;">${okestroItem.shareRate}<span style="font-size:14px;">%</span></span>
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed rgba(99,102,241,0.25); margin-top:6px; padding-top:6px; font-size:12px;">
+                    <span style="color:var(--text-muted);">당사 지분 계약금액</span>
+                    <strong style="color:var(--text-main); font-weight:700;">${formattedAmt}</strong>
+                </div>
+            `;
+        } else {
+            highlightCard.innerHTML = `
+                <div style="display:flex; align-items:center; gap:8px; color:var(--text-muted); font-size:12px;">
+                    <i data-lucide="info" style="width:16px; height:16px; color:var(--primary);"></i>
+                    <span>테이블에 <strong>'오케스트로'</strong> 또는 <strong>'오케스트로 클라우드'</strong> 지분 등록 시 전용 강조 카드가 활성화됩니다.</span>
+                </div>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
     }
 
