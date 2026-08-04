@@ -16612,13 +16612,13 @@ class AetherPMO {
 
             const empBadge = `<span class="employment-badge ${empCss}">${empLabel}</span>`;
 
-            // 자사화 투입 365일 이상 시 퇴직금 발생 뱃지 표시
+            // 자사화/계약직 투입 365일 이상 시 퇴직금 발생 뱃지 표시
             let severanceBadge = '';
-            const isInsourced = (empType === 'INSOURCED_CONTRACTOR' || empType === 'outsourcing');
-            if (isInsourced && mem.startDate && mem.endDate) {
+            const isContractor = (empType === 'INSOURCED_CONTRACTOR' || empType === 'outsourcing' || empType === 'PROJECT_CONTRACTOR' || empType === 'project_contract');
+            if (isContractor && mem.startDate && mem.endDate) {
                 const days = Math.floor((new Date(mem.endDate) - new Date(mem.startDate)) / (1000 * 60 * 60 * 24)) + 1;
                 if (days >= 365) {
-                    severanceBadge = `<span class="badge-severance" style="font-size:10px; background:rgba(234,179,8,0.15); color:#d97706; border:1px solid rgba(234,179,8,0.3); padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:3px; margin-left:4px;" title="자사화 인력 투입 365일 이상 (${days}일)"><i data-lucide="coins" style="width:11px; height:11px;"></i> 퇴직금 대상</span>`;
+                    severanceBadge = `<span class="badge-severance" style="font-size:10px; background:rgba(234,179,8,0.15); color:#d97706; border:1px solid rgba(234,179,8,0.3); padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:3px; margin-left:4px;" title="자사화/계약직 투입 365일 이상 (${days}일)"><i data-lucide="coins" style="width:11px; height:11px;"></i> 퇴직금 대상</span>`;
                 }
             }
 
@@ -24648,8 +24648,10 @@ class AetherPMO {
 
         if (!box || !notice) return;
 
-        // 자사화(INSOURCED_CONTRACTOR) 인력인 경우 투입기간 검사
-        if (empType === 'INSOURCED_CONTRACTOR' || empType === 'outsourcing') {
+        // 자사화(INSOURCED_CONTRACTOR) 또는 프로젝트 계약직(PROJECT_CONTRACTOR) 인력인 경우 투입기간 검사
+        const isContractor = (empType === 'INSOURCED_CONTRACTOR' || empType === 'outsourcing' || empType === 'PROJECT_CONTRACTOR' || empType === 'project_contract');
+
+        if (isContractor) {
             if (startDate && endDate) {
                 const start = new Date(startDate);
                 const end = new Date(endDate);
@@ -24663,7 +24665,7 @@ class AetherPMO {
                     notice.innerHTML = `
                         <span style="display:flex; align-items:center; gap:6px;">
                             <i data-lucide="coins" style="width:14px; height:14px;"></i>
-                            <strong>💰 퇴직금 발생 대상 (자사화 투입 1년 이상)</strong>
+                            <strong>💰 퇴직금 발생 대상 (투입 1년 이상)</strong>
                         </span>
                         <span style="font-size:10px; font-weight:800; background:#d97706; color:#fff; padding:2px 6px; border-radius:4px;">총 ${diffDays}일 투입</span>
                     `;
@@ -24674,7 +24676,7 @@ class AetherPMO {
                     notice.innerHTML = `
                         <span style="display:flex; align-items:center; gap:6px;">
                             <i data-lucide="info" style="width:14px; height:14px;"></i>
-                            자사화 인력 (투입기간 365일 미만)
+                            계약직/자사화 인력 (투입기간 365일 미만)
                         </span>
                         <span style="font-size:10px; font-weight:700;">${diffDays > 0 ? diffDays + '일 투입 (퇴직금 미발생)' : '기간 확인 필요'}</span>
                     `;
@@ -24687,7 +24689,7 @@ class AetherPMO {
                 notice.innerHTML = `
                     <span style="display:flex; align-items:center; gap:6px;">
                         <i data-lucide="info" style="width:14px; height:14px;"></i>
-                        자사화 인력 퇴직금 확인
+                        계약직/자사화 인력 퇴직금 확인
                     </span>
                     <span style="font-size:10px;">투입 시작일과 종료일을 입력하면 퇴직금 대상 여부가 자동 계산됩니다.</span>
                 `;
@@ -24786,13 +24788,13 @@ class AetherPMO {
             else if (m.employmentType === 'PROJECT_CONTRACTOR' || m.employmentType === 'project_contract') empCss = 'employment-project';
             const typeBadge = `<span class="employment-badge ${empCss}" style="font-size:10px; padding:2px 6px;">${typeLabel}</span>`;
 
-            // 퇴직금 발생 여부 체크 (자사화 365일 이상 투입)
+            // 퇴직금 발생 여부 체크 (자사화 및 프로젝트 계약직 365일 이상 투입)
             let severanceBadge = '';
-            const isInsourced = (m.employmentType === 'INSOURCED_CONTRACTOR' || m.employmentType === 'outsourcing');
-            if (isInsourced && m.startDate && m.endDate) {
+            const isContractor = (m.employmentType === 'INSOURCED_CONTRACTOR' || m.employmentType === 'outsourcing' || m.employmentType === 'PROJECT_CONTRACTOR' || m.employmentType === 'project_contract');
+            if (isContractor && m.startDate && m.endDate) {
                 const days = Math.floor((new Date(m.endDate) - new Date(m.startDate)) / (1000 * 60 * 60 * 24)) + 1;
                 if (days >= 365) {
-                    severanceBadge = `<span class="badge-severance" style="font-size:10px; background:rgba(234,179,8,0.15); color:#d97706; border:1px solid rgba(234,179,8,0.3); padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:3px;" title="자사화 인력 투입 365일 이상 (${days}일)"><i data-lucide="coins" style="width:11px; height:11px;"></i> 퇴직금 대상</span>`;
+                    severanceBadge = `<span class="badge-severance" style="font-size:10px; background:rgba(234,179,8,0.15); color:#d97706; border:1px solid rgba(234,179,8,0.3); padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:3px;" title="자사화/계약직 투입 365일 이상 (${days}일)"><i data-lucide="coins" style="width:11px; height:11px;"></i> 퇴직금 대상</span>`;
                 }
             }
 
