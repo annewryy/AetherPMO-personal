@@ -1091,6 +1091,113 @@
                     </div>
                 </section>
 
+                <!-- 3.6 DEDICATED G2B ANNOUNCEMENT DETAIL VIEW (페이지 이동 형태) -->
+                <section id="view-g2b-detail" class="content-view" style="display: none;">
+                    <!-- Breadcrumbs & Back Navigation -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+                            <a href="#projects/g2b" onclick="app.navigateToG2BList()" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; border-radius: 6px;">
+                                <i data-lucide="arrow-left" style="width: 14px; height: 14px;"></i> 나라장터 목록으로 돌아가기
+                            </a>
+                            <span style="color: var(--text-muted);">|</span>
+                            <span style="color: var(--text-muted);">프로젝트</span> &gt; 
+                            <span style="color: var(--text-muted);">나라장터 공고조회</span> &gt; 
+                            <strong style="color: var(--primary);">입찰공고 상세정보</strong>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <a id="g2b-page-origin-url" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700;">
+                                <i data-lucide="external-link" style="width: 14px; height: 14px;"></i> 나라장터 원문보기 (새 탭)
+                            </a>
+                            <div id="g2b-page-action-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- Main Title Card Header -->
+                    <div class="dashboard-card" style="padding: 24px; margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                            <span id="g2b-page-badge" class="chip">본공고</span>
+                            <span id="g2b-page-no" style="font-family: monospace; font-size: 14px; font-weight: 700; color: var(--text-muted);"></span>
+                            <span id="g2b-page-dday" class="d-day-badge dday-normal">D-Day</span>
+                        </div>
+                        <h1 id="g2b-page-title" style="font-size: 22px; font-weight: 800; color: var(--text-main); line-height: 1.4; margin: 0 0 16px 0;"></h1>
+                        <div style="display: flex; gap: 24px; font-size: 13px; color: var(--text-muted); flex-wrap: wrap;">
+                            <div><i data-lucide="building" style="width:14px; height:14px; margin-right:4px; vertical-align:middle;"></i> 수요기관: <strong id="g2b-page-customer-top" style="color:var(--text-main);"></strong></div>
+                            <div><i data-lucide="coins" style="width:14px; height:14px; margin-right:4px; vertical-align:middle;"></i> 추정/배정예산: <strong id="g2b-page-budget-top" style="color:var(--success);"></strong></div>
+                            <div><i data-lucide="calendar" style="width:14px; height:14px; margin-right:4px; vertical-align:middle;"></i> 공고일: <span id="g2b-page-pubdate-top" style="color:var(--text-main);"></span></div>
+                            <div><i data-lucide="clock" style="width:14px; height:14px; margin-right:4px; vertical-align:middle;"></i> 마감일: <strong id="g2b-page-enddate-top" style="color:var(--danger);"></strong></div>
+                        </div>
+                    </div>
+
+                    <!-- Detail Information Grid Cards -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                        <!-- Card 1: 기관 및 담당부서 -->
+                        <div class="dashboard-card" style="padding: 20px;">
+                            <h3 style="font-size: 15px; font-weight: 700; color: var(--primary); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="building-2" style="width: 16px; height: 16px;"></i> 수요기관 및 공고기관 정보
+                            </h3>
+                            <div style="font-size: 14px; display: grid; gap: 12px; line-height: 1.6;">
+                                <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">수요기관명:</span> <strong id="g2b-page-customer" style="color: var(--text-main);"></strong></div>
+                                <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">공고기관명:</span> <span id="g2b-page-instt" style="color: var(--text-main);"></span></div>
+                                <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">공고번호(차수):</span> <span id="g2b-page-no-ord" style="font-family: monospace; font-weight:700;"></span></div>
+                                <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">공고종류/유형:</span> <span id="g2b-page-type-name"></span></div>
+                            </div>
+                        </div>
+
+                        <!-- Card 2: 금액 및 입찰 계약방식 -->
+                        <div class="dashboard-card" style="padding: 20px;">
+                            <h3 style="font-size: 15px; font-weight: 700; color: var(--success); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="badge-dollar-sign" style="width: 16px; height: 16px;"></i> 금액 및 입찰 계약 정보
+                            </h3>
+                            <div style="font-size: 14px; display: grid; gap: 12px; line-height: 1.6;">
+                                <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">배정예산/추정:</span> <strong id="g2b-page-budget" style="color: var(--success); font-size: 15px;"></strong></div>
+                                <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">계약체결방법:</span> <span id="g2b-page-contract-methd" style="color: var(--text-main); font-weight: 600;"></span></div>
+                                <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">입찰방식:</span> <span id="g2b-page-bid-methd" style="color: var(--text-main); font-weight: 600;"></span></div>
+                                <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">낙찰자결정방법:</span> <span id="g2b-page-winner-methd">협상에 의한 낙찰제</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: 일정 상세 -->
+                    <div class="dashboard-card" style="padding: 20px; margin-bottom: 20px;">
+                        <h3 style="font-size: 15px; font-weight: 700; color: var(--info); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="calendar-days" style="width: 16px; height: 16px;"></i> 입찰 주요 진행 일정
+                        </h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; font-size: 14px;">
+                            <div style="background: var(--bg-hover-item); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--bg-card-border);">
+                                <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">입찰공고 게시일시</div>
+                                <strong id="g2b-page-pub-date" style="font-size: 14px; color: var(--text-main);"></strong>
+                            </div>
+                            <div style="background: var(--bg-hover-item); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--bg-card-border);">
+                                <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">제안서 제출 마감일시</div>
+                                <strong id="g2b-page-end-date" style="font-size: 14px; color: var(--danger);"></strong>
+                            </div>
+                            <div style="background: var(--bg-hover-item); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--bg-card-border);">
+                                <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">개찰 및 규격 평가일시</div>
+                                <strong id="g2b-page-open-date" style="font-size: 14px; color: var(--info);"></strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 4: 📁 규격서 및 공고 첨부파일 다운로드 연결 -->
+                    <div class="dashboard-card" style="padding: 20px; margin-bottom: 20px;">
+                        <h3 style="font-size: 15px; font-weight: 700; color: var(--warning); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="file-down" style="width: 16px; height: 16px;"></i> 규격서 및 공고 첨부파일 다운로드
+                        </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+                            나라장터에 등록된 제안요청서(RFP), 과업지시서, 사전규격서 등 첨부파일 원본 및 세부문서를 다운로드할 수 있습니다.
+                        </p>
+
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;" id="g2b-page-attachments-container">
+                            <a id="g2b-attach-rfp-btn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-outline-warning" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; font-weight: 700; font-size: 13px; border-radius: 8px;">
+                                <i data-lucide="download" style="width: 16px; height: 16px;"></i> 제안요청서(RFP) / 규격서 원본파일 다운로드
+                            </a>
+                            <a id="g2b-attach-origin-btn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; font-weight: 700; font-size: 13px; border-radius: 8px;">
+                                <i data-lucide="file-text" style="width: 16px; height: 16px;"></i> 나라장터 공고 첨부문서 전체보기
+                            </a>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- 4. PROJECT DETAIL VIEW (Redesigned matching reference image) -->
                 <section id="view-project-detail" class="content-view">
                     <!-- Top Breadcrumb and date bar -->
