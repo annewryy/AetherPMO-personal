@@ -4512,7 +4512,12 @@ class AetherPMO {
             } else if (stage === 'completed' || stage === 'closed') {
                 this.activeProjectStageFilter = 'Completed';
                 await this.switchView('projects');
-            } else if (mainRoute === 'g2b-detail') {
+            } else if (mainRoute === 'g2b-detail' || mainRoute === 'projects-g2b-detail') {
+            const bidNtceNo = parts[1] === 'g2b-detail' ? parts[2] : parts[1];
+            const bidNtceOrd = parts[1] === 'g2b-detail' ? parts[3] : parts[2];
+            await this.openG2BAnnouncementDetailPage(bidNtceNo, bidNtceOrd);
+            return;
+        } else if (mainRoute === 'g2b-detail-legacy') {
             const announcementNo = parts[1];
             if (announcementNo) {
                 await this.openG2BAnnouncementDetailPage(announcementNo);
@@ -4556,6 +4561,8 @@ class AetherPMO {
             'dashboard': 'view-dashboard',
             'projects': 'view-projects',
             'projects-g2b': 'view-projects-g2b',
+            'projects-g2b-detail': 'view-projects-g2b-detail',
+            'g2b-detail': 'view-projects-g2b-detail',
             'g2b-detail': 'view-g2b-detail',
             'project-detail': 'view-project-detail',
             'tailoring': 'view-tailoring',
@@ -9416,7 +9423,239 @@ renderTodayTasksRoleBased(todayStr) {
         }
     }
 
-            openG2BAnnouncementDetailPage(...args) {
+                navigateToG2BList() {
+        window.location.hash = 'projects/g2b';
+        this.switchView('projects-g2b');
+    }
+
+    async openG2BAnnouncementDetailPage(bidNtceNo, bidNtceOrd = '001') {
+        if (!bidNtceNo) {
+            this.showToast('공고 번호가 올바르지 않습니다.', 'error');
+            await this.switchView('projects-g2b');
+            return;
+        }
+
+        this.activeG2BAnnouncementNo = bidNtceNo;
+        const targetHash = `g2b-detail/${bidNtceNo}/${bidNtceOrd}`;
+        if (window.location.hash !== `#${targetHash}`) {
+            window.location.hash = targetHash;
+        }
+
+        // 1. Local memory lookup
+        let ann = this.g2bAnnouncementsMap[bidNtceNo] ||
+            (this.state.g2bOriginalItems || []).find(a => a.announcementNo === bidNtceNo) ||
+            (this.state.g2bFilteredItems || []).find(a => a.announcementNo === bidNtceNo);
+
+        // 2. Re-fetch if refreshed or accessed directly by URL
+        if (!ann) {
+            try {
+                this.showToast('나라장터 공고 상세 정보를 불러오는 중입니다...', 'info');
+                const res = await fetch(`/api/g2b/bid?bidNtceNo=${encodeURIComponent(bidNtceNo)}&_t=${Date.now()}`, {
+                    cache: 'no-store',
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (data && data.announcements && data.announcements.length > 0) {
+                    ann = data.announcements.find(a => a.announcementNo === bidNtceNo) || data.announcements[0];
+                    this.g2bAnnouncementsMap[bidNtceNo] = ann;
+                }
+            } catch (e) {
+                console.warn('[G2B Detail Re-fetch Error]:', e);
+            }
+        }
+
+        // 3. Null defense fallback object
+        if (!ann) {
+            ann = {
+                announcementNo: bidNtceNo,
+                announcementOrd: bidNtceOrd,
+                name: `공고번호 ${bidNtceNo}`,
+                customer: '-',
+                ntceInsttNm: '-',
+                publishDate: '-',
+                endDate: '-',
+                budget: 0,
+                announcementType: 'bid',
+                url: '#'
+            };
+        }
+
+        // 4. Render into #g2b-detail-container
+        this.renderG2BDetailPageHtml(ann);
+        await this.switchView('projects-g2b-detail');
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    renderG2BDetailPageHtml(ann) {
+        const container = document.getElementById('g2b-detail-container');
+        if (!container) return;
+
+        const raw = ann.rawItem || {};
+        const isRegistered = this.state.projects.some(p =>
+            p.projectCode === ann.announcementNo ||
+            p.bidNumber === ann.announcementNo ||
+            p.sourceReferenceNo === ann.announcementNo
+        );
+
+        const linkedProject = this.state.projects.find(p =>
+            p.projectCode === ann.announcementNo ||
+            p.bidNumber === ann.announcementNo ||
+            p.sourceReferenceNo === ann.announcementNo
+        );
+
+        const isPre = ann.announcementType === 'pre';
+        const typeBadge = isPre
+            ? `<span class="chip badge-cat" style="background-color: var(--primary-light); color: #8b5cf6; border-color: rgba(139, 92, 246, 0.2); font-weight: 700;">사전규격</span>`
+            : `<span class="chip badge-cat" style="background-color: var(--info-glow); color: var(--info); border-color: rgba(6, 182, 212, 0.2); font-weight: 700;">본공고</span>`;
+
+        const actionBtn = isRegistered
+            ? `<button class="btn btn-outline btn-sm" disabled style="opacity:0.6; cursor:not-allowed;"><i data-lucide="check" style="width:14px; height:14px; margin-right:4px;"></i> 등록 완료</button>`
+            : (isPre
+                ? `<button class="btn btn-primary btn-sm" onclick="app.registerBiddingProjectFromG2B('${ann.announcementNo}');" style="background-color:#8b5cf6; border-color:#8b5cf6;"><i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 검토 프로젝트 등록</button>`
+                : `<button class="btn btn-primary btn-sm" onclick="app.registerBiddingProjectFromG2B('${ann.announcementNo}');"><i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 입찰 프로젝트 등록</button>`
+            );
+
+        const budgetStr = ann.budget ? ann.budget.toLocaleString() + ' 원' : '-';
+        const presmptStr = ann.presmptPrce ? ann.presmptPrce.toLocaleString() + ' 원' : '-';
+        const asignStr = ann.asignBdgtAmt ? ann.asignBdgtAmt.toLocaleString() + ' 원' : budgetStr;
+        const baseStr = raw.baseAmt ? Number(raw.baseAmt).toLocaleString() + ' 원' : '-';
+
+        container.innerHTML = `
+            <!-- Top Navigation & Action Controls -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+                    <button type="button" onclick="app.navigateToG2BList()" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; border-radius: 6px;">
+                        <i data-lucide="arrow-left" style="width: 14px; height: 14px;"></i> 나라장터 목록으로 돌아가기
+                    </button>
+                    <span style="color: var(--text-muted);">|</span>
+                    <span style="color: var(--text-muted);">프로젝트</span> &gt; 
+                    <span style="color: var(--text-muted);">나라장터 공고조회</span> &gt; 
+                    <strong style="color: var(--primary);">입찰공고 상세 정보</strong>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <a href="${ann.url || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700;">
+                        <i data-lucide="external-link" style="width: 14px; height: 14px;"></i> 나라장터 원문 보기 (새 탭)
+                    </a>
+                    ${actionBtn}
+                </div>
+            </div>
+
+            <!-- Main Title Header Card -->
+            <div class="dashboard-card" style="padding: 24px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                    ${typeBadge}
+                    <span style="font-family: monospace; font-size: 14px; font-weight: 700; color: var(--text-muted);">공고번호: ${ann.announcementNo} (차수: ${ann.announcementOrd || '001'})</span>
+                </div>
+                <h1 style="font-size: 22px; font-weight: 800; color: var(--text-main); line-height: 1.4; margin: 0 0 16px 0;">${this.escapeHtml(ann.name)}</h1>
+                <div style="display: flex; gap: 24px; font-size: 13px; color: var(--text-muted); flex-wrap: wrap;">
+                    <div><i data-lucide="building" style="width:14px; height:14px; margin-right:4px; vertical-align:middle; color:var(--primary);"></i> 수요기관: <strong style="color:var(--text-main);">${this.escapeHtml(ann.customer || '-')}</strong></div>
+                    <div><i data-lucide="coins" style="width:14px; height:14px; margin-right:4px; vertical-align:middle; color:var(--success);"></i> 배정예산: <strong style="color:var(--success);">${asignStr}</strong></div>
+                    <div><i data-lucide="calendar" style="width:14px; height:14px; margin-right:4px; vertical-align:middle; color:var(--info);"></i> 공고일: <span style="color:var(--text-main);">${ann.publishDate || '-'}</span></div>
+                    <div><i data-lucide="clock" style="width:14px; height:14px; margin-right:4px; vertical-align:middle; color:var(--danger);"></i> 마감일: <strong style="color:var(--danger);">${ann.endDate || '-'}</strong></div>
+                </div>
+            </div>
+
+            <!-- Information Grid Cards (2 Columns) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <!-- Section 1: 기관 및 담당부서 -->
+                <div class="dashboard-card" style="padding: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--primary); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="building-2" style="width: 16px; height: 16px;"></i> 수요기관 및 공고기관 정보
+                    </h3>
+                    <div style="font-size: 14px; display: grid; gap: 12px; line-height: 1.6;">
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">수요기관명:</span> <strong style="color: var(--text-main);">${this.escapeHtml(ann.customer || '-')}</strong></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">공고기관명:</span> <span style="color: var(--text-main);">${this.escapeHtml(ann.ntceInsttNm || ann.customer || '-')}</span></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">담당부서/담당자:</span> <span style="color: var(--text-main);">${this.escapeHtml(raw.dminsttChargerNm || raw.ntceInsttChargerNm || raw.chargerNm || '-')} (${raw.chargerTelNo || '-'})</span></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">공고종류/유형:</span> <span>${isPre ? '사전규격 (용역)' : '본공고 (용역)'}</span></div>
+                    </div>
+                </div>
+
+                <!-- Section 2: 금액 및 입찰 계약방식 -->
+                <div class="dashboard-card" style="padding: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--success); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="badge-dollar-sign" style="width: 16px; height: 16px;"></i> 금액 및 입찰 계약 정보
+                    </h3>
+                    <div style="font-size: 14px; display: grid; gap: 12px; line-height: 1.6;">
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">배정예산:</span> <strong style="color: var(--success); font-size: 15px;">${asignStr}</strong></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">추정가격:</span> <span>${presmptStr}</span></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">기초금액:</span> <span>${baseStr}</span></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">계약체결방법:</span> <span style="color: var(--text-main); font-weight: 600;">${ann.cntrctCnclsMthdNm || '협상에 의한 계약'}</span></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">낙찰자결정방법:</span> <span>${raw.sucsfclDcsnMthdNm || '협상에 의한 낙찰제'}</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: 입찰 주요 진행 일정 -->
+            <div class="dashboard-card" style="padding: 20px; margin-bottom: 20px;">
+                <h3 style="font-size: 15px; font-weight: 700; color: var(--info); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="calendar-days" style="width: 16px; height: 16px;"></i> 입찰 주요 진행 일정
+                </h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; font-size: 14px;">
+                    <div style="background: var(--bg-hover-item); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--bg-card-border);">
+                        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">입찰 시작일시</div>
+                        <strong style="font-size: 14px; color: var(--text-main);">${ann.bidBeginDt || ann.publishDate || '-'}</strong>
+                    </div>
+                    <div style="background: var(--bg-hover-item); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--bg-card-border);">
+                        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">제출 마감일시</div>
+                        <strong style="font-size: 14px; color: var(--danger);">${ann.endDate || ann.bidClseDt || '-'}</strong>
+                    </div>
+                    <div style="background: var(--bg-hover-item); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--bg-card-border);">
+                        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">개찰일시 및 장소</div>
+                        <strong style="font-size: 14px; color: var(--info);">${ann.opengDt || '-'}</strong>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">(${raw.opengPlce || '국가종합전자조달시스템'})</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4 & 5 Grid: 참가자격 / 제한조건 및 첨부파일 다운로드 -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <!-- Section 4: 참가자격 및 제한조건 -->
+                <div class="dashboard-card" style="padding: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--warning); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="shield-check" style="width: 16px; height: 16px;"></i> 참가자격 및 제한조건
+                    </h3>
+                    <div style="font-size: 14px; display: grid; gap: 12px; line-height: 1.6;">
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">참가자격:</span> <span>${raw.bidPrtcptLmtYn === 'Y' ? '입찰 참가자격 제한 있음' : '일반 경쟁 참가자격'}</span></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">업종·지역 제한:</span> <span>${raw.lmtRgnNm || '전국 (지역제한 없음)'}</span></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">공동수급 조건:</span> <strong style="color: var(--text-main);">${raw.cmmnSplyCntrctMthdNm || '공동이행 / 분담이행 가능'}</strong></div>
+                    </div>
+                </div>
+
+                <!-- Section 5: 📁 규격서 및 첨부파일 다운로드 -->
+                <div class="dashboard-card" style="padding: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--primary); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="file-down" style="width: 16px; height: 16px;"></i> 규격서 및 공고 첨부파일
+                    </h3>
+                    <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px;">
+                        제안요청서(RFP), 과업지시서, 사전규격서 등 첨부문서 원본을 다운로드할 수 있습니다.
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <a href="${ann.url || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 14px; font-weight: 700;">
+                            <i data-lucide="download" style="width: 15px; height: 15px;"></i> 제안요청서(RFP) / 규격서 원본파일 다운로드
+                        </a>
+                        <a href="${ann.url || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 14px; font-weight: 700;">
+                            <i data-lucide="file-text" style="width: 15px; height: 15px;"></i> 나라장터 공고 첨부문서 전체보기
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 6: 내부 참여 검토 현황 -->
+            <div class="dashboard-card" style="padding: 20px; margin-bottom: 20px;">
+                <h3 style="font-size: 15px; font-weight: 700; color: var(--purple); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="user-check" style="width: 16px; height: 16px;"></i> 내부 PMO 참여 검토 및 사업 현황
+                </h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; font-size: 14px;">
+                    <div><span style="color: var(--text-muted);">내부 검토 상태:</span> <strong style="color: var(--text-main);">${isRegistered ? '입찰 프로젝트 등록 완료' : '미등록 (검토 가능)'}</strong></div>
+                    <div><span style="color: var(--text-muted);">담당 PM:</span> <strong style="color: var(--primary);">${linkedProject?.manager || linkedProject?.pmName || 'PM 미배정'}</strong></div>
+                    <div><span style="color: var(--text-muted);">예상 수주확률:</span> <strong style="color: var(--success);">${linkedProject?.winProbability || 65}%</strong></div>
+                    <div><span style="color: var(--text-muted);">예상 당사 계약금액:</span> <strong style="color: var(--primary);">${linkedProject?.companyExpectedAmount ? linkedProject.companyExpectedAmount.toLocaleString() + ' 원' : '-'}</strong></div>
+                </div>
+            </div>
+        `;
+    }
+
+    openG2BAnnouncementDetailPage_legacy(...args) {
         return this.openG2BAnnouncementDetailModal(...args);
     }
 
