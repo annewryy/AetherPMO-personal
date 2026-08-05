@@ -9306,12 +9306,40 @@ renderTodayTasksRoleBased(todayStr) {
                 throw new Error('나라장터 공고 조회에 실패했습니다. (API 장애 또는 네트워크 오류)');
             }
 
-            // 게시일 최신순으로 정렬
-            mergedAnnouncements.sort((a, b) => {
-                if (a.publishDate < b.publishDate) return 1;
-                if (a.publishDate > b.publishDate) return -1;
-                return 0;
+            // 입찰마감일시 기준 정밀 필터링 및 오름차순(임박순) 정렬
+            const startVal = document.getElementById('g2b-filter-start-date')?.value;
+            const endVal = document.getElementById('g2b-filter-end-date')?.value;
+
+            const todayStart = startVal ? new Date(startVal + 'T00:00:00') : new Date();
+            todayStart.setHours(0,0,0,0);
+            
+            let deadlineLimit = endVal ? new Date(endVal + 'T23:59:59') : new Date(todayStart);
+            if (!endVal) deadlineLimit.setMonth(deadlineLimit.getMonth() + 1);
+
+            const activeByDeadline = mergedAnnouncements.filter(ann => {
+                if (!ann.endDate || ann.endDate === '-' || ann.endDate === '마감일 미정') return false;
+                const d = new Date(ann.endDate);
+                if (isNaN(d.getTime())) return false;
+                d.setHours(23,59,59,999);
+                return d >= todayStart && d <= deadlineLimit;
             });
+
+            // 마감일 임박순(오름차순) 정렬
+            activeByDeadline.sort((a, b) => {
+                const dA = new Date(a.endDate).getTime();
+                const dB = new Date(b.endDate).getTime();
+                return dA - dB;
+            });
+
+            if (activeByDeadline.length > 0) {
+                mergedAnnouncements = activeByDeadline;
+            } else {
+                mergedAnnouncements.sort((a, b) => {
+                    const dA = new Date(a.endDate || '2099-12-31').getTime();
+                    const dB = new Date(b.endDate || '2099-12-31').getTime();
+                    return dA - dB;
+                });
+            }
 
             // 상태 분리: originalItems에 원본 저장 (최대 100개 슬라이싱)
             this.state.g2bOriginalItems = mergedAnnouncements.slice(0, 100);
@@ -9687,23 +9715,24 @@ renderTodayTasksRoleBased(todayStr) {
         const startDateInput = document.getElementById('g2b-filter-start-date');
         const endDateInput = document.getElementById('g2b-filter-end-date');
 
-        if (startDateInput && endDateInput && (!startDateInput.value || !endDateInput.value)) {
-            // Default to last 30 days
-            const today = new Date();
-            const past = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const formatDate = (d) => {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        };
 
-            const formatDate = (d) => {
-                const yyyy = d.getFullYear();
-                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                const dd = String(d.getDate()).padStart(2, '0');
-                return `${yyyy}-${mm}-${dd}`;
-            };
+        const today = new Date();
+        const oneMonthLater = new Date(today);
+        oneMonthLater.setMonth(today.getMonth() + 1);
 
-            startDateInput.value = formatDate(past);
-            endDateInput.value = formatDate(today);
-        }
+        if (startDateInput) startDateInput.value = formatDate(today);
+        if (endDateInput) endDateInput.value = formatDate(oneMonthLater);
 
-        this.fetchG2BAnnouncements();
+        const sortSelect = document.getElementById('g2b-local-sort');
+        if (sortSelect) sortSelect.value = 'endDateAsc';
+
+        this.fetchG2BAnnouncements(1);
     }
 
     focusBiddingPanel(panelName) {
