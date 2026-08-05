@@ -12,17 +12,34 @@ const https = require('https');
 const http = require('http');
 const url = require('url');
 
-const extractXmlError = (xmlString) => {
+const extractXmlError = (xmlString, statusCode = 200) => {
+    if (statusCode !== 200 && (!xmlString || typeof xmlString !== 'string')) {
+        return {
+            code: `HTTP_${statusCode}`,
+            msg: `OpenAPI Gateway returned HTTP Status ${statusCode}`
+        };
+    }
     if (!xmlString || typeof xmlString !== 'string') return null;
-    if (xmlString.includes('<errMsg>') || xmlString.includes('<returnAuthMsg>')) {
+    
+    if (xmlString.includes('<errMsg>') || xmlString.includes('<returnAuthMsg>') || xmlString.includes('OpenAPI_ServiceResponse') || xmlString.includes('<resultMsg>')) {
         const codeMatch = xmlString.match(/<returnReasonCode>([^<]+)<\/returnReasonCode>/) ||
                           xmlString.match(/<resultCode>([^<]+)<\/resultCode>/);
         const msgMatch = xmlString.match(/<returnAuthMsg>([^<]+)<\/returnAuthMsg>/) ||
                          xmlString.match(/<resultMsg>([^<]+)<\/resultMsg>/) ||
                          xmlString.match(/<errMsg>([^<]+)<\/errMsg>/);
+        
+        if (codeMatch || msgMatch) {
+            return {
+                code: codeMatch ? codeMatch[1].trim() : `HTTP_${statusCode}`,
+                msg: msgMatch ? msgMatch[1].trim() : 'Authentication or Gateway Error'
+            };
+        }
+    }
+    
+    if (statusCode !== 200) {
         return {
-            code: codeMatch ? codeMatch[1].trim() : 'UNKNOWN',
-            msg: msgMatch ? msgMatch[1].trim() : 'Authentication or Gateway Error'
+            code: `HTTP_${statusCode}`,
+            msg: `OpenAPI Gateway Error (HTTP ${statusCode})`
         };
     }
     return null;
@@ -132,7 +149,7 @@ const fetchBidItems = async (finalKey, params) => {
     const requestUrl = `${BID_API_BASE}?serviceKey=${finalKey}&${params.toString()}`;
     const result = await fetchG2BData(requestUrl);
     
-    const xmlErr = extractXmlError(result.data);
+    const xmlErr = extractXmlError(result.data, result.statusCode || 200);
     if (xmlErr) throw new Error(`OpenAPI Error (XML) - Code: ${xmlErr.code}, Message: ${xmlErr.msg}`);
     
     const parsed = JSON.parse(result.data);
@@ -171,7 +188,7 @@ const fetchPreItems = async (finalKey, params, apiBase, categoryName = '용역')
     const httpStatus = result.statusCode || 200;
     const rawSnippet = (result.data || '').substring(0, 200).replace(/\s+/g, ' ');
 
-    const xmlErr = extractXmlError(result.data);
+    const xmlErr = extractXmlError(result.data, result.statusCode || 200);
     if (xmlErr) {
         console.error(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${apiBase} | HTTP: ${httpStatus} | XML Code: ${xmlErr.code} | Msg: ${xmlErr.msg} | Snippet: ${rawSnippet}`);
         return {
