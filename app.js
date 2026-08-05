@@ -4446,6 +4446,26 @@ class AetherPMO {
         const parts = hash.split('/');
         const mainRoute = parts[0];
 
+        console.log(`[handleRouting: #${hash}]`);
+
+        // Priority 1: #projects/g2b/detail/{bidNtceNo}/{bidNtceOrd}
+        if (parts[0] === 'projects' && parts[1] === 'g2b' && parts[2] === 'detail') {
+            const bidNtceNo = parts[3];
+            const bidNtceOrd = parts[4] || '001';
+            console.log(`[handleRouting: #projects/g2b/detail/${bidNtceNo}/${bidNtceOrd}]`);
+            await this.openG2BAnnouncementDetailPage(bidNtceNo, bidNtceOrd, { updateHash: false });
+            return;
+        }
+
+        // Priority 2: #g2b-detail/{bidNtceNo}/{bidNtceOrd} or #projects-g2b-detail/{bidNtceNo}/{bidNtceOrd}
+        if (parts[0] === 'g2b-detail' || parts[0] === 'projects-g2b-detail') {
+            const bidNtceNo = parts[1];
+            const bidNtceOrd = parts[2] || '001';
+            console.log(`[handleRouting: #${parts[0]}/${bidNtceNo}/${bidNtceOrd}]`);
+            await this.openG2BAnnouncementDetailPage(bidNtceNo, bidNtceOrd, { updateHash: false });
+            return;
+        }
+
         // Access route verification based on role
         const role = this.currentUser ? this.currentUser.role : null;
         if (mainRoute === 'backup' && role !== 'SYS_ADMIN') {
@@ -4501,11 +4521,7 @@ class AetherPMO {
             } else {
                 await this.switchView('projects');
             }
-        } else if (mainRoute === 'g2b-detail' || mainRoute === 'projects-g2b-detail') {
-            const bidNtceNo = parts[0] === 'g2b-detail' || parts[0] === 'projects-g2b-detail' ? parts[1] : (parts[1] === 'g2b-detail' ? parts[2] : parts[1]);
-            const bidNtceOrd = parts[0] === 'g2b-detail' || parts[0] === 'projects-g2b-detail' ? parts[2] : (parts[1] === 'g2b-detail' ? parts[3] : parts[2]);
-            await this.openG2BAnnouncementDetailPage(bidNtceNo, bidNtceOrd);
-            return;
+
         } else if (mainRoute === 'projects') {
             const stage = parts[1];
             if (stage === 'g2b-detail' || stage === 'detail') {
@@ -4551,8 +4567,15 @@ class AetherPMO {
     /**
      * Switch view display block/none
      */
-    async switchView(viewName, params = null) {
-        console.log('[switchView:start]', { requestedView: viewName, params });
+    async switchView(viewName, params = null, options = {}) {
+        let updateHash = true;
+        if (options && typeof options.updateHash === 'boolean') {
+            updateHash = options.updateHash;
+        } else if (params && typeof params === 'object' && typeof params.updateHash === 'boolean') {
+            updateHash = params.updateHash;
+        }
+
+        console.log(`[switchView: ${viewName}, updateHash: ${updateHash}]`);
 
         const routes = {
             'dashboard': 'view-dashboard',
@@ -4560,7 +4583,6 @@ class AetherPMO {
             'projects-g2b': 'view-projects-g2b',
             'projects-g2b-detail': 'view-projects-g2b-detail',
             'g2b-detail': 'view-projects-g2b-detail',
-            'g2b-detail': 'view-g2b-detail',
             'project-detail': 'view-project-detail',
             'tailoring': 'view-tailoring',
             'artifacts': 'view-artifacts',
@@ -9426,17 +9448,22 @@ renderTodayTasksRoleBased(todayStr) {
         this.switchView('projects-g2b');
     }
 
-    async openG2BAnnouncementDetailPage(bidNtceNo, bidNtceOrd = '001') {
+    async openG2BAnnouncementDetailPage(bidNtceNo, bidNtceOrd = '001', options = {}) {
+        const updateHash = options && typeof options.updateHash === 'boolean' ? options.updateHash : true;
+        console.log(`[openG2BAnnouncementDetailPage] bidNtceNo: ${bidNtceNo}, bidNtceOrd: ${bidNtceOrd}, updateHash: ${updateHash}`);
+
         if (!bidNtceNo) {
             this.showToast('공고 번호가 올바르지 않습니다.', 'error');
-            await this.switchView('projects-g2b');
+            await this.switchView('projects-g2b', null, { updateHash: true });
             return;
         }
 
         this.activeG2BAnnouncementNo = bidNtceNo;
-        const targetHash = `g2b-detail/${bidNtceNo}/${bidNtceOrd}`;
-        if (window.location.hash !== `#${targetHash}`) {
+        const targetHash = `projects/g2b/detail/${bidNtceNo}/${bidNtceOrd}`;
+
+        if (updateHash && window.location.hash !== `#${targetHash}`) {
             window.location.hash = targetHash;
+            return;
         }
 
         // 1. Local memory lookup
@@ -9480,7 +9507,7 @@ renderTodayTasksRoleBased(todayStr) {
 
         // 4. Render into #g2b-detail-container
         this.renderG2BDetailPageHtml(ann);
-        await this.switchView('projects-g2b-detail');
+        await this.switchView('projects-g2b-detail', null, { updateHash: false });
         if (window.lucide) window.lucide.createIcons();
     }
 
