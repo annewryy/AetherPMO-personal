@@ -88,6 +88,73 @@ class AetherPMO {
         });
     }
 
+        isMemberPm(mem, project) {
+        if (!mem) return false;
+        if (mem.isPm === true || mem.is_pm === true || mem.isProjectManager === true) return true;
+        if (mem.participationRole === 'PM' || mem.partRole === 'PM' || mem.role === 'PM' || mem.roleName === 'PM') return true;
+        if (mem.name && project && project.manager && mem.name.trim() === project.manager.trim()) return true;
+        return false;
+    }
+
+    getMemberRoleDisplay(mem, project) {
+        const isPm = this.isMemberPm(mem, project);
+        if (isPm) {
+            if (mem.roleName && mem.roleName !== '수행원' && mem.roleName !== '수행인력' && mem.roleName !== 'DEV') {
+                return mem.roleName.includes('PM') ? mem.roleName : `PM (${mem.roleName})`;
+            }
+            if (mem.role && mem.role !== '수행원' && mem.role !== '수행인력' && mem.role !== 'DEV') {
+                return mem.role.includes('PM') ? mem.role : `PM (${mem.role})`;
+            }
+            return 'PM';
+        }
+
+        let role = mem.roleName || mem.role || (mem.participationRole && mem.participationRole !== 'DEV' ? mem.participationRole : null) || '수행인력';
+        if (role === '수행원') role = '수행인력';
+        return role;
+    }
+
+    sortMembersWithPmTop(members, project) {
+        if (!members || !Array.isArray(members)) return [];
+        return members.slice().sort((a, b) => {
+            const isPmA = this.isMemberPm(a, project) ? 1 : 0;
+            const isPmB = this.isMemberPm(b, project) ? 1 : 0;
+            if (isPmA !== isPmB) return isPmB - isPmA;
+            return (a.name || '').localeCompare(b.name || '', 'ko');
+        });
+    }
+
+    get activeProjectId() {
+        if (this._activeProjectId) return this._activeProjectId;
+        try {
+            const saved = localStorage.getItem('pms_active_project_id');
+            if (saved) return saved;
+        } catch (e) {}
+        return null;
+    }
+    set activeProjectId(val) {
+        this._activeProjectId = val;
+        if (val) {
+            try { localStorage.setItem('pms_active_project_id', val); } catch (e) {}
+        } else {
+            try { localStorage.removeItem('pms_active_project_id'); } catch (e) {}
+        }
+    }
+
+    get activeDetailTab() {
+        if (this._activeDetailTab) return this._activeDetailTab;
+        try {
+            const saved = localStorage.getItem('pms_active_detail_tab');
+            if (saved) return saved;
+        } catch (e) {}
+        return 'overview';
+    }
+    set activeDetailTab(val) {
+        this._activeDetailTab = val;
+        if (val) {
+            try { localStorage.setItem('pms_active_detail_tab', val); } catch (e) {}
+        }
+    }
+
     get currentProjectId() {
         if (this.activeProjectId) return this.activeProjectId;
         const accessible = this.getAccessibleProjects();
@@ -132,14 +199,14 @@ class AetherPMO {
         this.g2bAnnouncementsMap = {};
 
         // Active context variables
-        this.activeProjectId = null;
+        this._activeProjectId = null;
         this.activeProjectStageFilter = 'Active'; // Bidding | Active | Closed
         this.activeContractTypeFilter = 'all'; // all | labor | change | terminate
         this.activeBoardCategoryFilter = 'all'; // all | question | bug | suggestion | etc
         this.editingBoardPostId = null;
         this.activeBoardPostId = null;
         this.activeBiddingStatusFilter = 'all';  // all | 제안 준비중 | 제안 제출 | 결과 대기 | 수주 | 실패
-        this.activeDetailTab = 'overview'; // overview | templates | artifacts
+        this._activeDetailTab = null; // overview | templates | artifacts
         this.activeTemplateFolder = 'initiation'; // initiation | execution | closing
         this.activeGlobalTemplateType  = 'operation';   // operation | construction | sw-separate (code table key)
         this.activeGlobalTemplateStage = 'initiation'; // initiation | execution | closing
@@ -4396,8 +4463,14 @@ class AetherPMO {
             return;
         }
 
-        if (mainRoute === 'project-detail' && parts[1]) {
-            await this.switchView('project-detail', parts[1]);
+        if (mainRoute === 'project-detail') {
+            const projId = parts[1] || this.activeProjectId || (this.state.projects && this.state.projects.length > 0 ? this.state.projects[0].id : null);
+            if (projId) {
+                await this.switchView('project-detail', projId);
+            } else {
+                await this.switchView('projects');
+            }
+            return;
         } else if (mainRoute === 'tailoring' || mainRoute === 'methodology') {
             await this.switchView('tailoring');
         } else if (['issues', 'risks', 'action-items', 'official-docs', 'meeting-minutes'].includes(mainRoute)) {
@@ -4515,8 +4588,18 @@ class AetherPMO {
         });
 
         // 4. Update window location hash quietly
-        if (window.location.hash !== `#${viewName}`) {
-            history.pushState(null, '', `#${viewName}`);
+        let targetHash = `#${viewName}`;
+        if (viewName === 'project-detail') {
+            const detailId = params || this.activeProjectId;
+            if (detailId) {
+                targetHash = `#project-detail/${detailId}`;
+            }
+        } else if (params) {
+            targetHash = `#${viewName}/${params}`;
+        }
+
+        if (window.location.hash !== targetHash) {
+            history.pushState(null, '', targetHash);
         }
 
         // 5. Invoke view renderers
@@ -4545,8 +4628,9 @@ class AetherPMO {
         } else if (viewName === 'my-account') {
             this.renderMyAccountCenter();
         } else if (viewName === 'project-detail') {
-            const projId = params || this.activeProjectId || (window.location.hash.includes('/') ? window.location.hash.split('/')[1] : null);
+            const projId = params || this.activeProjectId || (window.location.hash.includes('/') ? window.location.hash.split('/')[1] : null) || (this.state.projects && this.state.projects[0] ? this.state.projects[0].id : null);
             if (projId) {
+                this.activeProjectId = projId;
                 this.renderProjectDetail(projId);
             } else {
                 console.error('[switchView] No projectId provided for project-detail');
@@ -16023,15 +16107,19 @@ class AetherPMO {
                 return colors[role] || '#64748b';
             };
 
-            // Filter members based on checkbox
-            const displayMembers = showInactive ? allMembers : activeMembers;
+            // Filter and sort members with PM at the top
+            const rawDisplayMembers = showInactive ? allMembers : activeMembers;
+            const displayMembers = this.sortMembersWithPmTop(rawDisplayMembers, project);
 
             if (displayMembers.length === 0) {
                 resFields.innerHTML = `<span class="text-xs text-muted">등록된 참여 인력이 없습니다.</span>`;
             } else {
-                resFields.innerHTML = displayMembers.map(res => {
+                const overviewMembers = displayMembers.slice(0, 7);
+                let html = overviewMembers.map(res => {
                     const initials = getInitials(res.name);
-                    const color = getResourceColor(res.participationRole);
+                    const isPm = this.isMemberPm(res, project);
+                    const roleDisplay = this.getMemberRoleDisplay(res, project);
+                    const color = isPm ? '#8b5cf6' : getResourceColor(res.participationRole);
                     const statusBadge = res.isActive
                         ? ''
                         : ' <span class="badge badge-xs" style="background:var(--bg-card-border); color:var(--text-muted); font-size:9px; padding:0 4px; margin-left:4px;">제외</span>';
@@ -16046,6 +16134,7 @@ class AetherPMO {
                     };
                     const badgeStyle = typeColorMap[res.employmentType || 'regular'] || typeColorMap.regular;
                     const typeBadge = ` <span class="badge" style="background:${badgeStyle.bg}; color:${badgeStyle.text}; border:1px solid ${badgeStyle.border}; font-size:9px; padding:1px 6px; border-radius:4px; font-weight:700; margin-left:6px;">${typeLabel}</span>`;
+                    const pmBadge = isPm ? `<span class="badge badge-primary" style="font-size:9px; padding:1px 5px; margin-left:4px; font-weight:800;">PM</span>` : '';
 
                     return `
                         <div style="display:flex; align-items:center; gap:10px; opacity: ${res.isActive ? 1 : 0.6};">
@@ -16054,15 +16143,26 @@ class AetherPMO {
                             </div>
                             <div style="display:flex; flex-direction:column; gap:1px;">
                                 <span style="font-size:12px; font-weight:700; display:flex; align-items:center;">
-                                    ${res.name}
+                                    ${this.escapeHtml(res.name)}
+                                    ${pmBadge}
                                     ${typeBadge}
                                     ${statusBadge}
                                 </span>
-                                <span style="font-size:10px; color:var(--text-muted);">${res.participationRole}${res.roleName ? ` (${res.roleName})` : ''}${deptText}</span>
+                                <span style="font-size:10px; color:var(--text-muted);">${this.escapeHtml(roleDisplay)}${deptText}</span>
                             </div>
                         </div>
                     `;
                 }).join('');
+
+                if (displayMembers.length > 7) {
+                    html += `
+                        <button type="button" class="btn btn-xs btn-outline" onclick="app.setDetailTab('members')" style="margin-top:8px; width:100%; font-size:12px; font-weight:700; color:var(--primary); border-color:rgba(99, 102, 241, 0.4); background:var(--bg-hover-item); cursor:pointer; padding:6px 12px; display:flex; align-items:center; justify-content:center; gap:4px;" title="참여인력 탭으로 이동하여 전체 인력을 확인합니다.">
+                            ... 전체보기 (${displayMembers.length}명)
+                        </button>
+                    `;
+                }
+
+                resFields.innerHTML = html;
             }
 
             const countLabel = document.getElementById('detail-resources-count-label');
@@ -16372,8 +16472,8 @@ class AetherPMO {
 
         svgHtml += `
             <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; pointer-events:none;">
-                <span style="font-size:10px; color:var(--text-muted); font-weight:700;">오케스트로</span>
-                <span style="font-size:20px; font-weight:800; color:var(--primary); line-height:1.1;">${okestroShare}%</span>
+                <span style="font-size:12px; color:var(--text-muted); font-weight:700;">오케스트로</span>
+                <span style="font-size:24px; font-weight:800; color:var(--primary); line-height:1.1;">${okestroShare}%</span>
             </div>
         `;
 
@@ -16423,7 +16523,7 @@ class AetherPMO {
         }
 
         container.innerHTML = `
-            <div style="display:grid; grid-template-columns: 1fr 340px; gap:20px; align-items:start;">
+            <div style="display:grid; grid-template-columns: 1fr 390px; gap:20px; align-items:start;">
                 <!-- 좌측: 비주얼 바 & 테이블 & 이력 -->
                 <div style="display:flex; flex-direction:column; gap:12px; min-width:0;">
                     <!-- 지분율 Visual Bar -->
@@ -16470,11 +16570,11 @@ class AetherPMO {
 
                     <div style="display:flex; align-items:center; gap:14px;">
                         <!-- SVG Donut Chart -->
-                        <div style="position:relative; width:110px; height:110px; flex-shrink:0;">
+                        <div style="position:relative; width:165px; height:165px; flex-shrink:0;">
                             ${svgHtml}
                         </div>
                         <!-- 범례 Legend -->
-                        <div style="flex:1; display:flex; flex-direction:column; gap:4px; max-height:120px; overflow-y:auto; padding-right:2px;">
+                        <div style="flex:1; display:flex; flex-direction:column; gap:4px; max-height:165px; overflow-y:auto; padding-right:2px;">
                             ${legendHtml}
                         </div>
                     </div>
@@ -16980,11 +17080,14 @@ class AetherPMO {
         const tbody = document.getElementById('project-detail-members-tbody');
         if (!tbody) return;
 
-        const members = (this.state.projectMembers || []).filter(m => m.projectId === projectId);
-        if (members.length === 0) {
+        const project = (this.state.projects || []).find(p => p.id === projectId);
+        let rawMembers = (this.state.projectMembers || []).filter(m => m.projectId === projectId);
+        if (rawMembers.length === 0) {
             tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">등록된 참여인력이 없습니다.</td></tr>';
             return;
         }
+
+        const members = this.sortMembersWithPmTop(rawMembers, project);
 
         tbody.innerHTML = '';
         members.forEach(mem => {
@@ -17003,7 +17106,6 @@ class AetherPMO {
 
             const empBadge = `<span class="employment-badge ${empCss}">${empLabel}</span>`;
 
-            // 퇴직금 대상 여부 속성 판정 및 셀 HTML 생성
             const isContractor = (empType === 'INSOURCED_CONTRACTOR' || empType === 'outsourcing' || empType === 'PROJECT_CONTRACTOR' || empType === 'project_contract');
             let isSeveranceEligible = mem.isSeveranceEligible ?? mem.is_severance_eligible;
             let days = 0;
@@ -17019,9 +17121,12 @@ class AetherPMO {
                 severanceCellHtml = `<span class="badge-severance" style="font-size:10px; background:rgba(234,179,8,0.15); color:#d97706; border:1px solid rgba(234,179,8,0.3); padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:3px;" title="자사화/계약직 투입 365일 이상 (${days}일)"><i data-lucide="coins" style="width:11px; height:11px;"></i> 대상 ${days ? `(${days}일)` : ''}</span>`;
             }
 
+            const isPm = this.isMemberPm(mem, project);
+            const roleDisplay = this.getMemberRoleDisplay(mem, project);
+
             tr.innerHTML = `
-                <td class="font-bold text-xs">${this.escapeHtml(mem.name || mem.memberName || '-')} ${mem.isPm ? '<span class="badge badge-primary" style="font-size:10px; margin-left:4px;">PM</span>' : ''}</td>
-                <td><span class="badge-cat cat-etc">${this.escapeHtml(mem.role || mem.roleName || '수행원')}</span></td>
+                <td class="font-bold text-xs">${this.escapeHtml(mem.name || mem.memberName || '-')} ${isPm ? '<span class="badge badge-primary" style="font-size:10px; margin-left:4px; font-weight:800;">PM</span>' : ''}</td>
+                <td><span class="badge-cat ${isPm ? 'cat-dev' : 'cat-etc'}">${this.escapeHtml(roleDisplay)}</span></td>
                 <td class="text-xs font-bold">${this.escapeHtml(mem.department || '-')}</td>
                 <td class="text-xs font-bold">${this.escapeHtml(mem.position || '연구원')}</td>
                 <td>${empBadge}</td>
@@ -17973,7 +18078,7 @@ class AetherPMO {
 
         if (document.getElementById('project-main-features')) document.getElementById('project-main-features').value = '';
         if (document.getElementById('project-risk-mitigation')) document.getElementById('project-risk-mitigation').value = '';
-        if (document.getElementById('project-related-projects')) document.getElementById('project-related-projects').value = '';
+        this.initRelatedProjectsSelector(null, [], '');
 
         // Reset bid status
         document.getElementById('project-bid-status-group').style.display = 'none';
@@ -18053,7 +18158,10 @@ class AetherPMO {
 
         this.setFieldValue('project-main-features', project.mainFeatures || project.main_features || '');
         this.setFieldValue('project-risk-mitigation', project.riskAndMitigation || project.risk_mitigation || '');
-        this.setFieldValue('project-related-projects', project.relatedProjects || project.related_projects || '');
+        
+        const initialRelIds = project.relatedProjectIds || project.related_project_ids || [];
+        const initialRelDesc = project.relatedProjects || project.related_projects || '';
+        this.initRelatedProjectsSelector(project.id, initialRelIds, initialRelDesc);
 
         const currBizType = project.businessType || project.business_type || project.bizType || '공공 SI';
         const standardTypes = ['공공 SI', '유지관리', 'ISP', '컨설팅', 'AI'];
@@ -18196,6 +18304,190 @@ class AetherPMO {
         }
     }
 
+    // ── 연관사업 선택기 & 이력 관리 ─────────────────────────────────────
+    initRelatedProjectsSelector(editingProjectId = null, initialRelatedProjectIds = [], initialRelatedDesc = '') {
+        this.modalEditingProjectId = editingProjectId;
+        
+        let ids = [];
+        if (Array.isArray(initialRelatedProjectIds)) {
+            ids = [...initialRelatedProjectIds];
+        } else if (typeof initialRelatedProjectIds === 'string' && initialRelatedProjectIds.trim()) {
+            ids = initialRelatedProjectIds.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        this.modalSelectedRelatedIds = ids;
+
+        const descField = document.getElementById('project-related-projects');
+        if (descField) descField.value = initialRelatedDesc || '';
+
+        const searchInput = document.getElementById('project-related-search-input');
+        if (searchInput) searchInput.value = '';
+
+        this.renderSelectedRelatedChips();
+
+        // Dropdown auto-close on click outside
+        if (!this._relatedDropdownClickBound) {
+            this._relatedDropdownClickBound = true;
+            document.addEventListener('click', (e) => {
+                const dropdown = document.getElementById('project-related-dropdown-list');
+                const searchBox = document.getElementById('project-related-search-input');
+                if (dropdown && searchBox && !dropdown.contains(e.target) && !searchBox.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+        }
+    }
+
+    getAllProjectsForSelection() {
+        const allList = [];
+        const seenIds = new Set();
+        const curId = this.modalEditingProjectId;
+
+        // 1. Regular Projects
+        (this.state.projects || []).forEach(p => {
+            if (p && p.id && p.id !== curId && !seenIds.has(p.id)) {
+                seenIds.add(p.id);
+                allList.push(p);
+            }
+        });
+
+        // 2. Bidding Projects
+        (this.state.biddingProjects || []).forEach(p => {
+            if (p && p.id && p.id !== curId && !seenIds.has(p.id)) {
+                seenIds.add(p.id);
+                allList.push(p);
+            }
+        });
+
+        return allList;
+    }
+
+    showRelatedProjectsDropdown() {
+        const searchInput = document.getElementById('project-related-search-input');
+        this.filterRelatedProjectsDropdown(searchInput ? searchInput.value : '');
+    }
+
+    filterRelatedProjectsDropdown(query = '') {
+        const dropdown = document.getElementById('project-related-dropdown-list');
+        if (!dropdown) return;
+
+        const allProjs = this.getAllProjectsForSelection();
+        const q = query.trim().toLowerCase();
+
+        const filtered = allProjs.filter(p => {
+            if (!q) return true;
+            const name = (p.name || '').toLowerCase();
+            const code = (p.projectCode || p.code || '').toLowerCase();
+            const customer = (p.customer || p.customerName || '').toLowerCase();
+            const pm = (p.manager || p.proposalPm || '').toLowerCase();
+            return name.includes(q) || code.includes(q) || customer.includes(q) || pm.includes(q);
+        });
+
+        if (filtered.length === 0) {
+            dropdown.innerHTML = '<div style="padding:10px; font-size:12px; color:var(--text-muted); text-align:center;">검색 결과가 없습니다.</div>';
+            dropdown.style.display = 'block';
+            return;
+        }
+
+        const selectedSet = new Set(this.modalSelectedRelatedIds || []);
+
+        let html = '';
+        filtered.forEach(p => {
+            const isSelected = selectedSet.has(p.id);
+            const status = p.status || (p.is_bidding_project ? 'Bidding' : 'In Progress');
+            let statusLabel = '수행중';
+            let statusBadgeBg = 'rgba(99,102,241,0.1)';
+            let statusBadgeColor = 'var(--primary)';
+
+            if (status === 'Bidding' || p.is_bidding_project) {
+                statusLabel = '입찰';
+                statusBadgeBg = 'rgba(245,158,11,0.1)';
+                statusBadgeColor = '#f59e0b';
+            } else if (status === 'Completed') {
+                statusLabel = '종료';
+                statusBadgeBg = 'rgba(16,185,129,0.1)';
+                statusBadgeColor = '#10b981';
+            }
+
+            const codeStr = (p.projectCode || p.code) ? `[${p.projectCode || p.code}] ` : '';
+            const customerStr = p.customer || p.customerName || '-';
+
+            html += `
+                <div class="related-project-item ${isSelected ? 'selected' : ''}" ${!isSelected ? `onclick="app.addRelatedProject('${p.id}')"` : ''}>
+                    <div style="display:flex; flex-direction:column; gap:2px; text-align:left;">
+                        <div style="font-size:12px; font-weight:700; color:var(--text-main);">
+                            ${codeStr}${this.escapeHtml(p.name)}
+                        </div>
+                        <div style="font-size:11px; color:var(--text-muted);">
+                            고객사: ${this.escapeHtml(customerStr)} | PM: ${this.escapeHtml(p.manager || '-')}
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; background:${statusBadgeBg}; color:${statusBadgeColor};">
+                            ${statusLabel}
+                        </span>
+                        ${isSelected ? '<span style="font-size:11px; color:var(--primary); font-weight:700;">✓ 선택됨</span>' : ''}
+                    </div>
+                </div>
+            `;
+        });
+
+        dropdown.innerHTML = html;
+        dropdown.style.display = 'block';
+    }
+
+    addRelatedProject(projId) {
+        if (!projId) return;
+        if (!this.modalSelectedRelatedIds) this.modalSelectedRelatedIds = [];
+        if (!this.modalSelectedRelatedIds.includes(projId)) {
+            this.modalSelectedRelatedIds.push(projId);
+        }
+        const searchInput = document.getElementById('project-related-search-input');
+        if (searchInput) searchInput.value = '';
+        const dropdown = document.getElementById('project-related-dropdown-list');
+        if (dropdown) dropdown.style.display = 'none';
+
+        this.renderSelectedRelatedChips();
+    }
+
+    removeRelatedProject(projId) {
+        if (!this.modalSelectedRelatedIds) return;
+        this.modalSelectedRelatedIds = this.modalSelectedRelatedIds.filter(id => id !== projId);
+        this.renderSelectedRelatedChips();
+    }
+
+    renderSelectedRelatedChips() {
+        const container = document.getElementById('selected-related-projects-chips');
+        if (!container) return;
+
+        const ids = this.modalSelectedRelatedIds || [];
+        if (ids.length === 0) {
+            container.innerHTML = '<span style="font-size:11px; color:var(--text-muted); font-style:italic;" id="no-related-chip-msg">선택된 관련 사업이 없습니다. 아래에서 검색하여 선택하세요.</span>';
+            return;
+        }
+
+        const allProjs = (this.state.projects || []).concat(this.state.biddingProjects || []);
+
+        let html = '';
+        ids.forEach(id => {
+            const p = allProjs.find(proj => proj.id === id);
+            const name = p ? p.name : id;
+            const status = p ? (p.status || (p.is_bidding_project ? 'Bidding' : 'In Progress')) : '';
+            let label = '수행';
+            if (status === 'Bidding') label = '입찰';
+            else if (status === 'Completed') label = '종료';
+
+            html += `
+                <span class="related-project-chip">
+                    <span style="font-size:9px; opacity:0.8; font-weight:700;">[${label}]</span>
+                    ${this.escapeHtml(name)}
+                    <span class="chip-remove" onclick="app.removeRelatedProject('${id}')" title="삭제">&times;</span>
+                </span>
+            `;
+        });
+
+        container.innerHTML = html;
+    }
+
     handleBiddingBizTypeChange(value) {
         const customInput = document.getElementById('project-business-type-custom');
         if (customInput) {
@@ -18289,6 +18581,7 @@ class AetherPMO {
         const mainFeatures = document.getElementById('project-main-features')?.value?.trim() || '';
         const riskAndMitigation = document.getElementById('project-risk-mitigation')?.value?.trim() || '';
         const relatedProjects = document.getElementById('project-related-projects')?.value?.trim() || '';
+        const relatedProjectIds = this.modalSelectedRelatedIds || [];
 
         // Retrieve new fields
         const projectCode = document.getElementById('project-code')?.value?.trim() || '';
@@ -18475,6 +18768,7 @@ class AetherPMO {
                     mainFeatures, main_features: mainFeatures,
                     riskAndMitigation, risk_mitigation: riskAndMitigation,
                     relatedProjects, related_projects: relatedProjects,
+                    relatedProjectIds, related_project_ids: relatedProjectIds,
                     projectCode, bizType, contractDate, location, relatedBiz, riskLevel, wbs,
                     bidNumber, customerName, projectBudget, businessType,
                     salesOwner, sales_owner: salesOwner,
@@ -18541,6 +18835,7 @@ class AetherPMO {
                     mainFeatures, main_features: mainFeatures,
                     riskAndMitigation, risk_mitigation: riskAndMitigation,
                     relatedProjects, related_projects: relatedProjects,
+                    relatedProjectIds, related_project_ids: relatedProjectIds,
                     projectCode: projectCode || (status === 'Bidding' ? this.generateNextProjectCode() : `PRJ-2026-${String(Date.now()).substring(7)}`),
                     bizType: bizType || 'SI 구축',
                     contractDate: contractDate || startDate,
@@ -28396,9 +28691,18 @@ class AetherPMO {
             let minStartDate = '2026-03-01';
             let maxEndDate = '2026-12-31';
 
-            if (assignedMembers.length > 0) {
+            // Filter out '종료' (Completed/Closed) projects from execution stage badges
+            const activeAssignedMembers = assignedMembers.filter(pm => {
+                const p = projects.find(proj => proj.id === (pm.projectId || pm.project_id));
+                if (!p) return false;
+                const st = String(p.status || '').trim();
+                if (st === 'Completed' || st === 'Closed' || st === '종료' || st === '완료') return false;
+                return true;
+            });
+
+            if (activeAssignedMembers.length > 0) {
                 const badges = [];
-                assignedMembers.forEach(pm => {
+                activeAssignedMembers.forEach(pm => {
                     const p = projects.find(proj => proj.id === (pm.projectId || pm.project_id));
                     const projName = p ? p.name : '프로젝트';
                     const stage = pm.stage || pm.participationRole || '수행';
@@ -28434,7 +28738,7 @@ class AetherPMO {
             const isOffboarded = r.isActive === false || String(r.status || '').toUpperCase() === 'OFFBOARDED';
             const statusBadge = isOffboarded ?
                 '<span class="badge badge-secondary">종료</span>' :
-                (assignedMembers.length > 0 ? '<span class="badge badge-success">투입중</span>' : '<span class="badge badge-warning">대기</span>');
+                (activeAssignedMembers.length > 0 ? '<span class="badge badge-success">투입중</span>' : '<span class="badge badge-warning">대기</span>');
 
             const salaryVal = (r.baseSalary || r.monthlySalary || r.payRate || 0).toLocaleString();
 
@@ -29099,7 +29403,11 @@ class AetherPMO {
 
                 assignedMembers.forEach(pm => {
                     const p = projects.find(proj => proj.id === (pm.projectId || pm.project_id));
-                    if (p) projNames.push(p.name);
+                    if (p) {
+                        const st = String(p.status || '').trim();
+                        if (st === 'Completed' || st === 'Closed' || st === '종료' || st === '완료') return;
+                        projNames.push(p.name);
+                    }
                     const ratio = parseFloat(pm.inputRatio || pm.participationRate || 100);
                     totalRatio += ratio;
                     if (pm.startDate && pm.startDate < minStartDate) minStartDate = pm.startDate;

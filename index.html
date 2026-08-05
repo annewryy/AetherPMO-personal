@@ -1140,7 +1140,7 @@
                                 </div>
                                 <div style="margin-top:16px; display:flex; justify-content:space-between; align-items:center;">
                                     <button class="btn btn-xs btn-outline" onclick="app.openProjectMembersModal()" style="font-size:11px; padding: 2px 8px; height: auto; min-height: auto;"><i data-lucide="user-cog" style="width:11px; height:11px; margin-right:4px; display:inline-block; vertical-align:middle;"></i>수정</button>
-                                    <a href="#" onclick="event.preventDefault(); app.openProjectMembersModal();" style="font-size:11px; color:var(--primary); font-weight:700; text-decoration:none;">전체보기 &rarr;</a>
+                                    <a href="#" onclick="event.preventDefault(); app.setDetailTab('members');" style="font-size:11px; color:var(--primary); font-weight:700; text-decoration:none;">전체보기 &rarr;</a>
                                 </div>
                             </div>
                         </div>
@@ -3466,8 +3466,19 @@
                             </div>
 
                             <div>
-                                <label for="project-related-projects" style="font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:4px; display:block;">🔗 연관사업 설명 (해당시)</label>
-                                <textarea id="project-related-projects" rows="2" placeholder="선행/후행 연관 사업, 연계 시스템 또는 관련 공공 사업 정보를 작성하세요." style="width:100%; font-size:12px; padding:8px 10px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-card); color:var(--text-main); font-family:inherit;"></textarea>
+                                <label style="font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:4px; display:block;">🔗 연관사업 선택 및 이력 관리</label>
+                                <!-- Selected Related Project Chips -->
+                                <div id="selected-related-projects-chips" class="related-projects-chips-container" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; min-height:28px; padding:4px; border:1px dashed var(--bg-card-border); border-radius:6px; background:var(--bg-hover-item);">
+                                    <span style="font-size:11px; color:var(--text-muted); font-style:italic;" id="no-related-chip-msg">선택된 관련 사업이 없습니다. 아래에서 검색하여 선택하세요.</span>
+                                </div>
+                                <!-- Project Search Input & Dropdown -->
+                                <div style="position:relative; margin-bottom:8px;">
+                                    <input type="text" id="project-related-search-input" placeholder="입찰/수행/종료 단계 사업 검색 및 선택 (사업명, 사업코드, 고객사)" style="width:100%; font-size:12px; padding:8px 10px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-card); color:var(--text-main);" onfocus="app.showRelatedProjectsDropdown()" oninput="app.filterRelatedProjectsDropdown(this.value)" autocomplete="off">
+                                    <div id="project-related-dropdown-list" class="related-projects-dropdown" style="display:none; position:absolute; top:100%; left:0; right:0; max-height:220px; overflow-y:auto; background:var(--bg-card); border:1px solid var(--border-color); border-radius:6px; box-shadow:var(--shadow-md); z-index:1050; margin-top:2px;"></div>
+                                </div>
+                                <!-- Detailed Note / Textarea -->
+                                <label for="project-related-projects" style="font-size:11px; color:var(--text-muted); margin-bottom:2px; display:block;">연계 상세 내용 / 추가 메모</label>
+                                <textarea id="project-related-projects" rows="2" placeholder="선행/후행 연관 사업 간 연계 시스템, 연계 방식 또는 상세 정보를 작성하세요." style="width:100%; font-size:12px; padding:8px 10px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-card); color:var(--text-main); font-family:inherit;"></textarea>
                             </div>
                         </div>
                     </div>
