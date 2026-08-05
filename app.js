@@ -31729,7 +31729,7 @@ renderTodayTasksRoleBased(todayStr) {
 
         console.log('[Duplicate Project Audit Results]', duplicateCandidates);
         return duplicateCandidates;
-    
+    }
 
     // ── Bidding Kanban Pipeline Board V2 Controller ──────────────────────────
 
@@ -32706,7 +32706,6 @@ if (typeof window !== 'undefined' && window.app) {
         }
     });
 
-년 입찰 Pipeline 데이터 CSV 다운로드가 시작되었습니다.`);
+
     }
 
-}
