@@ -49,60 +49,53 @@ async function fetchCategory({
     beginDate,
     endDate
 }) {
-    const url = new URL(`${PRE_SPEC_BASE_URL}/${operation}`);
+    const tryFetch = async (bDate, eDate) => {
+        const url = new URL(`${PRE_SPEC_BASE_URL}/${operation}`);
+        url.searchParams.set('serviceKey', serviceKey);
+        url.searchParams.set('pageNo', String(pageNo));
+        url.searchParams.set('numOfRows', String(numOfRows));
+        url.searchParams.set('type', 'json');
+        if (bDate) url.searchParams.set('inqryBgnDt', bDate);
+        if (eDate) url.searchParams.set('inqryEndDt', eDate);
 
-    url.searchParams.set('serviceKey', serviceKey);
-    url.searchParams.set('pageNo', String(pageNo));
-    url.searchParams.set('numOfRows', String(numOfRows));
-    url.searchParams.set('type', 'json');
+        const safeUrl = url.toString().replace(/serviceKey=[^&]+/, 'serviceKey=[REDACTED]');
+        console.log('[G2B PreSpec Request]', { category, url: safeUrl });
 
-    if (beginDate) {
-        url.searchParams.set('inqryBgnDt', beginDate);
+        const response = await fetch(url);
+        const rawText = await response.text();
+        let data;
+        try {
+            data = JSON.parse(rawText);
+        } catch (error) {
+            throw new Error(`${category} 응답 JSON 파싱 실패: ${rawText.slice(0, 200)}`);
+        }
+
+        const header = data?.response?.header || data?.OpenAPI_ServiceResponse?.cmmMsgHeader || {};
+        const resultCode = header.resultCode || header.returnReasonCode || '';
+        const resultMsg = header.resultMsg || header.errMsg || header.returnAuthMsg || '';
+
+        return { response, data, resultCode, resultMsg, rawText };
+    };
+
+    // Attempt 1: 12-digit dates
+    let resObj = await tryFetch(beginDate, endDate);
+
+    // Attempt 2: If resultCode is 04 / HTTP_ERROR, retry with 8-digit dates (YYYYMMDD)
+    if (resObj.resultCode === '04' || resObj.resultMsg.includes('HTTP_ERROR')) {
+        const bDate8 = beginDate ? beginDate.slice(0, 8) : '';
+        const eDate8 = endDate ? endDate.slice(0, 8) : '';
+        if (bDate8 !== beginDate) {
+            console.log(`[G2B PreSpec Retry 8-Digit Date] Category: ${category}`);
+            const resObj8 = await tryFetch(bDate8, eDate8);
+            if (resObj8.resultCode === '00' || resObj8.resultCode === '0') {
+                resObj = resObj8;
+            }
+        }
     }
 
-    if (endDate) {
-        url.searchParams.set('inqryEndDt', endDate);
-    }
+    const { response, data, resultCode, resultMsg } = resObj;
 
-    const safeUrl = url
-        .toString()
-        .replace(/serviceKey=[^&]+/, 'serviceKey=[REDACTED]');
-
-    console.log('[G2B PreSpec Request]', {
-        category,
-        url: safeUrl
-    });
-
-    const response = await fetch(url);
-    const rawText = await response.text();
-
-    let data;
-
-    try {
-        data = JSON.parse(rawText);
-    } catch (error) {
-        throw new Error(
-            `${category} 응답 JSON 파싱 실패: ${rawText.slice(0, 200)}`
-        );
-    }
-
-    const header =
-        data?.response?.header ||
-        data?.OpenAPI_ServiceResponse?.cmmMsgHeader ||
-        {};
-
-    const resultCode =
-        header.resultCode ||
-        header.returnReasonCode ||
-        '';
-
-    const resultMsg =
-        header.resultMsg ||
-        header.errMsg ||
-        header.returnAuthMsg ||
-        '';
-
-    if (!response.ok || (resultCode && resultCode !== '00')) {
+    if (!response.ok || (resultCode && resultCode !== '00' && resultCode !== '0')) {
         throw new Error(
             `${category} API 오류: HTTP ${response.status}, ` +
             `${resultCode || 'UNKNOWN'} ${resultMsg || ''}`.trim()
@@ -110,11 +103,7 @@ async function fetchCategory({
     }
 
     const body = data?.response?.body || {};
-    const rawItems =
-        body?.items?.item ??
-        body?.items ??
-        [];
-
+    const rawItems = body?.items?.item ?? body?.items ?? [];
     const items = normalizeItems(rawItems);
 
     console.log('[G2B PreSpec Response]', {
@@ -133,37 +122,12 @@ async function fetchCategory({
             sourceType: 'PRE_SPEC',
             sourceLabel: '사전규격',
             businessType: category,
-            id:
-                item.bfSpecRgstNo ||
-                item.priorSpecRgstNo ||
-                item.ssstndrdRgstNo ||
-                '',
-            title:
-                item.prdctNm ||
-                item.bizNm ||
-                item.ssstndrdNm ||
-                item.prdctClsfcNoNm ||
-                '',
-            organization:
-                item.dminsttNm ||
-                item.orderInsttNm ||
-                item.rlDminsttNm ||
-                '',
-            budget: Number(
-                item.asignBdgtAmt ||
-                item.presmptPrce ||
-                item.budgetAmt ||
-                0
-            ),
-            registeredAt:
-                item.rgstDt ||
-                item.publicDt ||
-                item.rcptDt ||
-                '',
-            deadline:
-                item.opninRcptClseDt ||
-                item.opninRcptClseDate ||
-                '',
+            id: item.bfSpecRgstNo || item.priorSpecRgstNo || item.ssstndrdRgstNo || '',
+            title: item.prdctNm || item.bizNm || item.ssstndrdNm || item.prdctClsfcNoNm || '',
+            organization: item.dminsttNm || item.orderInsttNm || item.rlDminsttNm || '',
+            budget: Number(item.asignBdgtAmt || item.presmptPrce || item.budgetAmt || 0),
+            registeredAt: item.rgstDt || item.publicDt || item.rcptDt || '',
+            deadline: item.opninRcptClseDt || item.opninRcptClseDate || '',
             raw: item
         }))
     };
