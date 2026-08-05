@@ -162,8 +162,9 @@ const fetchBidItems = async (finalKey, params) => {
     return { items, totalCount };
 };
 
-const fetchPreItems = async (serviceKey, paramsObj, apiBase, categoryName = '용역') => {
-    if (!serviceKey) {
+const fetchPreItems = async (rawServiceKey, paramsObj, apiBase, categoryName = '용역') => {
+    const key = cleanKey(rawServiceKey);
+    if (!key) {
         console.error(`[PreSpec Diagnostic Error] Category: ${categoryName} | Endpoint: ${apiBase} | Error: serviceKey is empty!`);
         return {
             items: [],
@@ -173,84 +174,74 @@ const fetchPreItems = async (serviceKey, paramsObj, apiBase, categoryName = '용
         };
     }
 
-    const urlObj = new URL(apiBase);
-    for (const [k, v] of Object.entries(paramsObj)) {
-        if (v !== undefined && v !== null && v !== '') {
-            urlObj.searchParams.set(k, String(v));
+    const tryFetch = async (targetKey, isRetry = false) => {
+        const urlObj = new URL(apiBase);
+        for (const [k, v] of Object.entries(paramsObj)) {
+            if (v !== undefined && v !== null && v !== '') {
+                urlObj.searchParams.set(k, String(v));
+            }
+        }
+        const searchStr = urlObj.searchParams.toString();
+        const requestUrl = `${apiBase}?serviceKey=${targetKey}&${searchStr}`;
+        const safeUrl = requestUrl.replace(/serviceKey=[^&]+/, 'serviceKey=[REDACTED]');
+        console.log(`[PreSpec Request URL${isRetry ? ' Retry' : ''}] Category: ${categoryName} | URL: ${safeUrl}`);
+
+        try {
+            const result = await fetchG2BData(requestUrl);
+            const httpStatus = result.statusCode || 200;
+            const rawSnippet = (result.data || '').substring(0, 200).replace(/\s+/g, ' ');
+
+            const xmlErr = extractXmlError(result.data, httpStatus);
+            if (xmlErr) {
+                return { items: [], totalCount: 0, error: true, warning: { category: categoryName, endpoint: apiBase, httpStatus, code: xmlErr.code, msg: xmlErr.msg, rawSnippet } };
+            }
+
+            const parsed = JSON.parse(result.data);
+            const header = parsed?.response?.header;
+            const resultCode = header?.resultCode || 'UNKNOWN';
+            const resultMsg = header?.resultMsg || 'No resultMsg';
+
+            if (header && resultCode !== '00' && resultCode !== '0') {
+                return { items: [], totalCount: 0, error: true, warning: { category: categoryName, endpoint: apiBase, httpStatus, code: resultCode, msg: resultMsg, rawSnippet } };
+            }
+
+            const itemsData = parsed?.response?.body?.items;
+            let items = [];
+            if (itemsData) {
+                if (Array.isArray(itemsData)) items = itemsData;
+                else if (Array.isArray(itemsData.item)) items = itemsData.item;
+                else if (itemsData.item) items = [itemsData.item];
+            }
+            const totalCount = parseInt(parsed?.response?.body?.totalCount || String(items.length));
+            return { items, totalCount, error: false, warning: null };
+        } catch (err) {
+            return { items: [], totalCount: 0, error: true, warning: { category: categoryName, endpoint: apiBase, httpStatus: 500, code: 'NETWORK_ERROR', msg: err.message } };
+        }
+    };
+
+    // Attempt 1: Raw Key
+    let res = await tryFetch(key, false);
+
+    // Attempt 2: Encoded/Decoded Key if Attempt 1 failed with 401 or XML error
+    if (res.error && (res.warning?.httpStatus === 401 || res.warning?.code === 'SERVICE_KEY_IS_NOT_REGISTERED_ERROR' || res.warning?.code === 'SERVICE_KEY_IS_NULL')) {
+        let altKey = key;
+        if (key.includes('%')) {
+            try { altKey = decodeURIComponent(key); } catch (e) {}
+        } else {
+            altKey = encodeURIComponent(key);
+        }
+        if (altKey !== key) {
+            console.log(`[PreSpec Retry with Alt Key] Category: ${categoryName}`);
+            const res2 = await tryFetch(altKey, true);
+            if (!res2.error && res2.items && res2.items.length > 0) {
+                res = res2;
+            } else if (!res2.error) {
+                res = res2;
+            }
         }
     }
 
-    const searchStr = urlObj.searchParams.toString();
-    const requestUrl = `${apiBase}?serviceKey=${serviceKey}&${searchStr}`;
-    const safeUrl = requestUrl.replace(/serviceKey=[^&]+/, 'serviceKey=[REDACTED]');
-    console.log(`[PreSpec Request URL] Category: ${categoryName} | URL: ${safeUrl}`);
-
-    let result;
-    try {
-        result = await fetchG2BData(requestUrl);
-    } catch (err) {
-        console.error(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${apiBase} | Fetch Error: ${err.message}`);
-        return { 
-            items: [], 
-            totalCount: 0, 
-            error: true,
-            warning: { category: categoryName, endpoint: apiBase, httpStatus: 500, code: 'NETWORK_ERROR', msg: err.message }
-        };
-    }
-
-    const httpStatus = result.statusCode || 200;
-    const rawSnippet = (result.data || '').substring(0, 200).replace(/\s+/g, ' ');
-
-    const xmlErr = extractXmlError(result.data, httpStatus);
-    if (xmlErr) {
-        console.error(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${apiBase} | HTTP: ${httpStatus} | XML Code: ${xmlErr.code} | Msg: ${xmlErr.msg} | Snippet: ${rawSnippet}`);
-        return {
-            items: [],
-            totalCount: 0,
-            error: true,
-            warning: { category: categoryName, endpoint: apiBase, httpStatus, code: xmlErr.code, msg: xmlErr.msg, rawSnippet }
-        };
-    }
-
-    let parsed;
-    try {
-        parsed = JSON.parse(result.data);
-    } catch (e) {
-        console.error(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${apiBase} | HTTP: ${httpStatus} | JSON Parse Fail | Snippet: ${rawSnippet}`);
-        return {
-            items: [],
-            totalCount: 0,
-            error: true,
-            warning: { category: categoryName, endpoint: apiBase, httpStatus, code: 'JSON_PARSE_ERROR', msg: 'JSON 파싱 실패', rawSnippet }
-        };
-    }
-
-    const header = parsed?.response?.header;
-    const resultCode = header?.resultCode || 'UNKNOWN';
-    const resultMsg = header?.resultMsg || 'No resultMsg';
-
-    if (header && resultCode !== '00' && resultCode !== '0') {
-        console.error(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${apiBase} | HTTP: ${httpStatus} | ResultCode: ${resultCode} | Msg: ${resultMsg} | Snippet: ${rawSnippet}`);
-        return {
-            items: [],
-            totalCount: 0,
-            error: true,
-            warning: { category: categoryName, endpoint: apiBase, httpStatus, code: resultCode, msg: resultMsg, rawSnippet }
-        };
-    }
-
-    const itemsData = parsed?.response?.body?.items;
-    let items = [];
-    if (itemsData) {
-        if (Array.isArray(itemsData)) items = itemsData;
-        else if (Array.isArray(itemsData.item)) items = itemsData.item;
-        else if (itemsData.item) items = [itemsData.item];
-    }
-
-    const totalCount = parseInt(parsed?.response?.body?.totalCount || String(items.length));
-    console.log(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${apiBase} | HTTP: ${httpStatus} | ResultCode: ${resultCode} | TotalCount: ${totalCount} | ParsedItems: ${items.length}`);
-
-    return { items, totalCount, error: false, warning: null };
+    return res;
 };
 
 const formatPreItem = (item, idx, businessType = '용역') => {
@@ -486,7 +477,7 @@ module.exports = async (req, res) => {
         // ─────────────────────────────────────────
         if (serviceType === 'prespec') {
             console.log(`[API /api/g2b/prespec Execution] Executing 4 Pre-Spec Work Categories (용역·공사·물품·외자)...`);
-            const preRes = await fetchAllPreSpecCategories(finalPreKey, bgngDt, endDt, clientPage, clientLimit, bidNtceNm, dminsttNm);
+            const preRes = await fetchAllPreSpecCategories(preServiceKey, bgngDt, endDt, clientPage, clientLimit, bidNtceNm, dminsttNm);
 
             preRes.items.sort((a, b) => (a.publishDate < b.publishDate ? 1 : -1));
             const pagedItems = preRes.items.slice((clientPage - 1) * clientLimit, clientPage * clientLimit);
