@@ -4,7 +4,13 @@ const url = require('url');
 
 function cleanKey(value = '') {
     if (!value) return '';
-    return String(value).trim().replace(/^['"]|['"]$/g, '');
+    let cleaned = String(value).trim().replace(/^['"]|['"]$/g, '');
+    if (cleaned.includes('%')) {
+        try {
+            cleaned = decodeURIComponent(cleaned);
+        } catch (e) {}
+    }
+    return cleaned;
 }
 
 const extractXmlError = (xmlString, statusCode = 200) => {
