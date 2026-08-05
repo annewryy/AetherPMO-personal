@@ -9245,10 +9245,21 @@ renderTodayTasksRoleBased(todayStr) {
             let totalCount = 0;
             let partialError = false;
 
+            const g2bFetchOptions = {
+                method: 'GET',
+                cache: 'no-store',
+                headers: {
+                    'Accept': 'application/json',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                }
+            };
+
             if (announcementType === 'bid' || announcementType === 'all') {
                 try {
                     const bidParams = getParams('bid');
-                    const response = await fetch(`/api/g2b/bid?${bidParams.toString()}`);
+                    bidParams.append('_t', String(Date.now()));
+                    const response = await fetch(`/api/g2b/bid?${bidParams.toString()}`, g2bFetchOptions);
                     const data = await response.json();
                     if (!response.ok || data.error) {
                         console.error('Bid API error:', data?.message);
