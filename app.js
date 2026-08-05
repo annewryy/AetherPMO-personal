@@ -9739,11 +9739,10 @@ renderTodayTasksRoleBased(todayStr) {
         };
 
         const today = new Date();
-        const oneMonthLater = new Date(today);
-        oneMonthLater.setMonth(today.getMonth() + 1);
+        const plus30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
 
         if (startDateInput) startDateInput.value = formatDate(today);
-        if (endDateInput) endDateInput.value = formatDate(oneMonthLater);
+        if (endDateInput) endDateInput.value = formatDate(plus30Days);
 
         const sortSelect = document.getElementById('g2b-local-sort');
         if (sortSelect) sortSelect.value = 'endDateAsc';
