@@ -31981,7 +31981,7 @@ renderTodayTasksRoleBased(todayStr) {
             return;
         }
 
-        # 3. Active 5-Stage Kanban Board
+        // 3. Active 5-Stage Kanban Board
         const stages = [
             { key: 'review', title: '참여 검토', badgeColor: '#a855f7' },
             { key: 'proposal_prep', title: '제안 준비', badgeColor: '#3b82f6' },
@@ -32572,8 +32572,8 @@ renderTodayTasksRoleBased(todayStr) {
         }
 
         let csv = '﻿';
-        csv += '프로젝트코드,프로젝트명,발주기관,입찰단계,당사예상계약금액(원),전체계약금액(원),지분율(%),제안마감일,담당PM,실패원인코드,실패상세사유,연결수행프로젝트ID
-';
+        csv += '프로젝트코드,프로젝트명,발주기관,입찰단계,당사예상계약금액(원),전체계약금액(원),지분율(%),제안마감일,담당PM,실패원인코드,실패상세사유,연결수행프로젝트ID\n';
+
 
         projs.forEach(p => {
             const expAmt = p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0;
@@ -32593,9 +32593,8 @@ renderTodayTasksRoleBased(todayStr) {
         link.click();
         document.body.removeChild(link);
 
-        this.showToast(`${year}
-}
-
+        this.showToast(`${year}년 입찰 Pipeline 데이터 CSV 다운로드가 시작되었습니다.`);
+    }
 }
 
 
@@ -32708,4 +32707,3 @@ if (typeof window !== 'undefined' && window.app) {
 
 
     }
-
