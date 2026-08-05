@@ -59,10 +59,15 @@ async function executeFetch(operation, serviceKey, pageNo, numOfRows, beginDate 
     url.searchParams.set('serviceKey', serviceKey);
     url.searchParams.set('pageNo', String(pageNo));
     url.searchParams.set('numOfRows', String(numOfRows));
+    url.searchParams.set('inqryDiv', '1');
     url.searchParams.set('type', 'json');
 
-    if (beginDate) url.searchParams.set('inqryBgnDt', beginDate);
-    if (endDate) url.searchParams.set('inqryEndDt', endDate);
+    if (beginDate) {
+        url.searchParams.set('inqryBgnDt', beginDate);
+    }
+    if (endDate) {
+        url.searchParams.set('inqryEndDt', endDate);
+    }
 
     const safeUrl = url.toString().replace(/serviceKey=[^&]+/, 'serviceKey=[REDACTED]');
     console.log('[G2B PreSpec Request Execution]', { operation, url: safeUrl });
@@ -74,7 +79,7 @@ async function executeFetch(operation, serviceKey, pageNo, numOfRows, beginDate 
     try {
         data = JSON.parse(rawText);
     } catch (error) {
-        return { ok: false, status: response.status, resultCode: 'JSON_PARSE_ERROR', resultMsg: 'JSON 파싱 실패', items: [], totalCount: 0, rawText };
+        return { ok: false, status: response.status, resultCode: 'JSON_PARSE_ERROR', resultMsg: 'JSON 파싱 실패', items: [], totalCount: 0, rawText, safeUrl };
     }
 
     const header = data?.response?.header || data?.OpenAPI_ServiceResponse?.cmmMsgHeader || {};
@@ -102,7 +107,8 @@ async function executeFetch(operation, serviceKey, pageNo, numOfRows, beginDate 
         resultMsg,
         totalCount,
         items,
-        rawText
+        rawText,
+        safeUrl
     };
 }
 
@@ -120,19 +126,19 @@ async function fetchCategory({
     const beginDate8 = beginDate ? beginDate.slice(0, 8) : '';
     const endDate8 = endDate ? endDate.slice(0, 8) : '';
 
-    // Step 1: Try Search Operation with 12-digit dates
+    // Step 1: Search Operation + inqryDiv=1 + 12-digit dates
     let res = await executeFetch(opSearch, serviceKey, pageNo, numOfRows, beginDate, endDate);
 
-    // Step 2: If Search Operation failed or returned 04, try Search Operation with 8-digit dates
+    // Step 2: Search Operation + inqryDiv=1 + 8-digit dates
     if (!res.ok) {
-        console.log(`[PreSpec Fallback Step 2: 8-digit Search Operation] Category: ${category}`);
+        console.log(`[PreSpec Fallback Step 2: 8-digit Search Operation with inqryDiv=1] Category: ${category}`);
         const res2 = await executeFetch(opSearch, serviceKey, pageNo, numOfRows, beginDate8, endDate8);
         if (res2.ok) res = res2;
     }
 
-    // Step 3: If Search Operations failed, try General Operation with Minimal Parameters (serviceKey, pageNo, numOfRows, type only)
+    // Step 3: Minimal General Operation + inqryDiv=1 (No dates)
     if (!res.ok) {
-        console.log(`[PreSpec Fallback Step 3: Minimal General Operation] Category: ${category}`);
+        console.log(`[PreSpec Fallback Step 3: Minimal General Operation with inqryDiv=1] Category: ${category}`);
         const res3 = await executeFetch(opGeneral, serviceKey, pageNo, numOfRows);
         if (res3.ok) res = res3;
     }
@@ -140,7 +146,8 @@ async function fetchCategory({
     if (!res.ok) {
         throw new Error(
             `${category} API 오류: HTTP ${res.status}, ` +
-            `${res.resultCode || 'UNKNOWN'} ${res.resultMsg || ''}`.trim()
+            `${res.resultCode || 'UNKNOWN'} ${res.resultMsg || ''}`.trim() +
+            ` (Req: ${res.safeUrl})`
         );
     }
 
