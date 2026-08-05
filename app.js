@@ -9058,7 +9058,7 @@ renderTodayTasksRoleBased(todayStr) {
                 <td class="text-center">
                     <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
                         <a href="${ann.url}" target="_blank" rel="noopener noreferrer" class="btn btn-xs btn-outline" style="font-size:11px; width: 85px; justify-content: center; padding: 2px 4px;">
-                            <i data-lucide="external-link" style="width:11px;height:11px;margin-right:3px;"></i>원문
+                            <i data-lucide="external-link" style="width:11px;height:11px;margin-right:3px;"></i>원문보기
                         </a>
                         ${actionBtn}
                     </div>
@@ -9411,28 +9411,28 @@ renderTodayTasksRoleBased(todayStr) {
                 );
 
             const tr = document.createElement('tr');
-            tr.style.height = '68px'; // 행 고정 높이 적용
+            tr.style.height = '62px'; // 행 고정 높이 60~64px 적용
             tr.innerHTML = `
-                <td class="text-center">${typeBadge}</td>
-                <td class="font-bold text-xs" style="font-family: monospace;">${ann.announcementNo}</td>
-                <td>
-                    <span class="font-bold text-xs" style="max-width: 280px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;" title="${ann.name}">${ann.name}</span>
+                <td class="text-center g2b-nowrap-cell">${typeBadge}</td>
+                <td class="font-bold text-xs g2b-nowrap-cell" style="font-family: monospace; font-size: 13px;">${ann.announcementNo}</td>
+                <td style="vertical-align: middle;">
+                    <span class="g2b-title-clamp" title="${ann.name}">${ann.name}</span>
                 </td>
-                <td class="text-xs font-bold">${ann.customer}</td>
-                <td class="text-xs text-muted">${ann.publishDate}</td>
-                <td class="text-xs font-bold" style="min-width: 150px; white-space: nowrap;">
+                <td class="g2b-customer-cell" style="vertical-align: middle;">${ann.customer}</td>
+                <td class="text-center text-muted g2b-nowrap-cell">${ann.publishDate}</td>
+                <td class="font-bold g2b-nowrap-cell">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span>${ann.endDate || '-'}</span>
                         <span class="d-day-badge ${dDayClass}">${dDayText}</span>
                     </div>
                 </td>
-                <td class="text-xs font-bold text-success text-right">${ann.budget ? ann.budget.toLocaleString() + ' 원' : '-'}</td>
-                <td class="text-center">
-                    <a href="${ann.url}" target="_blank" class="btn btn-xs btn-outline" style="display: inline-flex; align-items: center; gap: 4px;">
-                        <i data-lucide="external-link" style="width:11px; height:11px;"></i> 원문
+                <td class="font-bold text-success text-right g2b-nowrap-cell">${ann.budget ? ann.budget.toLocaleString() + ' 원' : '-'}</td>
+                <td class="text-center g2b-nowrap-cell">
+                    <a href="${ann.url}" target="_blank" rel="noopener noreferrer" class="g2b-original-link-btn">
+                        <i data-lucide="external-link" style="width:12px; height:12px;"></i> 원문보기
                     </a>
                 </td>
-                <td class="text-center">
+                <td class="text-center g2b-nowrap-cell">
                     ${actionBtn}
                 </td>
             `;

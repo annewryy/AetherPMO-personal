@@ -9846,3 +9846,88 @@ body.app-modal-open {
 .bidding-outcome-card-lost {
     border-left: 4px solid var(--danger);
 }
+
+
+/* ============================================================================
+   G2B ANNOUNCEMENT TABLE (나라장터 공고조회 전용 테이블 스타일)
+   ============================================================================ */
+.g2b-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+.g2b-data-table th,
+.g2b-data-table td {
+    font-size: 14px !important;
+    vertical-align: middle !important;
+    padding: 10px 14px;
+}
+
+.g2b-data-table th {
+    font-weight: 700;
+    color: var(--text-muted);
+    background-color: var(--bg-hover-item);
+    border-bottom: 2px solid var(--bg-card-border);
+    white-space: nowrap;
+}
+
+.g2b-data-table tr {
+    height: 62px !important;
+    min-height: 60px;
+    max-height: 64px;
+    border-bottom: 1px solid var(--bg-card-border);
+}
+
+.g2b-data-table tr:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.g2b-title-clamp {
+    font-size: 14px !important;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--text-main);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-all;
+    max-width: 100%;
+}
+
+.g2b-customer-cell {
+    font-size: 14px !important;
+    font-weight: 600;
+    color: var(--text-main);
+    line-height: 1.3;
+}
+
+.g2b-nowrap-cell {
+    white-space: nowrap !important;
+    font-size: 14px !important;
+}
+
+.g2b-original-link-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    border-radius: 6px;
+    border: 1px solid var(--bg-card-border);
+    color: var(--primary);
+    background: transparent;
+    transition: all 0.2s ease;
+    text-decoration: none !important;
+}
+
+.g2b-original-link-btn:hover {
+    background: var(--primary-glow);
+    border-color: var(--primary);
+    color: var(--primary);
+}
