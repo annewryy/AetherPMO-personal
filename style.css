@@ -9308,3 +9308,259 @@ body.app-modal-open {
     background: var(--bg-card);
 }
 
+
+
+/* ============================================================
+   PORTFOLIO STATISTICS CARD (사업수행 현황 통계 개편)
+   ============================================================ */
+.portfolio-stat-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 320px;
+}
+
+.portfolio-year-select {
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 6px;
+    border: 1px solid var(--bg-card-border);
+    background: var(--bg-hover-item);
+    color: var(--primary);
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.portfolio-year-select:hover,
+.portfolio-year-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-glow);
+}
+
+.portfolio-stat-tabs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 8px;
+    background: var(--bg-hover-item);
+    border: 1px solid var(--bg-card-border);
+}
+
+.portfolio-stat-tab {
+    padding: 4px 9px;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+}
+
+.portfolio-stat-tab:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.portfolio-stat-tab.active {
+    background: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.portfolio-stat-tab:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+}
+
+.portfolio-stat-body {
+    display: grid;
+    grid-template-columns: 170px 1fr;
+    gap: 14px;
+    margin-top: 10px;
+    align-items: center;
+    flex: 1;
+    min-height: 230px;
+    position: relative;
+}
+
+@media (max-width: 900px) {
+    .portfolio-stat-body {
+        grid-template-columns: 1fr;
+    }
+}
+
+.portfolio-chart-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 180px;
+}
+
+.portfolio-ranking-area {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: 230px;
+    overflow: hidden;
+}
+
+.portfolio-ranking-area .ranking-header {
+    display: grid;
+    grid-template-columns: 28px 1fr 115px;
+    padding: 4px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--bg-card-border);
+    margin-bottom: 4px;
+}
+
+.portfolio-ranking-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    padding-right: 4px;
+    flex: 1;
+}
+
+.portfolio-ranking-item {
+    display: grid;
+    grid-template-columns: 28px 1fr 115px;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    background: var(--bg-hover-item);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.portfolio-ranking-item:hover {
+    border-color: var(--primary-glow);
+    background: color-mix(in srgb, var(--primary) 10%, var(--bg-hover-item));
+    transform: translateX(2px);
+}
+
+.portfolio-ranking-item .rank-badge {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--bg-card-border);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.portfolio-ranking-item:nth-child(1) .rank-badge {
+    background: #f59e0b;
+    color: #ffffff;
+}
+
+.portfolio-ranking-item:nth-child(2) .rank-badge {
+    background: #94a3b8;
+    color: #ffffff;
+}
+
+.portfolio-ranking-item:nth-child(3) .rank-badge {
+    background: #b45309;
+    color: #ffffff;
+}
+
+.portfolio-ranking-item .item-name {
+    font-weight: 700;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 6px;
+}
+
+.portfolio-ranking-item .item-val-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.3;
+}
+
+.portfolio-ranking-item .item-count {
+    font-weight: 800;
+    color: var(--primary);
+}
+
+.portfolio-ranking-item .item-pct {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+/* Horizontal Bar Chart for Client Statistics */
+.portfolio-bar-chart-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    padding: 4px 0;
+}
+
+.portfolio-bar-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    cursor: pointer;
+}
+
+.portfolio-bar-item:hover .portfolio-bar-label-name {
+    color: var(--primary);
+}
+
+.portfolio-bar-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+}
+
+.portfolio-bar-track {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bg-hover-item);
+    overflow: hidden;
+}
+
+.portfolio-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--primary);
+    transition: width 0.4s ease;
+}
+
+/* Empty state message */
+.portfolio-stat-empty {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 36px 0;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    width: 100%;
+    background: var(--bg-hover-item);
+    border-radius: 8px;
+    border: 1px dashed var(--bg-card-border);
+}

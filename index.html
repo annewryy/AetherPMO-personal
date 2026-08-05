@@ -628,18 +628,55 @@
                                 <div class="card-header-actions"><h3><i data-lucide="bar-chart-2" class="chart-header-icon mr-2"></i>프로젝트 진행률</h3></div>
                                 <div class="chart-scroll-container" id="dashboard-progress-chart-container"></div>
                             </div>
-                            <div class="dashboard-section-card" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
-                                <div class="card-header-actions"><h3><i data-lucide="pie-chart" class="chart-header-icon mr-2"></i>사업유형 분포</h3></div>
-                                <div class="chart-wrapper">
-                                    <div class="svg-chart-container">
-                                        <svg class="donut-chart" viewBox="0 0 42 42" width="100%" height="100%">
-                                            <circle class="donut-hole" cx="21" cy="21" r="15.91549430918954" fill="transparent"></circle>
-                                            <circle class="donut-ring" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="var(--bg-card-border)" stroke-width="4"></circle>
-                                            <g id="donut-business-type-segments-group"></g>
-                                        </svg>
-                                        <div class="chart-center-text"><span id="chart-business-type-center-value">0</span><span class="label">전체 사업 수</span></div>
+                            <div class="dashboard-section-card portfolio-stat-card" id="portfolio-stat-card">
+                                <div class="card-header-actions" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <h3 style="margin:0; display:flex; align-items:center; gap:6px;">
+                                            <i data-lucide="pie-chart" class="chart-header-icon"></i>
+                                            <span>사업수행 현황</span>
+                                        </h3>
+                                        <select id="portfolio-year-select" class="portfolio-year-select" onchange="app.switchPortfolioYear(this.value)" aria-label="기준연도 선택" title="통계 기준연도 선택">
+                                            <!-- Dynamically populated by app.js -->
+                                        </select>
                                     </div>
-                                    <div class="chart-legend" id="chart-business-type-legend"></div>
+                                    <div class="portfolio-stat-tabs" role="tablist" aria-label="통계 항목 구분">
+                                        <button role="tab" aria-selected="true" class="portfolio-stat-tab active" data-stat-tab="bizType" onclick="app.switchPortfolioStatTab('bizType')">사업유형</button>
+                                        <button role="tab" aria-selected="false" class="portfolio-stat-tab" data-stat-tab="amount" onclick="app.switchPortfolioStatTab('amount')">수행금액</button>
+                                        <button role="tab" aria-selected="false" class="portfolio-stat-tab" data-stat-tab="status" onclick="app.switchPortfolioStatTab('status')">진행상태</button>
+                                        <button role="tab" aria-selected="false" class="portfolio-stat-tab" data-stat-tab="customer" onclick="app.switchPortfolioStatTab('customer')">발주기관</button>
+                                        <button role="tab" aria-selected="false" class="portfolio-stat-tab" data-stat-tab="partType" onclick="app.switchPortfolioStatTab('partType')">참여형태</button>
+                                    </div>
+                                </div>
+                                
+                                <div class="portfolio-stat-body" id="portfolio-stat-card-body">
+                                    <div class="portfolio-chart-area" id="portfolio-chart-area">
+                                        <div class="svg-chart-container" id="portfolio-svg-chart-container">
+                                            <svg class="donut-chart" viewBox="0 0 42 42" width="100%" height="100%">
+                                                <circle class="donut-hole" cx="21" cy="21" r="15.91549430918954" fill="transparent"></circle>
+                                                <circle class="donut-ring" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="var(--bg-card-border)" stroke-width="4"></circle>
+                                                <g id="donut-portfolio-segments-group"></g>
+                                            </svg>
+                                            <div class="chart-center-text" id="portfolio-center-text">
+                                                <span id="portfolio-center-value">0</span>
+                                                <span class="label" id="portfolio-center-label">전체 사업 수</span>
+                                            </div>
+                                        </div>
+                                        <div id="portfolio-bar-chart-container" class="portfolio-bar-chart-container" style="display:none; width:100%;"></div>
+                                    </div>
+                                    <div class="portfolio-ranking-area" id="portfolio-ranking-area">
+                                        <div class="ranking-header" id="portfolio-ranking-header">
+                                            <span>순위</span>
+                                            <span>항목명</span>
+                                            <span style="text-align:right;">비중 / 건수</span>
+                                        </div>
+                                        <div class="portfolio-ranking-list" id="portfolio-ranking-list">
+                                            <!-- Dynamically rendered -->
+                                        </div>
+                                    </div>
+                                    <div id="portfolio-stat-empty" class="portfolio-stat-empty" style="display:none;">
+                                        <i data-lucide="info" style="width:20px; height:20px; color:var(--text-muted);"></i>
+                                        <span id="portfolio-stat-empty-msg">집계할 데이터가 없습니다.</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

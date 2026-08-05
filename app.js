@@ -5000,7 +5000,8 @@ class AetherPMO {
         }
 
         this.renderDashboardProgressChart();
-        this.renderBusinessTypeDonutChart();
+        this.renderPortfolioStatCard();
+        this.updateDashboardKPIs(this.getDashboardProjectsByYear(this.activePortfolioYear));
         this.renderAdminActionCenter(todayStr);
         this.renderTodayTasksRoleBased(todayStr);
         this.renderExecBottomRow();
@@ -6077,54 +6078,156 @@ class AetherPMO {
         container.innerHTML = html;
     }
 
-    renderBusinessTypeDonutChart() {
-        const total = this.state.projects.length;
-        const group = document.getElementById('donut-business-type-segments-group');
-        const centerValue = document.getElementById('chart-business-type-center-value');
-        const legendContainer = document.getElementById('chart-business-type-legend');
+    getDashboardYears() {
+        const years = new Set();
+        const currentYear = new Date().getFullYear();
+        years.add(currentYear);
 
-        if (!group || !centerValue || !legendContainer) return;
-
-        centerValue.textContent = total;
-
-        const counts = {};
-        let knownCount = 0;
-
-        this.state.projects.forEach(p => {
-            let bt = (p.businessType || p.business_type || p.bizType || '').trim();
-            if (!bt) {
-                bt = '미분류';
-            } else if (bt.includes('SI') || bt.includes('구축')) {
-                bt = '공공 SI';
-            } else if (bt.includes('유지') || bt.includes('운영')) {
-                bt = '유지관리';
-            } else if (bt.includes('ISP')) {
-                bt = 'ISP';
-            } else if (bt.includes('컨설팅') || bt.includes('BPR')) {
-                bt = '컨설팅';
-            } else if (bt === 'AI' || bt.includes('AI') || bt.includes('인공지능')) {
-                bt = 'AI';
+        (this.state.projects || []).forEach(p => {
+            if (p.startDate) {
+                const y = parseInt(p.startDate.substring(0, 4), 10);
+                if (!isNaN(y) && y > 2000 && y < 2100) years.add(y);
             }
-
-            counts[bt] = (counts[bt] || 0) + 1;
-            if (bt !== '미분류') knownCount++;
+            if (p.endDate) {
+                const y = parseInt(p.endDate.substring(0, 4), 10);
+                if (!isNaN(y) && y > 2000 && y < 2100) years.add(y);
+            }
         });
 
-        if (total === 0 || Object.keys(counts).length === 0) {
-            group.innerHTML = `
-                <circle cx="21" cy="21" r="15.91549430918954" fill="transparent"
-                        stroke="var(--bg-card-border)" stroke-width="4" stroke-dasharray="100 0" stroke-dashoffset="0"></circle>
-            `;
-            legendContainer.innerHTML = `
-                <div style="font-size:12px; color:var(--text-muted); text-align:center; padding:12px 0;">
-                    <i data-lucide="info" style="width:16px; height:16px; margin-bottom:4px; display:inline-block;"></i>
-                    <div style="font-weight:700; color:var(--text-main);">사업유형 미분류 (${total}개)</div>
-                    <div style="font-size:11px; margin-top:2px;">사업유형을 등록하면 자동 통계가 생성됩니다.</div>
-                </div>
-            `;
-            if (typeof lucide !== 'undefined') { try { lucide.createIcons(); } catch(e){} }
+        return Array.from(years).sort((a, b) => b - a);
+    }
+
+    getDashboardProjectsByYear(year) {
+        const selectedYear = parseInt(year || this.activePortfolioYear || new Date().getFullYear(), 10);
+        const yearStart = `${selectedYear}-01-01`;
+        const yearEnd = `${selectedYear}-12-31`;
+
+        return (this.state.projects || []).filter(p => {
+            const pStart = p.startDate || '1970-01-01';
+            const pEnd = p.endDate || '9999-12-31';
+            return (pStart <= yearEnd) && (pEnd >= yearStart);
+        });
+    }
+
+    populatePortfolioYearSelect() {
+        const select = document.getElementById('portfolio-year-select');
+        if (!select) return;
+
+        const availableYears = this.getDashboardYears();
+        if (!this.activePortfolioYear) {
+            this.activePortfolioYear = availableYears[0] || new Date().getFullYear();
+        }
+
+        let html = '';
+        availableYears.forEach(y => {
+            const isSelected = y === this.activePortfolioYear;
+            html += `<option value="${y}" ${isSelected ? 'selected' : ''}>${y}년</option>`;
+        });
+
+        select.innerHTML = html;
+    }
+
+    switchPortfolioYear(yearStr) {
+        const year = parseInt(yearStr, 10);
+        if (isNaN(year)) return;
+        this.activePortfolioYear = year;
+
+        // Re-render top KPI cards using year-filtered projects!
+        const yearProjects = this.getDashboardProjectsByYear(year);
+        this.updateDashboardKPIs(yearProjects);
+
+        // Re-render portfolio stat card inside DOM
+        this.renderPortfolioStatCard();
+    }
+
+    switchPortfolioStatTab(tabName) {
+        this.activePortfolioStatTab = tabName;
+
+        // Update tab buttons active & aria-selected state
+        document.querySelectorAll('.portfolio-stat-tab').forEach(btn => {
+            const isTarget = btn.getAttribute('data-stat-tab') === tabName;
+            btn.classList.toggle('active', isTarget);
+            btn.setAttribute('aria-selected', isTarget ? 'true' : 'false');
+        });
+
+        // Re-render ONLY card content
+        this.renderPortfolioStatCard();
+    }
+
+    formatAmountShort(amount) {
+        const val = Number(amount || 0);
+        if (isNaN(val) || val <= 0) return '0원';
+        if (val >= 100000000) {
+            const eok = val / 100000000;
+            return `${eok.toFixed(1).replace(/\.0$/, '')}억 원`;
+        }
+        if (val >= 10000) {
+            const man = Math.round(val / 10000);
+            return `${man.toLocaleString()}만 원`;
+        }
+        return `${val.toLocaleString()}원`;
+    }
+
+    formatAmountFull(amount) {
+        const val = Number(amount || 0);
+        return `${val.toLocaleString()} 원`;
+    }
+
+    renderPortfolioStatCard() {
+        const cardBody = document.getElementById('portfolio-stat-card-body');
+        if (!cardBody) return;
+
+        this.populatePortfolioYearSelect();
+        const year = this.activePortfolioYear || new Date().getFullYear();
+        const tab = this.activePortfolioStatTab || 'bizType';
+
+        const yearProjects = this.getDashboardProjectsByYear(year);
+
+        if (tab === 'bizType') {
+            this.renderBizTypeStat(yearProjects);
+        } else if (tab === 'amount') {
+            this.renderContractAmountStat(yearProjects);
+        } else if (tab === 'status') {
+            this.renderProgressStatusStat(yearProjects);
+        } else if (tab === 'customer') {
+            this.renderCustomerStat(yearProjects);
+        } else if (tab === 'partType') {
+            this.renderParticipationTypeStat(yearProjects);
+        }
+    }
+
+    renderBizTypeStat(yearProjects) {
+        this.togglePortfolioContainers(true);
+        const group = document.getElementById('donut-portfolio-segments-group');
+        const centerValue = document.getElementById('portfolio-center-value');
+        const centerLabel = document.getElementById('portfolio-center-label');
+        const rankingList = document.getElementById('portfolio-ranking-list');
+        const rankingHeader = document.getElementById('portfolio-ranking-header');
+
+        if (!group || !rankingList) return;
+
+        const total = yearProjects.length;
+
+        if (total === 0) {
+            this.showPortfolioEmptyState('집계할 사업유형 데이터가 없습니다.');
             return;
         }
+
+        centerValue.textContent = total;
+        centerLabel.textContent = '전체 사업 수';
+        rankingHeader.innerHTML = `<span>순위</span><span>사업유형</span><span style="text-align:right;">건수 (비율)</span>`;
+
+        const counts = {};
+        yearProjects.forEach(p => {
+            let bt = (p.businessType || p.business_type || p.bizType || '').trim();
+            if (!bt) bt = '미분류';
+            else if (bt.includes('SI') || bt.includes('구축')) bt = '공공 SI';
+            else if (bt.includes('유지') || bt.includes('운영')) bt = '유지관리';
+            else if (bt.includes('ISP')) bt = 'ISP';
+            else if (bt.includes('컨설팅') || bt.includes('BPR')) bt = '컨설팅';
+            else if (bt === 'AI' || bt.includes('AI') || bt.includes('인공지능')) bt = 'AI';
+            counts[bt] = (counts[bt] || 0) + 1;
+        });
 
         const presetColors = {
             '공공 SI': 'var(--primary)',
@@ -6134,59 +6237,525 @@ class AetherPMO {
             'AI': 'var(--success)',
             '미분류': '#64748b'
         };
-
-        const fallbackColors = ['#f59e0b', '#06b6d4', '#10b981', '#6366f1', '#8b5cf6', '#e11d48'];
+        const fallbackColors = ['#f59e0b', '#06b6d4', '#10b981', '#6366f1', '#8b5cf6'];
         let colorIdx = 0;
 
         const segments = [];
         for (const [key, count] of Object.entries(counts)) {
-            if (count > 0) {
-                const color = presetColors[key] || fallbackColors[(colorIdx++) % fallbackColors.length];
-                segments.push({
-                    label: key,
-                    count: count,
-                    color: color,
-                    pct: (count / total) * 100
-                });
-            }
+            const color = presetColors[key] || fallbackColors[(colorIdx++) % fallbackColors.length];
+            segments.push({ label: key, count, color, pct: (count / total) * 100 });
+        }
+        segments.sort((a, b) => b.count - a.count);
+
+        this.renderDonutSVG(group, segments);
+
+        let rankHtml = '';
+        segments.forEach((seg, idx) => {
+            rankHtml += `
+                <div class="portfolio-ranking-item" onclick="app.filterProjectsByBizType('${seg.label}')" title="${this.escapeHtml(seg.label)} (${seg.count}건)">
+                    <span class="rank-badge">${idx + 1}</span>
+                    <span class="item-name">${this.escapeHtml(seg.label)}</span>
+                    <div class="item-val-group">
+                        <span class="item-count">${seg.count}건</span>
+                        <span class="item-pct">${seg.pct.toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+        });
+        rankingList.innerHTML = rankHtml;
+    }
+
+    renderContractAmountStat(yearProjects) {
+        this.togglePortfolioContainers(true);
+        const group = document.getElementById('donut-portfolio-segments-group');
+        const centerValue = document.getElementById('portfolio-center-value');
+        const centerLabel = document.getElementById('portfolio-center-label');
+        const rankingList = document.getElementById('portfolio-ranking-list');
+        const rankingHeader = document.getElementById('portfolio-ranking-header');
+
+        if (!group || !rankingList) return;
+
+        // 수행 중 프로젝트만 필터링 (In Progress or Delay)
+        const inProgressProjects = yearProjects.filter(p => p.status === 'In Progress' || p.status === 'Delay');
+        const totalInProgressCount = inProgressProjects.length;
+
+        // 금액 유효 프로젝트만 추출 (당사 계약금액 > 0)
+        const amountProjects = inProgressProjects
+            .map(p => {
+                const amt = Number(p.companyContractAmount || p.company_contract_amount || 0);
+                return { ...p, calcAmount: isNaN(amt) ? 0 : amt };
+            })
+            .filter(p => p.calcAmount > 0)
+            .sort((a, b) => b.calcAmount - a.calcAmount);
+
+        if (totalInProgressCount === 0 || amountProjects.length === 0) {
+            this.showPortfolioEmptyState('진행 중인 프로젝트의 당사 계약금액 데이터가 없습니다.');
+            return;
         }
 
-        segments.sort((a, b) => b.count - a.count);
+        const totalCompanyAmount = amountProjects.reduce((sum, p) => sum + p.calcAmount, 0);
+
+        centerValue.innerHTML = `<span style="font-size:14px; font-weight:800;">${this.formatAmountShort(totalCompanyAmount)}</span>`;
+        centerLabel.innerHTML = `<span style="font-size:10px; color:var(--text-muted); display:block; margin-top:2px;">금액 등록 ${amountProjects.length}개 / 전체 수행 ${totalInProgressCount}개</span>`;
+        rankingHeader.innerHTML = `<span>순위</span><span>프로젝트명</span><span style="text-align:right;">당사금액 (비중)</span>`;
+
+        // 상위 5개 + 기타
+        const top5 = amountProjects.slice(0, 5);
+        const rest = amountProjects.slice(5);
+
+        const colors = ['#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#64748b'];
+        const segments = top5.map((p, idx) => ({
+            label: p.name,
+            code: p.projectCode || p.code || p.id,
+            id: p.id,
+            count: p.calcAmount,
+            color: colors[idx % colors.length],
+            pct: (p.calcAmount / totalCompanyAmount) * 100,
+            isOther: false,
+            projectObj: p
+        }));
+
+        if (rest.length > 0) {
+            const restSum = rest.reduce((sum, p) => sum + p.calcAmount, 0);
+            segments.push({
+                label: `기타 (${rest.length}개)`,
+                code: 'OTHER',
+                id: 'OTHER',
+                count: restSum,
+                color: '#64748b',
+                pct: (restSum / totalCompanyAmount) * 100,
+                isOther: true
+            });
+        }
+
+        this.renderDonutSVG(group, segments);
+
+        let rankHtml = '';
+        segments.forEach((seg, idx) => {
+            const clickAction = seg.isOther
+                ? `window.location.hash = 'projects/active'`
+                : `window.location.hash = 'project-detail/${seg.id}'`;
+
+            let tooltipText = '';
+            if (seg.isOther) {
+                tooltipText = `기타 ${rest.length}개 프로젝트 (총 ${this.formatAmountFull(seg.count)})`;
+            } else {
+                const p = seg.projectObj;
+                const totalContractStr = this.formatAmountFull(p.totalContractAmount || p.budget || p.calcAmount);
+                const companyContractStr = this.formatAmountFull(p.calcAmount);
+                const shareRateStr = p.companyShareRate !== undefined && p.companyShareRate !== null ? `${p.companyShareRate}%` : '-';
+                tooltipText = `프로젝트명: ${p.name}\n프로젝트 코드: ${seg.code}\n전체 계약금액: ${totalContractStr}\n당사 계약금액: ${companyContractStr}\n지분율: ${shareRateStr}\n총 수행금액 대비 비율: ${seg.pct.toFixed(1)}%`;
+            }
+
+            rankHtml += `
+                <div class="portfolio-ranking-item" onclick="${clickAction}" title="${this.escapeHtml(tooltipText)}">
+                    <span class="rank-badge">${idx + 1}</span>
+                    <span class="item-name">${this.escapeHtml(seg.label)}</span>
+                    <div class="item-val-group">
+                        <span class="item-count" style="font-size:11px;">${this.formatAmountShort(seg.count)}</span>
+                        <span class="item-pct">${seg.pct.toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+        });
+        rankingList.innerHTML = rankHtml;
+    }
+
+    renderProgressStatusStat(yearProjects) {
+        this.togglePortfolioContainers(true);
+        const group = document.getElementById('donut-portfolio-segments-group');
+        const centerValue = document.getElementById('portfolio-center-value');
+        const centerLabel = document.getElementById('portfolio-center-label');
+        const rankingList = document.getElementById('portfolio-ranking-list');
+        const rankingHeader = document.getElementById('portfolio-ranking-header');
+
+        if (!group || !rankingList) return;
+
+        const total = yearProjects.length;
+
+        if (total === 0) {
+            this.showPortfolioEmptyState('집계할 프로젝트 상태 데이터가 없습니다.');
+            return;
+        }
+
+        centerValue.textContent = total;
+        centerLabel.textContent = '선택 연도 프로젝트';
+        rankingHeader.innerHTML = `<span>순위</span><span>진행상태</span><span style="text-align:right;">건수 (비율)</span>`;
+
+        let countBidding = 0;
+        let countActive = 0;
+        let countDelay = 0;
+        let countCompleted = 0;
+        let countLost = 0;
+
+        yearProjects.forEach(p => {
+            const st = p.status || 'In Progress';
+            const bSt = (p.bidding_status || p.biddingStatus || p.bid_status || '').toLowerCase();
+
+            if (st === 'Completed' || st === 'Closed' || st === '종료') {
+                countCompleted++;
+            } else if (bSt === 'lost' || st === 'Lost' || st === '실패') {
+                countLost++;
+            } else if (st === 'Delay' || p.isOverdue) {
+                countDelay++;
+            } else if (st === 'Bidding' || bSt === 'proposal_preparing' || bSt === 'proposal_submitted' || bSt === 'waiting_result') {
+                countBidding++;
+            } else {
+                countActive++;
+            }
+        });
+
+        const statusMap = [
+            { label: '수행중', count: countActive, color: 'var(--info)', hash: 'projects/active' },
+            { label: '입찰', count: countBidding, color: 'var(--warning)', hash: 'projects/bidding' },
+            { label: '지연', count: countDelay, color: 'var(--danger)', hash: 'projects/active' },
+            { label: '수행종료', count: countCompleted, color: 'var(--success)', hash: 'projects/completed' },
+            { label: '실패', count: countLost, color: '#64748b', hash: 'projects/bidding' }
+        ];
+
+        const activeSegments = statusMap
+            .filter(s => s.count > 0)
+            .map(s => ({ ...s, pct: (s.count / total) * 100 }))
+            .sort((a, b) => b.count - a.count);
+
+        this.renderDonutSVG(group, activeSegments);
+
+        let rankHtml = '';
+        activeSegments.forEach((seg, idx) => {
+            rankHtml += `
+                <div class="portfolio-ranking-item" onclick="window.location.hash='${seg.hash}'" title="${seg.label} ${seg.count}건 (${seg.pct.toFixed(1)}%)">
+                    <span class="rank-badge">${idx + 1}</span>
+                    <span class="item-name" style="color:${seg.color}">${this.escapeHtml(seg.label)}</span>
+                    <div class="item-val-group">
+                        <span class="item-count">${seg.count}건</span>
+                        <span class="item-pct">${seg.pct.toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+        });
+        rankingList.innerHTML = rankHtml;
+    }
+
+    renderCustomerStat(yearProjects) {
+        this.togglePortfolioContainers(false);
+        const barContainer = document.getElementById('portfolio-bar-chart-container');
+        const rankingList = document.getElementById('portfolio-ranking-list');
+        const rankingHeader = document.getElementById('portfolio-ranking-header');
+
+        if (!barContainer || !rankingList) return;
+
+        const total = yearProjects.length;
+
+        if (total === 0) {
+            this.showPortfolioEmptyState('집계할 발주기관 데이터가 없습니다.');
+            return;
+        }
+
+        rankingHeader.innerHTML = `<span>순위</span><span>발주기관명</span><span style="text-align:right;">건수 (비율)</span>`;
+
+        const customerMap = {};
+        yearProjects.forEach(p => {
+            const cust = (p.customer || p.customerName || '').trim() || '미지정';
+            const amt = Number(p.companyContractAmount || p.company_contract_amount || 0);
+            if (!customerMap[cust]) {
+                customerMap[cust] = { name: cust, count: 0, totalAmount: 0 };
+            }
+            customerMap[cust].count += 1;
+            if (!isNaN(amt) && amt > 0) customerMap[cust].totalAmount += amt;
+        });
+
+        // 1순위 건수(내림차순), 2순위 당사 계약금액(내림차순)
+        const sortedCustomers = Object.values(customerMap).sort((a, b) => {
+            if (b.count !== a.count) return b.count - a.count;
+            return b.totalAmount - a.totalAmount;
+        });
+
+        const top5 = sortedCustomers.slice(0, 5);
+        const rest = sortedCustomers.slice(5);
+
+        const items = top5.map(c => ({
+            label: c.name,
+            count: c.count,
+            amount: c.totalAmount,
+            pct: (c.count / total) * 100,
+            isOther: false
+        }));
+
+        if (rest.length > 0) {
+            const restCount = rest.reduce((sum, c) => sum + c.count, 0);
+            const restAmount = rest.reduce((sum, c) => sum + c.totalAmount, 0);
+            items.push({
+                label: `기타 (${rest.length}개 기관)`,
+                count: restCount,
+                amount: restAmount,
+                pct: (restCount / total) * 100,
+                isOther: true
+            });
+        }
+
+        let maxCount = Math.max(...items.map(i => i.count), 1);
+        let barHtml = '';
+        items.forEach(item => {
+            const widthPct = Math.round((item.count / maxCount) * 100);
+            const clickAction = item.isOther
+                ? `window.location.hash = 'projects'`
+                : `app.filterProjectsByCustomer('${this.escapeHtml(item.label)}')`;
+            barHtml += `
+                <div class="portfolio-bar-item" onclick="${clickAction}" title="${this.escapeHtml(item.label)} (${item.count}건)">
+                    <div class="portfolio-bar-header">
+                        <span class="portfolio-bar-label-name" style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px;">${this.escapeHtml(item.label)}</span>
+                        <span style="font-weight:700; color:var(--primary);">${item.count}건</span>
+                    </div>
+                    <div class="portfolio-bar-track">
+                        <div class="portfolio-bar-fill" style="width:${widthPct}%;"></div>
+                    </div>
+                </div>
+            `;
+        });
+        barContainer.innerHTML = barHtml;
+
+        let rankHtml = '';
+        items.forEach((item, idx) => {
+            const clickAction = item.isOther
+                ? `window.location.hash = 'projects'`
+                : `app.filterProjectsByCustomer('${this.escapeHtml(item.label)}')`;
+            rankHtml += `
+                <div class="portfolio-ranking-item" onclick="${clickAction}" title="${this.escapeHtml(item.label)} (${item.count}건, ${this.formatAmountShort(item.amount)})">
+                    <span class="rank-badge">${idx + 1}</span>
+                    <span class="item-name">${this.escapeHtml(item.label)}</span>
+                    <div class="item-val-group">
+                        <span class="item-count">${item.count}건</span>
+                        <span class="item-pct">${item.pct.toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+        });
+        rankingList.innerHTML = rankHtml;
+    }
+
+    renderParticipationTypeStat(yearProjects) {
+        this.togglePortfolioContainers(true);
+        const group = document.getElementById('donut-portfolio-segments-group');
+        const centerValue = document.getElementById('portfolio-center-value');
+        const centerLabel = document.getElementById('portfolio-center-label');
+        const rankingList = document.getElementById('portfolio-ranking-list');
+        const rankingHeader = document.getElementById('portfolio-ranking-header');
+
+        if (!group || !rankingList) return;
+
+        const total = yearProjects.length;
+
+        if (total === 0) {
+            this.showPortfolioEmptyState('집계할 참여형태 데이터가 없습니다.');
+            return;
+        }
+
+        centerValue.textContent = total;
+        centerLabel.textContent = '선택 연도 프로젝트';
+        rankingHeader.innerHTML = `<span>순위</span><span>참여형태</span><span style="text-align:right;">건수 (비율)</span>`;
+
+        const typeCounts = {
+            '주사업자': 0,
+            '공동수급': 0,
+            '하도급': 0,
+            '단독수행': 0,
+            '미지정': 0
+        };
+
+        yearProjects.forEach(p => {
+            const rawType = String(p.participationType || p.participation_type || '').toUpperCase().trim();
+            if (rawType.includes('PRIME') || rawType.includes('주사업')) {
+                typeCounts['주사업자']++;
+            } else if (rawType.includes('CONSORTIUM') || rawType.includes('공동')) {
+                typeCounts['공동수급']++;
+            } else if (rawType.includes('SUB') || rawType.includes('하도급')) {
+                typeCounts['하도급']++;
+            } else if (rawType.includes('SOLE') || rawType.includes('단독')) {
+                typeCounts['단독수행']++;
+            } else {
+                typeCounts['미지정']++;
+            }
+        });
+
+        const presetColors = {
+            '주사업자': 'var(--primary)',
+            '공동수급': '#06b6d4',
+            '하도급': '#f59e0b',
+            '단독수행': '#10b981',
+            '미지정': '#64748b'
+        };
+
+        const segments = Object.entries(typeCounts)
+            .filter(([_, count]) => count > 0)
+            .map(([label, count]) => ({
+                label,
+                count,
+                color: presetColors[label] || '#64748b',
+                pct: (count / total) * 100
+            }))
+            .sort((a, b) => b.count - a.count);
+
+        this.renderDonutSVG(group, segments);
+
+        let rankHtml = '';
+        segments.forEach((seg, idx) => {
+            rankHtml += `
+                <div class="portfolio-ranking-item" onclick="app.filterProjectsByParticipationType('${seg.label}')" title="${seg.label} ${seg.count}건 (${seg.pct.toFixed(1)}%)">
+                    <span class="rank-badge">${idx + 1}</span>
+                    <span class="item-name">${this.escapeHtml(seg.label)}</span>
+                    <div class="item-val-group">
+                        <span class="item-count">${seg.count}건</span>
+                        <span class="item-pct">${seg.pct.toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+        });
+        rankingList.innerHTML = rankHtml;
+    }
+
+    renderDonutSVG(group, segments) {
+        if (!group) return;
+        if (!segments || segments.length === 0) {
+            group.innerHTML = `<circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="var(--bg-card-border)" stroke-width="4"></circle>`;
+            return;
+        }
 
         let accumulatedOffset = 0;
         let svgHtml = '';
-        let legendHtml = '';
 
         segments.forEach(seg => {
             const strokeDash = `${seg.pct} ${100 - seg.pct}`;
             const strokeOffset = -accumulatedOffset;
+            const clickAction = seg.isOther
+                ? "window.location.hash='projects/active'"
+                : (seg.id ? `window.location.hash='project-detail/${seg.id}'` : `app.filterProjectsByBizType('${seg.label}')`);
 
             svgHtml += `
                 <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent"
                         stroke="${seg.color}" stroke-width="4"
                         stroke-dasharray="${strokeDash}"
                         stroke-dashoffset="${strokeOffset}"
-                        style="transition: stroke-dashoffset 0.5s ease;">
+                        style="transition: stroke-dashoffset 0.5s ease; cursor:pointer;"
+                        onclick="${clickAction}">
                 </circle>
             `;
             accumulatedOffset += seg.pct;
-
-            legendHtml += `
-                <div class="legend-item" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; font-size:12px;">
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span class="legend-color" style="background:${seg.color}; width:10px; height:10px; border-radius:50%; display:inline-block;"></span>
-                        <span style="font-weight:600; color:var(--text-main);">${seg.label}</span>
-                    </div>
-                    <span class="legend-val font-bold" style="color:var(--primary); font-size:12px;">${seg.count}건 (${Math.round(seg.pct)}%)</span>
-                </div>
-            `;
         });
 
         group.innerHTML = svgHtml;
-        legendContainer.innerHTML = legendHtml;
     }
 
-    renderTodayTasksRoleBased(todayStr) {
+    togglePortfolioContainers(isDonut) {
+        const svgContainer = document.getElementById('portfolio-svg-chart-container');
+        const barContainer = document.getElementById('portfolio-bar-chart-container');
+        const rankingArea = document.getElementById('portfolio-ranking-area');
+        const emptyState = document.getElementById('portfolio-stat-empty');
+
+        if (emptyState) emptyState.style.display = 'none';
+        if (rankingArea) rankingArea.style.display = 'flex';
+
+        if (isDonut) {
+            if (svgContainer) svgContainer.style.display = 'flex';
+            if (barContainer) barContainer.style.display = 'none';
+        } else {
+            if (svgContainer) svgContainer.style.display = 'none';
+            if (barContainer) barContainer.style.display = 'flex';
+        }
+    }
+
+    showPortfolioEmptyState(msg) {
+        const svgContainer = document.getElementById('portfolio-svg-chart-container');
+        const barContainer = document.getElementById('portfolio-bar-chart-container');
+        const rankingArea = document.getElementById('portfolio-ranking-area');
+        const emptyState = document.getElementById('portfolio-stat-empty');
+        const emptyMsg = document.getElementById('portfolio-stat-empty-msg');
+
+        if (svgContainer) svgContainer.style.display = 'none';
+        if (barContainer) barContainer.style.display = 'none';
+        if (rankingArea) rankingArea.style.display = 'none';
+
+        if (emptyMsg) emptyMsg.textContent = msg;
+        if (emptyState) emptyState.style.display = 'flex';
+    }
+
+    filterProjectsByBizType(typeLabel) {
+        window.location.hash = 'projects';
+        setTimeout(() => {
+            const searchInput = document.getElementById('project-search-input');
+            if (searchInput) {
+                searchInput.value = typeLabel === '미분류' ? '' : typeLabel;
+                this.renderProjects();
+            }
+        }, 100);
+    }
+
+    filterProjectsByCustomer(customerName) {
+        window.location.hash = 'projects';
+        setTimeout(() => {
+            const searchInput = document.getElementById('project-search-input');
+            if (searchInput) {
+                searchInput.value = customerName === '미지정' ? '' : customerName;
+                this.renderProjects();
+            }
+        }, 100);
+    }
+
+    filterProjectsByParticipationType(partType) {
+        window.location.hash = 'projects';
+        setTimeout(() => {
+            const searchInput = document.getElementById('project-search-input');
+            if (searchInput) {
+                searchInput.value = partType === '미지정' ? '' : partType;
+                this.renderProjects();
+            }
+        }, 100);
+    }
+
+    updateDashboardKPIs(yearProjects) {
+        const projs = yearProjects || this.state.projects || [];
+        const total = projs.length;
+
+        let activeCount = 0;
+        let biddingCount = 0;
+        let delayedCount = 0;
+        let todayDueCount = 0;
+
+        const todayStr = new Date().toISOString().substring(0, 10);
+
+        projs.forEach(p => {
+            const st = p.status || 'In Progress';
+            const bSt = (p.bidding_status || p.biddingStatus || p.bid_status || '').toLowerCase();
+
+            if (st === 'Completed' || st === 'Closed' || st === '종료' || bSt === 'lost' || st === 'Lost' || st === '실패') {
+                return;
+            }
+
+            if (st === 'Delay' || p.isOverdue) {
+                delayedCount++;
+            } else if (st === 'Bidding' || bSt === 'proposal_preparing' || bSt === 'proposal_submitted' || bSt === 'waiting_result') {
+                biddingCount++;
+            } else {
+                activeCount++;
+            }
+
+            if (p.endDate === todayStr && st !== 'Completed') {
+                todayDueCount++;
+            }
+        });
+
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+
+        setVal('stat-total-projects', total);
+        setVal('stat-active-projects', activeCount);
+        setVal('stat-bidding-projects', biddingCount);
+        setVal('stat-delayed-projects', delayedCount);
+        setVal('stat-today-due-projects', todayDueCount);
+    }
+    
+renderTodayTasksRoleBased(todayStr) {
         const titleEl = document.getElementById('today-tasks-section-title');
         const roleTag = document.getElementById('today-tasks-role-tag');
         const role = this.currentUser?.role;
