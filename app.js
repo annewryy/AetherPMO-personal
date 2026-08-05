@@ -171,6 +171,7 @@ class AetherPMO {
         console.count('[AetherPMO constructor]');
         this.instanceId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'inst-' + Date.now();
         this.isSavingProject = false;
+        this.activePortfolioYear = new Date().getFullYear();
         console.log('[AetherPMO constructor] Single instance initialized:', this.instanceId);
         this.state = {
             projects: [],
@@ -6114,8 +6115,9 @@ class AetherPMO {
         if (!select) return;
 
         const availableYears = this.getDashboardYears();
+        const currentYear = new Date().getFullYear();
         if (!this.activePortfolioYear) {
-            this.activePortfolioYear = availableYears[0] || new Date().getFullYear();
+            this.activePortfolioYear = currentYear;
         }
 
         let html = '';
