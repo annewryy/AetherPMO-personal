@@ -1,3 +1,12 @@
+const cleanKey = (key) => {
+    if (!key) return '';
+    let cleaned = String(key).replace(/[\r\n]/g, '').trim();
+    if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+        cleaned = cleaned.slice(1, -1);
+    }
+    return cleaned.trim();
+};
+
 const https = require('https');
 const http = require('http');
 const url = require('url');
@@ -385,15 +394,6 @@ module.exports = async (req, res) => {
 
     let bidServiceKey = cleanKey(process.env.G2B_API_KEY || '');
     let preServiceKey = cleanKey(process.env.G2B_API_KEY || process.env.G2B_PRE_SERVICE_KEY || '');
-
-    const cleanKey = (key) => {
-        if (!key) return '';
-        let cleaned = key.replace(/[\r\n]/g, '').trim();
-        if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
-            cleaned = cleaned.slice(1, -1);
-        }
-        return cleaned.trim();
-    };
 
     try {
         let query = {};
