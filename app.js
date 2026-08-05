@@ -32297,7 +32297,8 @@ renderTodayTasksRoleBased(todayStr) {
     }
 
     renderBiddingKanbanCardHtml(p, stageInfo = {}) {
-        const dueDate = p.proposalDueDate || p.bidDueDate || p.dueDate || p.endDate || '-';
+        const norm = this.normalizeBiddingProject(p);
+        const dueDate = norm.normalizedDueDate;
         let dDayBadge = '';
 
         if (dueDate !== '-') {
@@ -32322,11 +32323,11 @@ renderTodayTasksRoleBased(todayStr) {
             dDayBadge = `<span class="d-day-badge d-day-normal" style="font-size:12px; font-weight:700; padding:4px 8px;">기한 미정</span>`;
         }
 
-        const nameStr = p.name || p.projectName || p.title || p.project_name || '입찰 프로젝트';
-        const expAmt = Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || p.budget || 0);
+        const nameStr = norm.normalizedProjectName;
+        const custName = norm.normalizedClientName;
+        const expAmt = norm.normalizedExpectedAmount;
         const expAmtStr = expAmt > 0 ? this.formatAmountShort(expAmt) : '금액 미입력';
-        const pmName = p.manager || p.pmName || p.pm_name || 'PM 미배정';
-        const custName = p.customer || p.customerName || p.clientName || p.dminsttNm || p.orderInsttNm || '발주기관 미지정';
+        const pmName = norm.normalizedPmName;
 
         // 수주확률 (Progress Bar)
         const winProb = norm.normalizedWinProbability || stageInfo.defaultProb || 50;
