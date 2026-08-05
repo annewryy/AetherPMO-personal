@@ -902,78 +902,75 @@
                         </div>
                     </div>
 
-                    <!-- Bidding Stage Split Container -->
-                    <div id="bidding-split-container" class="bidding-split-layout" style="display: none;">
-                        <!-- Top 6-KPI Dashboard Banner -->
-                        <div id="bidding-kpi-banner" class="bidding-kpi-grid" style="grid-column: 1 / -1; margin-bottom: 20px;">
-                            <!-- Rendered dynamically by app.renderBiddingKpis() -->
-                        </div>
-
-                        <!-- Left Column: 입찰 참여 프로젝트 -->
-                        <div class="bidding-panel left-panel">
-                            <div class="bidding-panel-header">
-                                <div class="panel-title-area">
-                                    <i data-lucide="file-signature" class="text-primary"></i>
-                                    <h2>입찰 Pipeline 관리</h2>
+                                        <!-- Bidding Stage Split Container (Overhauled Kanban Pipeline) -->
+                    <div id="bidding-split-container" class="bidding-pipeline-v2-container" style="display: none; flex-direction: column; width: 100%;">
+                        <!-- 1. Bidding Pipeline Header & Controls -->
+                        <div class="bidding-pipeline-header-card" style="margin-bottom: 16px;">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
+                                <div>
+                                    <h1 style="font-size:20px; font-weight:800; margin:0; display:flex; align-items:center; gap:8px; color:var(--text-main);">
+                                        <i data-lucide="trello" style="color:var(--primary); width:22px; height:22px;"></i>
+                                        <span>입찰 Pipeline 관리</span>
+                                    </h1>
+                                    <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;">입찰 단계를 한눈에 파악하고 체계적으로 관리할 수 있습니다.</p>
                                 </div>
-                                <div class="bidding-status-tabs" id="bidding-pipeline-tabs">
-                                    <button class="bidding-status-tab active" data-bid-status="all" onclick="app.setBiddingStatusFilter('all')">전체</button>
-                                    <button class="bidding-status-tab" data-bid-status="proposal_preparing" onclick="app.setBiddingStatusFilter('proposal_preparing')">제안 준비중</button>
-                                    <button class="bidding-status-tab" data-bid-status="proposal_submitted" onclick="app.setBiddingStatusFilter('proposal_submitted')">제안 제출</button>
-                                    <button class="bidding-status-tab" data-bid-status="waiting_result" onclick="app.setBiddingStatusFilter('waiting_result')">결과 대기</button>
-                                    <button class="bidding-status-tab" data-bid-status="won" onclick="app.setBiddingStatusFilter('won')">낙찰</button>
-                                    <button class="bidding-status-tab" data-bid-status="lost" onclick="app.setBiddingStatusFilter('lost')">실패</button>
-                                </div>
-                            </div>
-                            <div class="bidding-projects-grid" id="bidding-projects-list-container">
-                                <!-- Dynamic bidding project cards -->
-                            </div>
-                        </div>
-
-                        <!-- Right Column: 나라장터 공고조회 (숨김 처리) -->
-                        <div class="bidding-panel right-panel" style="display: none;">
-                            <div class="bidding-panel-header">
-                                <div class="panel-title-area">
-                                    <i data-lucide="search" class="text-info"></i>
-                                    <h2>나라장터 공고조회</h2>
-                                </div>
-                                <div class="g2b-search-area" style="display: flex; gap: 8px; width: 100%;">
-                                    <div class="search-input-wrapper" style="flex: 1;">
-                                        <i data-lucide="search"></i>
-                                        <input type="text" id="g2b-search-input" placeholder="공고명, 발주기관 검색..." oninput="app.handleG2BApiSearchDebounced()" onkeydown="if(event.key === 'Enter') { app.handleG2BApiSearchImmediate(); }">
+                                
+                                <div style="display:flex; align-items:center; flex-wrap:wrap; gap:10px;">
+                                    <!-- Reference Year Select -->
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <label for="bidding-year-select" style="font-size:11px; font-weight:700; color:var(--text-muted);">기준연도:</label>
+                                        <select id="bidding-year-select" class="portfolio-year-select" onchange="app.switchBiddingYear(this.value)">
+                                            <!-- Dynamically populated -->
+                                        </select>
                                     </div>
-                                    <button class="btn btn-sm btn-primary" onclick="app.handleG2BApiSearchImmediate()" style="height: 36px; padding: 0 12px; display: flex; align-items: center; gap: 4px; border-radius: 6px;">
-                                        <i data-lucide="search" style="width:14px; height:14px;"></i>
-                                        <span>검색</span>
+
+                                    <!-- View Switch Segmented Control -->
+                                    <div class="portfolio-stat-tabs" role="tablist" aria-label="입찰 보기 방식">
+                                        <button role="tab" id="btn-bidding-view-board" class="portfolio-stat-tab active" onclick="app.switchBiddingViewMode('board')">
+                                            <i data-lucide="layout-grid" style="width:13px; height:13px; margin-right:4px;"></i>보드 보기
+                                        </button>
+                                        <button role="tab" id="btn-bidding-view-list" class="portfolio-stat-tab" onclick="app.switchBiddingViewMode('list')">
+                                            <i data-lucide="list" style="width:13px; height:13px; margin-right:4px;"></i>리스트 보기
+                                        </button>
+                                    </div>
+
+                                    <!-- Result Filter Tabs (진행 중 / 수주 / 실패) -->
+                                    <div class="portfolio-stat-tabs" role="tablist" aria-label="입찰 결과 구분">
+                                        <button role="tab" id="btn-bidding-tab-active" class="portfolio-stat-tab active" data-result-tab="active" onclick="app.switchBiddingResultTab('active')">진행 중</button>
+                                        <button role="tab" id="btn-bidding-tab-won" class="portfolio-stat-tab" data-result-tab="won" onclick="app.switchBiddingResultTab('won')">수주 성공</button>
+                                        <button role="tab" id="btn-bidding-tab-lost" class="portfolio-stat-tab" data-result-tab="lost" onclick="app.switchBiddingResultTab('lost')">실패 / 실주</button>
+                                    </div>
+
+                                    <!-- Filter & CSV Buttons -->
+                                    <button class="btn btn-secondary btn-sm" onclick="app.openBiddingFilterModal()">
+                                        <i data-lucide="filter" style="width:13px; height:13px; margin-right:4px;"></i>필터
+                                    </button>
+                                    <button class="btn btn-primary btn-sm" onclick="app.exportBiddingCsv()">
+                                        <i data-lucide="download" style="width:13px; height:13px; margin-right:4px;"></i>CSV 내보내기
                                     </button>
                                 </div>
                             </div>
-                            <div class="table-container" style="flex:1; overflow-y:auto; margin-top:12px;">
-                                <table class="data-table">
-                                    <thead>
-                            <tr>
-                                <th class="text-center" style="width:36px; min-width:36px; position:sticky; left:0; z-index:10;"><input type="checkbox" id="chk-nirs-select-all" onchange="app.toggleNirsSelectAll(this.checked)"></th>
-                                <th style="width:105px; min-width:105px; position:sticky; left:36px; z-index:10;">코드</th>
-                                <th style="min-width:220px; position:sticky; left:141px; z-index:10;" class="artifact-name-column sticky-artifact-name">표준 산출물명</th>
-                                <th class="text-center" style="width:90px; min-width:90px;">양식 상태</th>
-                                <th style="width:160px; min-width:160px;">양식 파일 정보</th>
-                                <th class="text-center" style="width:60px; min-width:60px;">버전</th>
-                                <th class="text-center" style="width:100px; min-width:100px;">관리자(승인)</th>
-                                <th class="text-center" style="width:100px; min-width:100px;">작성담당자</th>
-                                <th class="text-center" style="width:68px; min-width:68px;">제출</th>
-                                <th class="text-center" style="width:60px; min-width:60px;">공문</th>
-                                <th class="text-center" style="width:68px; min-width:68px;">승인</th>
-                                <th class="text-center" style="width:60px; min-width:60px;">인감</th>
-                                <th class="text-center" style="width:130px; min-width:130px;">제출 시기</th>
-                                <th class="text-center" style="width:80px; min-width:80px; position:sticky; right:0; z-index:10;">관리</th>
-                            </tr>
-                        </thead>
-                                    <tbody id="g2b-announcements-tbody">
-                                        <!-- Dynamic rows -->
-                                    </tbody>
-                                </table>
-                            </div>
                         </div>
+
+                        <!-- 2. Top 5 Bidding KPI Cards -->
+                        <div id="bidding-kpi-cards-v2" class="bidding-kpi-cards-v2-grid" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:12px; margin-bottom:16px;">
+                            <!-- Rendered dynamically by app.renderBiddingKpisV2() -->
+                        </div>
+
+                        <!-- 3. Kanban Board Container -->
+                        <div id="bidding-kanban-board-container" class="bidding-kanban-board-v2" style="display:flex;">
+                            <!-- Rendered dynamically by app.renderBiddingKanbanBoardV2() -->
+                        </div>
+
+                        <!-- 4. List View Container -->
+                        <div id="bidding-list-view-container" class="bidding-list-view-v2" style="display:none; width:100%;">
+                            <!-- Rendered dynamically by app.renderBiddingListViewV2() -->
+                        </div>
+
+                        <!-- Hidden legacy elements for JS backward compatibility -->
+                        <div id="bidding-kpi-banner" style="display:none;"></div>
+                        <div id="bidding-pipeline-tabs" style="display:none;"></div>
+                        <div id="bidding-projects-list-container" style="display:none;"></div>
                     </div>
                 </section>
 
@@ -5482,6 +5479,130 @@
 
     <!-- Watermark for Presentation Mode -->
     <div class="demo-watermark" id="demo-watermark">AetherPMO Demo</div>
+
+    <!-- 21-A. BIDDING WON CONVERSION MODAL (수주 성공 -> 수행프로젝트 신규 생성) -->
+    <div class="modal-overlay" id="modal-bidding-won-convert" data-app-modal data-modal-size="md">
+        <div class="modal-card" style="max-width: 580px; width: 95vw;">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="trophy" style="color: var(--success); width: 20px; height: 20px;"></i>
+                    <h2 style="margin:0; font-size:16px;">수주 성공 처리 및 수행 프로젝트 신규 생성</h2>
+                </div>
+                <button class="modal-close-btn" onclick="app.closeBiddingWonModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">
+                    입찰 프로젝트를 <strong style="color:var(--success);">수주 성공(Won)</strong> 처리하고, 수행 단계 신규 프로젝트를 생성합니다.<br>
+                    중복 생성을 방지하기 위해 이미 생성된 입찰 건은 재전환이 차단됩니다.
+                </p>
+                <form id="form-bidding-won-convert" onsubmit="event.preventDefault(); app.confirmBiddingWon();">
+                    <input type="hidden" id="bidding-won-project-id" value="">
+                    
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label class="form-label">신규 수행 프로젝트명 <span class="text-danger">*</span></label>
+                        <input type="text" id="bidding-won-new-name" class="form-control" required placeholder="수행 프로젝트명 입력">
+                    </div>
+
+                    <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                        <div class="form-group">
+                            <label class="form-label">발주기관</label>
+                            <input type="text" id="bidding-won-customer" class="form-control" placeholder="발주기관명">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">사업책임자 (PM)</label>
+                            <input type="text" id="bidding-won-manager" class="form-control" placeholder="PM 성명">
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                        <div class="form-group">
+                            <label class="form-label">전체 계약금액 (원)</label>
+                            <input type="number" id="bidding-won-total-amount" class="form-control" placeholder="예: 1500000000">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">당사 계약금액 (원) <span class="text-danger">*</span></label>
+                            <input type="number" id="bidding-won-company-amount" class="form-control" required placeholder="예: 1250000000">
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:12px;">
+                        <div class="form-group">
+                            <label class="form-label">당사 지분율 (%)</label>
+                            <input type="number" step="0.1" id="bidding-won-share-rate" class="form-control" placeholder="100">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">수행 시작일 <span class="text-danger">*</span></label>
+                            <input type="date" id="bidding-won-start-date" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">수행 종료일 <span class="text-danger">*</span></label>
+                            <input type="date" id="bidding-won-end-date" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label class="form-label">계약 메모 / 특이사항</label>
+                        <textarea id="bidding-won-memo" class="form-control" rows="2" placeholder="수주 계약 조건, 컨소시엄 구성 정보 등 입력"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; background: var(--bg-card); border-top: 1px solid var(--bg-card-border); padding: 12px 20px;">
+                <button class="btn btn-outline" type="button" onclick="app.closeBiddingWonModal()">취소</button>
+                <button class="btn btn-success" type="button" id="btn-confirm-bidding-won" onclick="app.confirmBiddingWon()">
+                    <i data-lucide="check-circle" style="width:14px; height:14px; margin-right:4px;"></i> 수행 프로젝트 생성 및 수주 완료
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 21-B. BIDDING LOST REASON MODAL (실패/실주 처리 사유 입력) -->
+    <div class="modal-overlay" id="modal-bidding-lost-reason" data-app-modal data-modal-size="md">
+        <div class="modal-card" style="max-width: 500px; width: 95vw;">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="x-circle" style="color: var(--danger); width: 20px; height: 20px;"></i>
+                    <h2 style="margin:0; font-size:16px;">입찰 실패 / 실주 사유 등록</h2>
+                </div>
+                <button class="modal-close-btn" onclick="app.closeBiddingLostModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">
+                    입찰 프로젝트를 <strong style="color:var(--danger);">실패/실주(Lost)</strong> 처리합니다.<br>
+                    표준 실패 원인 코드와 상세 사유를 입력하여 입찰 분석 이력으로 저장합니다.
+                </p>
+                <form id="form-bidding-lost-reason" onsubmit="event.preventDefault(); app.confirmBiddingLost();">
+                    <input type="hidden" id="bidding-lost-project-id" value="">
+
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label class="form-label">표준 실패 원인 코드 <span class="text-danger">*</span></label>
+                        <select id="bidding-lost-reason-code" class="form-control" required onchange="app.handleBiddingLostReasonChange(this.value)">
+                            <option value="">-- 실패 원인 선택 --</option>
+                            <option value="PRICE">가격 경쟁력 (예산/입찰가 격차)</option>
+                            <option value="TECH_SCORE">기술평가 점수 열세</option>
+                            <option value="PROPOSAL_QUALITY">제안서 품질 / 발표 평가 열세</option>
+                            <option value="REQ_MISMATCH">발주처 필수 요구사항 미충족</option>
+                            <option value="RESOURCE">투입 인력 / 실적 레퍼런스 부족</option>
+                            <option value="COMPETITOR">경쟁사 전담 대응 / 우위</option>
+                            <option value="INTERNAL_WITHDRAW">내부 사업성/수익성 재검토 참여 철회</option>
+                            <option value="CANCELLED">발주처 유찰 및 사업 취소</option>
+                            <option value="OTHER">기타 (상세 사유 직접 입력)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label class="form-label" id="bidding-lost-detail-label">상세 실패 사유 <span id="bidding-lost-detail-required" style="display:none;" class="text-danger">*</span></label>
+                        <textarea id="bidding-lost-detail-text" class="form-control" rows="3" placeholder="실패 주요 원인, 경쟁사 정보, 개선점 등 상세 내용 기재"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; background: var(--bg-card); border-top: 1px solid var(--bg-card-border); padding: 12px 20px;">
+                <button class="btn btn-outline" type="button" onclick="app.closeBiddingLostModal()">취소</button>
+                <button class="btn btn-danger" type="button" id="btn-confirm-bidding-lost" onclick="app.confirmBiddingLost()">
+                    <i data-lucide="slash" style="width:14px; height:14px; margin-right:4px;"></i> 실패 처리 및 이력 저장
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- 21. BIDDING PMO PREPARATION DETAIL MODAL -->
     <div class="modal-overlay" id="bidding-detail-modal" data-app-modal data-modal-size="lg">

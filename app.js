@@ -7184,9 +7184,9 @@ renderTodayTasksRoleBased(todayStr) {
         const standardContainer = document.getElementById('standard-projects-container');
 
         if (stage === 'Bidding') {
-            if (biddingContainer) biddingContainer.style.display = 'grid';
+            if (biddingContainer) biddingContainer.style.display = 'flex';
             if (standardContainer) standardContainer.style.display = 'none';
-            this.renderBiddingSplitPane();
+            this.renderBiddingPipeline();
         } else {
             if (biddingContainer) biddingContainer.style.display = 'none';
             if (standardContainer) standardContainer.style.display = 'block';
@@ -7372,10 +7372,10 @@ renderTodayTasksRoleBased(todayStr) {
             const standardContainer = document.getElementById('standard-projects-container');
 
             if (this.activeProjectStageFilter === 'Bidding') {
-                if (biddingContainer) biddingContainer.style.display = 'grid';
+                if (biddingContainer) biddingContainer.style.display = 'flex';
                 if (standardContainer) standardContainer.style.display = 'none';
                 console.log('[renderProjects:biddingSplitPane:start]');
-                this.renderBiddingSplitPane();
+                this.renderBiddingPipeline();
                 console.log('[renderProjects:biddingSplitPane:end]');
                 return;
             }
@@ -7775,7 +7775,7 @@ renderTodayTasksRoleBased(todayStr) {
                 tab.classList.add('active');
             }
         });
-        this.renderBiddingSplitPane();
+        this.renderBiddingPipeline();
     }
 
     getBiddingProjectsList() {
@@ -31840,4 +31840,870 @@ if (typeof window !== 'undefined' && window.app) {
             window.app[fn] = window.app[fn].bind(window.app);
         }
     });
+
+    // ── Bidding Kanban Pipeline Board V2 Controller ──────────────────────────
+
+    getBiddingProjectYear(p) {
+        if (!p) return new Date().getFullYear();
+        
+        // Priority 1: Proposal / Bid Due Date
+        const dueDate = p.proposalDueDate || p.bidDueDate || p.dueDate || p.submissionDate;
+        if (dueDate && dueDate.length >= 4) {
+            const y = parseInt(dueDate.substring(0, 4), 10);
+            if (!isNaN(y) && y > 2000 && y < 2100) return y;
+        }
+
+        // Priority 2: Announcement / Notice Date
+        const noticeDate = p.announcementDate || p.g2bDate || p.noticeDate || p.notice_date;
+        if (noticeDate && noticeDate.length >= 4) {
+            const y = parseInt(noticeDate.substring(0, 4), 10);
+            if (!isNaN(y) && y > 2000 && y < 2100) return y;
+        }
+
+        // Priority 3: Bidding Registration Date
+        const regDate = p.createdAt || p.regDate || p.registrationDate;
+        if (regDate && regDate.length >= 4) {
+            const y = parseInt(regDate.substring(0, 4), 10);
+            if (!isNaN(y) && y > 2000 && y < 2100) return y;
+        }
+
+        // Priority 4: Project Start Date
+        if (p.startDate && p.startDate.length >= 4) {
+            const y = parseInt(p.startDate.substring(0, 4), 10);
+            if (!isNaN(y) && y > 2000 && y < 2100) return y;
+        }
+
+        return new Date().getFullYear();
+    }
+
+    getBiddingYears() {
+        const years = new Set();
+        const currentYear = new Date().getFullYear();
+        years.add(currentYear);
+
+        (this.state.projects || []).forEach(p => {
+            if (this.isBiddingProject(p)) {
+                const y = this.getBiddingProjectYear(p);
+                years.add(y);
+            }
+        });
+
+        return Array.from(years).sort((a, b) => b - a);
+    }
+
+    isBiddingProject(p) {
+        if (!p) return false;
+        const st = (p.status || '').toLowerCase();
+        const bSt = (p.bidding_status || p.biddingStatus || p.bid_status || '').toLowerCase();
+        return st === 'bidding' || bSt !== '' || p.isBidding === true || p.stage === 'bidding';
+    }
+
+    getBiddingProjectsByYear(year) {
+        const targetYear = parseInt(year || this.activeBiddingYear || new Date().getFullYear(), 10);
+        return (this.state.projects || []).filter(p => {
+            if (!this.isBiddingProject(p)) return false;
+            return this.getBiddingProjectYear(p) === targetYear;
+        });
+    }
+
+    populateBiddingYearSelect() {
+        const select = document.getElementById('bidding-year-select');
+        if (!select) return;
+
+        const availableYears = this.getBiddingYears();
+        if (!this.activeBiddingYear) {
+            this.activeBiddingYear = new Date().getFullYear();
+        }
+
+        let html = '';
+        availableYears.forEach(y => {
+            const isSelected = y === this.activeBiddingYear;
+            html += `<option value="${y}" ${isSelected ? 'selected' : ''}>${y}년</option>`;
+        });
+
+        select.innerHTML = html;
+    }
+
+    switchBiddingYear(yearStr) {
+        const year = parseInt(yearStr, 10);
+        if (isNaN(year)) return;
+        this.activeBiddingYear = year;
+        this.renderBiddingPipeline();
+    }
+
+    switchBiddingViewMode(mode) {
+        this.biddingViewMode = mode;
+        const btnBoard = document.getElementById('btn-bidding-view-board');
+        const btnList = document.getElementById('btn-bidding-view-list');
+
+        if (btnBoard) {
+            btnBoard.classList.toggle('active', mode === 'board');
+            btnBoard.setAttribute('aria-selected', mode === 'board' ? 'true' : 'false');
+        }
+        if (btnList) {
+            btnList.classList.toggle('active', mode === 'list');
+            btnList.setAttribute('aria-selected', mode === 'list' ? 'true' : 'false');
+        }
+
+        this.renderBiddingPipeline();
+    }
+
+    switchBiddingResultTab(tabName) {
+        this.activeBiddingResultTab = tabName;
+
+        ['active', 'won', 'lost'].forEach(t => {
+            const btn = document.getElementById(`btn-bidding-tab-${t}`);
+            if (btn) {
+                const isActive = t === tabName;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            }
+        });
+
+        this.renderBiddingPipeline();
+    }
+
+    renderBiddingSplitPane() { this.renderBiddingPipeline(); }
+
+    renderBiddingPipeline() {
+        const splitContainer = document.getElementById('bidding-split-container');
+        if (!splitContainer) return;
+
+        if (!this.activeBiddingYear) this.activeBiddingYear = new Date().getFullYear();
+        if (!this.biddingViewMode) this.biddingViewMode = 'board';
+        if (!this.activeBiddingResultTab) this.activeBiddingResultTab = 'active';
+
+        this.populateBiddingYearSelect();
+        const yearBiddingProjects = this.getBiddingProjectsByYear(this.activeBiddingYear);
+
+        // Render 5 KPI cards
+        this.renderBiddingKpisV2(yearBiddingProjects);
+
+        const boardContainer = document.getElementById('bidding-kanban-board-container');
+        const listContainer = document.getElementById('bidding-list-view-container');
+
+        if (this.biddingViewMode === 'board') {
+            if (boardContainer) boardContainer.style.display = 'flex';
+            if (listContainer) listContainer.style.display = 'none';
+            this.renderBiddingKanbanBoardV2(yearBiddingProjects);
+        } else {
+            if (boardContainer) boardContainer.style.display = 'none';
+            if (listContainer) listContainer.style.display = 'block';
+            this.renderBiddingListViewV2(yearBiddingProjects);
+        }
+
+        if (typeof lucide !== 'undefined') { try { lucide.createIcons(); } catch(e){} }
+    }
+
+    renderBiddingKpisV2(biddingProjects) {
+        const container = document.getElementById('bidding-kpi-cards-v2');
+        if (!container) return;
+
+        const totalCount = biddingProjects.length;
+
+        // 2. 총 예상 수주금액 (당사 예상 계약금액 기준)
+        let totalCompanyExpectedAmount = 0;
+        let activeCount = 0;
+        let proposalProgressCount = 0;
+        let dueThisWeekCount = 0;
+
+        const today = new Date();
+        const nextWeek = new Date();
+        nextWeek.setDate(today.getDate() + 7);
+        const todayStr = today.toISOString().substring(0, 10);
+        const nextWeekStr = nextWeek.toISOString().substring(0, 10);
+
+        biddingProjects.forEach(p => {
+            const bSt = (p.bidding_status || p.biddingStatus || p.bid_stage || 'proposal_prep').toLowerCase();
+            const expAmt = Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0);
+
+            if (!isNaN(expAmt) && expAmt > 0) {
+                totalCompanyExpectedAmount += expAmt;
+            }
+
+            // 3. 진행 중 입찰 (수주 won, 실패 lost 제외)
+            if (bSt !== 'won' && bSt !== 'lost' && p.status !== 'Completed') {
+                activeCount++;
+            }
+
+            // 4. 제안 진행 중 (제안 준비 + 제안서 작성)
+            if (bSt === 'proposal_prep' || bSt === 'proposal_preparing' || bSt === 'proposal_writing' || bSt === 'review') {
+                proposalProgressCount++;
+            }
+
+            // 5. 금주 마감
+            const dueDate = p.proposalDueDate || p.bidDueDate || p.dueDate || p.endDate;
+            if (dueDate && bSt !== 'won' && bSt !== 'lost') {
+                if (dueDate >= todayStr && dueDate <= nextWeekStr) {
+                    dueThisWeekCount++;
+                }
+            }
+        });
+
+        const formattedAmt = this.formatAmountShort(totalCompanyExpectedAmount);
+
+        container.innerHTML = `
+            <div class="bidding-kpi-card-v2">
+                <div class="kpi-header"><span>전체 입찰</span><i data-lucide="file-text" style="width:14px; height:14px; color:var(--primary);"></i></div>
+                <div class="kpi-value">${totalCount}건</div>
+                <div class="kpi-subtext">선택 연도 입찰 프로젝트</div>
+            </div>
+            <div class="bidding-kpi-card-v2">
+                <div class="kpi-header"><span>총 예상 수주금액</span><i data-lucide="coins" style="width:14px; height:14px; color:var(--success);"></i></div>
+                <div class="kpi-value" style="color:var(--success);">${formattedAmt}</div>
+                <div class="kpi-subtext">당사 예상 계약금액 합계</div>
+            </div>
+            <div class="bidding-kpi-card-v2">
+                <div class="kpi-header"><span>진행 중 입찰</span><i data-lucide="play-circle" style="width:14px; height:14px; color:var(--info);"></i></div>
+                <div class="kpi-value" style="color:var(--info);">${activeCount}건</div>
+                <div class="kpi-subtext">수주 / 실패 제외 진행 건</div>
+            </div>
+            <div class="bidding-kpi-card-v2">
+                <div class="kpi-header"><span>제안 진행 중</span><i data-lucide="edit-3" style="width:14px; height:14px; color:var(--warning);"></i></div>
+                <div class="kpi-value" style="color:var(--warning);">${proposalProgressCount}건</div>
+                <div class="kpi-subtext">검토 / 준비 / 작성 단계</div>
+            </div>
+            <div class="bidding-kpi-card-v2">
+                <div class="kpi-header"><span>금주 마감</span><i data-lucide="clock" style="width:14px; height:14px; color:var(--danger);"></i></div>
+                <div class="kpi-value" style="color:var(--danger);">${dueThisWeekCount}건</div>
+                <div class="kpi-subtext">7일 이내 제안 마감 예정</div>
+            </div>
+        `;
+    }
+
+    renderBiddingKanbanBoardV2(biddingProjects) {
+        const container = document.getElementById('bidding-kanban-board-container');
+        if (!container) return;
+
+        const resultTab = this.activeBiddingResultTab || 'active';
+
+        // 1. Won Results View
+        if (resultTab === 'won') {
+            const wonProjects = biddingProjects.filter(p => (p.bidding_status || '').toLowerCase() === 'won');
+            this.renderBiddingOutcomeList(container, wonProjects, 'won');
+            return;
+        }
+
+        // 2. Lost Results View
+        if (resultTab === 'lost') {
+            const lostProjects = biddingProjects.filter(p => (p.bidding_status || '').toLowerCase() === 'lost');
+            this.renderBiddingOutcomeList(container, lostProjects, 'lost');
+            return;
+        }
+
+        # 3. Active 5-Stage Kanban Board
+        const stages = [
+            { key: 'review', title: '참여 검토', badgeColor: '#a855f7' },
+            { key: 'proposal_prep', title: '제안 준비', badgeColor: '#3b82f6' },
+            { key: 'proposal_writing', title: '제안서 작성', badgeColor: '#f59e0b' },
+            { key: 'proposal_submitted', title: '제출 완료', badgeColor: '#06b6d4' },
+            { key: 'waiting_result', title: '결과 대기', badgeColor: '#10b981' }
+        ];
+
+        let boardHtml = '';
+
+        stages.forEach(stage => {
+            const stageProjects = biddingProjects.filter(p => {
+                const bSt = (p.bidding_status || p.biddingStatus || p.bid_stage || 'review').toLowerCase();
+                if (stage.key === 'proposal_writing') {
+                    return bSt === 'proposal_writing' || bSt === 'proposal_preparing';
+                }
+                return bSt === stage.key;
+            });
+
+            const count = stageProjects.length;
+            const stageSumAmt = stageProjects.reduce((sum, p) => sum + Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0), 0);
+            const sumStr = this.formatAmountShort(stageSumAmt);
+
+            boardHtml += `
+                <div class="bidding-kanban-col-v2" data-stage="${stage.key}"
+                     ondragover="app.handleBiddingDragOver(event)"
+                     ondragleave="app.handleBiddingDragLeave(event)"
+                     ondrop="app.handleBiddingDrop(event, '${stage.key}')">
+                    <div class="bidding-kanban-col-header">
+                        <div class="col-title-row">
+                            <span class="col-title"><span style="width:8px; height:8px; border-radius:50%; background:${stage.badgeColor}; display:inline-block;"></span>${stage.title}</span>
+                            <span class="col-count-badge">${count}</span>
+                        </div>
+                        <div class="col-amount-sum">예상 ${sumStr}</div>
+                    </div>
+                    <div class="bidding-kanban-cards-wrapper">
+            `;
+
+            if (count === 0) {
+                boardHtml += `<div style="font-size:11px; color:var(--text-muted); text-align:center; padding:30px 0; font-style:italic;">해당 단계 입찰 없음</div>`;
+            } else {
+                stageProjects.forEach(p => {
+                    boardHtml += this.renderBiddingKanbanCardHtml(p);
+                });
+            }
+
+            boardHtml += `
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = boardHtml;
+    }
+
+    renderBiddingKanbanCardHtml(p) {
+        const dueDate = p.proposalDueDate || p.bidDueDate || p.dueDate || p.endDate || '-';
+        let dDayBadge = '';
+
+        if (dueDate !== '-') {
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const due = new Date(dueDate);
+            due.setHours(0,0,0,0);
+            const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+
+            if (diffDays < 0) {
+                dDayBadge = `<span class="d-day-badge d-day-closed">마감지연 (${Math.abs(diffDays)}일)</span>`;
+            } else if (diffDays === 0) {
+                dDayBadge = `<span class="d-day-badge d-day-urgent">D-Day</span>`;
+            } else if (diffDays <= 3) {
+                dDayBadge = `<span class="d-day-badge d-day-urgent">D-${diffDays}</span>`;
+            } else if (diffDays <= 7) {
+                dDayBadge = `<span class="d-day-badge d-day-warning">D-${diffDays}</span>`;
+            } else {
+                dDayBadge = `<span class="d-day-badge d-day-normal">D-${diffDays}</span>`;
+            }
+        }
+
+        const expAmt = Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0);
+        const expAmtStr = expAmt > 0 ? this.formatAmountShort(expAmt) : '금액 미입력';
+        const pmName = p.manager || p.pmName || 'PM 미배정';
+        const custName = p.customer || p.customerName || '발주기관 미지정';
+
+        return `
+            <div class="bidding-kanban-card-v2" draggable="true" ondragstart="app.handleBiddingDragStart(event, '${p.id}')" onclick="app.openBiddingDetailModal('${p.id}')">
+                <div class="card-top-row">
+                    ${dDayBadge}
+                    <div style="display:flex; gap:4px;">
+                        <button class="btn btn-xs btn-outline-success" onclick="event.stopPropagation(); app.openBiddingWonModal('${p.id}')" title="수주 성공 처리">수주</button>
+                        <button class="btn btn-xs btn-outline-danger" onclick="event.stopPropagation(); app.openBiddingLostModal('${p.id}')" title="실패 처리">실패</button>
+                    </div>
+                </div>
+                <div class="card-title" title="${this.escapeHtml(p.name)}">${this.escapeHtml(p.name)}</div>
+                <div class="card-customer" title="${this.escapeHtml(custName)}"><i data-lucide="building" style="width:11px; height:11px; vertical-align:middle; margin-right:2px;"></i>${this.escapeHtml(custName)}</div>
+                
+                <div class="card-amount-row">
+                    <span style="color:var(--text-muted);">당사 예상금액</span>
+                    <span class="card-amount-val">${expAmtStr}</span>
+                </div>
+
+                <div class="card-bottom-row">
+                    <div class="card-pm-info">
+                        <i data-lucide="user" style="width:11px; height:11px;"></i>
+                        <span>${this.escapeHtml(pmName)}</span>
+                    </div>
+                    <span style="font-size:10px; color:var(--text-muted);">${dueDate !== '-' ? '기한: ' + dueDate : ''}</span>
+                </div>
+            </div>
+        `;
+    }
+
+    renderBiddingOutcomeList(container, projects, type) {
+        if (!projects || projects.length === 0) {
+            const msg = type === 'won' ? '수주 성공한 입찰 프로젝트가 없습니다.' : '실패/실주 처리된 입찰 프로젝트가 없습니다.';
+            container.innerHTML = `<div class="portfolio-stat-empty" style="width:100%; text-align:center; padding:40px 0;"><i data-lucide="info" style="width:20px; height:20px;"></i><div>${msg}</div></div>`;
+            return;
+        }
+
+        const reasonLabels = {
+            'PRICE': '가격 경쟁력',
+            'TECH_SCORE': '기술평가 점수',
+            'PROPOSAL_QUALITY': '제안서 품질',
+            'REQ_MISMATCH': '요구사항 미충족',
+            'RESOURCE': '인력/레퍼런스 부족',
+            'COMPETITOR': '경쟁사 우위',
+            'INTERNAL_WITHDRAW': '내부 참여 철회',
+            'CANCELLED': '유찰/사업 취소',
+            'OTHER': '기타'
+        };
+
+        let html = `
+            <div style="width:100%; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:10px; padding:16px; box-shadow:var(--shadow-sm);">
+                <h3 style="font-size:14px; font-weight:800; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                    <i data-lucide="${type === 'won' ? 'trophy' : 'x-circle'}" style="color:${type === 'won' ? 'var(--success)' : 'var(--danger)'}; width:16px; height:16px;"></i>
+                    <span>${type === 'won' ? '수주 성공 프로젝트 목록' : '실패 / 실주 분석 목록'} (${projects.length}건)</span>
+                </h3>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>프로젝트명</th>
+                                <th>발주기관</th>
+                                <th>당사 예상금액</th>
+                                <th>담당 PM</th>
+                                ${type === 'won' ? '<th>연결 수행 프로젝트 ID</th><th>전환일시</th>' : '<th>실패 원인 코드</th><th>상세 실패 사유</th>'}
+                                <th class="text-center">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        projects.forEach(p => {
+            const expAmt = Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0);
+            const amtStr = expAmt > 0 ? this.formatAmountShort(expAmt) : '미입력';
+
+            if (type === 'won') {
+                const linkedId = p.linkedExecutionProjectId || '-';
+                const convertedAt = (p.convertedAt || p.updatedAt || '-').substring(0, 10);
+                html += `
+                    <tr>
+                        <td style="font-weight:700;">${this.escapeHtml(p.name)}</td>
+                        <td>${this.escapeHtml(p.customer || '-')}</td>
+                        <td style="font-weight:700; color:var(--success);">${amtStr}</td>
+                        <td>${this.escapeHtml(p.manager || '-')}</td>
+                        <td><span class="badge badge-success">${linkedId}</span></td>
+                        <td>${convertedAt}</td>
+                        <td class="text-center">
+                            <button class="btn btn-xs btn-outline" onclick="app.rollbackBiddingStage('${p.id}')">원복 (관리자)</button>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                const codeLabel = reasonLabels[p.failureReasonCode] || p.failureReasonCode || '기타';
+                const detailText = p.failureReasonDetail || '-';
+                html += `
+                    <tr>
+                        <td style="font-weight:700;">${this.escapeHtml(p.name)}</td>
+                        <td>${this.escapeHtml(p.customer || '-')}</td>
+                        <td style="font-weight:700; color:var(--text-muted);">${amtStr}</td>
+                        <td>${this.escapeHtml(p.manager || '-')}</td>
+                        <td><span class="badge badge-error">${codeLabel}</span></td>
+                        <td style="font-size:11px; color:var(--text-muted); max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${this.escapeHtml(detailText)}">${this.escapeHtml(detailText)}</td>
+                        <td class="text-center">
+                            <button class="btn btn-xs btn-outline" onclick="app.rollbackBiddingStage('${p.id}')">원복 (관리자)</button>
+                        </td>
+                    </tr>
+                `;
+            }
+        });
+
+        html += `</tbody></table></div></div>`;
+        container.innerHTML = html;
+    }
+
+    renderBiddingListViewV2(biddingProjects) {
+        const container = document.getElementById('bidding-list-view-container');
+        if (!container) return;
+
+        if (!biddingProjects || biddingProjects.length === 0) {
+            container.innerHTML = `<div class="portfolio-stat-empty"><i data-lucide="info" style="width:20px; height:20px;"></i><div>등록된 입찰 프로젝트가 없습니다.</div></div>`;
+            return;
+        }
+
+        const stageLabels = {
+            'review': '참여 검토',
+            'proposal_prep': '제안 준비',
+            'proposal_writing': '제안서 작성',
+            'proposal_preparing': '제안서 작성',
+            'proposal_submitted': '제출 완료',
+            'waiting_result': '결과 대기',
+            'won': '수주 성공',
+            'lost': '실패/실주'
+        };
+
+        let html = `
+            <div style="background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:10px; padding:16px; box-shadow:var(--shadow-sm);">
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>프로젝트명</th>
+                                <th>발주기관</th>
+                                <th class="text-center">입찰 단계</th>
+                                <th>당사 예상금액</th>
+                                <th>제안 마감일</th>
+                                <th>담당 PM</th>
+                                <th class="text-center">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        biddingProjects.forEach(p => {
+            const bSt = (p.bidding_status || p.biddingStatus || p.bid_stage || 'review').toLowerCase();
+            const stageText = stageLabels[bSt] || bSt;
+            const expAmt = Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0);
+            const amtStr = expAmt > 0 ? this.formatAmountShort(expAmt) : '미입력';
+            const dueDate = p.proposalDueDate || p.bidDueDate || p.dueDate || p.endDate || '-';
+
+            html += `
+                <tr>
+                    <td style="font-weight:700; cursor:pointer;" onclick="app.openBiddingDetailModal('${p.id}')">${this.escapeHtml(p.name)}</td>
+                    <td>${this.escapeHtml(p.customer || '-')}</td>
+                    <td class="text-center">
+                        <select class="form-control" style="font-size:11px; padding:2px 6px; width:auto;" onchange="app.updateBiddingStageDirect('${p.id}', this.value)">
+                            <option value="review" ${bSt === 'review' ? 'selected' : ''}>참여 검토</option>
+                            <option value="proposal_prep" ${bSt === 'proposal_prep' ? 'selected' : ''}>제안 준비</option>
+                            <option value="proposal_writing" ${bSt === 'proposal_writing' || bSt === 'proposal_preparing' ? 'selected' : ''}>제안서 작성</option>
+                            <option value="proposal_submitted" ${bSt === 'proposal_submitted' ? 'selected' : ''}>제출 완료</option>
+                            <option value="waiting_result" ${bSt === 'waiting_result' ? 'selected' : ''}>결과 대기</option>
+                            <option value="won" ${bSt === 'won' ? 'selected' : ''}>수주 성공</option>
+                            <option value="lost" ${bSt === 'lost' ? 'selected' : ''}>실패/실주</option>
+                        </select>
+                    </td>
+                    <td style="font-weight:700; color:var(--primary);">${amtStr}</td>
+                    <td>${dueDate}</td>
+                    <td>${this.escapeHtml(p.manager || '-')}</td>
+                    <td class="text-center">
+                        <button class="btn btn-xs btn-outline-success" onclick="app.openBiddingWonModal('${p.id}')">수주</button>
+                        <button class="btn btn-xs btn-outline-danger" onclick="app.openBiddingLostModal('${p.id}')">실패</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table></div></div>`;
+        container.innerHTML = html;
+    }
+
+    // Drag & Drop event handlers
+    handleBiddingDragStart(ev, projectId) {
+        ev.dataTransfer.setData('text/plain', projectId);
+        ev.dataTransfer.effectAllowed = 'move';
+    }
+
+    handleBiddingDragOver(ev) {
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = 'move';
+        ev.currentTarget.classList.add('drag-over');
+    }
+
+    handleBiddingDragLeave(ev) {
+        ev.currentTarget.classList.remove('drag-over');
+    }
+
+    async handleBiddingDrop(ev, newStage) {
+        ev.preventDefault();
+        ev.currentTarget.classList.remove('drag-over');
+        const projectId = ev.dataTransfer.getData('text/plain');
+        if (!projectId) return;
+
+        const proj = this.state.projects.find(p => p.id === projectId);
+        if (!proj) return;
+
+        const oldStage = (proj.bidding_status || 'review').toLowerCase();
+        if (oldStage === 'won' || oldStage === 'lost') {
+            const role = this.currentUser?.role;
+            if (role !== 'SYS_ADMIN') {
+                this.showToast('수주 또는 실패 처리된 입찰 프로젝트는 일반 사용자가 원복할 수 없습니다. (SYS_ADMIN 전용)', 'error');
+                return;
+            }
+        }
+
+        if (newStage === 'won') {
+            this.openBiddingWonModal(projectId);
+            return;
+        }
+        if (newStage === 'lost') {
+            this.openBiddingLostModal(projectId);
+            return;
+        }
+
+        await this.updateBiddingStageDirect(projectId, newStage);
+    }
+
+    async updateBiddingStageDirect(projectId, newStage) {
+        const proj = this.state.projects.find(p => p.id === projectId);
+        if (!proj) return;
+
+        const oldStage = proj.bidding_status || 'review';
+
+        // Only update bidding_status (do not mutate general project status)
+        proj.bidding_status = newStage;
+        proj.biddingStatus = newStage;
+
+        if (!proj.biddingHistory) proj.biddingHistory = [];
+        proj.biddingHistory.push({
+            fromStage: oldStage,
+            toStage: newStage,
+            changedAt: new Date().toISOString(),
+            changedBy: this.currentUser?.name || '사용자'
+        });
+
+        await this.saveState();
+        this.showToast(`입찰 단계가 '${this.getBiddingStageLabel(newStage)}'(으)로 변경되었습니다.`);
+        this.renderBiddingPipeline();
+    }
+
+    getBiddingStageLabel(stageKey) {
+        const labels = {
+            'review': '참여 검토',
+            'proposal_prep': '제안 준비',
+            'proposal_writing': '제안서 작성',
+            'proposal_submitted': '제출 완료',
+            'waiting_result': '결과 대기',
+            'won': '수주 성공',
+            'lost': '실패/실주'
+        };
+        return labels[stageKey] || stageKey;
+    }
+
+    // Modal Won Conversion Logic (Duplicate Creation Prevention)
+    openBiddingWonModal(projectId) {
+        const proj = this.state.projects.find(p => p.id === projectId);
+        if (!proj) return;
+
+        if (proj.linkedExecutionProjectId) {
+            this.showToast(`이미 수행 프로젝트(ID: ${proj.linkedExecutionProjectId})가 생성된 입찰 건입니다. 중복 생성이 차단됩니다.`, 'error');
+            return;
+        }
+
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.value = val || '';
+        };
+
+        setVal('bidding-won-project-id', proj.id);
+        setVal('bidding-won-new-name', proj.name);
+        setVal('bidding-won-customer', proj.customer || proj.customerName || '');
+        setVal('bidding-won-manager', proj.manager || proj.pmName || '');
+        setVal('bidding-won-total-amount', proj.totalContractAmount || proj.budget || proj.companyExpectedAmount || '');
+        setVal('bidding-won-company-amount', proj.companyExpectedAmount || proj.company_contract_amount || proj.companyContractAmount || '');
+        setVal('bidding-won-share-rate', proj.companyShareRate || 100);
+
+        const todayStr = new Date().toISOString().substring(0, 10);
+        setVal('bidding-won-start-date', proj.startDate || todayStr);
+        setVal('bidding-won-end-date', proj.endDate || '');
+
+        const modal = document.getElementById('modal-bidding-won-convert');
+        if (modal) modal.style.display = 'flex';
+    }
+
+    closeBiddingWonModal() {
+        const modal = document.getElementById('modal-bidding-won-convert');
+        if (modal) modal.style.display = 'none';
+        this.isSubmittingWon = false;
+    }
+
+    async confirmBiddingWon() {
+        if (this.isSubmittingWon) return;
+
+        const projId = document.getElementById('bidding-won-project-id')?.value;
+        const bProj = this.state.projects.find(p => p.id === projId);
+        if (!bProj) return;
+
+        if (bProj.linkedExecutionProjectId) {
+            this.showToast(`이미 연결된 수행 프로젝트(ID: ${bProj.linkedExecutionProjectId})가 존재합니다. 중복 생성이 금지됩니다.`, 'error');
+            return;
+        }
+
+        const newName = document.getElementById('bidding-won-new-name')?.value.trim();
+        const companyAmt = Number(document.getElementById('bidding-won-company-amount')?.value);
+        const startDate = document.getElementById('bidding-won-start-date')?.value;
+        const endDate = document.getElementById('bidding-won-end-date')?.value;
+
+        if (!newName || isNaN(companyAmt) || companyAmt <= 0 || !startDate || !endDate) {
+            alert('필수 입력 항목(프로젝트명, 당사 계약금액, 수행 시작/종료일)을 정확히 입력해주세요.');
+            return;
+        }
+
+        this.isSubmittingWon = true;
+        const btnConfirm = document.getElementById('btn-confirm-bidding-won');
+        if (btnConfirm) btnConfirm.disabled = true;
+
+        try {
+            const newExecutionProjectId = 'PRJ-' + Date.now();
+            const nowIso = new Date().toISOString();
+
+            // 1. Create NEW execution project
+            const newExecutionProject = {
+                id: newExecutionProjectId,
+                code: newExecutionProjectId,
+                name: newName,
+                status: 'In Progress',
+                businessType: bProj.businessType || '공공 SI',
+                customer: document.getElementById('bidding-won-customer')?.value.trim() || bProj.customer || '발주기관',
+                manager: document.getElementById('bidding-won-manager')?.value.trim() || bProj.manager || 'PM',
+                totalContractAmount: Number(document.getElementById('bidding-won-total-amount')?.value || companyAmt),
+                companyContractAmount: companyAmt,
+                companyShareRate: Number(document.getElementById('bidding-won-share-rate')?.value || 100),
+                startDate: startDate,
+                endDate: endDate,
+                progress: 0,
+                contractMemo: document.getElementById('bidding-won-memo')?.value.trim() || '',
+                biddingOriginId: bProj.id,
+                createdAt: nowIso,
+                updatedAt: nowIso
+            };
+
+            this.state.projects.push(newExecutionProject);
+
+            // 2. Update bidding project status atomically
+            const oldStage = bProj.bidding_status || 'waiting_result';
+            bProj.bidding_status = 'won';
+            bProj.linkedExecutionProjectId = newExecutionProjectId;
+            bProj.convertedAt = nowIso;
+
+            if (!bProj.biddingHistory) bProj.biddingHistory = [];
+            bProj.biddingHistory.push({
+                fromStage: oldStage,
+                toStage: 'won',
+                changedAt: nowIso,
+                changedBy: this.currentUser?.name || '사용자',
+                linkedExecutionProjectId: newExecutionProjectId
+            });
+
+            await this.saveState();
+
+            this.closeBiddingWonModal();
+            this.showToast(`수주 성공 처리 완료! 수행 프로젝트 [${newName}]가 신규 생성되었습니다.`);
+            this.renderBiddingPipeline();
+        } catch (e) {
+            console.error('Bidding won confirmation failed:', e);
+            this.showToast('수주 성공 처리 중 오류가 발생했습니다.', 'error');
+        } finally {
+            this.isSubmittingWon = false;
+            if (btnConfirm) btnConfirm.disabled = false;
+        }
+    }
+
+    // Modal Lost Reason Logic
+    openBiddingLostModal(projectId) {
+        const proj = this.state.projects.find(p => p.id === projectId);
+        if (!proj) return;
+
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.value = val || '';
+        };
+
+        setVal('bidding-lost-project-id', proj.id);
+        setVal('bidding-lost-reason-code', '');
+        setVal('bidding-lost-detail-text', '');
+        this.handleBiddingLostReasonChange('');
+
+        const modal = document.getElementById('modal-bidding-lost-reason');
+        if (modal) modal.style.display = 'flex';
+    }
+
+    closeBiddingLostModal() {
+        const modal = document.getElementById('modal-bidding-lost-reason');
+        if (modal) modal.style.display = 'none';
+    }
+
+    handleBiddingLostReasonChange(code) {
+        const reqSpan = document.getElementById('bidding-lost-detail-required');
+        if (reqSpan) reqSpan.style.display = code === 'OTHER' ? 'inline' : 'none';
+    }
+
+    async confirmBiddingLost() {
+        const projId = document.getElementById('bidding-lost-project-id')?.value;
+        const bProj = this.state.projects.find(p => p.id === projId);
+        if (!bProj) return;
+
+        const reasonCode = document.getElementById('bidding-lost-reason-code')?.value;
+        const detailText = document.getElementById('bidding-lost-detail-text')?.value.trim();
+
+        if (!reasonCode) {
+            alert('표준 실패 원인 코드를 선택해주세요.');
+            return;
+        }
+
+        if (reasonCode === 'OTHER' && !detailText) {
+            alert("'기타' 원인 선택 시 상세 실패 사유 입력이 필수입니다.");
+            return;
+        }
+
+        const nowIso = new Date().toISOString();
+        const oldStage = bProj.bidding_status || 'review';
+
+        bProj.bidding_status = 'lost';
+        bProj.failureReasonCode = reasonCode;
+        bProj.failureReasonDetail = detailText;
+        bProj.lostAt = nowIso;
+
+        if (!bProj.biddingHistory) bProj.biddingHistory = [];
+        bProj.biddingHistory.push({
+            fromStage: oldStage,
+            toStage: 'lost',
+            changedAt: nowIso,
+            changedBy: this.currentUser?.name || '사용자',
+            failureReasonCode: reasonCode,
+            failureReasonDetail: detailText
+        });
+
+        await this.saveState();
+
+        this.closeBiddingLostModal();
+        this.showToast('입찰 실패/실주 처리가 완료되고 이력이 저장되었습니다.');
+        this.renderBiddingPipeline();
+    }
+
+    async rollbackBiddingStage(projectId) {
+        const role = this.currentUser?.role;
+        if (role !== 'SYS_ADMIN') {
+            this.showToast('수주 또는 실패 처리된 입찰 건의 원복은 SYS_ADMIN 권한만 가능합니다.', 'error');
+            return;
+        }
+
+        const bProj = this.state.projects.find(p => p.id === projectId);
+        if (!bProj) return;
+
+        if (bProj.linkedExecutionProjectId) {
+            if (!confirm(`이미 연결된 수행 프로젝트(ID: ${bProj.linkedExecutionProjectId})가 존재합니다.
+상태를 원복해도 신규 생성된 수행 프로젝트는 삭제되지 않습니다.
+원복을 진행하시겠습니까?`)) {
+                return;
+            }
+        }
+
+        bProj.bidding_status = 'waiting_result';
+        if (!bProj.biddingHistory) bProj.biddingHistory = [];
+        bProj.biddingHistory.push({
+            fromStage: 'won/lost',
+            toStage: 'waiting_result',
+            changedAt: new Date().toISOString(),
+            changedBy: this.currentUser?.name || 'SYS_ADMIN',
+            actionNote: 'SYS_ADMIN stage rollback'
+        });
+
+        await this.saveState();
+        this.showToast('입찰 단계가 결과 대기로 원복되었습니다.');
+        this.renderBiddingPipeline();
+    }
+
+    openBiddingFilterModal() {
+        this.showToast('입찰 상세 필터 모달이 열립니다.');
+    }
+
+    exportBiddingCsv() {
+        const year = this.activeBiddingYear || new Date().getFullYear();
+        const projs = this.getBiddingProjectsByYear(year);
+
+        if (!projs || projs.length === 0) {
+            this.showToast('내보낼 입찰 데이터가 없습니다.', 'error');
+            return;
+        }
+
+        let csv = '﻿';
+        csv += '프로젝트코드,프로젝트명,발주기관,입찰단계,당사예상계약금액(원),전체계약금액(원),지분율(%),제안마감일,담당PM,실패원인코드,실패상세사유,연결수행프로젝트ID
+';
+
+        projs.forEach(p => {
+            const expAmt = p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0;
+            const totAmt = p.totalContractAmount || p.budget || 0;
+            const share = p.companyShareRate || 100;
+            const dueDate = p.proposalDueDate || p.bidDueDate || p.dueDate || p.endDate || '';
+
+            csv += `"${p.code || p.id}","${p.name}","${p.customer || ''}","${p.bidding_status || ''}",${expAmt},${totAmt},${share},"${dueDate}","${p.manager || ''}","${p.failureReasonCode || ''}","${(p.failureReasonDetail || '').replace(/"/g, '""')}","${p.linkedExecutionProjectId || ''}"
+`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute('download', `AetherPMO_입찰Pipeline_${year}년.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        this.showToast(`${year}년 입찰 Pipeline 데이터 CSV 다운로드가 시작되었습니다.`);
+    }
+
 }
