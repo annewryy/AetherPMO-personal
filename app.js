@@ -32110,6 +32110,27 @@ renderTodayTasksRoleBased(todayStr) {
         `;
     }
 
+        toggleBiddingCardMenu(event, projectId) {
+        event.stopPropagation();
+        // Close all existing open menus
+        document.querySelectorAll('.bidding-card-menu-popup').forEach(el => {
+            if (el.id !== `bidding-card-menu-${projectId}`) {
+                el.style.display = 'none';
+            }
+        });
+
+        const popup = document.getElementById(`bidding-card-menu-${projectId}`);
+        if (popup) {
+            popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+
+    closeAllBiddingCardMenus() {
+        document.querySelectorAll('.bidding-card-menu-popup').forEach(el => {
+            el.style.display = 'none';
+        });
+    }
+
     renderBiddingKanbanBoardV2(biddingProjects) {
         const container = document.getElementById('bidding-kanban-board-container');
         if (!container) return;
@@ -32130,18 +32151,23 @@ renderTodayTasksRoleBased(todayStr) {
             return;
         }
 
+        // Close menus when clicking outside
+        document.removeEventListener('click', this._closeBiddingMenusHandler);
+        this._closeBiddingMenusHandler = () => this.closeAllBiddingCardMenus();
+        document.addEventListener('click', this._closeBiddingMenusHandler);
+
         // 3. Active 5-Stage Kanban Board
         const stages = [
-            { key: 'review', title: '참여 검토', badgeColor: '#a855f7' },
-            { key: 'proposal_prep', title: '제안 준비', badgeColor: '#3b82f6' },
-            { key: 'proposal_writing', title: '제안서 작성', badgeColor: '#f59e0b' },
-            { key: 'proposal_submitted', title: '제출 완료', badgeColor: '#06b6d4' },
-            { key: 'waiting_result', title: '결과 대기', badgeColor: '#10b981' }
+            { key: 'review', title: '참여 검토', badgeColor: '#a855f7', bgGlow: 'rgba(168, 85, 247, 0.08)', progress: 20, defaultProb: 30 },
+            { key: 'proposal_prep', title: '제안 준비', badgeColor: '#3b82f6', bgGlow: 'rgba(59, 130, 246, 0.08)', progress: 40, defaultProb: 50 },
+            { key: 'proposal_writing', title: '제안서 작성', badgeColor: '#f59e0b', bgGlow: 'rgba(245, 158, 11, 0.08)', progress: 60, defaultProb: 70 },
+            { key: 'proposal_submitted', title: '제출 완료', badgeColor: '#06b6d4', bgGlow: 'rgba(6, 182, 212, 0.08)', progress: 80, defaultProb: 85 },
+            { key: 'waiting_result', title: '결과 대기', badgeColor: '#10b981', bgGlow: 'rgba(16, 185, 129, 0.08)', progress: 100, defaultProb: 90 }
         ];
 
         let boardHtml = '';
 
-        stages.forEach(stage => {
+        stages.forEach((stage, index) => {
             const stageProjects = biddingProjects.filter(p => {
                 const bSt = (p.bidding_status || p.biddingStatus || p.bid_stage || 'review').toLowerCase();
                 if (stage.key === 'proposal_writing') {
@@ -32154,26 +32180,44 @@ renderTodayTasksRoleBased(todayStr) {
             const stageSumAmt = stageProjects.reduce((sum, p) => sum + Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0), 0);
             const sumStr = this.formatAmountShort(stageSumAmt);
 
+            // Add arrow pipeline indicator between columns
+            if (index > 0) {
+                boardHtml += `
+                    <div class="kanban-pipeline-arrow">
+                        <i data-lucide="chevron-right" style="width:20px; height:20px;"></i>
+                    </div>
+                `;
+            }
+
             boardHtml += `
                 <div class="bidding-kanban-col-v2" data-stage="${stage.key}"
                      ondragover="app.handleBiddingDragOver(event)"
                      ondragleave="app.handleBiddingDragLeave(event)"
                      ondrop="app.handleBiddingDrop(event, '${stage.key}')">
-                    <div class="bidding-kanban-col-header">
-                        <div class="col-title-row">
-                            <span class="col-title"><span style="width:8px; height:8px; border-radius:50%; background:${stage.badgeColor}; display:inline-block;"></span>${stage.title}</span>
-                            <span class="col-count-badge">${count}</span>
+                    <div class="bidding-kanban-col-header" style="border-top: 4px solid ${stage.badgeColor}; background: linear-gradient(180deg, ${stage.bgGlow} 0%, var(--bg-card) 100%);">
+                        <div class="col-title-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+                            <span class="col-title" style="font-weight: 800; font-size: 15px; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                                <span style="width: 10px; height: 10px; border-radius: 50%; background: ${stage.badgeColor}; display: inline-block;"></span>
+                                ${stage.title}
+                            </span>
+                            <span class="col-count-badge" style="background:${stage.badgeColor}; color:#fff; font-size:12px; font-weight:800; padding:2px 8px; border-radius:12px;">${count}건</span>
                         </div>
-                        <div class="col-amount-sum">예상 ${sumStr}</div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted); margin-bottom:8px;">
+                            <span>예상합계 <strong style="color:var(--text-main); font-weight:700;">${sumStr}</strong></span>
+                            <span style="font-weight:700; color:${stage.badgeColor};">진률 ${stage.progress}%</span>
+                        </div>
+                        <div style="width:100%; height:4px; background:rgba(255,255,255,0.12); border-radius:2px; overflow:hidden;">
+                            <div style="width:${stage.progress}%; height:100%; background:${stage.badgeColor}; transition:width 0.3s ease;"></div>
+                        </div>
                     </div>
                     <div class="bidding-kanban-cards-wrapper">
             `;
 
             if (count === 0) {
-                boardHtml += `<div style="font-size:11px; color:var(--text-muted); text-align:center; padding:30px 0; font-style:italic;">해당 단계 입찰 없음</div>`;
+                boardHtml += `<div style="font-size:12px; color:var(--text-muted); text-align:center; padding:40px 0; font-style:italic;">해당 단계 입찰 없음</div>`;
             } else {
                 stageProjects.forEach(p => {
-                    boardHtml += this.renderBiddingKanbanCardHtml(p);
+                    boardHtml += this.renderBiddingKanbanCardHtml(p, stage);
                 });
             }
 
@@ -32186,7 +32230,7 @@ renderTodayTasksRoleBased(todayStr) {
         container.innerHTML = boardHtml;
     }
 
-    renderBiddingKanbanCardHtml(p) {
+    renderBiddingKanbanCardHtml(p, stageInfo = {}) {
         const dueDate = p.proposalDueDate || p.bidDueDate || p.dueDate || p.endDate || '-';
         let dDayBadge = '';
 
@@ -32198,16 +32242,18 @@ renderTodayTasksRoleBased(todayStr) {
             const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
 
             if (diffDays < 0) {
-                dDayBadge = `<span class="d-day-badge d-day-closed">마감지연 (${Math.abs(diffDays)}일)</span>`;
+                dDayBadge = `<span class="d-day-badge d-day-closed" style="font-size:13px; font-weight:800; padding:4px 10px; border-radius:6px;">마감지연 (${Math.abs(diffDays)}일)</span>`;
             } else if (diffDays === 0) {
-                dDayBadge = `<span class="d-day-badge d-day-urgent">D-Day</span>`;
+                dDayBadge = `<span class="d-day-badge d-day-urgent" style="font-size:13px; font-weight:800; padding:4px 10px; border-radius:6px; background:#ef4444; color:#fff;">D-Day</span>`;
             } else if (diffDays <= 3) {
-                dDayBadge = `<span class="d-day-badge d-day-urgent">D-${diffDays}</span>`;
+                dDayBadge = `<span class="d-day-badge d-day-urgent" style="font-size:13px; font-weight:800; padding:4px 10px; border-radius:6px; background:#ef4444; color:#fff;">D-${diffDays}</span>`;
             } else if (diffDays <= 7) {
-                dDayBadge = `<span class="d-day-badge d-day-warning">D-${diffDays}</span>`;
+                dDayBadge = `<span class="d-day-badge d-day-warning" style="font-size:13px; font-weight:800; padding:4px 10px; border-radius:6px; background:#f59e0b; color:#fff;">D-${diffDays}</span>`;
             } else {
-                dDayBadge = `<span class="d-day-badge d-day-normal">D-${diffDays}</span>`;
+                dDayBadge = `<span class="d-day-badge d-day-normal" style="font-size:13px; font-weight:800; padding:4px 10px; border-radius:6px;">D-${diffDays}</span>`;
             }
+        } else {
+            dDayBadge = `<span class="d-day-badge d-day-normal" style="font-size:12px; font-weight:700; padding:4px 8px;">기한 미정</span>`;
         }
 
         const expAmt = Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0);
@@ -32215,29 +32261,57 @@ renderTodayTasksRoleBased(todayStr) {
         const pmName = p.manager || p.pmName || 'PM 미배정';
         const custName = p.customer || p.customerName || '발주기관 미지정';
 
+        // 수주확률 (Progress Bar)
+        const winProb = p.winProbability || p.win_rate || stageInfo.defaultProb || 50;
+        const stageColor = stageInfo.badgeColor || '#3b82f6';
+
         return `
             <div class="bidding-kanban-card-v2" draggable="true" ondragstart="app.handleBiddingDragStart(event, '${p.id}')" onclick="app.openBiddingDetailModal('${p.id}')">
-                <div class="card-top-row">
+                <div class="card-top-row" style="display:flex; justify-content:space-between; align-items:center;">
                     ${dDayBadge}
-                    <div style="display:flex; gap:4px;">
-                        <button class="btn btn-xs btn-outline-success" onclick="event.stopPropagation(); app.openBiddingWonModal('${p.id}')" title="수주 성공 처리">수주</button>
-                        <button class="btn btn-xs btn-outline-danger" onclick="event.stopPropagation(); app.openBiddingLostModal('${p.id}')" title="실패 처리">실패</button>
+                    <div class="bidding-card-menu-dropdown" onclick="event.stopPropagation();">
+                        <button type="button" class="btn btn-ghost btn-xs" onclick="app.toggleBiddingCardMenu(event, '${p.id}')" style="padding:4px 8px; border-radius:6px;" title="메뉴 열기">
+                            <i data-lucide="more-vertical" style="width:16px; height:16px;"></i>
+                        </button>
+                        <div id="bidding-card-menu-${p.id}" class="bidding-card-menu-popup" style="display:none;">
+                            <div onclick="app.closeAllBiddingCardMenus(); app.openBiddingWonModal('${p.id}');" class="menu-item">
+                                <i data-lucide="trophy" style="width:14px; height:14px; color:var(--success);"></i> 수주 성공 처리
+                            </div>
+                            <div onclick="app.closeAllBiddingCardMenus(); app.openBiddingLostModal('${p.id}');" class="menu-item">
+                                <i data-lucide="x-circle" style="width:14px; height:14px; color:var(--danger);"></i> 실패 / 실주 처리
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="card-title" title="${this.escapeHtml(p.name)}">${this.escapeHtml(p.name)}</div>
-                <div class="card-customer" title="${this.escapeHtml(custName)}"><i data-lucide="building" style="width:11px; height:11px; vertical-align:middle; margin-right:2px;"></i>${this.escapeHtml(custName)}</div>
-                
-                <div class="card-amount-row">
-                    <span style="color:var(--text-muted);">당사 예상금액</span>
-                    <span class="card-amount-val">${expAmtStr}</span>
                 </div>
 
-                <div class="card-bottom-row">
-                    <div class="card-pm-info">
-                        <i data-lucide="user" style="width:11px; height:11px;"></i>
+                <div class="bidding-card-title" title="${this.escapeHtml(p.name)}">${this.escapeHtml(p.name)}</div>
+                <div class="card-customer" style="font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:4px;" title="${this.escapeHtml(custName)}">
+                    <i data-lucide="building" style="width:13px; height:13px;"></i>
+                    <span>${this.escapeHtml(custName)}</span>
+                </div>
+                
+                <div class="card-amount-row" style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-top:2px;">
+                    <span style="color:var(--text-muted);">당사 예상금액</span>
+                    <strong class="card-amount-val" style="font-size:14px; color:var(--primary);">${expAmtStr}</strong>
+                </div>
+
+                <!-- 수주확률 Progress Bar -->
+                <div class="card-win-prob-row" style="margin-top:6px; padding-top:6px; border-top:1px dashed var(--bg-card-border);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-bottom:4px;">
+                        <span style="color:var(--text-muted);">수주확률</span>
+                        <strong style="color:${stageColor}; font-weight:700;">${winProb}%</strong>
+                    </div>
+                    <div style="width:100%; height:6px; background:var(--bg-hover-item); border-radius:3px; overflow:hidden;">
+                        <div style="width:${winProb}%; height:100%; background:linear-gradient(90deg, ${stageColor}, #10b981); border-radius:3px; transition:width 0.3s ease;"></div>
+                    </div>
+                </div>
+
+                <div class="card-bottom-row" style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-muted); margin-top:4px;">
+                    <div class="card-pm-info" style="display:flex; align-items:center; gap:4px;">
+                        <i data-lucide="user" style="width:12px; height:12px;"></i>
                         <span>${this.escapeHtml(pmName)}</span>
                     </div>
-                    <span style="font-size:10px; color:var(--text-muted);">${dueDate !== '-' ? '기한: ' + dueDate : ''}</span>
+                    <span>${dueDate !== '-' ? '마감: ' + dueDate : ''}</span>
                 </div>
             </div>
         `;
