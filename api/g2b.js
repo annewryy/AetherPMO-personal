@@ -21,15 +21,11 @@ const extractXmlError = (xmlString) => {
 const fetchG2BData = (targetUrl) => {
     return new Promise((resolve, reject) => {
         const protocolClient = targetUrl.startsWith('https') ? https : http;
-        
         let timer = null;
         const req = protocolClient.get(targetUrl, (apiRes) => {
             if (timer) clearTimeout(timer);
-            
             let data = '';
-            apiRes.on('data', (chunk) => {
-                data += chunk;
-            });
+            apiRes.on('data', (chunk) => { data += chunk; });
             apiRes.on('end', () => {
                 resolve({ statusCode: apiRes.statusCode, data });
             });
@@ -38,19 +34,16 @@ const fetchG2BData = (targetUrl) => {
             reject(err);
         });
 
-        // Set 15-second timeout on the request socket
         req.setTimeout(15000, () => {
             req.destroy(new Error('ETIMEDOUT'));
         });
 
-        // Failsafe absolute timer
         timer = setTimeout(() => {
             req.destroy(new Error('Timeout of 15000ms exceeded'));
         }, 15000);
     });
 };
 
-// Date helper to verify if range exceeds 6 months (186 days)
 const checkDateRangeExceeds = (startStr, endStr) => {
     if (startStr.length < 8 || endStr.length < 8) return false;
     const sYear = parseInt(startStr.substring(0, 4));
@@ -69,32 +62,29 @@ const checkDateRangeExceeds = (startStr, endStr) => {
     return diffDays > 186;
 };
 
-// 날짜 정규화 함수: 본공고용 (12자리: YYYYMMDD0000 / YYYYMMDD2359)
 const normalizeBidDateRange = (bgngDt, endDt) => {
-    const cleanBgn = bgngDt.replace(/-/g, '').trim();
-    const cleanEnd = endDt.replace(/-/g, '').trim();
+    const cleanBgn = bgngDt.replace(/-/g, '').trim().substring(0, 8);
+    const cleanEnd = endDt.replace(/-/g, '').trim().substring(0, 8);
     return {
         inqryBgnDt: cleanBgn + '0000',
         inqryEndDt: cleanEnd + '2359'
     };
 };
 
-// 날짜 정규화 함수: 사전규격용 (8자리: YYYYMMDD / YYYYMMDD)
 const normalizePreDateRange = (bgngDt, endDt) => {
-    const cleanBgn = bgngDt.replace(/-/g, '').trim();
-    const cleanEnd = endDt.replace(/-/g, '').trim();
+    const cleanBgn = bgngDt.replace(/-/g, '').trim().substring(0, 8);
+    const cleanEnd = endDt.replace(/-/g, '').trim().substring(0, 8);
     return {
-        inqryBgnDt: cleanBgn,
-        inqryEndDt: cleanEnd
+        inqryBgnDt12: cleanBgn + '0000',
+        inqryEndDt12: cleanEnd + '2359',
+        inqryBgnDt8: cleanBgn,
+        inqryEndDt8: cleanEnd
     };
 };
 
 const normalizeString = (str) => {
     if (!str) return '';
-    return str
-        .toLowerCase()
-        .replace(/\s+/g, '')                  // 모든 공백 제거
-        .normalize('NFC');                     // 한글 NFC 정규화
+    return str.toLowerCase().replace(/\s+/g, '').normalize('NFC');
 };
 
 const matchesKeyword = (target, keyword) => {
@@ -102,37 +92,32 @@ const matchesKeyword = (target, keyword) => {
     return normalizeString(target).includes(normalizeString(keyword));
 };
 
-const getPastDateString = (days) => {
-    const d = new Date();
-    const past = new Date(d.getTime() - days * 24 * 60 * 60 * 1000);
-    const yyyy = past.getFullYear();
-    const mm = String(past.getMonth() + 1).padStart(2, '0');
-    const dd = String(past.getDate()).padStart(2, '0');
-    return `${yyyy}${mm}${dd}`;
-};
-
 // ─────────────────────────────────────────────
-// 본공고(입찰공고) API - BidPublicInfoService
+// 본공고 API - BidPublicInfoService
 // ─────────────────────────────────────────────
 const BID_API_BASE = 'https://apis.data.go.kr/1230000/ad/BidPublicInfoService/getBidPblancListInfoServc';
 
 // ─────────────────────────────────────────────
-// 사전규격 API - HrcspSsstndrdInfoService (일반 및 검색조건 조회 분리)
+// 사전규격 API - HrcspSsstndrdInfoService (4개 업무별 Operations)
 // ─────────────────────────────────────────────
-// ─────────────────────────────────────────────
-// 사전규격 API - HrcspSsstndrdInfoService (용역, 공사, 물품, 외자)
-// ─────────────────────────────────────────────
-const PRE_API_SERVICES_BASE = 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoServcPPSSrch';
-const PRE_API_CONSTRUCTION_BASE = 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoCnstwkPPSSrch';
-const PRE_API_THNG_BASE = 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoThngPPSSrch';
-const PRE_API_FRGCPT_BASE = 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoFrgcptPPSSrch';
+const PRE_BASE_ENDPOINT = 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService';
 
-const PRE_SEARCH_API_BASE = 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoServcPPSSrch';
+// 일반 조회 Operations (비검색 모드)
+const PRE_OPERATIONS_GENERAL = {
+    '용역': 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoServc',
+    '공사': 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoCnstwk',
+    '물품': 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoThng',
+    '외자': 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoFrgcpt'
+};
 
-/**
- * 본공고 목록 가져오기
- * Returns raw API items array
- */
+// 검색 조건 조회 Operations (검색 모드)
+const PRE_OPERATIONS_SEARCH = {
+    '용역': 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoServcPPSSrch',
+    '공사': 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoCnstwkPPSSrch',
+    '물품': 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoThngPPSSrch',
+    '외자': 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoFrgcptPPSSrch'
+};
+
 const fetchBidItems = async (finalKey, params) => {
     const requestUrl = `${BID_API_BASE}?serviceKey=${finalKey}&${params.toString()}`;
     const result = await fetchG2BData(requestUrl);
@@ -142,7 +127,7 @@ const fetchBidItems = async (finalKey, params) => {
     
     const parsed = JSON.parse(result.data);
     const header = parsed?.response?.header;
-    if (header && header.resultCode && header.resultCode !== '00') {
+    if (header && header.resultCode && header.resultCode !== '00' && header.resultCode !== '0') {
         throw new Error(`OpenAPI Error (JSON) - Code: ${header.resultCode}, Message: ${header.resultMsg}`);
     }
     
@@ -154,14 +139,10 @@ const fetchBidItems = async (finalKey, params) => {
     else if (Array.isArray(itemsData.item)) items = itemsData.item;
     else if (itemsData.item) items = [itemsData.item];
     
-    const totalCount = parseInt(parsed?.response?.body?.totalCount || '0');
+    const totalCount = parseInt(parsed?.response?.body?.totalCount || String(items.length));
     return { items, totalCount };
 };
 
-/**
- * 사전규격 목록 가져오기 (용역)
- * Returns raw API items array
- */
 const fetchPreItems = async (finalKey, params, apiBase, categoryName = '용역') => {
     const requestUrl = `${apiBase}?serviceKey=${finalKey}&${params.toString()}`;
     let result;
@@ -232,12 +213,6 @@ const fetchPreItems = async (finalKey, params, apiBase, categoryName = '용역')
     return { items, totalCount, error: false, warning: null };
 };
 
-/**
- * 사전규격 항목을 공통 형식으로 변환 (Null 방어 및 Fallback 매핑 제공)
- */
-/**
- * 사전규격 항목을 공통 모델로 정규화 (용역/공사/물품/외자 통합)
- */
 const formatPreItem = (item, idx, businessType = '용역') => {
     if (!item) return null;
     const rawNo = item.bfSpecRgstNo || item.publicPrcureThngNo || item.rgstNo || '-';
@@ -293,30 +268,109 @@ const formatPreItem = (item, idx, businessType = '용역') => {
 
 const formatBidItem = (item, idx) => {
     if (!item) return null;
+    const no = item.bidNtceNo || '-';
+    const ord = item.bidNtceOrd || '001';
+    const uniqueId = `BID-${no}-${ord}`;
+
     return {
-        id: `g2b-bid-${idx}-${Date.now()}`,
+        id: uniqueId,
+        sourceType: 'BID',
+        sourceLabel: '본공고',
         announcementType: 'bid',
-        announcementNo: item.bidNtceNo || '-',
-        announcementOrd: item.bidNtceOrd || '001',
+        announcementNo: no,
+        announcementOrd: ord,
+        title: item.bidNtceNm || '-',
         name: item.bidNtceNm || '-',
         customer: item.dminsttNm || item.ntceInsttNm || '-',
-        ntceInsttNm: item.ntceInsttNm || item.dminsttNm || '-',
+        organization: item.dminsttNm || item.ntceInsttNm || '-',
         budget: Number(item.asignBdgtAmt || item.presmptPrce || 0),
+        registeredAt: item.bidNtceDt ? item.bidNtceDt.substring(0, 10) : '-',
         publishDate: item.bidNtceDt ? item.bidNtceDt.substring(0, 10) : '-',
+        deadline: item.bidClseDt ? item.bidClseDt.substring(0, 10) : '-',
         endDate: item.bidClseDt ? item.bidClseDt.substring(0, 10) : '-',
-        bidBeginDt: item.bidBeginDt || item.bidNtceBgnDt || '-',
-        bidClseDt: item.bidClseDt || '-',
-        opengDt: item.opengDt || item.openDt || '-',
-        bidMethdNm: item.bidMethdNm || '일반(총액)경쟁',
-        cntrctCnclsMthdNm: item.cntrctCnclsMthdNm || '협상에 의한 계약',
+        businessType: item.srvceDivNm || '용역',
         url: item.bidNtceDtlUrl || item.detailUrl || '#',
         presmptPrce: Number(item.presmptPrce || 0),
-        asignBdgtAmt: Number(item.asignBdgtAmt || 0)
+        asignBdgtAmt: Number(item.asignBdgtAmt || 0),
+        raw: item
     };
 };
 
+const fetchAllPreSpecCategories = async (finalPreKey, bgngDt, endDt, clientPage, clientLimit, searchKeyword = '', dminsttNm = '') => {
+    const isSearch = !!(searchKeyword || dminsttNm);
+    const opsMap = isSearch ? PRE_OPERATIONS_SEARCH : PRE_OPERATIONS_GENERAL;
+
+    const { inqryBgnDt12: preBgn12, inqryEndDt12: preEnd12, inqryBgnDt8: preBgn8, inqryEndDt8: preEnd8 } = normalizePreDateRange(bgngDt, endDt);
+
+    const categories = [
+        { name: '용역', endpoint: opsMap['용역'] },
+        { name: '공사', endpoint: opsMap['공사'] },
+        { name: '물품', endpoint: opsMap['물품'] },
+        { name: '외자', endpoint: opsMap['외자'] }
+    ];
+
+    const tasks = categories.map(async (cat) => {
+        const params = new URLSearchParams({
+            numOfRows: String(clientLimit),
+            pageNo: String(clientPage),
+            inqryBgnDt: preBgn12,
+            inqryEndDt: preEnd12,
+            type: 'json'
+        });
+        if (searchKeyword) params.append('publicPrcureThngNm', searchKeyword);
+        if (dminsttNm) params.append('dminsttNm', dminsttNm);
+
+        let res = await fetchPreItems(finalPreKey, params, cat.endpoint, cat.name);
+
+        if ((!res.items || res.items.length === 0) && !res.error) {
+            const params8 = new URLSearchParams({
+                numOfRows: String(clientLimit),
+                pageNo: String(clientPage),
+                inqryBgnDt: preBgn8,
+                inqryEndDt: preEnd8,
+                type: 'json'
+            });
+            if (searchKeyword) params8.append('publicPrcureThngNm', searchKeyword);
+            if (dminsttNm) params8.append('dminsttNm', dminsttNm);
+
+            const res8 = await fetchPreItems(finalPreKey, params8, cat.endpoint, cat.name);
+            if (res8.items && res8.items.length > 0) {
+                res = res8;
+            }
+        }
+
+        return { ...res, category: cat.name, endpoint: cat.endpoint };
+    });
+
+    const results = await Promise.allSettled(tasks);
+
+    let items = [];
+    let totalCount = 0;
+    let warnings = [];
+    let successCount = 0;
+
+    results.forEach((r, idx) => {
+        const catName = categories[idx].name;
+        const endpoint = categories[idx].endpoint;
+        if (r.status === 'fulfilled') {
+            const val = r.value;
+            if (val.warning) warnings.push(val.warning);
+            if (val.items && val.items.length > 0) {
+                successCount++;
+                totalCount += val.totalCount;
+                const formatted = val.items.map((item, itemIdx) => formatPreItem(item, itemIdx, catName)).filter(Boolean);
+                items = items.concat(formatted);
+            }
+        } else {
+            console.error(`[PreSpec Promise Rejected] Category: ${catName} | Endpoint: ${endpoint} | Reason:`, r.reason);
+            warnings.push({ category: catName, endpoint, code: 'PROMISE_REJECTED', msg: r.reason?.message || 'API Call Rejected' });
+        }
+    });
+
+    return { items, totalCount, warnings, successCount, allFailed: successCount === 0 && warnings.length > 0 };
+};
+
 module.exports = async (req, res) => {
-    // Enable CORS & Disable 304 Cache / ETag caching
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Cache-Control, Pragma');
@@ -329,59 +383,16 @@ module.exports = async (req, res) => {
         return;
     }
 
-    // 1. Load service keys
-    const cleanKey = (key) => {
-        if (!key) return '';
-        let cleaned = key.replace(/[\r\n]/g, '').trim();
-        if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
-            cleaned = cleaned.slice(1, -1);
-        } else if (cleaned.startsWith("'") && cleaned.endsWith("'")) {
-            cleaned = cleaned.slice(1, -1);
-        }
-        return cleaned.trim();
-    };
-
     let bidServiceKey = cleanKey(process.env.G2B_API_KEY || '');
     let preServiceKey = cleanKey(process.env.G2B_API_KEY || process.env.G2B_PRE_SERVICE_KEY || '');
 
-    // Diagnostics Log
-    const crypto = require('crypto');
-    const bidSha = crypto.createHash('sha256').update(bidServiceKey).digest('hex');
-    const preSha = crypto.createHash('sha256').update(preServiceKey).digest('hex');
-    console.log(`[Diagnostics] Keys load check: ` + 
-                `bidExists=${!!bidServiceKey}, bidSha=${bidSha.slice(0, 10)}..., ` + 
-                `preExists=${!!preServiceKey}, preSha=${preSha.slice(0, 10)}...`);
-    
-    // Mask key helper to prevent exposure in logs/errors
-    const maskKey = (str) => {
-        if (!str) return '';
-        if (typeof str !== 'string') {
-            try {
-                str = JSON.stringify(str);
-            } catch (err) {
-                str = String(str);
-            }
+    const cleanKey = (key) => {
+        if (!key) return '';
+        let cleaned = key.replace(/[\r\n]/g, '').trim();
+        if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+            cleaned = cleaned.slice(1, -1);
         }
-        let masked = str;
-        if (bidServiceKey) {
-            const escapedKey = bidServiceKey.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            masked = masked.replace(new RegExp(escapedKey, 'g'), '[MASKED_BID]');
-            const encodedBidKey = encodeURIComponent(bidServiceKey);
-            if (encodedBidKey && encodedBidKey !== bidServiceKey) {
-                const escapedEncoded = encodedBidKey.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                masked = masked.replace(new RegExp(escapedEncoded, 'g'), '[MASKED_BID]');
-            }
-        }
-        if (preServiceKey && preServiceKey !== bidServiceKey) {
-            const escapedKey = preServiceKey.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            masked = masked.replace(new RegExp(escapedKey, 'g'), '[MASKED_PRE]');
-            const encodedPreKey = encodeURIComponent(preServiceKey);
-            if (encodedPreKey && encodedPreKey !== preServiceKey) {
-                const escapedEncoded = encodedPreKey.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                masked = masked.replace(new RegExp(escapedEncoded, 'g'), '[MASKED_PRE]');
-            }
-        }
-        return masked;
+        return cleaned.trim();
     };
 
     try {
@@ -400,34 +411,12 @@ module.exports = async (req, res) => {
         let endDt = query.endDt || '';
         const clientPage = parseInt(query.pageNo || '1');
         const clientLimit = parseInt(query.numOfRows || '10');
-        // 공고유형: 'pre'(사전규격), 'bid'(본공고), 'all'(전체, 기본값)
-        // Vercel Rewrite 또는 직접 쿼리를 처리하기 위해 serviceType과 announcementType 둘 다 수용
-        const serviceType = query.serviceType || query.announcementType || 'all';
 
-        // 실행할 조회 모드 결정
-        const fetchBid = (serviceType === 'bid' || serviceType === 'all');
-        const fetchPre = (serviceType === 'pre' || serviceType === 'preSpec' || serviceType === 'pre_spec' || serviceType === 'all');
-
-        if (fetchBid && !bidServiceKey) {
-            res.status(200).json({ 
-                error: true, 
-                message: '서버에 나라장터 API 키(G2B_API_KEY)가 설정되지 않았습니다. Vercel 환경 변수에 G2B_API_KEY를 등록해주세요.',
-                announcements: [],
-                totalCount: 0
-            });
-            return;
-        }
-        if (fetchPre && !preServiceKey) {
-            res.status(200).json({ 
-                error: true, 
-                message: '서버에 나라장터 사전규격 API 키(G2B_PRE_SERVICE_KEY 또는 G2B_API_KEY)가 설정되지 않았습니다.',
-                announcements: [],
-                totalCount: 0
-            });
-            return;
+        let serviceType = (query.serviceType || query.announcementType || 'all').toLowerCase();
+        if (serviceType === 'prespec' || serviceType === 'pre' || serviceType === 'pre_spec') {
+            serviceType = 'prespec';
         }
 
-        // Clean dates: remove dashes
         bgngDt = bgngDt.replace(/-/g, '').trim();
         endDt = endDt.replace(/-/g, '').trim();
 
@@ -439,229 +428,127 @@ module.exports = async (req, res) => {
             endDt = endDt || formatDate(today);
         }
 
-        // Back-end Guard: Verify if the range exceeds 6 months
         if (checkDateRangeExceeds(bgngDt, endDt)) {
-            console.warn(`[Guard] G2B request rejected: range exceeds 6 months (${bgngDt} ~ ${endDt})`);
-            res.status(400).json({
-                error: true,
-                message: '나라장터 공고 검색은 응답 지연 방지를 위해 최대 6개월 이내 기간만 조회할 수 있습니다.'
-            });
+            res.status(400).json({ error: true, message: '나라장터 공고 검색은 최대 6개월 이내 기간만 조회할 수 있습니다.' });
             return;
         }
 
-        // Apply encodeURIComponent() to keys exactly once, preventing double encoding
         const encodeKey = (key) => {
             if (!key) return '';
             let rawKey = key;
             try {
-                if (key.includes('%')) {
-                    rawKey = decodeURIComponent(key);
-                }
-            } catch (e) {
-                console.warn('[Diagnostics] Failed to decode potentially encoded key:', e.message);
-            }
+                if (key.includes('%')) rawKey = decodeURIComponent(key);
+            } catch (e) {}
             return encodeURIComponent(rawKey);
         };
 
         const finalBidKey = encodeKey(bidServiceKey);
         const finalPreKey = encodeKey(preServiceKey);
 
-        console.log(`[G2B] serviceType=${serviceType}, fetchBid=${fetchBid}, fetchPre=${fetchPre}`);
-
-        const isSearchMode = !!(bidNtceNm || dminsttNm);
+        console.log(`[API /api/g2b Route Entry] serviceType=${serviceType}, reqUrl=${req.url}`);
 
         // ─────────────────────────────────────────
-        // 비검색 모드(General): 단순 페이지 조회
+        // 1. 사전규격 단독 라우트 (/api/g2b/prespec)
         // ─────────────────────────────────────────
-        if (!isSearchMode) {
-            let allFormattedItems = [];
-            let totalCount = 0;
+        if (serviceType === 'prespec') {
+            console.log(`[API /api/g2b/prespec Execution] Executing 4 Pre-Spec Work Categories (용역·공사·물품·외자)...`);
+            const preRes = await fetchAllPreSpecCategories(finalPreKey, bgngDt, endDt, clientPage, clientLimit, bidNtceNm, dminsttNm);
 
-            // 본공고 조회
-            if (fetchBid) {
-                try {
-                    const { inqryBgnDt: bidBgn, inqryEndDt: bidEnd } = normalizeBidDateRange(bgngDt, endDt);
-                    const params = new URLSearchParams({
-                        numOfRows: String(clientLimit),
-                        pageNo: String(clientPage),
-                        inqryDiv: '1',
-                        inqryBgnDt: bidBgn,
-                        inqryEndDt: bidEnd,
-                        type: 'json'
-                    });
-                    const requestUrl = `${BID_API_BASE}?serviceKey=${finalBidKey}&${params.toString()}`;
-                    console.log(`[General Mode - BID] Fetching url: ${requestUrl.split(finalBidKey).join('[MASKED]')}`);
-                    const result = await fetchG2BData(requestUrl);
-                    
-                    const xmlErr = extractXmlError(result.data);
-                    if (xmlErr) {
-                        console.warn('[General Mode - BID] OpenAPI XML Error:', xmlErr.msg);
-                    } else {
-                        let parsedJson = null;
-                        try {
-                            parsedJson = JSON.parse(result.data);
-                        } catch (pErr) {
-                            console.warn('[General Mode - BID] Non-JSON response received:', pErr.message);
-                        }
+            preRes.items.sort((a, b) => (a.publishDate < b.publishDate ? 1 : -1));
+            const pagedItems = preRes.items.slice((clientPage - 1) * clientLimit, clientPage * clientLimit);
 
-                        if (parsedJson) {
-                            const header = parsedJson?.response?.header;
-                            if (header && header.resultCode && header.resultCode !== '00') {
-                                console.warn(`[General Mode - BID] Header Error: ${header.resultCode} - ${header.resultMsg}`);
-                            } else {
-                                const itemsData = parsedJson?.response?.body?.items;
-                                let list = [];
-                                if (itemsData) {
-                                    if (Array.isArray(itemsData)) list = itemsData;
-                                    else if (Array.isArray(itemsData.item)) list = itemsData.item;
-                                    else if (itemsData.item) list = [itemsData.item];
-                                }
-                                totalCount += parseInt(parsedJson?.response?.body?.totalCount || '0');
-                                allFormattedItems = allFormattedItems.concat(list.map((item, idx) => formatBidItem(item, idx)).filter(Boolean));
-                            }
-                        }
-                    }
-                } catch (e) {
-                    console.warn('[General Mode - BID] Failed:', e.message);
-                }
-            }
-
-            // 사전규격 조회
-            if (fetchPre) {
-                try {
-                    const { inqryBgnDt: preBgn, inqryEndDt: preEnd } = normalizePreDateRange(bgngDt, endDt);
-                    const params = new URLSearchParams({
-                        numOfRows: String(clientLimit),
-                        pageNo: String(clientPage),
-                        inqryBgnDt: preBgn,
-                        inqryEndDt: preEnd,
-                        type: 'json'
-                    });
-                    console.log(`[General Mode - PRE] Fetching pre-spec data`);
-                    const { items, totalCount: preTotal } = await fetchPreItems(finalPreKey, params, PRE_API_BASE);
-                    totalCount += preTotal;
-                    allFormattedItems = allFormattedItems.concat(items.map((item, idx) => formatPreItem(item, idx)).filter(Boolean));
-                } catch (e) {
-                    console.warn('[General Mode - PRE] Failed:', e.message);
-                }
-            }
-
-            // 게시일 최신순 정렬
-            allFormattedItems.sort((a, b) => {
-                if (a.publishDate < b.publishDate) return 1;
-                if (a.publishDate > b.publishDate) return -1;
-                return 0;
+            res.status(200).json({
+                announcements: pagedItems,
+                totalCount: preRes.totalCount || preRes.items.length,
+                warnings: preRes.warnings,
+                serviceType: 'prespec',
+                path: '/api/g2b/prespec'
             });
-
-            res.status(200).json({ announcements: allFormattedItems, totalCount });
             return;
         }
 
         // ─────────────────────────────────────────
-        // 검색 모드(Search): 병렬 직접 키워드 검색
+        // 2. 본공고 단독 라우트 (/api/g2b/bid)
         // ─────────────────────────────────────────
-        console.log(`[Search Mode] bidNtceNm='${bidNtceNm}', dminsttNm='${dminsttNm}', type='${serviceType}'`);
+        if (serviceType === 'bid') {
+            console.log(`[API /api/g2b/bid Execution] Executing Main Bidding query...`);
+            const { inqryBgnDt: bidBgn, inqryEndDt: bidEnd } = normalizeBidDateRange(bgngDt, endDt);
+            const params = new URLSearchParams({
+                numOfRows: String(clientLimit),
+                pageNo: String(clientPage),
+                inqryDiv: '1',
+                inqryBgnDt: bidBgn,
+                inqryEndDt: bidEnd,
+                type: 'json'
+            });
+            if (bidNtceNm) params.append('bidNtceNm', bidNtceNm);
+            if (dminsttNm) params.append('dminsttNm', dminsttNm);
 
-        // 로컬 필터링 (본공고용)
-        const filterBidItems = (items) => {
-            let r = items;
-            if (bidNtceNm) r = r.filter(i => matchesKeyword(i.bidNtceNm || '', bidNtceNm) || matchesKeyword(i.bidNtceNo || '', bidNtceNm));
-            if (dminsttNm) r = r.filter(i => matchesKeyword(i.dminsttNm || '', dminsttNm) || matchesKeyword(i.ntceInsttNm || '', dminsttNm));
-            return r;
+            const { items, totalCount } = await fetchBidItems(finalBidKey, params);
+            const formatted = items.map((item, idx) => formatBidItem(item, idx)).filter(Boolean);
+
+            res.status(200).json({
+                announcements: formatted,
+                totalCount,
+                serviceType: 'bid',
+                path: '/api/g2b/bid'
+            });
+            return;
+        }
+
+        // ─────────────────────────────────────────
+        // 3. 전체 통합 병렬 라우트 (/api/g2b?serviceType=all)
+        // ─────────────────────────────────────────
+        console.log(`[API /api/g2b/all Execution] Executing Parallel Bid + PreSpec Queries...`);
+        const fetchBidTask = async () => {
+            const { inqryBgnDt: bidBgn, inqryEndDt: bidEnd } = normalizeBidDateRange(bgngDt, endDt);
+            const params = new URLSearchParams({
+                numOfRows: '100', pageNo: '1', inqryDiv: '1', inqryBgnDt: bidBgn, inqryEndDt: bidEnd, type: 'json'
+            });
+            if (bidNtceNm) params.append('bidNtceNm', bidNtceNm);
+            if (dminsttNm) params.append('dminsttNm', dminsttNm);
+            const { items } = await fetchBidItems(finalBidKey, params);
+            return items.map((item, idx) => formatBidItem(item, idx)).filter(Boolean);
         };
 
-        // 로컬 필터링 (사전규격용)
-        const filterPreItems = (items) => {
-            let r = items;
-            if (bidNtceNm) r = r.filter(i => matchesKeyword(i.publicPrcureThngNm || i.ntceNm || '', bidNtceNm));
-            if (dminsttNm) r = r.filter(i => matchesKeyword(i.dminsttNm || i.ntceInsttNm || i.orderInsttNm || '', dminsttNm));
-            return r;
-        };
+        const [bidRes, preRes] = await Promise.allSettled([
+            fetchBidTask(),
+            fetchAllPreSpecCategories(finalPreKey, bgngDt, endDt, clientPage, clientLimit, bidNtceNm, dminsttNm)
+        ]);
 
-        // 본공고 검색 (API 직접 키워드 검색 + 로컬 필터링)
-        const searchBid = async () => {
-            if (!fetchBid) return [];
-            try {
-                const { inqryBgnDt: bidBgn, inqryEndDt: bidEnd } = normalizeBidDateRange(bgngDt, endDt);
-                const params = new URLSearchParams({
-                    numOfRows: '100', pageNo: '1',
-                    inqryDiv: '1',
-                    inqryBgnDt: bidBgn,
-                    inqryEndDt: bidEnd,
-                    type: 'json'
-                });
-                if (bidNtceNm) params.append('bidNtceNm', bidNtceNm);
-                if (dminsttNm) params.append('dminsttNm', dminsttNm);
-                const { items } = await fetchBidItems(finalBidKey, params);
-                return filterBidItems(items);
-            } catch (e) {
-                console.warn('[Search-BID] Failed:', e.message);
-                return [];
-            }
-        };
+        let combined = [];
+        let totalCount = 0;
+        let warnings = [];
 
-        // 사전규격 검색 (API 직접 키워드 검색 + 로컬 필터링)
-        const searchPre = async () => {
-            if (!fetchPre) return [];
-            try {
-                const { inqryBgnDt: preBgn, inqryEndDt: preEnd } = normalizePreDateRange(bgngDt, endDt);
-                const params = new URLSearchParams({
-                    numOfRows: '100', pageNo: '1',
-                    inqryBgnDt: preBgn,
-                    inqryEndDt: preEnd,
-                    type: 'json'
-                });
-                
-                // 검색 조건 여부에 따라 getPublicPrcureThngInfoServcPPSSrch 오퍼레이션 분기 호출
-                let apiBase = PRE_API_BASE;
-                if (bidNtceNm) {
-                    params.append('publicPrcureThngNm', bidNtceNm);
-                    apiBase = PRE_SEARCH_API_BASE;
-                }
-                if (dminsttNm) {
-                    params.append('dminsttNm', dminsttNm);
-                }
-                
-                const { items } = await fetchPreItems(finalPreKey, params, apiBase);
-                return filterPreItems(items);
-            } catch (e) {
-                console.warn('[Search-PRE] Failed:', e.message);
-                return [];
-            }
-        };
+        if (bidRes.status === 'fulfilled') {
+            combined = combined.concat(bidRes.value || []);
+            totalCount += (bidRes.value || []).length;
+        }
+        if (preRes.status === 'fulfilled') {
+            combined = combined.concat(preRes.value?.items || []);
+            totalCount += preRes.value?.totalCount || (preRes.value?.items || []).length;
+            if (preRes.value?.warnings) warnings = warnings.concat(preRes.value.warnings);
+        }
 
-        // 병렬 실행
-        const [bidResults, preResults] = await Promise.all([searchBid(), searchPre()]);
+        combined.sort((a, b) => (a.publishDate < b.publishDate ? 1 : -1));
+        const pagedCombined = combined.slice((clientPage - 1) * clientLimit, clientPage * clientLimit);
 
-        console.log(`[Search] bid=${bidResults.length}, pre=${preResults.length}`);
-
-        // 포맷팅 및 병합 (사전규격 먼저)
-        const formattedBid = bidResults.map((item, idx) => formatBidItem(item, idx)).filter(Boolean);
-        const formattedPre = preResults.map((item, idx) => formatPreItem(item, idx)).filter(Boolean);
-        let mergedList = [...formattedPre, ...formattedBid];
-
-        // 날짜 최신순 정렬
-        mergedList.sort((a, b) => {
-            if (a.publishDate < b.publishDate) return 1;
-            if (a.publishDate > b.publishDate) return -1;
-            return 0;
+        res.status(200).json({
+            announcements: pagedCombined,
+            totalCount,
+            warnings,
+            serviceType: 'all',
+            path: '/api/g2b'
         });
-
-        // 페이징 처리
-        const startIndex = (clientPage - 1) * clientLimit;
-        const slicedList = mergedList.slice(startIndex, startIndex + clientLimit);
-
-        res.status(200).json({ announcements: slicedList, totalCount: mergedList.length });
         return;
 
     } catch (e) {
-        console.error('Serverless function exception:', maskKey(e.message || e));
-        res.status(200).json({ 
-            error: true, 
-            message: maskKey(e.message || '나라장터 API 호출 중 오류가 발생했습니다.'), 
+        console.error('Serverless function exception:', e.message || e);
+        res.status(200).json({
+            error: true,
+            message: e.message || '나라장터 API 호출 중 오류가 발생했습니다.',
             announcements: [],
-            totalCount: 0,
-            details: maskKey(e.message || e) 
+            totalCount: 0
         });
     }
 };
