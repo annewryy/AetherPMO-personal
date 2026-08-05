@@ -450,13 +450,14 @@ module.exports = async (req, res) => {
 
     try {
         let query = {};
+        if (req.query && typeof req.query === 'object') {
+            Object.assign(query, req.query);
+        }
         try {
             const reqUrl = req.url.startsWith('http') ? req.url : `http://localhost${req.url}`;
             const parsedUrl = new URL(reqUrl);
             parsedUrl.searchParams.forEach((val, key) => { query[key] = val; });
-        } catch (uErr) {
-            query = req.query || {};
-        }
+        } catch (uErr) {}
 
         const bidNtceNm = query.bidNtceNm || '';
         const dminsttNm = query.dminsttNm || '';
@@ -589,7 +590,8 @@ module.exports = async (req, res) => {
             error: true,
             message: e.message || '나라장터 API 호출 중 오류가 발생했습니다.',
             announcements: [],
-            totalCount: 0
+            totalCount: 0,
+            exception: e.stack || String(e)
         });
     }
 };
