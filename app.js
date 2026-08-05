@@ -7858,6 +7858,7 @@ renderTodayTasksRoleBased(todayStr) {
                 code: 'PRJ-2026-001',
                 customer: projects[0] ? projects[0].customer : '국방부 지능정보화정책관',
                 status: 'Bidding',
+                bidding_status: 'review',
                 bidStatus: 'review',
                 biddingStatusKey: 'review',
                 budget: 2800000000,
@@ -7885,6 +7886,7 @@ renderTodayTasksRoleBased(todayStr) {
                 code: 'PRJ-2026-002',
                 customer: projects[1] ? projects[1].customer : '행정안전부 디지털정부국',
                 status: 'Bidding',
+                bidding_status: 'proposal_submitted',
                 bidStatus: 'submitted',
                 biddingStatusKey: 'submitted',
                 budget: 3200000000,
@@ -7912,6 +7914,7 @@ renderTodayTasksRoleBased(todayStr) {
                 code: 'PRJ-2026-004',
                 customer: projects[3] ? projects[3].customer : '한국전력공사 ICT기획처',
                 status: 'Bidding',
+                bidding_status: 'waiting_result',
                 bidStatus: 'waiting_result',
                 biddingStatusKey: 'waiting_result',
                 budget: 1800000000,
@@ -7939,6 +7942,7 @@ renderTodayTasksRoleBased(todayStr) {
                 code: 'PRJ-2026-005',
                 customer: projects[4] ? projects[4].customer : '국토교통부 도시경제과',
                 status: 'Bidding',
+                bidding_status: 'won',
                 bidStatus: 'won',
                 biddingStatusKey: 'won',
                 budget: 5200000000,
@@ -8025,15 +8029,27 @@ renderTodayTasksRoleBased(todayStr) {
             .replace(/\s+/g, '');
 
         const statusMap = {
-            // 제안 준비중
-            'proposal_preparing': 'proposal_preparing',
-            'preparing': 'proposal_preparing',
-            'drafting': 'proposal_preparing',
-            '작성중': 'proposal_preparing',
-            '제안준비중': 'proposal_preparing',
-            'review': 'proposal_preparing',
-            'considering': 'proposal_preparing',
-            '참여검토': 'proposal_preparing',
+            // 1. 참여 검토
+            'review': 'review',
+            'reviewing': 'review',
+            'considering': 'review',
+            '참여검토': 'review',
+            '검토중': 'review',
+
+            // 2. 제안 준비
+            'proposal_prep': 'proposal_prep',
+            'proposal_preparing': 'proposal_prep',
+            'prep': 'proposal_prep',
+            'preparing': 'proposal_prep',
+            '제안준비': 'proposal_prep',
+            '제안준비중': 'proposal_prep',
+
+            // 3. 제안서 작성
+            'proposal_writing': 'proposal_writing',
+            'writing': 'proposal_writing',
+            'drafting': 'proposal_writing',
+            '제안서작성': 'proposal_writing',
+            '작성중': 'proposal_writing',
 
             // 제안 제출
             'proposal_submitted': 'proposal_submitted',
@@ -8066,7 +8082,7 @@ renderTodayTasksRoleBased(todayStr) {
             '종료/실패': 'lost'
         };
 
-        return statusMap[value] || 'proposal_preparing';
+        return statusMap[value] || 'review';
     }
 
     getDDayBadge(endDateStr) {
@@ -32169,10 +32185,7 @@ renderTodayTasksRoleBased(todayStr) {
 
         stages.forEach((stage, index) => {
             const stageProjects = biddingProjects.filter(p => {
-                const bSt = (p.bidding_status || p.biddingStatus || p.bid_stage || 'review').toLowerCase();
-                if (stage.key === 'proposal_writing') {
-                    return bSt === 'proposal_writing' || bSt === 'proposal_preparing';
-                }
+                const bSt = this.normalizeBiddingStatus(p);
                 return bSt === stage.key;
             });
 
