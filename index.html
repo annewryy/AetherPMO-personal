@@ -3223,9 +3223,23 @@
                         </div>
                         <div class="form-group">
                             <label for="project-status">프로젝트 단계 (진행 상태)</label>
-                            <select id="project-status">
+                            <select id="project-status" onchange="app.handleProjectStatusChange(this.value)">
                                 <option value="In Progress" selected>수행중</option>
+                                <option value="Bidding">입찰단계</option>
                                 <option value="Completed">수행종료</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="new-bidding-status-group" style="display: none;">
+                            <label for="new-bidding-status">
+                                입찰 진행단계 <span aria-hidden="true" class="text-danger">*</span>
+                            </label>
+                            <select id="new-bidding-status" class="form-control" required>
+                                <option value="">진행단계를 선택해주세요.</option>
+                                <option value="review" selected>참여 검토</option>
+                                <option value="proposal_prep">제안 준비</option>
+                                <option value="proposal_writing">제안서 작성</option>
+                                <option value="proposal_submitted">제출 완료</option>
+                                <option value="waiting_result">결과 대기</option>
                             </select>
                         </div>
                         <div class="form-group" id="project-bid-status-group" style="display: none;">

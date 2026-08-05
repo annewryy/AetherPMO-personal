@@ -18612,6 +18612,15 @@ renderTodayTasksRoleBased(todayStr) {
     /* ==========================================================================
        CRUD OPERATIONS: PROJECTS
        ========================================================================== */
+        handleProjectStatusChange(status) {
+        const biddingGroup = document.getElementById('new-bidding-status-group');
+        const biddingFields = document.getElementById('project-bidding-fields');
+        const isBidding = status === 'Bidding' || this.activeProjectStageFilter === 'Bidding';
+        
+        if (biddingGroup) biddingGroup.style.display = isBidding ? 'block' : 'none';
+        if (biddingFields) biddingFields.style.display = isBidding ? 'block' : 'none';
+    }
+
     openNewProjectModal() {
         this.currentProjectRequestKey = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'req-' + Date.now();
         console.log('[openNewProjectModal] Generated fresh requestKey:', this.currentProjectRequestKey);
@@ -18683,6 +18692,16 @@ renderTodayTasksRoleBased(todayStr) {
             document.getElementById(`wbs-progress-${s.id}`).value = 0;
             document.getElementById(`wbs-weight-${s.id}`).value = s.weight;
         });
+
+                const isBiddingMode = this.activeProjectStageFilter === 'Bidding' || window.location.hash.includes('bidding');
+        const statusSelect = document.getElementById('project-status');
+        if (statusSelect) {
+            statusSelect.value = isBiddingMode ? 'Bidding' : 'In Progress';
+        }
+        if (document.getElementById('new-bidding-status')) {
+            document.getElementById('new-bidding-status').value = 'review';
+        }
+        this.handleProjectStatusChange(isBiddingMode ? 'Bidding' : 'In Progress');
 
         document.getElementById('project-modal').classList.add('open');
     }
@@ -19173,6 +19192,7 @@ renderTodayTasksRoleBased(todayStr) {
         const relatedBiz = document.getElementById('project-related-biz')?.value?.trim() || '';
         const riskLevel = document.getElementById('project-risk-level')?.value || '보통';
         const bidStatus = document.getElementById('project-bid-status')?.value || '';
+        const newBiddingStatus = document.getElementById('new-bidding-status')?.value || 'review';
 
         // Retrieve Contract, Consortium, and Subcontract fields
         const participationType = document.getElementById('project-participation-type')?.value || 'PRIME_CONTRACTOR';
@@ -19403,7 +19423,7 @@ renderTodayTasksRoleBased(todayStr) {
 
                 const newProject = {
                     _isNew: true, // Supabase INSERT 분기용 플래그
-                    id: newId, name, desc, dept, manager, startDate, endDate, status, bidStatus: status === 'Bidding' ? bidStatus : '', progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
+                    id: newId, name, desc, dept, manager, startDate, endDate, status: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? 'Bidding' : status, bidding_status: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? newBiddingStatus : (bidStatus || 'review'), biddingStatus: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? newBiddingStatus : (bidStatus || 'review'), bid_stage: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? newBiddingStatus : (bidStatus || 'review'), bidStatus: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? newBiddingStatus : (bidStatus || 'review'), progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
                     mainFeatures, main_features: mainFeatures,
                     riskAndMitigation, risk_mitigation: riskAndMitigation,
                     relatedProjects, related_projects: relatedProjects,
