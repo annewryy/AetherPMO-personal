@@ -9207,14 +9207,32 @@ renderTodayTasksRoleBased(todayStr) {
             ? options.endDt
             : (document.getElementById('g2b-filter-end-date')?.value || '');
 
-        // 공고유형: 'pre'(사전규격), 'bid'(본공고), 'all'(전체)
+        // 공고유형: 'preSpec'(사전규격), 'bid'(본공고), 'all'(전체)
         let rawAnnType = options.announcementType !== undefined
             ? options.announcementType
             : (document.getElementById('g2b-filter-type')?.value || 'all');
-        if (rawAnnType === 'pre') rawAnnType = G2B_SERVICE_TYPES.PRE_SPEC;
+        
+        if (rawAnnType === 'pre' || rawAnnType === 'pre_spec' || rawAnnType === 'prespec') {
+            rawAnnType = 'preSpec';
+        }
+
         const announcementType = rawAnnType;
+        const isPreSpecType = (announcementType === 'preSpec' || announcementType === 'pre' || announcementType === 'PRE_SPEC');
+        const isBidType = (announcementType === 'bid' || announcementType === 'BID');
+        const isAllType = (announcementType === 'all' || announcementType === 'ALL');
+
+        const fetchBid = isBidType || isAllType;
+        const fetchPre = isPreSpecType || isAllType;
 
         const isBiddingPanel = options.isBiddingPanel || false;
+
+        console.log('[G2B Tab Request]', {
+            selectedTab: rawAnnType,
+            announcementType,
+            fetchBid,
+            fetchPre,
+            isBiddingPanel
+        });
 
         // 날짜 필터가 없는 입찰단계 우측 검색 호출 등을 고려해 날짜가 비어있을 시 기본 30일 설정
         if (!bgngDt || !endDt) {
@@ -9317,47 +9335,53 @@ renderTodayTasksRoleBased(todayStr) {
                 }
             };
 
-            if (announcementType === 'bid' || announcementType === 'all') {
-                try {
-                    const bidParams = getParams('bid');
-                    bidParams.append('_t', String(Date.now()));
-                    const response = await fetch(`/api/g2b/bid?${bidParams.toString()}`, g2bFetchOptions);
-                    const data = await response.json();
-                    if (!response.ok || data.error) {
-                        console.error('Bid API error:', data?.message);
+            const fetchPromises = [];
+
+            if (fetchBid) {
+                const bidParams = getParams('bid');
+                bidParams.append('_t', String(Date.now()));
+                const reqUrl = `/api/g2b/bid?${bidParams.toString()}`;
+                console.log('[G2B Fetch Request URL - BID]:', reqUrl);
+                fetchPromises.push(
+                    fetch(reqUrl, g2bFetchOptions)
+                        .then(r => r.json())
+                        .then(data => ({ type: 'bid', data }))
+                        .catch(err => ({ type: 'bid', error: err }))
+                );
+            }
+
+            if (fetchPre) {
+                const preParams = getParams('preSpec');
+                preParams.append('_t', String(Date.now()));
+                const reqUrl = `/api/g2b/preSpec?${preParams.toString()}`;
+                console.log('[G2B Fetch Request URL - PRE-SPEC]:', reqUrl);
+                fetchPromises.push(
+                    fetch(reqUrl, g2bFetchOptions)
+                        .then(r => r.json())
+                        .then(data => ({ type: 'preSpec', data }))
+                        .catch(err => ({ type: 'preSpec', error: err }))
+                );
+            }
+
+            const fetchResults = await Promise.allSettled(fetchPromises);
+
+            fetchResults.forEach(r => {
+                if (r.status === 'fulfilled' && r.value) {
+                    const resType = r.value.type;
+                    const data = r.value.data;
+                    const err = r.value.error;
+                    if (err || !data || data.error) {
+                        console.error(`[G2B ${resType} Fetch Error]:`, data?.message || err?.message);
                         partialError = true;
                     } else {
                         mergedAnnouncements = mergedAnnouncements.concat(data.announcements || []);
                         totalCount += data.totalCount || (data.announcements || []).length;
                     }
-                } catch (err) {
-                    console.error('Bid API fetch failed:', err);
+                } else {
                     partialError = true;
                 }
-            }
+            });
 
-            if (announcementType === 'pre' || announcementType === 'all') {
-                try {
-                    const preParams = getParams(G2B_SERVICE_TYPES.PRE_SPEC);
-                    const response = await fetch(`/api/g2b/preSpec?${preParams.toString()}`);
-                    const data = await response.json();
-                    if (!response.ok || data.error) {
-                        console.error('Pre API error:', data?.message);
-                        partialError = true;
-                    } else {
-                        mergedAnnouncements = mergedAnnouncements.concat(data.announcements || []);
-                        totalCount += data.totalCount || (data.announcements || []).length;
-                    }
-                } catch (err) {
-                    console.error('Pre API fetch failed:', err);
-                    partialError = true;
-                }
-            }
-
-            // 양쪽 모두 오류가 발생하여 가져온 데이터가 전혀 없는 경우에만 최종 실패 처리
-            if (mergedAnnouncements.length === 0 && partialError) {
-                throw new Error('나라장터 공고 조회에 실패했습니다. (API 장애 또는 네트워크 오류)');
-            }
 
             // 입찰마감일시 기준 정밀 필터링 및 오름차순(임박순) 정렬
             const startVal = document.getElementById('g2b-filter-start-date')?.value;
