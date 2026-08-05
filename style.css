@@ -9956,18 +9956,17 @@ body.app-modal-open {
    ========================================================================== */
 
 #bidding-kanban-board-container {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
     gap: 12px;
-    overflow-x: auto;
+    width: 100%;
     align-items: stretch;
-    min-height: 640px;
+    min-height: 680px;
     padding-bottom: 12px;
 }
 
 .bidding-kanban-col-v2 {
-    flex: 1;
-    min-width: 290px;
-    max-width: 320px;
+    width: 100%;
     display: flex;
     flex-direction: column;
     background: var(--bg-card);
@@ -10004,14 +10003,15 @@ body.app-modal-open {
 .bidding-kanban-card-v2 {
     background: var(--bg-card);
     border: 1px solid var(--bg-card-border);
-    border-radius: 10px;
-    padding: 16px 18px;
+    border-radius: 12px;
+    padding: 18px 20px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
+    min-height: 180px;
     cursor: grab;
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
     position: relative;
 }
 
@@ -10027,7 +10027,7 @@ body.app-modal-open {
 }
 
 .bidding-card-title {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--text-main);
     line-height: 1.4;

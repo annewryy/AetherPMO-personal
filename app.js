@@ -32292,7 +32292,7 @@ renderTodayTasksRoleBased(todayStr) {
                 
                 <div class="card-amount-row" style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-top:2px;">
                     <span style="color:var(--text-muted);">당사 예상금액</span>
-                    <strong class="card-amount-val" style="font-size:14px; color:var(--primary);">${expAmtStr}</strong>
+                    <strong class="card-amount-val" style="font-size:15px; color:var(--primary); font-weight:700;">${expAmtStr}</strong>
                 </div>
 
                 <!-- 수주확률 Progress Bar -->
@@ -32301,7 +32301,7 @@ renderTodayTasksRoleBased(todayStr) {
                         <span style="color:var(--text-muted);">수주확률</span>
                         <strong style="color:${stageColor}; font-weight:700;">${winProb}%</strong>
                     </div>
-                    <div style="width:100%; height:6px; background:var(--bg-hover-item); border-radius:3px; overflow:hidden;">
+                    <div style="width:100%; height:7px; background:var(--bg-hover-item); border-radius:4px; overflow:hidden;">
                         <div style="width:${winProb}%; height:100%; background:linear-gradient(90deg, ${stageColor}, #10b981); border-radius:3px; transition:width 0.3s ease;"></div>
                     </div>
                 </div>
