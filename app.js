@@ -18940,6 +18940,10 @@ renderTodayTasksRoleBased(todayStr) {
 
         // Populate bid status & bidding fields
         this.setFieldValue('project-bid-status', this.normalizeBiddingStatus(project));
+        const newBidStatusSelect = document.getElementById('new-bidding-status');
+        if (newBidStatusSelect) {
+            newBidStatusSelect.value = this.normalizeBiddingStatus(project);
+        }
         const bidGroup = document.getElementById('project-bid-status-group');
         if (bidGroup) bidGroup.style.display = (project.status === 'Bidding' || project.is_bidding_project) ? 'block' : 'none';
 
@@ -32286,6 +32290,9 @@ renderTodayTasksRoleBased(todayStr) {
                             <i data-lucide="more-vertical" style="width:16px; height:16px;"></i>
                         </button>
                         <div id="bidding-card-menu-${p.id}" class="bidding-card-menu-popup" style="display:none;">
+                            <div onclick="app.closeAllBiddingCardMenus(); app.openEditProjectModal('${p.id}');" class="menu-item">
+                                <i data-lucide="edit-3" style="width:14px; height:14px; color:var(--primary);"></i> 입찰 정보 수정
+                            </div>
                             <div onclick="app.closeAllBiddingCardMenus(); app.openBiddingWonModal('${p.id}');" class="menu-item">
                                 <i data-lucide="trophy" style="width:14px; height:14px; color:var(--success);"></i> 수주 성공 처리
                             </div>
