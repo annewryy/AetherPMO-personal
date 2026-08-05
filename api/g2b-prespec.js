@@ -169,8 +169,15 @@ async function fetchCategory({
                 item.rcptDt ||
                 '',
             deadline:
+                item.opninRgstClseDt ||
                 item.opninRcptClseDt ||
                 item.opninRcptClseDate ||
+                item.opninRcptEndDt ||
+                '',
+            attachmentUrl:
+                item.specDocFileUrl1 ||
+                item.specDocFileUrl2 ||
+                item.specDocFileUrl3 ||
                 '',
             raw: item
         }))

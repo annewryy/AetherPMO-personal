@@ -493,20 +493,9 @@ module.exports = async (req, res) => {
         // 1. 사전규격 단독 라우트 (/api/g2b/prespec)
         // ─────────────────────────────────────────
         if (serviceType === 'prespec') {
-            console.log(`[API /api/g2b/prespec Execution] Executing 4 Pre-Spec Work Categories (용역·공사·물품·외자)...`);
-            const preRes = await fetchAllPreSpecCategories(preServiceKey, bgngDt, endDt, clientPage, clientLimit, bidNtceNm, dminsttNm);
-
-            preRes.items.sort((a, b) => (a.publishDate < b.publishDate ? 1 : -1));
-            const pagedItems = preRes.items.slice((clientPage - 1) * clientLimit, clientPage * clientLimit);
-
-            res.status(200).json({
-                announcements: pagedItems,
-                totalCount: preRes.totalCount || preRes.items.length,
-                warnings: preRes.warnings,
-                serviceType: 'prespec',
-                path: '/api/g2b/prespec'
-            });
-            return;
+            console.log(`[API /api/g2b Route Forwarding] Delegating prespec query to single entry point api/g2b-prespec.js...`);
+            const prespecHandler = require('./g2b-prespec.js');
+            return prespecHandler(req, res);
         }
 
         // ─────────────────────────────────────────
