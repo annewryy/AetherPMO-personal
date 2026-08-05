@@ -1,4 +1,7 @@
-// Force Vercel Clean Rebuild Timestamp: 2026-08-05 16:13:21
+const https = require('https');
+const http = require('http');
+const url = require('url');
+
 function cleanKey(value = '') {
     if (!value) return '';
     return String(value).trim().replace(/^['"]|['"]$/g, '');
@@ -121,7 +124,6 @@ const BID_API_BASE = 'https://apis.data.go.kr/1230000/ad/BidPublicInfoService/ge
 // ─────────────────────────────────────────────
 const PRE_BASE_ENDPOINT = 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService';
 
-// 일반 조회 Operations (비검색 모드)
 const PRE_OPERATIONS_GENERAL = {
     '용역': 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoServc',
     '공사': 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoCnstwk',
@@ -129,7 +131,6 @@ const PRE_OPERATIONS_GENERAL = {
     '외자': 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoFrgcpt'
 };
 
-// 검색 조건 조회 Operations (검색 모드)
 const PRE_OPERATIONS_SEARCH = {
     '용역': 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoServcPPSSrch',
     '공사': 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoCnstwkPPSSrch',
@@ -137,8 +138,16 @@ const PRE_OPERATIONS_SEARCH = {
     '외자': 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoFrgcptPPSSrch'
 };
 
-const fetchBidItems = async (finalKey, params) => {
-    const requestUrl = `${BID_API_BASE}?serviceKey=${finalKey}&${params.toString()}`;
+const fetchBidItems = async (serviceKey, paramsObj) => {
+    const urlObj = new URL(BID_API_BASE);
+    urlObj.searchParams.set('serviceKey', serviceKey);
+    for (const [key, value] of Object.entries(paramsObj)) {
+        if (value !== undefined && value !== null && value !== '') {
+            urlObj.searchParams.set(key, String(value));
+        }
+    }
+
+    const requestUrl = urlObj.toString();
     const result = await fetchG2BData(requestUrl);
     
     const xmlErr = extractXmlError(result.data, result.statusCode || 200);
@@ -162,86 +171,96 @@ const fetchBidItems = async (finalKey, params) => {
     return { items, totalCount };
 };
 
-const fetchPreItems = async (rawServiceKey, paramsObj, apiBase, categoryName = '용역') => {
-    const key = cleanKey(rawServiceKey);
-    if (!key) {
-        console.error(`[PreSpec Diagnostic Error] Category: ${categoryName} | Endpoint: ${apiBase} | Error: serviceKey is empty!`);
+const fetchPreItems = async ({ categoryName, operation, serviceKey, params }) => {
+    if (!serviceKey) {
+        console.error(`[PreSpec Diagnostic Error] Category: ${categoryName} | Endpoint: ${operation} | Error: serviceKey is empty!`);
         return {
             items: [],
             totalCount: 0,
             error: true,
-            warning: { category: categoryName, endpoint: apiBase, httpStatus: 401, code: 'SERVICE_KEY_IS_NULL', msg: 'serviceKey가 비어 있습니다.' }
+            warning: { category: categoryName, endpoint: operation, httpStatus: 401, code: 'SERVICE_KEY_IS_NULL', msg: 'serviceKey가 비어 있습니다.' }
         };
     }
 
-    const tryFetch = async (targetKey, isRetry = false) => {
-        const urlObj = new URL(apiBase);
-        for (const [k, v] of Object.entries(paramsObj)) {
-            if (v !== undefined && v !== null && v !== '') {
-                urlObj.searchParams.set(k, String(v));
-            }
-        }
-        const searchStr = urlObj.searchParams.toString();
-        const requestUrl = `${apiBase}?serviceKey=${targetKey}&${searchStr}`;
-        const safeUrl = requestUrl.replace(/serviceKey=[^&]+/, 'serviceKey=[REDACTED]');
-        console.log(`[PreSpec Request URL${isRetry ? ' Retry' : ''}] Category: ${categoryName} | URL: ${safeUrl}`);
+    const urlObj = new URL(operation);
+    urlObj.searchParams.set('serviceKey', serviceKey);
 
-        try {
-            const result = await fetchG2BData(requestUrl);
-            const httpStatus = result.statusCode || 200;
-            const rawSnippet = (result.data || '').substring(0, 200).replace(/\s+/g, ' ');
-
-            const xmlErr = extractXmlError(result.data, httpStatus);
-            if (xmlErr) {
-                return { items: [], totalCount: 0, error: true, warning: { category: categoryName, endpoint: apiBase, httpStatus, code: xmlErr.code, msg: xmlErr.msg, rawSnippet } };
-            }
-
-            const parsed = JSON.parse(result.data);
-            const header = parsed?.response?.header;
-            const resultCode = header?.resultCode || 'UNKNOWN';
-            const resultMsg = header?.resultMsg || 'No resultMsg';
-
-            if (header && resultCode !== '00' && resultCode !== '0') {
-                return { items: [], totalCount: 0, error: true, warning: { category: categoryName, endpoint: apiBase, httpStatus, code: resultCode, msg: resultMsg, rawSnippet } };
-            }
-
-            const itemsData = parsed?.response?.body?.items;
-            let items = [];
-            if (itemsData) {
-                if (Array.isArray(itemsData)) items = itemsData;
-                else if (Array.isArray(itemsData.item)) items = itemsData.item;
-                else if (itemsData.item) items = [itemsData.item];
-            }
-            const totalCount = parseInt(parsed?.response?.body?.totalCount || String(items.length));
-            return { items, totalCount, error: false, warning: null };
-        } catch (err) {
-            return { items: [], totalCount: 0, error: true, warning: { category: categoryName, endpoint: apiBase, httpStatus: 500, code: 'NETWORK_ERROR', msg: err.message } };
-        }
-    };
-
-    // Attempt 1: Raw Key
-    let res = await tryFetch(key, false);
-
-    // Attempt 2: Encoded/Decoded Key if Attempt 1 failed with 401 or XML error
-    if (res.error && (res.warning?.httpStatus === 401 || res.warning?.code === 'SERVICE_KEY_IS_NOT_REGISTERED_ERROR' || res.warning?.code === 'SERVICE_KEY_IS_NULL')) {
-        let altKey = key;
-        if (key.includes('%')) {
-            try { altKey = decodeURIComponent(key); } catch (e) {}
-        } else {
-            altKey = encodeURIComponent(key);
-        }
-        if (altKey !== key) {
-            console.log(`[PreSpec Retry with Alt Key] Category: ${categoryName}`);
-            const res2 = await tryFetch(altKey, true);
-            if (!res2.error && res2.items && res2.items.length > 0) {
-                res = res2;
-            } else if (!res2.error) {
-                res = res2;
-            }
+    for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null && value !== '') {
+            urlObj.searchParams.set(key, String(value));
         }
     }
 
-    return res;
+    const requestUrl = urlObj.toString();
+    const safeUrl = requestUrl.replace(/serviceKey=[^&]+/, 'serviceKey=[REDACTED]');
+    console.log(`[PreSpec Request URL] Category: ${categoryName} | URL: ${safeUrl}`);
+
+    let result;
+    try {
+        result = await fetchG2BData(requestUrl);
+    } catch (err) {
+        console.error(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${operation} | Fetch Error: ${err.message}`);
+        return { 
+            items: [], 
+            totalCount: 0, 
+            error: true,
+            warning: { category: categoryName, endpoint: operation, httpStatus: 500, code: 'NETWORK_ERROR', msg: err.message }
+        };
+    }
+
+    const httpStatus = result.statusCode || 200;
+    const rawSnippet = (result.data || '').substring(0, 200).replace(/\s+/g, ' ');
+
+    const xmlErr = extractXmlError(result.data, httpStatus);
+    if (xmlErr) {
+        console.error(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${operation} | HTTP: ${httpStatus} | XML Code: ${xmlErr.code} | Msg: ${xmlErr.msg} | Snippet: ${rawSnippet}`);
+        return {
+            items: [],
+            totalCount: 0,
+            error: true,
+            warning: { category: categoryName, endpoint: operation, httpStatus, code: xmlErr.code, msg: xmlErr.msg, rawSnippet }
+        };
+    }
+
+    let parsed;
+    try {
+        parsed = JSON.parse(result.data);
+    } catch (e) {
+        console.error(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${operation} | HTTP: ${httpStatus} | JSON Parse Fail | Snippet: ${rawSnippet}`);
+        return {
+            items: [],
+            totalCount: 0,
+            error: true,
+            warning: { category: categoryName, endpoint: operation, httpStatus, code: 'JSON_PARSE_ERROR', msg: 'JSON 파싱 실패', rawSnippet }
+        };
+    }
+
+    const header = parsed?.response?.header;
+    const resultCode = header?.resultCode || 'UNKNOWN';
+    const resultMsg = header?.resultMsg || 'No resultMsg';
+
+    if (header && resultCode !== '00' && resultCode !== '0') {
+        console.error(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${operation} | HTTP: ${httpStatus} | ResultCode: ${resultCode} | Msg: ${resultMsg} | Snippet: ${rawSnippet}`);
+        return {
+            items: [],
+            totalCount: 0,
+            error: true,
+            warning: { category: categoryName, endpoint: operation, httpStatus, code: resultCode, msg: resultMsg, rawSnippet }
+        };
+    }
+
+    const itemsData = parsed?.response?.body?.items;
+    let items = [];
+    if (itemsData) {
+        if (Array.isArray(itemsData)) items = itemsData;
+        else if (Array.isArray(itemsData.item)) items = itemsData.item;
+        else if (itemsData.item) items = [itemsData.item];
+    }
+
+    const totalCount = parseInt(parsed?.response?.body?.totalCount || String(items.length));
+    console.log(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${operation} | HTTP: ${httpStatus} | ResultCode: ${resultCode} | TotalCount: ${totalCount} | ParsedItems: ${items.length}`);
+
+    return { items, totalCount, error: false, warning: null };
 };
 
 const formatPreItem = (item, idx, businessType = '용역') => {
@@ -252,24 +271,15 @@ const formatPreItem = (item, idx, businessType = '용역') => {
     const rawBudget = Number(item.asignBdgtAmt || item.presmptPrce || item.budget || 0);
     
     let rawPublishDate = '-';
-    if (item.rlseDt) {
-        rawPublishDate = item.rlseDt.substring(0, 10);
-    } else if (item.rgstDt) {
-        rawPublishDate = item.rgstDt.substring(0, 10);
-    } else if (item.prcureReqDt) {
-        rawPublishDate = item.prcureReqDt.substring(0, 10);
-    } else if (item.rcptDt) {
-        rawPublishDate = item.rcptDt.substring(0, 10);
-    }
+    if (item.rlseDt) rawPublishDate = item.rlseDt.substring(0, 10);
+    else if (item.rgstDt) rawPublishDate = item.rgstDt.substring(0, 10);
+    else if (item.prcureReqDt) rawPublishDate = item.prcureReqDt.substring(0, 10);
+    else if (item.rcptDt) rawPublishDate = item.rcptDt.substring(0, 10);
     
     let rawEndDate = '-';
-    if (item.opnyRcvClseDt) {
-        rawEndDate = item.opnyRcvClseDt.substring(0, 10);
-    } else if (item.opninRcptDeadlineDt) {
-        rawEndDate = item.opninRcptDeadlineDt.substring(0, 10);
-    } else if (item.opninRcptEndDt) {
-        rawEndDate = item.opninRcptEndDt.substring(0, 10);
-    }
+    if (item.opnyRcvClseDt) rawEndDate = item.opnyRcvClseDt.substring(0, 10);
+    else if (item.opninRcptDeadlineDt) rawEndDate = item.opninRcptDeadlineDt.substring(0, 10);
+    else if (item.opninRcptEndDt) rawEndDate = item.opninRcptEndDt.substring(0, 10);
 
     const rawUrl = item.bfSpecRgstUrl || item.detailUrl || item.g2bUrl || `https://www.g2b.go.kr:8081/ep/preparation/prestd/preStdDtl.do?preStdRegNo=${rawNo}`;
     const uniqueId = `PRE_SPEC-${rawNo}`;
@@ -333,10 +343,10 @@ const fetchAllPreSpecCategories = async (preServiceKey, bgngDt, endDt, clientPag
     const { inqryBgnDt12: preBgn12, inqryEndDt12: preEnd12, inqryBgnDt8: preBgn8, inqryEndDt8: preEnd8 } = normalizePreDateRange(bgngDt, endDt);
 
     const categories = [
-        { name: '용역', endpoint: opsMap['용역'] },
-        { name: '공사', endpoint: opsMap['공사'] },
-        { name: '물품', endpoint: opsMap['물품'] },
-        { name: '외자', endpoint: opsMap['외자'] }
+        { name: '용역', operation: opsMap['용역'] },
+        { name: '공사', operation: opsMap['공사'] },
+        { name: '물품', operation: opsMap['물품'] },
+        { name: '외자', operation: opsMap['외자'] }
     ];
 
     const tasks = categories.map(async (cat) => {
@@ -350,7 +360,12 @@ const fetchAllPreSpecCategories = async (preServiceKey, bgngDt, endDt, clientPag
         if (searchKeyword) paramsObj['publicPrcureThngNm'] = searchKeyword;
         if (dminsttNm) paramsObj['dminsttNm'] = dminsttNm;
 
-        let res = await fetchPreItems(preServiceKey, paramsObj, cat.endpoint, cat.name);
+        let res = await fetchPreItems({
+            categoryName: cat.name,
+            operation: cat.operation,
+            serviceKey: preServiceKey,
+            params: paramsObj
+        });
 
         if ((!res.items || res.items.length === 0) && !res.error) {
             const paramsObj8 = {
@@ -363,11 +378,16 @@ const fetchAllPreSpecCategories = async (preServiceKey, bgngDt, endDt, clientPag
             if (searchKeyword) paramsObj8['publicPrcureThngNm'] = searchKeyword;
             if (dminsttNm) paramsObj8['dminsttNm'] = dminsttNm;
 
-            const res8 = await fetchPreItems(preServiceKey, paramsObj8, cat.endpoint, cat.name);
+            const res8 = await fetchPreItems({
+                categoryName: cat.name,
+                operation: cat.operation,
+                serviceKey: preServiceKey,
+                params: paramsObj8
+            });
             if (res8.items && res8.items.length > 0) res = res8;
         }
 
-        return { ...res, category: cat.name, endpoint: cat.endpoint };
+        return { ...res, category: cat.name, endpoint: cat.operation };
     });
 
     const results = await Promise.allSettled(tasks);
@@ -379,7 +399,7 @@ const fetchAllPreSpecCategories = async (preServiceKey, bgngDt, endDt, clientPag
 
     results.forEach((r, idx) => {
         const catName = categories[idx].name;
-        const endpoint = categories[idx].endpoint;
+        const endpoint = categories[idx].operation;
         if (r.status === 'fulfilled') {
             const val = r.value;
             if (val.warning) warnings.push(val.warning);
@@ -401,17 +421,19 @@ module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Cache-Control, Pragma');
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
 
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
     }
 
-        const preServiceKey = cleanKey(process.env.G2B_API_KEY || process.env.G2B_PRE_SERVICE_KEY || '');
     const bidServiceKey = cleanKey(process.env.G2B_API_KEY || '');
+    const preServiceKey = cleanKey(
+        process.env.G2B_PRE_SERVICE_KEY ||
+        process.env.G2B_API_KEY ||
+        ''
+    );
 
     console.log('[PreSpec Key Diagnostic]', {
         g2bEnvExists: Boolean(process.env.G2B_API_KEY),
@@ -427,7 +449,7 @@ module.exports = async (req, res) => {
             const parsedUrl = new URL(reqUrl);
             parsedUrl.searchParams.forEach((val, key) => { query[key] = val; });
         } catch (uErr) {
-            query = url.parse(req.url, true).query || {};
+            query = req.query || {};
         }
 
         const bidNtceNm = query.bidNtceNm || '';
@@ -458,18 +480,6 @@ module.exports = async (req, res) => {
             return;
         }
 
-        const encodeKey = (key) => {
-            if (!key) return '';
-            let rawKey = key;
-            try {
-                if (key.includes('%')) rawKey = decodeURIComponent(key);
-            } catch (e) {}
-            return encodeURIComponent(rawKey);
-        };
-
-        const finalBidKey = encodeKey(bidServiceKey);
-        const finalPreKey = encodeKey(preServiceKey);
-
         console.log(`[API /api/g2b Route Entry] serviceType=${serviceType}, reqUrl=${req.url}`);
 
         // ─────────────────────────────────────────
@@ -498,18 +508,18 @@ module.exports = async (req, res) => {
         if (serviceType === 'bid') {
             console.log(`[API /api/g2b/bid Execution] Executing Main Bidding query...`);
             const { inqryBgnDt: bidBgn, inqryEndDt: bidEnd } = normalizeBidDateRange(bgngDt, endDt);
-            const params = new URLSearchParams({
+            const paramsObj = {
                 numOfRows: String(clientLimit),
                 pageNo: String(clientPage),
                 inqryDiv: '1',
                 inqryBgnDt: bidBgn,
                 inqryEndDt: bidEnd,
                 type: 'json'
-            });
-            if (bidNtceNm) params.append('bidNtceNm', bidNtceNm);
-            if (dminsttNm) params.append('dminsttNm', dminsttNm);
+            };
+            if (bidNtceNm) paramsObj['bidNtceNm'] = bidNtceNm;
+            if (dminsttNm) paramsObj['dminsttNm'] = dminsttNm;
 
-            const { items, totalCount } = await fetchBidItems(finalBidKey, params);
+            const { items, totalCount } = await fetchBidItems(bidServiceKey, paramsObj);
             const formatted = items.map((item, idx) => formatBidItem(item, idx)).filter(Boolean);
 
             res.status(200).json({
@@ -527,18 +537,18 @@ module.exports = async (req, res) => {
         console.log(`[API /api/g2b/all Execution] Executing Parallel Bid + PreSpec Queries...`);
         const fetchBidTask = async () => {
             const { inqryBgnDt: bidBgn, inqryEndDt: bidEnd } = normalizeBidDateRange(bgngDt, endDt);
-            const params = new URLSearchParams({
+            const paramsObj = {
                 numOfRows: '100', pageNo: '1', inqryDiv: '1', inqryBgnDt: bidBgn, inqryEndDt: bidEnd, type: 'json'
-            });
-            if (bidNtceNm) params.append('bidNtceNm', bidNtceNm);
-            if (dminsttNm) params.append('dminsttNm', dminsttNm);
-            const { items } = await fetchBidItems(finalBidKey, params);
+            };
+            if (bidNtceNm) paramsObj['bidNtceNm'] = bidNtceNm;
+            if (dminsttNm) paramsObj['dminsttNm'] = dminsttNm;
+            const { items } = await fetchBidItems(bidServiceKey, paramsObj);
             return items.map((item, idx) => formatBidItem(item, idx)).filter(Boolean);
         };
 
         const [bidRes, preRes] = await Promise.allSettled([
             fetchBidTask(),
-            fetchAllPreSpecCategories(finalPreKey, bgngDt, endDt, clientPage, clientLimit, bidNtceNm, dminsttNm)
+            fetchAllPreSpecCategories(preServiceKey, bgngDt, endDt, clientPage, clientLimit, bidNtceNm, dminsttNm)
         ]);
 
         let combined = [];
