@@ -1,16 +1,8 @@
 // Force Vercel Clean Rebuild Timestamp: 2026-08-05 16:13:21
-const cleanKey = (key) => {
-    if (!key) return '';
-    let cleaned = String(key).replace(/[\r\n]/g, '').trim();
-    if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
-        cleaned = cleaned.slice(1, -1);
-    }
-    return cleaned.trim();
-};
-
-const https = require('https');
-const http = require('http');
-const url = require('url');
+function cleanKey(value = '') {
+    if (!value) return '';
+    return String(value).trim().replace(/^['"]|['"]$/g, '');
+}
 
 const extractXmlError = (xmlString, statusCode = 200) => {
     if (statusCode !== 200 && (!xmlString || typeof xmlString !== 'string')) {
@@ -170,8 +162,29 @@ const fetchBidItems = async (finalKey, params) => {
     return { items, totalCount };
 };
 
-const fetchPreItems = async (finalKey, params, apiBase, categoryName = '용역') => {
-    const requestUrl = `${apiBase}?serviceKey=${finalKey}&${params.toString()}`;
+const fetchPreItems = async (serviceKey, paramsObj, apiBase, categoryName = '용역') => {
+    if (!serviceKey) {
+        console.error(`[PreSpec Diagnostic Error] Category: ${categoryName} | Endpoint: ${apiBase} | Error: serviceKey is empty!`);
+        return {
+            items: [],
+            totalCount: 0,
+            error: true,
+            warning: { category: categoryName, endpoint: apiBase, httpStatus: 401, code: 'SERVICE_KEY_IS_NULL', msg: 'serviceKey가 비어 있습니다.' }
+        };
+    }
+
+    const urlObj = new URL(apiBase);
+    for (const [k, v] of Object.entries(paramsObj)) {
+        if (v !== undefined && v !== null && v !== '') {
+            urlObj.searchParams.set(k, String(v));
+        }
+    }
+
+    const searchStr = urlObj.searchParams.toString();
+    const requestUrl = `${apiBase}?serviceKey=${serviceKey}&${searchStr}`;
+    const safeUrl = requestUrl.replace(/serviceKey=[^&]+/, 'serviceKey=[REDACTED]');
+    console.log(`[PreSpec Request URL] Category: ${categoryName} | URL: ${safeUrl}`);
+
     let result;
     try {
         result = await fetchG2BData(requestUrl);
@@ -188,7 +201,7 @@ const fetchPreItems = async (finalKey, params, apiBase, categoryName = '용역')
     const httpStatus = result.statusCode || 200;
     const rawSnippet = (result.data || '').substring(0, 200).replace(/\s+/g, ' ');
 
-    const xmlErr = extractXmlError(result.data, result.statusCode || 200);
+    const xmlErr = extractXmlError(result.data, httpStatus);
     if (xmlErr) {
         console.error(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${apiBase} | HTTP: ${httpStatus} | XML Code: ${xmlErr.code} | Msg: ${xmlErr.msg} | Snippet: ${rawSnippet}`);
         return {
@@ -208,7 +221,7 @@ const fetchPreItems = async (finalKey, params, apiBase, categoryName = '용역')
             items: [],
             totalCount: 0,
             error: true,
-            warning: { category: categoryName, endpoint: apiBase, httpStatus, code: 'JSON_PARSE_ERROR', msg: 'JSON 파싱 실패 (XML/HTML 응답 가능성)', rawSnippet }
+            warning: { category: categoryName, endpoint: apiBase, httpStatus, code: 'JSON_PARSE_ERROR', msg: 'JSON 파싱 실패', rawSnippet }
         };
     }
 
@@ -323,10 +336,9 @@ const formatBidItem = (item, idx) => {
     };
 };
 
-const fetchAllPreSpecCategories = async (finalPreKey, bgngDt, endDt, clientPage, clientLimit, searchKeyword = '', dminsttNm = '') => {
+const fetchAllPreSpecCategories = async (preServiceKey, bgngDt, endDt, clientPage, clientLimit, searchKeyword = '', dminsttNm = '') => {
     const isSearch = !!(searchKeyword || dminsttNm);
     const opsMap = isSearch ? PRE_OPERATIONS_SEARCH : PRE_OPERATIONS_GENERAL;
-
     const { inqryBgnDt12: preBgn12, inqryEndDt12: preEnd12, inqryBgnDt8: preBgn8, inqryEndDt8: preEnd8 } = normalizePreDateRange(bgngDt, endDt);
 
     const categories = [
@@ -337,33 +349,31 @@ const fetchAllPreSpecCategories = async (finalPreKey, bgngDt, endDt, clientPage,
     ];
 
     const tasks = categories.map(async (cat) => {
-        const params = new URLSearchParams({
+        const paramsObj = {
             numOfRows: String(clientLimit),
             pageNo: String(clientPage),
             inqryBgnDt: preBgn12,
             inqryEndDt: preEnd12,
             type: 'json'
-        });
-        if (searchKeyword) params.append('publicPrcureThngNm', searchKeyword);
-        if (dminsttNm) params.append('dminsttNm', dminsttNm);
+        };
+        if (searchKeyword) paramsObj['publicPrcureThngNm'] = searchKeyword;
+        if (dminsttNm) paramsObj['dminsttNm'] = dminsttNm;
 
-        let res = await fetchPreItems(finalPreKey, params, cat.endpoint, cat.name);
+        let res = await fetchPreItems(preServiceKey, paramsObj, cat.endpoint, cat.name);
 
         if ((!res.items || res.items.length === 0) && !res.error) {
-            const params8 = new URLSearchParams({
+            const paramsObj8 = {
                 numOfRows: String(clientLimit),
                 pageNo: String(clientPage),
                 inqryBgnDt: preBgn8,
                 inqryEndDt: preEnd8,
                 type: 'json'
-            });
-            if (searchKeyword) params8.append('publicPrcureThngNm', searchKeyword);
-            if (dminsttNm) params8.append('dminsttNm', dminsttNm);
+            };
+            if (searchKeyword) paramsObj8['publicPrcureThngNm'] = searchKeyword;
+            if (dminsttNm) paramsObj8['dminsttNm'] = dminsttNm;
 
-            const res8 = await fetchPreItems(finalPreKey, params8, cat.endpoint, cat.name);
-            if (res8.items && res8.items.length > 0) {
-                res = res8;
-            }
+            const res8 = await fetchPreItems(preServiceKey, paramsObj8, cat.endpoint, cat.name);
+            if (res8.items && res8.items.length > 0) res = res8;
         }
 
         return { ...res, category: cat.name, endpoint: cat.endpoint };
@@ -389,7 +399,6 @@ const fetchAllPreSpecCategories = async (finalPreKey, bgngDt, endDt, clientPage,
                 items = items.concat(formatted);
             }
         } else {
-            console.error(`[PreSpec Promise Rejected] Category: ${catName} | Endpoint: ${endpoint} | Reason:`, r.reason);
             warnings.push({ category: catName, endpoint, code: 'PROMISE_REJECTED', msg: r.reason?.message || 'API Call Rejected' });
         }
     });
@@ -410,8 +419,15 @@ module.exports = async (req, res) => {
         return;
     }
 
-    let bidServiceKey = cleanKey(process.env.G2B_API_KEY || '');
-    let preServiceKey = cleanKey(process.env.G2B_API_KEY || process.env.G2B_PRE_SERVICE_KEY || '');
+        const preServiceKey = cleanKey(process.env.G2B_API_KEY || process.env.G2B_PRE_SERVICE_KEY || '');
+    const bidServiceKey = cleanKey(process.env.G2B_API_KEY || '');
+
+    console.log('[PreSpec Key Diagnostic]', {
+        g2bEnvExists: Boolean(process.env.G2B_API_KEY),
+        g2bEnvLength: process.env.G2B_API_KEY ? process.env.G2B_API_KEY.length : 0,
+        preKeyExists: Boolean(preServiceKey),
+        preKeyLength: preServiceKey ? preServiceKey.length : 0
+    });
 
     try {
         let query = {};
