@@ -119,7 +119,14 @@ const BID_API_BASE = 'https://apis.data.go.kr/1230000/ad/BidPublicInfoService/ge
 // ─────────────────────────────────────────────
 // 사전규격 API - HrcspSsstndrdInfoService (일반 및 검색조건 조회 분리)
 // ─────────────────────────────────────────────
-const PRE_API_BASE = 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoServc';
+// ─────────────────────────────────────────────
+// 사전규격 API - HrcspSsstndrdInfoService (용역, 공사, 물품, 외자)
+// ─────────────────────────────────────────────
+const PRE_API_SERVICES_BASE = 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoServcPPSSrch';
+const PRE_API_CONSTRUCTION_BASE = 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoCnstwkPPSSrch';
+const PRE_API_THNG_BASE = 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoThngPPSSrch';
+const PRE_API_FRGCPT_BASE = 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoFrgcptPPSSrch';
+
 const PRE_SEARCH_API_BASE = 'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoServcPPSSrch';
 
 /**
@@ -194,47 +201,62 @@ const fetchPreItems = async (finalKey, params, apiBase = PRE_API_BASE) => {
 /**
  * 사전규격 항목을 공통 형식으로 변환 (Null 방어 및 Fallback 매핑 제공)
  */
-const formatPreItem = (item, idx) => {
+/**
+ * 사전규격 항목을 공통 모델로 정규화 (용역/공사/물품/외자 통합)
+ */
+const formatPreItem = (item, idx, businessType = '용역') => {
     if (!item) return null;
-    const rawNo = item.bfSpecRgstNo || item.publicPrcureThngNo || '-';
-    const rawName = item.publicPrcureThngNm || item.ntceNm || '-';
-    const rawCustomer = item.dminsttNm || item.ntceInsttNm || item.orderInsttNm || '-';
-    const rawBudget = Number(item.asignBdgtAmt || item.presmptPrce || 0);
+    const rawNo = item.bfSpecRgstNo || item.publicPrcureThngNo || item.rgstNo || '-';
+    const rawName = item.prcurRqstPrdnm || item.prcurRqstNm || item.publicPrcureThngNm || item.ntceNm || item.bidNtceNm || '-';
+    const rawCustomer = item.dminsttNm || item.ntceInsttNm || item.orderInsttNm || item.rcvInsttNm || '-';
+    const rawBudget = Number(item.asignBdgtAmt || item.presmptPrce || item.budget || 0);
     
     let rawPublishDate = '-';
-    if (item.rgstDt) {
+    if (item.rlseDt) {
+        rawPublishDate = item.rlseDt.substring(0, 10);
+    } else if (item.rgstDt) {
         rawPublishDate = item.rgstDt.substring(0, 10);
     } else if (item.prcureReqDt) {
         rawPublishDate = item.prcureReqDt.substring(0, 10);
+    } else if (item.rcptDt) {
+        rawPublishDate = item.rcptDt.substring(0, 10);
     }
     
     let rawEndDate = '-';
-    if (item.opninRcptDeadlineDt) {
+    if (item.opnyRcvClseDt) {
+        rawEndDate = item.opnyRcvClseDt.substring(0, 10);
+    } else if (item.opninRcptDeadlineDt) {
         rawEndDate = item.opninRcptDeadlineDt.substring(0, 10);
     } else if (item.opninRcptEndDt) {
         rawEndDate = item.opninRcptEndDt.substring(0, 10);
     }
 
-    const rawUrl = item.bfSpecRgstUrl || item.detailUrl || '#';
+    const rawUrl = item.bfSpecRgstUrl || item.detailUrl || item.g2bUrl || `https://www.g2b.go.kr:8081/ep/preparation/prestd/preStdDtl.do?preStdRegNo=${rawNo}`;
+    const uniqueId = `PRE_SPEC-${rawNo}`;
 
     return {
-        id: `g2b-pre-${idx}-${Date.now()}`,
+        id: uniqueId,
+        sourceType: 'PRE_SPEC',
+        sourceLabel: '사전규격',
         announcementType: 'pre',
         announcementNo: rawNo,
+        title: rawName,
         name: rawName,
         customer: rawCustomer,
+        organization: rawCustomer,
         budget: rawBudget,
+        registeredAt: rawPublishDate,
         publishDate: rawPublishDate,
+        deadline: rawEndDate,
         endDate: rawEndDate,
+        businessType: item.businessType || businessType || '용역',
         url: rawUrl,
         presmptPrce: Number(item.presmptPrce || 0),
-        asignBdgtAmt: Number(item.asignBdgtAmt || 0)
+        asignBdgtAmt: Number(item.asignBdgtAmt || 0),
+        raw: item
     };
 };
 
-/**
- * 본공고 항목을 포맷팅
- */
 const formatBidItem = (item, idx) => {
     if (!item) return null;
     return {

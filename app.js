@@ -4448,6 +4448,14 @@ class AetherPMO {
 
         console.log(`[handleRouting: #${hash}]`);
 
+                // Priority 1.5: #projects/g2b/pre-detail/{bfSpecRgstNo} or #g2b-pre-detail/{bfSpecRgstNo}
+        if ((parts[0] === 'projects' && parts[1] === 'g2b' && parts[2] === 'pre-detail') || parts[0] === 'g2b-pre-detail') {
+            const preSpecNo = parts[0] === 'g2b-pre-detail' ? parts[1] : parts[3];
+            console.log(`[handleRouting: pre-detail #${preSpecNo}]`);
+            await this.openG2BPreSpecificationDetailPage(preSpecNo, { updateHash: false });
+            return;
+        }
+
         // Priority 1: #projects/g2b/detail/{bidNtceNo}/{bidNtceOrd}
         if (parts[0] === 'projects' && parts[1] === 'g2b' && parts[2] === 'detail') {
             const bidNtceNo = parts[3];
@@ -4582,6 +4590,8 @@ class AetherPMO {
             'projects': 'view-projects',
             'projects-g2b': 'view-projects-g2b',
             'projects-g2b-detail': 'view-projects-g2b-detail',
+            'projects-g2b-pre-detail': 'view-projects-g2b-pre-detail',
+            'g2b-pre-detail': 'view-projects-g2b-pre-detail',
             'g2b-detail': 'view-projects-g2b-detail',
             'project-detail': 'view-project-detail',
             'tailoring': 'view-tailoring',
@@ -9102,7 +9112,7 @@ renderTodayTasksRoleBased(todayStr) {
                 <td>
                     <div style="display: flex; flex-direction: column; gap: 4px;">
                         <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;width:fit-content;${typeStyle}">${typeLabel}</span>
-                        <button type="button" class="font-bold text-xs g2b-notice-title-link" data-bid-notice-no="${ann.announcementNo}" data-bid-notice-ord="${ann.announcementOrd || '001'}" style="max-width: 240px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;" title="${ann.name}" onclick="app.openG2BAnnouncementDetailPage('${ann.announcementNo}', '${ann.announcementOrd || '001'}')">${ann.name}</button>
+                        <button type="button" class="font-bold text-xs g2b-notice-title-link" data-bid-notice-no="${ann.announcementNo}" data-bid-notice-ord="${ann.announcementOrd || '001'}" style="max-width: 240px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;" title="${ann.name}" onclick="${ann.announcementType === 'pre' || ann.sourceType === 'PRE_SPEC' ? `app.openG2BPreSpecificationDetailPage('${ann.announcementNo}')` : `app.openG2BAnnouncementDetailPage('${ann.announcementNo}', '${ann.announcementOrd || '001'}')`}">${ann.name}</button>
                     </div>
                 </td>
                 <td class="text-xs font-bold">${ann.customer}</td>
@@ -9446,6 +9456,206 @@ renderTodayTasksRoleBased(todayStr) {
                 navigateToG2BList() {
         window.location.hash = 'projects/g2b';
         this.switchView('projects-g2b');
+    }
+
+        async openG2BPreSpecificationDetailPage(preSpecNo, options = {}) {
+        const updateHash = options && typeof options.updateHash === 'boolean' ? options.updateHash : true;
+        console.log(`[openG2BPreSpecificationDetailPage] preSpecNo: ${preSpecNo}`);
+
+        if (!preSpecNo) {
+            this.showToast('사전규격 등록번호가 올바르지 않습니다.', 'error');
+            await this.switchView('projects-g2b');
+            return;
+        }
+
+        const cleanNo = preSpecNo.replace(/^PRE_SPEC-/, '');
+        this.activeG2BAnnouncementNo = cleanNo;
+        const targetHash = `projects/g2b/pre-detail/${cleanNo}`;
+
+        if (updateHash && window.location.hash !== `#${targetHash}`) {
+            window.location.hash = targetHash;
+            return;
+        }
+
+        // Close any lingering modal
+        const modal = document.getElementById('modal-g2b-detail');
+        if (modal) {
+            modal.classList.remove('is-open', 'active');
+            modal.style.display = 'none';
+        }
+
+        // 1. Local memory lookup
+        let item = (this.state.g2bOriginalItems || []).find(a => a.announcementNo === cleanNo || a.id === `PRE_SPEC-${cleanNo}`) ||
+            (this.state.g2bFilteredItems || []).find(a => a.announcementNo === cleanNo || a.id === `PRE_SPEC-${cleanNo}`) ||
+            this.g2bAnnouncementsMap[cleanNo];
+
+        // 2. Re-fetch if refreshed or accessed directly by URL
+        if (!item) {
+            try {
+                this.showToast('사전규격 상세 정보를 불러오는 중입니다...', 'info');
+                const res = await fetch(`/api/g2b?serviceType=preSpec&bidNtceNm=${encodeURIComponent(cleanNo)}&_t=${Date.now()}`, {
+                    cache: 'no-store',
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (data && data.announcements && data.announcements.length > 0) {
+                    item = data.announcements.find(a => a.announcementNo === cleanNo) || data.announcements[0];
+                }
+            } catch (e) {
+                console.warn('[G2B PreSpec Re-fetch Error]:', e);
+            }
+        }
+
+        if (!item) {
+            item = {
+                id: `PRE_SPEC-${cleanNo}`,
+                sourceType: 'PRE_SPEC',
+                sourceLabel: '사전규격',
+                announcementType: 'pre',
+                announcementNo: cleanNo,
+                title: `사전규격 ${cleanNo}`,
+                name: `사전규격 ${cleanNo}`,
+                customer: '-',
+                organization: '-',
+                budget: 0,
+                registeredAt: '-',
+                publishDate: '-',
+                deadline: '-',
+                endDate: '-',
+                businessType: '용역',
+                url: `https://www.g2b.go.kr:8081/ep/preparation/prestd/preStdDtl.do?preStdRegNo=${cleanNo}`,
+                raw: {}
+            };
+        }
+
+        this.renderG2BPreDetailPageHtml(item);
+        await this.switchView('projects-g2b-pre-detail', null, { updateHash: false });
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    renderG2BPreDetailPageHtml(item) {
+        const container = document.getElementById('g2b-pre-detail-container');
+        if (!container) return;
+
+        const raw = item.raw || {};
+        const isRegistered = this.state.projects.some(p =>
+            p.projectCode === item.announcementNo ||
+            p.bidNumber === item.announcementNo ||
+            p.sourceReferenceNo === item.announcementNo
+        );
+
+        const linkedProject = this.state.projects.find(p =>
+            p.projectCode === item.announcementNo ||
+            p.bidNumber === item.announcementNo ||
+            p.sourceReferenceNo === item.announcementNo
+        );
+
+        const typeBadge = `<span class="chip badge-cat" style="background-color: var(--primary-light); color: #8b5cf6; border-color: rgba(139, 92, 246, 0.2); font-weight: 800;">사전규격</span>`;
+
+        const actionBtn = isRegistered
+            ? `<button class="btn btn-outline btn-sm" disabled style="opacity:0.6; cursor:not-allowed;"><i data-lucide="check" style="width:14px; height:14px; margin-right:4px;"></i> 검토 등록 완료</button>`
+            : `<button class="btn btn-primary btn-sm" onclick="app.registerBiddingProjectFromG2B('${item.announcementNo}');" style="background-color:#8b5cf6; border-color:#8b5cf6;"><i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 검토 프로젝트 등록</button>`;
+
+        const budgetStr = item.budget ? item.budget.toLocaleString() + ' 원' : '-';
+        const presmptStr = item.presmptPrce ? item.presmptPrce.toLocaleString() + ' 원' : '-';
+        const titleStr = item.title || item.name || `사전규격 ${item.announcementNo}`;
+
+        container.innerHTML = `
+            <!-- Top Navigation & Action Controls -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+                    <button type="button" onclick="app.navigateToG2BList()" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; border-radius: 6px;">
+                        <i data-lucide="arrow-left" style="width: 14px; height: 14px;"></i> 나라장터 목록으로 돌아가기
+                    </button>
+                    <span style="color: var(--text-muted);">|</span>
+                    <span style="color: var(--text-muted);">프로젝트</span> &gt; 
+                    <span style="color: var(--text-muted);">나라장터 사전규격</span> &gt; 
+                    <strong style="color: #8b5cf6;">사전규격 상세 정보</strong>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <a href="${item.url || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color:#8b5cf6; border-color:#8b5cf6;">
+                        <i data-lucide="external-link" style="width: 14px; height: 14px;"></i> 나라장터 사전규격 원문보기 (새 탭)
+                    </a>
+                    ${actionBtn}
+                </div>
+            </div>
+
+            <!-- Main Title Header Card -->
+            <div class="dashboard-card" style="padding: 24px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                    ${typeBadge}
+                    <span style="font-family: monospace; font-size: 14px; font-weight: 700; color: var(--text-muted);">사전규격등록번호: ${item.announcementNo}</span>
+                    <span class="chip" style="font-size: 11px; background: var(--bg-hover-item);">${item.businessType || '용역'}</span>
+                </div>
+                <h1 style="font-size: 22px; font-weight: 800; color: var(--text-main); line-height: 1.4; margin: 0 0 16px 0;">${this.escapeHtml(titleStr)}</h1>
+                <div style="display: flex; gap: 24px; font-size: 13px; color: var(--text-muted); flex-wrap: wrap;">
+                    <div><i data-lucide="building" style="width:14px; height:14px; margin-right:4px; vertical-align:middle; color:var(--primary);"></i> 수요기관: <strong style="color:var(--text-main);">${this.escapeHtml(item.customer || item.organization || '-')}</strong></div>
+                    <div><i data-lucide="coins" style="width:14px; height:14px; margin-right:4px; vertical-align:middle; color:var(--success);"></i> 배정예산액: <strong style="color:var(--success);">${budgetStr}</strong></div>
+                    <div><i data-lucide="calendar" style="width:14px; height:14px; margin-right:4px; vertical-align:middle; color:var(--info);"></i> 공개일자: <span style="color:var(--text-main);">${item.registeredAt || item.publishDate || '-'}</span></div>
+                    <div><i data-lucide="clock" style="width:14px; height:14px; margin-right:4px; vertical-align:middle; color:var(--danger);"></i> 의견마감일: <strong style="color:var(--danger);">${item.deadline || item.endDate || '-'}</strong></div>
+                </div>
+            </div>
+
+            <!-- Information Grid Cards (2 Columns) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <!-- Section 1: 기관 및 사전규격 정보 -->
+                <div class="dashboard-card" style="padding: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: #8b5cf6; margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="file-check" style="width: 16px; height: 16px;"></i> 사전규격 및 수요기관 정보
+                    </h3>
+                    <div style="font-size: 14px; display: grid; gap: 12px; line-height: 1.6;">
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">사전규격등록번호:</span> <strong style="font-family: monospace; color: var(--text-main);">${item.announcementNo}</strong></div>
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">품명 / 사업명:</span> <span style="color: var(--text-main); font-weight:600;">${this.escapeHtml(titleStr)}</span></div>
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">수요기관명:</span> <strong style="color: var(--text-main);">${this.escapeHtml(item.customer || item.organization || '-')}</strong></div>
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">업무구분:</span> <span>${item.businessType || '용역'}</span></div>
+                    </div>
+                </div>
+
+                <!-- Section 2: 금액 및 의견수렴 일정 -->
+                <div class="dashboard-card" style="padding: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--success); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="badge-dollar-sign" style="width: 16px; height: 16px;"></i> 금액 및 공개 일정 정보
+                    </h3>
+                    <div style="font-size: 14px; display: grid; gap: 12px; line-height: 1.6;">
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">배정예산액:</span> <strong style="color: var(--success); font-size: 15px;">${budgetStr}</strong></div>
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">추정가격:</span> <span>${presmptStr}</span></div>
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">사전규격 공개일:</span> <span>${item.registeredAt || item.publishDate || '-'}</span></div>
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">의견등록 마감일시:</span> <strong style="color: var(--danger);">${item.deadline || item.endDate || '-'}</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: 📁 규격서 첨부파일 및 의견제출 -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <div class="dashboard-card" style="padding: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--primary); margin-bottom: 12px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="file-down" style="width: 16px; height: 16px;"></i> 규격서 첨부파일 다운로드
+                    </h3>
+                    <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px;">
+                        발주기관에서 등록한 사전규격서 및 과업지시서 첨부파일 원본을 다운로드할 수 있습니다.
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="app.downloadG2BAttachment('${item.announcementNo}', '001', '${item.announcementNo}_01', '${this.escapeHtml(titleStr + '_사전규격서.hwp')}')" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 14px; font-weight: 700;">
+                            <i data-lucide="download" style="width: 15px; height: 15px;"></i> 사전규격서 원본파일 다운로드 (.hwp)
+                        </button>
+                        <a href="${item.url || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 14px; font-weight: 700;">
+                            <i data-lucide="external-link" style="width: 15px; height: 15px;"></i> 나라장터 원문보기 다운로드
+                        </a>
+                    </div>
+                </div>
+
+                <div class="dashboard-card" style="padding: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--purple); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="message-square" style="width: 16px; height: 16px;"></i> 의견제출 및 내부 검토 상태
+                    </h3>
+                    <div style="font-size: 14px; display: grid; gap: 12px; line-height: 1.6;">
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">의견 수렴 현황:</span> <span style="color: var(--text-main); font-weight: 600;">의견 등록 가능 (나라장터 세션 필요)</span></div>
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">내부 검토 상태:</span> <strong style="color: var(--primary);">${isRegistered ? '검토 프로젝트 등록 완료' : '미등록 (사전검토 진행)'}</strong></div>
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">담당 PM:</span> <span>${linkedProject?.manager || '미배정'}</span></div>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
     async openG2BAnnouncementDetailPage(bidNtceNo, bidNtceOrd = '001', options = {}) {
@@ -9844,7 +10054,7 @@ renderTodayTasksRoleBased(todayStr) {
                 <td class="text-center g2b-nowrap-cell">${typeBadge}</td>
                 <td class="font-bold text-xs g2b-nowrap-cell" style="font-family: monospace; font-size: 13px;">${ann.announcementNo}</td>
                 <td style="vertical-align: middle;">
-                    <button type="button" class="g2b-title-clamp g2b-notice-title-link" data-bid-notice-no="${ann.announcementNo}" data-bid-notice-ord="${ann.announcementOrd || '001'}" title="${ann.name}" onclick="app.openG2BAnnouncementDetailPage('${ann.announcementNo}', '${ann.announcementOrd || '001'}')">${ann.name}</button>
+                    <button type="button" class="g2b-title-clamp g2b-notice-title-link" data-bid-notice-no="${ann.announcementNo}" data-bid-notice-ord="${ann.announcementOrd || '001'}" title="${ann.name}" onclick="${ann.announcementType === 'pre' || ann.sourceType === 'PRE_SPEC' ? `app.openG2BPreSpecificationDetailPage('${ann.announcementNo}')` : `app.openG2BAnnouncementDetailPage('${ann.announcementNo}', '${ann.announcementOrd || '001'}')`}">${ann.name}</button>
                 </td>
                 <td class="g2b-customer-cell" style="vertical-align: middle;">${ann.customer}</td>
                 <td class="text-center text-muted g2b-nowrap-cell">${ann.publishDate}</td>
