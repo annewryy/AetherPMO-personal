@@ -32246,6 +32246,56 @@ renderTodayTasksRoleBased(todayStr) {
         container.innerHTML = boardHtml;
     }
 
+        normalizeBiddingProject(project) {
+        if (!project) return {};
+
+        const projectName =
+            project.name ||
+            project.projectName ||
+            project.businessName ||
+            project.bidName ||
+            project.announcementName ||
+            project.project_name ||
+            project.title ||
+            '사업명 미등록';
+
+        const clientName =
+            project.client ||
+            project.clientName ||
+            project.orderingAgency ||
+            project.agency ||
+            project.demandOrganization ||
+            project.customer ||
+            project.customerName ||
+            project.dminsttNm ||
+            project.orderInsttNm ||
+            '발주기관 미등록';
+
+        const expAmt = Number(
+            project.companyExpectedAmount ||
+            project.company_contract_amount ||
+            project.companyContractAmount ||
+            project.budget ||
+            project.totalContractAmount ||
+            project.contract_amount ||
+            0
+        );
+
+        const pmName = project.manager || project.pmName || project.pm_name || 'PM 미배정';
+        const dueDate = project.proposalDueDate || project.bidDueDate || project.dueDate || project.endDate || '-';
+        const winProb = project.winProbability || project.win_rate || project.winRate || 50;
+
+        return {
+            ...project,
+            normalizedProjectName: projectName,
+            normalizedClientName: clientName,
+            normalizedExpectedAmount: expAmt,
+            normalizedPmName: pmName,
+            normalizedDueDate: dueDate,
+            normalizedWinProbability: winProb
+        };
+    }
+
     renderBiddingKanbanCardHtml(p, stageInfo = {}) {
         const dueDate = p.proposalDueDate || p.bidDueDate || p.dueDate || p.endDate || '-';
         let dDayBadge = '';
@@ -32279,7 +32329,7 @@ renderTodayTasksRoleBased(todayStr) {
         const custName = p.customer || p.customerName || p.clientName || p.dminsttNm || p.orderInsttNm || '발주기관 미지정';
 
         // 수주확률 (Progress Bar)
-        const winProb = p.winProbability || p.win_rate || stageInfo.defaultProb || 50;
+        const winProb = norm.normalizedWinProbability || stageInfo.defaultProb || 50;
         const stageColor = stageInfo.badgeColor || '#3b82f6';
 
         return `
