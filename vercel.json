@@ -3,7 +3,8 @@
   "outputDirectory": ".",
   "rewrites": [
     { "source": "/api/g2b/bid", "destination": "/api/g2b?serviceType=bid" },
-    { "source": "/api/g2b/prespec", "destination": "/api/g2b?serviceType=prespec" },
+    { "source": "/api/g2b-prespec", "destination": "/api/g2b-prespec" },
+    { "source": "/api/g2b/prespec", "destination": "/api/g2b-prespec" },
     { "source": "/projects/(.*)", "destination": "/index.html" },
     { "source": "/project-detail/(.*)", "destination": "/index.html" },
     { "source": "/active/(.*)", "destination": "/index.html" },
