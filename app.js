@@ -4501,9 +4501,19 @@ class AetherPMO {
             } else {
                 await this.switchView('projects');
             }
+        } else if (mainRoute === 'g2b-detail' || mainRoute === 'projects-g2b-detail') {
+            const bidNtceNo = parts[0] === 'g2b-detail' || parts[0] === 'projects-g2b-detail' ? parts[1] : (parts[1] === 'g2b-detail' ? parts[2] : parts[1]);
+            const bidNtceOrd = parts[0] === 'g2b-detail' || parts[0] === 'projects-g2b-detail' ? parts[2] : (parts[1] === 'g2b-detail' ? parts[3] : parts[2]);
+            await this.openG2BAnnouncementDetailPage(bidNtceNo, bidNtceOrd);
+            return;
         } else if (mainRoute === 'projects') {
             const stage = parts[1];
-            if (stage === 'bidding') {
+            if (stage === 'g2b-detail' || stage === 'detail') {
+                const bidNtceNo = parts[2];
+                const bidNtceOrd = parts[3];
+                await this.openG2BAnnouncementDetailPage(bidNtceNo, bidNtceOrd);
+                return;
+            } else if (stage === 'bidding') {
                 this.activeProjectStageFilter = 'Bidding';
                 await this.switchView('projects');
             } else if (stage === 'active') {
@@ -4512,20 +4522,7 @@ class AetherPMO {
             } else if (stage === 'completed' || stage === 'closed') {
                 this.activeProjectStageFilter = 'Completed';
                 await this.switchView('projects');
-            } else if (mainRoute === 'g2b-detail' || mainRoute === 'projects-g2b-detail') {
-            const bidNtceNo = parts[1] === 'g2b-detail' ? parts[2] : parts[1];
-            const bidNtceOrd = parts[1] === 'g2b-detail' ? parts[3] : parts[2];
-            await this.openG2BAnnouncementDetailPage(bidNtceNo, bidNtceOrd);
-            return;
-        } else if (mainRoute === 'g2b-detail-legacy') {
-            const announcementNo = parts[1];
-            if (announcementNo) {
-                await this.openG2BAnnouncementDetailPage(announcementNo);
-            } else {
-                await this.switchView('projects-g2b');
-            }
-            return;
-        } else if (stage === 'g2b') {
+            } else if (stage === 'g2b') {
                 await this.switchView('projects-g2b');
             } else {
                 await this.switchView('projects');
@@ -9006,6 +9003,7 @@ renderTodayTasksRoleBased(todayStr) {
     }
 
     renderG2BAnnouncements() {
+        console.log('[renderG2BAnnouncements executing...]');
         const tbody = document.getElementById('g2b-announcements-tbody');
         if (!tbody) return;
 
@@ -9657,78 +9655,13 @@ renderTodayTasksRoleBased(todayStr) {
 
 
 
-    openG2BAnnouncementDetailModal(announcementNo) {
-        const ann = this.g2bAnnouncementsMap[announcementNo] ||
-            (this.state.g2bOriginalItems || []).find(a => a.announcementNo === announcementNo) ||
-            (this.state.g2bFilteredItems || []).find(a => a.announcementNo === announcementNo);
-
-        if (!ann) {
-            this.showToast('해당 공고 정보를 찾을 수 없습니다.', 'error');
-            return;
-        }
-
-        const badgeEl = document.getElementById('g2b-modal-badge');
-        if (badgeEl) {
-            badgeEl.style.backgroundColor = ann.announcementType === 'pre' ? 'var(--primary-light)' : 'var(--info-glow)';
-            badgeEl.style.color = ann.announcementType === 'pre' ? '#8b5cf6' : 'var(--info)';
-            badgeEl.textContent = ann.announcementType === 'pre' ? '사전규격' : '본공고';
-        }
-
-        const titleEl = document.getElementById('g2b-modal-title');
-        if (titleEl) titleEl.textContent = ann.name || '-';
-
-        const noEl = document.getElementById('g2b-modal-no');
-        if (noEl) noEl.textContent = `공고번호: ${ann.announcementNo} (차수: ${ann.announcementOrd || '001'})`;
-
-        const customerEl = document.getElementById('g2b-modal-customer');
-        if (customerEl) customerEl.textContent = ann.customer || '-';
-
-        const insttEl = document.getElementById('g2b-modal-instt');
-        if (insttEl) insttEl.textContent = ann.ntceInsttNm || ann.customer || '-';
-
-        const budgetEl = document.getElementById('g2b-modal-budget');
-        if (budgetEl) budgetEl.textContent = ann.budget ? ann.budget.toLocaleString() + ' 원' : '-';
-
-        const contractEl = document.getElementById('g2b-modal-contract-methd');
-        if (contractEl) contractEl.textContent = ann.cntrctCnclsMthdNm || '협상에 의한 계약';
-
-        const methdEl = document.getElementById('g2b-modal-bid-methd');
-        if (methdEl) methdEl.textContent = ann.bidMethdNm || '일반(총액)경쟁';
-
-        const pubDateEl = document.getElementById('g2b-modal-pub-date');
-        if (pubDateEl) pubDateEl.textContent = ann.publishDate || '-';
-
-        const endDateEl = document.getElementById('g2b-modal-end-date');
-        if (endDateEl) endDateEl.textContent = ann.endDate || '-';
-
-        const openDateEl = document.getElementById('g2b-modal-open-date');
-        if (openDateEl) openDateEl.textContent = ann.opengDt || ann.endDate || '-';
-
-        const originUrlEl = document.getElementById('g2b-modal-origin-url');
-        if (originUrlEl) originUrlEl.href = ann.url || '#';
-
-        const actionContainer = document.getElementById('g2b-modal-action-container');
-        if (actionContainer) {
-            const isRegistered = this.state.projects.some(p =>
-                p.projectCode === ann.announcementNo ||
-                p.bidNumber === ann.announcementNo ||
-                p.sourceReferenceNo === ann.announcementNo
-            );
-
-            if (isRegistered) {
-                actionContainer.innerHTML = `<button class="btn btn-outline" disabled style="opacity:0.6; cursor:not-allowed;"><i data-lucide="check" style="width:12px; height:12px; margin-right:4px;"></i> 등록 완료</button>`;
-            } else if (ann.announcementType === 'pre') {
-                actionContainer.innerHTML = `<button class="btn btn-primary" onclick="app.closeModal('modal-g2b-detail'); app.registerBiddingProjectFromG2B('${ann.announcementNo}');" style="background-color:#8b5cf6; border-color:#8b5cf6;"><i data-lucide="plus" style="width:12px; height:12px; margin-right:4px;"></i> 검토 프로젝트 등록</button>`;
-            } else {
-                actionContainer.innerHTML = `<button class="btn btn-primary" onclick="app.closeModal('modal-g2b-detail'); app.registerBiddingProjectFromG2B('${ann.announcementNo}');"><i data-lucide="plus" style="width:12px; height:12px; margin-right:4px;"></i> 입찰 프로젝트 등록</button>`;
-            }
-        }
-
-        this.openModal('modal-g2b-detail');
-        if (window.lucide) window.lucide.createIcons();
+        openG2BAnnouncementDetailModal(announcementNo, announcementOrd) {
+        console.log('[openG2BAnnouncementDetailModal] Redirecting to openG2BAnnouncementDetailPage for:', announcementNo);
+        return this.openG2BAnnouncementDetailPage(announcementNo, announcementOrd);
     }
 
     renderG2BViewAnnouncements() {
+        console.log('[renderG2BViewAnnouncements executing...]');
         const tbody = document.getElementById('g2b-view-announcements-tbody');
         if (!tbody) return;
 
