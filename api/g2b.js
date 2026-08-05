@@ -319,7 +319,14 @@ module.exports = async (req, res) => {
     };
 
     try {
-        const query = url.parse(req.url, true).query;
+        let query = {};
+        try {
+            const reqUrl = req.url.startsWith('http') ? req.url : `http://localhost${req.url}`;
+            const parsedUrl = new URL(reqUrl);
+            parsedUrl.searchParams.forEach((val, key) => { query[key] = val; });
+        } catch (uErr) {
+            query = url.parse(req.url, true).query || {};
+        }
 
         const bidNtceNm = query.bidNtceNm || '';
         const dminsttNm = query.dminsttNm || '';
@@ -336,11 +343,21 @@ module.exports = async (req, res) => {
         const fetchPre = (serviceType === 'pre' || serviceType === 'all');
 
         if (fetchBid && !bidServiceKey) {
-            res.status(500).json({ error: true, message: 'G2B_API_KEY is not configured on the server.' });
+            res.status(200).json({ 
+                error: true, 
+                message: '서버에 나라장터 API 키(G2B_API_KEY)가 설정되지 않았습니다. Vercel 환경 변수에 G2B_API_KEY를 등록해주세요.',
+                announcements: [],
+                totalCount: 0
+            });
             return;
         }
         if (fetchPre && !preServiceKey) {
-            res.status(500).json({ error: true, message: 'G2B_PRE_SERVICE_KEY (or G2B_API_KEY) is not configured on the server.' });
+            res.status(200).json({ 
+                error: true, 
+                message: '서버에 나라장터 사전규격 API 키(G2B_PRE_SERVICE_KEY 또는 G2B_API_KEY)가 설정되지 않았습니다.',
+                announcements: [],
+                totalCount: 0
+            });
             return;
         }
 
@@ -411,23 +428,33 @@ module.exports = async (req, res) => {
                     const result = await fetchG2BData(requestUrl);
                     
                     const xmlErr = extractXmlError(result.data);
-                    if (xmlErr) throw new Error(`OpenAPI Error (XML) - Code: ${xmlErr.code}, Message: ${xmlErr.msg}`);
-                    
-                    const parsedJson = JSON.parse(result.data);
-                    const header = parsedJson?.response?.header;
-                    if (header && header.resultCode && header.resultCode !== '00') {
-                        throw new Error(`OpenAPI Error (JSON) - Code: ${header.resultCode}, Message: ${header.resultMsg}`);
+                    if (xmlErr) {
+                        console.warn('[General Mode - BID] OpenAPI XML Error:', xmlErr.msg);
+                    } else {
+                        let parsedJson = null;
+                        try {
+                            parsedJson = JSON.parse(result.data);
+                        } catch (pErr) {
+                            console.warn('[General Mode - BID] Non-JSON response received:', pErr.message);
+                        }
+
+                        if (parsedJson) {
+                            const header = parsedJson?.response?.header;
+                            if (header && header.resultCode && header.resultCode !== '00') {
+                                console.warn(`[General Mode - BID] Header Error: ${header.resultCode} - ${header.resultMsg}`);
+                            } else {
+                                const itemsData = parsedJson?.response?.body?.items;
+                                let list = [];
+                                if (itemsData) {
+                                    if (Array.isArray(itemsData)) list = itemsData;
+                                    else if (Array.isArray(itemsData.item)) list = itemsData.item;
+                                    else if (itemsData.item) list = [itemsData.item];
+                                }
+                                totalCount += parseInt(parsedJson?.response?.body?.totalCount || '0');
+                                allFormattedItems = allFormattedItems.concat(list.map((item, idx) => formatBidItem(item, idx)).filter(Boolean));
+                            }
+                        }
                     }
-                    
-                    const itemsData = parsedJson?.response?.body?.items;
-                    let list = [];
-                    if (itemsData) {
-                        if (Array.isArray(itemsData)) list = itemsData;
-                        else if (Array.isArray(itemsData.item)) list = itemsData.item;
-                        else if (itemsData.item) list = [itemsData.item];
-                    }
-                    totalCount += parseInt(parsedJson?.response?.body?.totalCount || '0');
-                    allFormattedItems = allFormattedItems.concat(list.map((item, idx) => formatBidItem(item, idx)).filter(Boolean));
                 } catch (e) {
                     console.warn('[General Mode - BID] Failed:', e.message);
                 }
@@ -563,9 +590,11 @@ module.exports = async (req, res) => {
 
     } catch (e) {
         console.error('Serverless function exception:', maskKey(e.message || e));
-        res.status(500).json({ 
+        res.status(200).json({ 
             error: true, 
-            message: 'Internal Server Error', 
+            message: maskKey(e.message || '나라장터 API 호출 중 오류가 발생했습니다.'), 
+            announcements: [],
+            totalCount: 0,
             details: maskKey(e.message || e) 
         });
     }
