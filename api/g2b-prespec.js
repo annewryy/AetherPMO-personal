@@ -1,6 +1,20 @@
 const PRE_SPEC_BASE_URL =
     'https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService';
 
+const OPERATIONS_GENERAL = {
+    '용역': 'getPublicPrcureThngInfoServc',
+    '공사': 'getPublicPrcureThngInfoCnstwk',
+    '물품': 'getPublicPrcureThngInfoThng',
+    '외자': 'getPublicPrcureThngInfoFrgcpt'
+};
+
+const OPERATIONS_SEARCH = {
+    '용역': 'getPublicPrcureThngInfoServcPPSSrch',
+    '공사': 'getPublicPrcureThngInfoCnstwkPPSSrch',
+    '물품': 'getPublicPrcureThngInfoThngPPSSrch',
+    '외자': 'getPublicPrcureThngInfoFrgcptPPSSrch'
+};
+
 function cleanKey(value = '') {
     if (!value) return '';
 
@@ -40,85 +54,100 @@ function normalizeItems(items) {
     return Array.isArray(items) ? items : [items];
 }
 
+async function executeFetch(operation, serviceKey, pageNo, numOfRows, beginDate = '', endDate = '') {
+    const url = new URL(`${PRE_SPEC_BASE_URL}/${operation}`);
+    url.searchParams.set('serviceKey', serviceKey);
+    url.searchParams.set('pageNo', String(pageNo));
+    url.searchParams.set('numOfRows', String(numOfRows));
+    url.searchParams.set('type', 'json');
+
+    if (beginDate) url.searchParams.set('inqryBgnDt', beginDate);
+    if (endDate) url.searchParams.set('inqryEndDt', endDate);
+
+    const safeUrl = url.toString().replace(/serviceKey=[^&]+/, 'serviceKey=[REDACTED]');
+    console.log('[G2B PreSpec Request Execution]', { operation, url: safeUrl });
+
+    const response = await fetch(url);
+    const rawText = await response.text();
+
+    let data;
+    try {
+        data = JSON.parse(rawText);
+    } catch (error) {
+        return { ok: false, status: response.status, resultCode: 'JSON_PARSE_ERROR', resultMsg: 'JSON 파싱 실패', items: [], totalCount: 0, rawText };
+    }
+
+    const header = data?.response?.header || data?.OpenAPI_ServiceResponse?.cmmMsgHeader || {};
+    const resultCode = header.resultCode || header.returnReasonCode || '';
+    const resultMsg = header.resultMsg || header.errMsg || header.returnAuthMsg || '';
+
+    const body = data?.response?.body || {};
+    const rawItems = body?.items?.item ?? body?.items ?? [];
+    const items = normalizeItems(rawItems);
+    const totalCount = Number(body.totalCount || items.length);
+
+    console.log('[G2B PreSpec Response Execution]', {
+        operation,
+        httpStatus: response.status,
+        resultCode,
+        resultMsg,
+        totalCount,
+        parsedItems: items.length
+    });
+
+    return {
+        ok: response.ok && (resultCode === '00' || resultCode === '0'),
+        status: response.status,
+        resultCode,
+        resultMsg,
+        totalCount,
+        items,
+        rawText
+    };
+}
+
 async function fetchCategory({
     category,
-    operation,
     serviceKey,
     pageNo,
     numOfRows,
     beginDate,
     endDate
 }) {
-    const tryFetch = async (bDate, eDate) => {
-        const url = new URL(`${PRE_SPEC_BASE_URL}/${operation}`);
-        url.searchParams.set('serviceKey', serviceKey);
-        url.searchParams.set('pageNo', String(pageNo));
-        url.searchParams.set('numOfRows', String(numOfRows));
-        url.searchParams.set('type', 'json');
-        if (bDate) url.searchParams.set('inqryBgnDt', bDate);
-        if (eDate) url.searchParams.set('inqryEndDt', eDate);
+    const opGeneral = OPERATIONS_GENERAL[category];
+    const opSearch = OPERATIONS_SEARCH[category];
 
-        const safeUrl = url.toString().replace(/serviceKey=[^&]+/, 'serviceKey=[REDACTED]');
-        console.log('[G2B PreSpec Request]', { category, url: safeUrl });
+    const beginDate8 = beginDate ? beginDate.slice(0, 8) : '';
+    const endDate8 = endDate ? endDate.slice(0, 8) : '';
 
-        const response = await fetch(url);
-        const rawText = await response.text();
-        let data;
-        try {
-            data = JSON.parse(rawText);
-        } catch (error) {
-            throw new Error(`${category} 응답 JSON 파싱 실패: ${rawText.slice(0, 200)}`);
-        }
+    // Step 1: Try Search Operation with 12-digit dates
+    let res = await executeFetch(opSearch, serviceKey, pageNo, numOfRows, beginDate, endDate);
 
-        const header = data?.response?.header || data?.OpenAPI_ServiceResponse?.cmmMsgHeader || {};
-        const resultCode = header.resultCode || header.returnReasonCode || '';
-        const resultMsg = header.resultMsg || header.errMsg || header.returnAuthMsg || '';
-
-        return { response, data, resultCode, resultMsg, rawText };
-    };
-
-    // Attempt 1: 12-digit dates
-    let resObj = await tryFetch(beginDate, endDate);
-
-    // Attempt 2: If resultCode is 04 / HTTP_ERROR, retry with 8-digit dates (YYYYMMDD)
-    if (resObj.resultCode === '04' || resObj.resultMsg.includes('HTTP_ERROR')) {
-        const bDate8 = beginDate ? beginDate.slice(0, 8) : '';
-        const eDate8 = endDate ? endDate.slice(0, 8) : '';
-        if (bDate8 !== beginDate) {
-            console.log(`[G2B PreSpec Retry 8-Digit Date] Category: ${category}`);
-            const resObj8 = await tryFetch(bDate8, eDate8);
-            if (resObj8.resultCode === '00' || resObj8.resultCode === '0') {
-                resObj = resObj8;
-            }
-        }
+    // Step 2: If Search Operation failed or returned 04, try Search Operation with 8-digit dates
+    if (!res.ok) {
+        console.log(`[PreSpec Fallback Step 2: 8-digit Search Operation] Category: ${category}`);
+        const res2 = await executeFetch(opSearch, serviceKey, pageNo, numOfRows, beginDate8, endDate8);
+        if (res2.ok) res = res2;
     }
 
-    const { response, data, resultCode, resultMsg } = resObj;
+    // Step 3: If Search Operations failed, try General Operation with Minimal Parameters (serviceKey, pageNo, numOfRows, type only)
+    if (!res.ok) {
+        console.log(`[PreSpec Fallback Step 3: Minimal General Operation] Category: ${category}`);
+        const res3 = await executeFetch(opGeneral, serviceKey, pageNo, numOfRows);
+        if (res3.ok) res = res3;
+    }
 
-    if (!response.ok || (resultCode && resultCode !== '00' && resultCode !== '0')) {
+    if (!res.ok) {
         throw new Error(
-            `${category} API 오류: HTTP ${response.status}, ` +
-            `${resultCode || 'UNKNOWN'} ${resultMsg || ''}`.trim()
+            `${category} API 오류: HTTP ${res.status}, ` +
+            `${res.resultCode || 'UNKNOWN'} ${res.resultMsg || ''}`.trim()
         );
     }
 
-    const body = data?.response?.body || {};
-    const rawItems = body?.items?.item ?? body?.items ?? [];
-    const items = normalizeItems(rawItems);
-
-    console.log('[G2B PreSpec Response]', {
-        category,
-        httpStatus: response.status,
-        resultCode,
-        resultMsg,
-        totalCount: Number(body.totalCount || items.length),
-        parsedItems: items.length
-    });
-
     return {
         category,
-        totalCount: Number(body.totalCount || items.length),
-        items: items.map(item => ({
+        totalCount: res.totalCount,
+        items: res.items.map(item => ({
             sourceType: 'PRE_SPEC',
             sourceLabel: '사전규격',
             businessType: category,
@@ -162,29 +191,12 @@ module.exports = async function handler(req, res) {
         '2359'
     );
 
-    const categories = [
-        {
-            category: '용역',
-            operation: 'getPublicPrcureThngInfoServc'
-        },
-        {
-            category: '공사',
-            operation: 'getPublicPrcureThngInfoCnstwk'
-        },
-        {
-            category: '물품',
-            operation: 'getPublicPrcureThngInfoThng'
-        },
-        {
-            category: '외자',
-            operation: 'getPublicPrcureThngInfoFrgcpt'
-        }
-    ];
+    const categories = ['용역', '공사', '물품', '외자'];
 
     const results = await Promise.allSettled(
-        categories.map(item =>
+        categories.map(cat =>
             fetchCategory({
-                ...item,
+                category: cat,
                 serviceKey,
                 pageNo,
                 numOfRows,
@@ -199,7 +211,7 @@ module.exports = async function handler(req, res) {
     let totalCount = 0;
 
     results.forEach((result, index) => {
-        const category = categories[index].category;
+        const category = categories[index];
 
         if (result.status === 'fulfilled') {
             totalCount += result.value.totalCount;
