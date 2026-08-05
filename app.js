@@ -9075,7 +9075,7 @@ renderTodayTasksRoleBased(todayStr) {
                 <td>
                     <div style="display: flex; flex-direction: column; gap: 4px;">
                         <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;width:fit-content;${typeStyle}">${typeLabel}</span>
-                        <button type="button" class="font-bold text-xs g2b-notice-title-link" data-bid-notice-no="${ann.announcementNo}" data-bid-notice-ord="${ann.announcementOrd || '001'}" style="max-width: 240px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;" title="${ann.name}" onclick="app.openG2BAnnouncementDetailPage('${ann.announcementNo}')">${ann.name}</button>
+                        <button type="button" class="font-bold text-xs g2b-notice-title-link" data-bid-notice-no="${ann.announcementNo}" data-bid-notice-ord="${ann.announcementOrd || '001'}" style="max-width: 240px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;" title="${ann.name}" onclick="app.openG2BAnnouncementDetailModal('${ann.announcementNo}')">${ann.name}</button>
                     </div>
                 </td>
                 <td class="text-xs font-bold">${ann.customer}</td>
@@ -9416,7 +9416,11 @@ renderTodayTasksRoleBased(todayStr) {
         }
     }
 
-        openG2BAnnouncementDetailModal(announcementNo) {
+            openG2BAnnouncementDetailPage(...args) {
+        return this.openG2BAnnouncementDetailModal(...args);
+    }
+
+    openG2BAnnouncementDetailModal(announcementNo) {
         const ann = this.g2bAnnouncementsMap[announcementNo] ||
             (this.state.g2bOriginalItems || []).find(a => a.announcementNo === announcementNo) ||
             (this.state.g2bFilteredItems || []).find(a => a.announcementNo === announcementNo);
@@ -9559,7 +9563,7 @@ renderTodayTasksRoleBased(todayStr) {
                 <td class="text-center g2b-nowrap-cell">${typeBadge}</td>
                 <td class="font-bold text-xs g2b-nowrap-cell" style="font-family: monospace; font-size: 13px;">${ann.announcementNo}</td>
                 <td style="vertical-align: middle;">
-                    <button type="button" class="g2b-title-clamp g2b-notice-title-link" data-bid-notice-no="${ann.announcementNo}" data-bid-notice-ord="${ann.announcementOrd || '001'}" title="${ann.name}" onclick="app.openG2BAnnouncementDetailPage('${ann.announcementNo}')">${ann.name}</button>
+                    <button type="button" class="g2b-title-clamp g2b-notice-title-link" data-bid-notice-no="${ann.announcementNo}" data-bid-notice-ord="${ann.announcementOrd || '001'}" title="${ann.name}" onclick="app.openG2BAnnouncementDetailModal('${ann.announcementNo}')">${ann.name}</button>
                 </td>
                 <td class="g2b-customer-cell" style="vertical-align: middle;">${ann.customer}</td>
                 <td class="text-center text-muted g2b-nowrap-cell">${ann.publishDate}</td>
