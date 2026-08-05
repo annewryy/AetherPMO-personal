@@ -32272,10 +32272,11 @@ renderTodayTasksRoleBased(todayStr) {
             dDayBadge = `<span class="d-day-badge d-day-normal" style="font-size:12px; font-weight:700; padding:4px 8px;">기한 미정</span>`;
         }
 
-        const expAmt = Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0);
+        const nameStr = p.name || p.projectName || p.title || p.project_name || '입찰 프로젝트';
+        const expAmt = Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || p.budget || 0);
         const expAmtStr = expAmt > 0 ? this.formatAmountShort(expAmt) : '금액 미입력';
-        const pmName = p.manager || p.pmName || 'PM 미배정';
-        const custName = p.customer || p.customerName || '발주기관 미지정';
+        const pmName = p.manager || p.pmName || p.pm_name || 'PM 미배정';
+        const custName = p.customer || p.customerName || p.clientName || p.dminsttNm || p.orderInsttNm || '발주기관 미지정';
 
         // 수주확률 (Progress Bar)
         const winProb = p.winProbability || p.win_rate || stageInfo.defaultProb || 50;
@@ -32303,10 +32304,12 @@ renderTodayTasksRoleBased(todayStr) {
                     </div>
                 </div>
 
-                <div class="bidding-card-title" title="${this.escapeHtml(p.name)}">${this.escapeHtml(p.name)}</div>
-                <div class="card-customer" style="font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:4px;" title="${this.escapeHtml(custName)}">
-                    <i data-lucide="building" style="width:13px; height:13px;"></i>
-                    <span>${this.escapeHtml(custName)}</span>
+                <div class="card-title bidding-card-title" title="${this.escapeHtml(nameStr)}" style="color: var(--text-main) !important; font-size: 16px; font-weight: 700; line-height: 1.4; margin: 4px 0;">
+                    ${this.escapeHtml(nameStr)}
+                </div>
+                <div class="card-customer" style="font-size: 13px; color: var(--text-muted) !important; display: flex; align-items: center; gap: 5px; margin-bottom: 4px;" title="${this.escapeHtml(custName)}">
+                    <i data-lucide="building" style="width: 13px; height: 13px; color: var(--primary); flex-shrink: 0;"></i>
+                    <span style="color: var(--text-main) !important; font-weight: 600;">${this.escapeHtml(custName)}</span>
                 </div>
                 
                 <div class="card-amount-row" style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-top:2px;">

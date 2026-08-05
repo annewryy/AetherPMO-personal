@@ -10079,3 +10079,35 @@ body.app-modal-open {
     opacity: 0.5;
     flex-shrink: 0;
 }
+
+
+/* Guarantee explicit font colors and visibility for Bidding Kanban Card Title & Customer */
+.bidding-kanban-card-v2 .bidding-card-title,
+.bidding-kanban-card-v2 .card-title {
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: var(--text-main) !important;
+    line-height: 1.4 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.bidding-kanban-card-v2 .card-customer {
+    font-size: 13px !important;
+    color: var(--text-muted) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    word-break: break-all;
+}
+
+.bidding-kanban-card-v2 .card-customer span {
+    color: var(--text-main) !important;
+    font-weight: 600 !important;
+}
