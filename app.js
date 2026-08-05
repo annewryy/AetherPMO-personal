@@ -32296,7 +32296,8 @@ renderTodayTasksRoleBased(todayStr) {
         };
     }
 
-    renderBiddingKanbanCardHtml(p, stageInfo = {}) {
+        renderBiddingKanbanCardHtml(p, stageInfo = {}) {
+        // 1. 공통 프로젝트 정규화 (Normalization)
         const norm = this.normalizeBiddingProject(p);
         const dueDate = norm.normalizedDueDate;
         let dDayBadge = '';
@@ -32309,15 +32310,15 @@ renderTodayTasksRoleBased(todayStr) {
             const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
 
             if (diffDays < 0) {
-                dDayBadge = `<span class="d-day-badge d-day-closed" style="font-size:13px; font-weight:800; padding:4px 10px; border-radius:6px;">마감지연 (${Math.abs(diffDays)}일)</span>`;
+                dDayBadge = `<span class="d-day-badge d-day-closed" style="font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px;">마감지연 (${Math.abs(diffDays)}일)</span>`;
             } else if (diffDays === 0) {
-                dDayBadge = `<span class="d-day-badge d-day-urgent" style="font-size:13px; font-weight:800; padding:4px 10px; border-radius:6px; background:#ef4444; color:#fff;">D-Day</span>`;
+                dDayBadge = `<span class="d-day-badge d-day-urgent" style="font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px; background:#ef4444; color:#fff;">D-Day</span>`;
             } else if (diffDays <= 3) {
-                dDayBadge = `<span class="d-day-badge d-day-urgent" style="font-size:13px; font-weight:800; padding:4px 10px; border-radius:6px; background:#ef4444; color:#fff;">D-${diffDays}</span>`;
+                dDayBadge = `<span class="d-day-badge d-day-urgent" style="font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px; background:#ef4444; color:#fff;">D-${diffDays}</span>`;
             } else if (diffDays <= 7) {
-                dDayBadge = `<span class="d-day-badge d-day-warning" style="font-size:13px; font-weight:800; padding:4px 10px; border-radius:6px; background:#f59e0b; color:#fff;">D-${diffDays}</span>`;
+                dDayBadge = `<span class="d-day-badge d-day-warning" style="font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px; background:#f59e0b; color:#fff;">D-${diffDays}</span>`;
             } else {
-                dDayBadge = `<span class="d-day-badge d-day-normal" style="font-size:13px; font-weight:800; padding:4px 10px; border-radius:6px;">D-${diffDays}</span>`;
+                dDayBadge = `<span class="d-day-badge d-day-normal" style="font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px;">D-${diffDays}</span>`;
             }
         } else {
             dDayBadge = `<span class="d-day-badge d-day-normal" style="font-size:12px; font-weight:700; padding:4px 8px;">기한 미정</span>`;
@@ -32328,13 +32329,13 @@ renderTodayTasksRoleBased(todayStr) {
         const expAmt = norm.normalizedExpectedAmount;
         const expAmtStr = expAmt > 0 ? this.formatAmountShort(expAmt) : '금액 미입력';
         const pmName = norm.normalizedPmName;
-
-        // 수주확률 (Progress Bar)
         const winProb = norm.normalizedWinProbability || stageInfo.defaultProb || 50;
         const stageColor = stageInfo.badgeColor || '#3b82f6';
 
+        // 2. 단일 공통 카드 템플릿 반환 (순서: D-Day -> 사업명(2줄) -> 발주기관 -> 예상금액 -> 수주확률 -> PM/마감일)
         return `
             <div class="bidding-kanban-card-v2" draggable="true" ondragstart="app.handleBiddingDragStart(event, '${p.id}')" onclick="app.openBiddingDetailModal('${p.id}')">
+                <!-- 1. D-Day 및 우상단 케밥 메뉴 -->
                 <div class="card-top-row" style="display:flex; justify-content:space-between; align-items:center;">
                     ${dDayBadge}
                     <div class="bidding-card-menu-dropdown" onclick="event.stopPropagation();">
@@ -32355,31 +32356,36 @@ renderTodayTasksRoleBased(todayStr) {
                     </div>
                 </div>
 
-                <div class="card-title bidding-card-title" title="${this.escapeHtml(nameStr)}" style="color: var(--text-main) !important; font-size: 16px; font-weight: 700; line-height: 1.4; margin: 4px 0;">
+                <!-- 2. 사업명 (2줄 Clamped) -->
+                <div class="card-title bidding-card-title" title="${this.escapeHtml(nameStr)}">
                     ${this.escapeHtml(nameStr)}
                 </div>
-                <div class="card-customer" style="font-size: 13px; color: var(--text-muted) !important; display: flex; align-items: center; gap: 5px; margin-bottom: 4px;" title="${this.escapeHtml(custName)}">
+
+                <!-- 3. 발주기관 -->
+                <div class="card-customer" title="${this.escapeHtml(custName)}">
                     <i data-lucide="building" style="width: 13px; height: 13px; color: var(--primary); flex-shrink: 0;"></i>
-                    <span style="color: var(--text-main) !important; font-weight: 600;">${this.escapeHtml(custName)}</span>
+                    <span>${this.escapeHtml(custName)}</span>
                 </div>
                 
-                <div class="card-amount-row" style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-top:2px;">
+                <!-- 4. 당사 예상금액 -->
+                <div class="card-amount-row" style="display:flex; justify-content:space-between; align-items:center; font-size:12.5px; margin-top:2px;">
                     <span style="color:var(--text-muted);">당사 예상금액</span>
-                    <strong class="card-amount-val" style="font-size:15px; color:var(--primary); font-weight:700;">${expAmtStr}</strong>
+                    <strong class="card-amount-val" style="font-size:14.5px; color:var(--primary); font-weight:700;">${expAmtStr}</strong>
                 </div>
 
-                <!-- 수주확률 Progress Bar -->
-                <div class="card-win-prob-row" style="margin-top:6px; padding-top:6px; border-top:1px dashed var(--bg-card-border);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-bottom:4px;">
+                <!-- 5. 수주확률 Progress Bar -->
+                <div class="card-win-prob-row" style="margin-top:4px; padding-top:4px; border-top:1px dashed var(--bg-card-border);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-bottom:3px;">
                         <span style="color:var(--text-muted);">수주확률</span>
                         <strong style="color:${stageColor}; font-weight:700;">${winProb}%</strong>
                     </div>
-                    <div style="width:100%; height:7px; background:var(--bg-hover-item); border-radius:4px; overflow:hidden;">
+                    <div style="width:100%; height:6px; background:var(--bg-hover-item); border-radius:3px; overflow:hidden;">
                         <div style="width:${winProb}%; height:100%; background:linear-gradient(90deg, ${stageColor}, #10b981); border-radius:3px; transition:width 0.3s ease;"></div>
                     </div>
                 </div>
 
-                <div class="card-bottom-row" style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-muted); margin-top:4px;">
+                <!-- 6. 담당자 / 마감일 -->
+                <div class="card-bottom-row" style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-muted); margin-top:2px;">
                     <div class="card-pm-info" style="display:flex; align-items:center; gap:4px;">
                         <i data-lucide="user" style="width:12px; height:12px;"></i>
                         <span>${this.escapeHtml(pmName)}</span>

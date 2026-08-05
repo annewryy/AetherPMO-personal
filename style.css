@@ -10111,3 +10111,66 @@ body.app-modal-open {
     color: var(--text-main) !important;
     font-weight: 600 !important;
 }
+
+
+/* Unified Bidding Kanban Card Component (Fixed Height, Clamped Title, Universal Order) */
+.bidding-kanban-card-v2 {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--bg-card-border) !important;
+    border-radius: 12px !important;
+    padding: 16px 18px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    min-height: 195px !important;
+    cursor: grab !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.bidding-kanban-card-v2:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12) !important;
+    border-color: var(--primary) !important;
+}
+
+.bidding-kanban-card-v2 .card-title,
+.bidding-kanban-card-v2 .bidding-card-title {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: var(--text-main) !important;
+    line-height: 1.4 !important;
+    min-height: 2.8em !important;
+    max-height: 2.8em !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    word-break: break-all !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    margin: 2px 0 4px 0 !important;
+}
+
+.bidding-kanban-card-v2 .card-customer {
+    font-size: 12.5px !important;
+    color: var(--text-muted) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    margin-bottom: 4px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.bidding-kanban-card-v2 .card-customer span {
+    color: var(--text-main) !important;
+    font-weight: 600 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
