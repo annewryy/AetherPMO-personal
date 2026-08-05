@@ -1,3 +1,4 @@
+// Force Vercel Clean Rebuild Timestamp: 2026-08-05 16:13:21
 const cleanKey = (key) => {
     if (!key) return '';
     let cleaned = String(key).replace(/[\r\n]/g, '').trim();
