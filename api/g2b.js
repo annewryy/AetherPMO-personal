@@ -340,7 +340,7 @@ module.exports = async (req, res) => {
 
         // 실행할 조회 모드 결정
         const fetchBid = (serviceType === 'bid' || serviceType === 'all');
-        const fetchPre = (serviceType === 'pre' || serviceType === 'all');
+        const fetchPre = (serviceType === 'pre' || serviceType === 'preSpec' || serviceType === 'pre_spec' || serviceType === 'all');
 
         if (fetchBid && !bidServiceKey) {
             res.status(200).json({ 

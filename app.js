@@ -1,3 +1,9 @@
+const G2B_SERVICE_TYPES = {
+    ALL: 'all',
+    BID: 'bid',
+    PRE_SPEC: 'preSpec'
+};
+
 // AetherPMO app.js v54 - Verified syntax zero errors timestamp: 2026-08-05-10:23
 /**
  * AetherPMO - Project Management Office System
@@ -9140,9 +9146,11 @@ renderTodayTasksRoleBased(todayStr) {
             : (document.getElementById('g2b-filter-end-date')?.value || '');
 
         // 공고유형: 'pre'(사전규격), 'bid'(본공고), 'all'(전체)
-        const announcementType = options.announcementType !== undefined
+        let rawAnnType = options.announcementType !== undefined
             ? options.announcementType
             : (document.getElementById('g2b-filter-type')?.value || 'all');
+        if (rawAnnType === 'pre') rawAnnType = G2B_SERVICE_TYPES.PRE_SPEC;
+        const announcementType = rawAnnType;
 
         const isBiddingPanel = options.isBiddingPanel || false;
 
@@ -9257,8 +9265,8 @@ renderTodayTasksRoleBased(todayStr) {
 
             if (announcementType === 'pre' || announcementType === 'all') {
                 try {
-                    const preParams = getParams('pre');
-                    const response = await fetch(`/api/g2b/pre?${preParams.toString()}`);
+                    const preParams = getParams(G2B_SERVICE_TYPES.PRE_SPEC);
+                    const response = await fetch(`/api/g2b/preSpec?${preParams.toString()}`);
                     const data = await response.json();
                     if (!response.ok || data.error) {
                         console.error('Pre API error:', data?.message);
