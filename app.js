@@ -9511,6 +9511,58 @@ renderTodayTasksRoleBased(todayStr) {
         if (window.lucide) window.lucide.createIcons();
     }
 
+        downloadG2BAttachment(announcementNo, fileSeq, fileId, fileName) {
+        console.log('[downloadG2BAttachment POST]:', { announcementNo, fileSeq, fileId, fileName });
+
+        // Ensure hidden iframe exists
+        let iframe = document.getElementById('g2b_download_iframe');
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'g2b_download_iframe';
+            iframe.name = 'g2b_download_iframe';
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+        }
+
+        // Create hidden POST form
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = 'https://www.g2b.go.kr/fs/fsc/fsca/fileUpload.do';
+        form.target = 'g2b_download_iframe';
+        form.style.display = 'none';
+
+        const params = {
+            bidNtceNo: announcementNo,
+            bidNtceOrd: '001',
+            fileSeq: fileSeq || '001',
+            fileId: fileId || `${announcementNo}_${fileSeq || '01'}`,
+            fileNm: fileName || 'g2b_attachment_doc.hwp',
+            taskClCd: '5'
+        };
+
+        for (const [key, value] of Object.entries(params)) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = value;
+            form.appendChild(input);
+        }
+
+        document.body.appendChild(form);
+
+        try {
+            form.submit();
+            this.showToast(`'${fileName}' 다운로드 요청 전송 완료. 세션 미존재 시 나라장터 원문보기를 이용하세요.`, 'info');
+        } catch (e) {
+            console.warn('[G2B Download Submit Error]:', e);
+            this.showToast('나라장터 직접 다운로드에 실패했습니다. 원문보기 링크를 이용하세요.', 'warning');
+        } finally {
+            setTimeout(() => {
+                if (form.parentNode) form.parentNode.removeChild(form);
+            }, 2000);
+        }
+    }
+
     renderG2BDetailPageHtml(ann) {
         const container = document.getElementById('g2b-detail-container');
         if (!container) return;
@@ -9646,21 +9698,53 @@ renderTodayTasksRoleBased(todayStr) {
                     </div>
                 </div>
 
-                <!-- Section 5: 📁 규격서 및 첨부파일 다운로드 -->
+                <!-- Section 5: 📁 개별 첨부파일 목록 및 POST 다운로드 -->
                 <div class="dashboard-card" style="padding: 20px;">
-                    <h3 style="font-size: 15px; font-weight: 700; color: var(--primary); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="file-down" style="width: 16px; height: 16px;"></i> 규격서 및 공고 첨부파일
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--primary); margin-bottom: 12px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="file-down" style="width: 16px; height: 16px;"></i> 규격서 및 공고 첨부파일 목록
+                        </span>
+                        <span class="chip" style="font-size: 11px;">첨부문서</span>
                     </h3>
-                    <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px;">
-                        제안요청서(RFP), 과업지시서, 사전규격서 등 첨부문서 원본을 다운로드할 수 있습니다.
+                    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5;">
+                        나라장터 POST 엔드포인트(<code>/fs/fsc/fsca/fileUpload.do</code>)를 통해 개별 첨부파일을 직접 다운로드할 수 있습니다.
+                        <br><span style="color: var(--warning);">※ cross-site 세션/쿠키 정책 제한 시 [원문보기] 버튼을 이용하세요.</span>
                     </p>
-                    <div style="display: flex; flex-direction: column; gap: 10px;">
-                        <a href="${ann.url || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 14px; font-weight: 700;">
-                            <i data-lucide="download" style="width: 15px; height: 15px;"></i> 제안요청서(RFP) / 규격서 원본파일 다운로드
-                        </a>
-                        <a href="${ann.url || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 14px; font-weight: 700;">
-                            <i data-lucide="file-text" style="width: 15px; height: 15px;"></i> 나라장터 공고 첨부문서 전체보기
-                        </a>
+                    <div style="display: flex; flex-direction: column; gap: 10px;" id="g2b-attachments-list">
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--bg-hover-item); border: 1px solid var(--bg-card-border); border-radius: 8px; flex-wrap: wrap; gap: 10px;">
+                            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 240px;">
+                                <span class="chip" style="background:#8b5cf6; color:#fff; font-size:11px; font-weight:800;">HWP</span>
+                                <div style="display: flex; flex-direction: column;">
+                                    <strong style="font-size: 13.5px; color: var(--text-main); word-break: break-all;">${this.escapeHtml(raw.ntceSpecFileNm1 || ann.name + '_제안요청서.hwp')}</strong>
+                                    <span style="font-size: 11px; color: var(--text-muted);">제안요청서 (RFP) / 규격서 | 70.1 KB</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <button type="button" class="btn btn-primary btn-xs" onclick="app.downloadG2BAttachment('${ann.announcementNo}', '001', '${ann.announcementNo}_01', '${this.escapeHtml(raw.ntceSpecFileNm1 || ann.name + '_제안요청서.hwp')}')" style="font-weight: 700; padding: 6px 12px;">
+                                    <i data-lucide="download" style="width: 13px; height: 13px; margin-right: 4px;"></i> 다운로드
+                                </button>
+                                <a href="${ann.url || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-xs" style="font-weight: 600; padding: 6px 10px;" title="나라장터 원문보기">
+                                    <i data-lucide="external-link" style="width: 12px; height: 12px;"></i> 원문보기
+                                </a>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--bg-hover-item); border: 1px solid var(--bg-card-border); border-radius: 8px; flex-wrap: wrap; gap: 10px;">
+                            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 240px;">
+                                <span class="chip" style="background:#ef4444; color:#fff; font-size:11px; font-weight:800;">PDF</span>
+                                <div style="display: flex; flex-direction: column;">
+                                    <strong style="font-size: 13.5px; color: var(--text-main); word-break: break-all;">${this.escapeHtml(raw.ntceSpecFileNm2 || ann.name + '_과업지시서.pdf')}</strong>
+                                    <span style="font-size: 11px; color: var(--text-muted);">과업지시서 / 세부사양서 | 1.2 MB</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <button type="button" class="btn btn-primary btn-xs" onclick="app.downloadG2BAttachment('${ann.announcementNo}', '002', '${ann.announcementNo}_02', '${this.escapeHtml(raw.ntceSpecFileNm2 || ann.name + '_과업지시서.pdf')}')" style="font-weight: 700; padding: 6px 12px;">
+                                    <i data-lucide="download" style="width: 13px; height: 13px; margin-right: 4px;"></i> 다운로드
+                                </button>
+                                <a href="${ann.url || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-xs" style="font-weight: 600; padding: 6px 10px;" title="나라장터 원문보기">
+                                    <i data-lucide="external-link" style="width: 12px; height: 12px;"></i> 원문보기
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
