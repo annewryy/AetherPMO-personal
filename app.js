@@ -31729,117 +31729,7 @@ renderTodayTasksRoleBased(todayStr) {
 
         console.log('[Duplicate Project Audit Results]', duplicateCandidates);
         return duplicateCandidates;
-    }
-
-}
-
-
-/* ============================================================================
-   AETHER PMO CORE APPLICATION BOOTSTRAPPER & GLOBAL INSTANTIATION
-   ============================================================================ */
-
-// Class alias for compatibility (supports both AetherPMO and AetherPMOApp)
-const AetherPMOApp = AetherPMO;
-if (typeof window !== 'undefined') {
-    window.AetherPMOApp = AetherPMOApp;
-    window.AetherPMO = AetherPMO;
-}
-
-let app;
-
-if (typeof window !== 'undefined' && window.app) {
-    app = window.app;
-    console.log('[BOOT] Existing window.app instance re-used');
-} else {
-    try {
-        console.log('[BOOT] STEP1 - Instantiating AetherPMOApp');
-        app = new AetherPMOApp();
-
-        if (typeof window !== 'undefined') {
-            window.app = app;
-            console.log('[BOOT] STEP2 - Global window.app assigned successfully:', typeof window.app);
-        }
-    } catch (err) {
-        console.error('[BOOT] App instantiation error:', err);
-    }
-}
-
-if (typeof document !== 'undefined') {
-    const initApp = async () => {
-        try {
-            console.log('[BOOT] STEP3 - Running app.init()');
-            if (app && typeof app.init === 'function') {
-                await app.init();
-            }
-            console.log('[BOOT] STEP4 - Application boot complete!');
-        } catch (error) {
-            console.error('[BOOT] App initialization failed:', error);
-        }
-    };
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initApp);
-    } else {
-        initApp();
-    }
-}
-
-// Ensure Global Window App Instance Bindings & Event Listeners
-if (typeof window !== 'undefined') {
-    document.addEventListener('DOMContentLoaded', () => {
-        const btnResExport = document.getElementById('btn-export-resources');
-        if (btnResExport) {
-            btnResExport.addEventListener('click', () => {
-                if (window.app && typeof window.app.exportResourcesToExcel === 'function') {
-                    window.app.exportResourcesToExcel();
-                }
-            });
-        }
-        const btnSalExport = document.getElementById('btn-export-salaries');
-        if (btnSalExport) {
-            btnSalExport.addEventListener('click', () => {
-                if (window.app && typeof window.app.exportSalaryHistoryToExcel === 'function') {
-                    window.app.exportSalaryHistoryToExcel();
-                }
-            });
-        }
-    });
-}
-
-
-if (typeof window !== 'undefined' && window.app) {
-    window.app.openSalaryTemplateModal = window.app.openSalaryTemplateModal.bind(window.app);
-    window.app.openSalaryTemplateEditModal = window.app.openSalaryTemplateEditModal.bind(window.app);
-    window.app.closeSalaryTemplateModal = window.app.closeSalaryTemplateModal.bind(window.app);
-    window.app.saveSalaryTemplate = window.app.saveSalaryTemplate.bind(window.app);
-    window.app.deleteSalaryTemplate = window.app.deleteSalaryTemplate.bind(window.app);
-    window.app.cloneSalaryTemplate = window.app.cloneSalaryTemplate.bind(window.app);
-    window.app.previewSalaryTemplate = window.app.previewSalaryTemplate.bind(window.app);
-    window.app.setDefaultSalaryTemplate = window.app.setDefaultSalaryTemplate.bind(window.app);
-    window.app.toggleSalaryTemplateActive = window.app.toggleSalaryTemplateActive.bind(window.app);
-}
-
-
-if (typeof window !== 'undefined' && window.app) {
-    window.app.initTableResizers = window.app.initTableResizers ? window.app.initTableResizers.bind(window.app) : function(cid) { if (window.app && typeof window.app.initTableResizers === 'function') window.app.initTableResizers(cid); };
-    window.app.duplicateSalaryTemplate = window.app.duplicateSalaryTemplate ? window.app.duplicateSalaryTemplate.bind(window.app) : function(id) { if (window.app && typeof window.app.duplicateSalaryTemplate === 'function') window.app.duplicateSalaryTemplate(id); };
-}
-
-
-if (typeof window !== 'undefined' && window.app) {
-    window.app.openModal = window.app.openModal ? window.app.openModal.bind(window.app) : function(id) { if (window.app && typeof window.app.openModal === 'function') window.app.openModal(id); };
-    window.app.closeModal = window.app.closeModal ? window.app.closeModal.bind(window.app) : function(id) { if (window.app && typeof window.app.closeModal === 'function') window.app.closeModal(id); };
-}
-
-// ── MENU MANAGEMENT GLOBAL BINDINGS ──────────────────────────────────────────
-if (typeof window !== 'undefined' && window.app) {
-    ['loadSystemMenus','renderDynamicSidebar','renderMenuSettings',
-     'openMenuFormModal','closeMenuFormModal','saveMenuForm',
-     'deleteSystemMenu','toggleMenuActive','reorderMenuSettings'].forEach(fn => {
-        if (typeof window.app[fn] === 'function') {
-            window.app[fn] = window.app[fn].bind(window.app);
-        }
-    });
+    
 
     // ── Bidding Kanban Pipeline Board V2 Controller ──────────────────────────
 
@@ -32703,7 +32593,120 @@ if (typeof window !== 'undefined' && window.app) {
         link.click();
         document.body.removeChild(link);
 
-        this.showToast(`${year}년 입찰 Pipeline 데이터 CSV 다운로드가 시작되었습니다.`);
+        this.showToast(`${year}
+}
+
+}
+
+
+/* ============================================================================
+   AETHER PMO CORE APPLICATION BOOTSTRAPPER & GLOBAL INSTANTIATION
+   ============================================================================ */
+
+// Class alias for compatibility (supports both AetherPMO and AetherPMOApp)
+const AetherPMOApp = AetherPMO;
+if (typeof window !== 'undefined') {
+    window.AetherPMOApp = AetherPMOApp;
+    window.AetherPMO = AetherPMO;
+}
+
+let app;
+
+if (typeof window !== 'undefined' && window.app) {
+    app = window.app;
+    console.log('[BOOT] Existing window.app instance re-used');
+} else {
+    try {
+        console.log('[BOOT] STEP1 - Instantiating AetherPMOApp');
+        app = new AetherPMOApp();
+
+        if (typeof window !== 'undefined') {
+            window.app = app;
+            console.log('[BOOT] STEP2 - Global window.app assigned successfully:', typeof window.app);
+        }
+    } catch (err) {
+        console.error('[BOOT] App instantiation error:', err);
+    }
+}
+
+if (typeof document !== 'undefined') {
+    const initApp = async () => {
+        try {
+            console.log('[BOOT] STEP3 - Running app.init()');
+            if (app && typeof app.init === 'function') {
+                await app.init();
+            }
+            console.log('[BOOT] STEP4 - Application boot complete!');
+        } catch (error) {
+            console.error('[BOOT] App initialization failed:', error);
+        }
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+        initApp();
+    }
+}
+
+// Ensure Global Window App Instance Bindings & Event Listeners
+if (typeof window !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', () => {
+        const btnResExport = document.getElementById('btn-export-resources');
+        if (btnResExport) {
+            btnResExport.addEventListener('click', () => {
+                if (window.app && typeof window.app.exportResourcesToExcel === 'function') {
+                    window.app.exportResourcesToExcel();
+                }
+            });
+        }
+        const btnSalExport = document.getElementById('btn-export-salaries');
+        if (btnSalExport) {
+            btnSalExport.addEventListener('click', () => {
+                if (window.app && typeof window.app.exportSalaryHistoryToExcel === 'function') {
+                    window.app.exportSalaryHistoryToExcel();
+                }
+            });
+        }
+    });
+}
+
+
+if (typeof window !== 'undefined' && window.app) {
+    window.app.openSalaryTemplateModal = window.app.openSalaryTemplateModal.bind(window.app);
+    window.app.openSalaryTemplateEditModal = window.app.openSalaryTemplateEditModal.bind(window.app);
+    window.app.closeSalaryTemplateModal = window.app.closeSalaryTemplateModal.bind(window.app);
+    window.app.saveSalaryTemplate = window.app.saveSalaryTemplate.bind(window.app);
+    window.app.deleteSalaryTemplate = window.app.deleteSalaryTemplate.bind(window.app);
+    window.app.cloneSalaryTemplate = window.app.cloneSalaryTemplate.bind(window.app);
+    window.app.previewSalaryTemplate = window.app.previewSalaryTemplate.bind(window.app);
+    window.app.setDefaultSalaryTemplate = window.app.setDefaultSalaryTemplate.bind(window.app);
+    window.app.toggleSalaryTemplateActive = window.app.toggleSalaryTemplateActive.bind(window.app);
+}
+
+
+if (typeof window !== 'undefined' && window.app) {
+    window.app.initTableResizers = window.app.initTableResizers ? window.app.initTableResizers.bind(window.app) : function(cid) { if (window.app && typeof window.app.initTableResizers === 'function') window.app.initTableResizers(cid); };
+    window.app.duplicateSalaryTemplate = window.app.duplicateSalaryTemplate ? window.app.duplicateSalaryTemplate.bind(window.app) : function(id) { if (window.app && typeof window.app.duplicateSalaryTemplate === 'function') window.app.duplicateSalaryTemplate(id); };
+}
+
+
+if (typeof window !== 'undefined' && window.app) {
+    window.app.openModal = window.app.openModal ? window.app.openModal.bind(window.app) : function(id) { if (window.app && typeof window.app.openModal === 'function') window.app.openModal(id); };
+    window.app.closeModal = window.app.closeModal ? window.app.closeModal.bind(window.app) : function(id) { if (window.app && typeof window.app.closeModal === 'function') window.app.closeModal(id); };
+}
+
+// ── MENU MANAGEMENT GLOBAL BINDINGS ──────────────────────────────────────────
+if (typeof window !== 'undefined' && window.app) {
+    ['loadSystemMenus','renderDynamicSidebar','renderMenuSettings',
+     'openMenuFormModal','closeMenuFormModal','saveMenuForm',
+     'deleteSystemMenu','toggleMenuActive','reorderMenuSettings'].forEach(fn => {
+        if (typeof window.app[fn] === 'function') {
+            window.app[fn] = window.app[fn].bind(window.app);
+        }
+    });
+
+년 입찰 Pipeline 데이터 CSV 다운로드가 시작되었습니다.`);
     }
 
 }
