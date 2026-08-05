@@ -162,40 +162,74 @@ const fetchBidItems = async (finalKey, params) => {
  * 사전규격 목록 가져오기 (용역)
  * Returns raw API items array
  */
-const fetchPreItems = async (finalKey, params, apiBase = PRE_API_BASE) => {
+const fetchPreItems = async (finalKey, params, apiBase, categoryName = '용역') => {
     const requestUrl = `${apiBase}?serviceKey=${finalKey}&${params.toString()}`;
-    const result = await fetchG2BData(requestUrl);
-    
+    let result;
+    try {
+        result = await fetchG2BData(requestUrl);
+    } catch (err) {
+        console.error(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${apiBase} | Fetch Error: ${err.message}`);
+        return { 
+            items: [], 
+            totalCount: 0, 
+            error: true,
+            warning: { category: categoryName, endpoint: apiBase, httpStatus: 500, code: 'NETWORK_ERROR', msg: err.message }
+        };
+    }
+
+    const httpStatus = result.statusCode || 200;
+    const rawSnippet = (result.data || '').substring(0, 200).replace(/\s+/g, ' ');
+
     const xmlErr = extractXmlError(result.data);
     if (xmlErr) {
-        console.warn('[PreSpec] XML error:', xmlErr.msg);
-        return { items: [], totalCount: 0 };
+        console.error(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${apiBase} | HTTP: ${httpStatus} | XML Code: ${xmlErr.code} | Msg: ${xmlErr.msg} | Snippet: ${rawSnippet}`);
+        return {
+            items: [],
+            totalCount: 0,
+            error: true,
+            warning: { category: categoryName, endpoint: apiBase, httpStatus, code: xmlErr.code, msg: xmlErr.msg, rawSnippet }
+        };
     }
-    
+
     let parsed;
     try {
         parsed = JSON.parse(result.data);
     } catch (e) {
-        console.warn('[PreSpec] JSON parse error:', e.message);
-        return { items: [], totalCount: 0 };
+        console.error(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${apiBase} | HTTP: ${httpStatus} | JSON Parse Fail | Snippet: ${rawSnippet}`);
+        return {
+            items: [],
+            totalCount: 0,
+            error: true,
+            warning: { category: categoryName, endpoint: apiBase, httpStatus, code: 'JSON_PARSE_ERROR', msg: 'JSON 파싱 실패 (XML/HTML 응답 가능성)', rawSnippet }
+        };
     }
-    
+
     const header = parsed?.response?.header;
-    if (header && header.resultCode && header.resultCode !== '00') {
-        console.warn(`[PreSpec] API Error - Code: ${header.resultCode}, Message: ${header.resultMsg}`);
-        return { items: [], totalCount: 0 };
+    const resultCode = header?.resultCode || 'UNKNOWN';
+    const resultMsg = header?.resultMsg || 'No resultMsg';
+
+    if (header && resultCode !== '00' && resultCode !== '0') {
+        console.error(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${apiBase} | HTTP: ${httpStatus} | ResultCode: ${resultCode} | Msg: ${resultMsg} | Snippet: ${rawSnippet}`);
+        return {
+            items: [],
+            totalCount: 0,
+            error: true,
+            warning: { category: categoryName, endpoint: apiBase, httpStatus, code: resultCode, msg: resultMsg, rawSnippet }
+        };
     }
-    
+
     const itemsData = parsed?.response?.body?.items;
-    if (!itemsData) return { items: [], totalCount: 0 };
-    
     let items = [];
-    if (Array.isArray(itemsData)) items = itemsData;
-    else if (Array.isArray(itemsData.item)) items = itemsData.item;
-    else if (itemsData.item) items = [itemsData.item];
-    
-    const totalCount = parseInt(parsed?.response?.body?.totalCount || '0');
-    return { items, totalCount };
+    if (itemsData) {
+        if (Array.isArray(itemsData)) items = itemsData;
+        else if (Array.isArray(itemsData.item)) items = itemsData.item;
+        else if (itemsData.item) items = [itemsData.item];
+    }
+
+    const totalCount = parseInt(parsed?.response?.body?.totalCount || String(items.length));
+    console.log(`[PreSpec Diagnostic] Category: ${categoryName} | Endpoint: ${apiBase} | HTTP: ${httpStatus} | ResultCode: ${resultCode} | TotalCount: ${totalCount} | ParsedItems: ${items.length}`);
+
+    return { items, totalCount, error: false, warning: null };
 };
 
 /**
@@ -308,7 +342,7 @@ module.exports = async (req, res) => {
     };
 
     let bidServiceKey = cleanKey(process.env.G2B_API_KEY || '');
-    let preServiceKey = cleanKey(process.env.G2B_PRE_SERVICE_KEY || '') || bidServiceKey;
+    let preServiceKey = cleanKey(process.env.G2B_API_KEY || process.env.G2B_PRE_SERVICE_KEY || '');
 
     // Diagnostics Log
     const crypto = require('crypto');
