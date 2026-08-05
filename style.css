@@ -9931,3 +9931,21 @@ body.app-modal-open {
     border-color: var(--primary);
     color: var(--primary);
 }
+
+
+.g2b-notice-title-link {
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: var(--text-main) !important;
+    text-align: left !important;
+    cursor: pointer !important;
+    transition: color 0.2s ease !important;
+}
+
+.g2b-notice-title-link:hover {
+    color: var(--primary) !important;
+    text-decoration: underline !important;
+}

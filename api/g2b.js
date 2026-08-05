@@ -239,14 +239,21 @@ const formatBidItem = (item, idx) => {
     if (!item) return null;
     return {
         id: `g2b-bid-${idx}-${Date.now()}`,
-        announcementType: 'bid',           // 본공고 표시
+        announcementType: 'bid',
         announcementNo: item.bidNtceNo || '-',
+        announcementOrd: item.bidNtceOrd || '001',
         name: item.bidNtceNm || '-',
-        customer: item.dminsttNm || '-',
+        customer: item.dminsttNm || item.ntceInsttNm || '-',
+        ntceInsttNm: item.ntceInsttNm || item.dminsttNm || '-',
         budget: Number(item.asignBdgtAmt || item.presmptPrce || 0),
         publishDate: item.bidNtceDt ? item.bidNtceDt.substring(0, 10) : '-',
         endDate: item.bidClseDt ? item.bidClseDt.substring(0, 10) : '-',
-        url: item.bidNtceDtlUrl || '#',
+        bidBeginDt: item.bidBeginDt || item.bidNtceBgnDt || '-',
+        bidClseDt: item.bidClseDt || '-',
+        opengDt: item.opengDt || item.openDt || '-',
+        bidMethdNm: item.bidMethdNm || '일반(총액)경쟁',
+        cntrctCnclsMthdNm: item.cntrctCnclsMthdNm || '협상에 의한 계약',
+        url: item.bidNtceDtlUrl || item.detailUrl || '#',
         presmptPrce: Number(item.presmptPrce || 0),
         asignBdgtAmt: Number(item.asignBdgtAmt || 0)
     };

@@ -6267,5 +6267,70 @@
         </div>
     </div>
 
+
+<!-- 나라장터 입찰공고 상세화면 모달 -->
+<div class="modal-overlay" id="modal-g2b-detail">
+    <div class="modal-container" style="max-width: 820px; width: 95%;">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 14px;">
+            <div>
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                    <span id="g2b-modal-badge" class="chip">본공고</span>
+                    <span id="g2b-modal-no" style="font-family: monospace; font-size: 13px; font-weight: 700; color: var(--text-muted);"></span>
+                </div>
+                <h3 id="g2b-modal-title" style="font-size: 17px; font-weight: 700; color: var(--text-main); line-height: 1.4; margin: 0;"></h3>
+            </div>
+            <button type="button" class="modal-close" onclick="app.closeModal('modal-g2b-detail')">&times;</button>
+        </div>
+
+        <div class="modal-body" style="padding: 20px 0; max-height: 70vh; overflow-y: auto;">
+            <!-- 1. 기관 및 금액/계약 정보 -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                <div style="background: var(--bg-hover-item); padding: 14px; border-radius: 8px; border: 1px solid var(--bg-card-border);">
+                    <h4 style="font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                        <i data-lucide="building" style="width: 14px; height: 14px;"></i> 기관 정보
+                    </h4>
+                    <div style="font-size: 13px; display: grid; gap: 6px;">
+                        <div><span style="color: var(--text-muted); width: 90px; display: inline-block;">수요기관:</span> <strong id="g2b-modal-customer" style="color: var(--text-main);"></strong></div>
+                        <div><span style="color: var(--text-muted); width: 90px; display: inline-block;">공고기관:</span> <span id="g2b-modal-instt" style="color: var(--text-main);"></span></div>
+                    </div>
+                </div>
+
+                <div style="background: var(--bg-hover-item); padding: 14px; border-radius: 8px; border: 1px solid var(--bg-card-border);">
+                    <h4 style="font-size: 13px; font-weight: 700; color: var(--success); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                        <i data-lucide="coins" style="width: 14px; height: 14px;"></i> 금액 및 계약 정보
+                    </h4>
+                    <div style="font-size: 13px; display: grid; gap: 6px;">
+                        <div><span style="color: var(--text-muted); width: 90px; display: inline-block;">배정예산/추정:</span> <strong id="g2b-modal-budget" style="color: var(--success);"></strong></div>
+                        <div><span style="color: var(--text-muted); width: 90px; display: inline-block;">계약체결방법:</span> <span id="g2b-modal-contract-methd" style="color: var(--text-main);"></span></div>
+                        <div><span style="color: var(--text-muted); width: 90px; display: inline-block;">입찰방식:</span> <span id="g2b-modal-bid-methd" style="color: var(--text-main);"></span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. 일정 정보 -->
+            <div style="background: var(--bg-hover-item); padding: 14px; border-radius: 8px; border: 1px solid var(--bg-card-border); margin-bottom: 10px;">
+                <h4 style="font-size: 13px; font-weight: 700; color: var(--info); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                    <i data-lucide="calendar" style="width: 14px; height: 14px;"></i> 공고 및 입찰 일정
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; font-size: 13px;">
+                    <div><span style="color: var(--text-muted);">공고 게시일:</span> <strong id="g2b-modal-pub-date"></strong></div>
+                    <div><span style="color: var(--text-muted);">제안 마감일:</span> <strong id="g2b-modal-end-date" style="color: var(--danger);"></strong></div>
+                    <div><span style="color: var(--text-muted);">개찰일시:</span> <span id="g2b-modal-open-date"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--bg-card-border); padding-top: 14px;">
+            <a id="g2b-modal-origin-url" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+                <i data-lucide="external-link" style="width: 14px; height: 14px;"></i> 나라장터 원문 보기
+            </a>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="btn btn-outline" onclick="app.closeModal('modal-g2b-detail')">닫기</button>
+                <div id="g2b-modal-action-container"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>

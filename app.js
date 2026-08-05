@@ -9050,7 +9050,7 @@ renderTodayTasksRoleBased(todayStr) {
                 <td>
                     <div style="display: flex; flex-direction: column; gap: 4px;">
                         <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;width:fit-content;${typeStyle}">${typeLabel}</span>
-                        <span class="font-bold text-xs" style="max-width: 240px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;" title="${ann.name}">${ann.name}</span>
+                        <button type="button" class="font-bold text-xs g2b-notice-title-link" data-bid-notice-no="${ann.announcementNo}" data-bid-notice-ord="${ann.announcementOrd || '001'}" style="max-width: 240px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;" title="${ann.name}" onclick="app.openG2BAnnouncementDetailModal('${ann.announcementNo}')">${ann.name}</button>
                     </div>
                 </td>
                 <td class="text-xs font-bold">${ann.customer}</td>
@@ -9363,6 +9363,77 @@ renderTodayTasksRoleBased(todayStr) {
         }
     }
 
+        openG2BAnnouncementDetailModal(announcementNo) {
+        const ann = this.g2bAnnouncementsMap[announcementNo] ||
+            (this.state.g2bOriginalItems || []).find(a => a.announcementNo === announcementNo) ||
+            (this.state.g2bFilteredItems || []).find(a => a.announcementNo === announcementNo);
+
+        if (!ann) {
+            this.showToast('해당 공고 정보를 찾을 수 없습니다.', 'error');
+            return;
+        }
+
+        const badgeEl = document.getElementById('g2b-modal-badge');
+        if (badgeEl) {
+            badgeEl.style.backgroundColor = ann.announcementType === 'pre' ? 'var(--primary-light)' : 'var(--info-glow)';
+            badgeEl.style.color = ann.announcementType === 'pre' ? '#8b5cf6' : 'var(--info)';
+            badgeEl.textContent = ann.announcementType === 'pre' ? '사전규격' : '본공고';
+        }
+
+        const titleEl = document.getElementById('g2b-modal-title');
+        if (titleEl) titleEl.textContent = ann.name || '-';
+
+        const noEl = document.getElementById('g2b-modal-no');
+        if (noEl) noEl.textContent = `공고번호: ${ann.announcementNo} (차수: ${ann.announcementOrd || '001'})`;
+
+        const customerEl = document.getElementById('g2b-modal-customer');
+        if (customerEl) customerEl.textContent = ann.customer || '-';
+
+        const insttEl = document.getElementById('g2b-modal-instt');
+        if (insttEl) insttEl.textContent = ann.ntceInsttNm || ann.customer || '-';
+
+        const budgetEl = document.getElementById('g2b-modal-budget');
+        if (budgetEl) budgetEl.textContent = ann.budget ? ann.budget.toLocaleString() + ' 원' : '-';
+
+        const contractEl = document.getElementById('g2b-modal-contract-methd');
+        if (contractEl) contractEl.textContent = ann.cntrctCnclsMthdNm || '협상에 의한 계약';
+
+        const methdEl = document.getElementById('g2b-modal-bid-methd');
+        if (methdEl) methdEl.textContent = ann.bidMethdNm || '일반(총액)경쟁';
+
+        const pubDateEl = document.getElementById('g2b-modal-pub-date');
+        if (pubDateEl) pubDateEl.textContent = ann.publishDate || '-';
+
+        const endDateEl = document.getElementById('g2b-modal-end-date');
+        if (endDateEl) endDateEl.textContent = ann.endDate || '-';
+
+        const openDateEl = document.getElementById('g2b-modal-open-date');
+        if (openDateEl) openDateEl.textContent = ann.opengDt || ann.endDate || '-';
+
+        const originUrlEl = document.getElementById('g2b-modal-origin-url');
+        if (originUrlEl) originUrlEl.href = ann.url || '#';
+
+        const actionContainer = document.getElementById('g2b-modal-action-container');
+        if (actionContainer) {
+            const isRegistered = this.state.projects.some(p =>
+                p.projectCode === ann.announcementNo ||
+                p.bidNumber === ann.announcementNo ||
+                p.sourceReferenceNo === ann.announcementNo
+            );
+
+            if (isRegistered) {
+                actionContainer.innerHTML = `<button class="btn btn-outline" disabled style="opacity:0.6; cursor:not-allowed;"><i data-lucide="check" style="width:12px; height:12px; margin-right:4px;"></i> 등록 완료</button>`;
+            } else if (ann.announcementType === 'pre') {
+                actionContainer.innerHTML = `<button class="btn btn-primary" onclick="app.closeModal('modal-g2b-detail'); app.registerBiddingProjectFromG2B('${ann.announcementNo}');" style="background-color:#8b5cf6; border-color:#8b5cf6;"><i data-lucide="plus" style="width:12px; height:12px; margin-right:4px;"></i> 검토 프로젝트 등록</button>`;
+            } else {
+                actionContainer.innerHTML = `<button class="btn btn-primary" onclick="app.closeModal('modal-g2b-detail'); app.registerBiddingProjectFromG2B('${ann.announcementNo}');"><i data-lucide="plus" style="width:12px; height:12px; margin-right:4px;"></i> 입찰 프로젝트 등록</button>`;
+            }
+        }
+
+        this.openModal('modal-g2b-detail');
+        if (window.lucide) window.lucide.createIcons();
+    }
+
     renderG2BViewAnnouncements() {
         const tbody = document.getElementById('g2b-view-announcements-tbody');
         if (!tbody) return;
@@ -9435,7 +9506,7 @@ renderTodayTasksRoleBased(todayStr) {
                 <td class="text-center g2b-nowrap-cell">${typeBadge}</td>
                 <td class="font-bold text-xs g2b-nowrap-cell" style="font-family: monospace; font-size: 13px;">${ann.announcementNo}</td>
                 <td style="vertical-align: middle;">
-                    <span class="g2b-title-clamp" title="${ann.name}">${ann.name}</span>
+                    <button type="button" class="g2b-title-clamp g2b-notice-title-link" data-bid-notice-no="${ann.announcementNo}" data-bid-notice-ord="${ann.announcementOrd || '001'}" title="${ann.name}" onclick="app.openG2BAnnouncementDetailModal('${ann.announcementNo}')">${ann.name}</button>
                 </td>
                 <td class="g2b-customer-cell" style="vertical-align: middle;">${ann.customer}</td>
                 <td class="text-center text-muted g2b-nowrap-cell">${ann.publishDate}</td>
