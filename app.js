@@ -32636,6 +32636,69 @@ renderTodayTasksRoleBased(todayStr) {
         });
     }
 
+    getFilteredBiddingProjects(year) {
+        let projects = (this.state.projects || []).filter(p => this.isBiddingProject(p));
+
+        const fs = this.biddingFilterState;
+        if (!fs) {
+            const targetYear = parseInt(year || this.activeBiddingYear || new Date().getFullYear(), 10);
+            return projects.filter(p => this.getBiddingProjectYear(p) === targetYear);
+        }
+
+        return projects.filter(p => {
+            // 1. 기준연도
+            if (fs.year && fs.year !== 'all') {
+                const targetYear = parseInt(fs.year, 10);
+                if (this.getBiddingProjectYear(p) !== targetYear) return false;
+            }
+
+            // 2. 입찰 진행상태
+            if (fs.status && fs.status !== 'all') {
+                const pStatus = (p.bidding_status || p.biddingStatus || p.bid_stage || '').toLowerCase();
+                if (pStatus !== fs.status.toLowerCase()) return false;
+            }
+
+            // 3. 발주기관
+            if (fs.customer) {
+                const cust = (p.customer || p.client || p.ordering_agency || p.customer_name || '').toLowerCase();
+                if (!cust.includes(fs.customer.toLowerCase())) return false;
+            }
+
+            // 4. 담당 PM
+            if (fs.manager) {
+                const mgr = (p.manager || p.pm || p.project_manager || p.manager_name || '').toLowerCase();
+                if (!mgr.includes(fs.manager.toLowerCase())) return false;
+            }
+
+            // 5. 제안 마감일 범위
+            const rawDueDate = p.proposalDueDate || p.bidDueDate || p.dueDate || p.endDate || p.proposal_due_date || '';
+            const pDueDate = rawDueDate ? rawDueDate.substring(0, 10) : '';
+            if (fs.minDate && pDueDate && pDueDate < fs.minDate) return false;
+            if (fs.maxDate && pDueDate && pDueDate > fs.maxDate) return false;
+
+            // 6. 예정금액 범위 (단위: 만원)
+            const amt = Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || p.totalContractAmount || p.budget || 0);
+            if (fs.minAmount !== '' && !isNaN(Number(fs.minAmount))) {
+                const minWon = Number(fs.minAmount) * 10000;
+                if (amt < minWon) return false;
+            }
+            if (fs.maxAmount !== '' && !isNaN(Number(fs.maxAmount))) {
+                const maxWon = Number(fs.maxAmount) * 10000;
+                if (amt > maxWon) return false;
+            }
+
+            // 7. 수주/실패 여부
+            if (fs.outcome && fs.outcome !== 'all') {
+                const st = (p.bidding_status || p.biddingStatus || p.status || '').toLowerCase();
+                if (fs.outcome === 'won' && st !== 'won') return false;
+                if (fs.outcome === 'lost' && st !== 'lost') return false;
+                if (fs.outcome === 'in_progress' && (st === 'won' || st === 'lost')) return false;
+            }
+
+            return true;
+        });
+    }
+
     populateBiddingYearSelect() {
         const select = document.getElementById('bidding-year-select');
         if (!select) return;
@@ -32704,7 +32767,7 @@ renderTodayTasksRoleBased(todayStr) {
         if (!this.activeBiddingResultTab) this.activeBiddingResultTab = 'active';
 
         this.populateBiddingYearSelect();
-        const yearBiddingProjects = this.getBiddingProjectsByYear(this.activeBiddingYear);
+        const yearBiddingProjects = this.getFilteredBiddingProjects(this.activeBiddingYear);
 
         // Render 5 KPI cards
         this.renderBiddingKpisV2(yearBiddingProjects);
@@ -33533,7 +33596,95 @@ renderTodayTasksRoleBased(todayStr) {
     }
 
     openBiddingFilterModal() {
-        this.showToast('입찰 상세 필터 모달이 열립니다.');
+        let modalEl = document.getElementById('modal-bidding-filter');
+        if (!modalEl) {
+            console.error('[openBiddingFilterModal] #modal-bidding-filter not found in DOM');
+            return;
+        }
+
+        // 2. 모달을 document.body 직속 자식으로 이동
+        if (modalEl.parentElement !== document.body) {
+            document.body.appendChild(modalEl);
+        }
+
+        // 3. display:none, hidden, aria-hidden 제거
+        modalEl.removeAttribute('hidden');
+        modalEl.removeAttribute('aria-hidden');
+
+        // 4. 모달 오버레이 스타일 강제 적용
+        modalEl.style.cssText = 'position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; background: rgba(2, 6, 23, 0.72);';
+
+        // 5. 모달 본체 스타일 강제 적용
+        const dialogEl = modalEl.querySelector('.modal-dialog');
+        if (dialogEl) {
+            dialogEl.style.cssText = 'background: #111827; border: 1px solid #334155; color: #F8FAFC; width: min(680px, calc(100vw - 40px)); max-height: calc(100vh - 80px); overflow-y: auto; border-radius: 14px; box-shadow: 0 24px 64px rgba(0,0,0,0.55);';
+        }
+
+        // Populate year select options dynamically
+        const yearSelect = document.getElementById('bidding-filter-year');
+        if (yearSelect) {
+            const availableYears = typeof this.getBiddingYears === 'function' ? this.getBiddingYears() : [2026, 2025, 2024];
+            let yearHtml = '<option value="all">전체 연도</option>';
+            availableYears.forEach(y => {
+                const isSelected = this.biddingFilterState?.year === String(y) || (!this.biddingFilterState && y === this.activeBiddingYear);
+                yearHtml += `<option value="${y}" ${isSelected ? 'selected' : ''}>${y}년</option>`;
+            });
+            yearSelect.innerHTML = yearHtml;
+        }
+
+        // Restore current filter values into form fields if set
+        const fs = this.biddingFilterState;
+        if (fs) {
+            if (document.getElementById('bidding-filter-year') && fs.year) document.getElementById('bidding-filter-year').value = fs.year;
+            if (document.getElementById('bidding-filter-status')) document.getElementById('bidding-filter-status').value = fs.status || 'all';
+            if (document.getElementById('bidding-filter-customer')) document.getElementById('bidding-filter-customer').value = fs.customer || '';
+            if (document.getElementById('bidding-filter-manager')) document.getElementById('bidding-filter-manager').value = fs.manager || '';
+            if (document.getElementById('bidding-filter-min-date')) document.getElementById('bidding-filter-min-date').value = fs.minDate || '';
+            if (document.getElementById('bidding-filter-max-date')) document.getElementById('bidding-filter-max-date').value = fs.maxDate || '';
+            if (document.getElementById('bidding-filter-min-amount')) document.getElementById('bidding-filter-min-amount').value = fs.minAmount || '';
+            if (document.getElementById('bidding-filter-max-amount')) document.getElementById('bidding-filter-max-amount').value = fs.maxAmount || '';
+            if (document.getElementById('bidding-filter-outcome')) document.getElementById('bidding-filter-outcome').value = fs.outcome || 'all';
+        }
+
+        // 1 & 전역 Modal Manager 사용: openModal()로 열기
+        this.openModal('modal-bidding-filter');
+
+        // 9. 토스트는 모달이 실제로 열린 뒤에만 표시할 것
+        this.showToast('입찰 상세 필터 모달이 열렸습니다.', 'info');
+    }
+
+    applyBiddingFilter() {
+        this.biddingFilterState = {
+            year: document.getElementById('bidding-filter-year')?.value || 'all',
+            status: document.getElementById('bidding-filter-status')?.value || 'all',
+            customer: (document.getElementById('bidding-filter-customer')?.value || '').trim(),
+            manager: (document.getElementById('bidding-filter-manager')?.value || '').trim(),
+            minDate: document.getElementById('bidding-filter-min-date')?.value || '',
+            maxDate: document.getElementById('bidding-filter-max-date')?.value || '',
+            minAmount: document.getElementById('bidding-filter-min-amount')?.value || '',
+            maxAmount: document.getElementById('bidding-filter-max-amount')?.value || '',
+            outcome: document.getElementById('bidding-filter-outcome')?.value || 'all'
+        };
+
+        this.closeModal('modal-bidding-filter');
+        this.renderBiddingPipeline();
+        this.showToast('입찰 상세 필터 조건이 적용되었습니다.', 'success');
+    }
+
+    resetBiddingFilterForm() {
+        if (document.getElementById('bidding-filter-year')) document.getElementById('bidding-filter-year').value = 'all';
+        if (document.getElementById('bidding-filter-status')) document.getElementById('bidding-filter-status').value = 'all';
+        if (document.getElementById('bidding-filter-customer')) document.getElementById('bidding-filter-customer').value = '';
+        if (document.getElementById('bidding-filter-manager')) document.getElementById('bidding-filter-manager').value = '';
+        if (document.getElementById('bidding-filter-min-date')) document.getElementById('bidding-filter-min-date').value = '';
+        if (document.getElementById('bidding-filter-max-date')) document.getElementById('bidding-filter-max-date').value = '';
+        if (document.getElementById('bidding-filter-min-amount')) document.getElementById('bidding-filter-min-amount').value = '';
+        if (document.getElementById('bidding-filter-max-amount')) document.getElementById('bidding-filter-max-amount').value = '';
+        if (document.getElementById('bidding-filter-outcome')) document.getElementById('bidding-filter-outcome').value = 'all';
+
+        this.biddingFilterState = null;
+        this.renderBiddingPipeline();
+        this.showToast('입찰 필터 조건이 초기화되었습니다.', 'info');
     }
 
     exportBiddingCsv() {
