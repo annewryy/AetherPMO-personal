@@ -28395,7 +28395,7 @@ renderTodayTasksRoleBased(todayStr) {
                 id: 'board-inquiry-2',
                 category: 'inquiry',
                 title: '회의록 작성 시 특수문자 입력 오동작 문의',
-                content: '회의록 안건 입력 시 작은따옴표(') 및 백슬래시(\) 사용 관련 문의드립니다.',
+                content: '회의록 안건 입력 시 작은따옴표 및 백슬래시 사용 관련 문의드립니다.',
                 status: 'pending',
                 authorName: '이영희 PM',
                 authorId: 'user-pm-uuid',
