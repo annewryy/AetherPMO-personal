@@ -4633,6 +4633,32 @@ class AetherPMO {
         targetView.style.display = 'block';
         window.scrollTo(0, 0);
 
+        // Board routing check
+        if (viewName === 'board' || (typeof viewName === 'string' && viewName.startsWith('board/'))) {
+            const parts = viewName.split('/');
+            let category = 'all';
+            if (parts[1] === 'notices') category = 'notice';
+            else if (parts[1] === 'inquiries') category = 'inquiry';
+            else if (parts[1] === 'resources') category = 'resource';
+
+            const targetBoardView = document.getElementById('view-board');
+            if (targetBoardView) {
+                document.querySelectorAll('.content-view').forEach(v => {
+                    v.classList.remove('active');
+                    v.classList.add('hidden');
+                    v.style.display = 'none';
+                });
+                targetBoardView.classList.remove('hidden');
+                targetBoardView.classList.add('active');
+                targetBoardView.style.display = 'block';
+                window.scrollTo(0, 0);
+
+                this.setActiveSidebarMenu(viewName);
+                this.setBoardCategoryFilter(category);
+                return;
+            }
+        }
+
         // 3. Update sidebar nav active states
         if (viewName === 'projects') {
             if (this.activeProjectStageFilter === 'Bidding') {
@@ -5229,35 +5255,24 @@ class AetherPMO {
             </div>`,
         '최근 활동이 없습니다.');
 
-        // 3. 최근 공지 (활동 로그에서 system 타입만 + 최근 순)
-        const notices = (this.state.activities || [])
-            .filter(a => a.type === 'system' || a.action === '시스템')
-            .sort((a, b) => new Date(b.timestamp || b.date || 0) - new Date(a.timestamp || a.date || 0))
-            .slice(0, 6);
-
-        if (notices.length > 0) {
-            this.renderSubCardList('exec-recent-notices-list', notices, n =>
-                `<div class="sub-card-item">
-                    <div class="item-header">
-                        <span class="item-title">📢 ${this.escapeHtml(n.description || n.message || '공지 없음')}</span>
-                    </div>
-                    <div class="item-meta"><span>${n.userName || 'system'}</span><span>${(n.timestamp || n.date || '').substring(0, 10)}</span></div>
-                </div>`,
-            '등록된 공지가 없습니다.');
-        } else {
-            // Fallback: 최근 활동 로그 전체에서 최신 6건
-            const recentLogs = (this.state.activities || [])
-                .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
-                .slice(0, 6);
-            this.renderSubCardList('exec-recent-notices-list', recentLogs, n =>
-                `<div class="sub-card-item">
-                    <div class="item-header">
-                        <span class="item-title">🔔 ${this.escapeHtml(n.description || '')}</span>
-                    </div>
-                    <div class="item-meta"><span>${n.userName || '-'}</span><span>${(n.timestamp || '').substring(0, 10)}</span></div>
-                </div>`,
-            '공지 / 활동 로그가 없습니다.');
+        // 3. 최근 공지 (공지사항 category 게시글 최신 4개)
+        let noticePosts = (this.state.boardPosts || []).filter(p => p.category === 'notice');
+        if (noticePosts.length === 0) {
+            noticePosts = this.getDefaultBoardPosts().filter(p => p.category === 'notice');
         }
+
+        const recent4Notices = noticePosts
+            .sort((a, b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0))
+            .slice(0, 4);
+
+        this.renderSubCardList('exec-recent-notices-list', recent4Notices, n =>
+            `<div class="sub-card-item" style="cursor:pointer;" onclick="app.openBoardPostDetailModal('${n.id}')">
+                <div class="item-header">
+                    <span class="item-title" style="font-weight:600;">📢 ${this.escapeHtml(n.title)}</span>
+                </div>
+                <div class="item-meta"><span>${this.escapeHtml(n.authorName || '관리자')}</span><span>${(n.createdAt || '').substring(0, 10)}</span></div>
+            </div>`,
+        '등록된 공지사항이 없습니다.');
 
         // Also keep backward-compat (hidden spans)
         this.renderRecentRedesignedActivities();
@@ -8432,6 +8447,16 @@ renderTodayTasksRoleBased(todayStr) {
             const allSubmenu = document.querySelector('.submenu-item[data-subview="all"]');
             if (allSubmenu) allSubmenu.classList.add('active');
             if (projectsNav) projectsNav.classList.add('active');
+        } else if (typeof route === 'string' && (route.startsWith('board/') || route === 'board')) {
+            const sub = route.includes('/') ? route.split('/')[1] : 'notices';
+            let subview = 'board-notices';
+            if (sub === 'inquiries') subview = 'board-inquiries';
+            else if (sub === 'resources') subview = 'board-resources';
+
+            const subItem = document.querySelector(`.submenu-item[data-subview="${subview}"]`);
+            if (subItem) subItem.classList.add('active');
+            const boardNav = document.querySelector('.nav-item[data-view="board"]');
+            if (boardNav) boardNav.classList.add('active');
         } else {
             const navItem = document.querySelector(`.nav-item[data-view="${route}"]`);
             if (navItem) navItem.classList.add('active');
@@ -23269,9 +23294,9 @@ renderTodayTasksRoleBased(todayStr) {
 
             // Category tag class mapping
             let catClass = 'badge-blue';
-            if (post.category === 'bug') catClass = 'badge-danger';
-            if (post.category === 'suggestion') catClass = 'badge-warning';
-            if (post.category === 'etc') catClass = 'badge-secondary';
+            if (post.category === 'notice') catClass = 'badge-primary';
+            else if (post.category === 'inquiry' || post.category === 'question' || post.category === 'bug' || post.category === 'suggestion') catClass = 'badge-warning';
+            else if (post.category === 'resource') catClass = 'badge-success';
 
             // Status label mapping
             const statusLabel = post.status === 'answered' ? '답변완료' : '답변대기';
@@ -28298,26 +28323,70 @@ renderTodayTasksRoleBased(todayStr) {
     getDefaultBoardPosts() {
         return [
             {
-                id: 'board-post-1',
-                category: 'question',
-                title: '시스템 투입 공수(M/D) 소수점 입력 가능한가요?',
-                content: '인력 투입 관리 탭에서 M/D 입력 시 소수점 둘째 자리까지 입력하려고 하는데 에러가 납니다. 혹시 소수점 처리가 가능하도록 변경해 주실 수 있나요?',
-                status: 'answered',
-                authorName: '박지민 대리',
-                authorId: 'user-worker-uuid',
-                createdAt: '2026-07-09T10:00:00Z',
-                updatedAt: '2026-07-09T15:30:00Z'
+                id: 'board-notice-1',
+                category: 'notice',
+                title: '[공지] AetherPMO 시스템 정기 점검 및 업데이트 안내',
+                content: '안녕하세요, 관리자입니다. 2026년 8월 정기 시스템 기능 개선 및 데이터베이스 최적화 작업이 진행될 예정입니다. 점검 시간 동안 서비스 이용에 참고 바랍니다.',
+                status: 'published',
+                authorName: '최고관리자',
+                authorId: 'user-admin-uuid',
+                createdAt: '2026-08-07T09:00:00Z',
+                updatedAt: '2026-08-07T09:00:00Z'
             },
             {
-                id: 'board-post-2',
-                category: 'bug',
-                title: '회의록 작성 시 특수문자 입력 오류 제보',
-                content: '회의록 안건 입력 란에 홑따옴표(\')나 백슬래시(\\)를 포함하여 작성한 후 저장하면 데이터베이스 동기화 오류 레이아웃이 팝업됩니다. 백엔드 특수문자 이스케이프 처리가 필요해 보입니다.',
-                status: 'pending',
-                authorName: '이영희 PM',
+                id: 'board-notice-2',
+                category: 'notice',
+                title: '[공지] 2026년 3분기 프로젝트 월급여 품의 및 서류 제출 일정 안내',
+                content: '각 사업 PM 및 경영관리 담당자께서는 3분기 인력 월급여 지급품의를 매월 20일까지 상신하여 주시기 바랍니다.',
+                status: 'published',
+                authorName: '경영지원팀',
+                authorId: 'user-admin-uuid',
+                createdAt: '2026-08-06T14:30:00Z',
+                updatedAt: '2026-08-06T14:30:00Z'
+            },
+            {
+                id: 'board-notice-3',
+                category: 'notice',
+                title: '[공지] 기관별 표준 산출물 양식 개정판(v2.4) 등록 안내',
+                content: '기관별 표준 산출물 양식이 새롭게 업데이트되었습니다. 산출물 관리 메뉴에서 최신 템플릿을 확인하시기 바랍니다.',
+                status: 'published',
+                authorName: 'PMO본부',
+                authorId: 'user-admin-uuid',
+                createdAt: '2026-08-05T11:00:00Z',
+                updatedAt: '2026-08-05T11:00:00Z'
+            },
+            {
+                id: 'board-notice-4',
+                category: 'notice',
+                title: '[공지] 입찰 파이프라인 수주/실패 프로세스 가이드 개정',
+                content: '입찰단계 상세 필터 및 수주/실패 처리 프로세스가 개선되었습니다. 영업 및 제안 담당자분들은 이용 가이드를 참조바랍니다.',
+                status: 'published',
+                authorName: '영업기획팀',
+                authorId: 'user-admin-uuid',
+                createdAt: '2026-08-04T16:20:00Z',
+                updatedAt: '2026-08-04T16:20:00Z'
+            },
+            {
+                id: 'board-inquiry-1',
+                category: 'inquiry',
+                title: 'M/D 소수점 입력 시 반올림 처리 관련 문의',
+                content: '참여인력 월별 M/D 입력 시 소수점 둘째 자리 반올림 기준을 문의드립니다.',
+                status: 'answered',
+                authorName: '김철수 PM',
                 authorId: 'user-pm-uuid',
-                createdAt: '2026-07-10T09:12:00Z',
-                updatedAt: '2026-07-10T09:12:00Z'
+                createdAt: '2026-08-03T10:00:00Z',
+                updatedAt: '2026-08-03T15:30:00Z'
+            },
+            {
+                id: 'board-resource-1',
+                category: 'resource',
+                title: '[양식] 2026년 표준 프로젝트 착수보고서 및 검수요청서 템플릿',
+                content: '프로젝트 착수 및 검수 요청 시 활용 가능한 표준 HWPX/DOCX 템플릿 양식입니다.',
+                status: 'published',
+                authorName: '품질관리팀',
+                authorId: 'user-admin-uuid',
+                createdAt: '2026-08-02T13:00:00Z',
+                updatedAt: '2026-08-02T13:00:00Z'
             }
         ];
     }
