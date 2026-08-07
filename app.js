@@ -23253,7 +23253,17 @@ renderTodayTasksRoleBased(todayStr) {
         // Filter posts
         const filteredPosts = (this.state.boardPosts || []).filter(post => {
             // Category check
-            if (categoryFilter !== 'all' && post.category !== categoryFilter) return false;
+            if (categoryFilter !== 'all') {
+                if (categoryFilter === 'inquiry') {
+                    if (!['inquiry', 'question', 'bug', 'suggestion'].includes(post.category)) return false;
+                } else if (categoryFilter === 'notice') {
+                    if (post.category !== 'notice') return false;
+                } else if (categoryFilter === 'resource') {
+                    if (post.category !== 'resource') return false;
+                } else if (post.category !== categoryFilter) {
+                    return false;
+                }
+            }
             // Status check
             if (statusFilter !== 'all' && post.status !== statusFilter) return false;
             // Keyword check
@@ -28373,13 +28383,24 @@ renderTodayTasksRoleBased(todayStr) {
             {
                 id: 'board-inquiry-1',
                 category: 'inquiry',
-                title: 'M/D 소수점 입력 시 반올림 처리 관련 문의',
-                content: '참여인력 월별 M/D 입력 시 소수점 둘째 자리 반올림 기준을 문의드립니다.',
+                title: '참여인력 M/D 소수점 입력 및 반올림 기준 문의',
+                content: '참여인력 월별 M/D 입력 시 소수점 둘째 자리 반올림 적용 기준을 확인 부탁드립니다.',
                 status: 'answered',
                 authorName: '김철수 PM',
                 authorId: 'user-pm-uuid',
                 createdAt: '2026-08-03T10:00:00Z',
                 updatedAt: '2026-08-03T15:30:00Z'
+            },
+            {
+                id: 'board-inquiry-2',
+                category: 'inquiry',
+                title: '회의록 작성 시 특수문자 입력 오동작 문의',
+                content: '회의록 안건 입력 시 작은따옴표(') 및 백슬래시(\) 사용 관련 문의드립니다.',
+                status: 'pending',
+                authorName: '이영희 PM',
+                authorId: 'user-pm-uuid',
+                createdAt: '2026-08-02T11:20:00Z',
+                updatedAt: '2026-08-02T11:20:00Z'
             },
             {
                 id: 'board-resource-1',
@@ -28389,8 +28410,19 @@ renderTodayTasksRoleBased(todayStr) {
                 status: 'published',
                 authorName: '품질관리팀',
                 authorId: 'user-admin-uuid',
-                createdAt: '2026-08-02T13:00:00Z',
-                updatedAt: '2026-08-02T13:00:00Z'
+                createdAt: '2026-08-01T13:00:00Z',
+                updatedAt: '2026-08-01T13:00:00Z'
+            },
+            {
+                id: 'board-resource-2',
+                category: 'resource',
+                title: '[서식] 프로젝트 월급여 지급품의서 표준 양식',
+                content: '자사 및 계약직 참여인력 월급여 상신용 지급품의서 표준 양식 파일입니다.',
+                status: 'published',
+                authorName: '경영지원팀',
+                authorId: 'user-admin-uuid',
+                createdAt: '2026-07-31T15:10:00Z',
+                updatedAt: '2026-07-31T15:10:00Z'
             }
         ];
     }
