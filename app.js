@@ -16448,13 +16448,16 @@ renderTodayTasksRoleBased(todayStr) {
 
             let stgTotal = 0;
             let stgApproved = 0;
+            let stgSelectedCount = 0;
             let stgActCount = (stg.activities || []).length;
             (stg.activities || []).forEach(act => {
                 (act.artifacts || []).forEach(art => {
                     stgTotal++;
                     if (art.status === 'APPROVED') stgApproved++;
+                    if (art.is_selected === true) stgSelectedCount++;
                 });
             });
+            const isStageAllSelected = stgTotal > 0 && stgSelectedCount === stgTotal;
 
             html += `
                 <div class="opms-stage-accordion ${isStageOpen ? 'open' : ''}" id="opms-stage-box-${stg.stageCode}">
@@ -16463,8 +16466,12 @@ renderTodayTasksRoleBased(todayStr) {
                             <i data-lucide="${isStageOpen ? 'chevron-down' : 'chevron-right'}" style="width: 20px; height: 20px; color: var(--primary);"></i>
                             <span style="font-size: 16px; font-weight: 800; color: var(--text-main);">${this.escapeHtml(stg.fullName || stg.stageName || '')}</span>
                         </div>
-                        <!-- Collapsed Summary Badges -->
-                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <!-- Collapsed Summary Badges & Stage Select All Checkbox -->
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;" onclick="event.stopPropagation();">
+                            <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--text-main); cursor: pointer; background: var(--bg-hover-item); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--bg-card-border);" title="해당 단계의 모든 산출물 선택/해제">
+                                <input type="checkbox" ${isStageAllSelected ? 'checked' : ''} onchange="app.toggleMethodologyStageAllSelection('${projectId}', '${stg.stageCode}', this.checked)" style="width: 15px; height: 15px; cursor: pointer; accent-color: var(--primary);">
+                                <span>단계 전체선택 (${stgSelectedCount}/${stgTotal})</span>
+                            </label>
                             <span class="badge badge-neutral" style="font-size: 12px; font-weight: 700;">${stgActCount} Activities</span>
                             <span class="badge badge-neutral" style="font-size: 12px; font-weight: 700;">${stgTotal} Artifacts</span>
                             <span class="badge ${stgProg === 100 ? 'badge-success' : 'badge-info'}" style="font-size: 12px; font-weight: 700; padding: 4px 10px;">
@@ -16481,10 +16488,13 @@ renderTodayTasksRoleBased(todayStr) {
 
                 let actTotal = 0;
                 let actApproved = 0;
+                let actSelectedCount = 0;
                 (act.artifacts || []).forEach(art => {
                     actTotal++;
                     if (art.status === 'APPROVED') actApproved++;
+                    if (art.is_selected === true) actSelectedCount++;
                 });
+                const isActAllSelected = actTotal > 0 && actSelectedCount === actTotal;
 
                 html += `
                     <div class="opms-activity-group ${isActOpen ? 'open' : ''}">
@@ -16504,7 +16514,9 @@ renderTodayTasksRoleBased(todayStr) {
                             <table class="opms-artifact-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 44px; text-align: center;">적용</th>
+                                        <th style="width: 50px; text-align: center;" title="이 수행활동의 산출물 전체 선택/해제">
+                                            <input type="checkbox" ${isActAllSelected ? 'checked' : ''} onchange="event.stopPropagation(); app.toggleMethodologyActivityAllSelection('${projectId}', '${act.activityId}', this.checked)" style="width: 15px; height: 15px; cursor: pointer; accent-color: var(--primary);">
+                                        </th>
                                         <th style="min-width: 220px;">산출물명</th>
                                         <th style="width: 100px;">상태</th>
                                         <th style="width: 120px;">진행률</th>
@@ -16518,7 +16530,7 @@ renderTodayTasksRoleBased(todayStr) {
 
                 (act.artifacts || []).forEach(art => {
                     const isSelected = selectedArtifact && selectedArtifact.id === art.id;
-                    const isApplied = art.is_selected !== false && art.is_active !== false;
+                    const isApplied = art.is_selected === true;
                     const stLabel = OPMS_STATUS_LABELS[art.status] || '미작성';
                     const artProg = OPMS_STATUS_PROGRESS[art.status] !== undefined ? OPMS_STATUS_PROGRESS[art.status] : 0;
 
@@ -16889,6 +16901,62 @@ renderTodayTasksRoleBased(todayStr) {
             this.switchView('project-detail', targetProjectId);
         }
         this.setDetailTab('artifacts');
+    }
+
+    toggleMethodologyStageAllSelection(projectId, stageCode, isChecked) {
+        const methodologyObj = this.getProjectMethodology(projectId);
+        const stage = (methodologyObj.stages || []).find(s => s.stageCode === stageCode);
+        if (!stage) return;
+
+        (stage.activities || []).forEach(act => {
+            (act.artifacts || []).forEach(art => {
+                art.is_selected = isChecked;
+                art.is_active = isChecked;
+
+                this.saveState('project_artifact_upsert', {
+                    projectId,
+                    stageCode: stage.stageCode,
+                    activityId: act.activityId,
+                    ...art
+                });
+            });
+        });
+
+        this.renderProjectDetailMethodology(projectId);
+
+        if (this.activeProjectId === projectId) {
+            const selectedArtifacts = this.getProjectSelectedArtifacts(projectId);
+            this.renderProjectDetailArtifactsTable(selectedArtifacts);
+        }
+    }
+
+    toggleMethodologyActivityAllSelection(projectId, activityId, isChecked) {
+        const methodologyObj = this.getProjectMethodology(projectId);
+
+        (methodologyObj.stages || []).forEach(stg => {
+            (stg.activities || []).forEach(act => {
+                if (act.activityId === activityId) {
+                    (act.artifacts || []).forEach(art => {
+                        art.is_selected = isChecked;
+                        art.is_active = isChecked;
+
+                        this.saveState('project_artifact_upsert', {
+                            projectId,
+                            stageCode: stg.stageCode,
+                            activityId: act.activityId,
+                            ...art
+                        });
+                    });
+                }
+            });
+        });
+
+        this.renderProjectDetailMethodology(projectId);
+
+        if (this.activeProjectId === projectId) {
+            const selectedArtifacts = this.getProjectSelectedArtifacts(projectId);
+            this.renderProjectDetailArtifactsTable(selectedArtifacts);
+        }
     }
 
     getProjectSelectedArtifacts(projectId) {
