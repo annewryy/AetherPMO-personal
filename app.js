@@ -731,6 +731,11 @@ class AetherPMO {
             officialDocsMenu.style.display = 'none';
         }
 
+        const tailoringMenu = document.querySelector('.sidebar-nav .nav-item[data-view="tailoring"]');
+        if (tailoringMenu) {
+            tailoringMenu.style.display = 'none';
+        }
+
         // Helper checks for PM and Worker scoping
         const isProjectManager = project && (project.managerId === session.email || (session.assignedProjectIds && session.assignedProjectIds.includes(project.id)));
         const isProjectMember = project && (project.memberIds && (project.memberIds.includes(session.email) || (session.assignedProjectIds && session.assignedProjectIds.includes(project.id))));
@@ -17065,33 +17070,37 @@ renderTodayTasksRoleBased(todayStr) {
         // Dynamically update deliverables tab buttons and panels
         const artifactsTabBtn = document.querySelector('.detail-tab-btn[data-tab="artifacts"]');
         if (artifactsTabBtn) {
-            artifactsTabBtn.textContent = isBidding ? '제안준비서류' : '산출물';
+            artifactsTabBtn.textContent = '산출물';
         }
         const artifactsHeader = document.querySelector('#detail-tab-content-artifacts h3');
         if (artifactsHeader) {
-            artifactsHeader.textContent = isBidding ? '제출된 제안준비서류 목록' : '제출된 산출물 목록';
+            artifactsHeader.textContent = '프로젝트 수행단계 산출물';
+        }
+        const artifactsSubHeader = document.querySelector('#detail-tab-content-artifacts p.text-xs');
+        if (artifactsSubHeader) {
+            artifactsSubHeader.textContent = '테일러링 설정에서 선택된 산출물 목록입니다.';
         }
         const artifactsBtn = document.querySelector('#detail-tab-content-artifacts .btn-primary');
         if (artifactsBtn) {
-            artifactsBtn.innerHTML = isBidding
-                ? `<i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 제안준비서류 등록`
-                : `<i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 산출물 등록`;
+            artifactsBtn.innerHTML = `<i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 산출물 등록`;
         }
         const artifactsTableTitleHeader = document.querySelector('#detail-tab-content-artifacts table th:first-child');
         if (artifactsTableTitleHeader) {
-            artifactsTableTitleHeader.textContent = isBidding ? '서류명' : '산출물명';
+            artifactsTableTitleHeader.textContent = '산출물명';
         }
 
         document.querySelectorAll('.detail-tab-btn').forEach(btn => {
             const tab = btn.getAttribute('data-tab');
             if (isBidding) {
-                if (tab === 'overview' || tab === 'bidding-tasks' || tab === 'artifacts' || tab === 'bid-readiness' || tab === 'bidding-wbs' || tab === 'bidding-gantt' || tab === 'consortium' || tab === 'vrb') {
+                // 입찰단계 프로젝트: '입찰 준비현황', '제안 Task', 'WBS', '간트', '컨소시엄', 'VRB', '개요' 노출 ('산출물' 탭 제외)
+                if (tab === 'overview' || tab === 'bid-readiness' || tab === 'bidding-tasks' || tab === 'bidding-wbs' || tab === 'bidding-gantt' || tab === 'consortium' || tab === 'vrb') {
                     btn.style.display = 'inline-block';
                 } else {
                     btn.style.display = 'none';
                 }
             } else {
-                if (tab === 'consortium' || tab === 'vrb' || tab === 'bid-readiness' || tab === 'bidding-tasks' || tab === 'bidding-wbs' || tab === 'bidding-gantt') {
+                // 수행단계 프로젝트: '입찰 준비현황' 대신 '산출물' 탭 및 수행단계 전용 탭(이슈, 리스크, Action Item, 회의록, 공문, 참여인력) 노출
+                if (tab === 'bid-readiness' || tab === 'bidding-tasks' || tab === 'bidding-wbs' || tab === 'bidding-gantt' || tab === 'consortium' || tab === 'vrb' || tab === 'methodology') {
                     btn.style.display = 'none';
                 } else {
                     btn.style.display = 'inline-block';
