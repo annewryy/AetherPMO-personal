@@ -4592,6 +4592,10 @@ class AetherPMO {
 
         const routes = {
             'dashboard': 'view-dashboard',
+            'board': 'view-board',
+            'board/notices': 'view-board',
+            'board/inquiries': 'view-board',
+            'board/resources': 'view-board',
             'projects': 'view-projects',
             'projects-g2b': 'view-projects-g2b',
             'projects-g2b-detail': 'view-projects-g2b-detail',
