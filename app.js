@@ -32524,8 +32524,13 @@ renderTodayTasksRoleBased(todayStr) {
 
         this.showToast(`프로젝트 "${project.name}"이(가) 삭제되었습니다.`, 'success');
 
-        if (this.activeView === 'project-detail' && String(this.currentProjectId) === String(projectId)) {
-            window.location.hash = 'projects/active';
+        const isDetailView = this.activeView === 'project-detail' ||
+                             String(this.activeProjectId) === String(projectId) ||
+                             (window.location.hash && window.location.hash.includes('project-detail'));
+
+        if (isDetailView) {
+            this.activeProjectId = null;
+            window.location.hash = 'projects';
             await this.switchView('projects');
         } else {
             this.renderProjects();
