@@ -1,7 +1,7 @@
 ---
 id: 0018
 title: 파일 저장/업로드 — FilePort + NAS(S3 호환) 아키텍처 계획
-status: DRAFT (계획 — 개발서버/스토리지 확정 시 착수)
+status: PARTIAL (1차 구현됨 — FilePort+LocalFsFileAdapter+양식·산출물 파일 API. NAS 전환·presigned·첨부 일반화 남음, §K)
 scope: [backend, web-ui, schema, infra]
 depends: [0013, 0005]
 ---
@@ -107,6 +107,23 @@ MinIO로 만든 **앱 로직·API·데이터모델은 그대로 재사용**되�
 - 권한이 되면 A가 정석, NAS에 패키지를 못 깔면 A'가 절충안(브라우저는 이미 개발서버 접근 가능).
 - 어느 쪽이든 **P1(FilePort + S3Adapter + 개발서버 MinIO)은 경로 오픈을 기다리지 않고 지금 착수 가능** —
   NAS 확정 시 endpoint 교체(A/A') 또는 어댑터 교체(B)만.
+
+## K. 구현 현황 (2026-08-04 실사 — 문서가 코드보다 뒤처져 있던 것 정정)
+
+**이미 구현됨** (`server-spring/src/main/java/com/aetherpms/file/`):
+- `FilePort`(put/get/exists/delete) + **`LocalFsFileAdapter`** — 저장 위치는 NAS가 아니라
+  **개발서버 도커 볼륨**(`aetherpms_files` → `/data/files`, `file.storage.dir`). 키 정규화로 경로탈출 차단.
+- `FileController`: 양식 업로드/다운로드(`/api/doc-templates/{id}/file`, 쓰기=SYS_ADMIN) ·
+  산출물 연동 양식 다운로드 · 수정본 업로드(버전 증가, `pms_deliverable_version`) · 최신본 다운로드 ·
+  버전 이력. 접근제어는 `ProjectScopeService`(멤버십 뷰 가드 + WORKER 본인 담당 쓰기 가드) — §E 원칙대로
+  **인가는 앱이 매 요청 검증**.
+
+**남은 것**:
+- presign 계열(§A의 presignPut/presignGet) — LocalFs에선 불가, S3Adapter 도입 시.
+- `pms_attachment` 범용 첨부 배선(§B) — 현재는 양식·산출물 경로만.
+- 타입 화이트리스트·크기 상한(§E) 미적용.
+- **NAS 전환(§J)** — 어댑터 교체/설정만. 단 **현재 파일은 도커 볼륨 단일 사본(백업 없음)**:
+  VM 유실 = 파일 유실. NAS 전환 시 기존 볼륨 파일 이관 필요.
 
 ## 미결 / 인프라 확인 필요
 - ~~NAS 정체 3개 확인~~ → **§J로 해소**(벤더 Synology·S3 미지원(MinIO 설치 시 가능)·사내망 접근 가능).
