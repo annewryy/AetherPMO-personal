@@ -4634,16 +4634,19 @@ class AetherPMO {
         window.scrollTo(0, 0);
 
         // 3. Update sidebar nav active states
-        document.querySelectorAll('.sidebar-nav .nav-item, .sidebar-submenu .sidebar-menu-item').forEach(item => {
-            item.classList.remove('active');
-            const navView = item.getAttribute('data-view');
-            if (navView === viewName) {
-                item.classList.add('active');
-                // 상위 관리자 섹션이 있는 경우 자동 펼침
-                const adminSec = item.closest('.sidebar-admin-section');
-                if (adminSec) adminSec.classList.add('open');
+        if (viewName === 'projects') {
+            if (this.activeProjectStageFilter === 'Bidding') {
+                this.setActiveSidebarMenu('projects/bidding');
+            } else if (this.activeProjectStageFilter === 'Active') {
+                this.setActiveSidebarMenu('projects/active');
+            } else if (this.activeProjectStageFilter === 'g2b') {
+                this.setActiveSidebarMenu('projects/g2b');
+            } else {
+                this.setActiveSidebarMenu('projects/all');
             }
-        });
+        } else {
+            this.setActiveSidebarMenu(viewName);
+        }
 
         // 4. Update window location hash quietly
         let targetHash = `#${viewName}`;
@@ -8407,20 +8410,31 @@ renderTodayTasksRoleBased(todayStr) {
     }
 
     setActiveSidebarMenu(route) {
-        document.querySelectorAll('.sidebar-nav .nav-item, .sidebar-nav .submenu-item').forEach(el => {
+        document.querySelectorAll('.sidebar-nav .nav-item, .sidebar-nav .submenu-item, .sidebar-submenu .submenu-item').forEach(el => {
             el.classList.remove('active');
         });
+
+        const projectsNav = document.querySelector('.nav-item[data-view="projects"]');
 
         if (route === 'projects/active') {
             const activeSubmenu = document.querySelector('.submenu-item[data-subview="active"]');
             if (activeSubmenu) activeSubmenu.classList.add('active');
-            const projectsNav = document.querySelector('.nav-item[data-view="projects"]');
             if (projectsNav) projectsNav.classList.add('active');
         } else if (route === 'projects/bidding') {
             const biddingSubmenu = document.querySelector('.submenu-item[data-subview="bidding"]');
             if (biddingSubmenu) biddingSubmenu.classList.add('active');
-            const projectsNav = document.querySelector('.nav-item[data-view="projects"]');
             if (projectsNav) projectsNav.classList.add('active');
+        } else if (route === 'projects/g2b') {
+            const g2bSubmenu = document.querySelector('.submenu-item[data-subview="g2b"]');
+            if (g2bSubmenu) g2bSubmenu.classList.add('active');
+            if (projectsNav) projectsNav.classList.add('active');
+        } else if (route === 'projects/all' || route === 'projects') {
+            const allSubmenu = document.querySelector('.submenu-item[data-subview="all"]');
+            if (allSubmenu) allSubmenu.classList.add('active');
+            if (projectsNav) projectsNav.classList.add('active');
+        } else {
+            const navItem = document.querySelector(`.nav-item[data-view="${route}"]`);
+            if (navItem) navItem.classList.add('active');
         }
     }
 
@@ -32811,7 +32825,7 @@ renderTodayTasksRoleBased(todayStr) {
         const nextWeekStr = nextWeek.toISOString().substring(0, 10);
 
         biddingProjects.forEach(p => {
-            const bSt = (p.bidding_status || p.biddingStatus || p.bid_stage || 'proposal_prep').toLowerCase();
+            const normSt = this.normalizeBiddingStatus(p);
             const expAmt = Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0);
 
             if (!isNaN(expAmt) && expAmt > 0) {
@@ -32819,18 +32833,18 @@ renderTodayTasksRoleBased(todayStr) {
             }
 
             // 3. 진행 중 입찰 (수주 won, 실패 lost 제외)
-            if (bSt !== 'won' && bSt !== 'lost' && p.status !== 'Completed') {
+            if (normSt !== 'won' && normSt !== 'lost' && p.status !== 'Completed') {
                 activeCount++;
             }
 
-            // 4. 제안 진행 중 (제안 준비 + 제안서 작성)
-            if (bSt === 'proposal_prep' || bSt === 'proposal_preparing' || bSt === 'proposal_writing' || bSt === 'review') {
+            // 4. 제안 진행 중: 참여검토(review), 제안준비(proposal_prep), 제안서 작성(proposal_writing) 건수 합계
+            if (normSt === 'review' || normSt === 'proposal_prep' || normSt === 'proposal_writing') {
                 proposalProgressCount++;
             }
 
             // 5. 금주 마감
             const dueDate = p.proposalDueDate || p.bidDueDate || p.dueDate || p.endDate;
-            if (dueDate && bSt !== 'won' && bSt !== 'lost') {
+            if (dueDate && normSt !== 'won' && normSt !== 'lost') {
                 if (dueDate >= todayStr && dueDate <= nextWeekStr) {
                     dueThisWeekCount++;
                 }
@@ -33192,6 +33206,7 @@ renderTodayTasksRoleBased(todayStr) {
                         <td>${convertedAt}</td>
                         <td class="text-center">
                             <button class="btn btn-xs btn-outline" onclick="app.rollbackBiddingStage('${p.id}')">원복 (관리자)</button>
+                            <button class="btn btn-xs btn-outline-danger" onclick="app.openDeleteProjectModal('${p.id}')" style="margin-left:4px;">삭제 (관리자)</button>
                         </td>
                     </tr>
                 `;
@@ -33208,6 +33223,7 @@ renderTodayTasksRoleBased(todayStr) {
                         <td style="font-size:11px; color:var(--text-muted); max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${this.escapeHtml(detailText)}">${this.escapeHtml(detailText)}</td>
                         <td class="text-center">
                             <button class="btn btn-xs btn-outline" onclick="app.rollbackBiddingStage('${p.id}')">원복 (관리자)</button>
+                            <button class="btn btn-xs btn-outline-danger" onclick="app.openDeleteProjectModal('${p.id}')" style="margin-left:4px;">삭제 (관리자)</button>
                         </td>
                     </tr>
                 `;
@@ -33257,8 +33273,8 @@ renderTodayTasksRoleBased(todayStr) {
         `;
 
         biddingProjects.forEach(p => {
-            const bSt = (p.bidding_status || p.biddingStatus || p.bid_stage || 'review').toLowerCase();
-            const stageText = stageLabels[bSt] || bSt;
+            const normSt = this.normalizeBiddingStatus(p);
+            const stageText = stageLabels[normSt] || normSt;
             const expAmt = Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0);
             const amtStr = expAmt > 0 ? this.formatAmountShort(expAmt) : '미입력';
             const dueDate = p.proposalDueDate || p.bidDueDate || p.dueDate || p.endDate || '-';
@@ -33269,13 +33285,13 @@ renderTodayTasksRoleBased(todayStr) {
                     <td>${this.escapeHtml(p.customer || '-')}</td>
                     <td class="text-center">
                         <select class="form-control" style="font-size:11px; padding:2px 6px; width:auto;" onchange="app.updateBiddingStageDirect('${p.id}', this.value)">
-                            <option value="review" ${bSt === 'review' ? 'selected' : ''}>참여 검토</option>
-                            <option value="proposal_prep" ${bSt === 'proposal_prep' ? 'selected' : ''}>제안 준비</option>
-                            <option value="proposal_writing" ${bSt === 'proposal_writing' || bSt === 'proposal_preparing' ? 'selected' : ''}>제안서 작성</option>
-                            <option value="proposal_submitted" ${bSt === 'proposal_submitted' ? 'selected' : ''}>제출 완료</option>
-                            <option value="waiting_result" ${bSt === 'waiting_result' ? 'selected' : ''}>결과 대기</option>
-                            <option value="won" ${bSt === 'won' ? 'selected' : ''}>수주 성공</option>
-                            <option value="lost" ${bSt === 'lost' ? 'selected' : ''}>실패/실주</option>
+                            <option value="review" ${normSt === 'review' ? 'selected' : ''}>참여 검토</option>
+                            <option value="proposal_prep" ${normSt === 'proposal_prep' ? 'selected' : ''}>제안 준비</option>
+                            <option value="proposal_writing" ${normSt === 'proposal_writing' ? 'selected' : ''}>제안서 작성</option>
+                            <option value="proposal_submitted" ${normSt === 'proposal_submitted' ? 'selected' : ''}>제출 완료</option>
+                            <option value="waiting_result" ${normSt === 'waiting_result' ? 'selected' : ''}>결과 대기</option>
+                            <option value="won" ${normSt === 'won' ? 'selected' : ''}>수주 성공</option>
+                            <option value="lost" ${normSt === 'lost' ? 'selected' : ''}>실패/실주</option>
                         </select>
                     </td>
                     <td style="font-weight:700; color:var(--primary);">${amtStr}</td>
@@ -33284,6 +33300,7 @@ renderTodayTasksRoleBased(todayStr) {
                     <td class="text-center">
                         <button class="btn btn-xs btn-outline-success" onclick="app.openBiddingWonModal('${p.id}')">수주</button>
                         <button class="btn btn-xs btn-outline-danger" onclick="app.openBiddingLostModal('${p.id}')">실패</button>
+                        <button class="btn btn-xs btn-outline-secondary" onclick="app.openDeleteProjectModal('${p.id}')" style="margin-left:2px;" title="삭제">삭제</button>
                     </td>
                 </tr>
             `;
