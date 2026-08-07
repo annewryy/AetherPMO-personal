@@ -19873,7 +19873,11 @@ renderTodayTasksRoleBased(todayStr) {
         }
     }
 
-    async saveProjectForm() {
+    async saveProjectForm(e) {
+        if (e && typeof e.preventDefault === 'function') {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         console.trace('[PROJECT_SAVE_CALL]', {
             instanceId: this.instanceId,
             formId: document.getElementById('project-form')?.id,
@@ -20039,8 +20043,8 @@ renderTodayTasksRoleBased(todayStr) {
         const contractOwner = document.getElementById('project-contract-owner')?.value?.trim() || '';
         const legalOwner = document.getElementById('project-legal-owner')?.value?.trim() || '';
 
-        if (!name || !manager || !customer || !budget || !inspectionDate) {
-            alert('필수값을 먼저 입력해주세요.');
+        if (!name || !manager || !customer) {
+            alert('필수값(프로젝트명, 프로젝트 매니저, 발주기관)을 먼저 입력해주세요.');
             return;
         }
 

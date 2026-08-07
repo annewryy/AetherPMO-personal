@@ -3288,7 +3288,7 @@
                 <h2 id="project-modal-title">새 프로젝트 등록</h2>
                 <button class="modal-close-btn" onclick="app.closeProjectModal()">&times;</button>
             </div>
-            <form id="project-form">
+            <form id="project-form" novalidate>
                 <input type="hidden" id="project-id-field">
                 <div class="modal-body">
                     <div class="form-grid">
@@ -3349,7 +3349,7 @@
                             <label for="new-bidding-status">
                                 입찰 진행단계 <span aria-hidden="true" class="text-danger">*</span>
                             </label>
-                            <select id="new-bidding-status" class="form-control" required>
+                            <select id="new-bidding-status" class="form-control">
                                 <option value="">진행단계를 선택해주세요.</option>
                                 <option value="review" selected>참여 검토</option>
                                 <option value="proposal_prep">제안 준비</option>
@@ -3649,7 +3649,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline" onclick="app.closeProjectModal()">취소</button>
-                    <button type="submit" class="btn btn-primary">저장하기</button>
+                    <button type="submit" class="btn btn-primary" onclick="app.saveProjectForm(event)">저장하기</button>
                 </div>
             </form>
         </div>
