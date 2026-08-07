@@ -16380,10 +16380,16 @@ renderTodayTasksRoleBased(todayStr) {
                             테일러링(OPMS) - ${this.escapeHtml(project?.name || '프로젝트')}
                         </h2>
                     </div>
-                    <span class="badge badge-info" style="font-size: 11px; font-weight: 700; padding: 5px 12px;">
-                        <i data-lucide="sparkles" style="width: 13px; height: 13px; margin-right: 6px; display: inline-block; vertical-align: middle;"></i>
-                        OPMS 1.0 표준 프로세스
-                    </span>
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="app.applyTailoringAndNavigateToArtifacts('${projectId}')" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; padding: 7px 16px; box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3); border-radius: 8px;">
+                            <i data-lucide="arrow-right-circle" style="width: 16px; height: 16px;"></i>
+                            선택 산출물 적용 & 산출물 탭으로 이동
+                        </button>
+                        <span class="badge badge-info" style="font-size: 11px; font-weight: 700; padding: 6px 12px;">
+                            <i data-lucide="sparkles" style="width: 13px; height: 13px; margin-right: 6px; display: inline-block; vertical-align: middle;"></i>
+                            OPMS 1.0 표준 프로세스
+                        </span>
+                    </div>
                 </div>
 
                 <!-- 6-Stage Timeline Flow Pipeline -->
@@ -16567,6 +16573,20 @@ renderTodayTasksRoleBased(todayStr) {
         });
 
         html += `
+                    <!-- Bottom Action Banner -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding: 14px 18px; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i data-lucide="check-circle-2" style="width: 20px; height: 20px; color: var(--primary);"></i>
+                            <div>
+                                <div style="font-size: 13px; font-weight: 800; color: var(--text-main);">선택한 테일러링 산출물이 수행단계 산출물 메뉴로 즉시 반영됩니다.</div>
+                                <div style="font-size: 11px; color: var(--text-muted);">적용 체크박스 선택 후 오른쪽 버튼을 누르면 산출물 탭으로 이동합니다.</div>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="app.applyTailoringAndNavigateToArtifacts('${projectId}')" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; padding: 8px 18px; white-space: nowrap;">
+                            <i data-lucide="file-check" style="width: 15px; height: 15px;"></i>
+                            선택 산출물 산출물 탭으로 이동 &rarr;
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Right Side Panel (37% width) -->
@@ -16852,6 +16872,23 @@ renderTodayTasksRoleBased(todayStr) {
             const selectedArtifacts = this.getProjectSelectedArtifacts(projectId);
             this.renderProjectDetailArtifactsTable(selectedArtifacts);
         }
+    }
+
+    applyTailoringAndNavigateToArtifacts(projectId) {
+        const targetProjectId = projectId || this.activeProjectId;
+        if (!targetProjectId) return;
+
+        const selectedArtifacts = this.getProjectSelectedArtifacts(targetProjectId);
+        const count = selectedArtifacts ? selectedArtifacts.length : 0;
+
+        if (typeof this.showToast === 'function') {
+            this.showToast(`테일러링에서 적용 선택된 ${count}개의 산출물이 산출물 탭으로 반영되었습니다.`, 'success');
+        }
+
+        if (this.activeProjectId !== targetProjectId) {
+            this.switchView('project-detail', targetProjectId);
+        }
+        this.setDetailTab('artifacts');
     }
 
     getProjectSelectedArtifacts(projectId) {
