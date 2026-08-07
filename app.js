@@ -32989,12 +32989,16 @@ renderTodayTasksRoleBased(todayStr) {
 
         toggleBiddingCardMenu(event, projectId) {
         if (event) event.stopPropagation();
+        const btn = event ? (event.currentTarget || (event.target ? event.target.closest('.bidding-card-menu-btn, .card-more-button') : null)) : null;
+
         // Close all existing open menus
         document.querySelectorAll('.bidding-card-menu-popup').forEach(el => {
             if (el.id !== `bidding-card-menu-${projectId}`) {
                 el.style.display = 'none';
                 const card = el.closest('.bidding-kanban-card-v2');
                 if (card) card.classList.remove('menu-open');
+                const prevBtn = el.previousElementSibling;
+                if (prevBtn) prevBtn.classList.remove('active');
             }
         });
 
@@ -33003,6 +33007,8 @@ renderTodayTasksRoleBased(todayStr) {
             const isHidden = popup.style.display === 'none' || popup.style.display === '';
             popup.style.display = isHidden ? 'block' : 'none';
             const card = popup.closest('.bidding-kanban-card-v2');
+            const targetBtn = btn || popup.previousElementSibling;
+
             if (card) {
                 if (isHidden) {
                     card.classList.add('menu-open');
@@ -33010,6 +33016,15 @@ renderTodayTasksRoleBased(todayStr) {
                     card.classList.remove('menu-open');
                 }
             }
+
+            if (targetBtn) {
+                if (isHidden) {
+                    targetBtn.classList.add('active');
+                } else {
+                    targetBtn.classList.remove('active');
+                }
+            }
+
             if (isHidden && typeof lucide !== 'undefined') {
                 try { lucide.createIcons(); } catch(e){}
             }
@@ -33213,8 +33228,8 @@ renderTodayTasksRoleBased(todayStr) {
                 <div class="card-top-row" style="display:flex; justify-content:space-between; align-items:center;">
                     ${dDayBadge}
                     <div class="bidding-card-menu-dropdown" onclick="event.stopPropagation();">
-                        <button type="button" class="bidding-card-menu-btn" onclick="app.toggleBiddingCardMenu(event, '${p.id}')" title="메뉴 열기">
-                            <i data-lucide="more-vertical" style="width:18px; height:18px;"></i>
+                        <button type="button" class="bidding-card-menu-btn card-more-button" onclick="app.toggleBiddingCardMenu(event, '${p.id}')" title="메뉴 열기">
+                            <i data-lucide="more-vertical" style="width:16px; height:16px;"></i>
                         </button>
                         <div id="bidding-card-menu-${p.id}" class="bidding-card-menu-popup" style="display:none;">
                             <div onclick="app.closeAllBiddingCardMenus(); app.openEditProjectModal('${p.id}');" class="menu-item">
