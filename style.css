@@ -8121,90 +8121,108 @@ body:not(.dark-mode) .data-table-sticky th {
    ============================================================================ */
 
 /* ── LIGHT MODE SUMMARY CARDS (Strict Isolation) ────────────────────────── */
-body:not(.dark-mode) .nirs-summary-card,
+body.light-theme .nirs-summary-card,
+body:not(.dark-theme):not(.dark-mode) .nirs-summary-card,
 [data-theme="light"] .nirs-summary-card {
     background: #FFFFFF !important;
     border: 1px solid #E2E8F0 !important;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03) !important;
     border-radius: 12px !important;
 }
-body:not(.dark-mode) .nirs-summary-card:hover,
+body.light-theme .nirs-summary-card:hover,
+body:not(.dark-theme):not(.dark-mode) .nirs-summary-card:hover,
 [data-theme="light"] .nirs-summary-card:hover {
     border-color: #8B5CF6 !important;
     box-shadow: 0 4px 12px rgba(139, 92, 246, 0.12) !important;
 }
-body:not(.dark-mode) .nirs-summary-card.active,
+body.light-theme .nirs-summary-card.active,
+body:not(.dark-theme):not(.dark-mode) .nirs-summary-card.active,
 [data-theme="light"] .nirs-summary-card.active {
     background: #F5F3FF !important;
     border: 1px solid #8B5CF6 !important;
     box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15) !important;
 }
 
-body:not(.dark-mode) .nirs-summary-card .kpi-num,
+body.light-theme .nirs-summary-card .kpi-num,
+body:not(.dark-theme):not(.dark-mode) .nirs-summary-card .kpi-num,
 [data-theme="light"] .nirs-summary-card .kpi-num {
     color: #111827 !important; /* WCAG AAA Contrast 16.6:1 */
 }
-body:not(.dark-mode) .nirs-summary-card .kpi-title,
+body.light-theme .nirs-summary-card .kpi-title,
+body:not(.dark-theme):not(.dark-mode) .nirs-summary-card .kpi-title,
 [data-theme="light"] .nirs-summary-card .kpi-title {
     color: #334155 !important; /* WCAG AAA Contrast 10.7:1 */
 }
-body:not(.dark-mode) .nirs-summary-card .kpi-subtext,
+body.light-theme .nirs-summary-card .kpi-subtext,
+body:not(.dark-theme):not(.dark-mode) .nirs-summary-card .kpi-subtext,
 [data-theme="light"] .nirs-summary-card .kpi-subtext {
     color: #64748B !important; /* WCAG AA Contrast 4.8:1 */
 }
 
 /* ── DARK MODE SUMMARY CARDS (Strict Isolation) ─────────────────────────── */
+body.dark-theme .nirs-summary-card,
 body.dark-mode .nirs-summary-card,
 [data-theme="dark"] .nirs-summary-card {
-    background: #131C2E !important;
-    border: 1px solid #27324A !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+    background: var(--dark-surface-1, #111827) !important;
+    border: 1px solid var(--dark-border, #2A3850) !important;
+    box-shadow: none !important;
 }
+body.dark-theme .nirs-summary-card:hover,
 body.dark-mode .nirs-summary-card:hover,
 [data-theme="dark"] .nirs-summary-card:hover {
-    border-color: #6366F1 !important;
-    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.15) !important;
+    background: var(--dark-surface-2, #182235) !important;
+    border-color: var(--dark-border-strong, #475569) !important;
 }
+body.dark-theme .nirs-summary-card.active,
 body.dark-mode .nirs-summary-card.active,
 [data-theme="dark"] .nirs-summary-card.active {
-    background: #1E293B !important;
-    border: 1px solid #6366F1 !important;
+    background: #211B47 !important;
+    border: 1px solid var(--dark-primary, #8B5CF6) !important;
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.20) !important;
 }
 
+body.dark-theme .nirs-summary-card .kpi-num,
 body.dark-mode .nirs-summary-card .kpi-num,
 [data-theme="dark"] .nirs-summary-card .kpi-num {
-    color: #F8FAFC !important;
+    color: var(--dark-text-primary, #F8FAFC) !important;
 }
+body.dark-theme .nirs-summary-card .kpi-title,
 body.dark-mode .nirs-summary-card .kpi-title,
 [data-theme="dark"] .nirs-summary-card .kpi-title {
-    color: #CBD5E1 !important;
+    color: var(--dark-text-body, #CBD5E1) !important;
 }
+body.dark-theme .nirs-summary-card .kpi-subtext,
 body.dark-mode .nirs-summary-card .kpi-subtext,
 [data-theme="dark"] .nirs-summary-card .kpi-subtext {
-    color: #94A3B8 !important;
+    color: var(--dark-text-secondary, #94A3B8) !important;
 }
 
 /* ── LIGHT MODE TREE SELECTION & EXPANDED STATES ──────────────────────── */
-body:not(.dark-mode) .tree-cat-header,
+body.light-theme .tree-cat-header,
+body:not(.dark-theme):not(.dark-mode) .tree-cat-header,
 [data-theme="light"] .tree-cat-header {
     background: transparent !important;
     color: #334155 !important;
 }
-body:not(.dark-mode) .tree-cat-header:hover,
+body.light-theme .tree-cat-header:hover,
+body:not(.dark-theme):not(.dark-mode) .tree-cat-header:hover,
 [data-theme="light"] .tree-cat-header:hover {
     background: #F1F5F9 !important;
     color: #0F172A !important;
 }
 /* Expanded Parent Node (No background, just bold text) */
-body:not(.dark-mode) .tree-cat-header.expanded,
+body.light-theme .tree-cat-header.expanded,
+body:not(.dark-theme):not(.dark-mode) .tree-cat-header.expanded,
 [data-theme="light"] .tree-cat-header.expanded {
     background: transparent !important;
     font-weight: 700 !important;
     color: #0F172A !important;
 }
 /* Selected Active Node (Soft Purple Background + 3px Left Accent Line) */
-body:not(.dark-mode) .tree-cat-header.selected,
-body:not(.dark-mode) .tree-node-stage-item.selected,
+body.light-theme .tree-cat-header.selected,
+body.light-theme .tree-node-stage-item.selected,
+body:not(.dark-theme):not(.dark-mode) .tree-cat-header.selected,
+body:not(.dark-theme):not(.dark-mode) .tree-node-stage-item.selected,
 [data-theme="light"] .tree-cat-header.selected,
 [data-theme="light"] .tree-node-stage-item.selected {
     background: #F5F3FF !important;
@@ -8215,30 +8233,41 @@ body:not(.dark-mode) .tree-node-stage-item.selected,
 }
 
 /* ── DARK MODE TREE SELECTION & EXPANDED STATES ───────────────────────── */
+body.dark-theme .tree-cat-header,
 body.dark-mode .tree-cat-header,
-[data-theme="dark"] .tree-cat-header {
+[data-theme="dark"] .tree-cat-header,
+body.dark-theme .tree-node-stage-item,
+body.dark-mode .tree-node-stage-item,
+[data-theme="dark"] .tree-node-stage-item {
     background: transparent !important;
-    color: #CBD5E1 !important;
+    color: var(--dark-text-body, #CBD5E1) !important;
 }
+body.dark-theme .tree-cat-header:hover,
 body.dark-mode .tree-cat-header:hover,
-[data-theme="dark"] .tree-cat-header:hover {
-    background: #1A2640 !important;
-    color: #F8FAFC !important;
+[data-theme="dark"] .tree-cat-header:hover,
+body.dark-theme .tree-node-stage-item:hover,
+body.dark-mode .tree-node-stage-item:hover,
+[data-theme="dark"] .tree-node-stage-item:hover {
+    background: var(--dark-surface-2, #182235) !important;
+    color: var(--dark-text-primary, #F8FAFC) !important;
 }
+body.dark-theme .tree-cat-header.expanded,
 body.dark-mode .tree-cat-header.expanded,
 [data-theme="dark"] .tree-cat-header.expanded {
     background: transparent !important;
     font-weight: 700 !important;
-    color: #F8FAFC !important;
+    color: var(--dark-text-primary, #F8FAFC) !important;
 }
+body.dark-theme .tree-cat-header.selected,
+body.dark-theme .tree-node-stage-item.selected,
 body.dark-mode .tree-cat-header.selected,
 body.dark-mode .tree-node-stage-item.selected,
 [data-theme="dark"] .tree-cat-header.selected,
 [data-theme="dark"] .tree-node-stage-item.selected {
-    background: #1E293B !important;
-    color: #F8FAFC !important;
-    font-weight: 600 !important;
-    border-left: 3px solid #6366F1 !important;
+    background: var(--dark-selected-bg, #2E245C) !important;
+    color: var(--dark-selected-text, #F5F3FF) !important;
+    font-weight: 700 !important;
+    border-left: 3px solid var(--dark-primary, #8B5CF6) !important;
     border-radius: 0 6px 6px 0 !important;
 }
 
@@ -8247,7 +8276,7 @@ body.dark-mode .tree-node-stage-item.selected,
    ============================================================================ */
 
 /* ── LIGHT MODE COMPREHENSIVE TOKENS ────────────────────────────────────── */
-body:not(.dark-mode), [data-theme="light"] {
+body.light-theme, body:not(.dark-theme):not(.dark-mode), [data-theme="light"] {
     --tbl-bg-normal: #FFFFFF;
     --tbl-bg-hover: #F8FAFC;
     --tbl-bg-selected: #EEF2FF;
@@ -8273,29 +8302,29 @@ body:not(.dark-mode), [data-theme="light"] {
 }
 
 /* ── DARK MODE COMPREHENSIVE TOKENS ─────────────────────────────────────── */
-body.dark-mode, [data-theme="dark"] {
-    --tbl-bg-normal: #131C2E;
-    --tbl-bg-hover: #1A2640;
-    --tbl-bg-selected: #1E293B;
-    --tbl-border-selected: #6366F1;
+body.dark-theme, body.dark-mode, [data-theme="dark"] {
+    --tbl-bg-normal: #0F172A;
+    --tbl-bg-hover: #172554;
+    --tbl-bg-selected: #2E245C;
+    --tbl-border-selected: #8B5CF6;
     --tbl-text-primary: #F8FAFC;
     --tbl-text-secondary: #CBD5E1;
     --tbl-text-muted: #94A3B8;
     
     /* Badge Dark Tokens */
-    --badge-sub-bg: rgba(59, 130, 246, 0.2); --badge-sub-text: #93C5FD; --badge-sub-border: rgba(59, 130, 246, 0.4);
-    --badge-off-bg: rgba(139, 92, 246, 0.2); --badge-off-text: #E9D5FF; --badge-off-border: rgba(139, 92, 246, 0.4);
-    --badge-app-bg: rgba(16, 185, 129, 0.2); --badge-app-text: #A7F3D0; --badge-app-border: rgba(16, 185, 129, 0.4);
-    --badge-seal-bg: rgba(239, 68, 68, 0.2); --badge-seal-text: #FCA5A5; --badge-seal-border: rgba(239, 68, 68, 0.4);
-    --badge-reg-bg: rgba(34, 197, 94, 0.2); --badge-reg-text: #86EFAC; --badge-reg-border: rgba(34, 197, 94, 0.4);
-    --badge-unreg-bg: rgba(148, 163, 184, 0.2); --badge-unreg-text: #CBD5E1; --badge-unreg-border: rgba(148, 163, 184, 0.4);
+    --badge-sub-bg: #172554; --badge-sub-text: #BFDBFE; --badge-sub-border: rgba(191, 219, 254, 0.25);
+    --badge-off-bg: #3B1D5A; --badge-off-text: #E9D5FF; --badge-off-border: rgba(233, 213, 255, 0.25);
+    --badge-app-bg: #143C2E; --badge-app-text: #BBF7D0; --badge-app-border: rgba(187, 247, 208, 0.25);
+    --badge-seal-bg: #4C1D24; --badge-seal-text: #FECACA; --badge-seal-border: rgba(254, 202, 202, 0.25);
+    --badge-reg-bg: #143C2E; --badge-reg-text: #BBF7D0; --badge-reg-border: rgba(187, 247, 208, 0.25);
+    --badge-unreg-bg: #334155; --badge-unreg-text: #E2E8F0; --badge-unreg-border: rgba(226, 232, 240, 0.25);
 
     /* Tree Dark Tokens */
     --tree-text-normal: #CBD5E1;
     --tree-text-expanded: #F8FAFC;
-    --tree-bg-selected: #1E293B;
-    --tree-text-selected: #F8FAFC;
-    --tree-border-selected: #6366F1;
+    --tree-bg-selected: #2E245C;
+    --tree-text-selected: #F5F3FF;
+    --tree-border-selected: #8B5CF6;
 }
 
 /* ── TABLE ROW SELECTION & THEME INHERITANCE ───────────────────────────── */
@@ -10173,4 +10202,894 @@ body.app-modal-open {
     font-weight: 600 !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+}
+
+/* ============================================================================
+   다크모드 디자인 시스템 CSS 변수 정의 (DARK MODE DESIGN SYSTEM TOKENS)
+   ============================================================================ */
+:root,
+body.dark-theme,
+body.dark-mode,
+[data-theme="dark"] {
+    --dark-app-bg: #0B1120;
+    --dark-sidebar-bg: #0A0F1C;
+    --dark-surface-1: #111827;
+    --dark-surface-2: #182235;
+    --dark-surface-3: #1E293B;
+    --dark-row-bg: #0F172A;
+    --dark-row-alt-bg: #111B2E;
+    --dark-row-hover-bg: #172554;
+    --dark-border: #2A3850;
+    --dark-border-strong: #475569;
+
+    --dark-text-primary: #F8FAFC;
+    --dark-text-body: #CBD5E1;
+    --dark-text-secondary: #94A3B8;
+    --dark-text-disabled: #64748B;
+
+    --dark-primary: #8B5CF6;
+    --dark-primary-hover: #7C3AED;
+    --dark-primary-soft: #C4B5FD;
+    --dark-selected-bg: #2E245C;
+    --dark-selected-text: #F5F3FF;
+}
+
+/* ============================================================================
+   기관별 표준 산출물 관리 (STANDARD ARTIFACT MANAGEMENT) 다크모드 완벽 통일
+   ============================================================================ */
+
+/* 1. 전체 레이아웃 (Layout, Panels & Headers) */
+body.dark-theme,
+body.dark-mode,
+[data-theme="dark"] {
+    background-color: var(--dark-app-bg) !important;
+    color: var(--dark-text-body) !important;
+}
+
+body.dark-theme #view-artifacts,
+body.dark-mode #view-artifacts,
+[data-theme="dark"] #view-artifacts {
+    background-color: var(--dark-app-bg) !important;
+}
+
+body.dark-theme .app-sidebar,
+body.dark-mode .app-sidebar,
+[data-theme="dark"] .app-sidebar,
+body.dark-theme .app-header,
+body.dark-mode .app-header,
+[data-theme="dark"] .app-header {
+    background-color: var(--dark-sidebar-bg) !important;
+    border-color: var(--dark-border) !important;
+}
+
+body.dark-theme #view-artifacts .dashboard-card,
+body.dark-mode #view-artifacts .dashboard-card,
+[data-theme="dark"] #view-artifacts .dashboard-card,
+body.dark-theme #view-artifacts .artifacts-sidebar,
+body.dark-mode #view-artifacts .artifacts-sidebar,
+[data-theme="dark"] #view-artifacts .artifacts-sidebar,
+body.dark-theme #view-artifacts .artifacts-content-header,
+body.dark-mode #view-artifacts .artifacts-content-header,
+[data-theme="dark"] #view-artifacts .artifacts-content-header {
+    background-color: var(--dark-surface-1) !important;
+    border: 1px solid var(--dark-border) !important;
+}
+
+body.dark-theme #view-artifacts h1,
+body.dark-mode #view-artifacts h1,
+[data-theme="dark"] #view-artifacts h1,
+body.dark-theme #view-artifacts h2,
+body.dark-mode #view-artifacts h2,
+[data-theme="dark"] #view-artifacts h2,
+body.dark-theme #view-artifacts h3,
+body.dark-mode #view-artifacts h3,
+[data-theme="dark"] #view-artifacts h3 {
+    color: var(--dark-text-primary) !important;
+}
+
+body.dark-theme #view-artifacts .card-desc,
+body.dark-mode #view-artifacts .card-desc,
+[data-theme="dark"] #view-artifacts .card-desc,
+body.dark-theme #view-artifacts .text-muted,
+body.dark-mode #view-artifacts .text-muted,
+[data-theme="dark"] #view-artifacts .text-muted {
+    color: var(--dark-text-secondary) !important;
+}
+
+/* 2. KPI 카드 (KPI Cards - 기존 흰색 완전 제거) */
+body.dark-theme .nirs-summary-card,
+body.dark-mode .nirs-summary-card,
+[data-theme="dark"] .nirs-summary-card,
+body.dark-theme .kpi-card,
+body.dark-mode .kpi-card,
+[data-theme="dark"] .kpi-card {
+    background: var(--dark-surface-1) !important;
+    border: 1px solid var(--dark-border) !important;
+    box-shadow: none !important;
+}
+
+body.dark-theme .nirs-summary-card:hover,
+body.dark-mode .nirs-summary-card:hover,
+[data-theme="dark"] .nirs-summary-card:hover {
+    background: var(--dark-surface-2) !important;
+    border-color: var(--dark-border-strong) !important;
+}
+
+body.dark-theme .nirs-summary-card.active,
+body.dark-mode .nirs-summary-card.active,
+[data-theme="dark"] .nirs-summary-card.active,
+body.dark-theme .kpi-card.active,
+body.dark-mode .kpi-card.active,
+[data-theme="dark"] .kpi-card.active {
+    background: #211B47 !important;
+    border: 1px solid var(--dark-primary) !important;
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.20) !important;
+}
+
+body.dark-theme .nirs-summary-card .kpi-num,
+body.dark-mode .nirs-summary-card .kpi-num,
+[data-theme="dark"] .nirs-summary-card .kpi-num,
+body.dark-theme .kpi-card .kpi-num,
+body.dark-mode .kpi-card .kpi-num,
+[data-theme="dark"] .kpi-card .kpi-num {
+    color: var(--dark-text-primary) !important;
+}
+
+body.dark-theme .nirs-summary-card .kpi-title,
+body.dark-mode .nirs-summary-card .kpi-title,
+[data-theme="dark"] .nirs-summary-card .kpi-title,
+body.dark-theme .kpi-card .kpi-title,
+body.dark-mode .kpi-card .kpi-title,
+[data-theme="dark"] .kpi-card .kpi-title {
+    color: var(--dark-text-body) !important;
+}
+
+body.dark-theme .nirs-summary-card .kpi-subtext,
+body.dark-mode .nirs-summary-card .kpi-subtext,
+[data-theme="dark"] .nirs-summary-card .kpi-subtext,
+body.dark-theme .kpi-card .kpi-subtext,
+body.dark-mode .kpi-card .kpi-subtext,
+[data-theme="dark"] .kpi-card .kpi-subtext {
+    color: var(--dark-text-secondary) !important;
+}
+
+body.dark-theme .nirs-summary-card .kpi-icon,
+body.dark-mode .nirs-summary-card .kpi-icon,
+[data-theme="dark"] .nirs-summary-card .kpi-icon,
+body.dark-theme .kpi-card .kpi-icon,
+body.dark-mode .kpi-card .kpi-icon,
+[data-theme="dark"] .kpi-card .kpi-icon {
+    background: rgba(139, 92, 246, 0.15) !important;
+    color: var(--dark-primary) !important;
+}
+
+/* 3. 검색창 및 Select 필터 (Search & Select Filters) */
+body.dark-theme #view-artifacts select,
+body.dark-mode #view-artifacts select,
+[data-theme="dark"] #view-artifacts select,
+body.dark-theme #view-artifacts input,
+body.dark-mode #view-artifacts input,
+[data-theme="dark"] #view-artifacts input,
+body.dark-theme .form-select,
+body.dark-mode .form-select,
+[data-theme="dark"] .form-select,
+body.dark-theme .form-control,
+body.dark-mode .form-control,
+[data-theme="dark"] .form-control {
+    color-scheme: dark !important;
+    background-color: var(--dark-surface-1) !important;
+    color: var(--dark-text-primary) !important;
+    border: 1px solid var(--dark-border-strong) !important;
+}
+
+body.dark-theme #view-artifacts input::placeholder,
+body.dark-mode #view-artifacts input::placeholder,
+[data-theme="dark"] #view-artifacts input::placeholder,
+body.dark-theme .form-control::placeholder,
+body.dark-mode .form-control::placeholder,
+[data-theme="dark"] .form-control::placeholder {
+    color: var(--dark-text-disabled) !important;
+    opacity: 1 !important;
+}
+
+body.dark-theme #view-artifacts select:focus,
+body.dark-mode #view-artifacts select:focus,
+[data-theme="dark"] #view-artifacts select:focus,
+body.dark-theme #view-artifacts input:focus,
+body.dark-mode #view-artifacts input:focus,
+[data-theme="dark"] #view-artifacts input:focus,
+body.dark-theme .form-select:focus,
+body.dark-mode .form-select:focus,
+[data-theme="dark"] .form-select:focus,
+body.dark-theme .form-control:focus,
+body.dark-mode .form-control:focus,
+[data-theme="dark"] .form-control:focus {
+    border-color: var(--dark-primary) !important;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.20) !important;
+    outline: none !important;
+}
+
+body.dark-theme select option,
+body.dark-mode select option,
+[data-theme="dark"] select option {
+    background-color: var(--dark-surface-1) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.dark-theme select:disabled,
+body.dark-mode select:disabled,
+[data-theme="dark"] select:disabled,
+body.dark-theme input:disabled,
+body.dark-mode input:disabled,
+[data-theme="dark"] input:disabled,
+body.dark-theme .form-select:disabled,
+body.dark-mode .form-select:disabled,
+[data-theme="dark"] .form-select:disabled,
+body.dark-theme .form-control:disabled,
+body.dark-mode .form-control:disabled,
+[data-theme="dark"] .form-control:disabled {
+    background-color: var(--dark-surface-3) !important;
+    color: var(--dark-text-disabled) !important;
+    border-color: var(--dark-border) !important;
+}
+
+/* 4. 좌측 동적 카테고리 트리 (Category Tree) */
+body.dark-theme #view-artifacts .tree-cat-header,
+body.dark-mode #view-artifacts .tree-cat-header,
+[data-theme="dark"] #view-artifacts .tree-cat-header,
+body.dark-theme #view-artifacts .tree-node-stage-item,
+body.dark-mode #view-artifacts .tree-node-stage-item,
+[data-theme="dark"] #view-artifacts .tree-node-stage-item {
+    color: var(--dark-text-body) !important;
+    background: transparent !important;
+    border-left: 3px solid transparent !important;
+}
+
+body.dark-theme #view-artifacts .tree-cat-header i,
+body.dark-mode #view-artifacts .tree-cat-header i,
+[data-theme="dark"] #view-artifacts .tree-cat-header i,
+body.dark-theme #view-artifacts .tree-node-stage-item i,
+body.dark-mode #view-artifacts .tree-node-stage-item i,
+[data-theme="dark"] #view-artifacts .tree-node-stage-item i {
+    color: var(--dark-text-secondary) !important;
+}
+
+body.dark-theme #view-artifacts .tree-node-stage-item span:last-child,
+body.dark-mode #view-artifacts .tree-node-stage-item span:last-child,
+[data-theme="dark"] #view-artifacts .tree-node-stage-item span:last-child {
+    color: var(--dark-text-secondary) !important;
+    opacity: 1 !important;
+}
+
+body.dark-theme #view-artifacts .tree-cat-header:hover,
+body.dark-mode #view-artifacts .tree-cat-header:hover,
+[data-theme="dark"] #view-artifacts .tree-cat-header:hover,
+body.dark-theme #view-artifacts .tree-node-stage-item:hover,
+body.dark-mode #view-artifacts .tree-node-stage-item:hover,
+[data-theme="dark"] #view-artifacts .tree-node-stage-item:hover {
+    background-color: var(--dark-surface-2) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.dark-theme #view-artifacts .tree-cat-header.selected,
+body.dark-mode #view-artifacts .tree-cat-header.selected,
+[data-theme="dark"] #view-artifacts .tree-cat-header.selected,
+body.dark-theme #view-artifacts .tree-node-stage-item.selected,
+body.dark-mode #view-artifacts .tree-node-stage-item.selected,
+[data-theme="dark"] #view-artifacts .tree-node-stage-item.selected {
+    background-color: var(--dark-selected-bg) !important;
+    color: var(--dark-selected-text) !important;
+    border-left: 3px solid var(--dark-primary) !important;
+    border-radius: 0 6px 6px 0 !important;
+    font-weight: 700 !important;
+}
+
+body.dark-theme #view-artifacts .tree-cat-header.selected i,
+body.dark-mode #view-artifacts .tree-cat-header.selected i,
+[data-theme="dark"] #view-artifacts .tree-cat-header.selected i,
+body.dark-theme #view-artifacts .tree-node-stage-item.selected i,
+body.dark-mode #view-artifacts .tree-node-stage-item.selected i,
+[data-theme="dark"] #view-artifacts .tree-node-stage-item.selected i {
+    color: var(--dark-primary-soft) !important;
+}
+
+/* 5. Breadcrumb (경로 안내) */
+body.dark-theme #view-artifacts .path-info,
+body.dark-mode #view-artifacts .path-info,
+[data-theme="dark"] #view-artifacts .path-info {
+    color: var(--dark-text-body) !important;
+}
+
+body.dark-theme #view-artifacts .path-info i,
+body.dark-mode #view-artifacts .path-info i,
+[data-theme="dark"] #view-artifacts .path-info i {
+    color: var(--dark-text-disabled) !important;
+}
+
+body.dark-theme #nirs-breadcrumb-root,
+body.dark-mode #nirs-breadcrumb-root,
+[data-theme="dark"] #nirs-breadcrumb-root {
+    color: var(--dark-text-body) !important;
+}
+
+body.dark-theme #nirs-breadcrumb-sub .text-primary,
+body.dark-mode #nirs-breadcrumb-sub .text-primary,
+[data-theme="dark"] #nirs-breadcrumb-sub .text-primary,
+body.dark-theme #nirs-breadcrumb-sub span.font-bold,
+body.dark-mode #nirs-breadcrumb-sub span.font-bold,
+[data-theme="dark"] #nirs-breadcrumb-sub span.font-bold {
+    color: var(--dark-primary-soft) !important;
+}
+
+body.dark-theme #nirs-list-count,
+body.dark-mode #nirs-list-count,
+[data-theme="dark"] #nirs-list-count {
+    color: var(--dark-text-secondary) !important;
+}
+
+/* 6 & 7. 표준 산출물 테이블 & Sticky 컬럼 (Table & Sticky Columns) */
+body.dark-theme #view-artifacts .table-container,
+body.dark-mode #view-artifacts .table-container,
+[data-theme="dark"] #view-artifacts .table-container {
+    background-color: var(--dark-surface-1) !important;
+}
+
+body.dark-theme #view-artifacts .data-table-sticky,
+body.dark-mode #view-artifacts .data-table-sticky,
+[data-theme="dark"] #view-artifacts .data-table-sticky {
+    background-color: var(--dark-surface-1) !important;
+    border-collapse: collapse !important;
+}
+
+/* Table Header & Sticky Header */
+body.dark-theme #view-artifacts .data-table-sticky thead tr,
+body.dark-mode #view-artifacts .data-table-sticky thead tr,
+[data-theme="dark"] #view-artifacts .data-table-sticky thead tr,
+body.dark-theme #view-artifacts .data-table-sticky th,
+body.dark-mode #view-artifacts .data-table-sticky th,
+[data-theme="dark"] #view-artifacts .data-table-sticky th,
+body.dark-theme #view-artifacts .data-table-sticky th[style*="sticky"],
+body.dark-mode #view-artifacts .data-table-sticky th[style*="sticky"],
+[data-theme="dark"] #view-artifacts .data-table-sticky th[style*="sticky"] {
+    background-color: var(--dark-surface-3) !important;
+    color: var(--dark-text-primary) !important;
+    border-bottom: 2px solid var(--dark-border) !important;
+}
+
+/* Table Default Row & Sticky Cell (Odd) */
+body.dark-theme #view-artifacts .data-table-sticky tbody tr,
+body.dark-mode #view-artifacts .data-table-sticky tbody tr,
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr,
+body.dark-theme #view-artifacts .data-table-sticky tbody tr td,
+body.dark-mode #view-artifacts .data-table-sticky tbody tr td,
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr td,
+body.dark-theme #view-artifacts .data-table-sticky tbody tr td[style*="sticky"],
+body.dark-mode #view-artifacts .data-table-sticky tbody tr td[style*="sticky"],
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr td[style*="sticky"] {
+    background-color: var(--dark-row-bg) !important;
+    color: var(--dark-text-body) !important;
+    border-bottom: 1px solid var(--dark-border) !important;
+    opacity: 1 !important;
+}
+
+/* Table Alternating Row & Sticky Cell (Even) */
+body.dark-theme #view-artifacts .data-table-sticky tbody tr:nth-child(even),
+body.dark-mode #view-artifacts .data-table-sticky tbody tr:nth-child(even),
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr:nth-child(even),
+body.dark-theme #view-artifacts .data-table-sticky tbody tr:nth-child(even) td,
+body.dark-mode #view-artifacts .data-table-sticky tbody tr:nth-child(even) td,
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr:nth-child(even) td,
+body.dark-theme #view-artifacts .data-table-sticky tbody tr:nth-child(even) td[style*="sticky"],
+body.dark-mode #view-artifacts .data-table-sticky tbody tr:nth-child(even) td[style*="sticky"],
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr:nth-child(even) td[style*="sticky"] {
+    background-color: var(--dark-row-alt-bg) !important;
+}
+
+/* Table Hover Row & Sticky Cell */
+body.dark-theme #view-artifacts .data-table-sticky tbody tr:hover,
+body.dark-mode #view-artifacts .data-table-sticky tbody tr:hover,
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr:hover,
+body.dark-theme #view-artifacts .data-table-sticky tbody tr:hover td,
+body.dark-mode #view-artifacts .data-table-sticky tbody tr:hover td,
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr:hover td,
+body.dark-theme #view-artifacts .data-table-sticky tbody tr:hover td[style*="sticky"],
+body.dark-mode #view-artifacts .data-table-sticky tbody tr:hover td[style*="sticky"],
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr:hover td[style*="sticky"] {
+    background-color: var(--dark-row-hover-bg) !important;
+}
+
+/* Table Selected Row & Sticky Cell */
+body.dark-theme #view-artifacts .data-table-sticky tbody tr.selected,
+body.dark-mode #view-artifacts .data-table-sticky tbody tr.selected,
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr.selected,
+body.dark-theme #view-artifacts .data-table-sticky tbody tr.selected td,
+body.dark-mode #view-artifacts .data-table-sticky tbody tr.selected td,
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr.selected td,
+body.dark-theme #view-artifacts .data-table-sticky tbody tr.selected td[style*="sticky"],
+body.dark-mode #view-artifacts .data-table-sticky tbody tr.selected td[style*="sticky"],
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr.selected td[style*="sticky"] {
+    background-color: var(--dark-selected-bg) !important;
+    color: var(--dark-selected-text) !important;
+}
+
+/* Table Column Specific Colors */
+body.dark-theme #view-artifacts .data-table-sticky tbody tr td:nth-child(2),
+body.dark-mode #view-artifacts .data-table-sticky tbody tr td:nth-child(2),
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr td:nth-child(2) {
+    color: var(--dark-primary-soft) !important;
+    font-weight: 600 !important;
+}
+
+body.dark-theme #view-artifacts .data-table-sticky tbody tr td .artifact-name-column > div:first-child,
+body.dark-mode #view-artifacts .data-table-sticky tbody tr td .artifact-name-column > div:first-child,
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr td .artifact-name-column > div:first-child,
+body.dark-theme #view-artifacts .data-table-sticky tbody tr td div[style*="font-size:13px"],
+body.dark-mode #view-artifacts .data-table-sticky tbody tr td div[style*="font-size:13px"],
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr td div[style*="font-size:13px"] {
+    color: var(--dark-text-body) !important;
+    font-weight: 600 !important;
+}
+
+body.dark-theme #view-artifacts .data-table-sticky tbody tr td div[style*="font-size:11px"],
+body.dark-mode #view-artifacts .data-table-sticky tbody tr td div[style*="font-size:11px"],
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr td div[style*="font-size:11px"] {
+    color: var(--dark-text-secondary) !important;
+}
+
+body.dark-theme #view-artifacts .data-table-sticky tbody tr td span,
+body.dark-mode #view-artifacts .data-table-sticky tbody tr td span,
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr td span {
+    color: var(--dark-text-body);
+}
+
+body.dark-theme #view-artifacts .data-table-sticky tbody tr td span[style*="color:var(--tbl-text-muted)"],
+body.dark-mode #view-artifacts .data-table-sticky tbody tr td span[style*="color:var(--tbl-text-muted)"],
+[data-theme="dark"] #view-artifacts .data-table-sticky tbody tr td span[style*="color:var(--tbl-text-muted)"],
+body.dark-theme #view-artifacts .empty-dash,
+body.dark-mode #view-artifacts .empty-dash,
+[data-theme="dark"] #view-artifacts .empty-dash {
+    color: var(--dark-text-disabled) !important;
+}
+
+/* 8. 상태 배지 (Status Badges) */
+body.dark-theme .badge-filled-sub,
+body.dark-mode .badge-filled-sub,
+[data-theme="dark"] .badge-filled-sub {
+    background-color: #172554 !important;
+    color: #BFDBFE !important;
+    border: 1px solid rgba(191, 219, 254, 0.25) !important;
+    font-weight: 600 !important;
+}
+
+body.dark-theme .badge-filled-off,
+body.dark-mode .badge-filled-off,
+[data-theme="dark"] .badge-filled-off {
+    background-color: #3B1D5A !important;
+    color: #E9D5FF !important;
+    border: 1px solid rgba(233, 213, 255, 0.25) !important;
+    font-weight: 600 !important;
+}
+
+body.dark-theme .badge-filled-app,
+body.dark-mode .badge-filled-app,
+[data-theme="dark"] .badge-filled-app {
+    background-color: #143C2E !important;
+    color: #BBF7D0 !important;
+    border: 1px solid rgba(187, 247, 208, 0.25) !important;
+    font-weight: 600 !important;
+}
+
+body.dark-theme .badge-filled-seal,
+body.dark-mode .badge-filled-seal,
+[data-theme="dark"] .badge-filled-seal {
+    background-color: #4C1D24 !important;
+    color: #FECACA !important;
+    border: 1px solid rgba(254, 202, 202, 0.25) !important;
+    font-weight: 600 !important;
+}
+
+body.dark-theme .badge-status-reg,
+body.dark-mode .badge-status-reg,
+[data-theme="dark"] .badge-status-reg {
+    background-color: #143C2E !important;
+    color: #BBF7D0 !important;
+    border: 1px solid rgba(187, 247, 208, 0.25) !important;
+    font-weight: 600 !important;
+}
+
+body.dark-theme .badge-status-unreg,
+body.dark-mode .badge-status-unreg,
+[data-theme="dark"] .badge-status-unreg {
+    background-color: #334155 !important;
+    color: #E2E8F0 !important;
+    border: 1px solid rgba(226, 232, 240, 0.25) !important;
+    font-weight: 600 !important;
+}
+
+/* 9. 페이지네이션 및 버튼 (Pagination & Buttons) */
+body.dark-theme #view-artifacts .btn-outline,
+body.dark-mode #view-artifacts .btn-outline,
+[data-theme="dark"] #view-artifacts .btn-outline,
+body.dark-theme #nirs-pagination-controls .btn,
+body.dark-mode #nirs-pagination-controls .btn,
+[data-theme="dark"] #nirs-pagination-controls .btn {
+    background-color: var(--dark-surface-1) !important;
+    color: var(--dark-text-body) !important;
+    border: 1px solid var(--dark-border) !important;
+}
+
+body.dark-theme #view-artifacts .btn-outline:hover,
+body.dark-mode #view-artifacts .btn-outline:hover,
+[data-theme="dark"] #view-artifacts .btn-outline:hover,
+body.dark-theme #nirs-pagination-controls .btn-outline:hover,
+body.dark-mode #nirs-pagination-controls .btn-outline:hover,
+[data-theme="dark"] #nirs-pagination-controls .btn-outline:hover {
+    background-color: var(--dark-surface-2) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.dark-theme #nirs-pagination-controls .btn-primary,
+body.dark-mode #nirs-pagination-controls .btn-primary,
+[data-theme="dark"] #nirs-pagination-controls .btn-primary {
+    background-color: var(--dark-primary-hover) !important;
+    color: #FFFFFF !important;
+    border-color: var(--dark-primary-hover) !important;
+    font-weight: 700 !important;
+}
+
+body.dark-theme #view-artifacts .btn:disabled,
+body.dark-mode #view-artifacts .btn:disabled,
+[data-theme="dark"] #view-artifacts .btn:disabled,
+body.dark-theme #nirs-pagination-controls .btn:disabled,
+body.dark-mode #nirs-pagination-controls .btn:disabled,
+[data-theme="dark"] #nirs-pagination-controls .btn:disabled {
+    background-color: var(--dark-surface-1) !important;
+    color: var(--dark-text-disabled) !important;
+    border-color: var(--dark-border) !important;
+    opacity: 1 !important;
+}
+
+/* 10. 사이드바 (Sidebar Menu) */
+body.dark-theme .app-sidebar .nav-item,
+body.dark-mode .app-sidebar .nav-item,
+[data-theme="dark"] .app-sidebar .nav-item,
+body.dark-theme .sidebar-menu .menu-item,
+body.dark-mode .sidebar-menu .menu-item,
+[data-theme="dark"] .sidebar-menu .menu-item {
+    color: var(--dark-text-secondary) !important;
+    background: transparent !important;
+    border-left: 3px solid transparent !important;
+}
+
+body.dark-theme .app-sidebar .nav-item i,
+body.dark-mode .app-sidebar .nav-item i,
+[data-theme="dark"] .app-sidebar .nav-item i,
+body.dark-theme .sidebar-menu .menu-item i,
+body.dark-mode .sidebar-menu .menu-item i,
+[data-theme="dark"] .sidebar-menu .menu-item i {
+    color: var(--dark-text-secondary) !important;
+}
+
+body.dark-theme .app-sidebar .nav-item:hover,
+body.dark-mode .app-sidebar .nav-item:hover,
+[data-theme="dark"] .app-sidebar .nav-item:hover,
+body.dark-theme .sidebar-menu .menu-item:hover,
+body.dark-mode .sidebar-menu .menu-item:hover,
+[data-theme="dark"] .sidebar-menu .menu-item:hover {
+    background-color: var(--dark-surface-2) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.dark-theme .app-sidebar .nav-item.active,
+body.dark-mode .app-sidebar .nav-item.active,
+[data-theme="dark"] .app-sidebar .nav-item.active,
+body.dark-theme .sidebar-menu .menu-item.active,
+body.dark-mode .sidebar-menu .menu-item.active,
+[data-theme="dark"] .sidebar-menu .menu-item.active {
+    background-color: var(--dark-selected-bg) !important;
+    color: var(--dark-selected-text) !important;
+    border-left: 3px solid var(--dark-primary) !important;
+    font-weight: 700 !important;
+}
+
+body.dark-theme .app-sidebar .nav-item.active i,
+body.dark-mode .app-sidebar .nav-item.active i,
+[data-theme="dark"] .app-sidebar .nav-item.active i,
+body.dark-theme .sidebar-menu .menu-item.active i,
+body.dark-mode .sidebar-menu .menu-item.active i,
+[data-theme="dark"] .sidebar-menu .menu-item.active i {
+    color: var(--dark-primary-soft) !important;
+}
+
+/* ============================================================================
+   기관별 표준 산출물 관리 (STANDARD ARTIFACT MANAGEMENT) 다크모드 가독성 강화
+   ============================================================================ */
+
+/* 1. 뷰 제목 및 본문 기본 헤딩 다크모드 색상 고대비 설정 */
+body.dark-theme #view-artifacts h1,
+body.dark-mode #view-artifacts h1,
+[data-theme="dark"] #view-artifacts h1,
+body.dark-theme #view-artifacts h2,
+body.dark-mode #view-artifacts h2,
+[data-theme="dark"] #view-artifacts h2,
+body.dark-theme #view-artifacts h3,
+body.dark-mode #view-artifacts h3,
+[data-theme="dark"] #view-artifacts h3 {
+    color: #F8FAFC !important;
+}
+
+/* 2. 드롭다운(select) 및 검색어 입력창(input) 다크모드 선명화 */
+body.dark-theme #view-artifacts select.form-select,
+body.dark-mode #view-artifacts select.form-select,
+[data-theme="dark"] #view-artifacts select.form-select,
+body.dark-theme #view-artifacts input.form-control,
+body.dark-mode #view-artifacts input.form-control,
+[data-theme="dark"] #view-artifacts input.form-control,
+body.dark-theme #view-artifacts select,
+body.dark-mode #view-artifacts select,
+[data-theme="dark"] #view-artifacts select {
+    background-color: #1A2640 !important;
+    color: #F8FAFC !important;
+    border: 1px solid #334155 !important;
+}
+
+body.dark-theme select option,
+body.dark-mode select option,
+[data-theme="dark"] select option {
+    background-color: #1E293B !important;
+    color: #F8FAFC !important;
+}
+
+/* 3. 요약 KPI 카드의 숫자, 제목, 서브텍스트 다크모드 시인성 확보 */
+body.dark-theme .nirs-summary-card,
+body.dark-mode .nirs-summary-card,
+[data-theme="dark"] .nirs-summary-card {
+    background: #131C2E !important;
+    border: 1px solid #27324A !important;
+}
+
+body.dark-theme .nirs-summary-card .kpi-num,
+body.dark-mode .nirs-summary-card .kpi-num,
+[data-theme="dark"] .nirs-summary-card .kpi-num {
+    color: #FFFFFF !important;
+    font-weight: 800 !important;
+}
+
+body.dark-theme .nirs-summary-card .kpi-title,
+body.dark-mode .nirs-summary-card .kpi-title,
+[data-theme="dark"] .nirs-summary-card .kpi-title {
+    color: #E2E8F0 !important;
+    font-weight: 700 !important;
+}
+
+body.dark-theme .nirs-summary-card .kpi-subtext,
+body.dark-mode .nirs-summary-card .kpi-subtext,
+[data-theme="dark"] .nirs-summary-card .kpi-subtext {
+    color: #CBD5E1 !important;
+}
+
+body.dark-theme .nirs-summary-card.active,
+body.dark-mode .nirs-summary-card.active,
+[data-theme="dark"] .nirs-summary-card.active {
+    background: #1E293B !important;
+    border-color: #818CF8 !important;
+    box-shadow: 0 4px 14px rgba(129, 140, 248, 0.25) !important;
+}
+
+/* 4. 좌측 4단계 동적 카테고리 트리 메뉴 글자색 선명화 */
+body.dark-theme #view-artifacts .artifacts-sidebar,
+body.dark-mode #view-artifacts .artifacts-sidebar,
+[data-theme="dark"] #view-artifacts .artifacts-sidebar {
+    background-color: #131C2E !important;
+    border: 1px solid #27324A !important;
+}
+
+body.dark-theme .tree-cat-header,
+body.dark-mode .tree-cat-header,
+[data-theme="dark"] .tree-cat-header,
+body.dark-theme .tree-node-stage-item,
+body.dark-mode .tree-node-stage-item,
+[data-theme="dark"] .tree-node-stage-item {
+    color: #E2E8F0 !important;
+}
+
+body.dark-theme .tree-node-level-1,
+body.dark-mode .tree-node-level-1,
+[data-theme="dark"] .tree-node-level-1 {
+    color: #F8FAFC !important;
+    font-weight: 700 !important;
+}
+
+body.dark-theme .tree-node-level-2,
+body.dark-mode .tree-node-level-2,
+[data-theme="dark"] .tree-node-level-2 {
+    color: #F1F5F9 !important;
+    font-weight: 600 !important;
+}
+
+body.dark-theme .tree-node-level-3,
+body.dark-mode .tree-node-level-3,
+[data-theme="dark"] .tree-node-level-3 {
+    color: #E2E8F0 !important;
+    font-weight: 600 !important;
+}
+
+body.dark-theme .tree-node-level-4,
+body.dark-mode .tree-node-level-4,
+[data-theme="dark"] .tree-node-level-4 {
+    color: #CBD5E1 !important;
+}
+
+body.dark-theme .tree-cat-header:hover,
+body.dark-mode .tree-cat-header:hover,
+[data-theme="dark"] .tree-cat-header:hover,
+body.dark-theme .tree-node-stage-item:hover,
+body.dark-mode .tree-node-stage-item:hover,
+[data-theme="dark"] .tree-node-stage-item:hover {
+    background: #1E293B !important;
+    color: #FFFFFF !important;
+}
+
+body.dark-theme .tree-cat-header.selected,
+body.dark-mode .tree-cat-header.selected,
+[data-theme="dark"] .tree-cat-header.selected,
+body.dark-theme .tree-node-stage-item.selected,
+body.dark-mode .tree-node-stage-item.selected,
+[data-theme="dark"] .tree-node-stage-item.selected {
+    background: #1E1B4B !important;
+    color: #C084FC !important;
+    border-left: 3px solid #818CF8 !important;
+    border-radius: 0 6px 6px 0 !important;
+    font-weight: 700 !important;
+}
+
+/* 5. 메인 본문 헤더 및 빵부스럼(Breadcrumb) 다크모드 색상 */
+body.dark-theme #view-artifacts .artifacts-content-header,
+body.dark-mode #view-artifacts .artifacts-content-header,
+[data-theme="dark"] #view-artifacts .artifacts-content-header {
+    background-color: #131C2E !important;
+    border: 1px solid #27324A !important;
+}
+
+body.dark-theme #nirs-breadcrumb-root,
+body.dark-mode #nirs-breadcrumb-root,
+[data-theme="dark"] #nirs-breadcrumb-root {
+    color: #F8FAFC !important;
+    font-weight: 700 !important;
+}
+
+body.dark-theme #nirs-breadcrumb-sub,
+body.dark-mode #nirs-breadcrumb-sub,
+[data-theme="dark"] #nirs-breadcrumb-sub {
+    color: #CBD5E1 !important;
+}
+
+body.dark-theme #nirs-list-count,
+body.dark-mode #nirs-list-count,
+[data-theme="dark"] #nirs-list-count {
+    color: #818CF8 !important;
+    font-weight: 800 !important;
+}
+
+/* 6. 데이터 테이블 고정 헤더, 행 및 셀 다크모드 가독성 강화 */
+body.dark-theme #view-artifacts .table-container,
+body.dark-mode #view-artifacts .table-container,
+[data-theme="dark"] #view-artifacts .table-container {
+    background-color: #131C2E !important;
+}
+
+body.dark-theme #view-artifacts .data-table-sticky thead tr,
+body.dark-mode #view-artifacts .data-table-sticky thead tr,
+[data-theme="dark"] #view-artifacts .data-table-sticky thead tr,
+body.dark-theme #view-artifacts .data-table-sticky th,
+body.dark-mode #view-artifacts .data-table-sticky th,
+[data-theme="dark"] #view-artifacts .data-table-sticky th {
+    background-color: #182338 !important;
+    color: #F8FAFC !important;
+    border-bottom: 2px solid #27324A !important;
+}
+
+body.dark-theme #view-artifacts .data-table-sticky td,
+body.dark-mode #view-artifacts .data-table-sticky td,
+[data-theme="dark"] #view-artifacts .data-table-sticky td {
+    color: #F8FAFC !important;
+    border-bottom: 1px solid #27324A !important;
+}
+
+body.dark-theme #view-artifacts .data-table-sticky td.sticky-artifact-name,
+body.dark-mode #view-artifacts .data-table-sticky td.sticky-artifact-name,
+[data-theme="dark"] #view-artifacts .data-table-sticky td.sticky-artifact-name,
+body.dark-theme #view-artifacts .data-table-sticky td[style*="sticky"],
+body.dark-mode #view-artifacts .data-table-sticky td[style*="sticky"],
+[data-theme="dark"] #view-artifacts .data-table-sticky td[style*="sticky"] {
+    background-color: #131C2E !important;
+}
+
+body.dark-theme #view-artifacts .data-table-sticky tr:hover td,
+body.dark-mode #view-artifacts .data-table-sticky tr:hover td,
+[data-theme="dark"] #view-artifacts .data-table-sticky tr:hover td {
+    background-color: #1A2640 !important;
+}
+
+body.dark-theme #view-artifacts .data-table-sticky tr:hover td[style*="sticky"],
+body.dark-mode #view-artifacts .data-table-sticky tr:hover td[style*="sticky"],
+[data-theme="dark"] #view-artifacts .data-table-sticky tr:hover td[style*="sticky"] {
+    background-color: #1A2640 !important;
+}
+
+body.dark-theme #view-artifacts .data-table-sticky tr.selected td,
+body.dark-mode #view-artifacts .data-table-sticky tr.selected td,
+[data-theme="dark"] #view-artifacts .data-table-sticky tr.selected td {
+    background-color: #1E1B4B !important;
+    color: #F8FAFC !important;
+}
+
+body.dark-theme #view-artifacts .data-table-sticky tr.selected td[style*="sticky"],
+body.dark-mode #view-artifacts .data-table-sticky tr.selected td[style*="sticky"],
+[data-theme="dark"] #view-artifacts .data-table-sticky tr.selected td[style*="sticky"] {
+    background-color: #1E1B4B !important;
+}
+
+/* 코드 컬럼 다크모드 시인성 강화 (밝은 라벤더 보라) */
+body.dark-theme #view-artifacts .data-table-sticky td[style*="#8B5CF6"],
+body.dark-mode #view-artifacts .data-table-sticky td[style*="#8B5CF6"],
+[data-theme="dark"] #view-artifacts .data-table-sticky td[style*="#8B5CF6"] {
+    color: #C084FC !important;
+    font-weight: 700 !important;
+}
+
+/* 산출물명 하단 설명문구 다크모드 글자색 보정 */
+body.dark-theme #view-artifacts .data-table-sticky td div[style*="var(--tbl-text-muted)"],
+body.dark-mode #view-artifacts .data-table-sticky td div[style*="var(--tbl-text-muted)"],
+[data-theme="dark"] #view-artifacts .data-table-sticky td div[style*="var(--tbl-text-muted)"] {
+    color: #CBD5E1 !important;
+}
+
+/* 7. 필수 제출/공문/승인/인감/등록 배지 다크모드 고대비 스타일 */
+body.dark-theme .badge-filled-sub,
+body.dark-mode .badge-filled-sub,
+[data-theme="dark"] .badge-filled-sub {
+    background-color: rgba(59, 130, 246, 0.25) !important;
+    color: #93C5FD !important;
+    border: 1px solid rgba(59, 130, 246, 0.5) !important;
+}
+
+body.dark-theme .badge-filled-off,
+body.dark-mode .badge-filled-off,
+[data-theme="dark"] .badge-filled-off {
+    background-color: rgba(168, 85, 247, 0.25) !important;
+    color: #E9D5FF !important;
+    border: 1px solid rgba(168, 85, 247, 0.5) !important;
+}
+
+body.dark-theme .badge-filled-app,
+body.dark-mode .badge-filled-app,
+[data-theme="dark"] .badge-filled-app {
+    background-color: rgba(16, 185, 129, 0.25) !important;
+    color: #A7F3D0 !important;
+    border: 1px solid rgba(16, 185, 129, 0.5) !important;
+}
+
+body.dark-theme .badge-filled-seal,
+body.dark-mode .badge-filled-seal,
+[data-theme="dark"] .badge-filled-seal {
+    background-color: rgba(239, 68, 68, 0.25) !important;
+    color: #FCA5A5 !important;
+    border: 1px solid rgba(239, 68, 68, 0.5) !important;
+}
+
+body.dark-theme .badge-status-reg,
+body.dark-mode .badge-status-reg,
+[data-theme="dark"] .badge-status-reg {
+    background-color: rgba(34, 197, 94, 0.25) !important;
+    color: #86EFAC !important;
+    border: 1px solid rgba(34, 197, 94, 0.5) !important;
+}
+
+body.dark-theme .badge-status-unreg,
+body.dark-mode .badge-status-unreg,
+[data-theme="dark"] .badge-status-unreg {
+    background-color: rgba(148, 163, 184, 0.25) !important;
+    color: #E2E8F0 !important;
+    border: 1px solid rgba(148, 163, 184, 0.5) !important;
 }

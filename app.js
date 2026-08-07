@@ -15124,7 +15124,7 @@ renderTodayTasksRoleBased(todayStr) {
                         <td class="text-center" style="position:sticky; left:0; z-index:5;">
                             <input type="checkbox" class="chk-nirs-item" ${isChecked ? 'checked' : ''} onchange="app.toggleNirsTemplateSelect('${item.id}', this.checked)">
                         </td>
-                        <td style="position:sticky; left:36px; z-index:5; font-family:monospace; font-size:11.5px; font-weight:600; color:#8B5CF6;">${item.id}</td>
+                        <td style="position:sticky; left:36px; z-index:5; font-family:monospace; font-size:11.5px; font-weight:600; color:var(--dark-primary-soft, #8B5CF6);">${item.id}</td>
                         <td style="position:sticky; left:141px; z-index:5;" class="artifact-name-column sticky-artifact-name">
                             <div style="font-size:13px; font-weight:600; color:var(--tbl-text-primary); line-height:1.4;">${item.artifactName}</div>
                             <div style="font-size:11px; color:var(--tbl-text-muted); margin-top:3px; line-height:1.4;">${item.category} · ${item.stage} ${item.description ? ' | ' + item.description : ''}</div>
@@ -17115,7 +17115,7 @@ renderTodayTasksRoleBased(todayStr) {
                                 <i data-lucide="edit-3" style="width:14px; height:14px;"></i> 프로젝트 수정
                             </button>
                             ${convertBtnHtml}
-                            <button id="btn-delete-project" class="btn btn-sm btn-danger" onclick="app.deleteProject('${project.id}')">
+                            <button id="btn-delete-project" class="btn btn-sm btn-danger" onclick="app.openDeleteProjectModal('${project.id}')">
                                 <i data-lucide="trash-2" style="width:14px; height:14px;"></i> 프로젝트 삭제
                             </button>
                         </div>
@@ -32390,7 +32390,8 @@ renderTodayTasksRoleBased(todayStr) {
         }
 
         this.deletingProjectId = projectId;
-        this.deletingProjectCode = project.projectCode || project.code || '';
+        const projCode = (project.projectCode || project.code || project.project_code || '').trim();
+        this.deletingProjectCode = projCode || project.id || '';
 
         const nameEl = document.getElementById('delete-target-project-name');
         const codeEl = document.getElementById('delete-target-project-code');
@@ -32400,7 +32401,10 @@ renderTodayTasksRoleBased(todayStr) {
 
         if (nameEl) nameEl.textContent = project.name || '';
         if (codeEl) codeEl.textContent = `코드: ${this.deletingProjectCode}`;
-        if (inputEl) inputEl.value = '';
+        if (inputEl) {
+            inputEl.value = '';
+            setTimeout(() => inputEl.focus(), 100);
+        }
         if (idInput) idInput.value = projectId;
         if (btnConfirm) btnConfirm.disabled = true;
 
@@ -32416,19 +32420,28 @@ renderTodayTasksRoleBased(todayStr) {
         if (!btnConfirm) return;
         const targetCode = (this.deletingProjectCode || '').trim();
         const inputCode = (val || '').trim();
-        btnConfirm.disabled = (targetCode !== inputCode);
+        btnConfirm.disabled = (targetCode.toLowerCase() !== inputCode.toLowerCase());
     }
 
     async confirmDeleteProject() {
         const projectId = this.deletingProjectId || document.getElementById('delete-target-project-id')?.value;
         if (!projectId) return;
 
+        this._isConfirmedDelete = true;
         await this.deleteProject(projectId);
+        this._isConfirmedDelete = false;
         this.closeModal('modal-project-delete');
     }
 
     async deleteProject(projectId) {
         console.log('[deleteProject]', projectId);
+
+        // Safety Mechanism: If deleteProject is triggered directly without modal confirmation, open the safety modal first.
+        if (!this._isConfirmedDelete && this.deletingProjectId !== projectId) {
+            this.openDeleteProjectModal(projectId);
+            return false;
+        }
+
         const role = this.currentUser ? (this.currentUser.role || 'WORKER') : 'WORKER';
         const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN' || (typeof this.isAdminRole === 'function' && this.isAdminRole(role));
         if (!isAdmin) {
