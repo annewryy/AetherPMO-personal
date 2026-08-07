@@ -6182,35 +6182,36 @@
 
 
     <!-- PROJECT DELETE CONFIRMATION MODAL -->
-    <div class="modal-overlay" id="modal-project-delete" data-app-modal data-modal-size="md" style="display: none;">
+    <div class="modal-overlay project-delete-modal" id="modal-project-delete" role="alertdialog" aria-modal="true" data-app-modal data-modal-size="md" style="display: none;">
         <div class="modal-dialog">
-            <div class="modal-header" style="background: var(--danger-glow, rgba(239,68,68,0.1)); border-bottom: 1px solid var(--danger, #ef4444);">
-                <h3 style="color: var(--danger, #ef4444); display: flex; align-items: center; gap: 8px; margin: 0;">
+            <div class="modal-header">
+                <h3 style="display: flex; align-items: center; gap: 8px; margin: 0;">
                     <i data-lucide="alert-triangle" style="width: 20px; height: 20px;"></i>
                     프로젝트 삭제 확인
                 </h3>
                 <button type="button" class="close-btn" onclick="app.closeModal('modal-project-delete')">&times;</button>
             </div>
             <div class="modal-body" style="padding: 20px;">
-                <p style="font-size: 14px; font-weight: 600; color: var(--text-primary);">
+                <p class="delete-question-text" style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">
                     다음 프로젝트를 삭제하시겠습니까?
                 </p>
-                <div style="background: var(--bg-hover-item, #f8fafc); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; padding: 12px; margin: 12px 0;">
+                <div class="project-info-box" id="delete-project-info-box">
                     <div style="font-weight: 700; font-size: 15px;" id="delete-target-project-name">-</div>
-                    <div style="font-size: 13px; color: var(--text-muted);" id="delete-target-project-code">-</div>
+                    <div style="font-size: 13px;" id="delete-target-project-code">-</div>
                 </div>
-                <div style="background: rgba(239,68,68,0.08); border-left: 4px solid var(--danger, #ef4444); padding: 10px 14px; border-radius: 4px; font-size: 12px; color: var(--danger, #ef4444); margin-bottom: 16px;">
-                    ⚠️ 연결된 산출물, 참여인력, 회의록, Action Item, 이슈·리스크 등 하위 데이터 조회가 보관 처리되며 목록에서 제외됩니다.
+                <div class="warning-box">
+                    <i data-lucide="alert-triangle" style="width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px;"></i>
+                    <div>⚠️ 연결된 산출물, 참여인력, 회의록, Action Item, 이슈·리스크 등 하위 데이터 조회가 보관 처리되며 목록에서 제외됩니다.</div>
                 </div>
-                <label for="delete-project-code-input" style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">
+                <label for="delete-project-code-input" style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 8px;">
                     오삭제 방지를 위해 프로젝트 코드를 똑같이 입력하세요:
                 </label>
-                <input type="text" id="delete-project-code-input" placeholder="프로젝트 코드 입력" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);" oninput="app.validateDeleteProjectCodeInput(this.value)">
+                <input type="text" id="delete-project-code-input" placeholder="프로젝트 코드 입력" style="width: 100%; padding: 10px 12px; border-radius: 6px;" oninput="app.validateDeleteProjectCodeInput(this.value)" onkeydown="if(event.key === 'Enter') { event.preventDefault(); if(!document.getElementById('btn-confirm-delete-project').disabled) app.confirmDeleteProject(); }">
                 <input type="hidden" id="delete-target-project-id">
             </div>
-            <div class="modal-footer" style="padding: 12px 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-color);">
-                <button type="button" class="btn btn-outline" onclick="app.closeModal('modal-project-delete')">취소</button>
-                <button type="button" class="btn btn-danger" id="btn-confirm-delete-project" disabled onclick="app.confirmDeleteProject()">최종 삭제</button>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" onclick="app.closeModal('modal-project-delete')">취소</button>
+                <button type="button" class="btn btn-confirm-delete" id="btn-confirm-delete-project" disabled onclick="app.confirmDeleteProject()">최종 삭제</button>
             </div>
         </div>
     </div>

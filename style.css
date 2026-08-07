@@ -11093,3 +11093,316 @@ body.dark-mode .badge-status-unreg,
     color: #E2E8F0 !important;
     border: 1px solid rgba(148, 163, 184, 0.5) !important;
 }
+
+/* ============================================================================
+   PROJECT DELETE MODAL (.project-delete-modal) SCOPED STYLING
+   ============================================================================ */
+
+/* Base Light Mode Styles */
+.project-delete-modal .modal-dialog {
+    width: min(580px, calc(100vw - 32px)) !important;
+    border: 1px solid #CBD5E1 !important;
+    border-radius: 14px !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18) !important;
+    overflow: hidden;
+}
+
+.project-delete-modal .modal-header {
+    background: #FEF2F2 !important;
+    border-bottom: 1px solid #FCA5A5 !important;
+    padding: 16px 20px !important;
+}
+
+.project-delete-modal .modal-header h3 {
+    color: #DC2626 !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+}
+
+.project-delete-modal .modal-header i {
+    color: #DC2626 !important;
+}
+
+.project-delete-modal .project-info-box {
+    background: #F8FAFC !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 8px !important;
+    padding: 12px 16px !important;
+    margin-bottom: 12px !important;
+}
+
+.project-delete-modal #delete-target-project-name {
+    color: #1E293B !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
+}
+
+.project-delete-modal #delete-target-project-code {
+    color: #64748B !important;
+    font-size: 13px !important;
+    margin-top: 4px !important;
+}
+
+.project-delete-modal .warning-box {
+    background: #FEF2F2 !important;
+    border: 1px solid #FCA5A5 !important;
+    border-left: 4px solid #EF4444 !important;
+    color: #991B1B !important;
+    padding: 10px 14px !important;
+    border-radius: 6px !important;
+    font-size: 12.5px !important;
+    line-height: 1.5 !important;
+    margin-bottom: 14px !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+}
+
+.project-delete-modal .modal-footer {
+    padding: 14px 20px !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    gap: 10px !important;
+    border-top: 1px solid #E2E8F0 !important;
+}
+
+.project-delete-modal .btn-cancel {
+    background: transparent !important;
+    color: #475569 !important;
+    border: 1px solid #CBD5E1 !important;
+    border-radius: 6px !important;
+    padding: 8px 16px !important;
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+}
+
+.project-delete-modal .btn-cancel:hover {
+    background: #F1F5F9 !important;
+    color: #0F172A !important;
+}
+
+.project-delete-modal .btn-confirm-delete {
+    background: #DC2626 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 6px !important;
+    padding: 8px 18px !important;
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+}
+
+.project-delete-modal .btn-confirm-delete:hover:not(:disabled) {
+    background: #B91C1C !important;
+}
+
+.project-delete-modal .btn-confirm-delete:disabled {
+    background: #FCA5A5 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    cursor: not-allowed !important;
+    opacity: 1 !important;
+}
+
+/* ── DARK MODE (.project-delete-modal) EXACT COLOR SYSTEM ────────────────── */
+body.dark-theme .project-delete-modal,
+body.dark-mode .project-delete-modal,
+[data-theme="dark"] .project-delete-modal {
+    background: rgba(2, 6, 23, 0.74) !important;
+    backdrop-filter: blur(4px);
+}
+
+body.dark-theme .project-delete-modal .modal-dialog,
+body.dark-mode .project-delete-modal .modal-dialog,
+[data-theme="dark"] .project-delete-modal .modal-dialog {
+    background: #111827 !important;
+    width: min(580px, calc(100vw - 32px)) !important;
+    border: 1px solid #334155 !important;
+    border-radius: 14px !important;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.52) !important;
+}
+
+body.dark-theme .project-delete-modal .modal-header,
+body.dark-mode .project-delete-modal .modal-header,
+[data-theme="dark"] .project-delete-modal .modal-header {
+    background: #151B2B !important;
+    border-bottom: 1px solid #334155 !important;
+    padding: 16px 20px !important;
+}
+
+body.dark-theme .project-delete-modal .modal-header h3,
+body.dark-mode .project-delete-modal .modal-header h3,
+[data-theme="dark"] .project-delete-modal .modal-header h3 {
+    color: #F8FAFC !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+}
+
+body.dark-theme .project-delete-modal .modal-header i,
+body.dark-mode .project-delete-modal .modal-header i,
+[data-theme="dark"] .project-delete-modal .modal-header i {
+    color: #F87171 !important;
+}
+
+body.dark-theme .project-delete-modal .close-btn,
+body.dark-mode .project-delete-modal .close-btn,
+[data-theme="dark"] .project-delete-modal .close-btn {
+    color: #94A3B8 !important;
+    background: transparent !important;
+    border: none !important;
+    font-size: 20px !important;
+    cursor: pointer !important;
+}
+
+body.dark-theme .project-delete-modal .close-btn:hover,
+body.dark-mode .project-delete-modal .close-btn:hover,
+[data-theme="dark"] .project-delete-modal .close-btn:hover {
+    color: #F8FAFC !important;
+}
+
+body.dark-theme .project-delete-modal .modal-body,
+body.dark-mode .project-delete-modal .modal-body,
+[data-theme="dark"] .project-delete-modal .modal-body {
+    background: #111827 !important;
+    color: #CBD5E1 !important;
+    padding: 20px !important;
+}
+
+body.dark-theme .project-delete-modal .delete-question-text,
+body.dark-mode .project-delete-modal .delete-question-text,
+[data-theme="dark"] .project-delete-modal .delete-question-text {
+    color: #CBD5E1 !important;
+}
+
+body.dark-theme .project-delete-modal .project-info-box,
+body.dark-mode .project-delete-modal .project-info-box,
+[data-theme="dark"] .project-delete-modal .project-info-box {
+    background: #0F172A !important;
+    border: 1px solid #3B4A68 !important;
+    border-radius: 8px !important;
+    padding: 14px 16px !important;
+    margin-bottom: 14px !important;
+}
+
+body.dark-theme .project-delete-modal #delete-target-project-name,
+body.dark-mode .project-delete-modal #delete-target-project-name,
+[data-theme="dark"] .project-delete-modal #delete-target-project-name {
+    color: #C4B5FD !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
+}
+
+body.dark-theme .project-delete-modal #delete-target-project-code,
+body.dark-mode .project-delete-modal #delete-target-project-code,
+[data-theme="dark"] .project-delete-modal #delete-target-project-code {
+    color: #CBD5E1 !important;
+    font-size: 13px !important;
+    margin-top: 4px !important;
+}
+
+body.dark-theme .project-delete-modal .warning-box,
+body.dark-mode .project-delete-modal .warning-box,
+[data-theme="dark"] .project-delete-modal .warning-box {
+    background: #321B22 !important;
+    border: 1px solid #7F1D1D !important;
+    border-left: 4px solid #F87171 !important;
+    color: #FCA5A5 !important;
+    padding: 12px 14px !important;
+    border-radius: 8px !important;
+    font-size: 12.5px !important;
+    line-height: 1.5 !important;
+    margin-bottom: 16px !important;
+}
+
+body.dark-theme .project-delete-modal .warning-box i,
+body.dark-mode .project-delete-modal .warning-box i,
+[data-theme="dark"] .project-delete-modal .warning-box i {
+    color: #F87171 !important;
+}
+
+body.dark-theme .project-delete-modal label,
+body.dark-mode .project-delete-modal label,
+[data-theme="dark"] .project-delete-modal label {
+    color: #CBD5E1 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    display: block !important;
+    margin-bottom: 8px !important;
+}
+
+body.dark-theme .project-delete-modal input[type="text"],
+body.dark-mode .project-delete-modal input[type="text"],
+[data-theme="dark"] .project-delete-modal input[type="text"] {
+    background: #0F172A !important;
+    color: #F8FAFC !important;
+    border: 1px solid #475569 !important;
+    border-radius: 6px !important;
+    padding: 10px 12px !important;
+    box-sizing: border-box !important;
+    font-size: 13.5px !important;
+}
+
+body.dark-theme .project-delete-modal input[type="text"]::placeholder,
+body.dark-mode .project-delete-modal input[type="text"]::placeholder,
+[data-theme="dark"] .project-delete-modal input[type="text"]::placeholder {
+    color: #64748B !important;
+    opacity: 1 !important;
+}
+
+body.dark-theme .project-delete-modal input[type="text"]:focus,
+body.dark-mode .project-delete-modal input[type="text"]:focus,
+[data-theme="dark"] .project-delete-modal input[type="text"]:focus {
+    border-color: #8B5CF6 !important;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.22) !important;
+    outline: none !important;
+}
+
+body.dark-theme .project-delete-modal .modal-footer,
+body.dark-mode .project-delete-modal .modal-footer,
+[data-theme="dark"] .project-delete-modal .modal-footer {
+    background: #111827 !important;
+    border-top: 1px solid #334155 !important;
+    padding: 14px 20px !important;
+}
+
+body.dark-theme .project-delete-modal .btn-cancel,
+body.dark-mode .project-delete-modal .btn-cancel,
+[data-theme="dark"] .project-delete-modal .btn-cancel {
+    background: transparent !important;
+    color: #CBD5E1 !important;
+    border: 1px solid #475569 !important;
+}
+
+body.dark-theme .project-delete-modal .btn-cancel:hover,
+body.dark-mode .project-delete-modal .btn-cancel:hover,
+[data-theme="dark"] .project-delete-modal .btn-cancel:hover {
+    background: #1E293B !important;
+    color: #F8FAFC !important;
+}
+
+body.dark-theme .project-delete-modal .btn-confirm-delete,
+body.dark-mode .project-delete-modal .btn-confirm-delete,
+[data-theme="dark"] .project-delete-modal .btn-confirm-delete {
+    background: #DC2626 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+}
+
+body.dark-theme .project-delete-modal .btn-confirm-delete:hover:not(:disabled),
+body.dark-mode .project-delete-modal .btn-confirm-delete:hover:not(:disabled),
+[data-theme="dark"] .project-delete-modal .btn-confirm-delete:hover:not(:disabled) {
+    background: #B91C1C !important;
+}
+
+body.dark-theme .project-delete-modal .btn-confirm-delete:disabled,
+body.dark-mode .project-delete-modal .btn-confirm-delete:disabled,
+[data-theme="dark"] .project-delete-modal .btn-confirm-delete:disabled {
+    background: #4C1D24 !important;
+    color: #9F6B70 !important;
+    border: none !important;
+    cursor: not-allowed !important;
+    opacity: 1 !important;
+}

@@ -32403,10 +32403,14 @@ renderTodayTasksRoleBased(todayStr) {
         if (codeEl) codeEl.textContent = `코드: ${this.deletingProjectCode}`;
         if (inputEl) {
             inputEl.value = '';
-            setTimeout(() => inputEl.focus(), 100);
+            inputEl.placeholder = this.deletingProjectCode;
+            setTimeout(() => inputEl.focus(), 50);
         }
         if (idInput) idInput.value = projectId;
-        if (btnConfirm) btnConfirm.disabled = true;
+        if (btnConfirm) {
+            btnConfirm.disabled = true;
+            btnConfirm.innerHTML = '최종 삭제';
+        }
 
         this.openModal('modal-project-delete');
         performance.mark('openDeleteModal_end');
@@ -32424,13 +32428,30 @@ renderTodayTasksRoleBased(todayStr) {
     }
 
     async confirmDeleteProject() {
+        const btnConfirm = document.getElementById('btn-confirm-delete-project');
+        if (btnConfirm && btnConfirm.disabled) return;
+
         const projectId = this.deletingProjectId || document.getElementById('delete-target-project-id')?.value;
         if (!projectId) return;
 
-        this._isConfirmedDelete = true;
-        await this.deleteProject(projectId);
-        this._isConfirmedDelete = false;
-        this.closeModal('modal-project-delete');
+        if (btnConfirm) {
+            btnConfirm.disabled = true;
+            btnConfirm.innerHTML = '삭제 중...';
+        }
+
+        try {
+            this._isConfirmedDelete = true;
+            await this.deleteProject(projectId);
+        } catch (err) {
+            console.error('[confirmDeleteProject] error:', err);
+            this.showToast?.('프로젝트 삭제 중 오류가 발생했습니다.', 'error');
+        } finally {
+            this._isConfirmedDelete = false;
+            if (btnConfirm) {
+                btnConfirm.innerHTML = '최종 삭제';
+            }
+            this.closeModal('modal-project-delete');
+        }
     }
 
     async deleteProject(projectId) {
