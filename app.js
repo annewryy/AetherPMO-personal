@@ -32883,23 +32883,39 @@ renderTodayTasksRoleBased(todayStr) {
     }
 
         toggleBiddingCardMenu(event, projectId) {
-        event.stopPropagation();
+        if (event) event.stopPropagation();
         // Close all existing open menus
         document.querySelectorAll('.bidding-card-menu-popup').forEach(el => {
             if (el.id !== `bidding-card-menu-${projectId}`) {
                 el.style.display = 'none';
+                const card = el.closest('.bidding-kanban-card-v2');
+                if (card) card.classList.remove('menu-open');
             }
         });
 
         const popup = document.getElementById(`bidding-card-menu-${projectId}`);
         if (popup) {
-            popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+            const isHidden = popup.style.display === 'none' || popup.style.display === '';
+            popup.style.display = isHidden ? 'block' : 'none';
+            const card = popup.closest('.bidding-kanban-card-v2');
+            if (card) {
+                if (isHidden) {
+                    card.classList.add('menu-open');
+                } else {
+                    card.classList.remove('menu-open');
+                }
+            }
+            if (isHidden && typeof lucide !== 'undefined') {
+                try { lucide.createIcons(); } catch(e){}
+            }
         }
     }
 
     closeAllBiddingCardMenus() {
         document.querySelectorAll('.bidding-card-menu-popup').forEach(el => {
             el.style.display = 'none';
+            const card = el.closest('.bidding-kanban-card-v2');
+            if (card) card.classList.remove('menu-open');
         });
     }
 
@@ -33092,18 +33108,18 @@ renderTodayTasksRoleBased(todayStr) {
                 <div class="card-top-row" style="display:flex; justify-content:space-between; align-items:center;">
                     ${dDayBadge}
                     <div class="bidding-card-menu-dropdown" onclick="event.stopPropagation();">
-                        <button type="button" class="btn btn-ghost btn-xs" onclick="app.toggleBiddingCardMenu(event, '${p.id}')" style="padding:4px 8px; border-radius:6px;" title="메뉴 열기">
-                            <i data-lucide="more-vertical" style="width:16px; height:16px;"></i>
+                        <button type="button" class="bidding-card-menu-btn" onclick="app.toggleBiddingCardMenu(event, '${p.id}')" title="메뉴 열기">
+                            <i data-lucide="more-vertical" style="width:18px; height:18px;"></i>
                         </button>
                         <div id="bidding-card-menu-${p.id}" class="bidding-card-menu-popup" style="display:none;">
                             <div onclick="app.closeAllBiddingCardMenus(); app.openEditProjectModal('${p.id}');" class="menu-item">
-                                <i data-lucide="edit-3" style="width:14px; height:14px; color:var(--primary);"></i> 입찰 정보 수정
+                                <i data-lucide="edit-3"></i> 입찰 정보 수정
                             </div>
                             <div onclick="app.closeAllBiddingCardMenus(); app.openBiddingWonModal('${p.id}');" class="menu-item">
-                                <i data-lucide="trophy" style="width:14px; height:14px; color:var(--success);"></i> 수주 성공 처리
+                                <i data-lucide="trophy"></i> 수주 성공 처리
                             </div>
-                            <div onclick="app.closeAllBiddingCardMenus(); app.openBiddingLostModal('${p.id}');" class="menu-item">
-                                <i data-lucide="x-circle" style="width:14px; height:14px; color:var(--danger);"></i> 실패 / 실주 처리
+                            <div onclick="app.closeAllBiddingCardMenus(); app.openBiddingLostModal('${p.id}');" class="menu-item danger">
+                                <i data-lucide="x-circle"></i> 실패/실주 처리
                             </div>
                         </div>
                     </div>

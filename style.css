@@ -10068,35 +10068,132 @@ body.app-modal-open {
 
 .bidding-card-menu-dropdown {
     position: relative;
+    display: inline-block;
+}
+
+.bidding-card-menu-btn {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #172033 !important;
+    border: 1px solid #334155 !important;
+    border-radius: 8px !important;
+    color: #94A3B8 !important;
+    cursor: pointer !important;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.bidding-card-menu-btn i,
+.bidding-card-menu-btn svg {
+    width: 18px !important;
+    height: 18px !important;
+    stroke: #94A3B8 !important;
+    color: #94A3B8 !important;
+    transition: stroke 0.15s ease, color 0.15s ease !important;
+}
+
+.bidding-card-menu-btn:hover {
+    background: #26334D !important;
+    border-color: #334155 !important;
+    color: #F8FAFC !important;
+}
+
+.bidding-card-menu-btn:hover i,
+.bidding-card-menu-btn:hover svg {
+    stroke: #F8FAFC !important;
+    color: #F8FAFC !important;
 }
 
 .bidding-card-menu-popup {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    z-index: 100;
-    background: var(--bg-card);
-    border: 1px solid var(--bg-card-border);
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-    min-width: 150px;
-    padding: 6px 0;
+    position: absolute !important;
+    top: 38px !important;
+    right: 0 !important;
+    z-index: 100 !important;
+    width: 168px !important;
+    padding: 6px !important;
+    background: #111827 !important;
+    border: 1px solid #334155 !important;
+    border-radius: 10px !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4) !important;
+    box-sizing: border-box !important;
 }
 
 .bidding-card-menu-popup .menu-item {
-    padding: 8px 14px;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-main);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    transition: background 0.15s ease;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 10px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #CBD5E1 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: background-color 0.15s ease, color 0.15s ease !important;
+    white-space: nowrap !important;
+    box-sizing: border-box !important;
+}
+
+.bidding-card-menu-popup .menu-item i,
+.bidding-card-menu-popup .menu-item svg {
+    width: 16px !important;
+    height: 16px !important;
+    stroke: #94A3B8 !important;
+    color: #94A3B8 !important;
+    flex-shrink: 0 !important;
+    transition: stroke 0.15s ease, color 0.15s ease !important;
 }
 
 .bidding-card-menu-popup .menu-item:hover {
-    background: var(--bg-hover-item);
+    background: #1E293B !important;
+    color: #F8FAFC !important;
+}
+
+.bidding-card-menu-popup .menu-item:hover i,
+.bidding-card-menu-popup .menu-item:hover svg {
+    stroke: #F8FAFC !important;
+    color: #F8FAFC !important;
+}
+
+/* Danger Item (실패/실주 처리) */
+.bidding-card-menu-popup .menu-item.danger,
+.bidding-card-menu-popup .menu-item.menu-item-danger {
+    color: #F87171 !important;
+}
+
+.bidding-card-menu-popup .menu-item.danger i,
+.bidding-card-menu-popup .menu-item.danger svg,
+.bidding-card-menu-popup .menu-item.menu-item-danger i,
+.bidding-card-menu-popup .menu-item.menu-item-danger svg {
+    stroke: #F87171 !important;
+    color: #F87171 !important;
+}
+
+.bidding-card-menu-popup .menu-item.danger:hover,
+.bidding-card-menu-popup .menu-item.menu-item-danger:hover {
+    background: #1E293B !important;
+    color: #F87171 !important;
+}
+
+.bidding-card-menu-popup .menu-item.danger:hover i,
+.bidding-card-menu-popup .menu-item.danger:hover svg,
+.bidding-card-menu-popup .menu-item.menu-item-danger:hover i,
+.bidding-card-menu-popup .menu-item.menu-item-danger:hover svg {
+    stroke: #F87171 !important;
+    color: #F87171 !important;
+}
+
+/* Elevate card when menu is open */
+.bidding-kanban-card-v2.menu-open {
+    z-index: 50 !important;
 }
 
 .kanban-pipeline-arrow {
