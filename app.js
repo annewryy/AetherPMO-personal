@@ -1799,10 +1799,22 @@ class AetherPMO {
                     console.warn('[Supabase] salaries table fetch failed. Using local storage/defaults.', e);
                 }
                 try {
-                    const { data: dbPosts, error: errPost } = await this.supabase.from('board_posts').select('*');
-                    if (!errPost && dbPosts) boardPosts = dbPosts;
+                    const { data: dbPosts, error: errPost } = await this.supabase
+                        .from('board_posts')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+                    if (errPost) {
+                        console.error('[Supabase Error] board_posts fetch failed:', {
+                            code: errPost.code,
+                            message: errPost.message,
+                            details: errPost.details,
+                            hint: errPost.hint
+                        });
+                    } else if (dbPosts) {
+                        boardPosts = dbPosts;
+                    }
                 } catch (e) {
-                    console.warn('[Supabase] board_posts table fetch failed. Using defaults.', e);
+                    console.error('[Supabase Exception] board_posts fetch exception:', e);
                 }
             }
             let projectArtifactsDb = [];
@@ -23239,7 +23251,89 @@ renderTodayTasksRoleBased(todayStr) {
             }
         });
 
+        this.fetchBoardPosts(category);
+    }
+
+    async fetchBoardPosts(targetCategory = null) {
+        const activeCategory = targetCategory || this.activeBoardCategoryFilter || 'all';
+        this.activeBoardCategoryFilter = activeCategory;
+
+        if (!this.useSupabase || !this.supabase) {
+            this.renderBoardView();
+            return;
+        }
+
+        // Requirement 7: Race Condition Counter
+        this.boardFetchCounter = (this.boardFetchCounter || 0) + 1;
+        const currentFetchId = this.boardFetchCounter;
+
+        // Requirement 8: Category Filter & Ordering by created_at DESC
+        let query = this.supabase
+            .from('board_posts')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (activeCategory !== 'all') {
+            query = query.eq('category', activeCategory);
+        }
+
+        const { data, error } = await query;
+
+        // Requirement 7 & 9: Error handling without overwriting existing list
+        if (error) {
+            console.error('게시글 목록 조회 실패:', {
+                code: error.code,
+                message: error.message,
+                details: error.details,
+                hint: error.hint
+            });
+            this.showToast(`게시글 목록 조회 실패: ${error.message || '오류 발생'}`, 'error');
+            this.renderBoardListErrorUI(error);
+            return;
+        }
+
+        // Requirement 7: Race condition check: Only render if fetch ID matches the latest request
+        if (currentFetchId !== this.boardFetchCounter || activeCategory !== (this.activeBoardCategoryFilter || 'all')) {
+            console.log(`[Board Fetch Bypassed] Stale query response for category '${activeCategory}' ignored.`);
+            return;
+        }
+
+        const normalizedPosts = (data || []).map(p => ({
+            id: p.id,
+            category: p.category,
+            title: p.title,
+            content: p.content,
+            authorId: p.author_id,
+            authorName: p.author_name || '익명',
+            attachmentUrl: p.attachment_url,
+            status: p.status || 'pending',
+            createdAt: p.created_at,
+            updatedAt: p.updated_at
+        }));
+
+        this.state.boardPosts = normalizedPosts;
         this.renderBoardView();
+    }
+
+    renderBoardListErrorUI(error) {
+        const tableBody = document.getElementById('board-table-body');
+        if (!tableBody) return;
+        const categoryLabel = this.activeBoardCategoryFilter === 'notice' ? '공지사항'
+            : this.activeBoardCategoryFilter === 'inquiry' ? '문의사항'
+            : this.activeBoardCategoryFilter === 'resource' ? '자료실' : '게시글';
+
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" style="padding: 30px; text-align: center; color: var(--danger); font-size: 14px;">
+                    <div style="margin-bottom: 8px; font-weight: 700;">${categoryLabel} 목록을 불러오지 못했습니다.</div>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">${this.escapeHtml(error?.message || '오류 발생')} (${error?.code || 'ERR'})</div>
+                    <button class="btn btn-sm btn-outline" onclick="app.fetchBoardPosts('${this.activeBoardCategoryFilter || 'all'}')">
+                        <i data-lucide="refresh-cw" style="width:13px; height:13px; margin-right:4px;"></i> 다시 시도
+                    </button>
+                </td>
+            </tr>
+        `;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     renderBoardView() {
@@ -23250,23 +23344,10 @@ renderTodayTasksRoleBased(todayStr) {
         const statusFilter = document.getElementById('board-filter-status')?.value || 'all';
         const keyword = this.safeText(document.getElementById('board-search-input')?.value).toLowerCase().trim();
 
-        // Filter posts
+        // Filter posts locally for keyword and status filter
         const filteredPosts = (this.state.boardPosts || []).filter(post => {
-            // Category check
-            if (categoryFilter !== 'all') {
-                if (categoryFilter === 'inquiry') {
-                    if (!['inquiry', 'question', 'bug', 'suggestion'].includes(post.category)) return false;
-                } else if (categoryFilter === 'notice') {
-                    if (post.category !== 'notice') return false;
-                } else if (categoryFilter === 'resource') {
-                    if (post.category !== 'resource') return false;
-                } else if (post.category !== categoryFilter) {
-                    return false;
-                }
-            }
-            // Status check
+            if (categoryFilter !== 'all' && post.category !== categoryFilter) return false;
             if (statusFilter !== 'all' && post.status !== statusFilter) return false;
-            // Keyword check
             if (keyword) {
                 const titleMatch = (post.title || '').toLowerCase().includes(keyword);
                 const contentMatch = (post.content || '').toLowerCase().includes(keyword);
@@ -23276,24 +23357,21 @@ renderTodayTasksRoleBased(todayStr) {
             return true;
         });
 
-        // Helper to translate categories
         const translateCategory = (cat) => {
             switch (cat) {
-                case 'question': return '기능 문의';
-                case 'bug': return '오류 제보';
-                case 'suggestion': return '기능 제안';
-                case 'etc': return '기타 건의';
+                case 'notice': return '공지사항';
+                case 'inquiry': return '문의사항';
+                case 'resource': return '자료실';
                 default: return cat;
             }
         };
 
-        // Render table rows
         tableBody.innerHTML = '';
         if (filteredPosts.length === 0) {
             tableBody.innerHTML = `
                 <tr>
                     <td colspan="7" style="padding: 30px; text-align: center; color: var(--text-muted); font-size: 14px;">
-                        등록된 문의글이 존재하지 않습니다.
+                        등록된 게시글이 존재하지 않습니다.
                     </td>
                 </tr>
             `;
@@ -23306,17 +23384,14 @@ renderTodayTasksRoleBased(todayStr) {
             tr.style.cursor = 'pointer';
             tr.className = 'excel-row';
 
-            // Category tag class mapping
             let catClass = 'badge-blue';
             if (post.category === 'notice') catClass = 'badge-primary';
-            else if (post.category === 'inquiry' || post.category === 'question' || post.category === 'bug' || post.category === 'suggestion') catClass = 'badge-warning';
+            else if (post.category === 'inquiry') catClass = 'badge-warning';
             else if (post.category === 'resource') catClass = 'badge-success';
 
-            // Status label mapping
             const statusLabel = post.status === 'answered' ? '답변완료' : '답변대기';
             const statusBadgeClass = post.status === 'answered' ? 'status-badge status-answered' : 'status-badge status-pending';
 
-            // Author and Date format
             const author = post.authorName || '익명';
             const dateStr = post.createdAt ? new Date(post.createdAt).toLocaleString('ko-KR', {
                 year: 'numeric',
@@ -23326,8 +23401,7 @@ renderTodayTasksRoleBased(todayStr) {
                 minute: '2-digit'
             }) : '-';
 
-            // Edit / Delete capability check: author themselves or Admin/PM
-            const canManage = this.currentUser && (this.currentUser.role === 'SYS_ADMIN' || this.currentUser.role === 'PM' || post.authorId === this.currentUser.id);
+            const canManage = this.currentUser && (this.currentUser.role === 'SYS_ADMIN' || post.authorId === this.currentUser.id);
 
             tr.innerHTML = `
                 <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-size: 13px;">${filteredPosts.length - index}</td>
@@ -23335,9 +23409,10 @@ renderTodayTasksRoleBased(todayStr) {
                     <span class="badge ${catClass}" style="font-size: 11px; padding: 3px 8px;">${translateCategory(post.category)}</span>
                 </td>
                 <td style="padding: 12px; border-right: 1px solid var(--bg-card-border); font-weight: 600; color: var(--text-main); font-size: 14px; text-align: left;" onclick="app.openBoardPostDetailModal('${post.id}')">
-                    ${post.title}
+                    ${this.escapeHtml(post.title)}
+                    ${post.attachmentUrl ? `<i data-lucide="paperclip" style="width:13px; height:13px; margin-left:6px; color:var(--text-muted);"></i>` : ''}
                 </td>
-                <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); font-size: 13px; color: var(--text-main);">${author}</td>
+                <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); font-size: 13px; color: var(--text-main);">${this.escapeHtml(author)}</td>
                 <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); font-size: 12px; color: var(--text-muted);">${dateStr}</td>
                 <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border);">
                     <span class="${statusBadgeClass}">${statusLabel}</span>
@@ -23359,23 +23434,32 @@ renderTodayTasksRoleBased(todayStr) {
     }
 
     openNewBoardPostModal() {
-        document.getElementById('board-modal-title').textContent = '새 문의 등록';
-        document.getElementById('board-post-form').reset();
+        document.getElementById('board-modal-title').textContent = '새 게시글 작성';
+        const form = document.getElementById('board-post-form');
+        if (form) form.reset();
         document.getElementById('board-post-id-field').value = '';
         this.editingBoardPostId = null;
+
+        const currentCat = this.activeBoardCategoryFilter;
+        if (currentCat && ['notice', 'inquiry', 'resource'].includes(currentCat)) {
+            document.getElementById('board-post-category').value = currentCat;
+        }
 
         document.getElementById('board-form-modal').classList.add('open');
     }
 
     openEditBoardPostModal(id) {
-        const post = this.state.boardPosts.find(p => p.id === id);
+        const post = (this.state.boardPosts || []).find(p => p.id === id);
         if (!post) return;
 
-        document.getElementById('board-modal-title').textContent = '문의 내용 수정';
+        document.getElementById('board-modal-title').textContent = '게시글 수정';
         document.getElementById('board-post-id-field').value = post.id;
-        document.getElementById('board-post-category').value = post.category;
-        document.getElementById('board-post-title').value = post.title;
-        document.getElementById('board-post-content').value = post.content;
+        document.getElementById('board-post-category').value = post.category || 'notice';
+        document.getElementById('board-post-title').value = post.title || '';
+        document.getElementById('board-post-content').value = post.content || '';
+
+        const fileInput = document.getElementById('board-post-file-input');
+        if (fileInput) fileInput.value = '';
 
         this.editingBoardPostId = id;
         document.getElementById('board-form-modal').classList.add('open');
@@ -23385,7 +23469,7 @@ renderTodayTasksRoleBased(todayStr) {
         document.getElementById('board-form-modal').classList.remove('open');
     }
 
-    saveBoardPostForm() {
+    async saveBoardPostForm() {
         const id = document.getElementById('board-post-id-field').value;
         const category = document.getElementById('board-post-category').value;
         const title = document.getElementById('board-post-title').value.trim();
@@ -23396,51 +23480,187 @@ renderTodayTasksRoleBased(todayStr) {
             return;
         }
 
-        const authorName = this.currentUser ? (this.currentUser.name || this.currentUser.email.split('@')[0]) : '익명';
-        const authorId = this.currentUser ? this.currentUser.id : null;
+        // Requirement 6: Prevent double submission
+        if (this.isSubmittingBoardPost) return;
+        this.isSubmittingBoardPost = true;
+
+        const saveBtn = document.getElementById('btn-save-board-post');
+        let originalBtnText = '저장하기';
+        if (saveBtn) {
+            originalBtnText = saveBtn.innerHTML;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i data-lucide="loader-2" class="animate-spin" style="width:14px; height:14px; margin-right:4px;"></i> 저장 중...';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        const resetBtnState = () => {
+            this.isSubmittingBoardPost = false;
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalBtnText;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        };
+
+        // Requirement 4: Auth Check
+        let currentUser = this.currentUser;
+        if (this.useSupabase && this.supabase) {
+            const { data: { user }, error: userError } = await this.supabase.auth.getUser();
+            if (userError || !user) {
+                console.error('로그인 세션 확인 실패:', userError);
+                this.showToast('로그인이 필요합니다. 로그인 후 작성해 주세요.', 'warning');
+                resetBtnState();
+                return; // DO NOT close modal, DO NOT update DOM!
+            }
+            currentUser = {
+                id: user.id,
+                email: user.email,
+                name: user.user_metadata?.name || this.state.profile?.name || user.email.split('@')[0],
+                role: this.state.profile?.role || 'VIEWER'
+            };
+            this.currentUser = currentUser;
+        }
+
+        // Requirement 11: File attachment upload
+        const fileInput = document.getElementById('board-post-file-input');
+        let attachmentUrl = null;
+        if (id) {
+            const existing = (this.state.boardPosts || []).find(p => p.id === id);
+            if (existing) attachmentUrl = existing.attachmentUrl || null;
+        }
+
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+            const file = fileInput.files[0];
+            const fileExt = file.name.split('.').pop();
+            const filePath = `attachments/${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+
+            const { data: uploadData, error: uploadError } = await this.supabase.storage
+                .from('board-attachments')
+                .upload(filePath, file);
+
+            if (uploadError) {
+                console.error('첨부파일 업로드 실패:', {
+                    code: uploadError.code,
+                    message: uploadError.message,
+                    details: uploadError.details,
+                    hint: uploadError.hint
+                });
+                this.showToast(`첨부파일 업로드 실패: ${uploadError.message}`, 'error');
+                resetBtnState();
+                return; // STOP post creation!
+            }
+
+            const { data: publicUrlData } = this.supabase.storage
+                .from('board-attachments')
+                .getPublicUrl(filePath);
+
+            attachmentUrl = publicUrlData.publicUrl;
+        }
+
+        const authorName = currentUser ? (currentUser.name || currentUser.email.split('@')[0]) : '익명';
+        const authorId = currentUser ? currentUser.id : null;
 
         if (id) {
-            const idx = this.state.boardPosts.findIndex(p => p.id === id);
-            if (idx !== -1) {
-                const prev = this.state.boardPosts[idx];
-                this.state.boardPosts[idx] = {
-                    ...prev,
-                    category,
-                    title,
-                    content,
-                    updatedAt: new Date().toISOString()
-                };
-                this.saveState('board_post_upsert', this.state.boardPosts[idx]);
+            // Requirement 3: Restricted update fields
+            const updateData = {
+                category,
+                title,
+                content,
+                attachment_url: attachmentUrl,
+                updated_at: new Date().toISOString()
+            };
+
+            if (this.useSupabase && this.supabase) {
+                // Requirement 5: UPDATE verification
+                const { data, error } = await this.supabase
+                    .from('board_posts')
+                    .update(updateData)
+                    .eq('id', id)
+                    .select()
+                    .single();
+
+                if (error || !data) {
+                    console.error('게시글 수정 실패:', {
+                        code: error?.code,
+                        message: error?.message,
+                        details: error?.details,
+                        hint: error?.hint
+                    });
+                    this.showToast(`게시글 수정 실패: ${error?.message || '대상을 찾을 수 없거나 권한이 없습니다.'}`, 'error');
+                    resetBtnState();
+                    return; // DO NOT close modal!
+                }
             }
         } else {
+            // Requirement 3 & 4 & 5: INSERT
             const newId = this.generateUuid();
-            const newPost = {
+            const insertData = {
                 id: newId,
                 category,
                 title,
                 content,
-                status: 'pending',
-                authorName,
-                authorId,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
+                author_id: authorId,
+                author_name: authorName,
+                attachment_url: attachmentUrl,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
             };
-            this.state.boardPosts.unshift(newPost);
-            this.saveState('board_post_upsert', newPost);
+
+            if (this.useSupabase && this.supabase) {
+                const { data, error } = await this.supabase
+                    .from('board_posts')
+                    .insert([insertData])
+                    .select()
+                    .single();
+
+                if (error || !data) {
+                    console.error('게시글 저장 실패:', {
+                        code: error?.code,
+                        message: error?.message,
+                        details: error?.details,
+                        hint: error?.hint
+                    });
+                    this.showToast(`게시글 저장 실패: ${error?.message || '저장 실패'}`, 'error');
+                    resetBtnState();
+                    return; // DO NOT close modal! DO NOT temporarily add to state!
+                }
+            }
         }
 
+        resetBtnState();
         this.closeBoardFormModal();
-        this.renderBoardView();
+        this.showToast(id ? '게시글이 수정되었습니다.' : '게시글이 등록되었습니다.', 'success');
+
+        // Requirement 6: Re-fetch list from Supabase
+        await this.fetchBoardPosts(this.activeBoardCategoryFilter || 'all');
     }
 
-    deleteBoardPost(id) {
-        if (confirm('이 문의글을 정말 삭제하시겠습니까? 관련 답변 및 댓글도 함께 삭제됩니다.')) {
-            this.state.boardPosts = this.state.boardPosts.filter(p => p.id !== id);
-            this.state.boardReplies = this.state.boardReplies.filter(r => r.postId !== id);
+    async deleteBoardPost(id) {
+        if (!confirm('이 게시글을 정말 삭제하시겠습니까?')) return;
 
-            this.saveState('board_post_delete', id);
-            this.renderBoardView();
+        if (this.useSupabase && this.supabase) {
+            // Requirement 5: DELETE verification
+            const { data, error } = await this.supabase
+                .from('board_posts')
+                .delete()
+                .eq('id', id)
+                .select('id')
+                .single();
+
+            if (error || !data) {
+                console.error('게시글 삭제 실패:', {
+                    code: error?.code,
+                    message: error?.message,
+                    details: error?.details,
+                    hint: error?.hint
+                });
+                this.showToast(`게시글 삭제 실패: ${error?.message || '삭제 권한이 없거나 이미 삭제되었습니다.'}`, 'error');
+                return; // Keep current screen state!
+            }
         }
+
+        this.showToast('게시글이 삭제되었습니다.', 'success');
+        await this.fetchBoardPosts(this.activeBoardCategoryFilter || 'all');
     }
 
     openBoardPostDetailModal(id) {
