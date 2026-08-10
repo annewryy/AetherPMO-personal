@@ -4643,9 +4643,15 @@ class AetherPMO {
         if (isOpen) {
             this.closeMobileDrawer();
         } else {
-            if (sidebar) sidebar.classList.add('mobile-open');
+            if (sidebar) {
+                sidebar.classList.add('mobile-open');
+                sidebar.setAttribute('aria-hidden', 'false');
+            }
             if (backdrop) backdrop.classList.add('active');
-            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
+            if (toggleBtn) {
+                toggleBtn.setAttribute('aria-expanded', 'true');
+                toggleBtn.setAttribute('aria-label', '메뉴 닫기');
+            }
             document.body.style.overflow = 'hidden';
 
             const firstNavItem = sidebar ? sidebar.querySelector('.sidebar-nav a, .sidebar-nav button') : null;
@@ -4658,10 +4664,14 @@ class AetherPMO {
         const backdrop = document.getElementById('sidebar-backdrop');
         const toggleBtn = document.getElementById('btn-mobile-drawer-toggle');
 
-        if (sidebar) sidebar.classList.remove('mobile-open');
+        if (sidebar) {
+            sidebar.classList.remove('mobile-open');
+            sidebar.setAttribute('aria-hidden', 'true');
+        }
         if (backdrop) backdrop.classList.remove('active');
         if (toggleBtn) {
             toggleBtn.setAttribute('aria-expanded', 'false');
+            toggleBtn.setAttribute('aria-label', '메뉴 열기');
         }
         document.body.style.overflow = '';
     }
@@ -23672,6 +23682,12 @@ renderTodayTasksRoleBased(todayStr) {
             }
         };
 
+        if (this.useSupabase && !navigator.onLine) {
+            this.showToast('오프라인 상태입니다. 네트워크 연결 확인 후 다시 시도해 주세요.', 'warning');
+            resetBtnState();
+            return;
+        }
+
         // Requirement 4: Auth Check
         let currentUser = this.currentUser;
         if (this.useSupabase && this.supabase) {
@@ -23892,6 +23908,11 @@ renderTodayTasksRoleBased(todayStr) {
 
     async deleteBoardPost(id) {
         if (!confirm('이 게시글을 정말 삭제하시겠습니까?')) return;
+
+        if (this.useSupabase && !navigator.onLine) {
+            this.showToast('오프라인 상태에서는 게시글을 삭제할 수 없습니다. 네트워크 연결을 확인해 주세요.', 'warning');
+            return;
+        }
 
         if (this.useSupabase && this.supabase) {
             const { error } = await this.supabase

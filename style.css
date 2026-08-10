@@ -11779,8 +11779,8 @@ body.dark-mode .project-delete-modal .btn-confirm-delete:disabled,
         font-size: 16px !important; /* Minimum 16px to prevent iOS Safari auto-zoom */
     }
 
-    button,
-    .btn,
+    button:not(.btn-xs):not(.btn-sm):not(.icon-btn):not(.table-action-btn):not(.modal-close-btn):not(.tab-btn),
+    .btn:not(.btn-xs):not(.btn-sm):not(.icon-btn):not(.table-action-btn),
     .nav-item,
     input[type="button"],
     input[type="submit"] {
@@ -11872,18 +11872,20 @@ body.dark-mode .project-delete-modal .btn-confirm-delete:disabled,
         border-radius: 12px !important;
     }
 
-    /* Table Responsive & Sticky First Column */
+    /* Table Responsive & Sticky First Column Scoped to Explicit Containers */
     .table-responsive-container,
-    .excel-table-container {
+    .excel-table-container,
+    .mobile-sticky-table-container {
         width: 100% !important;
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
     }
 
-    .sticky-col-first,
-    .excel-grid-table th:first-child,
-    .excel-grid-table td:first-child,
-    .detail-info-table th:first-child {
+    .mobile-sticky-table-container .sticky-col-first,
+    .mobile-sticky-table-container table th:first-child,
+    .mobile-sticky-table-container table td:first-child,
+    .salaries-table-container th:first-child,
+    .salaries-table-container td:first-child {
         position: sticky !important;
         left: 0 !important;
         z-index: 2 !important;
