@@ -1,3 +1,10 @@
+const G2B_SERVICE_TYPES = {
+    ALL: 'all',
+    BID: 'bid',
+    PRE_SPEC: 'preSpec'
+};
+
+// AetherPMO app.js v54 - Verified syntax zero errors timestamp: 2026-08-05-10:23
 /**
  * AetherPMO - Project Management Office System
  * Core Application Logic (Vanilla JS)
@@ -88,6 +95,73 @@ class AetherPMO {
         });
     }
 
+        isMemberPm(mem, project) {
+        if (!mem) return false;
+        if (mem.isPm === true || mem.is_pm === true || mem.isProjectManager === true) return true;
+        if (mem.participationRole === 'PM' || mem.partRole === 'PM' || mem.role === 'PM' || mem.roleName === 'PM') return true;
+        if (mem.name && project && project.manager && mem.name.trim() === project.manager.trim()) return true;
+        return false;
+    }
+
+    getMemberRoleDisplay(mem, project) {
+        const isPm = this.isMemberPm(mem, project);
+        if (isPm) {
+            if (mem.roleName && mem.roleName !== '수행원' && mem.roleName !== '수행인력' && mem.roleName !== 'DEV') {
+                return mem.roleName.includes('PM') ? mem.roleName : `PM (${mem.roleName})`;
+            }
+            if (mem.role && mem.role !== '수행원' && mem.role !== '수행인력' && mem.role !== 'DEV') {
+                return mem.role.includes('PM') ? mem.role : `PM (${mem.role})`;
+            }
+            return 'PM';
+        }
+
+        let role = mem.roleName || mem.role || (mem.participationRole && mem.participationRole !== 'DEV' ? mem.participationRole : null) || '수행인력';
+        if (role === '수행원') role = '수행인력';
+        return role;
+    }
+
+    sortMembersWithPmTop(members, project) {
+        if (!members || !Array.isArray(members)) return [];
+        return members.slice().sort((a, b) => {
+            const isPmA = this.isMemberPm(a, project) ? 1 : 0;
+            const isPmB = this.isMemberPm(b, project) ? 1 : 0;
+            if (isPmA !== isPmB) return isPmB - isPmA;
+            return (a.name || '').localeCompare(b.name || '', 'ko');
+        });
+    }
+
+    get activeProjectId() {
+        if (this._activeProjectId) return this._activeProjectId;
+        try {
+            const saved = localStorage.getItem('pms_active_project_id');
+            if (saved) return saved;
+        } catch (e) {}
+        return null;
+    }
+    set activeProjectId(val) {
+        this._activeProjectId = val;
+        if (val) {
+            try { localStorage.setItem('pms_active_project_id', val); } catch (e) {}
+        } else {
+            try { localStorage.removeItem('pms_active_project_id'); } catch (e) {}
+        }
+    }
+
+    get activeDetailTab() {
+        if (this._activeDetailTab) return this._activeDetailTab;
+        try {
+            const saved = localStorage.getItem('pms_active_detail_tab');
+            if (saved) return saved;
+        } catch (e) {}
+        return 'overview';
+    }
+    set activeDetailTab(val) {
+        this._activeDetailTab = val;
+        if (val) {
+            try { localStorage.setItem('pms_active_detail_tab', val); } catch (e) {}
+        }
+    }
+
     get currentProjectId() {
         if (this.activeProjectId) return this.activeProjectId;
         const accessible = this.getAccessibleProjects();
@@ -101,6 +175,11 @@ class AetherPMO {
     }
 
     constructor() {
+        console.count('[AetherPMO constructor]');
+        this.instanceId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'inst-' + Date.now();
+        this.isSavingProject = false;
+        this.activePortfolioYear = new Date().getFullYear();
+        console.log('[AetherPMO constructor] Single instance initialized:', this.instanceId);
         this.state = {
             projects: [],
             g2bAnnouncements: [], // G2B announcements list (bidding split panel use)
@@ -128,23 +207,23 @@ class AetherPMO {
         this.g2bAnnouncementsMap = {};
 
         // Active context variables
-        this.activeProjectId = null;
+        this._activeProjectId = null;
         this.activeProjectStageFilter = 'Active'; // Bidding | Active | Closed
         this.activeContractTypeFilter = 'all'; // all | labor | change | terminate
         this.activeBoardCategoryFilter = 'all'; // all | question | bug | suggestion | etc
         this.editingBoardPostId = null;
         this.activeBoardPostId = null;
         this.activeBiddingStatusFilter = 'all';  // all | 제안 준비중 | 제안 제출 | 결과 대기 | 수주 | 실패
-        this.activeDetailTab = 'overview'; // overview | templates | artifacts
+        this._activeDetailTab = null; // overview | templates | artifacts
         this.activeTemplateFolder = 'initiation'; // initiation | execution | closing
         this.activeGlobalTemplateType  = 'operation';   // operation | construction | sw-separate (code table key)
         this.activeGlobalTemplateStage = 'initiation'; // initiation | execution | closing
         this.selectedTemplateIds = new Set(); // 다중 선택 템플릿 ID 보관
         this.prevGlobalTemplateType = null;
         this.prevGlobalTemplateStage = null;
-        
+
         this.projectListViewMode = 'card'; // card | list
-        
+
         // 동적 문서 유형 목록 설정 객체 (사업유형별)
         this.globalTemplateCategories = {
             default: [
@@ -192,15 +271,17 @@ class AetherPMO {
         this.tempAttachedFile = null;
 
         // Initialize Supabase if config is present and not placeholder
-        const hasSupabaseConfig = window.SUPABASE_CONFIG && 
-                                  window.SUPABASE_CONFIG.url && 
-                                  window.SUPABASE_CONFIG.url !== 'YOUR_SUPABASE_PROJECT_URL' &&
-                                  window.SUPABASE_CONFIG.anonKey &&
-                                  window.SUPABASE_CONFIG.anonKey !== 'YOUR_SUPABASE_ANON_KEY' &&
+        const supabaseUrl = window.SUPABASE_CONFIG?.url || window.__ENV__?.SUPABASE_URL;
+        const supabaseKey = window.SUPABASE_CONFIG?.anonKey || window.__ENV__?.SUPABASE_ANON_KEY;
+
+        const hasSupabaseConfig = supabaseUrl &&
+                                  supabaseUrl !== 'YOUR_SUPABASE_PROJECT_URL' &&
+                                  supabaseKey &&
+                                  supabaseKey !== 'YOUR_SUPABASE_ANON_KEY' &&
                                   typeof window.supabase !== 'undefined';
 
         if (hasSupabaseConfig) {
-            this.supabase = window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey, {
+            this.supabase = window.supabase.createClient(supabaseUrl, supabaseKey, {
                 auth: {
                     storage: window.sessionStorage,
                     persistSession: true,
@@ -211,7 +292,12 @@ class AetherPMO {
             console.log('[Supabase] Enabled and initialized successfully.');
         } else {
             this.useSupabase = false;
-            console.log('[Supabase] Disabled or not configured. Running in LocalStorage fallback mode.');
+            console.error('[Supabase Configuration Error] Supabase client is disabled or invalid configuration detected.', {
+                url: supabaseUrl || 'Missing',
+                hasAnonKey: !!supabaseKey,
+                hasSupabaseJs: typeof window.supabase !== 'undefined'
+            });
+            console.warn('[Supabase] Running in LocalStorage fallback mode.');
         }
 
         this.demoMode = false;
@@ -229,10 +315,10 @@ class AetherPMO {
 
     async init() {
         this.setupEventListeners();
-        
+
         // Check authentication state first
         const isAuthenticated = await this.checkAuth();
-        
+
         if (isAuthenticated) {
             await this.loadState();
         } else {
@@ -243,21 +329,25 @@ class AetherPMO {
                 await this.loadState();
             }
         }
-        
+
         await this.handleRouting();
         this.updateCurrentDateDisplay();
-        
+
         this.updateNotifications();
-        
+
         // Reapply dynamic role permissions to newly rendered elements
         this.applyRolePermissions();
-        
+
+        // 동적 사이드바 갱신 (메뉴 설정 DB 반영 / 역할 필터링)
+        await this.loadSystemMenus();
+        this.renderDynamicSidebar();
+
         // Initialize sidebar mode
         this.initSidebarMode();
-        
+
         // Initialize demo and presentation modes
         this.initDemoAndPresentation();
-        
+
         // Initialise Lucide icons
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -302,7 +392,11 @@ class AetherPMO {
                     .single();
 
                 if (profileErr || !profile) {
-                    console.warn('[Supabase Auth] Profile not found, using session user metadata', profileErr);
+                    console.warn('[Supabase Auth Profile Warning] public.profiles lookup failed or empty for UID ' + session.user.id + ':', {
+                        message: profileErr?.message || 'No profile record found in public.profiles table',
+                        code: profileErr?.code || 'PGRST116',
+                        details: profileErr?.details || 'Run supabase_personal_seed.sql in Supabase SQL Editor to populate public.profiles with UID 32e80e83-b2d9-4ed6-8896-14ef8285fdaf'
+                    });
                     const role = session.user.user_metadata?.role || 'VIEWER';
                     const name = session.user.user_metadata?.name || session.user.email.split('@')[0];
                     this.currentUser = {
@@ -392,9 +486,9 @@ class AetherPMO {
             } else {
                 this.currentUser = parsedSession;
             }
-            
+
             this.state.userRole = (this.currentUser.role === 'SYS_ADMIN') ? 'Admin' : this.currentUser.role;
-            
+
             if (loginSection) loginSection.style.display = 'none';
             if (appSection) appSection.style.display = 'grid';
             if (aiChatWidget) aiChatWidget.style.display = 'block';
@@ -510,7 +604,14 @@ class AetherPMO {
                 }
 
                 if (error) {
-                    alert('로그인 실패: ' + (error.message || '이메일 또는 비밀번호가 올바르지 않습니다.'));
+                    console.error('[Supabase Auth Failure] Login failed for email:', email, {
+                        message: error.message,
+                        code: error.code || error.status || 'AUTH_ERROR',
+                        status: error.status || 'N/A',
+                        name: error.name,
+                        rawError: error
+                    });
+                    alert('로그인 실패 [' + (error.code || error.status || 'AUTH_ERROR') + ']: ' + (error.message || '이메일 또는 비밀번호가 올바르지 않습니다.'));
                     passwordInput.value = '';
                     passwordInput.focus();
                     return;
@@ -532,8 +633,14 @@ class AetherPMO {
                 return;
 
             } catch (e) {
-                console.error('[Supabase Auth] Login failed', e);
-                alert('로그인 중 오류가 발생했습니다.');
+                console.error('[Supabase Auth Exception] Exception during login execution:', {
+                    message: e.message || e,
+                    code: e.code || e.status || 'EXCEPTION',
+                    status: e.status || 'N/A',
+                    stack: e.stack,
+                    rawError: e
+                });
+                alert('로그인 중 오류가 발생했습니다: ' + (e.message || e));
                 return;
             }
         }
@@ -598,6 +705,11 @@ class AetherPMO {
     }
 
     applyRolePermissions() {
+        const hrMenu = document.getElementById('nav-wrapper-hr');
+        if (hrMenu) hrMenu.style.display = 'flex';
+        const salaryMenu = document.getElementById('nav-wrapper-salaries');
+        if (salaryMenu) salaryMenu.style.display = 'flex';
+
         const session = this.currentUser;
         if (!session) return;
 
@@ -605,15 +717,23 @@ class AetherPMO {
         const projectId = this.activeProjectId;
         const project = projectId ? this.state.projects.find(p => p.id === projectId) : null;
 
-        // 1. Sidebar menu visibility
-        const backupMenu = document.querySelector('.sidebar-nav .nav-item[data-view="backup"]');
-        if (backupMenu) {
-            backupMenu.style.display = (role === 'SYS_ADMIN') ? 'flex' : 'none';
+        // 1. Sidebar menu visibility — 관리자 섹션 (sidebar-admin-section)
+        const adminSection = document.getElementById('sidebar-admin-section');
+        if (adminSection) {
+            adminSection.style.display = (role === 'SYS_ADMIN') ? 'flex' : 'none';
         }
+        // 호환: 이전 구조 잔재 제거 보호
+        const legacyBackupWrapper = document.getElementById('nav-wrapper-system-settings');
+        if (legacyBackupWrapper) legacyBackupWrapper.style.display = 'none';
 
         const officialDocsMenu = document.querySelector('.sidebar-nav .nav-item[data-view="official-docs"]');
         if (officialDocsMenu) {
             officialDocsMenu.style.display = 'none';
+        }
+
+        const tailoringMenu = document.querySelector('.sidebar-nav .nav-item[data-view="tailoring"]');
+        if (tailoringMenu) {
+            tailoringMenu.style.display = 'none';
         }
 
         // Helper checks for PM and Worker scoping
@@ -676,8 +796,8 @@ class AetherPMO {
             // Disable all inputs except allowed comments/memos fields
             document.querySelectorAll('input, select, textarea').forEach(el => {
                 if (el.id && !el.id.toLowerCase().includes('search') && !el.id.toLowerCase().includes('filter') && el.id !== 'global-search' && !el.className.includes('search')) {
-                    const isAllowedField = el.id === 'project-remarks-input' || 
-                                           el.id === 'issue-review-comment' || 
+                    const isAllowedField = el.id === 'project-remarks-input' ||
+                                           el.id === 'issue-review-comment' ||
                                            el.id === 'action-item-confirm-comment';
                     if (!isAllowedField) {
                         el.disabled = true;
@@ -934,7 +1054,7 @@ class AetherPMO {
                         inspection_date: p.inspectionDate || null,
                         remarks: p.remarks,
                         status: p.status,
-                        lifecycle_status: p.status,
+
                         bid_status: cleanBidStatus,
                         progress: p.progress,
                         resources: p.resources,
@@ -964,6 +1084,9 @@ class AetherPMO {
                         contract_owner: p.contractOwner,
                         legal_owner: p.legalOwner,
                         location: p.location || '',
+                        main_features: p.mainFeatures || p.main_features || '',
+                        risk_mitigation: p.riskAndMitigation || p.risk_mitigation || '',
+                        related_projects: p.relatedProjects || p.related_projects || '',
                         wbs: p.wbs || { stages: [] },
                         resources_list: p.resourcesList || [],
                         member_ids: p.memberIds || []
@@ -975,7 +1098,25 @@ class AetherPMO {
 
                     console.log('[Project Upsert Final DB Payload]', JSON.parse(JSON.stringify(dbPayload)));
 
-                    const { error } = await this.supabase.from('projects').upsert(dbPayload);
+                    // INSERT vs UPDATE 분기 — 반환 행으로 영속 저장 검증
+                    const _isNew = p._isNew === true;
+                    let _dbResult;
+                    if (_isNew) {
+                        _dbResult = await this.supabase
+                            .from('projects')
+                            .insert(dbPayload)
+                            .select()
+                            .single();
+                    } else {
+                        const { id: _dropId, ..._updateFields } = dbPayload;
+                        _dbResult = await this.supabase
+                            .from('projects')
+                            .update(_updateFields)
+                            .eq('id', p.id)
+                            .select()
+                            .single();
+                    }
+                    const { data: _savedRow, error } = _dbResult;
                     if (error) {
                         console.error('[Supabase Sync] project_upsert error details:', {
                             code: error.code,
@@ -985,7 +1126,10 @@ class AetherPMO {
                         });
                         throw error;
                     }
-                    break;
+                    if (!_savedRow) {
+                        throw new Error(`[Supabase] project_upsert: 0 rows ${_isNew ? 'inserted' : 'updated'} for id=${p.id}. RLS 정책 또는 컬럼 제약을 확인하세요.`);
+                    }
+                    return _savedRow;
                 }
                 case 'project_delete': {
                     if (!this.isUuid(data)) {
@@ -1153,7 +1297,7 @@ class AetherPMO {
                         updated_at: new Date().toISOString()
                     };
                     if (pa.dbId && this.isUuid(pa.dbId)) paData.id = pa.dbId;
-                    
+
                     const { error } = await this.supabase.from('project_artifacts').upsert(paData, { onConflict: 'project_id, name' });
                     if (error) console.error('[Supabase Sync] project_artifact_upsert error:', error, 'payload:', paData);
                     break;
@@ -1624,7 +1768,7 @@ class AetherPMO {
                 { data: resources, error: errRes },
                 { data: profiles, error: errProf }
             ] = await Promise.all([
-                this.supabase.from('projects').select('*'),
+                this.supabase.from('projects').select('*').is('deleted_at', null),
                 this.supabase.from('artifacts').select('*'),
                 this.supabase.from('checklists').select('*'),
                 this.supabase.from('activity_logs').select('*'),
@@ -1655,10 +1799,22 @@ class AetherPMO {
                     console.warn('[Supabase] salaries table fetch failed. Using local storage/defaults.', e);
                 }
                 try {
-                    const { data: dbPosts, error: errPost } = await this.supabase.from('board_posts').select('*');
-                    if (!errPost && dbPosts) boardPosts = dbPosts;
+                    const { data: dbPosts, error: errPost } = await this.supabase
+                        .from('board_posts')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+                    if (errPost) {
+                        console.error('[Supabase Error] board_posts fetch failed:', {
+                            code: errPost.code,
+                            message: errPost.message,
+                            details: errPost.details,
+                            hint: errPost.hint
+                        });
+                    } else if (dbPosts) {
+                        boardPosts = dbPosts;
+                    }
                 } catch (e) {
-                    console.warn('[Supabase] board_posts table fetch failed. Using defaults.', e);
+                    console.error('[Supabase Exception] board_posts fetch exception:', e);
                 }
             }
             let projectArtifactsDb = [];
@@ -1697,7 +1853,8 @@ class AetherPMO {
                     memo: m.memo || '',
                     employmentType: m.employment_type || r.employment_type || 'regular',
                     resourceId: m.resource_id,
-                    participationRate: m.participation_rate || 100
+                    participationRate: m.participation_rate || 100,
+                    isSeveranceEligible: m.is_severance_eligible ?? m.isSeveranceEligible ?? null
                 };
             });
 
@@ -1790,6 +1947,9 @@ class AetherPMO {
                 riskLevel: p.risk_level || p.riskLevel || '보통',
                 contractDate: p.contract_date || p.contractDate || p.start_date,
                 relatedBiz: p.related_biz || p.relatedBiz || '',
+                mainFeatures: p.main_features || p.mainFeatures || '',
+                riskAndMitigation: p.risk_mitigation || p.riskAndMitigation || '',
+                relatedProjects: p.related_projects || p.relatedProjects || '',
                 participationType: p.participation_type || p.participationType || 'PRIME_CONTRACTOR',
                 totalContractAmount: p.total_contract_amount ? Number(p.total_contract_amount) : null,
                 companyShareRate: p.company_share_rate !== null && p.company_share_rate !== undefined ? Number(p.company_share_rate) : null,
@@ -1812,6 +1972,32 @@ class AetherPMO {
                 consortiumMembers: [],
                 vrbInfo: null
             }));
+        // Auto Sync/Upsert 9 Standard Execution Projects by Project Code
+        if (this.useSupabase) {
+            const standardProjects = [{"code": "OP-25-0825", "customer": "국가정보자원관리원 광주센터", "name": "2025년 국가정보자원관리원 광주센터 정보시스템 1군 운영유지관리", "startDate": "2025-04-01", "endDate": "2026-12-31", "id": "7fb83430-bef2-5f62-b08c-f9cf8349384d"}, {"code": "OP-25-0021", "customer": "국가정보자원관리원 대전본원", "name": "대전본원 정보시스템1군 운영·유지관리(2025년~2026년)", "startDate": "2025-04-01", "endDate": "2026-12-31", "id": "07805587-c11e-5695-bb1c-6d6068fdef5e"}, {"code": "OP-25-0895", "customer": "국가정보자원관리원 대구센터", "name": "2026년 국가정보자원관리원 대구센터 클라우드 자원풀 운영·유지관리 사업", "startDate": "2026-01-01", "endDate": "2026-12-31", "id": "33aa98d9-8582-5689-84da-d1243dcad785"}, {"code": "OP-25-0820", "customer": "한국지역정보개발원", "name": "2026년 표준지방인사정보시스템 등 유지관리", "startDate": "2026-01-01", "endDate": "2026-12-31", "id": "cca12c28-a9af-56cf-a0a4-7129ba148c9c"}, {"code": "OP-25-1040", "customer": "행정안전부", "name": "2026년 긴급신고통합시스템 유지관리 사업", "startDate": "2025-02-21", "endDate": "2026-12-31", "id": "0d4c26c3-d995-5d2a-92cd-d1b1005a1d79"}, {"code": "OP-26-0222", "customer": "전라남도청", "name": "2026년 전남광주통합특별시 정보시스템통합 컨설팅 용역", "startDate": "2026-06-01", "endDate": "2026-11-30", "id": "25a85e0b-261e-5476-ac69-e99d7ed56ebc"}, {"code": "OP-26-0154", "customer": "국가정보자원관리원 대전본원", "name": "2026년 정보보호인프라보강 사업(HW)", "startDate": "2026-07-01", "endDate": "2026-12-31", "id": "63e509cc-8482-56eb-bd44-9c9844c26129"}, {"code": "OP-26-0826", "customer": "국가정보자원관리원 대전본원", "name": "2026년 제1차 정보자원 통합구축 HW3", "startDate": "2026-07-13", "endDate": "2027-02-12", "id": "17e71021-9f1d-5147-b1f3-0a6c38982c4e"}, {"code": "OP-26-0061", "customer": "국가정보자원관리원 대전본원", "name": "2026년 제1차 정보자원 통합구축 HW5", "startDate": "2026-07-20", "endDate": "2026-12-31", "id": "01d18a2b-c850-5536-b65d-b7f242d50eb0"}];
+            try {
+                for (const sp of standardProjects) {
+                    const existing = (this.state.projects || []).find(p => p.projectCode === sp.code || p.code === sp.code);
+                    const targetId = existing ? existing.id : sp.id;
+                    const dbRecord = {
+                        id: targetId,
+                        project_code: sp.code,
+                        project_name: sp.name,
+                        customer: sp.customer,
+                        customer_name: sp.customer,
+                        start_date: sp.startDate,
+                        end_date: sp.endDate,
+                        status: 'In Progress',
+                        lifecycle_status: 'EXECUTION',
+                        deleted_at: null
+                    };
+                    await this.supabase.from('projects').upsert(dbRecord, { onConflict: 'project_code' });
+                }
+            } catch (err) {
+                console.warn('[Standard Projects Upsert Warning]', err);
+            }
+        }
+
 
             const [ { data: consortium }, { data: vrb } ] = await Promise.all([
                 this.supabase.from('consortium_members').select('*'),
@@ -1866,6 +2052,58 @@ class AetherPMO {
                     modifiedDate: a.submit_date || (a.created_at ? a.created_at.split('T')[0] : ''),
                     displayOrder: a.display_order !== undefined && a.display_order !== null ? Number(a.display_order) : null
                 }));
+
+            // NIRS 표준 산출물 마스터 카탈로그 로드 (Source Logging & File Metadata)
+            try {
+                const [ { data: nirsData, error: nirsErr }, { data: nirsFilesData } ] = await Promise.all([
+                    this.supabase.from('nirs_standard_templates').select('*').order('sequence_no', { ascending: true }),
+                    this.supabase.from('standard_artifact_template_files').select('*').eq('is_active', true)
+                ]);
+
+                if (!nirsErr && nirsData && nirsData.length > 0) {
+                    console.log('[NIRS Templates] Source: Supabase');
+                    this.nirsSourceType = 'Supabase';
+                    this.state.nirsStandardTemplates = nirsData.map(n => ({
+                        id: n.id,
+                        sequenceNo: n.sequence_no,
+                        category: n.category,
+                        stage: n.stage,
+                        subStage: n.sub_stage,
+                        artifactName: n.artifact_name,
+                        managerRole: n.manager_role,
+                        authorRole: n.author_role,
+                        requiresSubmission: n.requires_submission === true,
+                        requiresOfficialLetter: n.requires_official_letter === true,
+                        requiresClientApproval: n.requires_client_approval === true,
+                        requiresSeal: n.requires_seal === true,
+                        submissionTiming: n.submission_timing || '',
+                        description: n.description || ''
+                    }));
+                } else {
+                    console.log('[NIRS Templates] Source: Default Fallback');
+                    this.nirsSourceType = 'Default Fallback';
+                    this.state.nirsStandardTemplates = this.getDefaultNirsTemplates();
+                }
+
+                this.state.nirsTemplateFiles = (nirsFilesData || []).map(f => ({
+                    id: f.id,
+                    templateId: f.template_id,
+                    originalFileName: f.original_file_name,
+                    storageBucket: f.storage_bucket,
+                    storagePath: f.storage_path,
+                    mimeType: f.mime_type,
+                    fileExtension: f.file_extension,
+                    fileSize: f.file_size,
+                    fileVersion: f.file_version,
+                    downloadCount: f.download_count || 0
+                }));
+
+            } catch (e) {
+                console.warn('[NIRS Templates] Source: Default Fallback (Error)', e);
+                this.nirsSourceType = 'Default Fallback';
+                this.state.nirsStandardTemplates = this.getDefaultNirsTemplates();
+                this.state.nirsTemplateFiles = [];
+            }
 
             this.sortGlobalTemplates();
 
@@ -2374,8 +2612,15 @@ class AetherPMO {
                     await this.loadStateFromSupabase();
                 }
             }
+
+            // 메뉴 설정 동적 로드 (실패해도 정적 사이드바로 폴백)
+            await this.loadSystemMenus();
+            this.renderDynamicSidebar();
+
         } catch (e) {
-            console.error('[Supabase] Failed loading state from database. Falling back to LocalStorage.', e);
+            console.error('[Supabase DB Error] Critical failure loading state from Supabase database:', e.message || e, e);
+            console.error('[Supabase DB Error Traceback]', e.stack || e);
+            this.showToast('Supabase DB 데이터 로딩 오류가 발생했습니다: ' + (e.message || e), 'error');
             const stored = localStorage.getItem('aether_pms_state');
             if (stored) {
                 this.state = JSON.parse(stored);
@@ -2393,10 +2638,10 @@ class AetherPMO {
         this.state.globalTemplates.sort((a, b) => {
             const aOrder = a.displayOrder;
             const bOrder = b.displayOrder;
-            
+
             const hasA = aOrder !== null && aOrder !== undefined && !isNaN(aOrder);
             const hasB = bOrder !== null && bOrder !== undefined && !isNaN(bOrder);
-            
+
             if (hasA && hasB) {
                 if (aOrder !== bOrder) {
                     return aOrder - bOrder;
@@ -2406,7 +2651,7 @@ class AetherPMO {
             } else if (!hasA && hasB) {
                 return 1;  // displayOrder가 있는 b를 앞으로
             }
-            
+
             // 둘 다 없거나 같은 경우 -> name 가나다(오름차순) 정렬
             return (a.name || '').localeCompare(b.name || '', 'ko');
         });
@@ -2414,35 +2659,35 @@ class AetherPMO {
 
     initTemplateRowDragAndDrop() {
         if (!this.checkTemplatePermission()) return;
-        
+
         const tbody = document.getElementById('global-templates-tbody');
         if (!tbody) return;
-        
+
         const rows = tbody.querySelectorAll('tr');
         if (rows.length <= 1) return; // 데이터가 없거나 1개인 경우 동작 제외
-        
+
         let dragSrcEl = null;
-        
+
         rows.forEach(row => {
             const tempId = row.getAttribute('data-id');
             if (!tempId) return; // placeholder 등 방어
-            
+
             row.setAttribute('draggable', 'true');
-            
+
             row.addEventListener('dragstart', (e) => {
                 row.classList.add('dragging');
                 dragSrcEl = row;
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', tempId);
             });
-            
+
             row.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
-                
+
                 const bounding = row.getBoundingClientRect();
                 const offset = e.clientY - bounding.top;
-                
+
                 // 가이드 라인 색상은 보라색(#4338CA) 적용
                 if (offset < bounding.height / 2) {
                     row.style.borderTop = '2px solid #4338CA';
@@ -2452,25 +2697,25 @@ class AetherPMO {
                     row.style.borderBottom = '2px solid #4338CA';
                 }
             });
-            
+
             row.addEventListener('dragleave', () => {
                 row.style.borderTop = '';
                 row.style.borderBottom = '';
             });
-            
+
             row.addEventListener('drop', async (e) => {
                 e.preventDefault();
                 row.style.borderTop = '';
                 row.style.borderBottom = '';
-                
+
                 const targetId = row.getAttribute('data-id');
                 const sourceId = e.dataTransfer.getData('text/plain');
-                
+
                 if (sourceId && targetId && sourceId !== targetId) {
                     await this.reorderTemplates(sourceId, targetId);
                 }
             });
-            
+
             row.addEventListener('dragend', () => {
                 row.classList.remove('dragging');
                 rows.forEach(r => {
@@ -2484,27 +2729,27 @@ class AetherPMO {
     async reorderTemplates(sourceId, targetId) {
         const type = this.activeGlobalTemplateType || 'operation';
         const stage = this.activeGlobalTemplateStage || 'initiation';
-        
+
         // 현재 노출된 템플릿 목록 (필터 적용 및 정렬 기준에 맞춰진 상태)
         const currentTemplates = (this.state.globalTemplates || []).filter(t =>
             t.stage === stage && (t.projectType === type || (!t.projectType && type === 'operation'))
         );
-        
+
         const sourceIndex = currentTemplates.findIndex(t => t.id === sourceId);
         const targetIndex = currentTemplates.findIndex(t => t.id === targetId);
-        
+
         if (sourceIndex === -1 || targetIndex === -1) return;
-        
+
         // 배열 내 순서 이동
         const [moved] = currentTemplates.splice(sourceIndex, 1);
         currentTemplates.splice(targetIndex, 0, moved);
-        
+
         // 순서에 따른 displayOrder 재배정 (1부터 순차적으로 부여)
         const updates = [];
         currentTemplates.forEach((temp, i) => {
             const newOrder = i + 1;
             temp.displayOrder = newOrder;
-            
+
             if (this.useSupabase) {
                 updates.push(
                     this.supabase
@@ -2514,7 +2759,7 @@ class AetherPMO {
                 );
             }
         });
-        
+
         if (updates.length > 0) {
             try {
                 await Promise.all(updates);
@@ -2523,7 +2768,7 @@ class AetherPMO {
                 this.showToast('데이터베이스 순서 저장 실패: ' + err.message, 'error');
             }
         }
-        
+
         this.sortGlobalTemplates();
         this.saveState();
         this.renderArtifacts();
@@ -2532,24 +2777,24 @@ class AetherPMO {
 
     async moveTemplateOrder(id, direction) {
         if (!this.checkTemplatePermission()) return;
-        
+
         const type = this.activeGlobalTemplateType || 'operation';
         const stage = this.activeGlobalTemplateStage || 'initiation';
-        
+
         const currentTemplates = (this.state.globalTemplates || []).filter(t =>
             t.stage === stage && (t.projectType === type || (!t.projectType && type === 'operation'))
         );
-        
+
         const index = currentTemplates.findIndex(t => t.id === id);
         if (index === -1) return;
-        
+
         let targetIndex = -1;
         if (direction === 'up' && index > 0) {
             targetIndex = index - 1;
         } else if (direction === 'down' && index < currentTemplates.length - 1) {
             targetIndex = index + 1;
         }
-        
+
         if (targetIndex !== -1) {
             const targetId = currentTemplates[targetIndex].id;
             await this.reorderTemplates(id, targetId);
@@ -2815,29 +3060,29 @@ class AetherPMO {
                 }
                 stateUpdated = true;
             }
-            if (!p.projectCode) { 
-                p.projectCode = p.id === 'proj-2' ? 'PRJ-2026-001' : `PRJ-2026-${p.id.replace('proj-', '').padStart(3, '0')}`; 
-                stateUpdated = true; 
+            if (!p.projectCode) {
+                p.projectCode = p.id === 'proj-2' ? 'PRJ-2026-001' : `PRJ-2026-${p.id.replace('proj-', '').padStart(3, '0')}`;
+                stateUpdated = true;
             }
-            if (!p.bizType) { 
-                p.bizType = p.id === 'proj-2' ? 'ISP / BPR' : 'SI 구축'; 
-                stateUpdated = true; 
+            if (!p.bizType) {
+                p.bizType = p.id === 'proj-2' ? 'ISP / BPR' : 'SI 구축';
+                stateUpdated = true;
             }
-            if (!p.contractDate) { 
-                p.contractDate = p.startDate || '2026-06-02'; 
-                stateUpdated = true; 
+            if (!p.contractDate) {
+                p.contractDate = p.startDate || '2026-06-02';
+                stateUpdated = true;
             }
-            if (!p.location) { 
-                p.location = p.id === 'proj-2' ? '정부대전청사 특허청' : '정부서울청사'; 
-                stateUpdated = true; 
+            if (!p.location) {
+                p.location = p.id === 'proj-2' ? '정부대전청사 특허청' : '정부서울청사';
+                stateUpdated = true;
             }
-            if (!p.relatedBiz) { 
-                p.relatedBiz = p.id === 'proj-2' ? '차세대 지식재산행정시스템 구축 사업' : '통합 행정 정보 시스템 고도화 사업'; 
-                stateUpdated = true; 
+            if (!p.relatedBiz) {
+                p.relatedBiz = p.id === 'proj-2' ? '차세대 지식재산행정시스템 구축 사업' : '통합 행정 정보 시스템 고도화 사업';
+                stateUpdated = true;
             }
-            if (!p.riskLevel) { 
-                p.riskLevel = p.status === 'Delay' ? '보통' : '낮음'; 
-                stateUpdated = true; 
+            if (!p.riskLevel) {
+                p.riskLevel = p.status === 'Delay' ? '보통' : '낮음';
+                stateUpdated = true;
             }
             if (!p.wbs) {
                 p.wbs = {
@@ -2862,7 +3107,7 @@ class AetherPMO {
                 ];
                 stateUpdated = true;
             }
-            
+
             // Recalculate progress based on weighted WBS stages
             if (p.wbs && p.wbs.stages) {
                 let weightedProgress = 0;
@@ -3978,12 +4223,12 @@ class AetherPMO {
                 const targetView = item.getAttribute('data-nested-view');
                 this.activeProjectStageFilter = 'Bidding';
                 window.location.hash = 'projects/bidding';
-                
+
                 // Highlight corresponding panel after rendering completes
                 setTimeout(() => {
                     this.focusBiddingPanel(targetView);
                 }, 100);
-                
+
                 // Close sidebar on mobile after clicking
                 document.querySelector('.sidebar').classList.remove('open');
             });
@@ -4031,7 +4276,7 @@ class AetherPMO {
                 if (userMenu && !userMenu.contains(e.target) && (!userHeaderInfo || !userHeaderInfo.contains(e.target))) {
                     userMenu.classList.remove('open');
                 }
-                
+
                 const sidebarMenu = document.getElementById('sidebar-user-menu-panel');
                 const sidebarBadge = document.getElementById('sidebar-user-badge');
                 if (sidebarMenu && !sidebarMenu.contains(e.target) && (!sidebarBadge || !sidebarBadge.contains(e.target))) {
@@ -4073,12 +4318,14 @@ class AetherPMO {
         if (aStat) aStat.addEventListener('change', () => this.renderArtifacts());
         if (aSearch) aSearch.addEventListener('input', () => this.renderArtifacts());
 
-        // Forms Submissions
+        // Forms Submissions (Single Event Binding)
         const projectForm = document.getElementById('project-form');
-        if (projectForm) {
-            projectForm.addEventListener('submit', (e) => {
+        if (projectForm && !projectForm.dataset.submitBound) {
+            projectForm.dataset.submitBound = 'true';
+            projectForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                this.saveProjectForm();
+                e.stopPropagation();
+                await this.saveProjectForm(e);
             });
         }
 
@@ -4161,12 +4408,12 @@ class AetherPMO {
             statusSelect.addEventListener('change', (e) => {
                 const isBidding = e.target.value === 'Bidding';
                 bidStatusGroup.style.display = isBidding ? 'block' : 'none';
-                
+
                 const biddingFields = document.getElementById('project-bidding-fields');
                 if (biddingFields) {
                     biddingFields.style.display = isBidding ? 'block' : 'none';
                 }
-                
+
                 if (isBidding) {
                     const codeInput = document.getElementById('project-code');
                     if (codeInput && !codeInput.value) {
@@ -4216,10 +4463,43 @@ class AetherPMO {
         const parts = hash.split('/');
         const mainRoute = parts[0];
 
+        console.log(`[handleRouting: #${hash}]`);
+
+                // Priority 1.5: #projects/g2b/pre-detail/{bfSpecRgstNo} or #g2b-pre-detail/{bfSpecRgstNo}
+        if ((parts[0] === 'projects' && parts[1] === 'g2b' && parts[2] === 'pre-detail') || parts[0] === 'g2b-pre-detail') {
+            const preSpecNo = parts[0] === 'g2b-pre-detail' ? parts[1] : parts[3];
+            console.log(`[handleRouting: pre-detail #${preSpecNo}]`);
+            await this.openG2BPreSpecificationDetailPage(preSpecNo, { updateHash: false });
+            return;
+        }
+
+        // Priority 1: #projects/g2b/detail/{bidNtceNo}/{bidNtceOrd}
+        if (parts[0] === 'projects' && parts[1] === 'g2b' && parts[2] === 'detail') {
+            const bidNtceNo = parts[3];
+            const bidNtceOrd = parts[4] || '001';
+            console.log(`[handleRouting: #projects/g2b/detail/${bidNtceNo}/${bidNtceOrd}]`);
+            await this.openG2BAnnouncementDetailPage(bidNtceNo, bidNtceOrd, { updateHash: false });
+            return;
+        }
+
+        // Priority 2: #g2b-detail/{bidNtceNo}/{bidNtceOrd} or #projects-g2b-detail/{bidNtceNo}/{bidNtceOrd}
+        if (parts[0] === 'g2b-detail' || parts[0] === 'projects-g2b-detail') {
+            const bidNtceNo = parts[1];
+            const bidNtceOrd = parts[2] || '001';
+            console.log(`[handleRouting: #${parts[0]}/${bidNtceNo}/${bidNtceOrd}]`);
+            await this.openG2BAnnouncementDetailPage(bidNtceNo, bidNtceOrd, { updateHash: false });
+            return;
+        }
+
         // Access route verification based on role
         const role = this.currentUser ? this.currentUser.role : null;
         if (mainRoute === 'backup' && role !== 'SYS_ADMIN') {
             alert('시스템 설정 메뉴는 시스템 관리자만 접근할 수 있습니다.');
+            window.location.hash = 'dashboard';
+            return;
+        }
+        if (mainRoute === 'menu-settings' && role !== 'SYS_ADMIN') {
+            alert('메뉴 설정은 시스템 관리자만 접근할 수 있습니다.');
             window.location.hash = 'dashboard';
             return;
         }
@@ -4236,8 +4516,14 @@ class AetherPMO {
             return;
         }
 
-        if (mainRoute === 'project-detail' && parts[1]) {
-            await this.switchView('project-detail', parts[1]);
+        if (mainRoute === 'project-detail') {
+            const projId = parts[1] || this.activeProjectId || (this.state.projects && this.state.projects.length > 0 ? this.state.projects[0].id : null);
+            if (projId) {
+                await this.switchView('project-detail', projId);
+            } else {
+                await this.switchView('projects');
+            }
+            return;
         } else if (mainRoute === 'tailoring' || mainRoute === 'methodology') {
             await this.switchView('tailoring');
         } else if (['issues', 'risks', 'action-items', 'official-docs', 'meeting-minutes'].includes(mainRoute)) {
@@ -4260,9 +4546,15 @@ class AetherPMO {
             } else {
                 await this.switchView('projects');
             }
+
         } else if (mainRoute === 'projects') {
             const stage = parts[1];
-            if (stage === 'bidding') {
+            if (stage === 'g2b-detail' || stage === 'detail') {
+                const bidNtceNo = parts[2];
+                const bidNtceOrd = parts[3];
+                await this.openG2BAnnouncementDetailPage(bidNtceNo, bidNtceOrd);
+                return;
+            } else if (stage === 'bidding') {
                 this.activeProjectStageFilter = 'Bidding';
                 await this.switchView('projects');
             } else if (stage === 'active') {
@@ -4276,6 +4568,8 @@ class AetherPMO {
             } else {
                 await this.switchView('projects');
             }
+        } else if (mainRoute === 'board') {
+            await this.switchView(hash);
         } else if (mainRoute === 'artifacts') {
             let type = 'operation';
             let stage = 'initiation';
@@ -4300,193 +4594,153 @@ class AetherPMO {
     /**
      * Switch view display block/none
      */
-    async switchView(viewName, params = null) {
-        console.log('[switchView:start]', {
-            requestedView: viewName,
-            targetElement: document.getElementById(`view-${viewName}`)
-        });
+    async switchView(viewName, params = null, options = {}) {
+        let updateHash = true;
+        if (options && typeof options.updateHash === 'boolean') {
+            updateHash = options.updateHash;
+        } else if (params && typeof params === 'object' && typeof params.updateHash === 'boolean') {
+            updateHash = params.updateHash;
+        }
 
+        console.log(`[switchView: ${viewName}, updateHash: ${updateHash}]`);
+
+        const routes = {
+            'dashboard': 'view-dashboard',
+            'board': 'view-board',
+            'board/notices': 'view-board',
+            'board/inquiries': 'view-board',
+            'board/resources': 'view-board',
+            'projects': 'view-projects',
+            'projects-g2b': 'view-projects-g2b',
+            'projects-g2b-detail': 'view-projects-g2b-detail',
+            'projects-g2b-pre-detail': 'view-projects-g2b-pre-detail',
+            'g2b-pre-detail': 'view-projects-g2b-pre-detail',
+            'g2b-detail': 'view-projects-g2b-detail',
+            'project-detail': 'view-project-detail',
+            'tailoring': 'view-tailoring',
+            'artifacts': 'view-artifacts',
+            'resources': 'view-resources',
+            'salaries': 'view-salaries',
+            'backup': 'view-backup',
+            'my-account': 'view-my-account',
+            'issues': 'view-issues',
+            'action-items': 'view-action-items',
+            'official-docs': 'view-official-docs',
+            'meeting-minutes': 'view-meeting-minutes',
+            'menu-settings': 'view-menu-settings'
+        };
+
+        const targetId = routes[viewName] || `view-${viewName}`;
+        const targetView = document.getElementById(targetId);
+
+        if (!targetView) {
+            console.error('[ROUTE] Target view element not found:', viewName, targetId);
+            return;
+        }
+
+        // 1. Hide all content views
         document.querySelectorAll('.content-view').forEach(view => {
             view.classList.remove('active');
+            view.classList.add('hidden');
+            view.style.display = 'none';
         });
 
-        document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
-            item.classList.remove('active');
-            if (item.getAttribute('data-view') === viewName) {
-                item.classList.add('active');
-            }
-            if ((viewName === 'project-detail' || viewName === 'projects-g2b') && item.getAttribute('data-view') === 'projects') {
-                item.classList.add('active');
-            }
-            if ((viewName === 'contracts' || viewName === 'salaries') && item.getAttribute('data-view') === 'resources') {
-                item.classList.add('active');
-            }
-        });
+        // 2. Display target view
+        targetView.classList.remove('hidden');
+        targetView.classList.add('active');
+        targetView.style.display = 'block';
+        window.scrollTo(0, 0);
 
-        // Update submenu items active state
-        document.querySelectorAll('.submenu-item').forEach(subItem => {
-            subItem.classList.remove('active');
-        });
+        // Board routing check
+        if (viewName === 'board' || (typeof viewName === 'string' && viewName.startsWith('board/'))) {
+            const parts = viewName.split('/');
+            let category = 'all';
+            if (parts[1] === 'notices') category = 'notice';
+            else if (parts[1] === 'inquiries') category = 'inquiry';
+            else if (parts[1] === 'resources') category = 'resource';
 
-        const biddingSubmenu = document.getElementById('bidding-sub-items');
-        const artifactsSubmenu = document.getElementById('artifacts-submenu');
-        const resourcesSubmenu = document.getElementById('resources-submenu');
+            const targetBoardView = document.getElementById('view-board');
+            if (targetBoardView) {
+                document.querySelectorAll('.content-view').forEach(v => {
+                    v.classList.remove('active');
+                    v.classList.add('hidden');
+                    v.style.display = 'none';
+                });
+                targetBoardView.classList.remove('hidden');
+                targetBoardView.classList.add('active');
+                targetBoardView.style.display = 'block';
+                window.scrollTo(0, 0);
 
+                this.setActiveSidebarMenu(viewName);
+                this.setBoardCategoryFilter(category);
+                return;
+            }
+        }
+
+        // 3. Update sidebar nav active states
         if (viewName === 'projects') {
-            const currentSub = this.activeProjectStageFilter.toLowerCase();
-            const activeSubItem = document.querySelector(`.nav-submenu .submenu-item[data-subview="${currentSub}"]`);
-            if (activeSubItem) {
-                activeSubItem.classList.add('active');
-            }
-            if (biddingSubmenu) {
-                biddingSubmenu.style.display = (this.activeProjectStageFilter === 'Bidding') ? 'flex' : 'none';
-            }
-            if (artifactsSubmenu) {
-                artifactsSubmenu.style.display = 'none';
-            }
-            if (resourcesSubmenu) {
-                resourcesSubmenu.style.display = 'none';
-            }
-        } else if (viewName === 'projects-g2b') {
-            const activeSubItem = document.querySelector(`.nav-submenu .submenu-item[data-subview="g2b"]`);
-            if (activeSubItem) {
-                activeSubItem.classList.add('active');
-            }
-            if (biddingSubmenu) {
-                biddingSubmenu.style.display = 'none';
-            }
-            if (artifactsSubmenu) {
-                artifactsSubmenu.style.display = 'none';
-            }
-            if (resourcesSubmenu) {
-                resourcesSubmenu.style.display = 'none';
-            }
-        } else if (viewName === 'artifacts') {
-            const activeSubItem = document.querySelector(`.nav-submenu .submenu-item[data-subview="${this.activeGlobalTemplateStage}"]`);
-            if (activeSubItem) {
-                activeSubItem.classList.add('active');
-            }
-            if (biddingSubmenu) {
-                biddingSubmenu.style.display = 'none';
-            }
-            if (artifactsSubmenu) {
-                artifactsSubmenu.style.display = 'flex';
-            }
-            if (resourcesSubmenu) {
-                resourcesSubmenu.style.display = 'none';
-            }
-        } else if (viewName === 'resources' || viewName === 'contracts' || viewName === 'salaries') {
-            const currentSub = viewName;
-            const activeSubItem = document.querySelector(`.nav-submenu .submenu-item[data-subview="${currentSub}"]`);
-            if (activeSubItem) {
-                activeSubItem.classList.add('active');
-            }
-            if (biddingSubmenu) {
-                biddingSubmenu.style.display = 'none';
-            }
-            if (artifactsSubmenu) {
-                artifactsSubmenu.style.display = 'none';
-            }
-            if (resourcesSubmenu) {
-                resourcesSubmenu.style.display = 'flex';
+            if (this.activeProjectStageFilter === 'Bidding') {
+                this.setActiveSidebarMenu('projects/bidding');
+            } else if (this.activeProjectStageFilter === 'Active') {
+                this.setActiveSidebarMenu('projects/active');
+            } else if (this.activeProjectStageFilter === 'g2b') {
+                this.setActiveSidebarMenu('projects/g2b');
+            } else {
+                this.setActiveSidebarMenu('projects/all');
             }
         } else {
-            if (biddingSubmenu) {
-                biddingSubmenu.style.display = 'none';
-            }
-            if (artifactsSubmenu) {
-                artifactsSubmenu.style.display = 'none';
-            }
-            if (resourcesSubmenu) {
-                resourcesSubmenu.style.display = 'none';
-            }
+            this.setActiveSidebarMenu(viewName);
         }
 
-        // Collapse/Expand wrappers based on active viewName routing
-        const wrapProj = document.getElementById('nav-wrapper-projects');
-        const wrapRes = document.getElementById('nav-wrapper-resources');
-        const wrapArt = document.getElementById('nav-wrapper-artifacts');
-
-        const isProjectRoute = (viewName === 'projects' || viewName === 'projects-g2b' || viewName === 'project-detail');
-        const isResourceRoute = (viewName === 'resources' || viewName === 'contracts' || viewName === 'salaries');
-        const isArtifactRoute = (viewName === 'artifacts');
-
-        if (isProjectRoute) {
-            if (wrapProj && this._lastActiveRouteGroup !== 'projects') {
-                wrapProj.classList.remove('collapsed');
+        // 4. Update window location hash quietly
+        let targetHash = `#${viewName}`;
+        if (viewName === 'project-detail') {
+            const detailId = params || this.activeProjectId;
+            if (detailId) {
+                targetHash = `#project-detail/${detailId}`;
             }
-            if (wrapRes) wrapRes.classList.add('collapsed');
-            if (wrapArt) wrapArt.classList.add('collapsed');
-            this._lastActiveRouteGroup = 'projects';
-        } else if (isResourceRoute) {
-            if (wrapRes && this._lastActiveRouteGroup !== 'resources') {
-                wrapRes.classList.remove('collapsed');
-            }
-            if (wrapProj) wrapProj.classList.add('collapsed');
-            if (wrapArt) wrapArt.classList.add('collapsed');
-            this._lastActiveRouteGroup = 'resources';
-        } else if (isArtifactRoute) {
-            if (wrapArt && this._lastActiveRouteGroup !== 'artifacts') {
-                wrapArt.classList.remove('collapsed');
-            }
-            if (wrapProj) wrapProj.classList.add('collapsed');
-            if (wrapRes) wrapRes.classList.add('collapsed');
-            this._lastActiveRouteGroup = 'artifacts';
-        } else {
-            if (wrapProj) wrapProj.classList.add('collapsed');
-            if (wrapRes) wrapRes.classList.add('collapsed');
-            if (wrapArt) wrapArt.classList.add('collapsed');
-            this._lastActiveRouteGroup = 'other';
+        } else if (params) {
+            targetHash = `#${viewName}/${params}`;
         }
 
-        const targetView = document.getElementById(`view-${viewName}`);
-        if (targetView) {
-            targetView.classList.add('active');
+        if (window.location.hash !== targetHash) {
+            history.pushState(null, '', targetHash);
         }
 
-        // View controllers
+        // 5. Invoke view renderers
         if (viewName === 'dashboard') {
             this.renderDashboard();
             this.renderPersonalizedDashboard();
-        } else if (viewName === 'projects') {
-            if (this.useSupabase) {
-                await this.loadStateFromSupabase();
-            }
-            console.log('[Active Stage Debug]', {
-                currentProjectId: this.currentProjectId,
-                selectedProject: this.state?.projects?.find(
-                    p => p.id === this.currentProjectId
-                )
-            });
-            this.renderProjects();
-        } else if (viewName === 'projects-g2b') {
-            this.initG2BSearchView();
-        } else if (viewName === 'project-detail' && params) {
-            this.renderProjectDetail(params);
-        } else if (viewName === 'tailoring') {
-            this.renderTailoringView();
-        } else if (viewName === 'artifacts') {
-            this.renderArtifacts();
-        } else if (viewName === 'issues') {
-            this.renderIssues();
-        } else if (viewName === 'action-items') {
-            this.renderActionItems();
-        } else if (viewName === 'official-docs') {
-            this.renderOfficialDocs();
-        } else if (viewName === 'meeting-minutes') {
-            this.renderMeetingMinutes();
         } else if (viewName === 'resources') {
             this.renderResourcesView();
-        } else if (viewName === 'contracts') {
-            this.renderContractsView();
         } else if (viewName === 'salaries') {
-            this.renderSalariesView();
+            this.switchSalarySubTab('target');
+        } else if (viewName === 'projects') {
+            this.renderProjects();
+        } else if (viewName === 'artifacts') {
+            this.renderArtifacts();
         } else if (viewName === 'backup') {
             this.renderUserManagementTable();
+        } else if (viewName === 'menu-settings') {
+            // SYS_ADMIN 접근 차단 재검증
+            if (!this.currentUser || this.currentUser.role !== 'SYS_ADMIN') {
+                this.showToast('메뉴 설정은 SYS_ADMIN만 접근할 수 있습니다.', 'warning');
+                this.switchView('dashboard');
+                return;
+            }
+            if (!this.state.systemMenus) await this.loadSystemMenus();
+            this.renderMenuSettings();
         } else if (viewName === 'my-account') {
             this.renderMyAccountCenter();
-        } else if (viewName === 'board') {
-            this.renderBoardView();
+        } else if (viewName === 'project-detail') {
+            const projId = params || this.activeProjectId || (window.location.hash.includes('/') ? window.location.hash.split('/')[1] : null) || (this.state.projects && this.state.projects[0] ? this.state.projects[0].id : null);
+            if (projId) {
+                this.activeProjectId = projId;
+                this.renderProjectDetail(projId);
+            } else {
+                console.error('[switchView] No projectId provided for project-detail');
+                this.showToast?.('프로젝트 ID 정보를 찾을 수 없습니다.', 'error');
+            }
         }
 
         this.updateNotifications();
@@ -4496,14 +4750,28 @@ class AetherPMO {
         }
     }
 
+    toggleTheme() {
+        const currentTheme = this.state?.theme || (document.body.classList.contains('dark-theme') ? 'dark' : 'light');
+        const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        if (!this.state) this.state = {};
+        this.state.theme = nextTheme;
+        this.applyTheme(nextTheme);
+        if (typeof this.saveState === 'function') {
+            this.saveState('theme_toggle', { theme: nextTheme });
+        }
+    }
+
     applyTheme(theme) {
         const body = document.body;
+        const themeBtn = document.getElementById('theme-toggle-btn');
         if (theme === 'light') {
             body.classList.remove('dark-theme');
             body.classList.add('light-theme');
+            if (themeBtn) themeBtn.classList.remove('active');
         } else {
             body.classList.remove('light-theme');
             body.classList.add('dark-theme');
+            if (themeBtn) themeBtn.classList.add('active');
         }
     }
 
@@ -4512,6 +4780,8 @@ class AetherPMO {
         const display = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const dateSpan = document.getElementById('current-date-display');
         if (dateSpan) dateSpan.textContent = display;
+        const detailDateSpan = document.getElementById('detail-current-date-txt');
+        if (detailDateSpan) detailDateSpan.textContent = display;
     }
 
     getFormattedDateTime() {
@@ -4539,8 +4809,8 @@ class AetherPMO {
             document.getElementById('artifact-search-input').value = query;
             this.renderArtifacts();
         } else if (currentView === 'dashboard') {
-            const filteredProjs = this.state.projects.filter(p => 
-                this.safeText(p.name).includes(lowercaseQuery) || 
+            const filteredProjs = this.state.projects.filter(p =>
+                this.safeText(p.name).includes(lowercaseQuery) ||
                 this.safeText(p.manager).includes(lowercaseQuery) ||
                 this.safeText(p.customer).includes(lowercaseQuery)
             );
@@ -4574,10 +4844,10 @@ class AetherPMO {
                 console.warn('[updateNotifications] Error fetching notifications from Supabase:', e);
             }
         }
-        
+
         // Local fallback for dbNotifications if offline or guest mode
         if (dbNotifs.length === 0 && this.state.dbNotifications && currentUserId) {
-            dbNotifs = (this.state.dbNotifications || []).filter(n => 
+            dbNotifs = (this.state.dbNotifications || []).filter(n =>
                 n.recipient_user_id === currentUserId && !n.is_read
             );
         }
@@ -4637,7 +4907,7 @@ class AetherPMO {
             itemDiv.addEventListener('click', async () => {
                 const notifPanel = document.getElementById('notif-panel');
                 if (notifPanel) notifPanel.classList.remove('open');
-                
+
                 notif.is_read = true;
                 if (this.useSupabase && this.supabase) {
                     try {
@@ -4691,10 +4961,10 @@ class AetherPMO {
             due.setHours(0,0,0,0);
             today.setHours(0,0,0,0);
             const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-            
+
             const itemDiv = document.createElement('div');
             itemDiv.className = 'notif-item';
-            
+
             let statusText = '';
             let bgClass = 'bg-warning-glow';
             let iconColor = 'text-warning';
@@ -4835,7 +5105,8 @@ class AetherPMO {
         }
 
         this.renderDashboardProgressChart();
-        this.renderBusinessTypeDonutChart();
+        this.renderPortfolioStatCard();
+        this.updateDashboardKPIs(this.getDashboardProjectsByYear(this.activePortfolioYear));
         this.renderAdminActionCenter(todayStr);
         this.renderTodayTasksRoleBased(todayStr);
         this.renderExecBottomRow();
@@ -5002,35 +5273,24 @@ class AetherPMO {
             </div>`,
         '최근 활동이 없습니다.');
 
-        // 3. 최근 공지 (활동 로그에서 system 타입만 + 최근 순)
-        const notices = (this.state.activities || [])
-            .filter(a => a.type === 'system' || a.action === '시스템')
-            .sort((a, b) => new Date(b.timestamp || b.date || 0) - new Date(a.timestamp || a.date || 0))
-            .slice(0, 6);
-
-        if (notices.length > 0) {
-            this.renderSubCardList('exec-recent-notices-list', notices, n =>
-                `<div class="sub-card-item">
-                    <div class="item-header">
-                        <span class="item-title">📢 ${this.escapeHtml(n.description || n.message || '공지 없음')}</span>
-                    </div>
-                    <div class="item-meta"><span>${n.userName || 'system'}</span><span>${(n.timestamp || n.date || '').substring(0, 10)}</span></div>
-                </div>`,
-            '등록된 공지가 없습니다.');
-        } else {
-            // Fallback: 최근 활동 로그 전체에서 최신 6건
-            const recentLogs = (this.state.activities || [])
-                .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
-                .slice(0, 6);
-            this.renderSubCardList('exec-recent-notices-list', recentLogs, n =>
-                `<div class="sub-card-item">
-                    <div class="item-header">
-                        <span class="item-title">🔔 ${this.escapeHtml(n.description || '')}</span>
-                    </div>
-                    <div class="item-meta"><span>${n.userName || '-'}</span><span>${(n.timestamp || '').substring(0, 10)}</span></div>
-                </div>`,
-            '공지 / 활동 로그가 없습니다.');
+        // 3. 최근 공지 (공지사항 category 게시글 최신 4개)
+        let noticePosts = (this.state.boardPosts || []).filter(p => p.category === 'notice');
+        if (noticePosts.length === 0) {
+            noticePosts = this.getDefaultBoardPosts().filter(p => p.category === 'notice');
         }
+
+        const recent4Notices = noticePosts
+            .sort((a, b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0))
+            .slice(0, 4);
+
+        this.renderSubCardList('exec-recent-notices-list', recent4Notices, n =>
+            `<div class="sub-card-item" style="cursor:pointer;" onclick="app.openBoardPostDetailModal('${n.id}')">
+                <div class="item-header">
+                    <span class="item-title" style="font-weight:600;">📢 ${this.escapeHtml(n.title)}</span>
+                </div>
+                <div class="item-meta"><span>${this.escapeHtml(n.authorName || '관리자')}</span><span>${(n.createdAt || '').substring(0, 10)}</span></div>
+            </div>`,
+        '등록된 공지사항이 없습니다.');
 
         // Also keep backward-compat (hidden spans)
         this.renderRecentRedesignedActivities();
@@ -5265,7 +5525,7 @@ class AetherPMO {
         if (p.status === 'Delay') {
             score -= 25;
         }
-        
+
         const projIssues = (this.state.issues || []).filter(i => i.projectId === p.id && (i.status === '발생' || i.status === '조치중'));
         projIssues.forEach(issue => {
             if (issue.priority === 'Critical') score -= 15;
@@ -5395,7 +5655,7 @@ class AetherPMO {
             let prob = 45;
             let severity = 'Warning';
             let reason = '디바이스 사양 및 WBS 검수 주기 단축 필요';
-            
+
             if (p.status === 'Delay') {
                 riskTitle = '인프라 장비 및 칩셋 물류 지연';
                 prob = 92;
@@ -5523,7 +5783,7 @@ class AetherPMO {
         const score = this.calculateProjectHealthScore(project);
         const projectNameEl = document.getElementById('drawer-project-name');
         if (projectNameEl) projectNameEl.textContent = project.name;
-        
+
         const scoreBadge = document.getElementById('drawer-health-score-badge');
         if (scoreBadge) {
             scoreBadge.textContent = `${score}점`;
@@ -5542,7 +5802,7 @@ class AetherPMO {
             const xCoords = [30, 130, 230, 330];
             const yCoords = points.map(p => 20 + (100 - p) * 0.8);
             const pathData = `M ${xCoords[0]} ${yCoords[0]} L ${xCoords[1]} ${yCoords[1]} L ${xCoords[2]} ${yCoords[2]} L ${xCoords[3]} ${yCoords[3]}`;
-            
+
             chartWrapper.innerHTML = `
                 <svg viewBox="0 0 360 120" style="width:100%; height:100%; overflow:visible;">
                     <line x1="30" y1="20" x2="330" y2="20" stroke="rgba(255,255,255,0.05)" stroke-dasharray="3,3" />
@@ -5598,7 +5858,7 @@ class AetherPMO {
         const backdropEl = document.getElementById('ai-copilot-drawer-backdrop');
         if (drawerEl) drawerEl.classList.add('open');
         if (backdropEl) backdropEl.classList.add('open');
-        
+
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
@@ -5615,7 +5875,7 @@ class AetherPMO {
         const executeAction = async () => {
             const project = this.state.projects.find(p => p.id === projectId);
             if (!project) return;
-            
+
             if (type === 'engineer') {
                 project.resources = (project.resources || 0) + 1;
                 const newAction = {
@@ -5731,13 +5991,13 @@ class AetherPMO {
 
             let reply = '';
             const lowerText = text.toLowerCase();
-            
+
             const totalProjs = this.state.projects.length;
             const activeProjs = this.state.projects.filter(p => p.status === 'In Progress' || p.status === 'Delay').length;
             const delayedProjs = this.state.projects.filter(p => p.status === 'Delay').length;
             const unresolvedRisks = (this.state.issues || []).filter(i => i.status === '발생' || i.status === '조치중').length;
             const actionItemsLeft = (this.state.actionItems || []).filter(a => a.status !== '완료' && a.status !== 'Completed').length;
-            
+
             if (lowerText.includes('briefing') || lowerText.includes('브리핑') || lowerText.includes('안녕') || lowerText.includes('시작')) {
                 reply = `📊 **전체 프로젝트 현황 분석 리포트**<br><br>
                 현재 관리 중인 총 **${totalProjs}개**의 사업 중 활성화된 프로젝트는 **${activeProjs}개**이며, 이 중 **${delayedProjs}개**의 사업에서 병목에 따른 공식 지연이 감지되었습니다.<br><br>
@@ -5767,20 +6027,20 @@ class AetherPMO {
     appendPortalChatBubble(content, sender) {
         const chatMsgsEl = document.getElementById('portal-chat-messages');
         if (!chatMsgsEl) return;
-        
+
         const row = document.createElement('div');
         row.className = `portal-chat-msg-row ${sender}`;
         row.style.width = '100%';
         row.style.margin = '4px 0';
         row.style.display = 'flex';
         row.style.justifyContent = sender === 'user' ? 'flex-end' : 'flex-start';
-        
+
         const bubble = document.createElement('div');
         bubble.className = 'portal-chat-bubble';
         // 마크다운 렌더링: **bold**, __bold__, - list, * list, \n 처리
         const rendered = this._renderMarkdown(content);
         bubble.innerHTML = rendered;
-        
+
         row.appendChild(bubble);
         chatMsgsEl.appendChild(row);
         chatMsgsEl.scrollTop = chatMsgsEl.scrollHeight;
@@ -5790,29 +6050,29 @@ class AetherPMO {
     _renderMarkdown(text) {
         if (!text) return '';
         let html = String(text);
-        
+
         // <br> 태그를 임시로 개행 문자로 통일하여 줄 단위 정규식 일치율 확보
         html = html.replace(/<br\s*\/?>/gi, '\n');
-        
+
         // **bold** 또는 __bold__
         html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
         html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
-        
+
         // *italic* 또는 _italic_
         html = html.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
         html = html.replace(/_([^_\n]+)_/g, '<em>$1</em>');
-        
+
         // 리스트 아이템: 줄 시작부분에 - 또는 * 가 있는 경우
         html = html.replace(/^\s*[\-\*]\s+(.+)$/gm, '<li style="margin:4px 0 4px 18px; list-style:disc;">$1</li>');
-        
+
         // 연속된 li 그룹들을 하나의 ul로 올바르게 묶기
         html = html.replace(/(<li[^>]*>.*?<\/li>\s*)+/gs, (match) => {
             return `<ul style="margin:8px 0; padding-left:0; list-style:none;">${match.replace(/\r?\n/g, '')}</ul>`;
         });
-        
+
         // 줄바꿈 → <br>
         html = html.trim().replace(/\n/g, '<br>');
-        
+
         // 연속 <br> 방지 및 정리
         html = html.replace(/(<br>){3,}/g, '<br><br>');
         return html;
@@ -5848,8 +6108,8 @@ class AetherPMO {
                 if (p.manager && currentUserName && p.manager === currentUserName) return true;
 
                 // 2. Is member in projectMembers
-                const isMember = (this.state.projectMembers || []).some(m => 
-                    m.projectId === p.id && 
+                const isMember = (this.state.projectMembers || []).some(m =>
+                    m.projectId === p.id &&
                     m.isActive !== false &&
                     (
                         (m.userId && m.userId === currentUserId) ||
@@ -5867,8 +6127,8 @@ class AetherPMO {
         }
 
         if (targetProjects.length === 0) {
-            const emptyMsg = isAdmin 
-                ? '진행 중인 프로젝트가 없습니다.' 
+            const emptyMsg = isAdmin
+                ? '진행 중인 프로젝트가 없습니다.'
                 : '할당된 진행 중인 프로젝트가 없습니다.';
             container.innerHTML = `<div class="empty-state" style="padding:40px 0; text-align:center; color:var(--text-muted); font-size:12px;">${emptyMsg}</div>`;
             return;
@@ -5912,54 +6172,157 @@ class AetherPMO {
         container.innerHTML = html;
     }
 
-    renderBusinessTypeDonutChart() {
-        const total = this.state.projects.length;
-        const group = document.getElementById('donut-business-type-segments-group');
-        const centerValue = document.getElementById('chart-business-type-center-value');
-        const legendContainer = document.getElementById('chart-business-type-legend');
-        
-        if (!group || !centerValue || !legendContainer) return;
+    getDashboardYears() {
+        const years = new Set();
+        const currentYear = new Date().getFullYear();
+        years.add(currentYear);
 
-        centerValue.textContent = total;
-
-        const counts = {};
-        let knownCount = 0;
-
-        this.state.projects.forEach(p => {
-            let bt = (p.businessType || p.business_type || p.bizType || '').trim();
-            if (!bt) {
-                bt = '미분류';
-            } else if (bt.includes('SI') || bt.includes('구축')) {
-                bt = '공공 SI';
-            } else if (bt.includes('유지') || bt.includes('운영')) {
-                bt = '유지관리';
-            } else if (bt.includes('ISP')) {
-                bt = 'ISP';
-            } else if (bt.includes('컨설팅') || bt.includes('BPR')) {
-                bt = '컨설팅';
-            } else if (bt === 'AI' || bt.includes('AI') || bt.includes('인공지능')) {
-                bt = 'AI';
+        (this.state.projects || []).forEach(p => {
+            if (p.startDate) {
+                const y = parseInt(p.startDate.substring(0, 4), 10);
+                if (!isNaN(y) && y > 2000 && y < 2100) years.add(y);
             }
-            
-            counts[bt] = (counts[bt] || 0) + 1;
-            if (bt !== '미분류') knownCount++;
+            if (p.endDate) {
+                const y = parseInt(p.endDate.substring(0, 4), 10);
+                if (!isNaN(y) && y > 2000 && y < 2100) years.add(y);
+            }
         });
 
-        if (total === 0 || Object.keys(counts).length === 0) {
-            group.innerHTML = `
-                <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" 
-                        stroke="var(--bg-card-border)" stroke-width="4" stroke-dasharray="100 0" stroke-dashoffset="0"></circle>
-            `;
-            legendContainer.innerHTML = `
-                <div style="font-size:12px; color:var(--text-muted); text-align:center; padding:12px 0;">
-                    <i data-lucide="info" style="width:16px; height:16px; margin-bottom:4px; display:inline-block;"></i>
-                    <div style="font-weight:700; color:var(--text-main);">사업유형 미분류 (${total}개)</div>
-                    <div style="font-size:11px; margin-top:2px;">사업유형을 등록하면 자동 통계가 생성됩니다.</div>
-                </div>
-            `;
-            if (typeof lucide !== 'undefined') { try { lucide.createIcons(); } catch(e){} }
+        return Array.from(years).sort((a, b) => b - a);
+    }
+
+    getDashboardProjectsByYear(year) {
+        const selectedYear = parseInt(year || this.activePortfolioYear || new Date().getFullYear(), 10);
+        const yearStart = `${selectedYear}-01-01`;
+        const yearEnd = `${selectedYear}-12-31`;
+
+        return (this.state.projects || []).filter(p => {
+            const pStart = p.startDate || '1970-01-01';
+            const pEnd = p.endDate || '9999-12-31';
+            return (pStart <= yearEnd) && (pEnd >= yearStart);
+        });
+    }
+
+    populatePortfolioYearSelect() {
+        const select = document.getElementById('portfolio-year-select');
+        if (!select) return;
+
+        const availableYears = this.getDashboardYears();
+        const currentYear = new Date().getFullYear();
+        if (!this.activePortfolioYear) {
+            this.activePortfolioYear = currentYear;
+        }
+
+        let html = '';
+        availableYears.forEach(y => {
+            const isSelected = y === this.activePortfolioYear;
+            html += `<option value="${y}" ${isSelected ? 'selected' : ''}>${y}년</option>`;
+        });
+
+        select.innerHTML = html;
+    }
+
+    switchPortfolioYear(yearStr) {
+        const year = parseInt(yearStr, 10);
+        if (isNaN(year)) return;
+        this.activePortfolioYear = year;
+
+        // Re-render top KPI cards using year-filtered projects!
+        const yearProjects = this.getDashboardProjectsByYear(year);
+        this.updateDashboardKPIs(yearProjects);
+
+        // Re-render portfolio stat card inside DOM
+        this.renderPortfolioStatCard();
+    }
+
+    switchPortfolioStatTab(tabName) {
+        this.activePortfolioStatTab = tabName;
+
+        // Update tab buttons active & aria-selected state
+        document.querySelectorAll('.portfolio-stat-tab').forEach(btn => {
+            const isTarget = btn.getAttribute('data-stat-tab') === tabName;
+            btn.classList.toggle('active', isTarget);
+            btn.setAttribute('aria-selected', isTarget ? 'true' : 'false');
+        });
+
+        // Re-render ONLY card content
+        this.renderPortfolioStatCard();
+    }
+
+    formatAmountShort(amount) {
+        const val = Number(amount || 0);
+        if (isNaN(val) || val <= 0) return '0원';
+        if (val >= 100000000) {
+            const eok = val / 100000000;
+            return `${eok.toFixed(1).replace(/\.0$/, '')}억 원`;
+        }
+        if (val >= 10000) {
+            const man = Math.round(val / 10000);
+            return `${man.toLocaleString()}만 원`;
+        }
+        return `${val.toLocaleString()}원`;
+    }
+
+    formatAmountFull(amount) {
+        const val = Number(amount || 0);
+        return `${val.toLocaleString()} 원`;
+    }
+
+    renderPortfolioStatCard() {
+        const cardBody = document.getElementById('portfolio-stat-card-body');
+        if (!cardBody) return;
+
+        this.populatePortfolioYearSelect();
+        const year = this.activePortfolioYear || new Date().getFullYear();
+        const tab = this.activePortfolioStatTab || 'bizType';
+
+        const yearProjects = this.getDashboardProjectsByYear(year);
+
+        if (tab === 'bizType') {
+            this.renderBizTypeStat(yearProjects);
+        } else if (tab === 'amount') {
+            this.renderContractAmountStat(yearProjects);
+        } else if (tab === 'status') {
+            this.renderProgressStatusStat(yearProjects);
+        } else if (tab === 'customer') {
+            this.renderCustomerStat(yearProjects);
+        } else if (tab === 'partType') {
+            this.renderParticipationTypeStat(yearProjects);
+        }
+    }
+
+    renderBizTypeStat(yearProjects) {
+        this.togglePortfolioContainers(true);
+        const group = document.getElementById('donut-portfolio-segments-group');
+        const centerValue = document.getElementById('portfolio-center-value');
+        const centerLabel = document.getElementById('portfolio-center-label');
+        const rankingList = document.getElementById('portfolio-ranking-list');
+        const rankingHeader = document.getElementById('portfolio-ranking-header');
+
+        if (!group || !rankingList) return;
+
+        const total = yearProjects.length;
+
+        if (total === 0) {
+            this.showPortfolioEmptyState('집계할 사업유형 데이터가 없습니다.');
             return;
         }
+
+        centerValue.textContent = total;
+        centerLabel.textContent = '전체 사업 수';
+        rankingHeader.innerHTML = `<span>순위</span><span>사업유형</span><span style="text-align:right;">건수 (비율)</span>`;
+
+        const counts = {};
+        yearProjects.forEach(p => {
+            let bt = (p.businessType || p.business_type || p.bizType || '').trim();
+            if (!bt) bt = '미분류';
+            else if (bt.includes('SI') || bt.includes('구축')) bt = '공공 SI';
+            else if (bt.includes('유지') || bt.includes('운영')) bt = '유지관리';
+            else if (bt.includes('ISP')) bt = 'ISP';
+            else if (bt.includes('컨설팅') || bt.includes('BPR')) bt = '컨설팅';
+            else if (bt === 'AI' || bt.includes('AI') || bt.includes('인공지능')) bt = 'AI';
+            counts[bt] = (counts[bt] || 0) + 1;
+        });
 
         const presetColors = {
             '공공 SI': 'var(--primary)',
@@ -5969,59 +6332,525 @@ class AetherPMO {
             'AI': 'var(--success)',
             '미분류': '#64748b'
         };
-
-        const fallbackColors = ['#f59e0b', '#06b6d4', '#10b981', '#6366f1', '#8b5cf6', '#e11d48'];
+        const fallbackColors = ['#f59e0b', '#06b6d4', '#10b981', '#6366f1', '#8b5cf6'];
         let colorIdx = 0;
 
         const segments = [];
         for (const [key, count] of Object.entries(counts)) {
-            if (count > 0) {
-                const color = presetColors[key] || fallbackColors[(colorIdx++) % fallbackColors.length];
-                segments.push({
-                    label: key,
-                    count: count,
-                    color: color,
-                    pct: (count / total) * 100
-                });
-            }
+            const color = presetColors[key] || fallbackColors[(colorIdx++) % fallbackColors.length];
+            segments.push({ label: key, count, color, pct: (count / total) * 100 });
+        }
+        segments.sort((a, b) => b.count - a.count);
+
+        this.renderDonutSVG(group, segments);
+
+        let rankHtml = '';
+        segments.forEach((seg, idx) => {
+            rankHtml += `
+                <div class="portfolio-ranking-item" onclick="app.filterProjectsByBizType('${seg.label}')" title="${this.escapeHtml(seg.label)} (${seg.count}건)">
+                    <span class="rank-badge">${idx + 1}</span>
+                    <span class="item-name">${this.escapeHtml(seg.label)}</span>
+                    <div class="item-val-group">
+                        <span class="item-count">${seg.count}건</span>
+                        <span class="item-pct">${seg.pct.toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+        });
+        rankingList.innerHTML = rankHtml;
+    }
+
+    renderContractAmountStat(yearProjects) {
+        this.togglePortfolioContainers(true);
+        const group = document.getElementById('donut-portfolio-segments-group');
+        const centerValue = document.getElementById('portfolio-center-value');
+        const centerLabel = document.getElementById('portfolio-center-label');
+        const rankingList = document.getElementById('portfolio-ranking-list');
+        const rankingHeader = document.getElementById('portfolio-ranking-header');
+
+        if (!group || !rankingList) return;
+
+        // 수행 중 프로젝트만 필터링 (In Progress or Delay)
+        const inProgressProjects = yearProjects.filter(p => p.status === 'In Progress' || p.status === 'Delay');
+        const totalInProgressCount = inProgressProjects.length;
+
+        // 금액 유효 프로젝트만 추출 (당사 계약금액 > 0)
+        const amountProjects = inProgressProjects
+            .map(p => {
+                const amt = Number(p.companyContractAmount || p.company_contract_amount || 0);
+                return { ...p, calcAmount: isNaN(amt) ? 0 : amt };
+            })
+            .filter(p => p.calcAmount > 0)
+            .sort((a, b) => b.calcAmount - a.calcAmount);
+
+        if (totalInProgressCount === 0 || amountProjects.length === 0) {
+            this.showPortfolioEmptyState('진행 중인 프로젝트의 당사 계약금액 데이터가 없습니다.');
+            return;
         }
 
-        segments.sort((a, b) => b.count - a.count);
+        const totalCompanyAmount = amountProjects.reduce((sum, p) => sum + p.calcAmount, 0);
+
+        centerValue.innerHTML = `<span style="font-size:14px; font-weight:800;">${this.formatAmountShort(totalCompanyAmount)}</span>`;
+        centerLabel.innerHTML = `<span style="font-size:10px; color:var(--text-muted); display:block; margin-top:2px;">금액 등록 ${amountProjects.length}개 / 전체 수행 ${totalInProgressCount}개</span>`;
+        rankingHeader.innerHTML = `<span>순위</span><span>프로젝트명</span><span style="text-align:right;">당사금액 (비중)</span>`;
+
+        // 상위 5개 + 기타
+        const top5 = amountProjects.slice(0, 5);
+        const rest = amountProjects.slice(5);
+
+        const colors = ['#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#64748b'];
+        const segments = top5.map((p, idx) => ({
+            label: p.name,
+            code: p.projectCode || p.code || p.id,
+            id: p.id,
+            count: p.calcAmount,
+            color: colors[idx % colors.length],
+            pct: (p.calcAmount / totalCompanyAmount) * 100,
+            isOther: false,
+            projectObj: p
+        }));
+
+        if (rest.length > 0) {
+            const restSum = rest.reduce((sum, p) => sum + p.calcAmount, 0);
+            segments.push({
+                label: `기타 (${rest.length}개)`,
+                code: 'OTHER',
+                id: 'OTHER',
+                count: restSum,
+                color: '#64748b',
+                pct: (restSum / totalCompanyAmount) * 100,
+                isOther: true
+            });
+        }
+
+        this.renderDonutSVG(group, segments);
+
+        let rankHtml = '';
+        segments.forEach((seg, idx) => {
+            const clickAction = seg.isOther
+                ? `window.location.hash = 'projects/active'`
+                : `window.location.hash = 'project-detail/${seg.id}'`;
+
+            let tooltipText = '';
+            if (seg.isOther) {
+                tooltipText = `기타 ${rest.length}개 프로젝트 (총 ${this.formatAmountFull(seg.count)})`;
+            } else {
+                const p = seg.projectObj;
+                const totalContractStr = this.formatAmountFull(p.totalContractAmount || p.budget || p.calcAmount);
+                const companyContractStr = this.formatAmountFull(p.calcAmount);
+                const shareRateStr = p.companyShareRate !== undefined && p.companyShareRate !== null ? `${p.companyShareRate}%` : '-';
+                tooltipText = `프로젝트명: ${p.name}\n프로젝트 코드: ${seg.code}\n전체 계약금액: ${totalContractStr}\n당사 계약금액: ${companyContractStr}\n지분율: ${shareRateStr}\n총 수행금액 대비 비율: ${seg.pct.toFixed(1)}%`;
+            }
+
+            rankHtml += `
+                <div class="portfolio-ranking-item" onclick="${clickAction}" title="${this.escapeHtml(tooltipText)}">
+                    <span class="rank-badge">${idx + 1}</span>
+                    <span class="item-name">${this.escapeHtml(seg.label)}</span>
+                    <div class="item-val-group">
+                        <span class="item-count" style="font-size:11px;">${this.formatAmountShort(seg.count)}</span>
+                        <span class="item-pct">${seg.pct.toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+        });
+        rankingList.innerHTML = rankHtml;
+    }
+
+    renderProgressStatusStat(yearProjects) {
+        this.togglePortfolioContainers(true);
+        const group = document.getElementById('donut-portfolio-segments-group');
+        const centerValue = document.getElementById('portfolio-center-value');
+        const centerLabel = document.getElementById('portfolio-center-label');
+        const rankingList = document.getElementById('portfolio-ranking-list');
+        const rankingHeader = document.getElementById('portfolio-ranking-header');
+
+        if (!group || !rankingList) return;
+
+        const total = yearProjects.length;
+
+        if (total === 0) {
+            this.showPortfolioEmptyState('집계할 프로젝트 상태 데이터가 없습니다.');
+            return;
+        }
+
+        centerValue.textContent = total;
+        centerLabel.textContent = '선택 연도 프로젝트';
+        rankingHeader.innerHTML = `<span>순위</span><span>진행상태</span><span style="text-align:right;">건수 (비율)</span>`;
+
+        let countBidding = 0;
+        let countActive = 0;
+        let countDelay = 0;
+        let countCompleted = 0;
+        let countLost = 0;
+
+        yearProjects.forEach(p => {
+            const st = p.status || 'In Progress';
+            const bSt = (p.bidding_status || p.biddingStatus || p.bid_status || '').toLowerCase();
+
+            if (st === 'Completed' || st === 'Closed' || st === '종료') {
+                countCompleted++;
+            } else if (bSt === 'lost' || st === 'Lost' || st === '실패') {
+                countLost++;
+            } else if (st === 'Delay' || p.isOverdue) {
+                countDelay++;
+            } else if (st === 'Bidding' || bSt === 'proposal_preparing' || bSt === 'proposal_submitted' || bSt === 'waiting_result') {
+                countBidding++;
+            } else {
+                countActive++;
+            }
+        });
+
+        const statusMap = [
+            { label: '수행중', count: countActive, color: 'var(--info)', hash: 'projects/active' },
+            { label: '입찰', count: countBidding, color: 'var(--warning)', hash: 'projects/bidding' },
+            { label: '지연', count: countDelay, color: 'var(--danger)', hash: 'projects/active' },
+            { label: '수행종료', count: countCompleted, color: 'var(--success)', hash: 'projects/completed' },
+            { label: '실패', count: countLost, color: '#64748b', hash: 'projects/bidding' }
+        ];
+
+        const activeSegments = statusMap
+            .filter(s => s.count > 0)
+            .map(s => ({ ...s, pct: (s.count / total) * 100 }))
+            .sort((a, b) => b.count - a.count);
+
+        this.renderDonutSVG(group, activeSegments);
+
+        let rankHtml = '';
+        activeSegments.forEach((seg, idx) => {
+            rankHtml += `
+                <div class="portfolio-ranking-item" onclick="window.location.hash='${seg.hash}'" title="${seg.label} ${seg.count}건 (${seg.pct.toFixed(1)}%)">
+                    <span class="rank-badge">${idx + 1}</span>
+                    <span class="item-name" style="color:${seg.color}">${this.escapeHtml(seg.label)}</span>
+                    <div class="item-val-group">
+                        <span class="item-count">${seg.count}건</span>
+                        <span class="item-pct">${seg.pct.toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+        });
+        rankingList.innerHTML = rankHtml;
+    }
+
+    renderCustomerStat(yearProjects) {
+        this.togglePortfolioContainers(false);
+        const barContainer = document.getElementById('portfolio-bar-chart-container');
+        const rankingList = document.getElementById('portfolio-ranking-list');
+        const rankingHeader = document.getElementById('portfolio-ranking-header');
+
+        if (!barContainer || !rankingList) return;
+
+        const total = yearProjects.length;
+
+        if (total === 0) {
+            this.showPortfolioEmptyState('집계할 발주기관 데이터가 없습니다.');
+            return;
+        }
+
+        rankingHeader.innerHTML = `<span>순위</span><span>발주기관명</span><span style="text-align:right;">건수 (비율)</span>`;
+
+        const customerMap = {};
+        yearProjects.forEach(p => {
+            const cust = (p.customer || p.customerName || '').trim() || '미지정';
+            const amt = Number(p.companyContractAmount || p.company_contract_amount || 0);
+            if (!customerMap[cust]) {
+                customerMap[cust] = { name: cust, count: 0, totalAmount: 0 };
+            }
+            customerMap[cust].count += 1;
+            if (!isNaN(amt) && amt > 0) customerMap[cust].totalAmount += amt;
+        });
+
+        // 1순위 건수(내림차순), 2순위 당사 계약금액(내림차순)
+        const sortedCustomers = Object.values(customerMap).sort((a, b) => {
+            if (b.count !== a.count) return b.count - a.count;
+            return b.totalAmount - a.totalAmount;
+        });
+
+        const top5 = sortedCustomers.slice(0, 5);
+        const rest = sortedCustomers.slice(5);
+
+        const items = top5.map(c => ({
+            label: c.name,
+            count: c.count,
+            amount: c.totalAmount,
+            pct: (c.count / total) * 100,
+            isOther: false
+        }));
+
+        if (rest.length > 0) {
+            const restCount = rest.reduce((sum, c) => sum + c.count, 0);
+            const restAmount = rest.reduce((sum, c) => sum + c.totalAmount, 0);
+            items.push({
+                label: `기타 (${rest.length}개 기관)`,
+                count: restCount,
+                amount: restAmount,
+                pct: (restCount / total) * 100,
+                isOther: true
+            });
+        }
+
+        let maxCount = Math.max(...items.map(i => i.count), 1);
+        let barHtml = '';
+        items.forEach(item => {
+            const widthPct = Math.round((item.count / maxCount) * 100);
+            const clickAction = item.isOther
+                ? `window.location.hash = 'projects'`
+                : `app.filterProjectsByCustomer('${this.escapeHtml(item.label)}')`;
+            barHtml += `
+                <div class="portfolio-bar-item" onclick="${clickAction}" title="${this.escapeHtml(item.label)} (${item.count}건)">
+                    <div class="portfolio-bar-header">
+                        <span class="portfolio-bar-label-name" style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px;">${this.escapeHtml(item.label)}</span>
+                        <span style="font-weight:700; color:var(--primary);">${item.count}건</span>
+                    </div>
+                    <div class="portfolio-bar-track">
+                        <div class="portfolio-bar-fill" style="width:${widthPct}%;"></div>
+                    </div>
+                </div>
+            `;
+        });
+        barContainer.innerHTML = barHtml;
+
+        let rankHtml = '';
+        items.forEach((item, idx) => {
+            const clickAction = item.isOther
+                ? `window.location.hash = 'projects'`
+                : `app.filterProjectsByCustomer('${this.escapeHtml(item.label)}')`;
+            rankHtml += `
+                <div class="portfolio-ranking-item" onclick="${clickAction}" title="${this.escapeHtml(item.label)} (${item.count}건, ${this.formatAmountShort(item.amount)})">
+                    <span class="rank-badge">${idx + 1}</span>
+                    <span class="item-name">${this.escapeHtml(item.label)}</span>
+                    <div class="item-val-group">
+                        <span class="item-count">${item.count}건</span>
+                        <span class="item-pct">${item.pct.toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+        });
+        rankingList.innerHTML = rankHtml;
+    }
+
+    renderParticipationTypeStat(yearProjects) {
+        this.togglePortfolioContainers(true);
+        const group = document.getElementById('donut-portfolio-segments-group');
+        const centerValue = document.getElementById('portfolio-center-value');
+        const centerLabel = document.getElementById('portfolio-center-label');
+        const rankingList = document.getElementById('portfolio-ranking-list');
+        const rankingHeader = document.getElementById('portfolio-ranking-header');
+
+        if (!group || !rankingList) return;
+
+        const total = yearProjects.length;
+
+        if (total === 0) {
+            this.showPortfolioEmptyState('집계할 참여형태 데이터가 없습니다.');
+            return;
+        }
+
+        centerValue.textContent = total;
+        centerLabel.textContent = '선택 연도 프로젝트';
+        rankingHeader.innerHTML = `<span>순위</span><span>참여형태</span><span style="text-align:right;">건수 (비율)</span>`;
+
+        const typeCounts = {
+            '주사업자': 0,
+            '공동수급': 0,
+            '하도급': 0,
+            '단독수행': 0,
+            '미지정': 0
+        };
+
+        yearProjects.forEach(p => {
+            const rawType = String(p.participationType || p.participation_type || '').toUpperCase().trim();
+            if (rawType.includes('PRIME') || rawType.includes('주사업')) {
+                typeCounts['주사업자']++;
+            } else if (rawType.includes('CONSORTIUM') || rawType.includes('공동')) {
+                typeCounts['공동수급']++;
+            } else if (rawType.includes('SUB') || rawType.includes('하도급')) {
+                typeCounts['하도급']++;
+            } else if (rawType.includes('SOLE') || rawType.includes('단독')) {
+                typeCounts['단독수행']++;
+            } else {
+                typeCounts['미지정']++;
+            }
+        });
+
+        const presetColors = {
+            '주사업자': 'var(--primary)',
+            '공동수급': '#06b6d4',
+            '하도급': '#f59e0b',
+            '단독수행': '#10b981',
+            '미지정': '#64748b'
+        };
+
+        const segments = Object.entries(typeCounts)
+            .filter(([_, count]) => count > 0)
+            .map(([label, count]) => ({
+                label,
+                count,
+                color: presetColors[label] || '#64748b',
+                pct: (count / total) * 100
+            }))
+            .sort((a, b) => b.count - a.count);
+
+        this.renderDonutSVG(group, segments);
+
+        let rankHtml = '';
+        segments.forEach((seg, idx) => {
+            rankHtml += `
+                <div class="portfolio-ranking-item" onclick="app.filterProjectsByParticipationType('${seg.label}')" title="${seg.label} ${seg.count}건 (${seg.pct.toFixed(1)}%)">
+                    <span class="rank-badge">${idx + 1}</span>
+                    <span class="item-name">${this.escapeHtml(seg.label)}</span>
+                    <div class="item-val-group">
+                        <span class="item-count">${seg.count}건</span>
+                        <span class="item-pct">${seg.pct.toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+        });
+        rankingList.innerHTML = rankHtml;
+    }
+
+    renderDonutSVG(group, segments) {
+        if (!group) return;
+        if (!segments || segments.length === 0) {
+            group.innerHTML = `<circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="var(--bg-card-border)" stroke-width="4"></circle>`;
+            return;
+        }
 
         let accumulatedOffset = 0;
         let svgHtml = '';
-        let legendHtml = '';
 
         segments.forEach(seg => {
             const strokeDash = `${seg.pct} ${100 - seg.pct}`;
             const strokeOffset = -accumulatedOffset;
-            
+            const clickAction = seg.isOther
+                ? "window.location.hash='projects/active'"
+                : (seg.id ? `window.location.hash='project-detail/${seg.id}'` : `app.filterProjectsByBizType('${seg.label}')`);
+
             svgHtml += `
-                <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" 
-                        stroke="${seg.color}" stroke-width="4" 
-                        stroke-dasharray="${strokeDash}" 
+                <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent"
+                        stroke="${seg.color}" stroke-width="4"
+                        stroke-dasharray="${strokeDash}"
                         stroke-dashoffset="${strokeOffset}"
-                        style="transition: stroke-dashoffset 0.5s ease;">
+                        style="transition: stroke-dashoffset 0.5s ease; cursor:pointer;"
+                        onclick="${clickAction}">
                 </circle>
             `;
             accumulatedOffset += seg.pct;
-
-            legendHtml += `
-                <div class="legend-item" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; font-size:12px;">
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span class="legend-color" style="background:${seg.color}; width:10px; height:10px; border-radius:50%; display:inline-block;"></span>
-                        <span style="font-weight:600; color:var(--text-main);">${seg.label}</span>
-                    </div>
-                    <span class="legend-val font-bold" style="color:var(--primary); font-size:12px;">${seg.count}건 (${Math.round(seg.pct)}%)</span>
-                </div>
-            `;
         });
 
         group.innerHTML = svgHtml;
-        legendContainer.innerHTML = legendHtml;
     }
 
-    renderTodayTasksRoleBased(todayStr) {
+    togglePortfolioContainers(isDonut) {
+        const svgContainer = document.getElementById('portfolio-svg-chart-container');
+        const barContainer = document.getElementById('portfolio-bar-chart-container');
+        const rankingArea = document.getElementById('portfolio-ranking-area');
+        const emptyState = document.getElementById('portfolio-stat-empty');
+
+        if (emptyState) emptyState.style.display = 'none';
+        if (rankingArea) rankingArea.style.display = 'flex';
+
+        if (isDonut) {
+            if (svgContainer) svgContainer.style.display = 'flex';
+            if (barContainer) barContainer.style.display = 'none';
+        } else {
+            if (svgContainer) svgContainer.style.display = 'none';
+            if (barContainer) barContainer.style.display = 'flex';
+        }
+    }
+
+    showPortfolioEmptyState(msg) {
+        const svgContainer = document.getElementById('portfolio-svg-chart-container');
+        const barContainer = document.getElementById('portfolio-bar-chart-container');
+        const rankingArea = document.getElementById('portfolio-ranking-area');
+        const emptyState = document.getElementById('portfolio-stat-empty');
+        const emptyMsg = document.getElementById('portfolio-stat-empty-msg');
+
+        if (svgContainer) svgContainer.style.display = 'none';
+        if (barContainer) barContainer.style.display = 'none';
+        if (rankingArea) rankingArea.style.display = 'none';
+
+        if (emptyMsg) emptyMsg.textContent = msg;
+        if (emptyState) emptyState.style.display = 'flex';
+    }
+
+    filterProjectsByBizType(typeLabel) {
+        window.location.hash = 'projects';
+        setTimeout(() => {
+            const searchInput = document.getElementById('project-search-input');
+            if (searchInput) {
+                searchInput.value = typeLabel === '미분류' ? '' : typeLabel;
+                this.renderProjects();
+            }
+        }, 100);
+    }
+
+    filterProjectsByCustomer(customerName) {
+        window.location.hash = 'projects';
+        setTimeout(() => {
+            const searchInput = document.getElementById('project-search-input');
+            if (searchInput) {
+                searchInput.value = customerName === '미지정' ? '' : customerName;
+                this.renderProjects();
+            }
+        }, 100);
+    }
+
+    filterProjectsByParticipationType(partType) {
+        window.location.hash = 'projects';
+        setTimeout(() => {
+            const searchInput = document.getElementById('project-search-input');
+            if (searchInput) {
+                searchInput.value = partType === '미지정' ? '' : partType;
+                this.renderProjects();
+            }
+        }, 100);
+    }
+
+    updateDashboardKPIs(yearProjects) {
+        const projs = yearProjects || this.state.projects || [];
+        const total = projs.length;
+
+        let activeCount = 0;
+        let biddingCount = 0;
+        let delayedCount = 0;
+        let todayDueCount = 0;
+
+        const todayStr = new Date().toISOString().substring(0, 10);
+
+        projs.forEach(p => {
+            const st = p.status || 'In Progress';
+            const bSt = (p.bidding_status || p.biddingStatus || p.bid_status || '').toLowerCase();
+
+            if (st === 'Completed' || st === 'Closed' || st === '종료' || bSt === 'lost' || st === 'Lost' || st === '실패') {
+                return;
+            }
+
+            if (st === 'Delay' || p.isOverdue) {
+                delayedCount++;
+            } else if (st === 'Bidding' || bSt === 'proposal_preparing' || bSt === 'proposal_submitted' || bSt === 'waiting_result') {
+                biddingCount++;
+            } else {
+                activeCount++;
+            }
+
+            if (p.endDate === todayStr && st !== 'Completed') {
+                todayDueCount++;
+            }
+        });
+
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+
+        setVal('stat-total-projects', total);
+        setVal('stat-active-projects', activeCount);
+        setVal('stat-bidding-projects', biddingCount);
+        setVal('stat-delayed-projects', delayedCount);
+        setVal('stat-today-due-projects', todayDueCount);
+    }
+    
+renderTodayTasksRoleBased(todayStr) {
         const titleEl = document.getElementById('today-tasks-section-title');
         const roleTag = document.getElementById('today-tasks-role-tag');
         const role = this.currentUser?.role;
@@ -6228,7 +7057,7 @@ class AetherPMO {
         tableBody.innerHTML = '';
         projectsList.forEach(p => {
             const pRisksCount = (this.state.issues || []).filter(i => i.projectId === p.id && i.status !== '완료').length;
-            
+
             const tr = document.createElement('tr');
             tr.style.cursor = 'pointer';
             tr.addEventListener('click', (e) => {
@@ -6268,7 +7097,7 @@ class AetherPMO {
         const group = document.getElementById('donut-segments-group');
         const centerValue = document.getElementById('chart-center-value');
         const legendContainer = document.getElementById('chart-status-legend');
-        
+
         if (!group || !centerValue || !legendContainer) return;
 
         centerValue.textContent = total;
@@ -6283,7 +7112,7 @@ class AetherPMO {
 
         if (total === 0) {
             group.innerHTML = `
-                <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" 
+                <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent"
                         stroke="var(--bg-card-border)" stroke-width="4" stroke-dasharray="100 0" stroke-dashoffset="0"></circle>
             `;
             legendContainer.innerHTML = `
@@ -6308,11 +7137,11 @@ class AetherPMO {
             if (seg.count > 0) {
                 const strokeDash = `${seg.pct} ${100 - seg.pct}`;
                 const strokeOffset = -accumulatedOffset;
-                
+
                 svgHtml += `
-                    <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" 
-                            stroke="${seg.color}" stroke-width="4" 
-                            stroke-dasharray="${strokeDash}" 
+                    <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent"
+                            stroke="${seg.color}" stroke-width="4"
+                            stroke-dasharray="${strokeDash}"
                             stroke-dashoffset="${strokeOffset}"
                             style="transition: stroke-dashoffset 0.5s ease;">
                     </circle>
@@ -6347,40 +7176,44 @@ class AetherPMO {
        ========================================================================== */
     setProjectListViewMode(mode) {
         this.projectListViewMode = mode;
-        
+
         // Update toggle buttons UI active state
         document.querySelectorAll('.view-mode-toggle .view-mode-btn').forEach(btn => {
             btn.classList.remove('active');
             btn.style.background = 'transparent';
             btn.style.color = 'var(--text-muted)';
         });
-        
+
         const activeBtn = document.getElementById(`view-mode-${mode}`);
         if (activeBtn) {
             activeBtn.classList.add('active');
             activeBtn.style.background = 'var(--primary)';
             activeBtn.style.color = 'white';
         }
-        
+
         this.renderProjects();
     }
 
     updateProjectStageCounts() {
-        const projects = this.state.projects || [];
+        const rawProjects = Array.isArray(this.state?.projects) ? this.state.projects : [];
+        const validProjects = rawProjects.filter(p => !p.deletedAt && !p.deleted_at);
 
-        const biddingCount = projects.filter(p => {
+        const biddingCount = validProjects.filter(p => {
+            const lc = (p.lifecycle_status || p.lifecycleStatus || '').toUpperCase();
             const s = (p.status || '').trim();
-            return s === 'Bidding' || p.is_bidding_project || p.isBiddingProject;
+            return lc === 'BIDDING' || s === 'Bidding' || p.is_bidding_project || p.isBiddingProject;
         }).length;
 
-        const activeCount = projects.filter(p => {
+        const activeCount = validProjects.filter(p => {
+            const lc = (p.lifecycle_status || p.lifecycleStatus || '').toUpperCase();
             const s = (p.status || '').trim();
-            return ['In Progress', 'On Hold', 'Delay', '수행중', '보류', '지연'].includes(s);
+            return lc === 'EXECUTION' || ['In Progress', 'On Hold', 'Delay', '수행중', '보류', '지연', '진행중'].includes(s);
         }).length;
 
-        const completedCount = projects.filter(p => {
+        const completedCount = validProjects.filter(p => {
+            const lc = (p.lifecycle_status || p.lifecycleStatus || '').toUpperCase();
             const s = (p.status || '').trim();
-            return ['Completed', '종료'].includes(s);
+            return lc === 'COMPLETED' || ['Completed', '종료'].includes(s);
         }).length;
 
         const elBidding = document.getElementById('count-stage-bidding');
@@ -6432,7 +7265,7 @@ class AetherPMO {
 
     setProjectStageFilter(stage) {
         this.activeProjectStageFilter = stage;
-        
+
         document.querySelectorAll('.project-stage-tab').forEach(tab => {
             tab.classList.remove('active');
             if (tab.getAttribute('data-stage') === stage) {
@@ -6444,9 +7277,9 @@ class AetherPMO {
         const standardContainer = document.getElementById('standard-projects-container');
 
         if (stage === 'Bidding') {
-            if (biddingContainer) biddingContainer.style.display = 'grid';
+            if (biddingContainer) biddingContainer.style.display = 'flex';
             if (standardContainer) standardContainer.style.display = 'none';
-            this.renderBiddingSplitPane();
+            this.renderBiddingPipeline();
         } else {
             if (biddingContainer) biddingContainer.style.display = 'none';
             if (standardContainer) standardContainer.style.display = 'block';
@@ -6460,7 +7293,7 @@ class AetherPMO {
         const pArtifacts = (this.state.artifacts || []).filter(a => a.projectId === p.id || a.project_id === p.id);
         const approved = pArtifacts.filter(a => a.status === 'Approved').length;
         const review = pArtifacts.filter(a => a.status === 'Under Review').length;
-        
+
         // 실시간 투입인력 수 계산 (isActive !== false인 멤버들의 개수)
         const activeMembersCount = (this.state.projectMembers || []).filter(
             m => (m.projectId === p.id || m.project_id === p.id) && m.isActive !== false
@@ -6468,7 +7301,7 @@ class AetherPMO {
 
         const isList = this.projectListViewMode === 'list';
         const element = document.createElement('div');
-        
+
         if (isList) {
             element.className = 'project-list-row';
             element.setAttribute('style', `
@@ -6484,7 +7317,7 @@ class AetherPMO {
                 gap: 16px;
                 flex-wrap: wrap;
             `);
-            
+
             element.addEventListener('mouseenter', () => {
                 element.style.borderColor = 'var(--primary)';
                 element.style.background = 'var(--bg-hover-item)';
@@ -6507,9 +7340,9 @@ class AetherPMO {
                         ${p.isOverdue && p.status !== 'Completed' ? `<span class="status-badge status-overdue" style="font-size: 10px; padding: 2px 8px;">기간초과</span>` : ''}
                     </div>
                     <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 4px 0 0 0; letter-spacing: -0.3px;">${p.name || '무제 프로젝트'}</h3>
-                    <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; line-height: 1.4;">${p.desc || p.remarks || '설명이 없습니다.'}</p>
+                    <p style="font-size:12px; color:var(--text-muted); line-height:1.4; margin:4px 0 0 0; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; text-overflow:ellipsis;">${p.desc || p.remarks || '등록된 설명이 없습니다.'}</p>
                 </div>
-                
+
                 <div style="flex: 1.2; min-width: 180px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted);">
                     <div style="display:flex; justify-content:space-between;">
                         <span>PM: <strong style="color: var(--text-main);">${p.manager || p.pmName || '미정'}</strong></span>
@@ -6557,8 +7390,8 @@ class AetherPMO {
                     </div>
                 </div>
                 <h3 class="project-card-title">${p.name || '무제 프로젝트'}</h3>
-                <p class="project-card-desc">${p.desc || p.remarks || '설명이 없습니다.'}</p>
-                
+                <p class="project-card-desc" style="font-size:12px; color:var(--text-muted); line-height:1.4; margin:6px 0 10px 0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; text-overflow:ellipsis;">${p.desc || p.remarks || '등록된 프로젝트 설명이 없습니다.'}</p>
+
                 <div class="project-card-details">
                     <div class="detail-row">
                         <span>매니저 (PM)</span>
@@ -6632,10 +7465,10 @@ class AetherPMO {
             const standardContainer = document.getElementById('standard-projects-container');
 
             if (this.activeProjectStageFilter === 'Bidding') {
-                if (biddingContainer) biddingContainer.style.display = 'grid';
+                if (biddingContainer) biddingContainer.style.display = 'flex';
                 if (standardContainer) standardContainer.style.display = 'none';
                 console.log('[renderProjects:biddingSplitPane:start]');
-                this.renderBiddingSplitPane();
+                this.renderBiddingPipeline();
                 console.log('[renderProjects:biddingSplitPane:end]');
                 return;
             }
@@ -6848,8 +7681,8 @@ class AetherPMO {
 
 
     async registerBiddingProjectFromG2B(announcementNo) {
-        const ann = this.g2bAnnouncementsMap[announcementNo] || 
-                    (this.state.g2bOriginalItems || []).find(a => a.announcementNo === announcementNo) || 
+        const ann = this.g2bAnnouncementsMap[announcementNo] ||
+                    (this.state.g2bOriginalItems || []).find(a => a.announcementNo === announcementNo) ||
                     (this.state.g2bAnnouncements || []).find(a => a.announcementNo === announcementNo);
         if (!ann) {
             alert('공고 정보를 찾을 수 없습니다.');
@@ -6857,15 +7690,15 @@ class AetherPMO {
         }
 
         // Check if already exists in projects (using name, code or sourceReferenceNo)
-        const exists = this.state.projects.some(p => 
-            p.projectCode === announcementNo || 
-            p.bidNumber === announcementNo || 
+        const exists = this.state.projects.some(p =>
+            p.projectCode === announcementNo ||
+            p.bidNumber === announcementNo ||
             p.sourceReferenceNo === announcementNo
         );
         if (exists) {
-            const existingProj = this.state.projects.find(p => 
-                p.projectCode === announcementNo || 
-                p.bidNumber === announcementNo || 
+            const existingProj = this.state.projects.find(p =>
+                p.projectCode === announcementNo ||
+                p.bidNumber === announcementNo ||
                 p.sourceReferenceNo === announcementNo
             );
             alert(`이미 등록된 프로젝트입니다. (프로젝트명: ${existingProj.name})`);
@@ -6888,9 +7721,9 @@ class AetherPMO {
         // project_code(내부 프로젝트 코드)와 bid_number(나라장터 공고번호)의 역할 분리
         // 내부 코드가 없다면 자동 생성하여 UNIQUE 제약조건 충족시킴
         const tempProjectCode = this.generateNextProjectCode();
-        
+
         const isPre = ann.announcementType === 'pre';
-        const projectDesc = isPre 
+        const projectDesc = isPre
             ? `${ann.announcementNo} 나라장터 연계 사전규격 검토 프로젝트`
             : `${ann.announcementNo} 나라장터 연계 입찰 참여 프로젝트`;
         const projectStatus = isPre ? 'PRE_REVIEW' : 'Bidding';
@@ -6945,6 +7778,8 @@ class AetherPMO {
 
                 // Map database columns back to camelCase properties for state.projects
                 const newProject = {
+                    request_key: this.currentProjectRequestKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'req-' + Date.now()),
+                    requestKey: this.currentProjectRequestKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'req-' + Date.now()),
                     id: insertedProj.id,
                     name: insertedProj.project_name,
                     desc: insertedProj.desc,
@@ -7033,7 +7868,7 @@ class AetherPMO {
                 tab.classList.add('active');
             }
         });
-        this.renderBiddingSplitPane();
+        this.renderBiddingPipeline();
     }
 
     getBiddingProjectsList() {
@@ -7100,6 +7935,7 @@ class AetherPMO {
                 code: 'PRJ-2026-001',
                 customer: projects[0] ? projects[0].customer : '국방부 지능정보화정책관',
                 status: 'Bidding',
+                bidding_status: 'review',
                 bidStatus: 'review',
                 biddingStatusKey: 'review',
                 budget: 2800000000,
@@ -7127,6 +7963,7 @@ class AetherPMO {
                 code: 'PRJ-2026-002',
                 customer: projects[1] ? projects[1].customer : '행정안전부 디지털정부국',
                 status: 'Bidding',
+                bidding_status: 'proposal_submitted',
                 bidStatus: 'submitted',
                 biddingStatusKey: 'submitted',
                 budget: 3200000000,
@@ -7154,6 +7991,7 @@ class AetherPMO {
                 code: 'PRJ-2026-004',
                 customer: projects[3] ? projects[3].customer : '한국전력공사 ICT기획처',
                 status: 'Bidding',
+                bidding_status: 'waiting_result',
                 bidStatus: 'waiting_result',
                 biddingStatusKey: 'waiting_result',
                 budget: 1800000000,
@@ -7181,6 +8019,7 @@ class AetherPMO {
                 code: 'PRJ-2026-005',
                 customer: projects[4] ? projects[4].customer : '국토교통부 도시경제과',
                 status: 'Bidding',
+                bidding_status: 'won',
                 bidStatus: 'won',
                 biddingStatusKey: 'won',
                 budget: 5200000000,
@@ -7267,15 +8106,27 @@ class AetherPMO {
             .replace(/\s+/g, '');
 
         const statusMap = {
-            // 제안 준비중
-            'proposal_preparing': 'proposal_preparing',
-            'preparing': 'proposal_preparing',
-            'drafting': 'proposal_preparing',
-            '작성중': 'proposal_preparing',
-            '제안준비중': 'proposal_preparing',
-            'review': 'proposal_preparing',
-            'considering': 'proposal_preparing',
-            '참여검토': 'proposal_preparing',
+            // 1. 참여 검토
+            'review': 'review',
+            'reviewing': 'review',
+            'considering': 'review',
+            '참여검토': 'review',
+            '검토중': 'review',
+
+            // 2. 제안 준비
+            'proposal_prep': 'proposal_prep',
+            'proposal_preparing': 'proposal_prep',
+            'prep': 'proposal_prep',
+            'preparing': 'proposal_prep',
+            '제안준비': 'proposal_prep',
+            '제안준비중': 'proposal_prep',
+
+            // 3. 제안서 작성
+            'proposal_writing': 'proposal_writing',
+            'writing': 'proposal_writing',
+            'drafting': 'proposal_writing',
+            '제안서작성': 'proposal_writing',
+            '작성중': 'proposal_writing',
 
             // 제안 제출
             'proposal_submitted': 'proposal_submitted',
@@ -7308,7 +8159,7 @@ class AetherPMO {
             '종료/실패': 'lost'
         };
 
-        return statusMap[value] || 'proposal_preparing';
+        return statusMap[value] || 'review';
     }
 
     getDDayBadge(endDateStr) {
@@ -7527,7 +8378,7 @@ class AetherPMO {
 
         const nameElem = document.getElementById('bid-result-project-name');
         if (nameElem) {
-            nameElem.textContent = `‘${project.name}’의 입찰 결과를 선택해 주세요.`;
+            nameElem.textContent = `'${project.name}'의 입찰 결과를 선택해 주세요.`;
         }
 
         if (modal) {
@@ -7592,20 +8443,41 @@ class AetherPMO {
     }
 
     setActiveSidebarMenu(route) {
-        document.querySelectorAll('.sidebar-nav .nav-item, .sidebar-nav .submenu-item').forEach(el => {
+        document.querySelectorAll('.sidebar-nav .nav-item, .sidebar-nav .submenu-item, .sidebar-submenu .submenu-item').forEach(el => {
             el.classList.remove('active');
         });
+
+        const projectsNav = document.querySelector('.nav-item[data-view="projects"]');
 
         if (route === 'projects/active') {
             const activeSubmenu = document.querySelector('.submenu-item[data-subview="active"]');
             if (activeSubmenu) activeSubmenu.classList.add('active');
-            const projectsNav = document.querySelector('.nav-item[data-view="projects"]');
             if (projectsNav) projectsNav.classList.add('active');
         } else if (route === 'projects/bidding') {
             const biddingSubmenu = document.querySelector('.submenu-item[data-subview="bidding"]');
             if (biddingSubmenu) biddingSubmenu.classList.add('active');
-            const projectsNav = document.querySelector('.nav-item[data-view="projects"]');
             if (projectsNav) projectsNav.classList.add('active');
+        } else if (route === 'projects/g2b') {
+            const g2bSubmenu = document.querySelector('.submenu-item[data-subview="g2b"]');
+            if (g2bSubmenu) g2bSubmenu.classList.add('active');
+            if (projectsNav) projectsNav.classList.add('active');
+        } else if (route === 'projects/all' || route === 'projects') {
+            const allSubmenu = document.querySelector('.submenu-item[data-subview="all"]');
+            if (allSubmenu) allSubmenu.classList.add('active');
+            if (projectsNav) projectsNav.classList.add('active');
+        } else if (typeof route === 'string' && (route.startsWith('board/') || route === 'board')) {
+            const sub = route.includes('/') ? route.split('/')[1] : 'notices';
+            let subview = 'board-notices';
+            if (sub === 'inquiries') subview = 'board-inquiries';
+            else if (sub === 'resources') subview = 'board-resources';
+
+            const subItem = document.querySelector(`.submenu-item[data-subview="${subview}"]`);
+            if (subItem) subItem.classList.add('active');
+            const boardNav = document.querySelector('.nav-item[data-view="board"]');
+            if (boardNav) boardNav.classList.add('active');
+        } else {
+            const navItem = document.querySelector(`.nav-item[data-view="${route}"]`);
+            if (navItem) navItem.classList.add('active');
         }
     }
 
@@ -7807,7 +8679,7 @@ class AetherPMO {
         modalDiv.id = 'bid-result-modal';
         modalDiv.className = 'modal';
         modalDiv.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(4px);';
-        
+
         modalDiv.innerHTML = `
             <div class="modal-content" style="width: 100%; max-width: 480px; border-radius: 16px; padding: 24px; background: var(--bg-card); border: 1px solid var(--bg-card-border); box-shadow: var(--shadow-xl); color: var(--text-main);">
                 <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 16px; margin-bottom: 20px;">
@@ -7919,11 +8791,12 @@ class AetherPMO {
                         <span style="font-size:14px; font-weight:800; color:var(--text-main); font-family:monospace;">${budgetText}</span>
                     </div>
 
-                    <h3 class="bidding-project-title" style="margin: 8px 0; font-size:15px; font-weight:700;">
+                    <h3 class="bidding-project-title" style="margin: 8px 0 4px 0; font-size:15px; font-weight:700;">
                         <a href="#" class="project-name-link" onclick="event.preventDefault(); event.stopPropagation(); app.openBiddingProjectDetail('${projectId}')">
                             ${this.escapeHtml(p.name)}
                         </a>
                     </h3>
+                    <p class="project-card-desc" style="margin:2px 0 8px 0;">${this.escapeHtml(p.desc || p.remarks || '등록된 프로젝트 설명이 없습니다.')}</p>
 
                     <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted); margin-bottom: 8px;">
                         <span>🏛️ ${this.escapeHtml(p.customer || '발주처 미정')}</span>
@@ -8224,6 +9097,7 @@ class AetherPMO {
     }
 
     renderG2BAnnouncements() {
+        console.log('[renderG2BAnnouncements executing...]');
         const tbody = document.getElementById('g2b-announcements-tbody');
         if (!tbody) return;
 
@@ -8231,8 +9105,8 @@ class AetherPMO {
         const announcements = this.state.g2bAnnouncements || [];
 
         const filtered = announcements.filter(ann => {
-            const matchSearch = !searchVal || 
-                this.safeText(ann.name).includes(searchVal) || 
+            const matchSearch = !searchVal ||
+                this.safeText(ann.name).includes(searchVal) ||
                 this.safeText(ann.customer).includes(searchVal) ||
                 this.safeText(ann.announcementNo).includes(searchVal);
             return matchSearch;
@@ -8276,9 +9150,9 @@ class AetherPMO {
             }
 
             // Check if already registered (using name, projectCode, or sourceReferenceNo)
-            const isRegistered = this.state.projects.some(p => 
-                p.name === ann.name || 
-                p.projectCode === ann.announcementNo || 
+            const isRegistered = this.state.projects.some(p =>
+                p.name === ann.name ||
+                p.projectCode === ann.announcementNo ||
                 p.sourceReferenceNo === ann.announcementNo
             );
 
@@ -8289,7 +9163,7 @@ class AetherPMO {
                 ? 'background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.35);'
                 : 'background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.35);';
 
-            const actionBtn = isRegistered 
+            const actionBtn = isRegistered
                 ? `<button class="btn btn-xs btn-outline" disabled style="opacity:0.6; cursor:not-allowed; width: 85px; justify-content: center; font-size:11px; padding: 2px 4px;"><i data-lucide="check" style="width:11px; height:11px; margin-right:4px;"></i>완료</button>`
                 : (ann.announcementType === 'pre'
                     ? `<button class="btn btn-xs btn-primary" onclick="app.registerBiddingProjectFromG2B('${ann.announcementNo}')" style="background-color:#8b5cf6; border-color:#8b5cf6; width: 85px; justify-content: center; font-size:11px; padding: 2px 4px;"><i data-lucide="plus" style="width:11px; height:11px; margin-right:4px;"></i>검토</button>`
@@ -8300,7 +9174,7 @@ class AetherPMO {
                 <td>
                     <div style="display: flex; flex-direction: column; gap: 4px;">
                         <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;width:fit-content;${typeStyle}">${typeLabel}</span>
-                        <span class="font-bold text-xs" style="max-width: 240px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;" title="${ann.name}">${ann.name}</span>
+                        <button type="button" class="font-bold text-xs g2b-notice-title-link" data-bid-notice-no="${ann.announcementNo}" data-bid-notice-ord="${ann.announcementOrd || '001'}" style="max-width: 240px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;" title="${ann.name}" onclick="${ann.announcementType === 'pre' || ann.sourceType === 'PRE_SPEC' ? `app.openG2BPreSpecificationDetailPage('${ann.announcementNo}')` : `app.openG2BAnnouncementDetailPage('${ann.announcementNo}', '${ann.announcementOrd || '001'}')`}">${ann.name}</button>
                     </div>
                 </td>
                 <td class="text-xs font-bold">${ann.customer}</td>
@@ -8314,7 +9188,7 @@ class AetherPMO {
                 <td class="text-center">
                     <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
                         <a href="${ann.url}" target="_blank" rel="noopener noreferrer" class="btn btn-xs btn-outline" style="font-size:11px; width: 85px; justify-content: center; padding: 2px 4px;">
-                            <i data-lucide="external-link" style="width:11px;height:11px;margin-right:3px;"></i>원문
+                            <i data-lucide="external-link" style="width:11px;height:11px;margin-right:3px;"></i>원문보기
                         </a>
                         ${actionBtn}
                     </div>
@@ -8350,15 +9224,15 @@ class AetherPMO {
         this.g2bPageNo = page;
 
         // options에서 인자를 받거나, 대메뉴 필터 엘리먼트에서 획득
-        const bidNtceNm = options.bidNtceNm !== undefined 
-            ? options.bidNtceNm 
+        const bidNtceNm = options.bidNtceNm !== undefined
+            ? options.bidNtceNm
             : (document.getElementById('g2b-filter-title')?.value?.trim() || '');
-            
+
         // 검색어가 1글자인 경우 API 호출 차단 (최소 2글자 제한)
         if (bidNtceNm && bidNtceNm.length === 1) {
             alert('검색어는 최소 2글자 이상 입력해 주세요.');
             this.g2bLoading = false;
-            
+
             const _isBidPanel = options.isBiddingPanel || false;
             const tbody = _isBidPanel
                 ? document.getElementById('g2b-announcements-tbody')
@@ -8387,20 +9261,40 @@ class AetherPMO {
             }
         }
 
-        let bgngDt = options.bgngDt !== undefined 
-            ? options.bgngDt 
+        let bgngDt = options.bgngDt !== undefined
+            ? options.bgngDt
             : (document.getElementById('g2b-filter-start-date')?.value || '');
-            
-        let endDt = options.endDt !== undefined 
-            ? options.endDt 
+
+        let endDt = options.endDt !== undefined
+            ? options.endDt
             : (document.getElementById('g2b-filter-end-date')?.value || '');
 
-        // 공고유형: 'pre'(사전규격), 'bid'(본공고), 'all'(전체)
-        const announcementType = options.announcementType !== undefined
+        // 공고유형: 'preSpec'(사전규격), 'bid'(본공고), 'all'(전체)
+        let rawAnnType = options.announcementType !== undefined
             ? options.announcementType
             : (document.getElementById('g2b-filter-type')?.value || 'all');
+        
+        if (rawAnnType === 'pre' || rawAnnType === 'pre_spec' || rawAnnType === 'prespec') {
+            rawAnnType = 'preSpec';
+        }
+
+        const announcementType = rawAnnType;
+        const isPreSpecType = (announcementType === 'preSpec' || announcementType === 'pre' || announcementType === 'PRE_SPEC');
+        const isBidType = (announcementType === 'bid' || announcementType === 'BID');
+        const isAllType = (announcementType === 'all' || announcementType === 'ALL');
+
+        const fetchBid = isBidType || isAllType;
+        const fetchPre = isPreSpecType || isAllType;
 
         const isBiddingPanel = options.isBiddingPanel || false;
+
+        console.log('[G2B Tab Request]', {
+            selectedTab: rawAnnType,
+            announcementType,
+            fetchBid,
+            fetchPre,
+            isBiddingPanel
+        });
 
         // 날짜 필터가 없는 입찰단계 우측 검색 호출 등을 고려해 날짜가 비어있을 시 기본 30일 설정
         if (!bgngDt || !endDt) {
@@ -8416,7 +9310,7 @@ class AetherPMO {
             endDt = formatDate(today);
         }
 
-        const tbody = isBiddingPanel 
+        const tbody = isBiddingPanel
             ? document.getElementById('g2b-announcements-tbody')
             : document.getElementById('g2b-view-announcements-tbody');
 
@@ -8438,20 +9332,20 @@ class AetherPMO {
         if (!isBiddingPanel && bgngDt && endDt) {
             const cleanBgn = bgngDt.replace(/-/g, '').trim();
             const cleanEnd = endDt.replace(/-/g, '').trim();
-            
+
             const sYear = parseInt(cleanBgn.substring(0, 4));
             const sMonth = parseInt(cleanBgn.substring(4, 6)) - 1;
             const sDay = parseInt(cleanBgn.substring(6, 8));
             const eYear = parseInt(cleanEnd.substring(0, 4));
             const eMonth = parseInt(cleanEnd.substring(4, 6)) - 1;
             const eDay = parseInt(cleanEnd.substring(6, 8));
-            
+
             const startDate = new Date(sYear, sMonth, sDay);
             const endDate = new Date(eYear, eMonth, eDay);
-            
+
             const diffTime = endDate.getTime() - startDate.getTime();
             const diffDays = diffTime / (1000 * 60 * 60 * 24);
-            
+
             if (diffDays > 186) {
                 alert('나라장터 공고 검색은 응답 지연 방지를 위해 최대 6개월 이내 기간만 조회할 수 있습니다.');
                 if (tbody) {
@@ -8493,53 +9387,98 @@ class AetherPMO {
             let totalCount = 0;
             let partialError = false;
 
-            if (announcementType === 'bid' || announcementType === 'all') {
-                try {
-                    const bidParams = getParams('bid');
-                    const response = await fetch(`/api/g2b/bid?${bidParams.toString()}`);
-                    const data = await response.json();
-                    if (!response.ok || data.error) {
-                        console.error('Bid API error:', data?.message);
+            const g2bFetchOptions = {
+                method: 'GET',
+                cache: 'no-store',
+                headers: {
+                    'Accept': 'application/json',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                }
+            };
+
+            const fetchPromises = [];
+
+            if (fetchBid) {
+                const bidParams = getParams('bid');
+                bidParams.append('_t', String(Date.now()));
+                const reqUrl = `/api/g2b/bid?${bidParams.toString()}`;
+                console.log('[G2B Fetch Request URL - BID]:', reqUrl);
+                fetchPromises.push(
+                    fetch(reqUrl, g2bFetchOptions)
+                        .then(r => r.json())
+                        .then(data => ({ type: 'bid', data }))
+                        .catch(err => ({ type: 'bid', error: err }))
+                );
+            }
+
+            if (fetchPre) {
+                const preParams = getParams('preSpec');
+                preParams.append('_t', String(Date.now()));
+                const reqUrl = `/api/g2b/preSpec?${preParams.toString()}`;
+                console.log('[G2B Fetch Request URL - PRE-SPEC]:', reqUrl);
+                fetchPromises.push(
+                    fetch(reqUrl, g2bFetchOptions)
+                        .then(r => r.json())
+                        .then(data => ({ type: 'preSpec', data }))
+                        .catch(err => ({ type: 'preSpec', error: err }))
+                );
+            }
+
+            const fetchResults = await Promise.allSettled(fetchPromises);
+
+            fetchResults.forEach(r => {
+                if (r.status === 'fulfilled' && r.value) {
+                    const resType = r.value.type;
+                    const data = r.value.data;
+                    const err = r.value.error;
+                    if (err || !data || data.error) {
+                        console.error(`[G2B ${resType} Fetch Error]:`, data?.message || err?.message);
                         partialError = true;
                     } else {
                         mergedAnnouncements = mergedAnnouncements.concat(data.announcements || []);
                         totalCount += data.totalCount || (data.announcements || []).length;
                     }
-                } catch (err) {
-                    console.error('Bid API fetch failed:', err);
+                } else {
                     partialError = true;
                 }
-            }
-
-            if (announcementType === 'pre' || announcementType === 'all') {
-                try {
-                    const preParams = getParams('pre');
-                    const response = await fetch(`/api/g2b/pre?${preParams.toString()}`);
-                    const data = await response.json();
-                    if (!response.ok || data.error) {
-                        console.error('Pre API error:', data?.message);
-                        partialError = true;
-                    } else {
-                        mergedAnnouncements = mergedAnnouncements.concat(data.announcements || []);
-                        totalCount += data.totalCount || (data.announcements || []).length;
-                    }
-                } catch (err) {
-                    console.error('Pre API fetch failed:', err);
-                    partialError = true;
-                }
-            }
-
-            // 양쪽 모두 오류가 발생하여 가져온 데이터가 전혀 없는 경우에만 최종 실패 처리
-            if (mergedAnnouncements.length === 0 && partialError) {
-                throw new Error('나라장터 공고 조회에 실패했습니다. (API 장애 또는 네트워크 오류)');
-            }
-
-            // 게시일 최신순으로 정렬
-            mergedAnnouncements.sort((a, b) => {
-                if (a.publishDate < b.publishDate) return 1;
-                if (a.publishDate > b.publishDate) return -1;
-                return 0;
             });
+
+
+            // 입찰마감일시 기준 정밀 필터링 및 오름차순(임박순) 정렬
+            const startVal = document.getElementById('g2b-filter-start-date')?.value;
+            const endVal = document.getElementById('g2b-filter-end-date')?.value;
+
+            const todayStart = startVal ? new Date(startVal + 'T00:00:00') : new Date();
+            todayStart.setHours(0,0,0,0);
+            
+            let deadlineLimit = endVal ? new Date(endVal + 'T23:59:59') : new Date(todayStart);
+            if (!endVal) deadlineLimit.setMonth(deadlineLimit.getMonth() + 1);
+
+            const activeByDeadline = mergedAnnouncements.filter(ann => {
+                if (!ann.endDate || ann.endDate === '-' || ann.endDate === '마감일 미정') return false;
+                const d = new Date(ann.endDate);
+                if (isNaN(d.getTime())) return false;
+                d.setHours(23,59,59,999);
+                return d >= todayStart && d <= deadlineLimit;
+            });
+
+            // 마감일 임박순(오름차순) 정렬
+            activeByDeadline.sort((a, b) => {
+                const dA = new Date(a.endDate).getTime();
+                const dB = new Date(b.endDate).getTime();
+                return dA - dB;
+            });
+
+            if (activeByDeadline.length > 0) {
+                mergedAnnouncements = activeByDeadline;
+            } else {
+                mergedAnnouncements.sort((a, b) => {
+                    const dA = new Date(a.endDate || '2099-12-31').getTime();
+                    const dB = new Date(b.endDate || '2099-12-31').getTime();
+                    return dA - dB;
+                });
+            }
 
             // 상태 분리: originalItems에 원본 저장 (최대 100개 슬라이싱)
             this.state.g2bOriginalItems = mergedAnnouncements.slice(0, 100);
@@ -8552,7 +9491,7 @@ class AetherPMO {
                     this.g2bAnnouncementsMap[ann.announcementNo] = ann;
                 }
             });
-            
+
             if (isBiddingPanel) {
                 // 입찰단계 우측 패널 렌더러 호출
                 this.renderG2BAnnouncements();
@@ -8569,9 +9508,9 @@ class AetherPMO {
             console.error('Failed to fetch G2B announcements:', e);
             this.state.g2bOriginalItems = [];
             this.state.g2bFilteredItems = [];
-            
+
             const errDetail = e.message || '공공데이터포털(data.go.kr) 서비스 장애 또는 일시적 네트워크 에러';
-            
+
             if (tbody) {
                 const colspan = isBiddingPanel ? 7 : 9;
                 tbody.innerHTML = `
@@ -8600,7 +9539,536 @@ class AetherPMO {
         }
     }
 
+                navigateToG2BList() {
+        window.location.hash = 'projects/g2b';
+        this.switchView('projects-g2b');
+    }
+
+        async openG2BPreSpecificationDetailPage(preSpecNo, options = {}) {
+        const updateHash = options && typeof options.updateHash === 'boolean' ? options.updateHash : true;
+        console.log(`[openG2BPreSpecificationDetailPage] preSpecNo: ${preSpecNo}`);
+
+        if (!preSpecNo) {
+            this.showToast('사전규격 등록번호가 올바르지 않습니다.', 'error');
+            await this.switchView('projects-g2b');
+            return;
+        }
+
+        const cleanNo = preSpecNo.replace(/^PRE_SPEC-/, '');
+        this.activeG2BAnnouncementNo = cleanNo;
+        const targetHash = `projects/g2b/pre-detail/${cleanNo}`;
+
+        if (updateHash && window.location.hash !== `#${targetHash}`) {
+            window.location.hash = targetHash;
+            return;
+        }
+
+        // Close any lingering modal
+        const modal = document.getElementById('modal-g2b-detail');
+        if (modal) {
+            modal.classList.remove('is-open', 'active');
+            modal.style.display = 'none';
+        }
+
+        // 1. Local memory lookup
+        let item = (this.state.g2bOriginalItems || []).find(a => a.announcementNo === cleanNo || a.id === `PRE_SPEC-${cleanNo}`) ||
+            (this.state.g2bFilteredItems || []).find(a => a.announcementNo === cleanNo || a.id === `PRE_SPEC-${cleanNo}`) ||
+            this.g2bAnnouncementsMap[cleanNo];
+
+        // 2. Re-fetch if refreshed or accessed directly by URL
+        if (!item) {
+            try {
+                this.showToast('사전규격 상세 정보를 불러오는 중입니다...', 'info');
+                const res = await fetch(`/api/g2b?serviceType=preSpec&bidNtceNm=${encodeURIComponent(cleanNo)}&_t=${Date.now()}`, {
+                    cache: 'no-store',
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (data && data.announcements && data.announcements.length > 0) {
+                    item = data.announcements.find(a => a.announcementNo === cleanNo) || data.announcements[0];
+                }
+            } catch (e) {
+                console.warn('[G2B PreSpec Re-fetch Error]:', e);
+            }
+        }
+
+        if (!item) {
+            item = {
+                id: `PRE_SPEC-${cleanNo}`,
+                sourceType: 'PRE_SPEC',
+                sourceLabel: '사전규격',
+                announcementType: 'pre',
+                announcementNo: cleanNo,
+                title: `사전규격 ${cleanNo}`,
+                name: `사전규격 ${cleanNo}`,
+                customer: '-',
+                organization: '-',
+                budget: 0,
+                registeredAt: '-',
+                publishDate: '-',
+                deadline: '-',
+                endDate: '-',
+                businessType: '용역',
+                url: `https://www.g2b.go.kr:8081/ep/preparation/prestd/preStdDtl.do?preStdRegNo=${cleanNo}`,
+                raw: {}
+            };
+        }
+
+        this.renderG2BPreDetailPageHtml(item);
+        await this.switchView('projects-g2b-pre-detail', null, { updateHash: false });
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    renderG2BPreDetailPageHtml(item) {
+        const container = document.getElementById('g2b-pre-detail-container');
+        if (!container) return;
+
+        const raw = item.raw || {};
+        const isRegistered = this.state.projects.some(p =>
+            p.projectCode === item.announcementNo ||
+            p.bidNumber === item.announcementNo ||
+            p.sourceReferenceNo === item.announcementNo
+        );
+
+        const linkedProject = this.state.projects.find(p =>
+            p.projectCode === item.announcementNo ||
+            p.bidNumber === item.announcementNo ||
+            p.sourceReferenceNo === item.announcementNo
+        );
+
+        const typeBadge = `<span class="chip badge-cat" style="background-color: var(--primary-light); color: #8b5cf6; border-color: rgba(139, 92, 246, 0.2); font-weight: 800;">사전규격</span>`;
+
+        const actionBtn = isRegistered
+            ? `<button class="btn btn-outline btn-sm" disabled style="opacity:0.6; cursor:not-allowed;"><i data-lucide="check" style="width:14px; height:14px; margin-right:4px;"></i> 검토 등록 완료</button>`
+            : `<button class="btn btn-primary btn-sm" onclick="app.registerBiddingProjectFromG2B('${item.announcementNo}');" style="background-color:#8b5cf6; border-color:#8b5cf6;"><i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 검토 프로젝트 등록</button>`;
+
+        const budgetStr = item.budget ? item.budget.toLocaleString() + ' 원' : '-';
+        const presmptStr = item.presmptPrce ? item.presmptPrce.toLocaleString() + ' 원' : '-';
+        const titleStr = item.title || item.name || `사전규격 ${item.announcementNo}`;
+
+        container.innerHTML = `
+            <!-- Top Navigation & Action Controls -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+                    <button type="button" onclick="app.navigateToG2BList()" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; border-radius: 6px;">
+                        <i data-lucide="arrow-left" style="width: 14px; height: 14px;"></i> 나라장터 목록으로 돌아가기
+                    </button>
+                    <span style="color: var(--text-muted);">|</span>
+                    <span style="color: var(--text-muted);">프로젝트</span> &gt; 
+                    <span style="color: var(--text-muted);">나라장터 사전규격</span> &gt; 
+                    <strong style="color: #8b5cf6;">사전규격 상세 정보</strong>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <a href="${item.url || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color:#8b5cf6; border-color:#8b5cf6;">
+                        <i data-lucide="external-link" style="width: 14px; height: 14px;"></i> 나라장터 사전규격 원문보기 (새 탭)
+                    </a>
+                    ${actionBtn}
+                </div>
+            </div>
+
+            <!-- Main Title Header Card -->
+            <div class="dashboard-card" style="padding: 24px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                    ${typeBadge}
+                    <span style="font-family: monospace; font-size: 14px; font-weight: 700; color: var(--text-muted);">사전규격등록번호: ${item.announcementNo}</span>
+                    <span class="chip" style="font-size: 11px; background: var(--bg-hover-item);">${item.businessType || '용역'}</span>
+                </div>
+                <h1 style="font-size: 22px; font-weight: 800; color: var(--text-main); line-height: 1.4; margin: 0 0 16px 0;">${this.escapeHtml(titleStr)}</h1>
+                <div style="display: flex; gap: 24px; font-size: 13px; color: var(--text-muted); flex-wrap: wrap;">
+                    <div><i data-lucide="building" style="width:14px; height:14px; margin-right:4px; vertical-align:middle; color:var(--primary);"></i> 수요기관: <strong style="color:var(--text-main);">${this.escapeHtml(item.customer || item.organization || '-')}</strong></div>
+                    <div><i data-lucide="coins" style="width:14px; height:14px; margin-right:4px; vertical-align:middle; color:var(--success);"></i> 배정예산액: <strong style="color:var(--success);">${budgetStr}</strong></div>
+                    <div><i data-lucide="calendar" style="width:14px; height:14px; margin-right:4px; vertical-align:middle; color:var(--info);"></i> 공개일자: <span style="color:var(--text-main);">${item.registeredAt || item.publishDate || '-'}</span></div>
+                    <div><i data-lucide="clock" style="width:14px; height:14px; margin-right:4px; vertical-align:middle; color:var(--danger);"></i> 의견마감일: <strong style="color:var(--danger);">${item.deadline || item.endDate || '-'}</strong></div>
+                </div>
+            </div>
+
+            <!-- Information Grid Cards (2 Columns) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <!-- Section 1: 기관 및 사전규격 정보 -->
+                <div class="dashboard-card" style="padding: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: #8b5cf6; margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="file-check" style="width: 16px; height: 16px;"></i> 사전규격 및 수요기관 정보
+                    </h3>
+                    <div style="font-size: 14px; display: grid; gap: 12px; line-height: 1.6;">
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">사전규격등록번호:</span> <strong style="font-family: monospace; color: var(--text-main);">${item.announcementNo}</strong></div>
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">품명 / 사업명:</span> <span style="color: var(--text-main); font-weight:600;">${this.escapeHtml(titleStr)}</span></div>
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">수요기관명:</span> <strong style="color: var(--text-main);">${this.escapeHtml(item.customer || item.organization || '-')}</strong></div>
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">업무구분:</span> <span>${item.businessType || '용역'}</span></div>
+                    </div>
+                </div>
+
+                <!-- Section 2: 금액 및 의견수렴 일정 -->
+                <div class="dashboard-card" style="padding: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--success); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="badge-dollar-sign" style="width: 16px; height: 16px;"></i> 금액 및 공개 일정 정보
+                    </h3>
+                    <div style="font-size: 14px; display: grid; gap: 12px; line-height: 1.6;">
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">배정예산액:</span> <strong style="color: var(--success); font-size: 15px;">${budgetStr}</strong></div>
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">추정가격:</span> <span>${presmptStr}</span></div>
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">사전규격 공개일:</span> <span>${item.registeredAt || item.publishDate || '-'}</span></div>
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">의견등록 마감일시:</span> <strong style="color: var(--danger);">${item.deadline || item.endDate || '-'}</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: 📁 규격서 첨부파일 및 의견제출 -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <div class="dashboard-card" style="padding: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--primary); margin-bottom: 12px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="file-down" style="width: 16px; height: 16px;"></i> 규격서 첨부파일 다운로드
+                    </h3>
+                    <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px;">
+                        발주기관에서 등록한 사전규격서 및 과업지시서 첨부파일 원본을 다운로드할 수 있습니다.
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="app.downloadG2BAttachment('${item.announcementNo}', '001', '${item.announcementNo}_01', '${this.escapeHtml(titleStr + '_사전규격서.hwp')}')" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 14px; font-weight: 700;">
+                            <i data-lucide="download" style="width: 15px; height: 15px;"></i> 사전규격서 원본파일 다운로드 (.hwp)
+                        </button>
+                        <a href="${item.url || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 14px; font-weight: 700;">
+                            <i data-lucide="external-link" style="width: 15px; height: 15px;"></i> 나라장터 원문보기 다운로드
+                        </a>
+                    </div>
+                </div>
+
+                <div class="dashboard-card" style="padding: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--purple); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="message-square" style="width: 16px; height: 16px;"></i> 의견제출 및 내부 검토 상태
+                    </h3>
+                    <div style="font-size: 14px; display: grid; gap: 12px; line-height: 1.6;">
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">의견 수렴 현황:</span> <span style="color: var(--text-main); font-weight: 600;">의견 등록 가능 (나라장터 세션 필요)</span></div>
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">내부 검토 상태:</span> <strong style="color: var(--primary);">${isRegistered ? '검토 프로젝트 등록 완료' : '미등록 (사전검토 진행)'}</strong></div>
+                        <div><span style="color: var(--text-muted); width: 120px; display: inline-block;">담당 PM:</span> <span>${linkedProject?.manager || '미배정'}</span></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    async openG2BAnnouncementDetailPage(bidNtceNo, bidNtceOrd = '001', options = {}) {
+        const updateHash = options && typeof options.updateHash === 'boolean' ? options.updateHash : true;
+        console.log(`[openG2BAnnouncementDetailPage] bidNtceNo: ${bidNtceNo}, bidNtceOrd: ${bidNtceOrd}, updateHash: ${updateHash}`);
+
+        if (!bidNtceNo) {
+            this.showToast('공고 번호가 올바르지 않습니다.', 'error');
+            await this.switchView('projects-g2b', null, { updateHash: true });
+            return;
+        }
+
+        this.activeG2BAnnouncementNo = bidNtceNo;
+        const targetHash = `projects/g2b/detail/${bidNtceNo}/${bidNtceOrd}`;
+
+        if (updateHash && window.location.hash !== `#${targetHash}`) {
+            window.location.hash = targetHash;
+            return;
+        }
+
+        // 1. Local memory lookup
+        let ann = this.g2bAnnouncementsMap[bidNtceNo] ||
+            (this.state.g2bOriginalItems || []).find(a => a.announcementNo === bidNtceNo) ||
+            (this.state.g2bFilteredItems || []).find(a => a.announcementNo === bidNtceNo);
+
+        // 2. Re-fetch if refreshed or accessed directly by URL
+        if (!ann) {
+            try {
+                this.showToast('나라장터 공고 상세 정보를 불러오는 중입니다...', 'info');
+                const res = await fetch(`/api/g2b/bid?bidNtceNo=${encodeURIComponent(bidNtceNo)}&_t=${Date.now()}`, {
+                    cache: 'no-store',
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (data && data.announcements && data.announcements.length > 0) {
+                    ann = data.announcements.find(a => a.announcementNo === bidNtceNo) || data.announcements[0];
+                    this.g2bAnnouncementsMap[bidNtceNo] = ann;
+                }
+            } catch (e) {
+                console.warn('[G2B Detail Re-fetch Error]:', e);
+            }
+        }
+
+        // 3. Null defense fallback object
+        if (!ann) {
+            ann = {
+                announcementNo: bidNtceNo,
+                announcementOrd: bidNtceOrd,
+                name: `공고번호 ${bidNtceNo}`,
+                customer: '-',
+                ntceInsttNm: '-',
+                publishDate: '-',
+                endDate: '-',
+                budget: 0,
+                announcementType: 'bid',
+                url: '#'
+            };
+        }
+
+        // 4. Render into #g2b-detail-container
+        this.renderG2BDetailPageHtml(ann);
+        await this.switchView('projects-g2b-detail', null, { updateHash: false });
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+        downloadG2BAttachment(announcementNo, fileSeq, fileId, fileName) {
+        console.log('[downloadG2BAttachment POST]:', { announcementNo, fileSeq, fileId, fileName });
+
+        // Ensure hidden iframe exists
+        let iframe = document.getElementById('g2b_download_iframe');
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'g2b_download_iframe';
+            iframe.name = 'g2b_download_iframe';
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+        }
+
+        // Create hidden POST form
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = 'https://www.g2b.go.kr/fs/fsc/fsca/fileUpload.do';
+        form.target = 'g2b_download_iframe';
+        form.style.display = 'none';
+
+        const params = {
+            bidNtceNo: announcementNo,
+            bidNtceOrd: '001',
+            fileSeq: fileSeq || '001',
+            fileId: fileId || `${announcementNo}_${fileSeq || '01'}`,
+            fileNm: fileName || 'g2b_attachment_doc.hwp',
+            taskClCd: '5'
+        };
+
+        for (const [key, value] of Object.entries(params)) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = value;
+            form.appendChild(input);
+        }
+
+        document.body.appendChild(form);
+
+        try {
+            form.submit();
+            this.showToast(`'${fileName}' 다운로드 요청 전송 완료. 세션 미존재 시 나라장터 원문보기를 이용하세요.`, 'info');
+        } catch (e) {
+            console.warn('[G2B Download Submit Error]:', e);
+            this.showToast('나라장터 직접 다운로드에 실패했습니다. 원문보기 링크를 이용하세요.', 'warning');
+        } finally {
+            setTimeout(() => {
+                if (form.parentNode) form.parentNode.removeChild(form);
+            }, 2000);
+        }
+    }
+
+    renderG2BDetailPageHtml(ann) {
+        const container = document.getElementById('g2b-detail-container');
+        if (!container) return;
+
+        const raw = ann.rawItem || {};
+        const isRegistered = this.state.projects.some(p =>
+            p.projectCode === ann.announcementNo ||
+            p.bidNumber === ann.announcementNo ||
+            p.sourceReferenceNo === ann.announcementNo
+        );
+
+        const linkedProject = this.state.projects.find(p =>
+            p.projectCode === ann.announcementNo ||
+            p.bidNumber === ann.announcementNo ||
+            p.sourceReferenceNo === ann.announcementNo
+        );
+
+        const isPre = ann.announcementType === 'pre';
+        const typeBadge = isPre
+            ? `<span class="chip badge-cat" style="background-color: var(--primary-light); color: #8b5cf6; border-color: rgba(139, 92, 246, 0.2); font-weight: 700;">사전규격</span>`
+            : `<span class="chip badge-cat" style="background-color: var(--info-glow); color: var(--info); border-color: rgba(6, 182, 212, 0.2); font-weight: 700;">본공고</span>`;
+
+        const actionBtn = isRegistered
+            ? `<button class="btn btn-outline btn-sm" disabled style="opacity:0.6; cursor:not-allowed;"><i data-lucide="check" style="width:14px; height:14px; margin-right:4px;"></i> 등록 완료</button>`
+            : (isPre
+                ? `<button class="btn btn-primary btn-sm" onclick="app.registerBiddingProjectFromG2B('${ann.announcementNo}');" style="background-color:#8b5cf6; border-color:#8b5cf6;"><i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 검토 프로젝트 등록</button>`
+                : `<button class="btn btn-primary btn-sm" onclick="app.registerBiddingProjectFromG2B('${ann.announcementNo}');"><i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 입찰 프로젝트 등록</button>`
+            );
+
+        const budgetStr = ann.budget ? ann.budget.toLocaleString() + ' 원' : '-';
+        const presmptStr = ann.presmptPrce ? ann.presmptPrce.toLocaleString() + ' 원' : '-';
+        const asignStr = ann.asignBdgtAmt ? ann.asignBdgtAmt.toLocaleString() + ' 원' : budgetStr;
+        const baseStr = raw.baseAmt ? Number(raw.baseAmt).toLocaleString() + ' 원' : '-';
+
+        container.innerHTML = `
+            <!-- Top Navigation & Action Controls -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+                    <button type="button" onclick="app.navigateToG2BList()" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; border-radius: 6px;">
+                        <i data-lucide="arrow-left" style="width: 14px; height: 14px;"></i> 나라장터 목록으로 돌아가기
+                    </button>
+                    <span style="color: var(--text-muted);">|</span>
+                    <span style="color: var(--text-muted);">프로젝트</span> &gt; 
+                    <span style="color: var(--text-muted);">나라장터 공고조회</span> &gt; 
+                    <strong style="color: var(--primary);">입찰공고 상세 정보</strong>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <a href="${ann.url || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700;">
+                        <i data-lucide="external-link" style="width: 14px; height: 14px;"></i> 나라장터 원문 보기 (새 탭)
+                    </a>
+                    ${actionBtn}
+                </div>
+            </div>
+
+            <!-- Main Title Header Card -->
+            <div class="dashboard-card" style="padding: 24px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                    ${typeBadge}
+                    <span style="font-family: monospace; font-size: 14px; font-weight: 700; color: var(--text-muted);">공고번호: ${ann.announcementNo} (차수: ${ann.announcementOrd || '001'})</span>
+                </div>
+                <h1 style="font-size: 22px; font-weight: 800; color: var(--text-main); line-height: 1.4; margin: 0 0 16px 0;">${this.escapeHtml(ann.name)}</h1>
+                <div style="display: flex; gap: 24px; font-size: 13px; color: var(--text-muted); flex-wrap: wrap;">
+                    <div><i data-lucide="building" style="width:14px; height:14px; margin-right:4px; vertical-align:middle; color:var(--primary);"></i> 수요기관: <strong style="color:var(--text-main);">${this.escapeHtml(ann.customer || '-')}</strong></div>
+                    <div><i data-lucide="coins" style="width:14px; height:14px; margin-right:4px; vertical-align:middle; color:var(--success);"></i> 배정예산: <strong style="color:var(--success);">${asignStr}</strong></div>
+                    <div><i data-lucide="calendar" style="width:14px; height:14px; margin-right:4px; vertical-align:middle; color:var(--info);"></i> 공고일: <span style="color:var(--text-main);">${ann.publishDate || '-'}</span></div>
+                    <div><i data-lucide="clock" style="width:14px; height:14px; margin-right:4px; vertical-align:middle; color:var(--danger);"></i> 마감일: <strong style="color:var(--danger);">${ann.endDate || '-'}</strong></div>
+                </div>
+            </div>
+
+            <!-- Information Grid Cards (2 Columns) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <!-- Section 1: 기관 및 담당부서 -->
+                <div class="dashboard-card" style="padding: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--primary); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="building-2" style="width: 16px; height: 16px;"></i> 수요기관 및 공고기관 정보
+                    </h3>
+                    <div style="font-size: 14px; display: grid; gap: 12px; line-height: 1.6;">
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">수요기관명:</span> <strong style="color: var(--text-main);">${this.escapeHtml(ann.customer || '-')}</strong></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">공고기관명:</span> <span style="color: var(--text-main);">${this.escapeHtml(ann.ntceInsttNm || ann.customer || '-')}</span></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">담당부서/담당자:</span> <span style="color: var(--text-main);">${this.escapeHtml(raw.dminsttChargerNm || raw.ntceInsttChargerNm || raw.chargerNm || '-')} (${raw.chargerTelNo || '-'})</span></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">공고종류/유형:</span> <span>${isPre ? '사전규격 (용역)' : '본공고 (용역)'}</span></div>
+                    </div>
+                </div>
+
+                <!-- Section 2: 금액 및 입찰 계약방식 -->
+                <div class="dashboard-card" style="padding: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--success); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="badge-dollar-sign" style="width: 16px; height: 16px;"></i> 금액 및 입찰 계약 정보
+                    </h3>
+                    <div style="font-size: 14px; display: grid; gap: 12px; line-height: 1.6;">
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">배정예산:</span> <strong style="color: var(--success); font-size: 15px;">${asignStr}</strong></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">추정가격:</span> <span>${presmptStr}</span></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">기초금액:</span> <span>${baseStr}</span></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">계약체결방법:</span> <span style="color: var(--text-main); font-weight: 600;">${ann.cntrctCnclsMthdNm || '협상에 의한 계약'}</span></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">낙찰자결정방법:</span> <span>${raw.sucsfclDcsnMthdNm || '협상에 의한 낙찰제'}</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: 입찰 주요 진행 일정 -->
+            <div class="dashboard-card" style="padding: 20px; margin-bottom: 20px;">
+                <h3 style="font-size: 15px; font-weight: 700; color: var(--info); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="calendar-days" style="width: 16px; height: 16px;"></i> 입찰 주요 진행 일정
+                </h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; font-size: 14px;">
+                    <div style="background: var(--bg-hover-item); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--bg-card-border);">
+                        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">입찰 시작일시</div>
+                        <strong style="font-size: 14px; color: var(--text-main);">${ann.bidBeginDt || ann.publishDate || '-'}</strong>
+                    </div>
+                    <div style="background: var(--bg-hover-item); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--bg-card-border);">
+                        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">제출 마감일시</div>
+                        <strong style="font-size: 14px; color: var(--danger);">${ann.endDate || ann.bidClseDt || '-'}</strong>
+                    </div>
+                    <div style="background: var(--bg-hover-item); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--bg-card-border);">
+                        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">개찰일시 및 장소</div>
+                        <strong style="font-size: 14px; color: var(--info);">${ann.opengDt || '-'}</strong>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">(${raw.opengPlce || '국가종합전자조달시스템'})</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4 & 5 Grid: 참가자격 / 제한조건 및 첨부파일 다운로드 -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <!-- Section 4: 참가자격 및 제한조건 -->
+                <div class="dashboard-card" style="padding: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--warning); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="shield-check" style="width: 16px; height: 16px;"></i> 참가자격 및 제한조건
+                    </h3>
+                    <div style="font-size: 14px; display: grid; gap: 12px; line-height: 1.6;">
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">참가자격:</span> <span>${raw.bidPrtcptLmtYn === 'Y' ? '입찰 참가자격 제한 있음' : '일반 경쟁 참가자격'}</span></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">업종·지역 제한:</span> <span>${raw.lmtRgnNm || '전국 (지역제한 없음)'}</span></div>
+                        <div><span style="color: var(--text-muted); width: 110px; display: inline-block;">공동수급 조건:</span> <strong style="color: var(--text-main);">${raw.cmmnSplyCntrctMthdNm || '공동이행 / 분담이행 가능'}</strong></div>
+                    </div>
+                </div>
+
+                <!-- Section 5: 📁 개별 첨부파일 목록 및 POST 다운로드 -->
+                <div class="dashboard-card" style="padding: 20px;">
+                    <h3 style="font-size: 15px; font-weight: 700; color: var(--primary); margin-bottom: 12px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="file-down" style="width: 16px; height: 16px;"></i> 규격서 및 공고 첨부파일 목록
+                        </span>
+                        <span class="chip" style="font-size: 11px;">첨부문서</span>
+                    </h3>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5;">
+                        나라장터 POST 엔드포인트(<code>/fs/fsc/fsca/fileUpload.do</code>)를 통해 개별 첨부파일을 직접 다운로드할 수 있습니다.
+                        <br><span style="color: var(--warning);">※ cross-site 세션/쿠키 정책 제한 시 [원문보기] 버튼을 이용하세요.</span>
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 10px;" id="g2b-attachments-list">
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--bg-hover-item); border: 1px solid var(--bg-card-border); border-radius: 8px; flex-wrap: wrap; gap: 10px;">
+                            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 240px;">
+                                <span class="chip" style="background:#8b5cf6; color:#fff; font-size:11px; font-weight:800;">HWP</span>
+                                <div style="display: flex; flex-direction: column;">
+                                    <strong style="font-size: 13.5px; color: var(--text-main); word-break: break-all;">${this.escapeHtml(raw.ntceSpecFileNm1 || ann.name + '_제안요청서.hwp')}</strong>
+                                    <span style="font-size: 11px; color: var(--text-muted);">제안요청서 (RFP) / 규격서 | 70.1 KB</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <button type="button" class="btn btn-primary btn-xs" onclick="app.downloadG2BAttachment('${ann.announcementNo}', '001', '${ann.announcementNo}_01', '${this.escapeHtml(raw.ntceSpecFileNm1 || ann.name + '_제안요청서.hwp')}')" style="font-weight: 700; padding: 6px 12px;">
+                                    <i data-lucide="download" style="width: 13px; height: 13px; margin-right: 4px;"></i> 다운로드
+                                </button>
+                                <a href="${ann.url || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-xs" style="font-weight: 600; padding: 6px 10px;" title="나라장터 원문보기">
+                                    <i data-lucide="external-link" style="width: 12px; height: 12px;"></i> 원문보기
+                                </a>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--bg-hover-item); border: 1px solid var(--bg-card-border); border-radius: 8px; flex-wrap: wrap; gap: 10px;">
+                            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 240px;">
+                                <span class="chip" style="background:#ef4444; color:#fff; font-size:11px; font-weight:800;">PDF</span>
+                                <div style="display: flex; flex-direction: column;">
+                                    <strong style="font-size: 13.5px; color: var(--text-main); word-break: break-all;">${this.escapeHtml(raw.ntceSpecFileNm2 || ann.name + '_과업지시서.pdf')}</strong>
+                                    <span style="font-size: 11px; color: var(--text-muted);">과업지시서 / 세부사양서 | 1.2 MB</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <button type="button" class="btn btn-primary btn-xs" onclick="app.downloadG2BAttachment('${ann.announcementNo}', '002', '${ann.announcementNo}_02', '${this.escapeHtml(raw.ntceSpecFileNm2 || ann.name + '_과업지시서.pdf')}')" style="font-weight: 700; padding: 6px 12px;">
+                                    <i data-lucide="download" style="width: 13px; height: 13px; margin-right: 4px;"></i> 다운로드
+                                </button>
+                                <a href="${ann.url || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-xs" style="font-weight: 600; padding: 6px 10px;" title="나라장터 원문보기">
+                                    <i data-lucide="external-link" style="width: 12px; height: 12px;"></i> 원문보기
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 6: 내부 참여 검토 현황 -->
+            <div class="dashboard-card" style="padding: 20px; margin-bottom: 20px;">
+                <h3 style="font-size: 15px; font-weight: 700; color: var(--purple); margin-bottom: 16px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="user-check" style="width: 16px; height: 16px;"></i> 내부 PMO 참여 검토 및 사업 현황
+                </h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; font-size: 14px;">
+                    <div><span style="color: var(--text-muted);">내부 검토 상태:</span> <strong style="color: var(--text-main);">${isRegistered ? '입찰 프로젝트 등록 완료' : '미등록 (검토 가능)'}</strong></div>
+                    <div><span style="color: var(--text-muted);">담당 PM:</span> <strong style="color: var(--primary);">${linkedProject?.manager || linkedProject?.pmName || 'PM 미배정'}</strong></div>
+                    <div><span style="color: var(--text-muted);">예상 수주확률:</span> <strong style="color: var(--success);">${linkedProject?.winProbability || 65}%</strong></div>
+                    <div><span style="color: var(--text-muted);">예상 당사 계약금액:</span> <strong style="color: var(--primary);">${linkedProject?.companyExpectedAmount ? linkedProject.companyExpectedAmount.toLocaleString() + ' 원' : '-'}</strong></div>
+                </div>
+            </div>
+        `;
+    }
+
+
+
+        openG2BAnnouncementDetailModal(announcementNo, announcementOrd) {
+        console.log('[openG2BAnnouncementDetailModal] Redirecting to openG2BAnnouncementDetailPage for:', announcementNo);
+        return this.openG2BAnnouncementDetailPage(announcementNo, announcementOrd);
+    }
+
     renderG2BViewAnnouncements() {
+        console.log('[renderG2BViewAnnouncements executing...]');
         const tbody = document.getElementById('g2b-view-announcements-tbody');
         if (!tbody) return;
 
@@ -8649,9 +10117,9 @@ class AetherPMO {
             }
 
             // Check if already registered (using announcementNo)
-            const isRegistered = this.state.projects.some(p => 
-                p.projectCode === ann.announcementNo || 
-                p.bidNumber === ann.announcementNo || 
+            const isRegistered = this.state.projects.some(p =>
+                p.projectCode === ann.announcementNo ||
+                p.bidNumber === ann.announcementNo ||
                 p.sourceReferenceNo === ann.announcementNo
             );
 
@@ -8667,28 +10135,28 @@ class AetherPMO {
                 );
 
             const tr = document.createElement('tr');
-            tr.style.height = '68px'; // 행 고정 높이 적용
+            tr.style.height = '62px'; // 행 고정 높이 60~64px 적용
             tr.innerHTML = `
-                <td class="text-center">${typeBadge}</td>
-                <td class="font-bold text-xs" style="font-family: monospace;">${ann.announcementNo}</td>
-                <td>
-                    <span class="font-bold text-xs" style="max-width: 280px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;" title="${ann.name}">${ann.name}</span>
+                <td class="text-center g2b-nowrap-cell">${typeBadge}</td>
+                <td class="font-bold text-xs g2b-nowrap-cell" style="font-family: monospace; font-size: 13px;">${ann.announcementNo}</td>
+                <td style="vertical-align: middle;">
+                    <button type="button" class="g2b-title-clamp g2b-notice-title-link" data-bid-notice-no="${ann.announcementNo}" data-bid-notice-ord="${ann.announcementOrd || '001'}" title="${ann.name}" onclick="${ann.announcementType === 'pre' || ann.sourceType === 'PRE_SPEC' ? `app.openG2BPreSpecificationDetailPage('${ann.announcementNo}')` : `app.openG2BAnnouncementDetailPage('${ann.announcementNo}', '${ann.announcementOrd || '001'}')`}">${ann.name}</button>
                 </td>
-                <td class="text-xs font-bold">${ann.customer}</td>
-                <td class="text-xs text-muted">${ann.publishDate}</td>
-                <td class="text-xs font-bold" style="min-width: 150px; white-space: nowrap;">
+                <td class="g2b-customer-cell" style="vertical-align: middle;">${ann.customer}</td>
+                <td class="text-center text-muted g2b-nowrap-cell">${ann.publishDate}</td>
+                <td class="font-bold g2b-nowrap-cell">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span>${ann.endDate || '-'}</span>
                         <span class="d-day-badge ${dDayClass}">${dDayText}</span>
                     </div>
                 </td>
-                <td class="text-xs font-bold text-success text-right">${ann.budget ? ann.budget.toLocaleString() + ' 원' : '-'}</td>
-                <td class="text-center">
-                    <a href="${ann.url}" target="_blank" class="btn btn-xs btn-outline" style="display: inline-flex; align-items: center; gap: 4px;">
-                        <i data-lucide="external-link" style="width:11px; height:11px;"></i> 원문
+                <td class="font-bold text-success text-right g2b-nowrap-cell">${ann.budget ? ann.budget.toLocaleString() + ' 원' : '-'}</td>
+                <td class="text-center g2b-nowrap-cell">
+                    <a href="${ann.url}" target="_blank" rel="noopener noreferrer" class="g2b-original-link-btn">
+                        <i data-lucide="external-link" style="width:12px; height:12px;"></i> 원문보기
                     </a>
                 </td>
-                <td class="text-center">
+                <td class="text-center g2b-nowrap-cell">
                     ${actionBtn}
                 </td>
             `;
@@ -8696,7 +10164,7 @@ class AetherPMO {
         });
 
         this.applyRolePermissions();
-        
+
         // Render pagination controls (filtered count)
         this.renderG2BPagination(filtered.length, this.g2bPageNo || 1);
 
@@ -8708,11 +10176,11 @@ class AetherPMO {
     renderG2BPagination(totalCount, currentPage) {
         const container = document.getElementById('g2b-pagination-container');
         if (!container) return;
-        
+
         const totalPages = Math.ceil(totalCount / 10) || 1;
         const hasNext = currentPage < totalPages;
         const hasPrev = currentPage > 1;
-        
+
         container.innerHTML = `
             <div style="font-size: 13px; color: var(--text-muted);">
                 총 <span class="font-bold text-primary" style="color:var(--primary); font-weight:700;">${totalCount}</span> 건 검색됨
@@ -8727,7 +10195,7 @@ class AetherPMO {
                 </button>
             </div>
         `;
-        
+
         if (window.lucide) {
             window.lucide.createIcons();
         }
@@ -8844,23 +10312,23 @@ class AetherPMO {
         const startDateInput = document.getElementById('g2b-filter-start-date');
         const endDateInput = document.getElementById('g2b-filter-end-date');
 
-        if (startDateInput && endDateInput && (!startDateInput.value || !endDateInput.value)) {
-            // Default to last 30 days
-            const today = new Date();
-            const past = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-            
-            const formatDate = (d) => {
-                const yyyy = d.getFullYear();
-                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                const dd = String(d.getDate()).padStart(2, '0');
-                return `${yyyy}-${mm}-${dd}`;
-            };
-            
-            startDateInput.value = formatDate(past);
-            endDateInput.value = formatDate(today);
-        }
+        const formatDate = (d) => {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        };
 
-        this.fetchG2BAnnouncements();
+        const today = new Date();
+        const plus30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+        if (startDateInput) startDateInput.value = formatDate(today);
+        if (endDateInput) endDateInput.value = formatDate(plus30Days);
+
+        const sortSelect = document.getElementById('g2b-local-sort');
+        if (sortSelect) sortSelect.value = 'endDateAsc';
+
+        this.fetchG2BAnnouncements(1);
     }
 
     focusBiddingPanel(panelName) {
@@ -8882,7 +10350,7 @@ class AetherPMO {
         }
     }
 
-    
+
     /* ==========================================================================
        STANDARD TEMPLATES SINGLE SOURCE FILTERING & SEED MERGE MODULE
        ========================================================================== */
@@ -8942,7 +10410,7 @@ class AetherPMO {
         });
 
         console.log(`[mergeStandardTemplateSeeds] Merged ${addedCount} new template seeds. Total: ${this.state.globalTemplates.length}`);
-        
+
         console.table({
             total: (this.state.globalTemplates || []).length,
             operationInitiation: this.getFilteredTemplates('OPERATION', 'INITIATION').length,
@@ -8960,221 +10428,4788 @@ class AetherPMO {
     }
 
 
-    renderArtifacts() {
-        const type  = this.activeGlobalTemplateType  || 'operation';
-        const stage = this.activeGlobalTemplateStage || 'initiation';
 
-        // ── 필터 변경 시 선택 세트 리셋 ────────────────────────────
-        if (type !== this.prevGlobalTemplateType || stage !== this.prevGlobalTemplateStage) {
-            this.selectedTemplateIds.clear();
-            const selectAllTh = document.getElementById('th-template-select-all');
-            if (selectAllTh) selectAllTh.checked = false;
-            this.prevGlobalTemplateType = type;
-            this.prevGlobalTemplateStage = stage;
+    getDefaultNirsTemplates() {
+        return [
+    {
+        "id": "NIRS-PM-001",
+        "sequenceNo": 1,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "착수 준비",
+        "subStage": "계약",
+        "artifactName": "(조달청) 일반용역 계약서",
+        "managerRole": "사업관리",
+        "authorRole": "조달청",
+        "requiresSubmission": false,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "-",
+        "description": "조달청 → 오케스트로 클라우드"
+    },
+    {
+        "id": "NIRS-PM-002",
+        "sequenceNo": 2,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "착수 준비",
+        "subStage": "계약",
+        "artifactName": "계약이행보증증권",
+        "managerRole": "사업관리",
+        "authorRole": "재무팀/영업관리파트",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 즉시",
+        "description": "조달청 제출"
+    },
+    {
+        "id": "NIRS-PM-003",
+        "sequenceNo": 3,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "착수 준비",
+        "subStage": "사무환경",
+        "artifactName": "사무실 협의 및 자리 배치",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": false,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 즉시",
+        "description": "국정자원 사업관리 및 시설담당자 협의"
+    },
+    {
+        "id": "NIRS-PM-004",
+        "sequenceNo": 4,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "착수 준비",
+        "subStage": "사무환경",
+        "artifactName": "PC/책상 등 가구/전기, 네트워크",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": false,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 즉시",
+        "description": "랜탈 업체 견적서"
+    },
+    {
+        "id": "NIRS-PM-005",
+        "sequenceNo": 5,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "착수",
+        "subStage": "사무환경",
+        "artifactName": "(공문) nTOPS ID 신청서 포함",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": true,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "계약 즉시",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-006",
+        "sequenceNo": 6,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "착수",
+        "subStage": "사무환경",
+        "artifactName": "(공문) PC IP 신청 포함",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": true,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "계약 이후",
+        "description": "nTOPS ID 생성 이후 진행"
+    },
+    {
+        "id": "NIRS-PM-007",
+        "sequenceNo": 7,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "착수",
+        "subStage": "사무환경",
+        "artifactName": "(공문) 통합파일 서버 신청서 포함",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": true,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "계약 이후",
+        "description": "nTOPS ID 생성 이후 진행"
+    },
+    {
+        "id": "NIRS-PM-008",
+        "sequenceNo": 8,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "착수",
+        "subStage": "사무환경",
+        "artifactName": "(공문) 투입인력 신원조회 신청",
+        "managerRole": "사업관리",
+        "authorRole": "전체",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": true,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "계약 즉시",
+        "description": "신원조회 결과 최소 1개월 소요"
+    },
+    {
+        "id": "NIRS-PM-009",
+        "sequenceNo": 9,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "착수",
+        "subStage": "사무환경",
+        "artifactName": "(공문) 투입인력 임시출입증 신청",
+        "managerRole": "사업관리",
+        "authorRole": "전체",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": true,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "계약 이후",
+        "description": "신원조회 신청 이후"
+    },
+    {
+        "id": "NIRS-PM-010",
+        "sequenceNo": 10,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "착수",
+        "subStage": "착수계",
+        "artifactName": "(공문) 사업 착수계 제출의건",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": true,
+        "requiresClientApproval": true,
+        "requiresSeal": true,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": "(공문) 발송 및 승인 회신"
+    },
+    {
+        "id": "NIRS-PM-011",
+        "sequenceNo": 11,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "착수",
+        "subStage": "착수계",
+        "artifactName": "(공문 붙임) 사업 착수계",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-012",
+        "sequenceNo": 12,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "착수",
+        "subStage": "착수계",
+        "artifactName": "(착수계 붙임) 계약책임자계",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": "PM 서명 및 회사 인감"
+    },
+    {
+        "id": "NIRS-PM-013",
+        "sequenceNo": 13,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "착수",
+        "subStage": "착수계",
+        "artifactName": "(착수계 붙임) 청렴 서약서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": "공동수급체 각 대표자"
+    },
+    {
+        "id": "NIRS-PM-014",
+        "sequenceNo": 14,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(착수계 붙임) 보안 서약서(대표자)",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": "공동수급체 각 대표자"
+    },
+    {
+        "id": "NIRS-PM-015",
+        "sequenceNo": 15,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(착수계 붙임) 사용인감계",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-016",
+        "sequenceNo": 16,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(착수계 붙임) 사업수행계획서",
+        "managerRole": "사업관리",
+        "authorRole": "전체",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-017",
+        "sequenceNo": 17,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 산출내역서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리/TA",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-018",
+        "sequenceNo": 18,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 도입장비 비교표",
+        "managerRole": "사업관리",
+        "authorRole": "TA",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-019",
+        "sequenceNo": 19,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 제품별 증설 단가표",
+        "managerRole": "사업관리",
+        "authorRole": "TA",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-020",
+        "sequenceNo": 20,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 납품계획서",
+        "managerRole": "사업관리",
+        "authorRole": "TA",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-021",
+        "sequenceNo": 21,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 설치계획서",
+        "managerRole": "사업관리",
+        "authorRole": "TA",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-022",
+        "sequenceNo": 22,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 산출물 목록",
+        "managerRole": "품질관리",
+        "authorRole": "품질관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": "사업관리 계획서 포함"
+    },
+    {
+        "id": "NIRS-PM-023",
+        "sequenceNo": 23,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 품질관리계획서",
+        "managerRole": "품질관리",
+        "authorRole": "품질관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": "사업관리 계획서 포함"
+    },
+    {
+        "id": "NIRS-PM-024",
+        "sequenceNo": 24,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 위험/이슈관리계획서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": "사업관리 계획서 포함"
+    },
+    {
+        "id": "NIRS-PM-025",
+        "sequenceNo": 25,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 보안관리계획서",
+        "managerRole": "사업관리",
+        "authorRole": "보안관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": "사업관리 계획서 포함"
+    },
+    {
+        "id": "NIRS-PM-026",
+        "sequenceNo": 26,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 보안 서약서(참여자)",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": "참여인력 전체"
+    },
+    {
+        "id": "NIRS-PM-027",
+        "sequenceNo": 27,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 근로기준법 준수확인서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-028",
+        "sequenceNo": 28,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 기술지원확약서",
+        "managerRole": "사업관리",
+        "authorRole": "TA",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-029",
+        "sequenceNo": 29,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 악의적인 백도어 미설치 확인서",
+        "managerRole": "사업관리",
+        "authorRole": "TA",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-030",
+        "sequenceNo": 30,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 국제사회 제재대상 제품 교체 확약서",
+        "managerRole": "사업관리",
+        "authorRole": "TA",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-031",
+        "sequenceNo": 31,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 기술적용 계획표",
+        "managerRole": "사업관리",
+        "authorRole": "TA",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": "사업관리 계획서 포함"
+    },
+    {
+        "id": "NIRS-PM-032",
+        "sequenceNo": 32,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 조직도",
+        "managerRole": "사업관리",
+        "authorRole": "사업/품질관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-033",
+        "sequenceNo": 33,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(사업수행계획서 별첨) 투입인력 프로필",
+        "managerRole": "사업관리",
+        "authorRole": "사업/품질관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-034",
+        "sequenceNo": 34,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "착수계",
+        "artifactName": "(투입인력) 증빙자료",
+        "managerRole": "사업관리",
+        "authorRole": "사업/품질관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": "이력서, KOSA경력증명서, 재직증명서, 4대보험가입증명서"
+    },
+    {
+        "id": "NIRS-PM-035",
+        "sequenceNo": 35,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "하도급",
+        "artifactName": "(공문) 소프트웨어사업 하도급 계약 승인 신청의 건",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": true,
+        "requiresClientApproval": true,
+        "requiresSeal": true,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": "(공문) 승인 회신"
+    },
+    {
+        "id": "NIRS-PM-036",
+        "sequenceNo": 36,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "하도급",
+        "artifactName": "(공문 붙임) 소프트웨어사업 하도급 계약 승인서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": "착수계 승인 이후"
+    },
+    {
+        "id": "NIRS-PM-037",
+        "sequenceNo": 37,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "하도급",
+        "artifactName": "(하도급 신청 붙임) 하도급계약서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-038",
+        "sequenceNo": 38,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "하도급",
+        "artifactName": "(하도급 신청 붙임) 하도급사업수행계획서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": "산출내역서 포함"
+    },
+    {
+        "id": "NIRS-PM-039",
+        "sequenceNo": 39,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "하도급",
+        "artifactName": "(하도급 신청 붙임) 하도급적정성 판단 자기평가표",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-040",
+        "sequenceNo": 40,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "하도급",
+        "artifactName": "(하도급 신청 붙임) 소프트웨어사업 하도급 계획서(계약체결 시)",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-041",
+        "sequenceNo": 41,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "하도급",
+        "artifactName": "(하도급 신청 붙임) 기타증빙서류",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": "최근3년간 유사사업실적, 경쟁입찰참가자격등록증"
+    },
+    {
+        "id": "NIRS-PM-042",
+        "sequenceNo": 42,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "선금",
+        "artifactName": "(공문) 선금 신청의 건",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": true,
+        "requiresClientApproval": true,
+        "requiresSeal": true,
+        "submissionTiming": "협의",
+        "description": "하도급 승인 이후, (공문) 승인 회신"
+    },
+    {
+        "id": "NIRS-PM-043",
+        "sequenceNo": 43,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "선금",
+        "artifactName": "(공문 붙임) 선금 신청서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "협의",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-044",
+        "sequenceNo": 44,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "선금",
+        "artifactName": "(선금 붙임) 선금급이행보증보험증권",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "협의",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-045",
+        "sequenceNo": 45,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "선금",
+        "artifactName": "(선금 붙임) 전자세금계산서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "협의",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-046",
+        "sequenceNo": 46,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "선금",
+        "artifactName": "(선금 붙임) 통장사본",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "협의",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-047",
+        "sequenceNo": 47,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "선금",
+        "artifactName": "(선금 붙임) 국세 및 지방세 완납 증명서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "협의",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-048",
+        "sequenceNo": 48,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "선금",
+        "artifactName": "(선금 붙임) 4대 보험 완납 증명서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "협의",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-049",
+        "sequenceNo": 49,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "선금",
+        "artifactName": "(선금 붙임) 사업자 등록증",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "협의",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-050",
+        "sequenceNo": 50,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "하도급",
+        "artifactName": "(공문) 소프트웨어사업 하도급계약 준수 실태 보고(선금)의 건",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": true,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "선금 지급 이후 5일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-051",
+        "sequenceNo": 51,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "하도급",
+        "artifactName": "(공문 붙임) 소프트웨어사업 하도급계약 준수 실태 보고서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "선금 지급 이후 5일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-052",
+        "sequenceNo": 52,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "하도급",
+        "artifactName": "(별첨) 하도급계약서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "선금 지급 이후 5일 이내",
+        "description": "비밀유지계약서 포함"
+    },
+    {
+        "id": "NIRS-PM-053",
+        "sequenceNo": 53,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "하도급",
+        "artifactName": "(별첨) 하도급 계약 준수사항 이행 증빙서류",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "선금 지급 이후 5일 이내",
+        "description": "예금거래내역서, 입출거래내역서,"
+    },
+    {
+        "id": "NIRS-PM-054",
+        "sequenceNo": 54,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "선금",
+        "artifactName": "(공문) 선금 사용내역서 제출의 건",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "선금 지급 이후 15일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-055",
+        "sequenceNo": 55,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "선금",
+        "artifactName": "(별첨) 선금 사용내역서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "선금 지급 이후 15일 이내",
+        "description": "제출 서류 협의"
+    },
+    {
+        "id": "NIRS-PM-056",
+        "sequenceNo": 56,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "계획",
+        "subStage": "선금",
+        "artifactName": "(별첨) 세금계산서·계좌이체증",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "선금 지급 이후 15일 이내",
+        "description": "제출 서류 협의"
+    },
+    {
+        "id": "NIRS-PM-057",
+        "sequenceNo": 57,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "선금",
+        "artifactName": "(별첨) 급여지급 증빙(인건비인 경우)",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "선금 지급 이후 15일 이내",
+        "description": "제출 서류 협의"
+    },
+    {
+        "id": "NIRS-PM-058",
+        "sequenceNo": 58,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "선금",
+        "artifactName": "(별첨) 거래명세서·지출증빙",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "선금 지급 이후 15일 이내",
+        "description": "제출 서류 협의"
+    },
+    {
+        "id": "NIRS-PM-059",
+        "sequenceNo": 59,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "선금",
+        "artifactName": "(별첨) 선금 정산서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "선금 지급 이후 15일 이내",
+        "description": "제출 서류 협의"
+    },
+    {
+        "id": "NIRS-PM-060",
+        "sequenceNo": 60,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "프로젝트 표준수립",
+        "artifactName": "산출물 테일러링 결과서",
+        "managerRole": "사업관리",
+        "authorRole": "전체",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 15일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-061",
+        "sequenceNo": 61,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "프로젝트 표준수립",
+        "artifactName": "산출물 문서 표준지침",
+        "managerRole": "품질관리",
+        "authorRole": "품질관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 15일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-062",
+        "sequenceNo": 62,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "프로젝트 표준수립",
+        "artifactName": "산출물 목록표",
+        "managerRole": "품질관리",
+        "authorRole": "품질관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 15일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-063",
+        "sequenceNo": 63,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "요구사항정의",
+        "artifactName": "요구사항정의서",
+        "managerRole": "품질관리",
+        "authorRole": "품질관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 1개월 이내",
+        "description": "요구정의 단계, 감독공무원 승인"
+    },
+    {
+        "id": "NIRS-PM-064",
+        "sequenceNo": 64,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "요구사항정의",
+        "artifactName": "과업대비표",
+        "managerRole": "품질관리",
+        "authorRole": "품질관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 1개월 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-065",
+        "sequenceNo": 65,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "계획수립",
+        "artifactName": "범위관리 계획서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 1개월 이내",
+        "description": "감독공무원 승인"
+    },
+    {
+        "id": "NIRS-PM-066",
+        "sequenceNo": 66,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "계획수립",
+        "artifactName": "변경관리 계획서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 1개월 이내",
+        "description": "감독공무원 승인"
+    },
+    {
+        "id": "NIRS-PM-067",
+        "sequenceNo": 67,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "계획수립",
+        "artifactName": "일정관리 계획서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 1개월 이내",
+        "description": "감독공무원 승인"
+    },
+    {
+        "id": "NIRS-PM-068",
+        "sequenceNo": 68,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "계획수립",
+        "artifactName": "인력관리 계획서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 1개월 이내",
+        "description": "감독공무원 승인"
+    },
+    {
+        "id": "NIRS-PM-069",
+        "sequenceNo": 69,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "계획수립",
+        "artifactName": "품질관리 계획서",
+        "managerRole": "품질관리",
+        "authorRole": "품질관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 1개월 이내",
+        "description": "감독공무원 승인"
+    },
+    {
+        "id": "NIRS-PM-070",
+        "sequenceNo": 70,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "계획수립",
+        "artifactName": "의사소통관리 계획서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 1개월 이내",
+        "description": "감독공무원 승인"
+    },
+    {
+        "id": "NIRS-PM-071",
+        "sequenceNo": 71,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "계획수립",
+        "artifactName": "위험이슈관리 계획서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 1개월 이내",
+        "description": "감독공무원 승인"
+    },
+    {
+        "id": "NIRS-PM-072",
+        "sequenceNo": 72,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "계획수립",
+        "artifactName": "보안관리 계획서",
+        "managerRole": "보안관리",
+        "authorRole": "보안관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 1개월 이내",
+        "description": "감독공무원 승인"
+    },
+    {
+        "id": "NIRS-PM-073",
+        "sequenceNo": 73,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "계획수립",
+        "artifactName": "안전보건관리 계획서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 1개월 이내",
+        "description": "감독공무원 승인"
+    },
+    {
+        "id": "NIRS-PM-074",
+        "sequenceNo": 74,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "계획수립",
+        "artifactName": "산출물관리 계획서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 1개월 이내",
+        "description": "감독공무원 승인"
+    },
+    {
+        "id": "NIRS-PM-075",
+        "sequenceNo": 75,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "계획수립",
+        "artifactName": "교육 계획서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 1개월 이내",
+        "description": "감독공무원 승인"
+    },
+    {
+        "id": "NIRS-PM-076",
+        "sequenceNo": 76,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "상호협약",
+        "artifactName": "상호협약서",
+        "managerRole": "사업관리",
+        "authorRole": "PM",
+        "requiresSubmission": false,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 1개월 이내",
+        "description": "국정자원 사업관리 주관(SW 3자단가 사업자)"
+    },
+    {
+        "id": "NIRS-PM-077",
+        "sequenceNo": 77,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "범위관리",
+        "artifactName": "요구사항정의서(검사기준서)",
+        "managerRole": "품질관리",
+        "authorRole": "품질관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "착수 후 2개월 이내",
+        "description": "설계단계"
+    },
+    {
+        "id": "NIRS-PM-078",
+        "sequenceNo": 78,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "범위관리",
+        "artifactName": "요구사항 추적표",
+        "managerRole": "품질관리",
+        "authorRole": "품질관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "상시",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-079",
+        "sequenceNo": 79,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "변경관리",
+        "artifactName": "변경요청서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": true,
+        "requiresClientApproval": true,
+        "requiresSeal": true,
+        "submissionTiming": "발생시",
+        "description": "(공문) 발송 및 승인 회신"
+    },
+    {
+        "id": "NIRS-PM-080",
+        "sequenceNo": 80,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "변경관리",
+        "artifactName": "변경관리 내역서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "상시",
+        "description": "요구정의, 설계, 구현, 종료 단계(사업수행 전체 단계)"
+    },
+    {
+        "id": "NIRS-PM-081",
+        "sequenceNo": 81,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "일정관리",
+        "artifactName": "WBS",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "매주",
+        "description": "주/월간 보고서 진척율 보고"
+    },
+    {
+        "id": "NIRS-PM-082",
+        "sequenceNo": 82,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "품질관리",
+        "artifactName": "품질관리 결과서",
+        "managerRole": "품질관리",
+        "authorRole": "품질관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": true,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "설계/종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-083",
+        "sequenceNo": 83,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "의사소통관리",
+        "artifactName": "작수보고",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "착수단계(협의)",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-084",
+        "sequenceNo": 84,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "의사소통관리",
+        "artifactName": "주간업무보고서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "매주",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-085",
+        "sequenceNo": 85,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "의사소통관리",
+        "artifactName": "월간업무보고서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "매월",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-086",
+        "sequenceNo": 86,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "의사소통관리",
+        "artifactName": "중간보고",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "구축단계(협의)",
+        "description": "수요기관 감독공무원 협의"
+    },
+    {
+        "id": "NIRS-PM-087",
+        "sequenceNo": 87,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "의사소통관리",
+        "artifactName": "회의록",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "발생시",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-088",
+        "sequenceNo": 88,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "위험이슈관리",
+        "artifactName": "위험이슈관리대장",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "수시",
+        "description": "주/월간 보고서 포함"
+    },
+    {
+        "id": "NIRS-PM-089",
+        "sequenceNo": 89,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "보안관리",
+        "artifactName": "보안관리월별 점검표",
+        "managerRole": "보안관리",
+        "authorRole": "보안관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "매월",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-090",
+        "sequenceNo": 90,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "보안관리",
+        "artifactName": "월간 보안교육결과서",
+        "managerRole": "보안관리",
+        "authorRole": "보안관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "매월",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-091",
+        "sequenceNo": 91,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "보안관리",
+        "artifactName": "자료관리대장",
+        "managerRole": "보안관리",
+        "authorRole": "보안관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "수시",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-092",
+        "sequenceNo": 92,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "보안관리",
+        "artifactName": "출입관리대장",
+        "managerRole": "보안관리",
+        "authorRole": "보안관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "수시",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-093",
+        "sequenceNo": 93,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "보안관리",
+        "artifactName": "정보시스템 관리대장",
+        "managerRole": "보안관리",
+        "authorRole": "보안관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "수시",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-094",
+        "sequenceNo": 94,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "보안관리",
+        "artifactName": "장비 반출입 대장",
+        "managerRole": "보안관리",
+        "authorRole": "보안관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "수시",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-095",
+        "sequenceNo": 95,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "보안관리",
+        "artifactName": "휴대용저장매체 관리대장",
+        "managerRole": "보안관리",
+        "authorRole": "보안관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "수시",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-096",
+        "sequenceNo": 96,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "안전보건관리",
+        "artifactName": "안전보건활동 결과서",
+        "managerRole": "사업관리",
+        "authorRole": "안전관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "매월",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-097",
+        "sequenceNo": 97,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "안전보건관리",
+        "artifactName": "[붙임1] 교육참석자명단",
+        "managerRole": "사업관리",
+        "authorRole": "안전관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "매월",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-098",
+        "sequenceNo": 98,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "안전보건관리",
+        "artifactName": "[붙임2] 위험성평가 정기(반기)점검표",
+        "managerRole": "사업관리",
+        "authorRole": "안전관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "매월",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-099",
+        "sequenceNo": 99,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "산출물관리",
+        "artifactName": "산출물 형상관리대장",
+        "managerRole": "품질관리",
+        "authorRole": "품질관리",
+        "requiresSubmission": false,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "매월",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-100",
+        "sequenceNo": 100,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "교육관리",
+        "artifactName": "교육 결과서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "안정화",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-101",
+        "sequenceNo": 101,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "교육관리",
+        "artifactName": "교육 훈련대장",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "안정화",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-102",
+        "sequenceNo": 102,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "감리",
+        "artifactName": "요구정의 감리 수행결과서",
+        "managerRole": "품질관리",
+        "authorRole": "품질관리",
+        "requiresSubmission": false,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "요구정의단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-103",
+        "sequenceNo": 103,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "감리",
+        "artifactName": "설계 감리 수행 결과서",
+        "managerRole": "품질관리",
+        "authorRole": "품질관리",
+        "requiresSubmission": false,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "설계단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-104",
+        "sequenceNo": 104,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "감리",
+        "artifactName": "종료 단계 감리 결과서",
+        "managerRole": "품질관리",
+        "authorRole": "품질관리",
+        "requiresSubmission": false,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-105",
+        "sequenceNo": 105,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "인수인계",
+        "artifactName": "인수인계 계획서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-106",
+        "sequenceNo": 106,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "인수인계",
+        "artifactName": "업무자료 인계인수대장(사업완료)",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-107",
+        "sequenceNo": 107,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "인수인계",
+        "artifactName": "인수인계 결과서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "안정화",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-108",
+        "sequenceNo": 108,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "하자보수계획 수립",
+        "artifactName": "하자보수계획서",
+        "managerRole": "사업관리",
+        "authorRole": "전체",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-109",
+        "sequenceNo": 109,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "참여인력 보안조치",
+        "artifactName": "대표명의의 보안확약서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-110",
+        "sequenceNo": 110,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "참여인력 보안조치",
+        "artifactName": "보안확약서(참여자)",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-111",
+        "sequenceNo": 111,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "참여인력 보안조치",
+        "artifactName": "완전삭제확인서(사진 등)",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-112",
+        "sequenceNo": 112,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "검사 및 사업종료",
+        "artifactName": "완료보고서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": true,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-113",
+        "sequenceNo": 113,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "검사 및 사업종료",
+        "artifactName": "검사계획(안)",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": false,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": "감독공무원 초안 작성 전달"
+    },
+    {
+        "id": "NIRS-PM-114",
+        "sequenceNo": 114,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "검사 및 사업종료",
+        "artifactName": "감독조서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": false,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": "감독공무원 초안 작성 전달"
+    },
+    {
+        "id": "NIRS-PM-115",
+        "sequenceNo": 115,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "검사 및 사업종료",
+        "artifactName": "검사조서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": false,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": "감독공무원 초안 작성 전달"
+    },
+    {
+        "id": "NIRS-PM-116",
+        "sequenceNo": 116,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "검사 및 사업종료",
+        "artifactName": "(공문) 검수요청서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-117",
+        "sequenceNo": 117,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "검사 및 사업종료",
+        "artifactName": "검수요청서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-118",
+        "sequenceNo": 118,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "검사 및 사업종료",
+        "artifactName": "준공검사확인서(공문 접수)",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": false,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": "수요기관 공문 접수(회신)"
+    },
+    {
+        "id": "NIRS-PM-119",
+        "sequenceNo": 119,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "수행 및 통제",
+        "subStage": "잔금",
+        "artifactName": "(공문) 잔금 신청의 건",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": true,
+        "requiresClientApproval": true,
+        "requiresSeal": true,
+        "submissionTiming": "협의",
+        "description": "하도급 승인 이후, (공문) 승인 회신"
+    },
+    {
+        "id": "NIRS-PM-120",
+        "sequenceNo": 120,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "안정화",
+        "subStage": "잔금",
+        "artifactName": "(공문 붙임) 잔금 신청서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "협의",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-121",
+        "sequenceNo": 121,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "안정화",
+        "subStage": "잔금",
+        "artifactName": "(잔금 붙임) 잔금급이행보증보험증권",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "협의",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-122",
+        "sequenceNo": 122,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "안정화",
+        "subStage": "잔금",
+        "artifactName": "(잔금 붙임) 전자세금계산서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "협의",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-123",
+        "sequenceNo": 123,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "종료",
+        "subStage": "잔금",
+        "artifactName": "(잔금 붙임) 통장사본",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "협의",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-124",
+        "sequenceNo": 124,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "종료",
+        "subStage": "잔금",
+        "artifactName": "(잔금 붙임) 국세 및 지방세 완납 증명서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "협의",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-125",
+        "sequenceNo": 125,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "종료",
+        "subStage": "잔금",
+        "artifactName": "(잔금 붙임) 4대 보험 완납 증명서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "협의",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-126",
+        "sequenceNo": 126,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "종료",
+        "subStage": "잔금",
+        "artifactName": "(잔금 붙임) 사업자 등록증",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "협의",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-127",
+        "sequenceNo": 127,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "종료",
+        "subStage": "하도급",
+        "artifactName": "(공문) 소프트웨어사업 하도급계약 준수 실태 보고(잔금)의 건",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": true,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "선금 지급 이후 5일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-128",
+        "sequenceNo": 128,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "종료",
+        "subStage": "하도급",
+        "artifactName": "(공문 붙임) 소프트웨어사업 하도급계약 준수 실태 보고서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "선금 지급 이후 5일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-129",
+        "sequenceNo": 129,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "종료",
+        "subStage": "하도급",
+        "artifactName": "(별첨) 하도급계약서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "선금 지급 이후 5일 이내",
+        "description": "비밀유지계약서 포함"
+    },
+    {
+        "id": "NIRS-PM-130",
+        "sequenceNo": 130,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "종료",
+        "subStage": "하도급",
+        "artifactName": "(별첨) 하도급 계약 준수사항 이행 증빙서류",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "선금 지급 이후 5일 이내",
+        "description": "예금거래내역서, 입출거래내역서,"
+    },
+    {
+        "id": "NIRS-PM-131",
+        "sequenceNo": 131,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "종료",
+        "subStage": "잔금",
+        "artifactName": "(공문) 잔금 사용내역서 제출의 건",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "선금 지급 이후 15일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-PM-132",
+        "sequenceNo": 132,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "종료",
+        "subStage": "잔금",
+        "artifactName": "(별첨) 잔금 사용내역서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "선금 지급 이후 15일 이내",
+        "description": "제출 서류 협의"
+    },
+    {
+        "id": "NIRS-PM-133",
+        "sequenceNo": 133,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "종료",
+        "subStage": "잔금",
+        "artifactName": "(별첨) 세금계산서·계좌이체증",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "선금 지급 이후 15일 이내",
+        "description": "제출 서류 협의"
+    },
+    {
+        "id": "NIRS-PM-134",
+        "sequenceNo": 134,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "종료",
+        "subStage": "잔금",
+        "artifactName": "(별첨) 급여지급 증빙(인건비인 경우)",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "선금 지급 이후 15일 이내",
+        "description": "제출 서류 협의"
+    },
+    {
+        "id": "NIRS-PM-135",
+        "sequenceNo": 135,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "종료",
+        "subStage": "잔금",
+        "artifactName": "(별첨) 거래명세서·지출증빙",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "선금 지급 이후 15일 이내",
+        "description": "제출 서류 협의"
+    },
+    {
+        "id": "NIRS-PM-136",
+        "sequenceNo": 136,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "사업관리",
+        "stage": "종료",
+        "subStage": "잔금",
+        "artifactName": "(별첨) 잔금 정산서",
+        "managerRole": "사업관리",
+        "authorRole": "사업관리",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "선금 지급 이후 15일 이내",
+        "description": "제출 서류 협의"
+    },
+    {
+        "id": "NIRS-INFRA-001",
+        "sequenceNo": 1,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "착수",
+        "subStage": "정보자원 기술검증",
+        "artifactName": "기술기준검증계획서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-002",
+        "sequenceNo": 2,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "착수",
+        "subStage": "정보자원 기술검증",
+        "artifactName": "기술기준검증신청서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": true,
+        "requiresClientApproval": false,
+        "requiresSeal": true,
+        "submissionTiming": "계약 후",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-003",
+        "sequenceNo": 3,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "착수",
+        "subStage": "정보자원 기술검증",
+        "artifactName": "기술기준검증결과서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "검증결과 수신 후",
+        "description": "공문회신"
+    },
+    {
+        "id": "NIRS-INFRA-004",
+        "sequenceNo": 4,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "착수",
+        "subStage": "정보자원 납품",
+        "artifactName": "도입자원 비교표",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-005",
+        "sequenceNo": 5,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "착수",
+        "subStage": "정보자원 납품",
+        "artifactName": "제품별 증설단가표",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 10일 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-006",
+        "sequenceNo": 6,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "착수",
+        "subStage": "요구사항 정의",
+        "artifactName": "요구사항 정의서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "계약 후 1개월 이내",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-007",
+        "sequenceNo": 7,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "착수",
+        "subStage": "설치계획",
+        "artifactName": "정보수집서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "설계단계, 변경 시",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-008",
+        "sequenceNo": 8,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "착수",
+        "subStage": "설치계획",
+        "artifactName": "정보자원제원조사서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "설계단계, 변경 시",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-009",
+        "sequenceNo": 9,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "착수",
+        "subStage": "프로젝트 지원",
+        "artifactName": "자산/구성(nTOPS정보입력 자료)",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "설계단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-010",
+        "sequenceNo": 10,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "착수",
+        "subStage": "정보자원 설치",
+        "artifactName": "설치계획서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "설계단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-011",
+        "sequenceNo": 11,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "설계",
+        "subStage": "정보자원 납품",
+        "artifactName": "설치시험계획서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "설계단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-012",
+        "sequenceNo": 12,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "설계",
+        "subStage": "정보자원 납품",
+        "artifactName": "납품계획서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "설계단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-013",
+        "sequenceNo": 13,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "설계",
+        "subStage": "정보자원 납품",
+        "artifactName": "인증필 정보보호제품 납품확인서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "구축단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-014",
+        "sequenceNo": 14,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "설계",
+        "subStage": "정보자원 설치",
+        "artifactName": "작업계획서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-015",
+        "sequenceNo": 15,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "설계",
+        "subStage": "정보자원 설치",
+        "artifactName": "작업결과서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-016",
+        "sequenceNo": 16,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "설계",
+        "subStage": "설치",
+        "artifactName": "설치결과서(USB브로커 설치 포함)",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "구축단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-017",
+        "sequenceNo": 17,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "설계",
+        "subStage": "정보자원 납품",
+        "artifactName": "납품결과서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "구축단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-018",
+        "sequenceNo": 18,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "설계",
+        "subStage": "클라우드",
+        "artifactName": "클라우드 아키텍처설계서",
+        "managerRole": "PL",
+        "authorRole": "클라우드팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "설계단계",
+        "description": "클라우드 인프라 풀 보강"
+    },
+    {
+        "id": "NIRS-INFRA-019",
+        "sequenceNo": 19,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "설계",
+        "subStage": "클라우드",
+        "artifactName": "구축계획서",
+        "managerRole": "PL",
+        "authorRole": "클라우드팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "설계단계",
+        "description": "클라우드 인프라 풀 보강"
+    },
+    {
+        "id": "NIRS-INFRA-020",
+        "sequenceNo": 20,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "설계",
+        "subStage": "클라우드",
+        "artifactName": "구축결과서",
+        "managerRole": "PL",
+        "authorRole": "클라우드팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": "클라우드 인프라 풀 보강"
+    },
+    {
+        "id": "NIRS-INFRA-021",
+        "sequenceNo": 21,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "설계",
+        "subStage": "클라우드",
+        "artifactName": "클라우드 아키텍처결과서",
+        "managerRole": "PL",
+        "authorRole": "클라우드팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": "클라우드 인프라 풀 보강"
+    },
+    {
+        "id": "NIRS-INFRA-022",
+        "sequenceNo": 22,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "설계",
+        "subStage": "클라우드",
+        "artifactName": "부하‧성능 테스트 계획서",
+        "managerRole": "PL",
+        "authorRole": "클라우드팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "구축단계",
+        "description": "클라우드 인프라 풀 보강"
+    },
+    {
+        "id": "NIRS-INFRA-023",
+        "sequenceNo": 23,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "설계",
+        "subStage": "클라우드",
+        "artifactName": "부하‧성능 테스트 결과서",
+        "managerRole": "PL",
+        "authorRole": "클라우드팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": "클라우드 인프라 풀 보강"
+    },
+    {
+        "id": "NIRS-INFRA-024",
+        "sequenceNo": 24,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "구축",
+        "subStage": "정보자원 납품",
+        "artifactName": "설치시험결과서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-025",
+        "sequenceNo": 25,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "구축",
+        "subStage": "정보자원 납품",
+        "artifactName": "운영매뉴얼",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-026",
+        "sequenceNo": 26,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "구축",
+        "subStage": "제조사 기술지원",
+        "artifactName": "기술지원확약서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "착수계 제출 시",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-027",
+        "sequenceNo": 27,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "구축",
+        "subStage": "증서",
+        "artifactName": "SW인증서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-028",
+        "sequenceNo": 28,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "구축",
+        "subStage": "라이선스 증서 등 납품",
+        "artifactName": "라이선스 증서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-029",
+        "sequenceNo": 29,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "종료",
+        "subStage": "라이선스 증서 등 납품",
+        "artifactName": "사용설명서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-030",
+        "sequenceNo": 30,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "종료",
+        "subStage": "라이선스 증서 등 납품",
+        "artifactName": "악의적인 백도어 미설치 확인서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-031",
+        "sequenceNo": 31,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "종료",
+        "subStage": "라이선스 증서 등 납품",
+        "artifactName": "국제사회 제재대상 제품 교체 확약서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-INFRA-032",
+        "sequenceNo": 32,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "통합구축",
+        "stage": "종료",
+        "subStage": "라이선스 증서 등 납품",
+        "artifactName": "보안기능확인서",
+        "managerRole": "PL",
+        "authorRole": "통합구축팀",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "종료단계",
+        "description": "정보보호 제품"
+    },
+    {
+        "id": "NIRS-APP-001",
+        "sequenceNo": 1,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "업무전환",
+        "stage": "착수",
+        "subStage": "현황분석",
+        "artifactName": "인터뷰계획서",
+        "managerRole": "PL",
+        "authorRole": "업무담당자",
+        "requiresSubmission": false,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "착수",
+        "description": ""
+    },
+    {
+        "id": "NIRS-APP-002",
+        "sequenceNo": 2,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "업무전환",
+        "stage": "착수",
+        "subStage": "현황분석",
+        "artifactName": "인터뷰결과서",
+        "managerRole": "PL",
+        "authorRole": "업무담당자",
+        "requiresSubmission": false,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": false,
+        "requiresSeal": false,
+        "submissionTiming": "착수",
+        "description": ""
+    },
+    {
+        "id": "NIRS-APP-003",
+        "sequenceNo": 3,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "업무전환",
+        "stage": "착수",
+        "subStage": "현황분석",
+        "artifactName": "자원할당확인요청서",
+        "managerRole": "PL",
+        "authorRole": "업무담당자",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "착수",
+        "description": ""
+    },
+    {
+        "id": "NIRS-APP-004",
+        "sequenceNo": 4,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "업무전환",
+        "stage": "착수",
+        "subStage": "현황분석",
+        "artifactName": "요구사항정의서",
+        "managerRole": "PL",
+        "authorRole": "업무담당자",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "착수",
+        "description": ""
+    },
+    {
+        "id": "NIRS-APP-005",
+        "sequenceNo": 5,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "업무전환",
+        "stage": "설계",
+        "subStage": "현황분석",
+        "artifactName": "현황분석서",
+        "managerRole": "PL",
+        "authorRole": "업무담당자",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "설계",
+        "description": ""
+    },
+    {
+        "id": "NIRS-APP-006",
+        "sequenceNo": 6,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "업무전환",
+        "stage": "설계",
+        "subStage": "설계",
+        "artifactName": "구축계획서",
+        "managerRole": "PL",
+        "authorRole": "업무담당자",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "설계/",
+        "description": ""
+    },
+    {
+        "id": "NIRS-APP-007",
+        "sequenceNo": 7,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "업무전환",
+        "stage": "구축",
+        "subStage": "구축",
+        "artifactName": "통합테스트계획서",
+        "managerRole": "PL",
+        "authorRole": "업무담당자",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "구축",
+        "description": ""
+    },
+    {
+        "id": "NIRS-APP-008",
+        "sequenceNo": 8,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "업무전환",
+        "stage": "구축",
+        "subStage": "구축",
+        "artifactName": "보안취약점 계획서",
+        "managerRole": "PL",
+        "authorRole": "업무담당자",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "구축",
+        "description": ""
+    },
+    {
+        "id": "NIRS-APP-009",
+        "sequenceNo": 9,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "업무전환",
+        "stage": "구축",
+        "subStage": "구축",
+        "artifactName": "보안취약점 결과서",
+        "managerRole": "",
+        "authorRole": "업무담당자",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "구축",
+        "description": ""
+    },
+    {
+        "id": "NIRS-APP-010",
+        "sequenceNo": 10,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "업무전환",
+        "stage": "구축",
+        "subStage": "구축",
+        "artifactName": "구축결과서",
+        "managerRole": "PL",
+        "authorRole": "업무담당자",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "구축",
+        "description": ""
+    },
+    {
+        "id": "NIRS-APP-011",
+        "sequenceNo": 11,
+        "organizationCode": "NIRS",
+        "organizationName": "국가정보자원관리원",
+        "businessTypeCode": "RESOURCE_INTEGRATION",
+        "businessTypeName": "자원통합사업",
+        "category": "업무전환",
+        "stage": "종료",
+        "subStage": "종료",
+        "artifactName": "운영매뉴얼",
+        "managerRole": "PL",
+        "authorRole": "업무담당자",
+        "requiresSubmission": true,
+        "requiresOfficialLetter": false,
+        "requiresClientApproval": true,
+        "requiresSeal": false,
+        "submissionTiming": "종료",
+        "description": ""
+    }
+];
+    }
+
+    getFilteredNirsTemplates(category = 'all', stage = 'all', searchQuery = '') {
+        let list = this.state.nirsStandardTemplates || this.getDefaultNirsTemplates();
+        if (category && category !== 'all') {
+            list = list.filter(t => t.category === category);
+        }
+        if (stage && stage !== 'all') {
+            list = list.filter(t => t.stage === stage);
+        }
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            list = list.filter(t =>
+                (t.artifactName && t.artifactName.toLowerCase().includes(q)) ||
+                (t.subStage && t.subStage.toLowerCase().includes(q)) ||
+                (t.authorRole && t.authorRole.toLowerCase().includes(q)) ||
+                (t.description && t.description.toLowerCase().includes(q))
+            );
+        }
+        return list;
+    }
+
+
+
+    async downloadNirsTemplateFile(templateId) {
+        if (this.isDownloadingNirsFile) return;
+
+        const files = this.state.nirsTemplateFiles || [];
+        const fileRec = files.find(f => f.templateId === templateId);
+
+        if (!fileRec) {
+            this.showToast('등록된 표준 양식 파일이 없습니다.', 'warning');
+            return;
         }
 
-        // ── 1단계: 프로젝트 분류 트리 동적 렌더링 ───────────────────
-        const projectTypes = this.state.projectTypes || this.getDefaultProjectTypes();
-        const treeContainer = document.getElementById('artifact-category-tree');
-        if (treeContainer) {
-            treeContainer.innerHTML = '';
-            
-            projectTypes.forEach(pt => {
-                // 사업유형 노드 생성
-                const typeNode = document.createElement('div');
-                typeNode.className = 'tree-node-type';
-                
-                const labelDiv = document.createElement('div');
-                labelDiv.className = 'tree-node-type-label';
-                labelDiv.innerHTML = `<i data-lucide="${pt.icon}" style="width:15px; height:15px; color: var(--text-muted);"></i> ${pt.label}`;
-                typeNode.appendChild(labelDiv);
-                
-                // 하위 단계 리스트 컨테이너
-                const stagesContainer = document.createElement('div');
-                stagesContainer.className = 'tree-node-stages';
-                
-                const stagesDef = [
-                    { key: 'initiation', label: '착수단계 템플릿', icon: 'file-text' },
-                    { key: 'execution', label: '수행단계 템플릿', icon: 'play-circle' },
-                    { key: 'closing', label: '종료단계 템플릿', icon: 'check-circle2' }
-                ].map(s => {
-                    const count = this.getFilteredTemplates(pt.key, s.key).length;
-                    return { ...s, displayCount: count };
-                });
-                
-                stagesDef.forEach(s => {
-                    const stageItem = document.createElement('div');
-                    const isActive = (pt.key === type && s.key === stage);
-                    stageItem.className = `tree-node-stage-item${isActive ? ' active' : ''}`;
-                    stageItem.innerHTML = `<i data-lucide="${s.icon}" style="width:13px; height:13px;"></i> ${s.label} (${s.displayCount})`;
-                    stageItem.onclick = () => {
-                        window.location.hash = `#artifacts/${pt.key}/${s.key}`;
-                    };
-                    stagesContainer.appendChild(stageItem);
-                });
-                
-                typeNode.appendChild(stagesContainer);
-                treeContainer.appendChild(typeNode);
-            });
+        if (!this.currentUser) {
+            this.showToast('로그인이 필요한 기능입니다.', 'error');
+            return;
         }
 
-        // ── 권한 체크 ────────────────────────────────────────────────
-        const hasTemplatePermission = this.checkTemplatePermission();
-        const btnAdd = document.getElementById('btn-add-global-template');
-        if (btnAdd) {
-            btnAdd.style.display = hasTemplatePermission ? 'block' : 'none';
-        }
+        try {
+            this.isDownloadingNirsFile = true;
+            this.showToast('보안 서명 다운로드 URL을 생성하는 중...', 'info');
 
-        // ── 현재 선택된 경로 표시 (우측 상단 path-info) ──────────────────
-        const typeInfo = projectTypes.find(pt => pt.key === type);
-        const typeLabelEl = document.getElementById('path-project-type');
-        if (typeLabelEl) {
-            typeLabelEl.textContent = typeInfo ? typeInfo.label : '운영사업';
-        }
-        
-        const stageLabelEl = document.getElementById('path-project-stage');
-        if (stageLabelEl) {
-            const stageLabelMap = { initiation: '착수단계 템플릿', execution: '수행단계 템플릿', closing: '종료단계 템플릿' };
-            stageLabelEl.textContent = stageLabelMap[stage] || '착수단계 템플릿';
-        }
+            if (this.useSupabase) {
+                const { data, error } = await this.supabase
+                    .storage
+                    .from(fileRec.storageBucket || 'nirs-standard-templates')
+                    .createSignedUrl(fileRec.storagePath, 60, {
+                        download: fileRec.originalFileName
+                    });
 
-        // ── 테이블 렌더링 ────────────────────────────────────────────
-        const tbody = document.getElementById('global-templates-tbody');
-        if (!tbody) return;
-
-        const templates = this.getFilteredTemplates(type, stage);
-
-        if (templates.length === 0) {
-            const typeLabel = typeInfo ? typeInfo.label : type;
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">[${typeLabel}] ${stage === 'initiation' ? '착수' : stage === 'execution' ? '수행' : '종료'}단계에 등록된 표준 템플릿 양식이 없습니다.</td></tr>`;
-        } else {
-            tbody.innerHTML = '';
-            templates.forEach(temp => {
-                const tr = document.createElement('tr');
-                tr.setAttribute('data-id', temp.id);
-
-                // 파일 확장자 동적 추출 및 대소문자 무관 Badge 매핑
-                const fileName = temp.fileName || '';
-                const dotIndex = fileName.lastIndexOf('.');
-                const ext = dotIndex !== -1 ? fileName.substring(dotIndex + 1).toLowerCase() : '';
-                
-                let extBadge = '';
-                if (ext) {
-                    const upperExt = ext.toUpperCase();
-                    if (upperExt === 'HWP' || upperExt === 'HWPX') {
-                        extBadge = `<span class="badge badge-info mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0;">${upperExt}</span>`;
-                    } else if (upperExt === 'DOC' || upperExt === 'DOCX') {
-                        extBadge = `<span class="badge badge-primary mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0;">${upperExt}</span>`;
-                    } else if (upperExt === 'XLS' || upperExt === 'XLSX') {
-                        extBadge = `<span class="badge badge-success mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0;">${upperExt}</span>`;
-                    } else if (upperExt === 'PPT' || upperExt === 'PPTX') {
-                        extBadge = `<span class="badge badge-warning mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0;">${upperExt}</span>`;
-                    } else if (upperExt === 'PDF') {
-                        extBadge = `<span class="badge badge-error mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0;">PDF</span>`;
-                    } else if (['ZIP', 'PNG', 'JPG', 'JPEG'].includes(upperExt)) {
-                        extBadge = `<span class="badge badge-ghost mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0; background:var(--bg-card-border); color:var(--text-muted);">${upperExt}</span>`;
-                    } else {
-                        extBadge = `<span class="badge badge-ghost mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0; background:var(--bg-card-border); color:var(--text-muted);">FILE</span>`;
-                    }
-                } else {
-                    extBadge = `<span class="badge badge-ghost mr-1" style="font-size:9px; padding:1px 4px; flex-shrink:0; background:var(--bg-card-border); color:var(--text-muted);">FILE</span>`;
+                if (error || !data?.signedUrl) {
+                    throw error || new Error('Signed URL 생성 실패');
                 }
 
-                const isPDF = ext === 'pdf';
-                const previewBtn = isPDF
-                    ? `
-                        <button type="button" class="btn btn-xs btn-outline-info" onclick="event.stopPropagation(); app.previewPDF('${temp.id}');" style="padding: 2px 6px; font-size: 10px; margin-left: 6px; display:inline-flex; align-items:center; gap:2px; flex-shrink:0;">
-                            <i data-lucide="eye" style="width:10px; height:10px;"></i> 미리보기
-                        </button>
-                    `
-                    : '';
+                // Increment download count in DB
+                await this.supabase
+                    .from('nirs_standard_template_files')
+                    .update({ download_count: (fileRec.downloadCount || 0) + 1 })
+                    .eq('id', fileRec.id);
 
-                const downloadHtml = `
-                    <div style="display:flex; flex-direction:column; gap:2px; justify-content:center; text-align:left; width: 100%; overflow:hidden;">
-                        <div style="display:flex; align-items:center; gap:6px; width:100%; overflow:hidden;">
-                            <a href="#" class="file-name-link font-bold text-xs text-ellipsis" style="max-width: calc(100% - 35px); cursor: pointer;" title="파일 다운로드" onclick="event.preventDefault(); event.stopPropagation(); app.downloadGlobalTemplate('${temp.id}'); return false;">
-                                ${temp.fileName}
-                            </a>
-                            <i data-lucide="download" class="text-primary" style="width:13px; height:13px; flex-shrink:0; cursor: pointer;" title="파일 다운로드" onclick="event.stopPropagation(); app.downloadGlobalTemplate('${temp.id}');"></i>
-                            ${previewBtn}
-                        </div>
-                        <span class="text-xs text-muted hide-mobile" style="font-size:10px; margin-left:0px;">${temp.fileSize}</span>
-                    </div>
-                `;
+                fileRec.downloadCount = (fileRec.downloadCount || 0) + 1;
 
-                const actionHtml = hasTemplatePermission
-                    ? `
-                        <div class="actions-flex" style="justify-content:center; gap:8px;">
-                            <button type="button" class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.openEditGlobalTemplateModal('${temp.id}')">
-                                <i data-lucide="edit" style="width:11px; height:11px; margin-right:2px;"></i> 수정
-                            </button>
-                            <button type="button" class="btn btn-xs btn-danger" onclick="event.stopPropagation(); app.deleteGlobalTemplate('${temp.id}')">
-                                <i data-lucide="trash-2" style="width:11px; height:11px; margin-right:2px;"></i> 삭제
-                            </button>
-                        </div>
-                    `
-                    : `
-                        <div style="text-align:center;">
-                            <button type="button" class="btn btn-xs btn-primary" onclick="event.stopPropagation(); app.downloadGlobalTemplate('${temp.id}')">
-                                <i data-lucide="download" style="width:11px; height:11px; margin-right:2px;"></i> 다운로드
-                            </button>
-                        </div>
-                    `;
+                // Trigger file download via browser
+                const a = document.createElement('a');
+                a.href = data.signedUrl;
+                a.download = fileRec.originalFileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
 
-                const isChecked = this.selectedTemplateIds.has(temp.id);
-                const categoryLabel = this.translateCategory(temp.category);
+                this.showToast(`[다운로드 완료] ${fileRec.originalFileName}`, 'success');
+            } else {
+                this.showToast(`[시연 모드] ${fileRec.originalFileName} 파일 다운로드가 요청되었습니다.`, 'info');
+            }
 
-                tr.innerHTML = `
-                    <td class="text-center">
-                        <input type="checkbox" class="template-row-checkbox" data-id="${temp.id}" ${isChecked ? 'checked' : ''} onchange="app.toggleTemplateSelection('${temp.id}', this.checked)">
-                    </td>
-                    <td class="font-bold text-sm text-left" style="color:var(--text-main); overflow:hidden; vertical-align: middle;">
-                        <div style="display:flex; flex-direction:column; gap:2px; width:100%; overflow:hidden;">
-                            <div style="display:flex; align-items:center; gap:2px; width:100%; overflow:hidden;">
-                                <i data-lucide="grip-vertical" class="drag-handle text-muted hide-mobile" title="드래그해서 순서 변경" style="cursor: grab; width: 14px; height: 14px; margin-right: 4px; flex-shrink: 0;"></i>
-                                ${extBadge}
-                                <span class="text-ellipsis" title="${temp.name}" style="max-width:calc(100% - 70px);">${temp.name}</span>
-                                <div class="mobile-order-buttons hide-desktop" style="display: none; align-items: center; gap: 4px; margin-left: auto;">
-                                    <button class="btn btn-xs btn-outline" onclick="app.moveTemplateOrder('${temp.id}', 'up'); event.stopPropagation();" title="위로 이동" style="padding: 2px 4px;">
-                                        <i data-lucide="chevron-up" style="width:12px; height:12px;"></i>
-                                    </button>
-                                    <button class="btn btn-xs btn-outline" onclick="app.moveTemplateOrder('${temp.id}', 'down'); event.stopPropagation();" title="아래로 이동" style="padding: 2px 4px;">
-                                        <i data-lucide="chevron-down" style="width:12px; height:12px;"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <span class="text-xs text-muted" style="font-size:10px; font-weight:normal; margin-left:2px;">
-                                수정자 ${temp.author || '미지정'} · 수정일 ${temp.modifiedDate} · 다운로드 ${temp.downloadCount || 0}회
-                            </span>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="badge-cat cat-${temp.category.toLowerCase().replace(' ', '')} text-ellipsis" style="max-width:100%; display:inline-block;" title="${categoryLabel}">${categoryLabel}</span>
-                    </td>
-                    <td class="text-center text-xs font-bold">${temp.version}</td>
-                    <td>${downloadHtml}</td>
-                    <td>${actionHtml}</td>
-                `;
-                tbody.appendChild(tr);
+            if (typeof this.renderNirsMasterCatalog === 'function') {
+                this.renderNirsMasterCatalog(this.activeNirsCategory || 'all', this.nirsSearchQuery || '');
+            }
+        } catch (e) {
+            console.error('[NIRS Download Error]', e);
+            this.showToast('파일 다운로드 중 오류가 발생했습니다: ' + (e.message || e), 'error');
+        } finally {
+            this.isDownloadingNirsFile = false;
+        }
+    }
+
+    async uploadNirsTemplateFile(templateId, fileInput) {
+        const userRole = this.currentUser?.role;
+        if (userRole !== 'SYS_ADMIN' && userRole !== 'EXEC_ADMIN') {
+            this.showToast('권한이 없습니다. SYS_ADMIN 또는 EXEC_ADMIN만 파일 등록/수정이 가능합니다.', 'error');
+            return;
+        }
+
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const maxBytes = 50 * 1024 * 1024; // 50MB
+        if (file.size > maxBytes) {
+            this.showToast('파일 크기는 최대 50MB까지 업로드 가능합니다.', 'warning');
+            return;
+        }
+
+        const allowedExts = ['hwp', 'hwpx', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'pdf', 'zip'];
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!allowedExts.includes(ext)) {
+            this.showToast(`허용되지 않은 파일 형식입니다. (허용: ${allowedExts.join(', ')})`, 'warning');
+            return;
+        }
+
+        try {
+            this.showToast('Storage에 파일 업로드 중...', 'info');
+            const timestamp = Date.now();
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const storagePath = `catalog/${templateId}/${timestamp}_${safeName}`;
+
+            const { data: storageData, error: storageErr } = await this.supabase
+                .storage
+                .from('nirs-standard-templates')
+                .upload(storagePath, file, { upsert: true });
+
+            if (storageErr) throw storageErr;
+
+            // Deactivate previous active file for this template
+            await this.supabase
+                .from('nirs_standard_template_files')
+                .update({ is_active: false })
+                .eq('template_id', templateId);
+
+            // Insert new metadata record
+            const { data: dbData, error: dbErr } = await this.supabase
+                .from('nirs_standard_template_files')
+                .insert({
+                    template_id: templateId,
+                    original_file_name: file.name,
+                    storage_bucket: 'nirs-standard-templates',
+                    storage_path: storagePath,
+                    mime_type: file.type || 'application/octet-stream',
+                    file_extension: ext,
+                    file_size: file.size,
+                    file_version: '1.0',
+                    is_primary: true,
+                    is_active: true,
+                    uploaded_by: this.currentUser.id
+                })
+                .select('*')
+                .single();
+
+            if (dbErr) throw dbErr;
+
+            if (!this.state.nirsTemplateFiles) this.state.nirsTemplateFiles = [];
+            this.state.nirsTemplateFiles = this.state.nirsTemplateFiles.filter(f => f.templateId !== templateId);
+            this.state.nirsTemplateFiles.push({
+                id: dbData.id,
+                templateId: templateId,
+                originalFileName: dbData.original_file_name,
+                storageBucket: dbData.storage_bucket,
+                storagePath: dbData.storage_path,
+                mimeType: dbData.mime_type,
+                fileExtension: dbData.file_extension,
+                fileSize: dbData.file_size,
+                fileVersion: dbData.file_version,
+                downloadCount: 0
             });
 
-            // 헤더 체크박스 상태 동기화 (현재 노출된 화면 기준)
-            const selectAllTh = document.getElementById('th-template-select-all');
-            if (selectAllTh) {
-                selectAllTh.checked = templates.length > 0 && templates.every(t => this.selectedTemplateIds.has(t.id));
+            this.showToast(`[등록 완료] ${file.name} 표준 파일이 업로드되었습니다.`, 'success');
+            if (typeof this.renderNirsMasterCatalog === 'function') {
+                this.renderNirsMasterCatalog(this.activeNirsCategory || 'all', this.nirsSearchQuery || '');
+            }
+        } catch (e) {
+            console.error('[NIRS Upload Error]', e);
+            this.showToast('파일 업로드 중 오류가 발생했습니다: ' + (e.message || e), 'error');
+        }
+    }
+
+    renderNirsMasterCatalog(categoryFilter = 'all', searchQuery = '') {
+        const tbody = document.getElementById('global-template-list-tbody');
+        if (!tbody) return;
+
+        const list = this.getFilteredNirsTemplates(categoryFilter, 'all', searchQuery);
+
+        let html = '';
+        if (list.length === 0) {
+            html = `<tr><td colspan="9" class="text-center" style="padding: 40px 0; color: var(--text-muted);">조회된 NIRS 표준 산출물 템플릿이 없습니다.</td></tr>`;
+        } else {
+            list.forEach((item, idx) => {
+                const subBadge = item.requiresSubmission ? '<span class="badge badge-primary" style="font-size:11px; padding:2px 6px;">제출</span>' : '<span style="color:var(--text-muted); font-size:11px;">-</span>';
+                const offBadge = item.requiresOfficialLetter ? '<span class="badge badge-warning" style="font-size:11px; padding:2px 6px;">공문</span>' : '<span style="color:var(--text-muted); font-size:11px;">-</span>';
+                const appBadge = item.requiresClientApproval ? '<span class="badge badge-success" style="font-size:11px; padding:2px 6px;">승인</span>' : '<span style="color:var(--text-muted); font-size:11px;">-</span>';
+                const sealBadge = item.requiresSeal ? '<span class="badge badge-danger" style="font-size:11px; padding:2px 6px;">인감</span>' : '<span style="color:var(--text-muted); font-size:11px;">-</span>';
+
+                const categoryBadge = item.category === '사업관리' ? '<span class="badge badge-info">사업관리</span>' :
+                                      item.category === '통합구축' ? '<span class="badge badge-purple">통합구축</span>' :
+                                      '<span class="badge badge-warning">업무전환</span>';
+
+                const files = this.state.nirsTemplateFiles || [];
+                const fileRec = files.find(f => f.templateId === item.id);
+                const isAdmin = this.currentUser?.role === 'SYS_ADMIN' || this.currentUser?.role === 'EXEC_ADMIN';
+
+                let fileStatusBadge = '';
+                let fileMetaHtml = '';
+                let downloadBtn = '';
+                let uploadBtn = '';
+
+                if (fileRec) {
+                    const kbSize = fileRec.fileSize ? (fileRec.fileSize / 1024).toFixed(1) + ' KB' : '';
+                    fileStatusBadge = '<span class="badge badge-success" style="font-size:11px;">등록 완료</span>';
+                    fileMetaHtml = `<div style="font-size:11px; color:var(--text-muted); margin-top:2px;">v${fileRec.fileVersion || '1.0'} | ${kbSize} | 다운로드 ${fileRec.downloadCount || 0}회</div>`;
+                    downloadBtn = `
+                        <button class="btn btn-sm btn-primary" onclick="app.downloadNirsTemplateFile('${item.id}')" title="${fileRec.originalFileName} 다운로드">
+                            <i data-lucide="download" style="width:13px; height:13px; margin-right:4px;"></i> 다운로드
+                        </button>
+                    `;
+                } else {
+                    fileStatusBadge = '<span class="badge badge-secondary" style="font-size:11px;">미등록</span>';
+                    downloadBtn = `
+                        <button class="btn btn-sm btn-ghost" disabled title="등록된 표준 양식 파일이 없습니다.">
+                            <i data-lucide="download" style="width:13px; height:13px; margin-right:4px; opacity:0.5;"></i> 다운로드
+                        </button>
+                    `;
+                }
+
+                if (isAdmin) {
+                    uploadBtn = `
+                        <label class="btn btn-sm btn-outline" style="margin-left:4px; cursor:pointer;" title="파일 등록 / 교체">
+                            <i data-lucide="upload" style="width:13px; height:13px;"></i>
+                            <input type="file" style="display:none;" onchange="app.uploadNirsTemplateFile('${item.id}', this)" />
+                        </label>
+                    `;
+                }
+
+                html += `
+                    <tr>
+                        <td style="text-align: center; color: var(--text-muted);">${item.sequenceNo}</td>
+                        <td style="text-align: center;">${categoryBadge}</td>
+                        <td style="text-align: center; font-weight: 500;">${item.stage}</td>
+                        <td style="text-align: center; color: var(--text-muted);">${item.subStage}</td>
+                        <td>
+                            <strong style="color: var(--text-primary); font-size: 13.5px;">${item.artifactName}</strong>
+                            ${fileStatusBadge}
+                            ${fileMetaHtml}
+                            ${item.description ? `<div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">${item.description}</div>` : ''}
+                        </td>
+                        <td style="text-align: center; font-size: 12px; color: var(--text-muted);">${item.authorRole || item.managerRole || '-'}</td>
+                        <td style="text-align: center;">
+                            <div style="display:flex; gap:3px; justify-content:center;">
+                                ${subBadge} ${offBadge} ${appBadge} ${sealBadge}
+                            </div>
+                        </td>
+                        <td style="text-align: center; font-size: 12px; color: var(--text-muted);">${item.submissionTiming || '-'}</td>
+                        <td style="text-align: center;">
+                            <div style="display:flex; justify-content:center; align-items:center;">
+                                ${downloadBtn}
+                                ${uploadBtn}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+        tbody.innerHTML = html;
+        if (window.lucide) lucide.createIcons();
+    }
+
+
+
+    toggleNirsMoreFilters() {
+        const row = document.getElementById('nirs-more-filters-row');
+        const btn = document.getElementById('btn-nirs-more-filters');
+        if (!row) return;
+        const isHidden = row.style.display === 'none';
+        row.style.display = isHidden ? 'flex' : 'none';
+        if (btn) {
+            btn.innerHTML = isHidden ? '<i data-lucide="filter" style="width:13px; height:13px;"></i> 더보기 ▲' : '<i data-lucide="filter" style="width:13px; height:13px;"></i> 더보기 ▼';
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+
+
+
+    getStandardTemplates({ organizationCode = 'NIRS', businessTypeCode = 'RESOURCE_INTEGRATION', categoryCode, stageCode } = {}) {
+        const fullDataset = this.state.nirsStandardTemplates || this.getDefaultNirsTemplates();
+        return fullDataset.filter(item => {
+            if (organizationCode && item.organizationCode && item.organizationCode !== organizationCode) return false;
+            if (businessTypeCode && item.businessTypeCode && item.businessTypeCode !== businessTypeCode) return false;
+            if (categoryCode && item.category !== categoryCode && item.categoryCode !== categoryCode) return false;
+            if (stageCode && item.stage !== stageCode && item.stageCode !== stageCode) return false;
+            return true;
+        });
+    }
+
+    handleBizTypeChange(bizCode) {
+        this.activeBizTypeCode = bizCode || 'all';
+        this.activeNirsCategory = 'all';
+        this.activeNirsStage = 'all';
+        this.nirsCurrentPage = 1;
+
+        const catSelect = document.getElementById('filter-nirs-category');
+        const stageSelect = document.getElementById('filter-nirs-stage');
+        if (catSelect) catSelect.value = 'all';
+        if (stageSelect) stageSelect.value = 'all';
+
+        this.renderArtifacts();
+    }
+
+
+
+
+
+        resetStandardArtifactView({ organizationCode = 'NIRS', businessTypeCode = 'RESOURCE_INTEGRATION' } = {}) {
+        this.featureFlags = this.featureFlags || { projectCommonTemplates: false, templateFileManagement: false };
+        this.activeOrgCode = organizationCode;
+        this.activeBizTypeCode = businessTypeCode;
+        this.activeNirsCategory = 'all';
+        this.activeNirsStage = 'all';
+        this.nirsCurrentPage = 1;
+        this.nirsSearchQuery = '';
+
+        const catSelect = document.getElementById('filter-nirs-category');
+        const stageSelect = document.getElementById('filter-nirs-stage');
+        if (catSelect) catSelect.value = 'all';
+        if (stageSelect) stageSelect.value = 'all';
+
+        const searchInput = document.getElementById('nirs-template-search');
+        if (searchInput) searchInput.value = '';
+
+        const orgSelectMain = document.getElementById('select-nirs-org-main');
+        if (orgSelectMain) orgSelectMain.value = organizationCode;
+
+        const bizSelectMain = document.getElementById('select-nirs-biz-type-main');
+        if (bizSelectMain) {
+            if (organizationCode === 'NIRS') {
+                bizSelectMain.innerHTML = `
+                    <option value="RESOURCE_INTEGRATION">자원통합사업 (179)</option>
+                    <option value="OPERATION_MAINTENANCE">운영·유지관리사업 (0)</option>
+                    <option value="all">전체 사업유형</option>
+                `;
+                bizSelectMain.value = 'RESOURCE_INTEGRATION';
+            } else if (organizationCode === 'KLID') {
+                bizSelectMain.innerHTML = `
+                    <option value="all">전체 사업유형 (5개)</option>
+                    <option value="KLID_SYSTEM_BUILD">정보시스템 구축사업 (0)</option>
+                    <option value="KLID_SYSTEM_OM">정보시스템 운영·유지관리사업 (0)</option>
+                    <option value="KLID_INFRA_BUILD">정보인프라 구축사업 (0)</option>
+                    <option value="KLID_INFRA_OM">정보인프라 운영·유지관리사업 (0)</option>
+                    <option value="KLID_SECURITY_OM">정보보호·보안운영사업 (0)</option>
+                `;
+                bizSelectMain.value = 'all';
+            } else if (organizationCode === 'NTS') {
+                bizSelectMain.innerHTML = `
+                    <option value="all">전체 사업유형 (6개)</option>
+                    <option value="NTS_SYSTEM_BUILD">정보시스템 구축·고도화사업 (0)</option>
+                    <option value="NTS_SYSTEM_OM">정보시스템 운영·유지관리사업 (0)</option>
+                    <option value="NTS_INFRA_OM">정보인프라 운영·유지관리사업 (0)</option>
+                    <option value="NTS_DATA_ANALYTICS">데이터·빅데이터 사업 (0)</option>
+                    <option value="NTS_AI">AI·지능정보화 사업 (0)</option>
+                    <option value="NTS_SECURITY_NETWORK">정보보호·통신망 사업 (0)</option>
+                `;
+                bizSelectMain.value = 'all';
             }
         }
 
-        this.updateBulkDownloadButton();
+        // Perform exactly ONCE DOM render
+        this.renderArtifacts();
+    }
 
-        this.applyRolePermissions();
+    switchArtifactSubView(subview) {
+        this.resetStandardArtifactView();
+    }
 
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
+    handleOrgChange(orgCode) {
+        this.activeOrgCode = orgCode || 'NIRS';
+        this.activeBizTypeCode = (orgCode === 'NIRS') ? 'RESOURCE_INTEGRATION' : 'all';
+        this.activeNirsCategory = 'all';
+        this.activeNirsStage = 'all';
+        this.nirsCurrentPage = 1;
+        this.nirsSearchQuery = '';
+
+        const orgSelectMain = document.getElementById('select-nirs-org-main');
+        const bizSelectMain = document.getElementById('select-nirs-biz-type-main');
+        if (orgSelectMain) orgSelectMain.value = this.activeOrgCode;
+
+        if (bizSelectMain) {
+            if (this.activeOrgCode === 'NIRS') {
+                bizSelectMain.innerHTML = `
+                    <option value="RESOURCE_INTEGRATION">자원통합사업 (179)</option>
+                    <option value="OPERATION_MAINTENANCE">운영·유지관리사업 (0)</option>
+                    <option value="all">전체 사업유형</option>
+                `;
+                bizSelectMain.value = 'RESOURCE_INTEGRATION';
+            } else if (this.activeOrgCode === 'KLID') {
+                bizSelectMain.innerHTML = `
+                    <option value="all">전체 사업유형 (5개)</option>
+                    <option value="KLID_SYSTEM_BUILD">정보시스템 구축사업 (0)</option>
+                    <option value="KLID_SYSTEM_OM">정보시스템 운영·유지관리사업 (0)</option>
+                    <option value="KLID_INFRA_BUILD">정보인프라 구축사업 (0)</option>
+                    <option value="KLID_INFRA_OM">정보인프라 운영·유지관리사업 (0)</option>
+                    <option value="KLID_SECURITY_OM">정보보호·보안운영사업 (0)</option>
+                `;
+                bizSelectMain.value = 'all';
+            } else if (this.activeOrgCode === 'NTS') {
+                bizSelectMain.innerHTML = `
+                    <option value="all">전체 사업유형 (6개)</option>
+                    <option value="NTS_SYSTEM_BUILD">정보시스템 구축·고도화사업 (0)</option>
+                    <option value="NTS_SYSTEM_OM">정보시스템 운영·유지관리사업 (0)</option>
+                    <option value="NTS_INFRA_OM">정보인프라 운영·유지관리사업 (0)</option>
+                    <option value="NTS_DATA_ANALYTICS">데이터·빅데이터 사업 (0)</option>
+                    <option value="NTS_AI">AI·지능정보화 사업 (0)</option>
+                    <option value="NTS_SECURITY_NETWORK">정보보호·통신망 사업 (0)</option>
+                `;
+                bizSelectMain.value = 'all';
+            }
         }
 
-        // 산출물 템플릿 Drag & Drop 순서 재정렬 바인딩
-        this.initTemplateRowDragAndDrop();
+        this.renderArtifacts();
+    }
+
+    handleBizTypeChange(bizCode) {
+        this.activeBizTypeCode = bizCode || 'all';
+        this.activeNirsCategory = 'all';
+        this.activeNirsStage = 'all';
+        this.nirsCurrentPage = 1;
+        this.nirsSearchQuery = '';
+
+        const catSelect = document.getElementById('filter-nirs-category');
+        const stageSelect = document.getElementById('filter-nirs-stage');
+        if (catSelect) catSelect.value = 'all';
+        if (stageSelect) stageSelect.value = 'all';
+
+        const bizSelectMain = document.getElementById('select-nirs-biz-type-main');
+        if (bizSelectMain) bizSelectMain.value = this.activeBizTypeCode;
+
+        this.renderArtifacts();
+    }
+
+    toggleIncludeDrafts(checked) {
+        this.includeDrafts = !!checked;
+        this.renderArtifacts();
+    }
+
+    handleOrgChange(orgCode) {
+        this.activeOrgCode = orgCode || 'NIRS';
+        this.activeNirsCategory = 'all';
+        this.activeNirsStage = 'all';
+        this.nirsCurrentPage = 1;
+
+        const catSelect = document.getElementById('filter-nirs-category');
+        const stageSelect = document.getElementById('filter-nirs-stage');
+        if (catSelect) catSelect.value = 'all';
+        if (stageSelect) stageSelect.value = 'all';
+
+        this.renderArtifacts();
+    }
+
+    handlePageSizeChange(sizeStr) {
+        this.nirsPageSize = parseInt(sizeStr) || 25;
+        this.nirsCurrentPage = 1;
+        this.renderArtifacts();
+    }
+
+    changeNirsPage(newPage) {
+        this.nirsCurrentPage = newPage;
+        this.renderArtifacts();
+    }
+
+    selectNirsCategoryFilter(cat) {
+        this.activeNirsCategory = cat;
+        this.activeNirsStage = 'all';
+        const catSelect = document.getElementById('filter-nirs-category');
+        const stageSelect = document.getElementById('filter-nirs-stage');
+        if (catSelect) catSelect.value = cat;
+        if (stageSelect) stageSelect.value = 'all';
+        this.renderArtifacts();
+    }
+
+    handleNirsSearchInput(val) {
+        this.nirsSearchQuery = val ? val.trim() : '';
+        this.renderArtifacts();
+    }
+
+    handleNirsFilterChange() {
+        const catSelect = document.getElementById('filter-nirs-category');
+        const stageSelect = document.getElementById('filter-nirs-stage');
+        const fileStatusSelect = document.getElementById('filter-nirs-file-status');
+        const offSelect = document.getElementById('filter-nirs-official');
+        const appSelect = document.getElementById('filter-nirs-approval');
+        const sealSelect = document.getElementById('filter-nirs-seal');
+
+        if (catSelect) this.activeNirsCategory = catSelect.value;
+        if (stageSelect) this.activeNirsStage = stageSelect.value;
+        if (fileStatusSelect) this.activeNirsFileStatus = fileStatusSelect.value;
+        if (offSelect) this.activeNirsOfficial = offSelect.value;
+        if (appSelect) this.activeNirsApproval = appSelect.value;
+        if (sealSelect) this.activeNirsSeal = sealSelect.value;
+
+        this.renderArtifacts();
+    }
+
+    toggleAllNirsTemplates(checked) {
+        if (!this.selectedNirsTemplateIds) this.selectedNirsTemplateIds = new Set();
+        const currentList = this.currentFilteredNirsList || [];
+        if (checked) {
+            currentList.forEach(item => this.selectedNirsTemplateIds.add(item.id));
+        } else {
+            this.selectedNirsTemplateIds.clear();
+        }
+        this.updateNirsBulkDownloadBtnState();
+        document.querySelectorAll('.chk-nirs-item').forEach(chk => chk.checked = checked);
+    }
+
+    toggleNirsTemplateSelect(id, checked) {
+        if (!this.selectedNirsTemplateIds) this.selectedNirsTemplateIds = new Set();
+        if (checked) {
+            this.selectedNirsTemplateIds.add(id);
+        } else {
+            this.selectedNirsTemplateIds.delete(id);
+        }
+        this.updateNirsBulkDownloadBtnState();
+    }
+
+    updateNirsBulkDownloadBtnState() {
+        const btn = document.getElementById('btn-bulk-download-templates');
+        const countSpan = document.getElementById('selected-templates-count');
+        const selectedCount = this.selectedNirsTemplateIds ? this.selectedNirsTemplateIds.size : 0;
+
+        if (countSpan) {
+            countSpan.textContent = selectedCount > 0 ? `(${selectedCount})` : '';
+        }
+
+        if (!btn) return;
+        if (selectedCount === 0) {
+            btn.disabled = true;
+            btn.title = '선택된 산출물이 없습니다.';
+        } else {
+            btn.disabled = false;
+            btn.title = selectedCount === 1 ? '선택한 1개 파일 다운로드' : `선택한 ${selectedCount}개 파일 묶음 다운로드`;
+        }
+    }
+
+    async downloadSelectedNirsTemplates() {
+        const selectedIds = Array.from(this.selectedNirsTemplateIds || []);
+        if (selectedIds.length === 0) {
+            this.showToast('선택된 산출물이 없습니다.', 'warning');
+            return;
+        }
+
+        if (selectedIds.length === 1) {
+            await this.downloadNirsTemplateFile(selectedIds[0]);
+            return;
+        }
+
+        this.showToast(`[일괄 다운로드] 선택한 ${selectedIds.length}개 파일 다운로드를 시작합니다.`, 'info');
+        let successCnt = 0;
+        for (const id of selectedIds) {
+            const files = this.state.nirsTemplateFiles || [];
+            const fileRec = files.find(f => f.templateId === id);
+            if (fileRec) {
+                await this.downloadNirsTemplateFile(id);
+                successCnt++;
+            }
+        }
+        if (successCnt === 0) {
+            this.showToast('선택한 항목 중 다운로드 가능한 파일이 없습니다.', 'warning');
+        }
+    }
+
+    openUploadNirsModal() {
+        const role = this.currentUser?.role;
+        if (role !== 'SYS_ADMIN' && role !== 'EXEC_ADMIN') {
+            this.showToast('권한이 없습니다. 시스템 관리자만 표준 양식을 등록할 수 있습니다.', 'error');
+            return;
+        }
+        // Trigger generic file upload modal or prompt
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.hwp,.hwpx,.docx,.xlsx,.pdf,.zip';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                this.showToast(`[표준 양식 등록] ${file.name} 등록을 완료하려면 산출물 목록에서 해당 항목의 업로드(Upload) 버튼을 눌러주세요.`, 'info');
+            }
+        };
+        input.click();
+    }
+
+    renderArtifacts() {
+        if (!this.selectedNirsTemplateIds) this.selectedNirsTemplateIds = new Set();
+
+        const currentOrg = this.activeOrgCode || 'NIRS';
+        const currentBizType = this.activeBizTypeCode || (currentOrg === 'NIRS' ? 'RESOURCE_INTEGRATION' : 'all');
+        const catFilter  = this.activeNirsCategory || 'all';
+        const stageFilter = this.activeNirsStage || 'all';
+        const fileStatusFilter = this.activeNirsFileStatus || 'all';
+        const offFilter  = this.activeNirsOfficial || 'all';
+        const appFilter  = this.activeNirsApproval || 'all';
+        const sealFilter = this.activeNirsSeal || 'all';
+        const query      = (this.nirsSearchQuery || '').toLowerCase();
+
+        const pageSize = this.nirsPageSize || 25;
+        const currentPage = this.nirsCurrentPage || 1;
+        const isAdmin = this.currentUser?.role === 'SYS_ADMIN' || this.currentUser?.role === 'EXEC_ADMIN';
+        const showDrafts = isAdmin || !!this.includeDrafts;
+
+        // Show/hide Admin Drafts toggle
+        const draftLbl = document.getElementById('lbl-include-drafts');
+        if (draftLbl) draftLbl.style.display = isAdmin ? 'inline-flex' : 'none';
+
+        // ── 1. 전체 마스터 데이타셋 가져오기 (DB/State 기반) ──────────────
+        const fullDataset = this.state.nirsStandardTemplates || this.getDefaultNirsTemplates();
+        const filesList = this.state.nirsTemplateFiles || [];
+
+        // Filter dataset by selected Organization & Business Type
+        let fullList = [];
+        if (currentOrg === 'NIRS') {
+            if (currentBizType === 'all' || currentBizType === 'RESOURCE_INTEGRATION') {
+                fullList = fullDataset;
+            } else {
+                fullList = []; // OPERATION_MAINTENANCE has 0 artifacts
+            }
+        } else {
+            fullList = []; // KLID & NTS have 0 artifact templates
+        }
+
+        // ── 2. 동적 건수 집계 ──────────────────────────────────────────────
+        const totalCount = fullList.length;
+        const pmList = fullList.filter(t => t.category === '사업관리');
+        const infraList = fullList.filter(t => t.category === '통합구축');
+        const appList = fullList.filter(t => t.category === '업무전환');
+
+        // ── 3. KPI Cards with Structured Theme Classes & WCAG Contrast ──────
+        const kpiGridContainer = document.getElementById('kpi-cards-container');
+        const btnRegisterLbl = document.getElementById('lbl-btn-register-template');
+
+        if (btnRegisterLbl) {
+            if (currentBizType === 'OPERATION_MAINTENANCE') {
+                btnRegisterLbl.textContent = '운영·유지관리 표준 산출물 등록';
+            } else if (catFilter !== 'all' || stageFilter !== 'all') {
+                btnRegisterLbl.textContent = 'NIRS 자원통합사업 표준 산출물 등록';
+            } else {
+                btnRegisterLbl.textContent = '표준 산출물 등록';
+            }
+        }
+
+        if (kpiGridContainer) {
+            let kpiHtml = '';
+            const iconBgStyle = "background:rgba(99,102,241,0.12); color:#6366F1;";
+
+            if (currentOrg === 'KLID') {
+                kpiHtml = `
+                    <div class="kpi-card nirs-summary-card active">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="building-2"></i></div>
+                        <div class="kpi-content">
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">0</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">전체 산출물</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">한국지역정보개발원</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="layers"></i></div>
+                        <div class="kpi-content">
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">5</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">사업유형</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">분류안 구성완료</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="folder-tree"></i></div>
+                        <div class="kpi-content">
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">51</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">업무영역</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">분류안 구성완료</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="clock"></i></div>
+                        <div class="kpi-content">
+                            <div class="kpi-num" style="font-size:22px; font-weight:800; color:#8B5CF6; margin-bottom:2px;">DRAFT</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">분류 상태</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">표준체계 설계 중</div>
+                        </div>
+                    </div>
+                `;
+            } else if (currentOrg === 'NTS') {
+                kpiHtml = `
+                    <div class="kpi-card nirs-summary-card active">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="landmark"></i></div>
+                        <div class="kpi-content">
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">0</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">전체 산출물</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">국세청</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="layers"></i></div>
+                        <div class="kpi-content">
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">6</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">사업유형</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">분류안 구성완료</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="folder-tree"></i></div>
+                        <div class="kpi-content">
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">63</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">업무영역</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">분류안 구성완료</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="clock"></i></div>
+                        <div class="kpi-content">
+                            <div class="kpi-num" style="font-size:22px; font-weight:800; color:#8B5CF6; margin-bottom:2px;">DRAFT</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">분류 상태</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">표준체계 설계 중</div>
+                        </div>
+                    </div>
+                `;
+            } else if (currentBizType === 'RESOURCE_INTEGRATION' || currentBizType === 'all') {
+                kpiHtml = `
+                    <div class="kpi-card nirs-summary-card ${catFilter === 'all' ? 'active' : ''}" onclick="app.selectNirsCategoryFilter('all')">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="layers"></i></div>
+                        <div class="kpi-content">
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">179</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">전체 산출물</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">NIRS 자원통합사업</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card nirs-summary-card ${catFilter === '사업관리' ? 'active' : ''}" onclick="app.selectNirsCategoryFilter('사업관리')">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="briefcase"></i></div>
+                        <div class="kpi-content">
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">136</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">사업관리</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">6개 수행단계</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card nirs-summary-card ${catFilter === '통합구축' ? 'active' : ''}" onclick="app.selectNirsCategoryFilter('통합구축')">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="server"></i></div>
+                        <div class="kpi-content">
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">32</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">통합구축</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">4개 수행단계</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card nirs-summary-card ${catFilter === '업무전환' ? 'active' : ''}" onclick="app.selectNirsCategoryFilter('업무전환')">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="refresh-cw"></i></div>
+                        <div class="kpi-content">
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">11</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">업무전환</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">4개 수행단계</div>
+                        </div>
+                    </div>
+                `;
+            } else if (currentBizType === 'OPERATION_MAINTENANCE') {
+                kpiHtml = `
+                    <div class="kpi-card nirs-summary-card active">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="settings"></i></div>
+                        <div class="kpi-content">
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">0</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">운영·유지관리</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">국가정보자원관리원</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="wrench"></i></div>
+                        <div class="kpi-content">
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">10</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">업무영역</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">분류안 구성완료</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="shield-alert"></i></div>
+                        <div class="kpi-content">
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">0</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">장애·문제관리</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">분류안 구성완료</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card nirs-summary-card">
+                        <div class="kpi-icon" style="${iconBgStyle}"><i data-lucide="file-check-2"></i></div>
+                        <div class="kpi-content">
+                            <div class="kpi-num" style="font-size:28px; font-weight:800; margin-bottom:2px;">0</div>
+                            <div class="kpi-title" style="font-size:13px; font-weight:600;">SLA 수준관리</div>
+                            <div class="kpi-subtext" style="font-size:11px; margin-top:2px;">분류안 구성완료</div>
+                        </div>
+                    </div>
+                `;
+            }
+            kpiGridContainer.innerHTML = kpiHtml;
+        }
+
+        // ── 4. Tree Node Expanded vs Selected Isolation & All-Artifacts Alignment ──
+        const treeContainer = document.getElementById('artifact-category-tree');
+        if (treeContainer) {
+            let treeHtml = '';
+
+            const orgsDef = [
+                {
+                    code: 'NIRS', name: '국가정보자원관리원',
+                    bizTypes: [
+                        { code: 'RESOURCE_INTEGRATION', name: '자원통합사업' },
+                        {
+                            code: 'OPERATION_MAINTENANCE', name: '운영·유지관리사업', isDraft: true,
+                            categories: ['사업관리', '운영관리', '유지보수관리', '서비스 수준관리', '장애·문제관리', '변경·배포관리', '보안관리', '인력관리', '보고 및 회의체', '사업종료']
+                        }
+                    ]
+                },
+                {
+                    code: 'KLID', name: '한국지역정보개발원',
+                    bizTypes: [
+                        {
+                            code: 'KLID_SYSTEM_BUILD', name: '정보시스템 구축사업', isDraft: true,
+                            categories: ['사업관리', '분석', '설계', '개발', '데이터 전환', '시험·품질관리', '교육·사용자 지원', '이행·안정화', '사업종료']
+                        },
+                        {
+                            code: 'KLID_SYSTEM_OM', name: '정보시스템 운영·유지관리사업', isDraft: true,
+                            categories: ['사업관리', '응용시스템 운영', '유지보수', '서비스데스크', '장애·문제관리', '변경·배포관리', '성능·용량관리', '데이터·연계관리', '보안관리', '보고·회의체', '사업종료']
+                        },
+                        {
+                            code: 'KLID_INFRA_BUILD', name: '정보인프라 구축사업', isDraft: true,
+                            categories: ['사업관리', '인프라 설계', '장비·소프트웨어 조달', '설치·구축', '구성관리', '연계·전환', '시험·검수', '안정화', '사업종료']
+                        },
+                        {
+                            code: 'KLID_INFRA_OM', name: '정보인프라 운영·유지관리사업', isDraft: true,
+                            categories: ['사업관리', '시스템 운영', '네트워크 운영', 'DB·미들웨어 운영', '클라우드 운영', '백업·복구', '재해복구', '성능·용량관리', '장애·문제관리', '보안관리', '사업종료']
+                        },
+                        {
+                            code: 'KLID_SECURITY_OM', name: '정보보호·보안운영사업', isDraft: true,
+                            categories: ['사업관리', '보안관제', '침해사고 대응', '취약점 점검', '보안장비 운영', '접근권한 관리', '개인정보보호', '정보보호 교육', '보안실태 점검', '보고·회의체', '사업종료']
+                        }
+                    ]
+                },
+                {
+                    code: 'NTS', name: '국세청',
+                    bizTypes: [
+                        { code: 'NTS_SYSTEM_BUILD', name: '정보시스템 구축·고도화사업', isDraft: true, categories: ['사업관리', '업무분석', '요구사항관리', '설계', '개발', '데이터 전환', '연계', '시험·품질관리', '사용자 교육', '이행·안정화', '사업종료'] },
+                        { code: 'NTS_SYSTEM_OM', name: '정보시스템 운영·유지관리사업', isDraft: true, categories: ['사업관리', '응용시스템 운영', '유지보수', '서비스데스크', '장애·문제관리', '변경·배포관리', '데이터 처리', '연계관리', '성능·용량관리', '보안관리', '보고·회의체', '사업종료'] },
+                        { code: 'NTS_INFRA_OM', name: '정보인프라 운영·유지관리사업', isDraft: true, categories: ['사업관리', '서버 운영', '네트워크 운영', 'DB 운영', '미들웨어 운영', '스토리지·백업', '재해복구', '성능·용량관리', '구성관리', '장애·문제관리', '보안관리', '사업종료'] },
+                        { code: 'NTS_DATA_ANALYTICS', name: '데이터·빅데이터 사업', isDraft: true, categories: ['사업관리', '데이터 수집', '데이터 정제', '데이터 품질관리', '데이터 표준화', '분석모델 개발', '분석과제 수행', '데이터 제공·활용', '보안·비식별', '성과관리', '사업종료'] },
+                        { code: 'NTS_AI', name: 'AI·지능정보화 사업', isDraft: true, categories: ['사업관리', 'AI 과제기획', '데이터 준비', '모델 개발', '모델 검증', '서비스 구현', '성능평가', '배포·운영', 'AI 품질·윤리관리', '성과관리', '사업종료'] },
+                        { code: 'NTS_SECURITY_NETWORK', name: '정보보호·통신망 사업', isDraft: true, categories: ['사업관리', '보안정책', '통신망 운영', '보안장비 운영', '접근통제', '취약점 점검', '침해사고 대응', '개인정보보호', '보안실태 점검', '보고·회의체', '사업종료'] }
+                    ]
+                }
+            ];
+
+            orgsDef.forEach(org => {
+                const isOrgActive = (currentOrg === org.code);
+
+                treeHtml += `
+                    <div class="tree-node-type" style="margin-bottom:6px;">
+                        <div class="tree-cat-header tree-node-level-1 ${isOrgActive ? 'expanded' : ''}" onclick="app.handleOrgChange('${org.code}')">
+                            <span style="display:flex; align-items:center; gap:6px;">
+                                <i data-lucide="${isOrgActive ? 'folder-open' : 'folder'}" style="width:15px; height:15px; color:${isOrgActive ? '#8B5CF6' : 'var(--text-muted)'};"></i>
+                                <span>${org.name}</span>
+                            </span>
+                        </div>
+                `;
+
+                if (isOrgActive) {
+                    treeHtml += `<div style="display:flex; flex-direction:column; gap:4px; margin-top:2px;">`;
+
+                    org.bizTypes.forEach(biz => {
+                        if (biz.isDraft && !showDrafts) return;
+
+                        const isBizActive = (currentBizType === biz.code || (currentBizType === 'all' && biz.code === 'RESOURCE_INTEGRATION'));
+
+                        treeHtml += `
+                            <div>
+                                <div class="tree-cat-header tree-node-level-2 ${isBizActive ? 'expanded' : ''}" onclick="event.stopPropagation(); app.handleBizTypeChange('${biz.code}')">
+                                    <span style="display:flex; align-items:center; gap:5px;">
+                                        <i data-lucide="layers" style="width:13px; height:13px; color:var(--text-muted);"></i>
+                                        ${biz.name}
+                                    </span>
+                                </div>
+                        `;
+
+                        if (isBizActive) {
+                            treeHtml += `<div style="display:flex; flex-direction:column; gap:3px; margin-top:2px;">`;
+
+                            if (biz.code === 'RESOURCE_INTEGRATION') {
+                                const isAllSelected = (catFilter === 'all' && stageFilter === 'all');
+                                treeHtml += `
+                                    <div class="tree-cat-header tree-node-level-3 ${isAllSelected ? 'selected' : ''}" onclick="event.stopPropagation(); app.activeNirsCategory='all'; app.activeNirsStage='all'; app.renderArtifacts();">
+                                        <span style="display:flex; align-items:center; gap:5px;">
+                                            <i data-lucide="files" style="width:12px; height:12px;"></i>
+                                            <strong>전체 산출물 (179)</strong>
+                                        </span>
+                                    </div>
+                                `;
+
+                                const categoriesDef = [
+                                    { key: '사업관리', name: '사업관리', items: pmList, defaultStages: ['착수 준비', '착수', '계획', '수행 및 통제', '안정화', '종료'] },
+                                    { key: '통합구축', name: '통합구축', items: infraList, defaultStages: ['착수', '설계', '구축', '종료'] },
+                                    { key: '업무전환', name: '업무전환', items: appList, defaultStages: ['착수', '설계', '구축', '종료'] }
+                                ];
+
+                                categoriesDef.forEach(catDef => {
+                                    const isCatActive = (catFilter === catDef.key && stageFilter === 'all');
+                                    const stageCounts = {};
+                                    catDef.items.forEach(item => {
+                                        const stg = item.stage || '미지정';
+                                        stageCounts[stg] = (stageCounts[stg] || 0) + 1;
+                                    });
+
+                                    treeHtml += `
+                                        <div class="tree-node-type">
+                                            <div class="tree-cat-header tree-node-level-3 ${isCatActive ? 'selected' : ''}" onclick="event.stopPropagation(); app.activeNirsCategory='${catDef.key}'; app.activeNirsStage='all'; app.renderArtifacts();">
+                                                <span style="display:flex; align-items:center; gap:5px;">
+                                                    <i data-lucide="folder" style="width:12px; height:12px;"></i>
+                                                    ${catDef.name}
+                                                </span>
+                                            </div>
+                                            <div class="tree-node-stages" style="display:flex; flex-direction:column; gap:2px; margin-top:1px;">
+                                    `;
+
+                                    catDef.defaultStages.forEach(stgName => {
+                                        const count = stageCounts[stgName] || 0;
+                                        const isStgActive = (catFilter === catDef.key && stageFilter === stgName);
+                                        treeHtml += `
+                                            <div class="tree-node-stage-item tree-node-level-4 ${isStgActive ? 'selected' : ''}" onclick="event.stopPropagation(); app.activeNirsCategory='${catDef.key}'; app.activeNirsStage='${stgName}'; app.renderArtifacts();">
+                                                <span>• ${stgName}</span>
+                                                <span style="margin-left:auto; font-size:10.5px; opacity:0.75;">(${count})</span>
+                                            </div>
+                                        `;
+                                    });
+
+                                    treeHtml += `</div></div>`;
+                                });
+                            } else if (biz.categories) {
+                                // Render DRAFT Categories for KLID / NTS / NIRS OM
+                                biz.categories.forEach(catName => {
+                                    treeHtml += `
+                                        <div class="tree-cat-header tree-node-level-3" style="opacity:0.75;">
+                                            <span style="display:flex; align-items:center; gap:4px;">
+                                                <i data-lucide="folder-git-2" style="width:11px; height:11px; color:var(--text-muted);"></i>
+                                                ${catName}
+                                            </span>
+                                        </div>
+                                    `;
+                                });
+                            }
+
+                            treeHtml += `</div>`;
+                        }
+
+                        treeHtml += `</div>`;
+                    });
+
+                    treeHtml += `</div>`;
+                }
+
+                treeHtml += `</div>`;
+            });
+
+            treeContainer.innerHTML = treeHtml;
+        }
+
+        // ── 5. 다중 필터링 및 검색 적용 ──────────────────────────────────
+        let filtered = fullList.filter(item => {
+            if (catFilter !== 'all' && item.category !== catFilter) return false;
+            if (stageFilter !== 'all' && item.stage !== stageFilter) return false;
+
+            const fileRec = filesList.find(f => f.templateId === item.id);
+            if (fileStatusFilter === 'registered' && !fileRec) return false;
+            if (fileStatusFilter === 'unregistered' && fileRec) return false;
+
+            if (offFilter === 'required' && !item.requiresOfficialLetter) return false;
+            if (offFilter === 'none' && item.requiresOfficialLetter) return false;
+
+            if (appFilter === 'required' && !item.requiresClientApproval) return false;
+            if (appFilter === 'none' && item.requiresClientApproval) return false;
+
+            if (sealFilter === 'required' && !item.requiresSeal) return false;
+            if (sealFilter === 'none' && item.requiresSeal) return false;
+
+            if (query) {
+                const matchCode = (item.id || '').toLowerCase().includes(query);
+                const matchName = (item.artifactName || '').toLowerCase().includes(query);
+                const matchStage = (item.stage || '').toLowerCase().includes(query);
+                const matchSub = (item.subStage || '').toLowerCase().includes(query);
+                const matchMgr = (item.managerRole || '').toLowerCase().includes(query);
+                const matchAuthor = (item.authorRole || '').toLowerCase().includes(query);
+                const matchTiming = (item.submissionTiming || '').toLowerCase().includes(query);
+                const matchNote = (item.description || '').toLowerCase().includes(query);
+
+                if (!matchCode && !matchName && !matchStage && !matchSub && !matchMgr && !matchAuthor && !matchTiming && !matchNote) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        this.currentFilteredNirsList = filtered;
+
+        // ── 6. 페이지네이션 슬라이싱 ─────────────────────────────────────────
+        const totalRows = filtered.length;
+        const totalPages = Math.ceil(totalRows / pageSize) || 1;
+        const validPage = Math.min(Math.max(1, currentPage), totalPages);
+        this.nirsCurrentPage = validPage;
+
+        const startIndex = (validPage - 1) * pageSize;
+        const pagedList = filtered.slice(startIndex, startIndex + pageSize);
+
+        // ── 7. Prominent Breadcrumb & Numeric Pagination UI ──────────────────
+        const breadRoot = document.getElementById('nirs-breadcrumb-root');
+        const breadSub = document.getElementById('nirs-breadcrumb-sub');
+        const listCount = document.getElementById('nirs-list-count');
+        const paginCont = document.getElementById('nirs-pagination-controls');
+
+        const orgNames = { NIRS: '국가정보자원관리원', KLID: '한국지역정보개발원', NTS: '국세청' };
+        if (breadRoot) breadRoot.textContent = orgNames[currentOrg] || '국가정보자원관리원';
+
+        if (breadSub) {
+            const bizText = currentBizType === 'OPERATION_MAINTENANCE' ? '운영·유지관리사업' : currentBizType === 'RESOURCE_INTEGRATION' ? '자원통합사업' : '전체 사업유형';
+
+            if (catFilter === 'all' && stageFilter === 'all') {
+                breadSub.innerHTML = `
+                    <i data-lucide="chevron-right" style="width:14px; height:14px; margin:0 4px; color:var(--text-muted);"></i>
+                    <span style="cursor:pointer;" onclick="app.handleBizTypeChange('${currentBizType}')">${bizText}</span>
+                    <i data-lucide="chevron-right" style="width:14px; height:14px; margin:0 4px; color:var(--text-muted);"></i>
+                    <span class="text-primary font-bold">전체 산출물</span>
+                `;
+            } else if (stageFilter === 'all') {
+                breadSub.innerHTML = `
+                    <i data-lucide="chevron-right" style="width:14px; height:14px; margin:0 4px; color:var(--text-muted);"></i>
+                    <span style="cursor:pointer;" onclick="app.handleBizTypeChange('${currentBizType}')">${bizText}</span>
+                    <i data-lucide="chevron-right" style="width:14px; height:14px; margin:0 4px; color:var(--text-muted);"></i>
+                    <span class="text-primary font-bold" style="cursor:pointer;" onclick="app.activeNirsCategory='${catFilter}'; app.activeNirsStage='all'; app.renderArtifacts();">${catFilter}</span>
+                `;
+            } else {
+                breadSub.innerHTML = `
+                    <i data-lucide="chevron-right" style="width:14px; height:14px; margin:0 4px; color:var(--text-muted);"></i>
+                    <span style="cursor:pointer;" onclick="app.handleBizTypeChange('${currentBizType}')">${bizText}</span>
+                    <i data-lucide="chevron-right" style="width:14px; height:14px; margin:0 4px; color:var(--text-muted);"></i>
+                    <span style="cursor:pointer;" onclick="app.activeNirsCategory='${catFilter}'; app.activeNirsStage='all'; app.renderArtifacts();">${catFilter}</span>
+                    <i data-lucide="chevron-right" style="width:14px; height:14px; margin:0 4px; color:var(--text-muted);"></i>
+                    <span class="text-primary font-bold">${stageFilter}</span>
+                `;
+            }
+        }
+
+        if (listCount) listCount.textContent = totalRows;
+
+        // Numeric Pagination UI: < 1 2 3 >
+        if (paginCont) {
+            if (totalPages > 1 && pageSize < 1000) {
+                let numBtnsHtml = `<button class="btn btn-sm btn-outline" ${validPage <= 1 ? 'disabled' : ''} onclick="app.changeNirsPage(${validPage - 1})" style="padding:2px 8px; font-size:12px;">&lt;</button>`;
+
+                const startP = Math.max(1, validPage - 2);
+                const endP = Math.min(totalPages, startP + 4);
+
+                for (let p = startP; p <= endP; p++) {
+                    const isPActive = (p === validPage);
+                    numBtnsHtml += `
+                        <button class="btn btn-sm ${isPActive ? 'btn-primary' : 'btn-outline'}" onclick="app.changeNirsPage(${p})" style="padding:2px 10px; font-size:12px; font-weight:${isPActive ? '700' : '400'};">
+                            ${p}
+                        </button>
+                    `;
+                }
+
+                numBtnsHtml += `<button class="btn btn-sm btn-outline" ${validPage >= totalPages ? 'disabled' : ''} onclick="app.changeNirsPage(${validPage + 1})" style="padding:2px 8px; font-size:12px;">&gt;</button>`;
+
+                paginCont.innerHTML = `<div style="display:flex; gap:4px; align-items:center;">${numBtnsHtml}</div>`;
+            } else {
+                paginCont.innerHTML = '';
+            }
+        }
+
+        // ── 8. Table Rows with Independent Badge Classes & Selection Class ──
+        const tbody = document.getElementById('global-templates-tbody');
+        if (!tbody) return;
+
+        let html = '';
+
+        if (currentOrg !== 'NIRS' || currentBizType === 'OPERATION_MAINTENANCE' || pagedList.length === 0) {
+            if (currentOrg !== 'NIRS' || currentBizType === 'OPERATION_MAINTENANCE') {
+                const orgLabel = currentOrg === 'KLID' ? '한국지역정보개발원' : currentOrg === 'NTS' ? '국세청' : '운영·유지관리사업';
+                const bizCountLabel = currentOrg === 'KLID' ? '5개 사업유형과 51개 업무영역 분류안' : currentOrg === 'NTS' ? '6개 사업유형과 63개 업무영역 분류안' : '10개 업무영역 분류안';
+
+                if (isAdmin) {
+                    html = `<tr><td colspan="14" class="text-center" style="padding: 70px 20px;">
+                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; max-width:520px; margin:0 auto; text-align:center;">
+                            <i data-lucide="layers" style="width:48px; height:48px; color:#8B5CF6; stroke-width:1.5; margin-bottom:14px;"></i>
+                            <h3 style="font-size:17px; font-weight:700; color:var(--tbl-text-primary); margin-bottom:8px;">${orgLabel} 표준 산출물이 아직 등록되지 않았습니다.</h3>
+                            <p style="font-size:13px; color:var(--tbl-text-muted); line-height:1.5; margin-bottom:20px;">${bizCountLabel}이 등록되어 있습니다.<br/>새 표준 양식을 직접 등록하거나 CSV 파일로 일괄 등록할 수 있습니다.</p>
+                            <div style="display:flex; gap:10px; justify-content:center;">
+                                <button class="btn btn-primary" onclick="app.openUploadNirsModal()">
+                                    <i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 표준 산출물 등록
+                                </button>
+                                <button class="btn btn-outline-primary" onclick="app.openUploadNirsModal()">
+                                    <i data-lucide="file-spreadsheet" style="width:14px; height:14px; margin-right:4px;"></i> CSV 일괄 등록
+                                </button>
+                            </div>
+                        </div>
+                    </td></tr>`;
+                } else {
+                    html = `<tr><td colspan="14" class="text-center" style="padding: 70px 20px;">
+                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; max-width:480px; margin:0 auto; text-align:center; color:var(--tbl-text-muted);">
+                            <i data-lucide="clock" style="width:48px; height:48px; stroke-width:1.5; margin-bottom:14px; opacity:0.6;"></i>
+                            <h3 style="font-size:16px; font-weight:600; color:var(--tbl-text-primary); margin-bottom:6px;">등록된 표준 산출물이 없습니다.</h3>
+                            <p style="font-size:13px;">${orgLabel} 표준체계 확장 예정입니다.</p>
+                        </div>
+                    </td></tr>`;
+                }
+            } else {
+                html = `<tr><td colspan="14" class="text-center" style="padding: 60px 0; color: var(--tbl-text-muted);">
+                    <i data-lucide="file-x" style="width:36px; height:36px; stroke-width:1.5; margin-bottom:8px; opacity:0.5;"></i>
+                    <div style="font-size:14px;">조건에 일치하는 표준 산출물이 없습니다.</div>
+                </td></tr>`;
+            }
+        } else {
+            pagedList.forEach(item => {
+                const fileRec = filesList.find(f => f.templateId === item.id);
+                const isChecked = this.selectedNirsTemplateIds.has(item.id);
+
+                // Independent Badge Classes (Single-line layout & Independent contrast)
+                const subBadge = item.requiresSubmission ? '<span class="badge-filled-sub" title="발주처 제출 필수">📥 제출</span>' : '<span style="color:var(--tbl-text-muted); font-size:11px;">-</span>';
+                const offBadge = item.requiresOfficialLetter ? '<span class="badge-filled-off" title="공문 발신 필수">📄 공문</span>' : '<span style="color:var(--tbl-text-muted); font-size:11px;">-</span>';
+                const appBadge = item.requiresClientApproval ? '<span class="badge-filled-app" title="발주처 서면 승인 필수">✔ 승인</span>' : '<span style="color:var(--tbl-text-muted); font-size:11px;">-</span>';
+                const sealBadge = item.requiresSeal ? '<span class="badge-filled-seal" title="직인/인감 날인 필수">🔴 인감</span>' : '<span style="color:var(--tbl-text-muted); font-size:11px;">-</span>';
+
+                const managerHtml = item.managerRole ? `<span style="font-weight:500; color:var(--tbl-text-primary);">${item.managerRole}</span>` : `<span class="badge badge-subtle">미지정</span>`;
+                const authorHtml = item.authorRole ? `<span style="font-weight:500; color:var(--tbl-text-primary);">${item.authorRole}</span>` : `<span class="badge badge-subtle">미지정</span>`;
+
+                let fileBadgeHtml = '';
+                let fileInfoHtml = '-';
+                let versionHtml = '-';
+                let downloadBtn = '';
+                let uploadBtn = '';
+
+                if (fileRec) {
+                    const ext = (fileRec.fileExtension || 'file').toUpperCase();
+                    const kbSize = fileRec.fileSize ? (fileRec.fileSize / 1024).toFixed(1) + ' KB' : '';
+                    fileBadgeHtml = `<span class="badge-status-reg">🟢 등록완료</span>`;
+                    fileInfoHtml = `<div style="display:flex; flex-direction:column; gap:1px;">
+                        <strong style="font-size:12px; color:var(--tbl-text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:140px;" title="${fileRec.originalFileName}">${fileRec.originalFileName}</strong>
+                        <div style="font-size:10.5px; color:var(--tbl-text-muted);"><span class="badge badge-outline" style="font-size:9px; padding:1px 4px;">${ext}</span> ${kbSize}</div>
+                    </div>`;
+                    versionHtml = `v${fileRec.fileVersion || '1.0'}`;
+                    downloadBtn = `
+                        <button class="btn btn-sm btn-primary" onclick="app.downloadNirsTemplateFile('${item.id}')" title="${fileRec.originalFileName} (${kbSize}) 다운로드">
+                            <i data-lucide="download" style="width:12px; height:12px;"></i>
+                        </button>
+                    `;
+                } else {
+                    fileBadgeHtml = `<span class="badge-status-unreg">⚪ 미등록</span>`;
+                    downloadBtn = `
+                        <button class="btn btn-sm btn-ghost" disabled title="등록된 표준 양식 파일이 없습니다.">
+                            <i data-lucide="download" style="width:12px; height:12px; opacity:0.4;"></i>
+                        </button>
+                    `;
+                }
+
+                if (isAdmin) {
+                    uploadBtn = `
+                        <label class="btn btn-sm btn-outline" style="cursor:pointer;" title="표준 양식 등록/교체">
+                            <i data-lucide="upload" style="width:12px; height:12px;"></i>
+                            <input type="file" accept=".hwp,.hwpx,.docx,.xlsx,.pdf,.zip" style="display:none;" onchange="app.uploadNirsTemplateFile('${item.id}', this)" />
+                        </label>
+                    `;
+                }
+
+                html += `
+                    <tr class="${isChecked ? 'selected' : ''}">
+                        <td class="text-center" style="position:sticky; left:0; z-index:5;">
+                            <input type="checkbox" class="chk-nirs-item" ${isChecked ? 'checked' : ''} onchange="app.toggleNirsTemplateSelect('${item.id}', this.checked)">
+                        </td>
+                        <td style="position:sticky; left:36px; z-index:5; font-family:monospace; font-size:11.5px; font-weight:600; color:var(--dark-primary-soft, #8B5CF6);">${item.id}</td>
+                        <td style="position:sticky; left:141px; z-index:5;" class="artifact-name-column sticky-artifact-name">
+                            <div style="font-size:13px; font-weight:600; color:var(--tbl-text-primary); line-height:1.4;">${item.artifactName}</div>
+                            <div style="font-size:11px; color:var(--tbl-text-muted); margin-top:3px; line-height:1.4;">${item.category} · ${item.stage} ${item.description ? ' | ' + item.description : ''}</div>
+                        </td>
+                        <td class="text-center">${fileBadgeHtml}</td>
+                        <td>${fileInfoHtml}</td>
+                        <td class="text-center" style="font-size:11.5px; color:var(--tbl-text-muted);">${versionHtml}</td>
+                        <td class="text-center">${managerHtml}</td>
+                        <td class="text-center">${authorHtml}</td>
+                        <td class="text-center" style="white-space:nowrap;">${subBadge}</td>
+                        <td class="text-center" style="white-space:nowrap;">${offBadge}</td>
+                        <td class="text-center" style="white-space:nowrap;">${appBadge}</td>
+                        <td class="text-center" style="white-space:nowrap;">${sealBadge}</td>
+                        <td class="text-center" style="font-size:11.5px; color:var(--tbl-text-muted); white-space:nowrap;">${item.submissionTiming || '-'}</td>
+                        <td class="text-center" style="position:sticky; right:0; z-index:5;">
+                            <div class="nirs-action-btn-group" style="display:flex; gap:4px; justify-content:center;">
+                                ${downloadBtn}
+                                ${uploadBtn}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        tbody.innerHTML = html;
+        this.updateNirsBulkDownloadBtnState();
+        if (window.lucide) lucide.createIcons();
     }
 
     updateProjectStageCounts() {
@@ -9281,17 +15316,17 @@ class AetherPMO {
     /* ==========================================================================
        OPMS METHODOLOGY MODULE & CONTROLLER
        ========================================================================== */
-    
+
     /* ==========================================================================
        AETHER PMO BID READINESS CENTER (입찰 준비센터) CLASS METHODS
        ========================================================================== */
 
-    
+
     /* ==========================================================================
        AETHER PMO BIDDING SCHEDULE (제안 Task, WBS, 간트) SINGLE SOURCE MODULE
        ========================================================================== */
 
-    
+
     /* ==========================================================================
        BIDDING TASKS STATUS AUTO-SYNC ON PROPOSAL SUBMISSION MODULE
        ========================================================================== */
@@ -9399,7 +15434,7 @@ class AetherPMO {
         if (task) {
             if (newStatus !== undefined) task.status = newStatus;
             if (newProgress !== undefined) task.progress = Number(newProgress);
-            
+
             try {
                 localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
             } catch(e) {}
@@ -9882,7 +15917,7 @@ class AetherPMO {
                                                 </select>
                                             </td>
                                             <td style="padding:6px 10px; text-align:center;">
-                                                ${hasFile 
+                                                ${hasFile
                                                     ? '<span class="badge badge-info" style="font-size:11px; font-weight:700;">📎 첨부완료</span>'
                                                     : '<span class="badge badge-secondary" style="font-size:11px; font-weight:700;">❌ 미첨부</span>'}
                                             </td>
@@ -10402,10 +16437,16 @@ class AetherPMO {
                             테일러링(OPMS) - ${this.escapeHtml(project?.name || '프로젝트')}
                         </h2>
                     </div>
-                    <span class="badge badge-info" style="font-size: 11px; font-weight: 700; padding: 5px 12px;">
-                        <i data-lucide="sparkles" style="width: 13px; height: 13px; margin-right: 6px; display: inline-block; vertical-align: middle;"></i>
-                        OPMS 1.0 표준 프로세스
-                    </span>
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="app.applyTailoringAndNavigateToArtifacts('${projectId}')" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; padding: 7px 16px; box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3); border-radius: 8px;">
+                            <i data-lucide="arrow-right-circle" style="width: 16px; height: 16px;"></i>
+                            선택 산출물 적용 & 산출물 탭으로 이동
+                        </button>
+                        <span class="badge badge-info" style="font-size: 11px; font-weight: 700; padding: 6px 12px;">
+                            <i data-lucide="sparkles" style="width: 13px; height: 13px; margin-right: 6px; display: inline-block; vertical-align: middle;"></i>
+                            OPMS 1.0 표준 프로세스
+                        </span>
+                    </div>
                 </div>
 
                 <!-- 6-Stage Timeline Flow Pipeline -->
@@ -10453,7 +16494,7 @@ class AetherPMO {
 
             <!-- Main Split Layout (Left: 63%, Right: 37%) -->
             <div class="methodology-container methodology-content-layout ${isSummaryOpen ? 'summary-open' : 'summary-closed'}">
-                
+
                 <!-- Left Main Body (6-Stage Accordions) -->
                 <div class="methodology-main-body methodology-detail-panel">
         `;
@@ -10464,13 +16505,16 @@ class AetherPMO {
 
             let stgTotal = 0;
             let stgApproved = 0;
+            let stgSelectedCount = 0;
             let stgActCount = (stg.activities || []).length;
             (stg.activities || []).forEach(act => {
                 (act.artifacts || []).forEach(art => {
                     stgTotal++;
                     if (art.status === 'APPROVED') stgApproved++;
+                    if (art.is_selected === true) stgSelectedCount++;
                 });
             });
+            const isStageAllSelected = stgTotal > 0 && stgSelectedCount === stgTotal;
 
             html += `
                 <div class="opms-stage-accordion ${isStageOpen ? 'open' : ''}" id="opms-stage-box-${stg.stageCode}">
@@ -10479,8 +16523,12 @@ class AetherPMO {
                             <i data-lucide="${isStageOpen ? 'chevron-down' : 'chevron-right'}" style="width: 20px; height: 20px; color: var(--primary);"></i>
                             <span style="font-size: 16px; font-weight: 800; color: var(--text-main);">${this.escapeHtml(stg.fullName || stg.stageName || '')}</span>
                         </div>
-                        <!-- Collapsed Summary Badges -->
-                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <!-- Collapsed Summary Badges & Stage Select All Checkbox -->
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;" onclick="event.stopPropagation();">
+                            <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--text-main); cursor: pointer; background: var(--bg-hover-item); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--bg-card-border);" title="해당 단계의 모든 산출물 선택/해제">
+                                <input type="checkbox" ${isStageAllSelected ? 'checked' : ''} onchange="app.toggleMethodologyStageAllSelection('${projectId}', '${stg.stageCode}', this.checked)" style="width: 15px; height: 15px; cursor: pointer; accent-color: var(--primary);">
+                                <span>단계 전체선택 (${stgSelectedCount}/${stgTotal})</span>
+                            </label>
                             <span class="badge badge-neutral" style="font-size: 12px; font-weight: 700;">${stgActCount} Activities</span>
                             <span class="badge badge-neutral" style="font-size: 12px; font-weight: 700;">${stgTotal} Artifacts</span>
                             <span class="badge ${stgProg === 100 ? 'badge-success' : 'badge-info'}" style="font-size: 12px; font-weight: 700; padding: 4px 10px;">
@@ -10497,10 +16545,13 @@ class AetherPMO {
 
                 let actTotal = 0;
                 let actApproved = 0;
+                let actSelectedCount = 0;
                 (act.artifacts || []).forEach(art => {
                     actTotal++;
                     if (art.status === 'APPROVED') actApproved++;
+                    if (art.is_selected === true) actSelectedCount++;
                 });
+                const isActAllSelected = actTotal > 0 && actSelectedCount === actTotal;
 
                 html += `
                     <div class="opms-activity-group ${isActOpen ? 'open' : ''}">
@@ -10520,7 +16571,9 @@ class AetherPMO {
                             <table class="opms-artifact-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 44px; text-align: center;">적용</th>
+                                        <th style="width: 50px; text-align: center;" title="이 수행활동의 산출물 전체 선택/해제">
+                                            <input type="checkbox" ${isActAllSelected ? 'checked' : ''} onchange="event.stopPropagation(); app.toggleMethodologyActivityAllSelection('${projectId}', '${act.activityId}', this.checked)" style="width: 15px; height: 15px; cursor: pointer; accent-color: var(--primary);">
+                                        </th>
                                         <th style="min-width: 220px;">산출물명</th>
                                         <th style="width: 100px;">상태</th>
                                         <th style="width: 120px;">진행률</th>
@@ -10534,7 +16587,7 @@ class AetherPMO {
 
                 (act.artifacts || []).forEach(art => {
                     const isSelected = selectedArtifact && selectedArtifact.id === art.id;
-                    const isApplied = art.is_selected !== false && art.is_active !== false;
+                    const isApplied = art.is_selected === true;
                     const stLabel = OPMS_STATUS_LABELS[art.status] || '미작성';
                     const artProg = OPMS_STATUS_PROGRESS[art.status] !== undefined ? OPMS_STATUS_PROGRESS[art.status] : 0;
 
@@ -10589,6 +16642,20 @@ class AetherPMO {
         });
 
         html += `
+                    <!-- Bottom Action Banner -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding: 14px 18px; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i data-lucide="check-circle-2" style="width: 20px; height: 20px; color: var(--primary);"></i>
+                            <div>
+                                <div style="font-size: 13px; font-weight: 800; color: var(--text-main);">선택한 테일러링 산출물이 수행단계 산출물 메뉴로 즉시 반영됩니다.</div>
+                                <div style="font-size: 11px; color: var(--text-muted);">적용 체크박스 선택 후 오른쪽 버튼을 누르면 산출물 탭으로 이동합니다.</div>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="app.applyTailoringAndNavigateToArtifacts('${projectId}')" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; padding: 8px 18px; white-space: nowrap;">
+                            <i data-lucide="file-check" style="width: 15px; height: 15px;"></i>
+                            선택 산출물 산출물 탭으로 이동 &rarr;
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Right Side Panel (37% width) -->
@@ -10876,6 +16943,79 @@ class AetherPMO {
         }
     }
 
+    applyTailoringAndNavigateToArtifacts(projectId) {
+        const targetProjectId = projectId || this.activeProjectId;
+        if (!targetProjectId) return;
+
+        const selectedArtifacts = this.getProjectSelectedArtifacts(targetProjectId);
+        const count = selectedArtifacts ? selectedArtifacts.length : 0;
+
+        if (typeof this.showToast === 'function') {
+            this.showToast(`테일러링에서 적용 선택된 ${count}개의 산출물이 산출물 탭으로 반영되었습니다.`, 'success');
+        }
+
+        if (this.activeProjectId !== targetProjectId) {
+            this.switchView('project-detail', targetProjectId);
+        }
+        this.setDetailTab('artifacts');
+    }
+
+    toggleMethodologyStageAllSelection(projectId, stageCode, isChecked) {
+        const methodologyObj = this.getProjectMethodology(projectId);
+        const stage = (methodologyObj.stages || []).find(s => s.stageCode === stageCode);
+        if (!stage) return;
+
+        (stage.activities || []).forEach(act => {
+            (act.artifacts || []).forEach(art => {
+                art.is_selected = isChecked;
+                art.is_active = isChecked;
+
+                this.saveState('project_artifact_upsert', {
+                    projectId,
+                    stageCode: stage.stageCode,
+                    activityId: act.activityId,
+                    ...art
+                });
+            });
+        });
+
+        this.renderProjectDetailMethodology(projectId);
+
+        if (this.activeProjectId === projectId) {
+            const selectedArtifacts = this.getProjectSelectedArtifacts(projectId);
+            this.renderProjectDetailArtifactsTable(selectedArtifacts);
+        }
+    }
+
+    toggleMethodologyActivityAllSelection(projectId, activityId, isChecked) {
+        const methodologyObj = this.getProjectMethodology(projectId);
+
+        (methodologyObj.stages || []).forEach(stg => {
+            (stg.activities || []).forEach(act => {
+                if (act.activityId === activityId) {
+                    (act.artifacts || []).forEach(art => {
+                        art.is_selected = isChecked;
+                        art.is_active = isChecked;
+
+                        this.saveState('project_artifact_upsert', {
+                            projectId,
+                            stageCode: stg.stageCode,
+                            activityId: act.activityId,
+                            ...art
+                        });
+                    });
+                }
+            });
+        });
+
+        this.renderProjectDetailMethodology(projectId);
+
+        if (this.activeProjectId === projectId) {
+            const selectedArtifacts = this.getProjectSelectedArtifacts(projectId);
+            this.renderProjectDetailArtifactsTable(selectedArtifacts);
+        }
+    }
+
     getProjectSelectedArtifacts(projectId) {
         const methodologyObj = this.getProjectMethodology(projectId);
         const selectedList = [];
@@ -10922,11 +17062,17 @@ class AetherPMO {
         this.updateProjectsOverdueStatus();
         this.activeProjectId = projectId;
         const project = this.state.projects.find(p => p.id === projectId);
-        
+
         if (!project) {
             alert('해당 프로젝트를 찾을 수 없습니다.');
             window.location.hash = 'projects';
             return;
+        }
+
+        // Set breadcrumb title to project name
+        const activeBreadcrumb = document.querySelector('#view-project-detail .active-breadcrumb');
+        if (activeBreadcrumb) {
+            activeBreadcrumb.textContent = project.name;
         }
 
         // D-Day Offset
@@ -11011,7 +17157,12 @@ class AetherPMO {
                                 <span class="status-badge" style="font-size:11px; font-weight:700; padding:4px 10px; background:${riskGlow}; color:${riskColor}; border:1px solid rgba(255, 255, 255, 0.1); border-radius:6px;">위험도: ${project.riskLevel || '보통'}</span>
                             </div>
                             <h2 style="font-size:24px; font-weight:800; margin-top:12px; margin-bottom:6px; color:var(--text-main); letter-spacing:-0.5px;">${project.name}</h2>
-                            <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">${project.desc || '상세 설명이 등록되지 않은 프로젝트입니다.'}</p>
+                            <div class="project-detail-desc-container" style="margin-top:6px;">
+                                <p id="project-detail-desc-text" class="project-detail-desc-clamp" style="font-size:13px; color:var(--text-muted); line-height:1.5; margin:0; transition: all 0.2s ease;">${project.desc || '상세 설명이 등록되지 않은 프로젝트입니다.'}</p>
+                                <button id="project-detail-desc-toggle-btn" type="button" onclick="app.toggleProjectDetailDesc()" style="background:none; border:none; color:var(--primary); font-size:12px; font-weight:700; cursor:pointer; padding:4px 0 0 0; display:inline-flex; align-items:center; gap:3px;">
+                                    ▼ 더보기
+                                </button>
+                            </div>
                         </div>
                         <div class="project-header-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; overflow:visible;">
                             <button id="btn-back-project-list" type="button" class="btn btn-sm btn-outline" onclick="event.stopPropagation(); app.goBackToProjectList()" aria-label="목록으로 복귀" title="목록으로 이동합니다.">
@@ -11021,12 +17172,12 @@ class AetherPMO {
                                 <i data-lucide="edit-3" style="width:14px; height:14px;"></i> 프로젝트 수정
                             </button>
                             ${convertBtnHtml}
-                            <button id="btn-delete-project" class="btn btn-sm btn-danger" onclick="app.deleteProject('${project.id}')">
+                            <button id="btn-delete-project" class="btn btn-sm btn-danger" onclick="app.openDeleteProjectModal('${project.id}')">
                                 <i data-lucide="trash-2" style="width:14px; height:14px;"></i> 프로젝트 삭제
                             </button>
                         </div>
                     </div>
-                    
+
                     <!-- Top KPI Summary Cards -->
                     <div class="detail-kpi-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 16px; border-top:1px solid var(--bg-card-border); padding-top:16px;">
                         <!-- 1. 발주기관 -->
@@ -11081,33 +17232,37 @@ class AetherPMO {
         // Dynamically update deliverables tab buttons and panels
         const artifactsTabBtn = document.querySelector('.detail-tab-btn[data-tab="artifacts"]');
         if (artifactsTabBtn) {
-            artifactsTabBtn.textContent = isBidding ? '제안준비서류' : '산출물';
+            artifactsTabBtn.textContent = '산출물';
         }
         const artifactsHeader = document.querySelector('#detail-tab-content-artifacts h3');
         if (artifactsHeader) {
-            artifactsHeader.textContent = isBidding ? '제출된 제안준비서류 목록' : '제출된 산출물 목록';
+            artifactsHeader.textContent = '프로젝트 수행단계 산출물';
+        }
+        const artifactsSubHeader = document.querySelector('#detail-tab-content-artifacts p.text-xs');
+        if (artifactsSubHeader) {
+            artifactsSubHeader.textContent = '테일러링 설정에서 선택된 산출물 목록입니다.';
         }
         const artifactsBtn = document.querySelector('#detail-tab-content-artifacts .btn-primary');
         if (artifactsBtn) {
-            artifactsBtn.innerHTML = isBidding 
-                ? `<i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 제안준비서류 등록`
-                : `<i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 산출물 등록`;
+            artifactsBtn.innerHTML = `<i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 산출물 등록`;
         }
         const artifactsTableTitleHeader = document.querySelector('#detail-tab-content-artifacts table th:first-child');
         if (artifactsTableTitleHeader) {
-            artifactsTableTitleHeader.textContent = isBidding ? '서류명' : '산출물명';
+            artifactsTableTitleHeader.textContent = '산출물명';
         }
 
         document.querySelectorAll('.detail-tab-btn').forEach(btn => {
             const tab = btn.getAttribute('data-tab');
             if (isBidding) {
-                if (tab === 'overview' || tab === 'bidding-tasks' || tab === 'artifacts' || tab === 'bid-readiness' || tab === 'bidding-wbs' || tab === 'bidding-gantt' || tab === 'consortium' || tab === 'vrb') {
+                // 입찰단계 프로젝트: '입찰 준비현황', '제안 Task', 'WBS', '간트', '컨소시엄', 'VRB', '개요' 노출 ('산출물' 탭 제외)
+                if (tab === 'overview' || tab === 'bid-readiness' || tab === 'bidding-tasks' || tab === 'bidding-wbs' || tab === 'bidding-gantt' || tab === 'consortium' || tab === 'vrb') {
                     btn.style.display = 'inline-block';
                 } else {
                     btn.style.display = 'none';
                 }
             } else {
-                if (tab === 'consortium' || tab === 'vrb' || tab === 'bid-readiness' || tab === 'bidding-tasks' || tab === 'bidding-wbs' || tab === 'bidding-gantt') {
+                // 수행단계 프로젝트: '입찰 준비현황' 대신 '산출물' 탭 및 수행단계 전용 탭(이슈, 리스크, Action Item, 회의록, 공문, 참여인력) 노출
+                if (tab === 'bid-readiness' || tab === 'bidding-tasks' || tab === 'bidding-wbs' || tab === 'bidding-gantt' || tab === 'consortium' || tab === 'vrb' || tab === 'methodology') {
                     btn.style.display = 'none';
                 } else {
                     btn.style.display = 'inline-block';
@@ -11116,11 +17271,40 @@ class AetherPMO {
         });
 
         this.setDetailTab('overview');
+
+        setTimeout(() => {
+            const textEl = document.getElementById('project-detail-desc-text');
+            const btnEl = document.getElementById('project-detail-desc-toggle-btn');
+            if (textEl && btnEl) {
+                if (textEl.scrollHeight <= 44) {
+                    btnEl.style.display = 'none';
+                } else {
+                    btnEl.style.display = 'inline-flex';
+                }
+            }
+        }, 60);
+    }
+
+    toggleProjectDetailDesc() {
+        const textEl = document.getElementById('project-detail-desc-text');
+        const btnEl = document.getElementById('project-detail-desc-toggle-btn');
+        if (!textEl || !btnEl) return;
+
+        const isClamped = textEl.classList.contains('project-detail-desc-clamp');
+        if (isClamped) {
+            textEl.classList.remove('project-detail-desc-clamp');
+            textEl.classList.add('project-detail-desc-expanded');
+            btnEl.innerHTML = '▲ 접기';
+        } else {
+            textEl.classList.remove('project-detail-desc-expanded');
+            textEl.classList.add('project-detail-desc-clamp');
+            btnEl.innerHTML = '▼ 더보기';
+        }
     }
 
     renderProjectDetailOverview(project) {
         const isBidding = this.isBiddingProject(project);
-        
+
         // 1. 기본 정보
         const basicFields = document.getElementById('detail-overview-basic-fields');
         if (basicFields) {
@@ -11129,7 +17313,7 @@ class AetherPMO {
                     <div style="display:flex; flex-direction:column; gap:10px; font-size:12px; margin-top:8px;">
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
                             <span style="color:var(--text-muted); font-weight:700;">사업명</span>
-                            <span style="font-weight:700; text-align:right; max-width: 160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${project.name}">${project.name}</span>
+                            <span style="font-weight:700; text-align:right; max-width: 70%; word-break: keep-all; line-height: 1.4;" title="${project.name}">${project.name}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
                             <span style="color:var(--text-muted); font-weight:700;">프로젝트 코드</span>
@@ -11174,7 +17358,7 @@ class AetherPMO {
                     <div style="display:flex; flex-direction:column; gap:10px; font-size:12px; margin-top:8px;">
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
                             <span style="color:var(--text-muted); font-weight:700;">사업명</span>
-                            <span style="font-weight:700; text-align:right; max-width: 160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${project.name}">${project.name}</span>
+                            <span style="font-weight:700; text-align:right; max-width: 70%; word-break: keep-all; line-height: 1.4;" title="${project.name}">${project.name}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:6px;">
                             <span style="color:var(--text-muted); font-weight:700;">발주기관</span>
@@ -11243,7 +17427,7 @@ class AetherPMO {
         const wbsFields = document.getElementById('detail-overview-wbs-fields');
         const wbsCardTitle = document.getElementById('wbs-card-title');
         const wbsCardLink = document.getElementById('wbs-card-link');
-        
+
         if (isBidding) {
             if (wbsCardTitle) {
                 wbsCardTitle.innerHTML = `<i data-lucide="users" style="width:16px; height:16px; display:inline-block; vertical-align:middle; margin-right:6px; color:var(--success);"></i>담당조직 정보`;
@@ -11314,7 +17498,7 @@ class AetherPMO {
         const resFields = document.getElementById('detail-overview-resources-fields');
         const allMembers = (this.state.projectMembers || []).filter(m => m.projectId === project.id);
         const activeMembers = allMembers.filter(m => m.isActive === true);
-        
+
         if (resFields) {
             const showInactiveChk = document.getElementById('chk-show-inactive-members');
             const showInactive = showInactiveChk ? showInactiveChk.checked : false;
@@ -11328,20 +17512,24 @@ class AetherPMO {
                 return colors[role] || '#64748b';
             };
 
-            // Filter members based on checkbox
-            const displayMembers = showInactive ? allMembers : activeMembers;
+            // Filter and sort members with PM at the top
+            const rawDisplayMembers = showInactive ? allMembers : activeMembers;
+            const displayMembers = this.sortMembersWithPmTop(rawDisplayMembers, project);
 
             if (displayMembers.length === 0) {
                 resFields.innerHTML = `<span class="text-xs text-muted">등록된 참여 인력이 없습니다.</span>`;
             } else {
-                resFields.innerHTML = displayMembers.map(res => {
+                const overviewMembers = displayMembers.slice(0, 7);
+                let html = overviewMembers.map(res => {
                     const initials = getInitials(res.name);
-                    const color = getResourceColor(res.participationRole);
-                    const statusBadge = res.isActive 
-                        ? '' 
+                    const isPm = this.isMemberPm(res, project);
+                    const roleDisplay = this.getMemberRoleDisplay(res, project);
+                    const color = isPm ? '#8b5cf6' : getResourceColor(res.participationRole);
+                    const statusBadge = res.isActive
+                        ? ''
                         : ' <span class="badge badge-xs" style="background:var(--bg-card-border); color:var(--text-muted); font-size:9px; padding:0 4px; margin-left:4px;">제외</span>';
                     const deptText = res.department ? ` • ${res.department}` : '';
-                    
+
                     const typeLabel = this.translateEmploymentType(res.employmentType);
                     const typeColorMap = {
                         regular: { bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.3)', text: '#10b981' },
@@ -11351,6 +17539,7 @@ class AetherPMO {
                     };
                     const badgeStyle = typeColorMap[res.employmentType || 'regular'] || typeColorMap.regular;
                     const typeBadge = ` <span class="badge" style="background:${badgeStyle.bg}; color:${badgeStyle.text}; border:1px solid ${badgeStyle.border}; font-size:9px; padding:1px 6px; border-radius:4px; font-weight:700; margin-left:6px;">${typeLabel}</span>`;
+                    const pmBadge = isPm ? `<span class="badge badge-primary" style="font-size:9px; padding:1px 5px; margin-left:4px; font-weight:800;">PM</span>` : '';
 
                     return `
                         <div style="display:flex; align-items:center; gap:10px; opacity: ${res.isActive ? 1 : 0.6};">
@@ -11359,17 +17548,28 @@ class AetherPMO {
                             </div>
                             <div style="display:flex; flex-direction:column; gap:1px;">
                                 <span style="font-size:12px; font-weight:700; display:flex; align-items:center;">
-                                    ${res.name}
+                                    ${this.escapeHtml(res.name)}
+                                    ${pmBadge}
                                     ${typeBadge}
                                     ${statusBadge}
                                 </span>
-                                <span style="font-size:10px; color:var(--text-muted);">${res.participationRole}${res.roleName ? ` (${res.roleName})` : ''}${deptText}</span>
+                                <span style="font-size:10px; color:var(--text-muted);">${this.escapeHtml(roleDisplay)}${deptText}</span>
                             </div>
                         </div>
                     `;
                 }).join('');
+
+                if (displayMembers.length > 7) {
+                    html += `
+                        <button type="button" class="btn btn-xs btn-outline" onclick="app.setDetailTab('members')" style="margin-top:8px; width:100%; font-size:12px; font-weight:700; color:var(--primary); border-color:rgba(99, 102, 241, 0.4); background:var(--bg-hover-item); cursor:pointer; padding:6px 12px; display:flex; align-items:center; justify-content:center; gap:4px;" title="참여인력 탭으로 이동하여 전체 인력을 확인합니다.">
+                            ... 전체보기 (${displayMembers.length}명)
+                        </button>
+                    `;
+                }
+
+                resFields.innerHTML = html;
             }
-            
+
             const countLabel = document.getElementById('detail-resources-count-label');
             if (countLabel) {
                 countLabel.textContent = `현재 투입 ${activeMembers.length}명 (총 ${allMembers.length}명)`;
@@ -11387,7 +17587,7 @@ class AetherPMO {
                 let iconColor = 'var(--text-light)';
                 let labelClass = 'text-muted';
                 let bgGlow = 'rgba(255,255,255,0.05)';
-                
+
                 if (stage.progress === 100) {
                     icon = 'check-circle2';
                     iconColor = 'var(--success)';
@@ -11399,7 +17599,7 @@ class AetherPMO {
                     labelClass = 'text-warning font-bold';
                     bgGlow = 'var(--warning-glow)';
                 }
-                
+
                 return `
                     <div class="timeline-milestone-item" style="display:flex; align-items:flex-start; gap:16px; margin-bottom:16px; position:relative; z-index:2;">
                         <div class="timeline-milestone-icon" style="width:24px; height:24px; border-radius:50%; background:${bgGlow}; border:2px solid ${iconColor}; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-left:8px;">
@@ -11428,9 +17628,9 @@ class AetherPMO {
                     let markerClass = '';
                     if (act.type === 'project') { iconName = 'folder'; markerClass = 'text-primary'; }
                     else if (act.type === 'artifact') { iconName = 'file-text'; markerClass = 'text-info'; }
-                    else if (act.type === 'review') { 
-                        iconName = act.text.includes('승인') ? 'check-circle' : 'x-circle'; 
-                        markerClass = act.text.includes('승인') ? 'text-success' : 'text-danger'; 
+                    else if (act.type === 'review') {
+                        iconName = act.text.includes('승인') ? 'check-circle' : 'x-circle';
+                        markerClass = act.text.includes('승인') ? 'text-success' : 'text-danger';
                     }
                     return `
                         <div style="display:flex; gap:10px; align-items:flex-start; font-size:11px;">
@@ -11459,6 +17659,750 @@ class AetherPMO {
         if (countIss) countIss.textContent = `${this.state.issues.filter(i => i.projectId === project.id).length}건`;
         if (countAct) countAct.textContent = `${this.state.actionItems.filter(a => a.projectId === project.id).length}건`;
         if (countDoc) countDoc.textContent = `${this.state.officialDocs.filter(d => d.projectId === project.id).length}건`;
+
+        // 7. 본사업 주요특징, 위험요소 및 대응방안, 연관사업 설명 카드 렌더링
+        const businessContainer = document.getElementById('detail-overview-business-fields');
+        if (businessContainer) {
+            const mainFeaturesText = project.mainFeatures || project.main_features || '';
+            const riskMitigationText = project.riskAndMitigation || project.risk_mitigation || '';
+            const relatedProjectsText = project.relatedProjects || project.related_projects || '';
+
+            businessContainer.innerHTML = `
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap:18px;">
+                    <!-- 📌 본사업 주요특징 -->
+                    <div class="dashboard-card" style="display:flex; flex-direction:column; gap:10px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:10px;">
+                            <h4 style="font-size:14px; font-weight:700; color:var(--text-main); margin:0; display:flex; align-items:center; gap:6px;">
+                                <i data-lucide="sparkles" style="width:16px; height:16px; color:var(--primary);"></i> 본사업 주요특징
+                            </h4>
+                            <span style="font-size:11px; background:rgba(99,102,241,0.1); color:var(--primary); padding:2px 8px; border-radius:4px; font-weight:700;">Key Features</span>
+                        </div>
+                        <div style="font-size:13px; color:${mainFeaturesText ? 'var(--text-main)' : 'var(--text-muted)'}; line-height:1.6; white-space:pre-wrap; word-break:break-word;">
+                            ${mainFeaturesText || '<span style="font-style:italic; opacity:0.8;">등록된 본사업 주요특징이 없습니다. 상단 [사업 정보 수정] 버튼에서 입력할 수 있습니다.</span>'}
+                        </div>
+                    </div>
+
+                    <!-- ⚠️ 위험요소 및 대응방안 -->
+                    <div class="dashboard-card" style="display:flex; flex-direction:column; gap:10px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:10px;">
+                            <h4 style="font-size:14px; font-weight:700; color:var(--text-main); margin:0; display:flex; align-items:center; gap:6px;">
+                                <i data-lucide="shield-alert" style="width:16px; height:16px; color:var(--warning, #f59e0b);"></i> 위험요소 및 대응방안
+                            </h4>
+                            <span style="font-size:11px; background:rgba(245,158,11,0.1); color:var(--warning, #f59e0b); padding:2px 8px; border-radius:4px; font-weight:700;">Risk & Mitigation</span>
+                        </div>
+                        <div style="font-size:13px; color:${riskMitigationText ? 'var(--text-main)' : 'var(--text-muted)'}; line-height:1.6; white-space:pre-wrap; word-break:break-word;">
+                            ${riskMitigationText || '<span style="font-style:italic; opacity:0.8;">등록된 위험요소 및 대응방안 정보가 없습니다. 상단 [사업 정보 수정] 버튼에서 입력할 수 있습니다.</span>'}
+                        </div>
+                    </div>
+
+                    <!-- 🔗 연관사업 설명 (해당시) -->
+                    <div class="dashboard-card" style="display:flex; flex-direction:column; gap:10px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:10px;">
+                            <h4 style="font-size:14px; font-weight:700; color:var(--text-main); margin:0; display:flex; align-items:center; gap:6px;">
+                                <i data-lucide="link-2" style="width:16px; height:16px; color:var(--info, #06b6d4);"></i> 연관사업 설명 (해당시)
+                            </h4>
+                            <span style="font-size:11px; background:rgba(6,182,212,0.1); color:var(--info, #06b6d4); padding:2px 8px; border-radius:4px; font-weight:700;">Related Projects</span>
+                        </div>
+                        <div style="font-size:13px; color:${relatedProjectsText ? 'var(--text-main)' : 'var(--text-muted)'}; line-height:1.6; white-space:pre-wrap; word-break:break-word;">
+                            ${relatedProjectsText || '<span style="font-style:italic; opacity:0.8;">등록된 연관사업 설명이 없습니다. 상단 [사업 정보 수정] 버튼에서 입력할 수 있습니다.</span>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 8. 컨소시엄 구성 및 지분율 카드 렌더링
+        this.renderProjectConsortiumCard(project);
+    }
+
+    // ── 컨소시엄 구성 및 지분율 관리 기능 ─────────────────────────────────────
+
+    getInitialConsortiumData(project) {
+        if (project.consortium && project.consortium.length > 0) {
+            return project.consortium;
+        }
+        const isMember = project.participationType === 'CONSORTIUM_MEMBER';
+        const totAmt = project.totalContractAmount || project.total_contract_amount || project.budget || 1000000000;
+        const myRate = (project.companyShareRate !== undefined && project.companyShareRate !== null) ? Number(project.companyShareRate) : (isMember ? 40 : 60);
+        const partnerRate = 100 - myRate;
+        const myAmount = Math.round(totAmt * (myRate / 100));
+        const partnerAmount = totAmt - myAmount;
+
+        const defaultList = [
+            {
+                id: 'c-main',
+                companyName: isMember ? (project.primeContractorName || '(주)주사업자테크') : '(주)에이더PMO',
+                roleType: isMember ? 'MEMBER' : 'PRIME',
+                shareRate: isMember ? partnerRate : myRate,
+                contractAmount: isMember ? partnerAmount : myAmount,
+                ceoName: isMember ? '김대표' : '안유경',
+                managerName: isMember ? '이팀장' : '김철수',
+                managerContact: '010-1234-5678'
+            }
+        ];
+
+        if (partnerRate > 0) {
+            defaultList.push({
+                id: 'c-partner-1',
+                companyName: isMember ? '(주)에이더PMO' : '(주)한국소프트웨어',
+                roleType: isMember ? 'PRIME' : 'MEMBER',
+                shareRate: isMember ? myRate : partnerRate,
+                contractAmount: isMember ? myAmount : partnerAmount,
+                ceoName: isMember ? '안유경' : '홍길동',
+                managerName: isMember ? '김철수' : '이영희',
+                managerContact: '010-9876-5432'
+            });
+        }
+        return defaultList;
+    }
+
+    renderProjectConsortiumCard(project) {
+        const container = document.getElementById('detail-overview-consortium-fields');
+        if (!container) return;
+
+        const list = this.getInitialConsortiumData(project);
+        if (!project.consortium) {
+            project.consortium = list;
+        }
+
+        const histories = project.consortiumHistory || [];
+        const latestHistory = histories.length > 0 ? histories[histories.length - 1] : null;
+
+        // 지분율 계산 및 오케스트로 강조 판단
+        const okestroColor = '#4f46e5';
+        const otherColors = ['#0ea5e9', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#64748b', '#06b6d4'];
+
+        let colorIndex = 0;
+        let totalShareCheck = 0;
+
+        const processedList = list.map((item) => {
+            const rate = Number(item.shareRate) || 0;
+            totalShareCheck += rate;
+            const lowerName = (item.companyName || '').toLowerCase();
+            const isOkestro = lowerName.includes('오케스트로') || lowerName.includes('okestro');
+            let color = okestroColor;
+            if (!isOkestro) {
+                color = otherColors[colorIndex % otherColors.length];
+                colorIndex++;
+            }
+            return {
+                ...item,
+                shareRate: rate,
+                isOkestro,
+                color
+            };
+        });
+
+        totalShareCheck = Math.round(totalShareCheck * 100) / 100;
+
+        // 지분율 Visual Bar
+        let barSegmentsHtml = '';
+        processedList.forEach(item => {
+            barSegmentsHtml += `<div style="width:${item.shareRate}%; background:${item.color}; height:100%;" title="${item.companyName}: ${item.shareRate}%"></div>`;
+        });
+
+        // 좌측 구성사 테이블 Rows
+        let rowsHtml = processedList.map((item) => {
+            const isPrime = item.roleType === 'PRIME' || item.role === 'PRIME';
+            const roleBadge = isPrime 
+                ? '<span style="font-size:10px; background:rgba(99,102,241,0.15); color:var(--primary); padding:2px 6px; border-radius:4px; font-weight:700;">주사업자</span>'
+                : '<span style="font-size:10px; background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; border-radius:4px; font-weight:600;">공동수급사(부사업자)</span>';
+
+            const amtText = item.contractAmount ? `${Number(item.contractAmount).toLocaleString()} 원` : '-';
+            const okestroBadge = item.isOkestro ? '<span style="font-size:10px; background:var(--primary); color:#fff; padding:1px 5px; border-radius:3px; margin-left:4px;">당사</span>' : '';
+
+            return `
+                <tr style="border-bottom:1px solid var(--bg-card-border); ${item.isOkestro ? 'background:rgba(79, 70, 229, 0.04);' : ''}">
+                    <td style="padding:10px 12px; font-weight:700;">
+                        <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${item.color}; margin-right:8px;"></span>
+                        <span style="${item.isOkestro ? 'color:var(--primary); font-weight:800;' : ''}">${item.companyName}</span>
+                        ${okestroBadge}
+                    </td>
+                    <td style="padding:10px 12px;">${roleBadge}</td>
+                    <td style="padding:10px 12px; font-weight:800; color:${item.isOkestro ? 'var(--primary)' : 'var(--text-main)'}; font-size:13px;">${item.shareRate}%</td>
+                    <td style="padding:10px 12px; color:var(--success); font-weight:700;">${amtText}</td>
+                    <td style="padding:10px 12px; color:var(--text-muted);">${item.ceoName || '-'}</td>
+                    <td style="padding:10px 12px; color:var(--text-muted);">${item.managerName || '-'} ${item.managerContact ? `(${item.managerContact})` : ''}</td>
+                </tr>
+            `;
+        }).join('');
+
+        let historyBannerHtml = '';
+        if (latestHistory) {
+            historyBannerHtml = `
+                <div style="margin-top:10px; padding:10px 12px; background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.2); border-radius:8px; display:flex; justify-content:space-between; align-items:center; font-size:11px;">
+                    <span style="color:var(--primary); font-weight:600;">
+                        <i data-lucide="clock" style="width:12px; height:12px; vertical-align:middle; margin-right:4px;"></i>
+                        최근 지분율 변경 (${latestHistory.changeDate}): <strong>${latestHistory.reason || '사유 미입력'}</strong>
+                    </span>
+                    <button class="btn btn-xs btn-link" onclick="app.openConsortiumHistoryModal()" style="font-size:11px; padding:0; color:var(--primary); font-weight:700;">전체 이력 (${histories.length}건) &rarr;</button>
+                </div>
+            `;
+        }
+
+        // 🏆 우측 SVG Donut Chart & 오케스트로 강조 데이터 렌더링
+        const radius = 38;
+        const circumference = 2 * Math.PI * radius;
+        let strokeDashoffset = 0;
+
+        let svgHtml = `
+            <svg viewBox="0 0 100 100" style="width:100%; height:100%; transform: rotate(-90deg); border-radius:50%;">
+                <circle cx="50" cy="50" r="${radius}" fill="none" stroke="var(--bg-card-border)" stroke-width="14" opacity="0.3"></circle>
+        `;
+
+        if (totalShareCheck > 0) {
+            processedList.forEach(item => {
+                const sliceRatio = item.shareRate / (totalShareCheck > 100 ? totalShareCheck : 100);
+                const strokeDasharray = `${sliceRatio * circumference} ${circumference}`;
+                const strokeWidth = item.isOkestro ? 16 : 13;
+                const filterAttr = item.isOkestro ? `filter="drop-shadow(0px 0px 4px rgba(79, 70, 229, 0.6))"` : '';
+
+                svgHtml += `
+                    <circle cx="50" cy="50" r="${radius}" fill="none" 
+                            stroke="${item.color}" 
+                            stroke-width="${strokeWidth}" 
+                            stroke-dasharray="${strokeDasharray}" 
+                            stroke-dashoffset="-${strokeDashoffset}"
+                            ${filterAttr}
+                            style="transition: all 0.3s ease;">
+                    </circle>
+                `;
+                strokeDashoffset += sliceRatio * circumference;
+            });
+        }
+        svgHtml += `</svg>`;
+
+        const okestroItem = processedList.find(i => i.isOkestro);
+        const okestroShare = okestroItem ? okestroItem.shareRate : 0;
+
+        svgHtml += `
+            <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; pointer-events:none;">
+                <span style="font-size:12px; color:var(--text-muted); font-weight:700;">오케스트로</span>
+                <span style="font-size:24px; font-weight:800; color:var(--primary); line-height:1.1;">${okestroShare}%</span>
+            </div>
+        `;
+
+        // Legend (범례)
+        let legendHtml = processedList.map(item => `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:${item.isOkestro ? 'rgba(79, 70, 229, 0.08)' : 'transparent'}; padding: 4px 8px; border-radius: 6px; border:${item.isOkestro ? '1px solid rgba(79, 70, 229, 0.25)' : 'none'};">
+                <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+                    <span style="width:10px; height:10px; border-radius:3px; background:${item.color}; flex-shrink:0;"></span>
+                    <span style="font-size:12px; font-weight:${item.isOkestro ? '800' : '600'}; color:${item.isOkestro ? 'var(--primary)' : 'var(--text-main)'}; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+                        ${item.companyName} ${item.isOkestro ? '<span style="font-size:9px; background:var(--primary); color:#fff; padding:1px 4px; border-radius:3px; margin-left:2px;">당사</span>' : ''}
+                    </span>
+                </div>
+                <span style="font-size:12px; font-weight:700; font-family:monospace; color:${item.isOkestro ? 'var(--primary)' : 'var(--text-main)'};">${item.shareRate}%</span>
+            </div>
+        `).join('');
+
+        // 🏆 오케스트로 강조 하이라이트 카드
+        let okestroHighlightHtml = '';
+        if (okestroItem) {
+            const formattedAmt = okestroItem.contractAmount ? Number(okestroItem.contractAmount).toLocaleString() + ' 원' : '미정';
+            const roleBadge = (okestroItem.roleType === 'PRIME' || okestroItem.role === 'PRIME') ? '주사업자 (대표사)' : '공동수급사 (부사업자)';
+
+            okestroHighlightHtml = `
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                    <span style="font-size:11px; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:4px;">
+                        <i data-lucide="award" style="width:14px; height:14px;"></i> 당사(${okestroItem.companyName}) 지분 현황
+                    </span>
+                    <span style="font-size:10px; background:var(--primary); color:#fff; padding:2px 6px; border-radius:4px; font-weight:700;">${roleBadge}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                    <div>
+                        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">당사 지분 계약금액</div>
+                        <div style="font-size:14px; font-weight:800; color:var(--success); line-height:1.2;">${formattedAmt}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">지분율</div>
+                        <div style="font-size:18px; font-weight:800; color:var(--primary); line-height:1.2;">${okestroItem.shareRate}%</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            okestroHighlightHtml = `
+                <div style="text-align:center; font-size:11px; color:var(--text-muted); padding:4px;">
+                    컨소시엄 구성 목록에 '오케스트로' 지분이 등록되어 있지 않습니다.
+                </div>
+            `;
+        }
+
+        container.innerHTML = `
+            <div style="display:grid; grid-template-columns: 1fr 390px; gap:20px; align-items:start;">
+                <!-- 좌측: 비주얼 바 & 테이블 & 이력 -->
+                <div style="display:flex; flex-direction:column; gap:12px; min-width:0;">
+                    <!-- 지분율 Visual Bar -->
+                    <div>
+                        <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:6px; color:var(--text-muted); font-weight:700;">
+                            <span>지분율 구성 비율</span>
+                            <span>총 지분율: ${totalShareCheck}%</span>
+                        </div>
+                        <div style="height:10px; border-radius:5px; overflow:hidden; background:var(--bg-hover-item); display:flex; width:100%;">
+                            ${barSegmentsHtml}
+                        </div>
+                    </div>
+
+                    <!-- 컨소시엄 구성사 테이블 -->
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">
+                            <thead>
+                                <tr style="background:var(--bg-hover-item); border-bottom:1px solid var(--bg-card-border); color:var(--text-muted);">
+                                    <th style="padding:8px 12px; font-weight:700;">구성사명</th>
+                                    <th style="padding:8px 12px; font-weight:700;">역할 구분</th>
+                                    <th style="padding:8px 12px; font-weight:700;">지분율</th>
+                                    <th style="padding:8px 12px; font-weight:700;">계약금액</th>
+                                    <th style="padding:8px 12px; font-weight:700;">대표자</th>
+                                    <th style="padding:8px 12px; font-weight:700;">담당자</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    ${historyBannerHtml}
+                </div>
+
+                <!-- 우측: 원형 차트 & 범례 & 오케스트로 강조 패널 -->
+                <div style="background:var(--bg-hover-item); border:1px solid var(--bg-card-border); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:14px;">
+                    <div style="font-size:13px; font-weight:800; color:var(--text-main); display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--bg-card-border); padding-bottom:8px;">
+                        <span style="display:flex; align-items:center; gap:6px;">
+                            <i data-lucide="pie-chart" style="width:15px; height:15px; color:var(--primary);"></i> 컨소시엄 지분율 현황
+                        </span>
+                        <span style="font-size:11px; font-weight:700; color:var(--primary);">총 ${totalShareCheck}%</span>
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:14px;">
+                        <!-- SVG Donut Chart -->
+                        <div style="position:relative; width:165px; height:165px; flex-shrink:0;">
+                            ${svgHtml}
+                        </div>
+                        <!-- 범례 Legend -->
+                        <div style="flex:1; display:flex; flex-direction:column; gap:4px; max-height:165px; overflow-y:auto; padding-right:2px;">
+                            ${legendHtml}
+                        </div>
+                    </div>
+
+                    <!-- 🏆 오케스트로 강조 하이라이트 카드 -->
+                    <div style="background: linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(59,130,246,0.12) 100%); border:1px solid rgba(99,102,241,0.3); border-radius:10px; padding:12px;">
+                        ${okestroHighlightHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    openConsortiumEditModal() {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project) return;
+
+        const modal = document.getElementById('modal-consortium-edit');
+        const tbody = document.getElementById('consortium-edit-tbody');
+        const reasonInput = document.getElementById('consortium-change-reason');
+        if (!modal || !tbody) return;
+
+        if (reasonInput) reasonInput.value = '';
+
+        const list = this.getInitialConsortiumData(project);
+        tbody.innerHTML = '';
+        list.forEach(item => {
+            this.addConsortiumEditRow(item);
+        });
+
+        this.updateConsortiumTotalShare();
+        modal.style.display = 'flex';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    closeConsortiumEditModal() {
+        const modal = document.getElementById('modal-consortium-edit');
+        if (modal) modal.style.display = 'none';
+    }
+
+    addConsortiumEditRow(data = {}) {
+        const tbody = document.getElementById('consortium-edit-tbody');
+        if (!tbody) return;
+
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid var(--border-color)';
+        tr.innerHTML = `
+            <td style="padding:6px 8px;">
+                <input type="text" class="c-edit-company" value="${data.companyName || ''}" placeholder="(주)회사명" oninput="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
+            </td>
+            <td style="padding:6px 8px;">
+                <select class="c-edit-role" onchange="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
+                    <option value="PRIME" ${data.roleType === 'PRIME' ? 'selected' : ''}>주사업자</option>
+                    <option value="MEMBER" ${data.roleType !== 'PRIME' ? 'selected' : ''}>공동수급사(부사업자)</option>
+                </select>
+            </td>
+
+            <td style="padding:6px 8px;">
+                <input type="number" class="c-edit-rate" value="${data.shareRate !== undefined ? data.shareRate : 0}" step="0.1" min="0" max="100" oninput="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px; font-weight:700; text-align:right;">
+            </td>
+            <td style="padding:6px 8px;">
+                <input type="number" class="c-edit-amount" value="${data.contractAmount || 0}" step="100000" placeholder="0" oninput="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px; text-align:right;">
+            </td>
+            <td style="padding:6px 8px;">
+                <input type="text" class="c-edit-ceo" value="${data.ceoName || ''}" placeholder="대표자명" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
+            </td>
+            <td style="padding:6px 8px;">
+                <input type="text" class="c-edit-manager" value="${data.managerName || ''}" placeholder="담당자명" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
+            </td>
+            <td style="padding:6px 8px; text-align:center;">
+                <button type="button" class="btn-icon" onclick="app.deleteConsortiumEditRow(this)" style="color:var(--danger);"><i data-lucide="trash-2" style="width:14px; height:14px;"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+        this.updateConsortiumTotalShare();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    deleteConsortiumEditRow(btn) {
+        const tr = btn.closest('tr');
+        if (tr) {
+            tr.remove();
+            this.updateConsortiumTotalShare();
+        }
+    }
+
+    updateConsortiumTotalShare() {
+        const rates = document.querySelectorAll('.c-edit-rate');
+        let total = 0;
+        rates.forEach(input => {
+            total += Number(input.value) || 0;
+        });
+        total = Math.round(total * 100) / 100;
+
+        const label = document.getElementById('consortium-total-share-label');
+        if (label) {
+            label.textContent = `${total}%`;
+            if (total === 100) {
+                label.style.color = 'var(--success, #10b981)';
+            } else {
+                label.style.color = 'var(--danger, #ef4444)';
+            }
+        }
+        this.renderConsortiumShareChart();
+    }
+
+    renderConsortiumShareChart() {
+        const chartContainer = document.getElementById('consortium-chart-container');
+        const legendContainer = document.getElementById('consortium-chart-legend');
+        const highlightCard = document.getElementById('consortium-okestro-highlight-card');
+        if (!chartContainer || !legendContainer || !highlightCard) return;
+
+        const rows = document.querySelectorAll('#consortium-edit-tbody tr');
+        const items = [];
+        let totalShare = 0;
+
+        rows.forEach(tr => {
+            const companyName = tr.querySelector('.c-edit-company')?.value?.trim() || '(미입력)';
+            const role = tr.querySelector('.c-edit-role')?.value || 'MEMBER';
+            const shareRate = parseFloat(tr.querySelector('.c-edit-rate')?.value) || 0;
+            const contractAmount = parseFloat(tr.querySelector('.c-edit-amount')?.value) || 0;
+
+            const lowerName = companyName.toLowerCase();
+            const isOkestro = lowerName.includes('오케스트로') || lowerName.includes('okestro');
+
+            items.push({
+                companyName,
+                role,
+                shareRate,
+                contractAmount,
+                isOkestro
+            });
+            totalShare += shareRate;
+        });
+
+        // 1. 색상 팔레트 설정 (오케스트로는 시그니처 인디고/네온 블루 강조)
+        const okestroColor = '#4f46e5';
+        const otherColors = ['#0ea5e9', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#64748b', '#06b6d4'];
+
+        let colorIndex = 0;
+        items.forEach(item => {
+            if (item.isOkestro) {
+                item.color = okestroColor;
+            } else {
+                item.color = otherColors[colorIndex % otherColors.length];
+                colorIndex++;
+            }
+        });
+
+        // 2. SVG Donut Chart 렌더링
+        const radius = 38;
+        const circumference = 2 * Math.PI * radius;
+        let strokeDashoffset = 0;
+
+        let svgHtml = `
+            <svg viewBox="0 0 100 100" style="width:100%; height:100%; transform: rotate(-90deg); border-radius:50%;">
+                <circle cx="50" cy="50" r="${radius}" fill="none" stroke="var(--border-color)" stroke-width="14" opacity="0.3"></circle>
+        `;
+
+        if (totalShare > 0) {
+            items.forEach(item => {
+                const sliceRatio = item.shareRate / (totalShare > 100 ? totalShare : 100);
+                const strokeDasharray = `${sliceRatio * circumference} ${circumference}`;
+                const strokeWidth = item.isOkestro ? 16 : 13;
+                const filterAttr = item.isOkestro ? `filter="drop-shadow(0px 0px 4px rgba(79, 70, 229, 0.6))"` : '';
+
+                svgHtml += `
+                    <circle cx="50" cy="50" r="${radius}" fill="none" 
+                            stroke="${item.color}" 
+                            stroke-width="${strokeWidth}" 
+                            stroke-dasharray="${strokeDasharray}" 
+                            stroke-dashoffset="-${strokeDashoffset}"
+                            ${filterAttr}
+                            style="transition: all 0.3s ease;">
+                    </circle>
+                `;
+                strokeDashoffset += sliceRatio * circumference;
+            });
+        }
+
+        svgHtml += `</svg>`;
+
+        const okestroItem = items.find(i => i.isOkestro);
+        const okestroShare = okestroItem ? okestroItem.shareRate : 0;
+
+        svgHtml += `
+            <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; pointer-events:none;">
+                <span style="font-size:10px; color:var(--text-muted); font-weight:600; text-transform:uppercase;">오케스트로</span>
+                <span style="font-size:20px; font-weight:800; color:var(--primary); line-height:1.1;">${okestroShare}%</span>
+            </div>
+        `;
+
+        chartContainer.innerHTML = svgHtml;
+
+        // 3. Legend (범례) 렌더링
+        if (items.length === 0) {
+            legendContainer.innerHTML = `<div style="text-align:center; color:var(--text-muted); padding:10px;">등록된 구성사가 없습니다.</div>`;
+        } else {
+            legendContainer.innerHTML = items.map(item => `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:${item.isOkestro ? 'rgba(79, 70, 229, 0.08)' : 'transparent'}; padding: 4px 8px; border-radius: 6px; border:${item.isOkestro ? '1px solid rgba(79, 70, 229, 0.25)' : 'none'};">
+                    <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+                        <span style="width:10px; height:10px; border-radius:3px; background:${item.color}; flex-shrink:0;"></span>
+                        <span style="font-weight:${item.isOkestro ? '800' : '600'}; color:${item.isOkestro ? 'var(--primary)' : 'var(--text-main)'}; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+                            ${item.companyName} ${item.isOkestro ? '<span style="font-size:10px; background:var(--primary); color:#fff; padding:1px 4px; border-radius:3px; margin-left:2px;">당사</span>' : ''}
+                        </span>
+                    </div>
+                    <span style="font-weight:700; font-family:monospace; color:${item.isOkestro ? 'var(--primary)' : 'var(--text-main)'};">${item.shareRate}%</span>
+                </div>
+            `).join('');
+        }
+
+        // 4. 🏆 오케스트로 지분율 강조 카드 렌더링
+        if (okestroItem) {
+            const formattedAmt = okestroItem.contractAmount ? Number(okestroItem.contractAmount).toLocaleString() + ' 원' : '미정';
+            const roleBadge = okestroItem.role === 'PRIME' ? '주사업자 (대표사)' : '공동수급사 (부사업자)';
+
+            highlightCard.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+                    <div>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+                            <span style="font-size:11px; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px;">당사 지분 하이라이트</span>
+                            <span style="font-size:10px; background:rgba(16, 185, 129, 0.15); color:var(--success, #10b981); padding:1px 6px; border-radius:4px; font-weight:700;">${roleBadge}</span>
+                        </div>
+                        <h5 style="margin:0; font-size:14px; font-weight:800; color:var(--text-main);">${okestroItem.companyName}</h5>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="font-size:22px; font-weight:900; color:var(--primary); font-family:sans-serif; letter-spacing:-0.5px;">${okestroItem.shareRate}<span style="font-size:14px;">%</span></span>
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed rgba(99,102,241,0.25); margin-top:6px; padding-top:6px; font-size:12px;">
+                    <span style="color:var(--text-muted);">당사 지분 계약금액</span>
+                    <strong style="color:var(--text-main); font-weight:700;">${formattedAmt}</strong>
+                </div>
+            `;
+        } else {
+            highlightCard.innerHTML = `
+                <div style="display:flex; align-items:center; gap:8px; color:var(--text-muted); font-size:12px;">
+                    <i data-lucide="info" style="width:16px; height:16px; color:var(--primary);"></i>
+                    <span>테이블에 <strong>'오케스트로'</strong> 또는 <strong>'오케스트로 클라우드'</strong> 지분 등록 시 전용 강조 카드가 활성화됩니다.</span>
+                </div>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    saveConsortiumEdit() {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project) return;
+
+        const rows = document.querySelectorAll('#consortium-edit-tbody tr');
+        const newList = [];
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const comp = row.querySelector('.c-edit-company')?.value?.trim();
+            const role = row.querySelector('.c-edit-role')?.value;
+            const rate = Number(row.querySelector('.c-edit-rate')?.value) || 0;
+            const amt = Number(row.querySelector('.c-edit-amount')?.value) || 0;
+            const ceo = row.querySelector('.c-edit-ceo')?.value?.trim();
+            const mgr = row.querySelector('.c-edit-manager')?.value?.trim();
+
+            if (!comp) {
+                this.showToast('모든 구성사의 회사명을 입력해 주세요.', 'warning');
+                return;
+            }
+
+            newList.push({
+                id: `c-${Date.now()}-${i}`,
+                companyName: comp,
+                roleType: role,
+                shareRate: rate,
+                contractAmount: amt,
+                ceoName: ceo,
+                managerName: mgr
+            });
+        }
+
+        if (newList.length === 0) {
+            this.showToast('최소 1개 이상의 컨소시엄사를 입력해야 합니다.', 'warning');
+            return;
+        }
+
+        // 지분율 변경사항 감지 및 히스토리 자동 기록
+        const oldList = project.consortium || [];
+        const changeReason = document.getElementById('consortium-change-reason')?.value?.trim();
+
+        let isShareChanged = false;
+        const changeDetails = [];
+
+        newList.forEach(item => {
+            const oldItem = oldList.find(o => o.companyName === item.companyName);
+            const oldRate = oldItem ? oldItem.shareRate : 0;
+            if (oldRate !== item.shareRate) {
+                isShareChanged = true;
+                changeDetails.push({
+                    companyName: item.companyName,
+                    beforeRate: oldRate,
+                    afterRate: item.shareRate
+                });
+            }
+        });
+
+        oldList.forEach(oldItem => {
+            if (!newList.find(n => n.companyName === oldItem.companyName)) {
+                isShareChanged = true;
+                changeDetails.push({
+                    companyName: oldItem.companyName,
+                    beforeRate: oldItem.shareRate,
+                    afterRate: 0
+                });
+            }
+        });
+
+        if (isShareChanged) {
+            if (!project.consortiumHistory) project.consortiumHistory = [];
+            const today = new Date().toISOString().split('T')[0];
+            project.consortiumHistory.push({
+                id: `ch-${Date.now()}`,
+                changeDate: today,
+                reason: changeReason || '컨소시엄 지분율 변경 및 구성사 재조정',
+                changes: changeDetails,
+                createdAt: new Date().toISOString()
+            });
+        }
+
+        project.consortium = newList;
+
+        // 당사 지분율 및 계약금액 업데이트 (에이더PMO 또는 주간사)
+        const myComp = newList.find(n => n.companyName.includes('에이더PMO') || n.roleType === 'PRIME');
+        if (myComp) {
+            project.companyShareRate = myComp.shareRate;
+            if (myComp.contractAmount) {
+                project.companyContractAmount = myComp.contractAmount;
+            }
+        }
+
+        this.saveState('project_upsert', project);
+        this.renderProjectDetailOverview(project);
+        this.closeConsortiumEditModal();
+        this.showToast('컨소시엄 구성 및 지분율 정보가 저장되었습니다.', 'success');
+    }
+
+    openConsortiumHistoryModal() {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project) return;
+
+        const modal = document.getElementById('modal-consortium-history');
+        const body = document.getElementById('consortium-history-body');
+        if (!modal || !body) return;
+
+        const histories = project.consortiumHistory || [];
+
+        if (histories.length === 0) {
+            body.innerHTML = `
+                <div style="text-align:center; padding:40px 20px; color:var(--text-muted);">
+                    <i data-lucide="history" style="width:36px; height:36px; margin-bottom:10px; opacity:0.5; display:block; margin-left:auto; margin-right:auto;"></i>
+                    <div style="font-size:14px; font-weight:700;">기록된 지분율 변경 히스토리가 없습니다.</div>
+                    <div style="font-size:12px; margin-top:4px;">[컨소시엄 수정] 버튼을 클릭하여 지분율을 변경하면 변경 이력이 자동 기록됩니다.</div>
+                </div>
+            `;
+        } else {
+            const sorted = [...histories].reverse();
+            body.innerHTML = sorted.map((h) => {
+                const changeRows = (h.changes || []).map(c => {
+                    const diff = Math.round((c.afterRate - c.beforeRate) * 100) / 100;
+                    const diffTag = diff > 0 
+                        ? `<span style="color:var(--success); font-weight:700;">+${diff}% ▲</span>`
+                        : diff < 0 
+                            ? `<span style="color:var(--danger); font-weight:700;">${diff}% ▼</span>`
+                            : `<span style="color:var(--text-muted);">변동없음</span>`;
+
+                    return `
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px dashed var(--border-color); font-size:12px;">
+                            <span style="font-weight:600;">${c.companyName}</span>
+                            <span>${c.beforeRate}% &rarr; <strong style="color:var(--primary);">${c.afterRate}%</strong> (${diffTag})</span>
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div style="background:var(--bg-hover-item); border:1px solid var(--border-color); border-radius:10px; padding:16px; margin-bottom:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <span style="font-size:12px; font-weight:800; color:var(--primary); background:rgba(99,102,241,0.15); padding:2px 8px; border-radius:4px;">
+                                📅 변경일자: ${h.changeDate}
+                            </span>
+                            <button type="button" class="btn-icon" onclick="app.deleteConsortiumHistoryItem('${h.id}')" title="이력 삭제" style="color:var(--danger);">
+                                <i data-lucide="trash-2" style="width:13px; height:13px;"></i>
+                            </button>
+                        </div>
+                        <div style="font-size:13px; font-weight:700; margin-bottom:10px; color:var(--text-main);">
+                            사유: ${h.reason || '변경 사유 미입력'}
+                        </div>
+                        <div style="background:var(--bg-card); padding:10px 12px; border-radius:6px;">
+                            <div style="font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:6px;">지분율 변동 내역:</div>
+                            ${changeRows}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        modal.style.display = 'flex';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    closeConsortiumHistoryModal() {
+        const modal = document.getElementById('modal-consortium-history');
+        if (modal) modal.style.display = 'none';
+    }
+
+    deleteConsortiumHistoryItem(historyId) {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project || !project.consortiumHistory) return;
+
+        if (!confirm('이 지분율 변경 이력 기록을 삭제하시겠습니까?')) return;
+
+        project.consortiumHistory = project.consortiumHistory.filter(h => h.id !== historyId);
+        this.saveState('project_upsert', project);
+        this.openConsortiumHistoryModal();
+        this.renderProjectDetailOverview(project);
+        this.showToast('지분율 변경 이력이 삭제되었습니다.', 'info');
     }
 
     copyProjectOverviewInfo() {
@@ -11541,35 +18485,57 @@ class AetherPMO {
         const tbody = document.getElementById('project-detail-members-tbody');
         if (!tbody) return;
 
-        const members = (this.state.projectMembers || []).filter(m => m.projectId === projectId);
-        if (members.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">등록된 참여인력이 없습니다.</td></tr>';
+        const project = (this.state.projects || []).find(p => p.id === projectId);
+        let rawMembers = (this.state.projectMembers || []).filter(m => m.projectId === projectId);
+        if (rawMembers.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">등록된 참여인력이 없습니다.</td></tr>';
             return;
         }
+
+        const members = this.sortMembersWithPmTop(rawMembers, project);
 
         tbody.innerHTML = '';
         members.forEach(mem => {
             const tr = document.createElement('tr');
-            const statusBadge = mem.isActive !== false 
+            const statusBadge = mem.isActive !== false
                 ? '<span class="status-badge status-resolved">참여중</span>'
                 : '<span class="status-badge status-occurred">제외됨</span>';
-            
+
             const empType = mem.employmentType || mem.employment_type || 'UNKNOWN';
             const empLabel = this.translateEmploymentType(empType);
-            
+
             let empCss = 'employment-unknown';
             if (empType === 'REGULAR_EMPLOYEE' || empType === 'regular') empCss = 'employment-regular';
             else if (empType === 'INSOURCED_CONTRACTOR' || empType === 'outsourcing') empCss = 'employment-insourced';
             else if (empType === 'PROJECT_CONTRACTOR' || empType === 'project_contract') empCss = 'employment-project';
-            
+
             const empBadge = `<span class="employment-badge ${empCss}">${empLabel}</span>`;
 
+            const isContractor = (empType === 'INSOURCED_CONTRACTOR' || empType === 'outsourcing' || empType === 'PROJECT_CONTRACTOR' || empType === 'project_contract');
+            let isSeveranceEligible = mem.isSeveranceEligible ?? mem.is_severance_eligible;
+            let days = 0;
+            if (mem.startDate && mem.endDate) {
+                days = Math.floor((new Date(mem.endDate) - new Date(mem.startDate)) / (1000 * 60 * 60 * 24)) + 1;
+            }
+            if (isSeveranceEligible === undefined || isSeveranceEligible === null) {
+                isSeveranceEligible = isContractor && days >= 365;
+            }
+
+            let severanceCellHtml = '<span class="text-xs text-muted">비대상</span>';
+            if (isSeveranceEligible) {
+                severanceCellHtml = `<span class="badge-severance" style="font-size:10px; background:rgba(234,179,8,0.15); color:#d97706; border:1px solid rgba(234,179,8,0.3); padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:3px;" title="자사화/계약직 투입 365일 이상 (${days}일)"><i data-lucide="coins" style="width:11px; height:11px;"></i> 대상 ${days ? `(${days}일)` : ''}</span>`;
+            }
+
+            const isPm = this.isMemberPm(mem, project);
+            const roleDisplay = this.getMemberRoleDisplay(mem, project);
+
             tr.innerHTML = `
-                <td class="font-bold text-xs">${this.escapeHtml(mem.name || mem.memberName || '-')} ${mem.isPm ? '<span class="badge badge-primary" style="font-size:10px; margin-left:4px;">PM</span>' : ''}</td>
-                <td><span class="badge-cat cat-etc">${this.escapeHtml(mem.role || mem.roleName || '수행원')}</span></td>
+                <td class="font-bold text-xs">${this.escapeHtml(mem.name || mem.memberName || '-')} ${isPm ? '<span class="badge badge-primary" style="font-size:10px; margin-left:4px; font-weight:800;">PM</span>' : ''}</td>
+                <td><span class="badge-cat ${isPm ? 'cat-dev' : 'cat-etc'}">${this.escapeHtml(roleDisplay)}</span></td>
                 <td class="text-xs font-bold">${this.escapeHtml(mem.department || '-')}</td>
                 <td class="text-xs font-bold">${this.escapeHtml(mem.position || '연구원')}</td>
                 <td>${empBadge}</td>
+                <td>${severanceCellHtml}</td>
                 <td class="text-xs text-muted font-bold">${mem.startDate || '-'}</td>
                 <td class="text-xs text-muted font-bold">${mem.endDate || '-'}</td>
                 <td>${statusBadge}</td>
@@ -11581,6 +18547,7 @@ class AetherPMO {
             `;
             tbody.appendChild(tr);
         });
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     renderTailoringView() {
@@ -11705,7 +18672,7 @@ class AetherPMO {
         const checklists = this.state.checklists.filter(c => c.projectId === this.activeProjectId);
         const container = document.getElementById('project-checklists-tbody');
         const countSpan = document.getElementById('checklist-count-label');
-        
+
         if (!container) return;
 
         if (checklists.length === 0) {
@@ -11735,7 +18702,7 @@ class AetherPMO {
             `;
             container.appendChild(tr);
         });
-        
+
         this.applyRolePermissions();
     }
 
@@ -11743,13 +18710,13 @@ class AetherPMO {
         const idx = this.state.checklists.findIndex(c => c.id === id);
         if (idx !== -1) {
             this.state.checklists[idx].checked = checked;
-            
+
             // Auto recalculate progress rate of project based on checked checklists proportion
             const projectId = this.state.checklists[idx].projectId;
             const projectChecklists = this.state.checklists.filter(c => c.projectId === projectId);
             const total = projectChecklists.length;
             const completed = projectChecklists.filter(c => c.checked).length;
-            
+
             const projIdx = this.state.projects.findIndex(p => p.id === projectId);
             if (projIdx !== -1 && total > 0) {
                 const calculatedProgress = Math.round((completed / total) * 100);
@@ -11807,7 +18774,7 @@ class AetherPMO {
         if (!tbody) return;
 
         const slots = this.state.templateSlots.filter(t => t.projectId === this.activeProjectId && t.stage === this.activeTemplateFolder);
-        
+
         if (slots.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">해당 단계의 산출물 템플릿 정보가 없습니다.</td></tr>';
             return;
@@ -11829,7 +18796,7 @@ class AetherPMO {
             }
 
             const isApproved = slot.fileName ? true : false;
-            const actionBtn = isApproved 
+            const actionBtn = isApproved
                 ? `<button class="btn btn-xs btn-outline" onclick="app.submitTemplateAsArtifact('${slot.id}')"><i data-lucide="send" style="width:10px; height:10px;"></i> 정식 산출물로 제출</button>`
                 : `<button class="btn btn-xs btn-primary" onclick="app.triggerTemplateUpload('${slot.id}')"><i data-lucide="upload" style="width:10px; height:10px;"></i> 템플릿 등록 (업로드)</button>`;
 
@@ -11871,7 +18838,7 @@ class AetherPMO {
                 this.state.templateSlots[slotIndex].fileName = file.name;
                 this.state.templateSlots[slotIndex].fileSize = sizeStr;
                 this.state.templateSlots[slotIndex].createdDate = this.getFormattedDateTime().split(' ')[0];
-                
+
                 this.addActivityLog(this.activeProjectId, null, 'artifact', `산출물 템플릿 파일 [${file.name}]이 등록되었습니다.`);
                 this.saveState();
                 this.renderProjectTemplatesPage();
@@ -12006,7 +18973,7 @@ class AetherPMO {
 
         artifacts.forEach(art => {
             const tr = document.createElement('tr');
-            
+
             const stageLabel = stageNames[art.stageCode] || art.stageCode || 'PRP';
             const stageBadgeClass = stageBadges[art.stageCode] || 'cat-etc';
 
@@ -12478,27 +19445,38 @@ class AetherPMO {
     /* ==========================================================================
        CRUD OPERATIONS: PROJECTS
        ========================================================================== */
+        handleProjectStatusChange(status) {
+        const biddingGroup = document.getElementById('new-bidding-status-group');
+        const biddingFields = document.getElementById('project-bidding-fields');
+        const isBidding = status === 'Bidding' || this.activeProjectStageFilter === 'Bidding';
+        
+        if (biddingGroup) biddingGroup.style.display = isBidding ? 'block' : 'none';
+        if (biddingFields) biddingFields.style.display = isBidding ? 'block' : 'none';
+    }
+
     openNewProjectModal() {
+        this.currentProjectRequestKey = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'req-' + Date.now();
+        console.log('[openNewProjectModal] Generated fresh requestKey:', this.currentProjectRequestKey);
         document.getElementById('project-modal-title').textContent = '신규 사업 등록';
         document.getElementById('project-form').reset();
         document.getElementById('project-id-field').value = '';
-        
+
         // Reset custom dept field
         document.getElementById('project-dept').value = '개발팀';
         document.getElementById('project-dept-custom').style.display = 'none';
         document.getElementById('project-dept-custom').value = '';
-        
+
         const today = new Date();
         const future = new Date();
         future.setMonth(today.getMonth() + 3);
-        
+
         document.getElementById('project-start-date').value = today.toISOString().split('T')[0];
         document.getElementById('project-end-date').value = future.toISOString().split('T')[0];
         document.getElementById('project-inspection-date').value = future.toISOString().split('T')[0];
         document.getElementById('project-progress').value = 0;
         document.getElementById('project-resources').value = 0;
         this.populateProjectManagerSelect(this.currentUser ? (this.currentUser.id || this.currentUser.email) : '');
-        
+
         document.getElementById('project-customer').value = '';
         document.getElementById('project-budget').value = '';
         document.getElementById('project-milestones').value = '';
@@ -12511,6 +19489,10 @@ class AetherPMO {
         document.getElementById('project-location').value = '';
         document.getElementById('project-related-biz').value = '';
         document.getElementById('project-risk-level').value = '보통';
+
+        if (document.getElementById('project-main-features')) document.getElementById('project-main-features').value = '';
+        if (document.getElementById('project-risk-mitigation')) document.getElementById('project-risk-mitigation').value = '';
+        this.initRelatedProjectsSelector(null, [], '');
 
         // Reset bid status
         document.getElementById('project-bid-status-group').style.display = 'none';
@@ -12543,7 +19525,17 @@ class AetherPMO {
             document.getElementById(`wbs-progress-${s.id}`).value = 0;
             document.getElementById(`wbs-weight-${s.id}`).value = s.weight;
         });
-        
+
+                const isBiddingMode = this.activeProjectStageFilter === 'Bidding' || window.location.hash.includes('bidding');
+        const statusSelect = document.getElementById('project-status');
+        if (statusSelect) {
+            statusSelect.value = isBiddingMode ? 'Bidding' : 'In Progress';
+        }
+        if (document.getElementById('new-bidding-status')) {
+            document.getElementById('new-bidding-status').value = 'review';
+        }
+        this.handleProjectStatusChange(isBiddingMode ? 'Bidding' : 'In Progress');
+
         document.getElementById('project-modal').classList.add('open');
     }
 
@@ -12558,7 +19550,7 @@ class AetherPMO {
         this.setFieldValue('project-id-field', project.id);
         this.setFieldValue('project-name', project.name);
         this.setFieldValue('project-desc', project.desc);
-        
+
         const deptValue = project.dept || '개발팀';
         const defaultDepts = ['개발팀', '기획팀', '디자인팀', '품질관리팀'];
         if (defaultDepts.includes(deptValue)) {
@@ -12570,8 +19562,8 @@ class AetherPMO {
             const deptCustom = document.getElementById('project-dept-custom');
             if (deptCustom) { deptCustom.style.display = 'block'; deptCustom.value = deptValue; }
         }
-        
-        this.populateProjectManagerSelect(project.managerId || project.manager);
+
+        this.populateProjectManagerSelect(project.manager, project.managerId);
         this.setFieldValue('project-customer', project.customer || project.customerName);
         this.setFieldValue('project-budget', project.budget ? this.formatNumberWithCommas(project.budget) : '');
         this.setFieldValue('project-start-date', project.startDate);
@@ -12587,7 +19579,14 @@ class AetherPMO {
         this.setFieldValue('project-milestones', project.milestones);
         this.setFieldValue('project-remarks', project.remarks);
         this.setFieldValue('project-code', project.projectCode);
+
+        this.setFieldValue('project-main-features', project.mainFeatures || project.main_features || '');
+        this.setFieldValue('project-risk-mitigation', project.riskAndMitigation || project.risk_mitigation || '');
         
+        const initialRelIds = project.relatedProjectIds || project.related_project_ids || [];
+        const initialRelDesc = project.relatedProjects || project.related_projects || '';
+        this.initRelatedProjectsSelector(project.id, initialRelIds, initialRelDesc);
+
         const currBizType = project.businessType || project.business_type || project.bizType || '공공 SI';
         const standardTypes = ['공공 SI', '유지관리', 'ISP', '컨설팅', 'AI'];
         const bizSelect = document.getElementById('project-biz-type-select');
@@ -12610,7 +19609,7 @@ class AetherPMO {
         // Step 2: Set Participation Type & Toggle Conditional Sections
         const partType = project.participationType || project.participation_type || 'PRIME_CONTRACTOR';
         this.setFieldValue('project-participation-type', partType);
-        
+
         // Step 3: Handle Conditional Section Visibility
         this.handleParticipationTypeChange(partType);
 
@@ -12618,7 +19617,7 @@ class AetherPMO {
         this.setFieldValue('project-prime-contractor-name', project.primeContractorName || project.prime_contractor_name);
         this.setFieldValue('project-total-contract-amount', project.totalContractAmount ? this.formatNumberWithCommas(project.totalContractAmount) : '');
         this.setFieldValue('project-company-share-rate', (project.companyShareRate !== undefined && project.companyShareRate !== null) ? project.companyShareRate : '');
-        
+
         const compAmount = project.companyContractAmount || project.company_contract_amount || project.contract_amount || project.budget || 0;
         this.setFieldValue('project-company-contract-amount', compAmount ? this.formatNumberWithCommas(compAmount) : '');
 
@@ -12631,6 +19630,10 @@ class AetherPMO {
 
         // Populate bid status & bidding fields
         this.setFieldValue('project-bid-status', this.normalizeBiddingStatus(project));
+        const newBidStatusSelect = document.getElementById('new-bidding-status');
+        if (newBidStatusSelect) {
+            newBidStatusSelect.value = this.normalizeBiddingStatus(project);
+        }
         const bidGroup = document.getElementById('project-bid-status-group');
         if (bidGroup) bidGroup.style.display = (project.status === 'Bidding' || project.is_bidding_project) ? 'block' : 'none';
 
@@ -12641,7 +19644,7 @@ class AetherPMO {
         this.setFieldValue('project-bid-number', project.bidNumber);
         this.setFieldValue('project-customer-name', project.customerName);
         this.setFieldValue('project-budget-bidding', project.projectBudget ? this.formatNumberWithCommas(project.projectBudget) : '');
-        
+
         const biddingSelect = document.getElementById('project-business-type');
         const biddingCustom = document.getElementById('project-business-type-custom');
         if (biddingSelect) {
@@ -12653,7 +19656,10 @@ class AetherPMO {
                 if (biddingCustom) { biddingCustom.style.display = 'block'; biddingCustom.value = currBizType; }
             }
         }
-        this.setFieldValue('project-sales-owner', project.salesOwner);
+        this.setFieldValue('project-sales-owner', project.salesOwner || project.sales_owner || '');
+        this.setFieldValue('project-bd-manager', project.bdManager || project.bd_manager || '');
+        this.setFieldValue('project-internal-pm', project.internalPm || project.internal_pm || '');
+        this.setFieldValue('project-pmo-manager', project.pmoManager || project.pmo_manager || '');
         this.setFieldValue('project-proposal-owner', project.proposalOwner);
         this.setFieldValue('project-proposal-pm', project.proposalPm);
         this.setFieldValue('project-business-manager', project.businessManager);
@@ -12674,7 +19680,7 @@ class AetherPMO {
             loadedMembers = (this.state.consortiumMembers || []).filter(c => c.projectId === project.id);
         }
         this.modalConsortiumMembers = JSON.parse(JSON.stringify(loadedMembers || []));
-        
+
         this.checkManualContractAmount();
         this.renderModalConsortiumTable();
 
@@ -12726,6 +19732,190 @@ class AetherPMO {
         }
     }
 
+    // ── 연관사업 선택기 & 이력 관리 ─────────────────────────────────────
+    initRelatedProjectsSelector(editingProjectId = null, initialRelatedProjectIds = [], initialRelatedDesc = '') {
+        this.modalEditingProjectId = editingProjectId;
+        
+        let ids = [];
+        if (Array.isArray(initialRelatedProjectIds)) {
+            ids = [...initialRelatedProjectIds];
+        } else if (typeof initialRelatedProjectIds === 'string' && initialRelatedProjectIds.trim()) {
+            ids = initialRelatedProjectIds.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        this.modalSelectedRelatedIds = ids;
+
+        const descField = document.getElementById('project-related-projects');
+        if (descField) descField.value = initialRelatedDesc || '';
+
+        const searchInput = document.getElementById('project-related-search-input');
+        if (searchInput) searchInput.value = '';
+
+        this.renderSelectedRelatedChips();
+
+        // Dropdown auto-close on click outside
+        if (!this._relatedDropdownClickBound) {
+            this._relatedDropdownClickBound = true;
+            document.addEventListener('click', (e) => {
+                const dropdown = document.getElementById('project-related-dropdown-list');
+                const searchBox = document.getElementById('project-related-search-input');
+                if (dropdown && searchBox && !dropdown.contains(e.target) && !searchBox.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+        }
+    }
+
+    getAllProjectsForSelection() {
+        const allList = [];
+        const seenIds = new Set();
+        const curId = this.modalEditingProjectId;
+
+        // 1. Regular Projects
+        (this.state.projects || []).forEach(p => {
+            if (p && p.id && p.id !== curId && !seenIds.has(p.id)) {
+                seenIds.add(p.id);
+                allList.push(p);
+            }
+        });
+
+        // 2. Bidding Projects
+        (this.state.biddingProjects || []).forEach(p => {
+            if (p && p.id && p.id !== curId && !seenIds.has(p.id)) {
+                seenIds.add(p.id);
+                allList.push(p);
+            }
+        });
+
+        return allList;
+    }
+
+    showRelatedProjectsDropdown() {
+        const searchInput = document.getElementById('project-related-search-input');
+        this.filterRelatedProjectsDropdown(searchInput ? searchInput.value : '');
+    }
+
+    filterRelatedProjectsDropdown(query = '') {
+        const dropdown = document.getElementById('project-related-dropdown-list');
+        if (!dropdown) return;
+
+        const allProjs = this.getAllProjectsForSelection();
+        const q = query.trim().toLowerCase();
+
+        const filtered = allProjs.filter(p => {
+            if (!q) return true;
+            const name = (p.name || '').toLowerCase();
+            const code = (p.projectCode || p.code || '').toLowerCase();
+            const customer = (p.customer || p.customerName || '').toLowerCase();
+            const pm = (p.manager || p.proposalPm || '').toLowerCase();
+            return name.includes(q) || code.includes(q) || customer.includes(q) || pm.includes(q);
+        });
+
+        if (filtered.length === 0) {
+            dropdown.innerHTML = '<div style="padding:10px; font-size:12px; color:var(--text-muted); text-align:center;">검색 결과가 없습니다.</div>';
+            dropdown.style.display = 'block';
+            return;
+        }
+
+        const selectedSet = new Set(this.modalSelectedRelatedIds || []);
+
+        let html = '';
+        filtered.forEach(p => {
+            const isSelected = selectedSet.has(p.id);
+            const status = p.status || (p.is_bidding_project ? 'Bidding' : 'In Progress');
+            let statusLabel = '수행중';
+            let statusBadgeBg = 'rgba(99,102,241,0.1)';
+            let statusBadgeColor = 'var(--primary)';
+
+            if (status === 'Bidding' || p.is_bidding_project) {
+                statusLabel = '입찰';
+                statusBadgeBg = 'rgba(245,158,11,0.1)';
+                statusBadgeColor = '#f59e0b';
+            } else if (status === 'Completed') {
+                statusLabel = '종료';
+                statusBadgeBg = 'rgba(16,185,129,0.1)';
+                statusBadgeColor = '#10b981';
+            }
+
+            const codeStr = (p.projectCode || p.code) ? `[${p.projectCode || p.code}] ` : '';
+            const customerStr = p.customer || p.customerName || '-';
+
+            html += `
+                <div class="related-project-item ${isSelected ? 'selected' : ''}" ${!isSelected ? `onclick="app.addRelatedProject('${p.id}')"` : ''}>
+                    <div style="display:flex; flex-direction:column; gap:2px; text-align:left;">
+                        <div style="font-size:12px; font-weight:700; color:var(--text-main);">
+                            ${codeStr}${this.escapeHtml(p.name)}
+                        </div>
+                        <div style="font-size:11px; color:var(--text-muted);">
+                            고객사: ${this.escapeHtml(customerStr)} | PM: ${this.escapeHtml(p.manager || '-')}
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; background:${statusBadgeBg}; color:${statusBadgeColor};">
+                            ${statusLabel}
+                        </span>
+                        ${isSelected ? '<span style="font-size:11px; color:var(--primary); font-weight:700;">✓ 선택됨</span>' : ''}
+                    </div>
+                </div>
+            `;
+        });
+
+        dropdown.innerHTML = html;
+        dropdown.style.display = 'block';
+    }
+
+    addRelatedProject(projId) {
+        if (!projId) return;
+        if (!this.modalSelectedRelatedIds) this.modalSelectedRelatedIds = [];
+        if (!this.modalSelectedRelatedIds.includes(projId)) {
+            this.modalSelectedRelatedIds.push(projId);
+        }
+        const searchInput = document.getElementById('project-related-search-input');
+        if (searchInput) searchInput.value = '';
+        const dropdown = document.getElementById('project-related-dropdown-list');
+        if (dropdown) dropdown.style.display = 'none';
+
+        this.renderSelectedRelatedChips();
+    }
+
+    removeRelatedProject(projId) {
+        if (!this.modalSelectedRelatedIds) return;
+        this.modalSelectedRelatedIds = this.modalSelectedRelatedIds.filter(id => id !== projId);
+        this.renderSelectedRelatedChips();
+    }
+
+    renderSelectedRelatedChips() {
+        const container = document.getElementById('selected-related-projects-chips');
+        if (!container) return;
+
+        const ids = this.modalSelectedRelatedIds || [];
+        if (ids.length === 0) {
+            container.innerHTML = '<span style="font-size:11px; color:var(--text-muted); font-style:italic;" id="no-related-chip-msg">선택된 관련 사업이 없습니다. 아래에서 검색하여 선택하세요.</span>';
+            return;
+        }
+
+        const allProjs = (this.state.projects || []).concat(this.state.biddingProjects || []);
+
+        let html = '';
+        ids.forEach(id => {
+            const p = allProjs.find(proj => proj.id === id);
+            const name = p ? p.name : id;
+            const status = p ? (p.status || (p.is_bidding_project ? 'Bidding' : 'In Progress')) : '';
+            let label = '수행';
+            if (status === 'Bidding') label = '입찰';
+            else if (status === 'Completed') label = '종료';
+
+            html += `
+                <span class="related-project-chip">
+                    <span style="font-size:9px; opacity:0.8; font-weight:700;">[${label}]</span>
+                    ${this.escapeHtml(name)}
+                    <span class="chip-remove" onclick="app.removeRelatedProject('${id}')" title="삭제">&times;</span>
+                </span>
+            `;
+        });
+
+        container.innerHTML = html;
+    }
+
     handleBiddingBizTypeChange(value) {
         const customInput = document.getElementById('project-business-type-custom');
         if (customInput) {
@@ -12740,7 +19930,30 @@ class AetherPMO {
         }
     }
 
-    async saveProjectForm() {
+    async saveProjectForm(e) {
+        if (e && typeof e.preventDefault === 'function') {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        console.trace('[PROJECT_SAVE_CALL]', {
+            instanceId: this.instanceId,
+            formId: document.getElementById('project-form')?.id,
+            editingProjectId: document.getElementById('project-id-field')?.value || '',
+            isSavingProject: this.isSavingProject,
+            requestKey: this.currentProjectRequestKey,
+            timestamp: Date.now()
+        });
+        if (this.isSavingProject) {
+            console.warn('[saveProjectForm] 저장 작업이 진행 중입니다. 중복 요청을 무시합니다.');
+            return;
+        }
+
+        this.isSavingProject = true;
+        const saveBtn = document.querySelector('#project-form button[type="submit"]');
+        if (saveBtn) saveBtn.disabled = true;
+
+        try {
+
         // Ensure all key state arrays are fully initialized to prevent 'Cannot read properties of undefined' errors
         this.state = this.state || {};
         this.state.projects = this.state.projects || [];
@@ -12756,10 +19969,10 @@ class AetherPMO {
         const id = document.getElementById('project-id-field')?.value || '';
         const name = document.getElementById('project-name')?.value?.trim() || '';
         const desc = document.getElementById('project-desc')?.value?.trim() || '';
-        
+
         const deptSelect = document.getElementById('project-dept')?.value || '';
         const dept = deptSelect === 'custom' ? (document.getElementById('project-dept-custom')?.value?.trim() || '') : deptSelect;
-        
+
         if (deptSelect === 'custom' && !dept) {
             alert('필수값을 먼저 입력해주세요.');
             return;
@@ -12776,6 +19989,7 @@ class AetherPMO {
                 alert('필수값을 먼저 입력해주세요.');
                 return;
             }
+            managerId = null;
         } else {
             manager = selectVal;
             const matchedUser = this.state.users ? this.state.users.find(u => u.name === manager || u.id === manager || u.email === manager) : null;
@@ -12796,10 +20010,14 @@ class AetherPMO {
             : 0;
         const milestones = document.getElementById('project-milestones')?.value?.trim() || '';
         const remarks = document.getElementById('project-remarks')?.value?.trim() || '';
+        const mainFeatures = document.getElementById('project-main-features')?.value?.trim() || '';
+        const riskAndMitigation = document.getElementById('project-risk-mitigation')?.value?.trim() || '';
+        const relatedProjects = document.getElementById('project-related-projects')?.value?.trim() || '';
+        const relatedProjectIds = this.modalSelectedRelatedIds || [];
 
         // Retrieve new fields
         const projectCode = document.getElementById('project-code')?.value?.trim() || '';
-        
+
         const bizSelectVal = document.getElementById('project-biz-type-select')?.value || '';
         const bizCustomVal = document.getElementById('project-biz-type-custom')?.value?.trim() || '';
         const rawBizType = (bizSelectVal === 'custom') ? bizCustomVal : bizSelectVal;
@@ -12815,6 +20033,7 @@ class AetherPMO {
         const relatedBiz = document.getElementById('project-related-biz')?.value?.trim() || '';
         const riskLevel = document.getElementById('project-risk-level')?.value || '보통';
         const bidStatus = document.getElementById('project-bid-status')?.value || '';
+        const newBiddingStatus = document.getElementById('new-bidding-status')?.value || 'review';
 
         // Retrieve Contract, Consortium, and Subcontract fields
         const participationType = document.getElementById('project-participation-type')?.value || 'PRIME_CONTRACTOR';
@@ -12872,14 +20091,17 @@ class AetherPMO {
         const customerName = document.getElementById('project-customer-name')?.value?.trim() || '';
         const projectBudget = this.parseNumberFromCommas(document.getElementById('project-budget-bidding')?.value);
         const salesOwner = document.getElementById('project-sales-owner')?.value?.trim() || '';
+        const bdManager = document.getElementById('project-bd-manager')?.value?.trim() || '';
+        const internalPm = document.getElementById('project-internal-pm')?.value?.trim() || '';
+        const pmoManager = document.getElementById('project-pmo-manager')?.value?.trim() || '';
         const proposalOwner = document.getElementById('project-proposal-owner')?.value?.trim() || '';
         const proposalPm = document.getElementById('project-proposal-pm')?.value?.trim() || '';
         const businessManager = document.getElementById('project-business-manager')?.value?.trim() || '';
         const contractOwner = document.getElementById('project-contract-owner')?.value?.trim() || '';
         const legalOwner = document.getElementById('project-legal-owner')?.value?.trim() || '';
 
-        if (!name || !manager || !customer || !budget || !inspectionDate) {
-            alert('필수값을 먼저 입력해주세요.');
+        if (!name || !manager || !customer) {
+            alert('필수값(프로젝트명, 프로젝트 매니저, 발주기관)을 먼저 입력해주세요.');
             return;
         }
 
@@ -12965,8 +20187,8 @@ class AetherPMO {
                     }
                 }
 
-                const updatedProject = { 
-                    ...old, 
+                const updatedProject = {
+                    ...old,
                     name, desc, dept, manager, managerId, startDate, endDate,
                     status: targetStatus,
                     project_status: targetStatus,
@@ -12976,9 +20198,17 @@ class AetherPMO {
                     bidStatus: normBidStatus || null,
                     is_bidding_project: Boolean(old.is_bidding_project || old.status === 'Bidding'),
                     progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
+                    mainFeatures, main_features: mainFeatures,
+                    riskAndMitigation, risk_mitigation: riskAndMitigation,
+                    relatedProjects, related_projects: relatedProjects,
+                    relatedProjectIds, related_project_ids: relatedProjectIds,
                     projectCode, bizType, contractDate, location, relatedBiz, riskLevel, wbs,
                     bidNumber, customerName, projectBudget, businessType,
-                    salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
+                    salesOwner, sales_owner: salesOwner,
+                    bdManager, bd_manager: bdManager,
+                    internalPm, internal_pm: internalPm,
+                    pmoManager, pmo_manager: pmoManager,
+                    proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
                     participationType, totalContractAmount, companyShareRate, companyContractAmount, primeContractorName,
                     originalProjectName, subcontractProjectName, subcontractPrimeContractor, subcontractClientName, originalContractAmount, originalProjectCode,
                     consortiumMembers
@@ -13001,7 +20231,7 @@ class AetherPMO {
                         });
                         if (histError) console.error('Error inserting PM history:', histError);
                     }
-                    
+
                     // Main Projects upsert
                     await this.syncDb('project_upsert', updatedProject);
                 }
@@ -13032,8 +20262,13 @@ class AetherPMO {
                     { name: '김철수', role: '수석컨설턴트', type: 'SC' }
                 ];
 
-                const newProject = { 
-                    id: newId, name, desc, dept, manager, startDate, endDate, status, bidStatus: status === 'Bidding' ? bidStatus : '', progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
+                const newProject = {
+                    _isNew: true, // Supabase INSERT 분기용 플래그
+                    id: newId, name, desc, dept, manager, startDate, endDate, status: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? 'Bidding' : status, bidding_status: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? newBiddingStatus : (bidStatus || 'review'), biddingStatus: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? newBiddingStatus : (bidStatus || 'review'), bid_stage: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? newBiddingStatus : (bidStatus || 'review'), bidStatus: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? newBiddingStatus : (bidStatus || 'review'), progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
+                    mainFeatures, main_features: mainFeatures,
+                    riskAndMitigation, risk_mitigation: riskAndMitigation,
+                    relatedProjects, related_projects: relatedProjects,
+                    relatedProjectIds, related_project_ids: relatedProjectIds,
                     projectCode: projectCode || (status === 'Bidding' ? this.generateNextProjectCode() : `PRJ-2026-${String(Date.now()).substring(7)}`),
                     bizType: bizType || 'SI 구축',
                     contractDate: contractDate || startDate,
@@ -13045,7 +20280,11 @@ class AetherPMO {
                     managerId: managerId || (this.currentUser ? (this.currentUser.id || this.currentUser.email) : 'pm@aetherpmo.com'),
                     memberIds: [managerId || 'pm@aetherpmo.com', 'worker@aetherpmo.com'],
                     bidNumber, customerName, projectBudget, businessType,
-                    salesOwner, proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
+                    salesOwner, sales_owner: salesOwner,
+                    bdManager, bd_manager: bdManager,
+                    internalPm, internal_pm: internalPm,
+                    pmoManager, pmo_manager: pmoManager,
+                    proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
                     consortiumMembers: [],
                     vrbInfo: {
                         status: '미상신', plannedDate: '', submittedDate: '', approvedDate: '', vrbNumber: '', memo: ''
@@ -13073,6 +20312,12 @@ class AetherPMO {
                 // Sync to Supabase
                 if (this.useSupabase) {
                     // 1. Insert Project
+                    console.trace('[PROJECT_DB_INSERT]', {
+                        projectId: newProject.id,
+                        projectCode: newProject.projectCode,
+                        requestKey: newProject.request_key,
+                        instanceId: this.instanceId
+                    });
                     await this.syncDb('project_upsert', newProject);
 
                     // 2. Insert PM Member
@@ -13220,7 +20465,7 @@ class AetherPMO {
                 }
                 this.renderProjects();
             }
-            
+
             // Show Success Notification
             this.showToast(id ? '사업 정보가 성공적으로 수정되었습니다.' : '신규 사업이 성공적으로 등록되었습니다.', 'success');
 
@@ -13229,6 +20474,17 @@ class AetherPMO {
             const errMsg = dbError?.message || dbError?.details || '데이터베이스 저장 중 오류가 발생했습니다.';
             alert(`프로젝트 저장 실패: ${errMsg}\n(입력 데이터를 확인하시고 다시 시도해주세요.)`);
             return;
+        }
+
+        } catch (error) {
+            console.error('[saveProjectForm] 저장 실패:', error);
+            this.showToast?.(
+                error?.message || '프로젝트 저장 중 오류가 발생했습니다.',
+                'error'
+            );
+        } finally {
+            this.isSavingProject = false;
+            if (saveBtn) saveBtn.disabled = false;
         }
     }
 
@@ -13248,7 +20504,7 @@ class AetherPMO {
                 const arrayBuffer = e.target.result;
                 const text = this.smartDecode(arrayBuffer);
                 const csvLines = this.parseCsv(text);
-                
+
                 if (csvLines.length < 2) {
                     alert('가져올 데이터가 없는 빈 CSV 파일입니다.');
                     return;
@@ -13256,7 +20512,7 @@ class AetherPMO {
 
                 // 1. Map Headers to indices
                 const headers = csvLines[0].map(h => h.trim().toLowerCase());
-                
+
                 const codeIdx = headers.findIndex(h => h.includes('code') || h.includes('코드'));
                 const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('명') || h.includes('이름'));
                 const custIdx = headers.findIndex(h => h.includes('customer') || h.includes('고객') || h.includes('발주처'));
@@ -13296,7 +20552,7 @@ class AetherPMO {
                         const pmVal = pmIdx !== -1 ? (row[pmIdx]?.trim() || '') : '안유경';
                         const startVal = startIdx !== -1 ? (row[startIdx]?.trim() || '') : '';
                         const endVal = endIdx !== -1 ? (row[endIdx]?.trim() || '') : '';
-                        
+
                         let statusVal = statusIdx !== -1 ? (row[statusIdx]?.trim() || '') : 'In Progress';
                         // Convert status text to system standard
                         if (statusVal.includes('수행') || statusVal.toLowerCase().includes('progress') || statusVal.toLowerCase().includes('exec')) {
@@ -13332,9 +20588,9 @@ class AetherPMO {
                             }
                         } else {
                             // Find match based on Name + Customer + StartDate
-                            const match = (this.state.projects || []).find(p => 
-                                p.name === nameVal && 
-                                (p.customer === customerVal || p.customerName === customerVal) && 
+                            const match = (this.state.projects || []).find(p =>
+                                p.name === nameVal &&
+                                (p.customer === customerVal || p.customerName === customerVal) &&
                                 p.startDate === startVal
                             );
                             if (match) {
@@ -13348,6 +20604,7 @@ class AetherPMO {
 
                         // Build payload compatible with DB sync
                         const projectObj = {
+                            _isNew: !existingId, // Supabase INSERT/UPDATE 분기용 플래그
                             id: finalId,
                             name: nameVal,
                             desc: `${nameVal} - CSV 일괄 등록 프로젝트`,
@@ -13433,7 +20690,7 @@ class AetherPMO {
     smartDecode(arrayBuffer) {
         const decoderUtf8 = new TextDecoder('utf-8', { fatal: true });
         const decoderEucKr = new TextDecoder('euc-kr', { fatal: true });
-        
+
         try {
             // Try decoding as UTF-8 (Strict Mode)
             return decoderUtf8.decode(arrayBuffer);
@@ -13453,11 +20710,11 @@ class AetherPMO {
         const lines = [];
         let row = [""];
         let inQuotes = false;
-        
+
         for (let i = 0; i < text.length; i++) {
             const c = text[i];
             const next = text[i + 1];
-            
+
             if (c === '"') {
                 if (inQuotes && next === '"') {
                     row[row.length - 1] += '"';
@@ -13480,7 +20737,7 @@ class AetherPMO {
         if (row.length > 1 || row[0] !== "") {
             lines.push(row);
         }
-        
+
         // Trim headers and fields to clean up whitespace / Carriage returns
         return lines.map(r => r.map(cell => cell.trim().replace(/^"|"$/g, '')));
     }
@@ -13516,14 +20773,14 @@ class AetherPMO {
         document.getElementById('artifact-modal-title').textContent = '신규 산출물 등록';
         document.getElementById('artifact-form').reset();
         document.getElementById('artifact-id-field').value = '';
-        
+
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 7);
         document.getElementById('artifact-due-date').value = tomorrow.toISOString().split('T')[0];
-        
+
         const projSelect = document.getElementById('artifact-project-select');
         const projWrapper = document.getElementById('artifact-project-selection-wrapper');
-        
+
         projSelect.innerHTML = '';
         this.state.projects.forEach(p => {
             const opt = document.createElement('option');
@@ -13579,10 +20836,10 @@ class AetherPMO {
 
         document.getElementById('artifact-modal-title').textContent = '산출물 정보 수정';
         document.getElementById('artifact-id-field').value = art.id;
-        
+
         const projSelect = document.getElementById('artifact-project-select');
         const projWrapper = document.getElementById('artifact-project-selection-wrapper');
-        
+
         projSelect.innerHTML = '';
         this.state.projects.forEach(p => {
             const opt = document.createElement('option');
@@ -13590,7 +20847,7 @@ class AetherPMO {
             opt.textContent = p.name;
             projSelect.appendChild(opt);
         });
-        
+
         projSelect.value = art.projectId;
         projSelect.disabled = true;
         projWrapper.style.display = 'none';
@@ -13697,7 +20954,7 @@ class AetherPMO {
             const index = this.state.artifacts.findIndex(a => a.id === id);
             if (index !== -1) {
                 const old = this.state.artifacts[index];
-                
+
                 // If status changed to Approved, automatically update matching checklist item
                 if (status === 'Approved' && old.status !== 'Approved') {
                     this.autoCompleteChecklistItem(projectId, category, name);
@@ -13727,20 +20984,20 @@ class AetherPMO {
                     });
                 }
 
-                this.state.artifacts[index] = { 
-                    ...old, 
-                    projectId, 
-                    name, 
-                    category, 
-                    version, 
-                    description, 
-                    author, 
-                    reviewer, 
-                    approver, 
-                    dueDate, 
-                    submitDate: submitDate || (status === 'Approved' ? this.getFormattedDateTime().split(' ')[0] : ''), 
-                    status, 
-                    fileName, 
+                this.state.artifacts[index] = {
+                    ...old,
+                    projectId,
+                    name,
+                    category,
+                    version,
+                    description,
+                    author,
+                    reviewer,
+                    approver,
+                    dueDate,
+                    submitDate: submitDate || (status === 'Approved' ? this.getFormattedDateTime().split(' ')[0] : ''),
+                    status,
+                    fileName,
                     fileSize,
                     history,
                     reviews
@@ -13791,12 +21048,12 @@ class AetherPMO {
         if (chk) {
             chk.checked = true;
             this.addActivityLog(projectId, artifactName, 'review', `[자동 연동] 산출물 승인에 의해 체크리스트 "${chk.title}" 항목이 완료 처리되었습니다.`);
-            
+
             // Re-calculate project progress
             const projectChecklists = this.state.checklists.filter(c => c.projectId === projectId);
             const total = projectChecklists.length;
             const completed = projectChecklists.filter(c => c.checked).length;
-            
+
             const projIdx = this.state.projects.findIndex(p => p.id === projectId);
             if (projIdx !== -1 && total > 0) {
                 this.state.projects[projIdx].progress = Math.round((completed / total) * 100);
@@ -13822,7 +21079,7 @@ class AetherPMO {
 
         this.activeArtifactIdForDetail = art.id;
         const project = this.state.projects.find(p => p.id === art.projectId);
-        
+
         document.getElementById('det-art-name').textContent = art.name;
         document.getElementById('det-art-project').textContent = project ? project.name : '-';
         document.getElementById('det-art-category').textContent = this.translateCategory(art.category);
@@ -13908,7 +21165,7 @@ class AetherPMO {
         const projFilter = document.getElementById('issue-filter-project');
         const statFilter = document.getElementById('issue-filter-status');
         const searchInput = document.getElementById('issue-search-input');
-        
+
         if (!tbody) return;
 
         // Sync projects dropdown options
@@ -13934,8 +21191,8 @@ class AetherPMO {
 
             const matchProj = filterProj === 'all' ? isProjectActive : iss.projectId === filterProj;
             const matchStat = filterStat === 'all' || iss.status === filterStat;
-            const matchQuery = !query || 
-                this.safeText(iss.title).includes(query) || 
+            const matchQuery = !query ||
+                this.safeText(iss.title).includes(query) ||
                 this.safeText(iss.owner).includes(query);
 
             return matchProj && matchStat && matchQuery;
@@ -13987,7 +21244,7 @@ class AetherPMO {
         document.getElementById('issue-modal-title').textContent = '새 이슈/리스크 등록';
         document.getElementById('issue-form').reset();
         document.getElementById('issue-id-field').value = '';
-        
+
         const projSelect = document.getElementById('issue-project-select');
         projSelect.innerHTML = '';
         this.state.projects.forEach(p => {
@@ -14015,7 +21272,7 @@ class AetherPMO {
 
         document.getElementById('issue-modal-title').textContent = '이슈/리스크 정보 수정';
         document.getElementById('issue-id-field').value = iss.id;
-        
+
         const projSelect = document.getElementById('issue-project-select');
         projSelect.innerHTML = '';
         this.state.projects.forEach(p => {
@@ -14065,11 +21322,11 @@ class AetherPMO {
         if (id) {
             const idx = this.state.issues.findIndex(i => i.id === id);
             if (idx !== -1) {
-                this.state.issues[idx] = { 
-                    ...this.state.issues[idx], 
-                    projectId, title, type, priority, owner, status, reportedDate, 
-                    resolvedDate: status === '완료' ? (resolvedDate || this.getFormattedDateTime().split(' ')[0]) : '', 
-                    actionPlan, remarks 
+                this.state.issues[idx] = {
+                    ...this.state.issues[idx],
+                    projectId, title, type, priority, owner, status, reportedDate,
+                    resolvedDate: status === '완료' ? (resolvedDate || this.getFormattedDateTime().split(' ')[0]) : '',
+                    actionPlan, remarks
                 };
                 this.addActivityLog(projectId, title, 'review', `리스크 수정: "${title}" (${status})`);
             }
@@ -14140,7 +21397,7 @@ class AetherPMO {
         const projFilter = document.getElementById('action-filter-project');
         const statFilter = document.getElementById('action-filter-status');
         const searchInput = document.getElementById('action-search-input');
-        
+
         if (!tbody) return;
 
         // Sync projects dropdown options
@@ -14168,12 +21425,12 @@ class AetherPMO {
             const matchProj = filterProj === 'all' ? isProjectActive : actProjectId === filterProj;
             const normStatus = this.normalizeActionItemStatus(act.status);
             const matchStat = filterStat === 'all' || normStatus === filterStat || act.status === filterStat;
-            
+
             const assigneeName = this.getActionItemAssigneeName(act);
             const projName = this.getActionItemProjectName(act);
 
-            const matchQuery = !query || 
-                this.safeText(act.title).toLowerCase().includes(query) || 
+            const matchQuery = !query ||
+                this.safeText(act.title).toLowerCase().includes(query) ||
                 this.safeText(assigneeName).toLowerCase().includes(query) ||
                 this.safeText(projName).toLowerCase().includes(query);
 
@@ -14261,7 +21518,7 @@ class AetherPMO {
         }
 
         // 3. Name match (Single match ONLY to prevent ambiguity)
-        const nameMatches = users.filter(u => 
+        const nameMatches = users.filter(u =>
             String(u.name || u.full_name || u.user_name || '').trim().toLowerCase() === normalized
         );
 
@@ -14521,7 +21778,7 @@ class AetherPMO {
         if (!row) return null;
         const projId = row.project_id || row.projectId || null;
         const assigneeId = this.isUuid(row.assignee_id || row.assigneeId) ? (row.assignee_id || row.assigneeId) : null;
-        
+
         const user = assigneeId
             ? (this.state.users || []).find(u =>
                 String(u.id || '') === String(assigneeId) ||
@@ -14748,7 +22005,7 @@ class AetherPMO {
 
         // Helper: Find matching resource for a user profile
         const findMatchingResource = (u) => {
-            return resourcesList.find(r => 
+            return resourcesList.find(r =>
                 r.isActive !== false && (
                     (r.userId && (r.userId === u.id || r.userId === u.email)) ||
                     (r.email && u.email && r.email.toLowerCase() === u.email.toLowerCase()) ||
@@ -14759,7 +22016,7 @@ class AetherPMO {
 
         // Helper: Find matching user profile for a resource
         const findMatchingUser = (r) => {
-            return usersList.find(u => 
+            return usersList.find(u =>
                 (r.userId && (u.id === r.userId || u.email === r.userId)) ||
                 (r.email && u.email && r.email.toLowerCase() === u.email.toLowerCase()) ||
                 (r.name && u.name && r.name.trim() === u.name.trim())
@@ -14777,7 +22034,7 @@ class AetherPMO {
                 addedKeys.add(dedupeKey);
 
                 const matchedRes = findMatchingResource(u);
-                
+
                 // Formulate merged label: e.g. "안유경 PM (PM · SI사업본부)" or "김철수 (WORKER · 인프라솔루션팀)"
                 let labelParts = [];
                 const roleOrDivision = u.role || u.division;
@@ -14871,8 +22128,8 @@ class AetherPMO {
         // 4. Resolve selected value
         let actualName = selectedOwnerNameOrId || '';
         if (selectedOwnerNameOrId && this.state.users) {
-            const matchedUser = this.state.users.find(u => 
-                u.id === selectedOwnerNameOrId || 
+            const matchedUser = this.state.users.find(u =>
+                u.id === selectedOwnerNameOrId ||
                 u.email === selectedOwnerNameOrId ||
                 u.name === selectedOwnerNameOrId ||
                 u.full_name === selectedOwnerNameOrId ||
@@ -14939,7 +22196,7 @@ class AetherPMO {
         document.getElementById('action-item-modal-title').textContent = '새 Action Item 등록';
         document.getElementById('action-item-form').reset();
         document.getElementById('action-item-id-field').value = '';
-        
+
         const projSelect = document.getElementById('action-item-project-select');
         if (projSelect) {
             projSelect.innerHTML = '';
@@ -14980,7 +22237,7 @@ class AetherPMO {
 
         document.getElementById('action-item-modal-title').textContent = 'Action Item 정보 수정';
         document.getElementById('action-item-id-field').value = act.id;
-        
+
         const projSelect = document.getElementById('action-item-project-select');
         if (projSelect) {
             projSelect.innerHTML = '';
@@ -14995,7 +22252,7 @@ class AetherPMO {
         }
 
         document.getElementById('action-item-title').value = act.title || '';
-        
+
         this.populateActionItemOwnerSelect(act.owner_user_id || act.ownerId || act.owner || act.assignee || '');
 
         // Required Debugging logs (Checkpoint 7):
@@ -15020,7 +22277,7 @@ class AetherPMO {
         const id = document.getElementById('action-item-id-field').value;
         const projectId = document.getElementById('action-item-project-select').value;
         const title = document.getElementById('action-item-title').value.trim();
-        
+
         const ownerSelect = document.getElementById('action-item-owner-select');
         const ownerSelectVal = ownerSelect ? ownerSelect.value : '';
         const customInput = document.getElementById('action-item-owner-custom');
@@ -15142,10 +22399,10 @@ class AetherPMO {
         if (isAccountLinked) {
             const projObj = (this.state.projects || []).find(p => p.id === projectId);
             const projName = projObj ? projObj.name : '';
-            
+
             // Stable deterministic dedup_key without Date.now()
             const dedupKey = `ACTION_ITEM_ASSIGNED:${actObj.id}:${ownerId}`;
-            
+
             const notifObj = {
                 id: this.generateUuid(),
                 recipient_user_id: ownerId,
@@ -15178,7 +22435,7 @@ class AetherPMO {
         } else {
             this.showToast(`Action Item이 저장되었습니다.`, 'success');
         }
-        
+
         await this.refreshActionItemDependencies();
         this.closeActionItemModal();
         this.handleRouting();
@@ -15247,7 +22504,7 @@ class AetherPMO {
         const projFilter = document.getElementById('doc-filter-project');
         const statFilter = document.getElementById('doc-filter-status');
         const searchInput = document.getElementById('doc-search-input');
-        
+
         if (!tbody) return;
 
         // Sync projects dropdown options
@@ -15273,9 +22530,9 @@ class AetherPMO {
 
             const matchProj = filterProj === 'all' ? isProjectActive : doc.projectId === filterProj;
             const matchStat = filterStat === 'all' || doc.approvalStatus === filterStat || doc.status === filterStat;
-            const matchQuery = !query || 
-                this.safeText(doc.title).includes(query) || 
-                this.safeText(doc.docNo).includes(query) || 
+            const matchQuery = !query ||
+                this.safeText(doc.title).includes(query) ||
+                this.safeText(doc.docNo).includes(query) ||
                 this.safeText(doc.receiver).includes(query) ||
                 this.safeText(doc.drafter).includes(query);
 
@@ -15715,7 +22972,7 @@ class AetherPMO {
         const container = document.getElementById('meeting-minutes-list');
         const projFilter = document.getElementById('meet-filter-project');
         const searchInput = document.getElementById('meet-search-input');
-        
+
         if (!container) return;
 
         // Sync projects dropdown options
@@ -15746,11 +23003,11 @@ class AetherPMO {
 
             const matchProj = filterProj === 'all' ? isProjectActive : meet.projectId === filterProj;
 
-            const matchQuery = !query || 
+            const matchQuery = !query ||
 
-                this.safeText(meet.title).includes(query) || 
+                this.safeText(meet.title).includes(query) ||
 
-                this.safeText(meet.agenda).includes(query) || 
+                this.safeText(meet.agenda).includes(query) ||
 
                 this.safeText(meet.location).includes(query);
 
@@ -15881,7 +23138,7 @@ class AetherPMO {
 
         document.getElementById('meeting-minutes-modal-title').textContent = '회의록 정보 수정';
         document.getElementById('meeting-minutes-id-field').value = meet.id;
-        
+
         const projSelect = document.getElementById('meeting-minutes-project-select');
         projSelect.innerHTML = '';
         this.state.projects.forEach(p => {
@@ -15927,9 +23184,9 @@ class AetherPMO {
         if (id) {
             const idx = this.state.meetingMinutes.findIndex(m => m.id === id);
             if (idx !== -1) {
-                this.state.meetingMinutes[idx] = { 
-                    ...this.state.meetingMinutes[idx], 
-                    projectId, title, meetDate, location, attendees, agenda, decisions, remarks 
+                this.state.meetingMinutes[idx] = {
+                    ...this.state.meetingMinutes[idx],
+                    projectId, title, meetDate, location, attendees, agenda, decisions, remarks
                 };
                 this.addActivityLog(projectId, title, 'review', `회의록 수정: "${title}"`);
             }
@@ -15986,7 +23243,7 @@ class AetherPMO {
        ========================================================================== */
     setBoardCategoryFilter(category) {
         this.activeBoardCategoryFilter = category;
-        
+
         // Update tab buttons active state
         document.querySelectorAll('#view-board .project-stage-tab').forEach(tab => {
             if (tab.getAttribute('data-board-category') === category) {
@@ -15995,8 +23252,104 @@ class AetherPMO {
                 tab.classList.remove('active');
             }
         });
-        
+
+        // Sync sidebar menu active state
+        let route = 'board';
+        if (category === 'notice') route = 'board/notices';
+        else if (category === 'inquiry') route = 'board/inquiries';
+        else if (category === 'resource') route = 'board/resources';
+
+        this.setActiveSidebarMenu(route);
+
+        // Update window location hash quietly
+        let targetHash = `#${route}`;
+        if (window.location.hash !== targetHash) {
+            history.pushState(null, '', targetHash);
+        }
+
+        this.fetchBoardPosts(category);
+    }
+
+    async fetchBoardPosts(targetCategory = null) {
+        const activeCategory = targetCategory || this.activeBoardCategoryFilter || 'all';
+        this.activeBoardCategoryFilter = activeCategory;
+
+        if (!this.useSupabase || !this.supabase) {
+            this.renderBoardView();
+            return;
+        }
+
+        // Requirement 7: Race Condition Counter
+        this.boardFetchCounter = (this.boardFetchCounter || 0) + 1;
+        const currentFetchId = this.boardFetchCounter;
+
+        // Requirement 8: Category Filter & Ordering by created_at DESC
+        let query = this.supabase
+            .from('board_posts')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (activeCategory !== 'all') {
+            query = query.eq('category', activeCategory);
+        }
+
+        const { data, error } = await query;
+
+        // Requirement 7 & 9: Error handling without overwriting existing list
+        if (error) {
+            console.error('게시글 목록 조회 실패:', {
+                code: error.code,
+                message: error.message,
+                details: error.details,
+                hint: error.hint
+            });
+            this.showToast(`게시글 목록 조회 실패: ${error.message || '오류 발생'}`, 'error');
+            this.renderBoardListErrorUI(error);
+            return;
+        }
+
+        // Requirement 7: Race condition check: Only render if fetch ID matches the latest request
+        if (currentFetchId !== this.boardFetchCounter || activeCategory !== (this.activeBoardCategoryFilter || 'all')) {
+            console.log(`[Board Fetch Bypassed] Stale query response for category '${activeCategory}' ignored.`);
+            return;
+        }
+
+        const normalizedPosts = (data || []).map(p => ({
+            id: p.id,
+            category: p.category,
+            title: p.title,
+            content: p.content,
+            authorId: p.author_id,
+            authorName: p.author_name || '익명',
+            attachmentUrl: p.attachment_url,
+            status: p.status || 'pending',
+            createdAt: p.created_at,
+            updatedAt: p.updated_at
+        }));
+
+        this.state.boardPosts = normalizedPosts;
         this.renderBoardView();
+    }
+
+    renderBoardListErrorUI(error) {
+        const tableBody = document.getElementById('board-table-body');
+        if (!tableBody) return;
+        const categoryLabel = this.activeBoardCategoryFilter === 'notice' ? '공지사항'
+            : this.activeBoardCategoryFilter === 'inquiry' ? '문의사항'
+            : this.activeBoardCategoryFilter === 'resource' ? '자료실' : '게시글';
+
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" style="padding: 30px; text-align: center; color: var(--danger); font-size: 14px;">
+                    <div style="margin-bottom: 8px; font-weight: 700;">${categoryLabel} 목록을 불러오지 못했습니다.</div>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">${this.escapeHtml(error?.message || '오류 발생')} (${error?.code || 'ERR'})</div>
+                    <button class="btn btn-sm btn-outline" onclick="app.fetchBoardPosts('${this.activeBoardCategoryFilter || 'all'}')">
+                        <i data-lucide="refresh-cw" style="width:13px; height:13px; margin-right:4px;"></i> 다시 시도
+                    </button>
+                </td>
+            </tr>
+        `;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     renderBoardView() {
@@ -16007,13 +23360,10 @@ class AetherPMO {
         const statusFilter = document.getElementById('board-filter-status')?.value || 'all';
         const keyword = this.safeText(document.getElementById('board-search-input')?.value).toLowerCase().trim();
 
-        // Filter posts
+        // Filter posts locally for keyword and status filter
         const filteredPosts = (this.state.boardPosts || []).filter(post => {
-            // Category check
             if (categoryFilter !== 'all' && post.category !== categoryFilter) return false;
-            // Status check
             if (statusFilter !== 'all' && post.status !== statusFilter) return false;
-            // Keyword check
             if (keyword) {
                 const titleMatch = (post.title || '').toLowerCase().includes(keyword);
                 const contentMatch = (post.content || '').toLowerCase().includes(keyword);
@@ -16023,24 +23373,21 @@ class AetherPMO {
             return true;
         });
 
-        // Helper to translate categories
         const translateCategory = (cat) => {
             switch (cat) {
-                case 'question': return '기능 문의';
-                case 'bug': return '오류 제보';
-                case 'suggestion': return '기능 제안';
-                case 'etc': return '기타 건의';
+                case 'notice': return '공지사항';
+                case 'inquiry': return '문의사항';
+                case 'resource': return '자료실';
                 default: return cat;
             }
         };
 
-        // Render table rows
         tableBody.innerHTML = '';
         if (filteredPosts.length === 0) {
             tableBody.innerHTML = `
                 <tr>
                     <td colspan="7" style="padding: 30px; text-align: center; color: var(--text-muted); font-size: 14px;">
-                        등록된 문의글이 존재하지 않습니다.
+                        등록된 게시글이 존재하지 않습니다.
                     </td>
                 </tr>
             `;
@@ -16053,17 +23400,14 @@ class AetherPMO {
             tr.style.cursor = 'pointer';
             tr.className = 'excel-row';
 
-            // Category tag class mapping
             let catClass = 'badge-blue';
-            if (post.category === 'bug') catClass = 'badge-danger';
-            if (post.category === 'suggestion') catClass = 'badge-warning';
-            if (post.category === 'etc') catClass = 'badge-secondary';
+            if (post.category === 'notice') catClass = 'badge-primary';
+            else if (post.category === 'inquiry') catClass = 'badge-warning';
+            else if (post.category === 'resource') catClass = 'badge-success';
 
-            // Status label mapping
             const statusLabel = post.status === 'answered' ? '답변완료' : '답변대기';
             const statusBadgeClass = post.status === 'answered' ? 'status-badge status-answered' : 'status-badge status-pending';
 
-            // Author and Date format
             const author = post.authorName || '익명';
             const dateStr = post.createdAt ? new Date(post.createdAt).toLocaleString('ko-KR', {
                 year: 'numeric',
@@ -16073,8 +23417,7 @@ class AetherPMO {
                 minute: '2-digit'
             }) : '-';
 
-            // Edit / Delete capability check: author themselves or Admin/PM
-            const canManage = this.currentUser && (this.currentUser.role === 'SYS_ADMIN' || this.currentUser.role === 'PM' || post.authorId === this.currentUser.id);
+            const canManage = this.currentUser && (this.currentUser.role === 'SYS_ADMIN' || post.authorId === this.currentUser.id);
 
             tr.innerHTML = `
                 <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-size: 13px;">${filteredPosts.length - index}</td>
@@ -16082,9 +23425,10 @@ class AetherPMO {
                     <span class="badge ${catClass}" style="font-size: 11px; padding: 3px 8px;">${translateCategory(post.category)}</span>
                 </td>
                 <td style="padding: 12px; border-right: 1px solid var(--bg-card-border); font-weight: 600; color: var(--text-main); font-size: 14px; text-align: left;" onclick="app.openBoardPostDetailModal('${post.id}')">
-                    ${post.title}
+                    ${this.escapeHtml(post.title)}
+                    ${post.attachmentUrl ? `<i data-lucide="paperclip" style="width:13px; height:13px; margin-left:6px; color:var(--text-muted);"></i>` : ''}
                 </td>
-                <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); font-size: 13px; color: var(--text-main);">${author}</td>
+                <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); font-size: 13px; color: var(--text-main);">${this.escapeHtml(author)}</td>
                 <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); font-size: 12px; color: var(--text-muted);">${dateStr}</td>
                 <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border);">
                     <span class="${statusBadgeClass}">${statusLabel}</span>
@@ -16106,24 +23450,33 @@ class AetherPMO {
     }
 
     openNewBoardPostModal() {
-        document.getElementById('board-modal-title').textContent = '새 문의 등록';
-        document.getElementById('board-post-form').reset();
+        document.getElementById('board-modal-title').textContent = '새 게시글 작성';
+        const form = document.getElementById('board-post-form');
+        if (form) form.reset();
         document.getElementById('board-post-id-field').value = '';
         this.editingBoardPostId = null;
+
+        const currentCat = this.activeBoardCategoryFilter;
+        if (currentCat && ['notice', 'inquiry', 'resource'].includes(currentCat)) {
+            document.getElementById('board-post-category').value = currentCat;
+        }
 
         document.getElementById('board-form-modal').classList.add('open');
     }
 
     openEditBoardPostModal(id) {
-        const post = this.state.boardPosts.find(p => p.id === id);
+        const post = (this.state.boardPosts || []).find(p => p.id === id);
         if (!post) return;
 
-        document.getElementById('board-modal-title').textContent = '문의 내용 수정';
+        document.getElementById('board-modal-title').textContent = '게시글 수정';
         document.getElementById('board-post-id-field').value = post.id;
-        document.getElementById('board-post-category').value = post.category;
-        document.getElementById('board-post-title').value = post.title;
-        document.getElementById('board-post-content').value = post.content;
-        
+        document.getElementById('board-post-category').value = post.category || 'notice';
+        document.getElementById('board-post-title').value = post.title || '';
+        document.getElementById('board-post-content').value = post.content || '';
+
+        const fileInput = document.getElementById('board-post-file-input');
+        if (fileInput) fileInput.value = '';
+
         this.editingBoardPostId = id;
         document.getElementById('board-form-modal').classList.add('open');
     }
@@ -16132,7 +23485,7 @@ class AetherPMO {
         document.getElementById('board-form-modal').classList.remove('open');
     }
 
-    saveBoardPostForm() {
+    async saveBoardPostForm() {
         const id = document.getElementById('board-post-id-field').value;
         const category = document.getElementById('board-post-category').value;
         const title = document.getElementById('board-post-title').value.trim();
@@ -16143,51 +23496,187 @@ class AetherPMO {
             return;
         }
 
-        const authorName = this.currentUser ? (this.currentUser.name || this.currentUser.email.split('@')[0]) : '익명';
-        const authorId = this.currentUser ? this.currentUser.id : null;
+        // Requirement 6: Prevent double submission
+        if (this.isSubmittingBoardPost) return;
+        this.isSubmittingBoardPost = true;
+
+        const saveBtn = document.getElementById('btn-save-board-post');
+        let originalBtnText = '저장하기';
+        if (saveBtn) {
+            originalBtnText = saveBtn.innerHTML;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i data-lucide="loader-2" class="animate-spin" style="width:14px; height:14px; margin-right:4px;"></i> 저장 중...';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        const resetBtnState = () => {
+            this.isSubmittingBoardPost = false;
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalBtnText;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        };
+
+        // Requirement 4: Auth Check
+        let currentUser = this.currentUser;
+        if (this.useSupabase && this.supabase) {
+            const { data: { user }, error: userError } = await this.supabase.auth.getUser();
+            if (userError || !user) {
+                console.error('로그인 세션 확인 실패:', userError);
+                this.showToast('로그인이 필요합니다. 로그인 후 작성해 주세요.', 'warning');
+                resetBtnState();
+                return; // DO NOT close modal, DO NOT update DOM!
+            }
+            currentUser = {
+                id: user.id,
+                email: user.email,
+                name: user.user_metadata?.name || this.state.profile?.name || user.email.split('@')[0],
+                role: this.state.profile?.role || 'VIEWER'
+            };
+            this.currentUser = currentUser;
+        }
+
+        // Requirement 11: File attachment upload
+        const fileInput = document.getElementById('board-post-file-input');
+        let attachmentUrl = null;
+        if (id) {
+            const existing = (this.state.boardPosts || []).find(p => p.id === id);
+            if (existing) attachmentUrl = existing.attachmentUrl || null;
+        }
+
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+            const file = fileInput.files[0];
+            const fileExt = file.name.split('.').pop();
+            const filePath = `attachments/${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+
+            const { data: uploadData, error: uploadError } = await this.supabase.storage
+                .from('board-attachments')
+                .upload(filePath, file);
+
+            if (uploadError) {
+                console.error('첨부파일 업로드 실패:', {
+                    code: uploadError.code,
+                    message: uploadError.message,
+                    details: uploadError.details,
+                    hint: uploadError.hint
+                });
+                this.showToast(`첨부파일 업로드 실패: ${uploadError.message}`, 'error');
+                resetBtnState();
+                return; // STOP post creation!
+            }
+
+            const { data: publicUrlData } = this.supabase.storage
+                .from('board-attachments')
+                .getPublicUrl(filePath);
+
+            attachmentUrl = publicUrlData.publicUrl;
+        }
+
+        const authorName = currentUser ? (currentUser.name || currentUser.email.split('@')[0]) : '익명';
+        const authorId = currentUser ? currentUser.id : null;
 
         if (id) {
-            const idx = this.state.boardPosts.findIndex(p => p.id === id);
-            if (idx !== -1) {
-                const prev = this.state.boardPosts[idx];
-                this.state.boardPosts[idx] = {
-                    ...prev,
-                    category,
-                    title,
-                    content,
-                    updatedAt: new Date().toISOString()
-                };
-                this.saveState('board_post_upsert', this.state.boardPosts[idx]);
+            // Requirement 3: Restricted update fields
+            const updateData = {
+                category,
+                title,
+                content,
+                attachment_url: attachmentUrl,
+                updated_at: new Date().toISOString()
+            };
+
+            if (this.useSupabase && this.supabase) {
+                // Requirement 5: UPDATE verification
+                const { data, error } = await this.supabase
+                    .from('board_posts')
+                    .update(updateData)
+                    .eq('id', id)
+                    .select()
+                    .single();
+
+                if (error || !data) {
+                    console.error('게시글 수정 실패:', {
+                        code: error?.code,
+                        message: error?.message,
+                        details: error?.details,
+                        hint: error?.hint
+                    });
+                    this.showToast(`게시글 수정 실패: ${error?.message || '대상을 찾을 수 없거나 권한이 없습니다.'}`, 'error');
+                    resetBtnState();
+                    return; // DO NOT close modal!
+                }
             }
         } else {
+            // Requirement 3 & 4 & 5: INSERT
             const newId = this.generateUuid();
-            const newPost = {
+            const insertData = {
                 id: newId,
                 category,
                 title,
                 content,
-                status: 'pending',
-                authorName,
-                authorId,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
+                author_id: authorId,
+                author_name: authorName,
+                attachment_url: attachmentUrl,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
             };
-            this.state.boardPosts.unshift(newPost);
-            this.saveState('board_post_upsert', newPost);
+
+            if (this.useSupabase && this.supabase) {
+                const { data, error } = await this.supabase
+                    .from('board_posts')
+                    .insert([insertData])
+                    .select()
+                    .single();
+
+                if (error || !data) {
+                    console.error('게시글 저장 실패:', {
+                        code: error?.code,
+                        message: error?.message,
+                        details: error?.details,
+                        hint: error?.hint
+                    });
+                    this.showToast(`게시글 저장 실패: ${error?.message || '저장 실패'}`, 'error');
+                    resetBtnState();
+                    return; // DO NOT close modal! DO NOT temporarily add to state!
+                }
+            }
         }
 
+        resetBtnState();
         this.closeBoardFormModal();
-        this.renderBoardView();
+        this.showToast(id ? '게시글이 수정되었습니다.' : '게시글이 등록되었습니다.', 'success');
+
+        // Requirement 6: Re-fetch list from Supabase
+        await this.fetchBoardPosts(this.activeBoardCategoryFilter || 'all');
     }
 
-    deleteBoardPost(id) {
-        if (confirm('이 문의글을 정말 삭제하시겠습니까? 관련 답변 및 댓글도 함께 삭제됩니다.')) {
-            this.state.boardPosts = this.state.boardPosts.filter(p => p.id !== id);
-            this.state.boardReplies = this.state.boardReplies.filter(r => r.postId !== id);
-            
-            this.saveState('board_post_delete', id);
-            this.renderBoardView();
+    async deleteBoardPost(id) {
+        if (!confirm('이 게시글을 정말 삭제하시겠습니까?')) return;
+
+        if (this.useSupabase && this.supabase) {
+            // Requirement 5: DELETE verification
+            const { data, error } = await this.supabase
+                .from('board_posts')
+                .delete()
+                .eq('id', id)
+                .select('id')
+                .single();
+
+            if (error || !data) {
+                console.error('게시글 삭제 실패:', {
+                    code: error?.code,
+                    message: error?.message,
+                    details: error?.details,
+                    hint: error?.hint
+                });
+                this.showToast(`게시글 삭제 실패: ${error?.message || '삭제 권한이 없거나 이미 삭제되었습니다.'}`, 'error');
+                return; // Keep current screen state!
+            }
         }
+
+        this.showToast('게시글이 삭제되었습니다.', 'success');
+        await this.fetchBoardPosts(this.activeBoardCategoryFilter || 'all');
     }
 
     openBoardPostDetailModal(id) {
@@ -16365,459 +23854,62 @@ class AetherPMO {
     }
 
     renderResourcesView() {
-        // Calculate and update summary banner
-        const totalProjects = (this.state.projects || []).length;
-        const targetCount = (this.state.resources || []).filter(r => r.isActive !== false && (r.employmentType === 'outsourcing' || r.employmentType === 'project_contract')).length;
-        const summaryTextEl = document.getElementById('resources-summary-text');
-        if (summaryTextEl) {
-            summaryTextEl.textContent = `전체 프로젝트 ${totalProjects}건이며, 총 자사화/프로젝트 계약직 ${targetCount}명 근무중입니다.`;
-        }
+        console.log('[renderResourcesView] Rendering participating members view...');
 
-        const projectFilterSelect = document.getElementById('resources-filter-project');
-        
-        if (projectFilterSelect && projectFilterSelect.options.length <= 1) {
-            const projects = this.state.projects || [];
-            projects.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.id;
-                opt.textContent = `${p.projectCode || p.id} - ${p.name}`;
-                projectFilterSelect.appendChild(opt);
-            });
-        }
+        // Ensure resources state exists
+        const resources = Array.isArray(this.state.resources) ? this.state.resources : [];
+        const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
+        const projectMembers = Array.isArray(this.state.projectMembers) ? this.state.projectMembers : [];
 
-        const projFilter = document.getElementById('resources-filter-project')?.value || 'all';
-        
-        // 다중 체크박스에서 선택된 항목 수집
-        const checkedTypes = Array.from(document.querySelectorAll('.res-type-checkbox'))
-            .filter(cb => cb.checked)
-            .map(cb => cb.value);
+        // 1. Calculate synchronized summary statistics
+        const totalResourcesCount = resources.length;
 
-        const keyword = this.safeText(document.getElementById('resources-search-input')?.value).trim();
+        // Calculate working resources (status !== 'OFFBOARDED' and status !== 'INACTIVE')
+        const workingResourcesCount = resources.filter(r => {
+            const status = (r.status || r.employment_status || 'ACTIVE').toUpperCase();
+            return status !== 'OFFBOARDED' && status !== 'INACTIVE' && status !== '퇴사';
+        }).length;
 
-        let list = [...(this.state.resources || [])];
-        list = list.filter(r => r.isActive !== false);
-
-        if (projFilter !== 'all') {
-            list = list.filter(r => {
-                const pmList = (this.state.projectMembers || []).filter(pm => pm.resourceId === r.id);
-                return pmList.some(pm => pm.projectId === projFilter);
-            });
-        }
-        
-        // 다중 선택된 인력구분 매칭 (선택된 타입 리스트에 속하는 인력만)
-        list = list.filter(r => checkedTypes.includes(r.employmentType));
-        if (keyword) {
-            list = list.filter(r => 
-                this.safeText(r.name).includes(keyword) || 
-                this.safeText(r.department).includes(keyword) || 
-                this.safeText(r.position).includes(keyword) || 
-                this.safeText(r.roleName).includes(keyword)
-            );
-        }
-
-        const tbody = document.getElementById('resources-table-body');
-        if (!tbody) return;
-
-        if (this.editingResourceId === 'temp-new') {
-            const exists = list.some(r => r.id === 'temp-new');
-            if (!exists) {
-                list.push({
-                    id: 'temp-new',
-                    name: '',
-                    employmentType: 'regular',
-                    department: '',
-                    position: '',
-                    roleName: '',
-                    userId: '',
-                    isActive: true
-                });
-            }
-        }
-
-        let html = '';
-        list.forEach((r, idx) => {
-            const isEditing = this.editingResourceId === r.id;
-            const participations = (this.state.projectMembers || []).filter(pm => pm.resourceId === r.id && pm.isActive !== false);
-
-            if (isEditing) {
-                const userOptions = (this.state.users || []).map(u => 
-                    `<option value="${u.id || u.email}" ${u.id === r.userId || u.email === r.userId ? 'selected' : ''}>${u.name} (${u.email})</option>`
-                ).join('');
-
-                const typeOptions = [
-                    { value: 'regular', label: '정규직' },
-                    { value: 'outsourcing', label: '자사화' },
-                    { value: 'project_contract', label: '프로젝트 계약직' },
-                    { value: 'turnkey', label: '외부(턴키)' }
-                ].map(opt => `<option value="${opt.value}" ${opt.value === r.employmentType ? 'selected' : ''}>${opt.label}</option>`).join('');
-
-                html += `
-                    <tr style="background: var(--bg-hover-item); border-bottom: 1px solid var(--bg-card-border);">
-                        <td style="padding: 8px 12px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-size:13px;">
-                            ${participations.map(pm => {
-                                const p = this.state.projects.find(proj => proj.id === pm.projectId);
-                                if (!p) return '';
-                                const codePrefix = p.projectCode ? `[${p.projectCode}] ` : '';
-                                return `<div>${codePrefix}${p.name}</div>`;
-                            }).join('') || '미할당'}
-                        </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
-                            <input type="text" id="edit-res-name" value="${r.name || ''}" placeholder="성명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 8px; font-weight:600; text-align: center;">
-                            <select id="edit-res-user-id" style="width:100%; height:28px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; margin-top:4px; text-align-last: center;">
-                                <option value="">-- 계정 연동 안함 --</option>
-                                ${userOptions}
-                            </select>
-                        </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
-                            <select id="edit-res-employment-type" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; font-weight:600; text-align-last: center;">
-                                ${typeOptions}
-                            </select>
-                        </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
-                            <input type="text" id="edit-res-dept" value="${r.department || ''}" placeholder="부서명" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 8px; font-weight:600; text-align: center;">
-                        </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
-                            <input type="text" id="edit-res-position" value="${r.position || ''}" placeholder="직급" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 8px; font-weight:600; text-align: center;">
-                        </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">
-                            <input type="text" id="edit-res-role-name" value="${r.roleName || ''}" placeholder="참여역할" style="width:100%; height:32px; border-radius:4px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 8px; font-weight:600; text-align: center;">
-                        </td>
-                        <td style="padding: 8px 12px; text-align: center; border-right: 1px solid var(--bg-card-border); font-size:13px;">
-                            ${participations.map(pm => `<div>${pm.participationRole === 'PM' || pm.isProjectManager ? 'PM' : '멤버'}</div>`).join('') || '-'}
-                        </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:13px; text-align: center;">
-                            ${participations.map(pm => `<div>${pm.startDate || '-'}</div>`).join('') || '-'}
-                        </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:13px; text-align: center;">
-                            ${participations.map(pm => `<div>${pm.endDate || '-'}</div>`).join('') || '-'}
-                        </td>
-                        <td style="padding: 8px 12px; border-right: 1px solid var(--bg-card-border); font-size:13px;">
-                            ${participations.map(pm => `<div>${pm.memo || '-'}</div>`).join('') || '-'}
-                        </td>
-                        <td style="padding: 8px 12px; text-align: center; display: flex; justify-content: center; gap: 4px; height: 75px; align-items: center;">
-                            <button class="btn btn-xs btn-primary" onclick="app.saveResourceRow('${r.id}')" style="padding:4px 8px; display:flex; align-items:center; gap:2px; font-size:12px;"><i data-lucide="check" style="width:12px; height:12px;"></i> 저장</button>
-                            <button class="btn btn-xs btn-outline" onclick="app.cancelResourceRowEdit()" style="padding:4px 8px; display:flex; align-items:center; gap:2px; font-size:12px;"><i data-lucide="x" style="width:12px; height:12px;"></i> 취소</button>
-                        </td>
-                    </tr>
-                `;
-            } else {
-                const linkedUser = (this.state.users || []).find(u => u.id === r.userId || u.email === r.userId);
-                const nameDisplay = linkedUser 
-                    ? `<div><strong>${r.name || '-'}</strong></div><div class="text-xs text-muted" style="margin-top:2px; font-size:12px;"><i data-lucide="link" style="width:10px; height:10px; display:inline-block; vertical-align:middle; margin-right:2px;"></i>${linkedUser.email}</div>`
-                    : `<strong>${r.name || '-'}</strong>`;
-
-                const typeLabel = this.translateEmploymentType(r.employmentType);
-                const typeColorMap = {
-                    regular: { bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.3)', text: '#10b981' },
-                    outsourcing: { bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.3)', text: '#3b82f6' },
-                    project_contract: { bg: 'rgba(139, 92, 246, 0.1)', border: 'rgba(139, 92, 246, 0.3)', text: '#8b5cf6' },
-                    turnkey: { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', text: '#f59e0b' }
-                };
-                const badgeStyle = typeColorMap[r.employmentType || 'regular'] || typeColorMap.regular;
-                const typeBadge = `<span class="badge" style="background:${badgeStyle.bg}; color:${badgeStyle.text}; border:1px solid ${badgeStyle.border}; font-size:12px; padding:2px 8px; border-radius:4px; font-weight:700;">${typeLabel}</span>`;
-
-                html += `
-                    <tr style="border-bottom: 1px solid var(--bg-card-border);">
-                        <td style="padding: 12px 16px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight:600; font-size:14px;">${idx + 1}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:13px;">
-                            ${participations.map(pm => {
-                                const p = this.state.projects.find(proj => proj.id === pm.projectId);
-                                if (!p) return '';
-                                const codePrefix = p.projectCode ? `[${p.projectCode}] ` : '';
-                                return `<div style="margin-bottom:4px; font-weight:700; color:var(--text-main); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; word-break: break-all;" title="${codePrefix}${p.name}">${codePrefix}${p.name}</div>`;
-                            }).join('') || '<span class="text-muted">-</span>'}
-                        </td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:14px; text-align: center;">${nameDisplay}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); text-align:center;">${typeBadge}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:14px; text-align: center;">${r.department || '-'}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-weight: 600; font-size:14px; text-align: center;">${r.position || '-'}</td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-size:14px; text-align: center;">${r.roleName || '-'}</td>
-                        <td style="padding: 12px 16px; text-align: center; border-right: 1px solid var(--bg-card-border); font-size:13px;">
-                            ${participations.map(pm => {
-                                return `<div style="margin-bottom:4px;">${pm.participationRole === 'PM' || pm.isProjectManager ? '<span class="status-badge status-completed" style="padding:2px 6px; font-size:11px;">PM</span>' : '<span class="status-badge" style="background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; font-size:11px;">멤버</span>'}</div>`;
-                            }).join('') || '-'}
-                        </td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-family: monospace; font-size:13px; text-align: center;">
-                            ${participations.map(pm => `<div style="margin-bottom:4px;">${pm.startDate || '-'}</div>`).join('') || '-'}
-                        </td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); font-family: monospace; font-size:13px; text-align: center;">
-                            ${participations.map(pm => `<div style="margin-bottom:4px;">${pm.endDate || '-'}</div>`).join('') || '-'}
-                        </td>
-                        <td style="padding: 12px 16px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-size:13px;">
-                            ${participations.map(pm => `<div style="margin-bottom:4px;">${pm.memo || '-'}</div>`).join('') || '-'}
-                        </td>
-                        <td style="padding: 12px 16px; text-align: center; display: flex; justify-content: center; gap: 4px; align-items: center; min-height: 48px;">
-                            <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.editResourceRow('${r.id}')" style="padding: 4px 6px;"><i data-lucide="edit-2" style="width:12px; height:12px;"></i></button>
-                            <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.deleteResourceRow('${r.id}')" style="padding: 4px 6px; border-color: var(--status-critical-border); color: var(--status-critical);"><i data-lucide="trash-2" style="width:12px; height:12px;"></i></button>
-                        </td>
-                    </tr>
-                `;
-            }
+        // Calculate unique projects with assigned resources
+        const assignedProjectIds = new Set();
+        resources.forEach(r => {
+            if (r.projectId || r.project_id) assignedProjectIds.add(r.projectId || r.project_id);
         });
-
-        if (list.length === 0) {
-            html = `<tr><td colspan="12" style="padding: 32px; text-align: center; color: var(--text-muted); font-size: 14px;">조건에 부합하는 참여 인력 정보가 존재하지 않습니다.</td></tr>`;
-        }
-
-        tbody.innerHTML = html;
-        if (window.lucide) window.lucide.createIcons();
-        this.initTableResizers();
-    }
-
-    initTableResizers() {
-        const activeView = document.querySelector('.content-view.active');
-        if (!activeView) return;
-        const table = activeView.querySelector('.excel-grid-table');
-        if (!table) return;
-
-        const cols = table.querySelectorAll('th');
-        cols.forEach((col) => {
-            if (col.querySelector('.resizer')) return;
-            if (col.textContent.trim() === '관리') return;
-
-            const resizer = document.createElement('div');
-            resizer.classList.add('resizer');
-            col.appendChild(resizer);
-
-            let x = 0;
-            let w = 0;
-
-            const mouseDownHandler = (e) => {
-                x = e.clientX;
-                const styles = window.getComputedStyle(col);
-                w = parseInt(styles.width, 10);
-                resizer.classList.add('resizing');
-                document.addEventListener('mousemove', mouseMoveHandler);
-                document.addEventListener('mouseup', mouseUpHandler);
-            };
-
-            const mouseMoveHandler = (e) => {
-                const dx = e.clientX - x;
-                const newWidth = Math.max(50, w + dx);
-                col.style.width = `${newWidth}px`;
-                col.style.minWidth = `${newWidth}px`;
-            };
-
-            const mouseUpHandler = () => {
-                resizer.classList.remove('resizing');
-                document.removeEventListener('mousemove', mouseMoveHandler);
-                document.removeEventListener('mouseup', mouseUpHandler);
-            };
-
-            resizer.addEventListener('mousedown', mouseDownHandler);
+        projectMembers.forEach(pm => {
+            if (pm.projectId || pm.project_id) assignedProjectIds.add(pm.projectId || pm.project_id);
         });
-    }
+        const totalProjectsCount = assignedProjectIds.size || projects.length;
 
-    addNewResourceRow() {
-        if (this.state.session?.user?.role === 'VIEWER') {
-            this.showToast('권한이 없습니다.', 'error');
-            return;
-        }
-        this.editingResourceId = 'temp-new';
-        this.renderResourcesView();
-        
-        const tbody = document.getElementById('resources-table-body');
-        if (tbody && tbody.lastElementChild) {
-            tbody.lastElementChild.scrollIntoView({ behavior: 'smooth' });
-        }
-    }
+        // Calculate insourced vs contract resources
+        const insourcedCount = resources.filter(r => (r.employmentType || r.employment_type || '').includes('INSOURCED')).length;
+        const contractorCount = resources.filter(r => (r.employmentType || r.employment_type || '').includes('CONTRACT')).length;
 
-    editResourceRow(resId) {
-        if (this.state.session?.user?.role === 'VIEWER') {
-            this.showToast('권한이 없습니다.', 'error');
-            return;
-        }
-        this.editingResourceId = resId;
-        this.renderResourcesView();
-    }
+        // 2. Update summary DOM elements
+        const statProjElem = document.getElementById('stat-total-projects') || document.getElementById('res-stat-projects');
+        const statResElem = document.getElementById('stat-total-resources') || document.getElementById('res-stat-total');
+        const statWorkElem = document.getElementById('stat-working-resources') || document.getElementById('res-stat-working');
+        const statInElem = document.getElementById('stat-insourced-resources') || document.getElementById('res-stat-insourced');
+        const statConElem = document.getElementById('stat-contractor-resources') || document.getElementById('res-stat-contractor');
 
-    cancelResourceRowEdit() {
-        this.editingResourceId = null;
-        this.renderResourcesView();
-    }
+        if (statProjElem) statProjElem.textContent = `${totalProjectsCount}건`;
+        if (statResElem) statResElem.textContent = `${totalResourcesCount}명`;
+        if (statWorkElem) statWorkElem.textContent = `${workingResourcesCount}명`;
+        if (statInElem) statInElem.textContent = `${insourcedCount}명`;
+        if (statConElem) statConElem.textContent = `${contractorCount}명`;
 
-    async saveResourceRow(resId) {
-        if (this.state.session?.user?.role === 'VIEWER') {
-            this.showToast('권한이 없습니다.', 'error');
-            return;
+        // Also update any general stat cards inside view-resources
+        const allStatCards = document.querySelectorAll('#view-resources .stat-card-value');
+        if (allStatCards.length >= 2) {
+            if (allStatCards[0]) allStatCards[0].textContent = `${totalProjectsCount}건`;
+            if (allStatCards[1]) allStatCards[1].textContent = `${totalResourcesCount}명`;
         }
 
-        const name = document.getElementById('edit-res-name')?.value?.trim() || '';
-        const userId = document.getElementById('edit-res-user-id')?.value || null;
-        const employmentType = document.getElementById('edit-res-employment-type')?.value || 'regular';
-        const department = document.getElementById('edit-res-dept')?.value?.trim() || '';
-        const position = document.getElementById('edit-res-position')?.value?.trim() || '';
-        const roleName = document.getElementById('edit-res-role-name')?.value?.trim() || '';
+        // 3. Render Table
+        this.renderResourcesTable();
 
-        if (!name) {
-            alert('성명을 입력해주세요.');
-            return;
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
         }
-
-        const finalId = resId === 'temp-new' ? this.generateUuid() : resId;
-
-        const resourceObj = {
-            id: finalId,
-            name,
-            employmentType,
-            department,
-            position,
-            roleName,
-            userId,
-            isActive: true
-        };
-
-        if (resId === 'temp-new') {
-            if (!this.state.resources) this.state.resources = [];
-            this.state.resources.push(resourceObj);
-        } else {
-            const idx = this.state.resources.findIndex(r => r.id === resId);
-            if (idx > -1) {
-                this.state.resources[idx] = resourceObj;
-            }
-        }
-
-        // Bidirectional sync: update any corresponding project members
-        (this.state.projectMembers || []).forEach(m => {
-            if (m.resourceId === finalId) {
-                m.name = name;
-                m.userId = userId;
-                m.employmentType = employmentType;
-                m.department = department;
-                m.position = position;
-                m.roleName = roleName;
-                this.saveState('member_upsert', m);
-            }
-        });
-
-        this.editingResourceId = null;
-        this.renderResourcesView();
-        
-        try {
-            await this.saveState('resource_upsert', resourceObj);
-            this.showToast('인력 정보가 정상 저장되었습니다.', 'success');
-        } catch (err) {
-            console.error('Error saving resource:', err);
-            this.showToast('데이터베이스 저장 중 오류가 발생했습니다.', 'error');
-        }
-    }
-
-    async deleteResourceRow(resId) {
-        if (this.state.session?.user?.role === 'VIEWER') {
-            this.showToast('권한이 없습니다.', 'error');
-            return;
-        }
-
-        if (confirm('이 인력을 마스터 목록에서 제외하시겠습니까? 관련 프로젝트 참여 정보도 모두 비활성화됩니다.')) {
-            const res = (this.state.resources || []).find(r => r.id === resId);
-            if (res) {
-                res.isActive = false;
-                
-                // Deactivate all matching project members
-                (this.state.projectMembers || []).forEach(m => {
-                    if (m.resourceId === resId) {
-                        m.isActive = false;
-                        this.saveState('member_upsert', m);
-                    }
-                });
-
-                this.renderResourcesView();
-
-                try {
-                    await this.saveState('resource_upsert', res); // soft delete via isActive = false
-                    this.showToast('인력이 비활성화되었습니다.', 'success');
-                } catch (err) {
-                    console.error('Error deactivating resource:', err);
-                    this.showToast('데이터베이스 저장 중 오류가 발생했습니다.', 'error');
-                }
-            }
-        }
-    }
-
-    exportResourcesToExcel() {
-        const projFilter = document.getElementById('resources-filter-project')?.value || 'all';
-        const deptFilter = document.getElementById('resources-filter-dept')?.value || 'all';
-        const keyword = this.safeText(document.getElementById('resources-search-input')?.value).trim();
-
-        let list = [...(this.state.resources || [])];
-        list = list.filter(r => r.isActive !== false);
-
-        if (projFilter !== 'all') {
-            list = list.filter(r => {
-                const pmList = (this.state.projectMembers || []).filter(pm => pm.resourceId === r.id);
-                return pmList.some(pm => pm.projectId === projFilter);
-            });
-        }
-        if (deptFilter !== 'all') {
-            list = list.filter(r => r.department === deptFilter);
-        }
-        if (keyword) {
-            list = list.filter(r => 
-                this.safeText(r.name).includes(keyword) || 
-                this.safeText(r.department).includes(keyword) || 
-                this.safeText(r.position).includes(keyword) || 
-                this.safeText(r.roleName).includes(keyword)
-            );
-        }
-
-        const csvRows = [];
-        csvRows.push(['번호', '성명', '인력구분', '소속본부/부서', '직급', '참여역할', '프로젝트', 'PM 여부', '투입시작일', '투입종료일', '비고'].map(h => `"${h}"`).join(','));
-
-        list.forEach((r, idx) => {
-            const typeLabel = this.translateEmploymentType(r.employmentType);
-            const participations = (this.state.projectMembers || []).filter(pm => pm.resourceId === r.id && pm.isActive !== false);
-            
-            const projText = participations.map(pm => {
-                const p = this.state.projects.find(proj => proj.id === pm.projectId);
-                return p ? p.name : '';
-            }).filter(Boolean).join('\n');
-
-            const roleText = r.roleName || '-';
-
-            const pmText = participations.map(pm => {
-                return pm.participationRole === 'PM' || pm.isProjectManager ? 'PM' : '멤버';
-            }).join('\n') || '-';
-
-            const startText = participations.map(pm => pm.startDate || '-').join('\n') || '-';
-            const endText = participations.map(pm => pm.endDate || '-').join('\n') || '-';
-            const memoText = participations.map(pm => pm.memo || '-').join('\n') || '-';
-
-            const row = [
-                idx + 1,
-                r.name || '',
-                typeLabel,
-                r.department || '',
-                r.position || '',
-                roleText,
-                projText,
-                pmText,
-                startText,
-                endText,
-                memoText
-            ];
-            
-            const escapedRow = row.map(val => {
-                const str = String(val).replace(/"/g, '""');
-                return `"${str}"`;
-            });
-            csvRows.push(escapedRow.join(','));
-        });
-
-        const csvString = '\ufeff' + csvRows.join('\n');
-        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        
-        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        link.setAttribute('href', url);
-        link.setAttribute('download', `인력관리_마스터_리스트_${dateStr}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        this.showToast('인력 마스터 리스트 엑셀 다운로드가 완료되었습니다.', 'success');
     }
 
     /* ==========================================================================
@@ -16959,12 +24051,12 @@ class AetherPMO {
     setUserRole(role) {
         this.state.userRole = role;
         this.saveState();
-        
+
         const avatar = document.getElementById('user-role-avatar');
         if (avatar) {
             avatar.textContent = role === 'Admin' ? 'AD' : 'PM';
         }
-        
+
         const hash = window.location.hash.substring(1) || 'dashboard';
         const mainRoute = hash.split('/')[0];
         if (mainRoute === 'artifacts') {
@@ -16991,7 +24083,7 @@ class AetherPMO {
             if (dropZone) dropZone.classList.remove('has-file');
             return;
         }
-        
+
         const allowedExts = ['docx', 'xlsx', 'pptx', 'pdf', 'hwp', 'hwpx'];
         const fileExt = file.name.split('.').pop().toLowerCase();
         if (!allowedExts.includes(fileExt)) {
@@ -17107,7 +24199,7 @@ class AetherPMO {
             // ⑤ 다운로드 성공 시 download_count를 +1 증가시킵니다.
             const newCount = (temp.downloadCount || 0) + 1;
             temp.downloadCount = newCount;
-            
+
             // DB 비동기 업데이트
             try {
                 const { error: dbErr } = await supabase
@@ -17390,7 +24482,7 @@ class AetherPMO {
         document.getElementById('global-template-modal-title').textContent = '표준 템플릿 양식 등록';
         document.getElementById('global-template-form').reset();
         document.getElementById('global-template-id-field').value = '';
-        
+
         const projectType = this.activeGlobalTemplateType || 'operation';
         document.getElementById('global-template-type').value = projectType;
         document.getElementById('global-template-stage').value = this.activeGlobalTemplateStage || 'initiation';
@@ -17439,13 +24531,13 @@ class AetherPMO {
         const projectType = temp.projectType || 'operation';
         document.getElementById('global-template-type').value = projectType;
         document.getElementById('global-template-stage').value = temp.stage;
-        
+
         this.updateTemplateCategorySelect(projectType, temp.category);
-        
+
         const categories = this.getTemplateCategories(projectType);
         const isStandard = categories.some(cat => cat.value === temp.category);
         const customInput = document.getElementById('global-template-custom-category');
-        
+
         if (!isStandard || temp.category === 'Custom') {
             document.getElementById('global-template-category').value = 'Custom';
             this.handleTemplateCategoryChange();
@@ -17564,14 +24656,14 @@ class AetherPMO {
             }
 
             const authorName = this.currentUser ? (this.currentUser.name || this.currentUser.email.split('@')[0]) : '시스템';
-            
+
             let nextOrder = null;
             if (id) {
                 const oldTemp = this.state.globalTemplates.find(t => t.id === id);
                 nextOrder = oldTemp && oldTemp.displayOrder !== undefined ? oldTemp.displayOrder : null;
             } else {
                 // 신규 등록 시 동일 stage, projectType 내의 최대 displayOrder + 1
-                const stageTemplates = (this.state.globalTemplates || []).filter(t => 
+                const stageTemplates = (this.state.globalTemplates || []).filter(t =>
                     t.stage === stage && t.projectType === projectType
                 );
                 let maxOrder = 0;
@@ -17628,9 +24720,9 @@ class AetherPMO {
                 if (index !== -1) {
                     const oldTemp = this.state.globalTemplates[index];
                     this.state.globalTemplates[index] = {
-                        id, name, stage, projectType, category, version, 
-                        fileName: finalFileName, fileSize: finalFileSize, 
-                        filePath: dbData.file_path, mimeType: dbData.mime_type, 
+                        id, name, stage, projectType, category, version,
+                        fileName: finalFileName, fileSize: finalFileSize,
+                        filePath: dbData.file_path, mimeType: dbData.mime_type,
                         author: authorName,
                         downloadCount: oldTemp ? (oldTemp.downloadCount || 0) : 0,
                         modifiedDate,
@@ -17661,9 +24753,9 @@ class AetherPMO {
                     this.state.globalTemplates = [];
                 }
                 this.state.globalTemplates.push({
-                    id: newId, name, stage, projectType, category, version, 
-                    fileName: finalFileName, fileSize: finalFileSize, 
-                    filePath: dbData.file_path, mimeType: dbData.mime_type, 
+                    id: newId, name, stage, projectType, category, version,
+                    fileName: finalFileName, fileSize: finalFileSize,
+                    filePath: dbData.file_path, mimeType: dbData.mime_type,
                     author: authorName,
                     downloadCount: 0,
                     modifiedDate,
@@ -17752,7 +24844,7 @@ class AetherPMO {
                 const modal = document.getElementById('pdf-preview-modal');
                 const iframe = document.getElementById('pdf-preview-iframe');
                 const title = document.getElementById('pdf-preview-modal-title');
-                
+
                 if (title) title.textContent = `PDF 미리보기 - ${temp.name}`;
                 if (iframe) iframe.src = data.signedUrl;
                 if (modal) modal.classList.add('active');
@@ -17775,7 +24867,7 @@ class AetherPMO {
     initTemplateDragAndDrop() {
         const dropZone = document.getElementById('template-drop-zone');
         const fileInput = document.getElementById('global-template-file-input');
-        
+
         if (!dropZone || !fileInput) return;
 
         // 기존 리스너 중복 방지를 위해 이벤트 리스너 재설정
@@ -17821,7 +24913,7 @@ class AetherPMO {
 
         select.innerHTML = '';
         const categories = this.getTemplateCategories(projectType);
-        
+
         let hasSelected = false;
         if (selectedValue) {
             hasSelected = categories.some(cat => cat.value === selectedValue);
@@ -17853,7 +24945,7 @@ class AetherPMO {
         const select = document.getElementById('global-template-category');
         const customGroup = document.getElementById('global-template-custom-category-group');
         const customInput = document.getElementById('global-template-custom-category');
-        
+
         if (!select || !customGroup) return;
 
         if (select.value === 'Custom') {
@@ -17985,6 +25077,29 @@ class AetherPMO {
     getDefaultUsers() {
         return [
             {
+                email: 'admin.personal@aetherpmo.com',
+                password: 'admin1234',
+                role: 'SYS_ADMIN',
+                name: '안유경 (개인 관리자)',
+                company: 'AetherIT',
+                division: 'SI사업본부',
+                position: '수석',
+                phone: '010-1111-2222',
+                profileImage: '',
+                profileColor: '#4338CA',
+                initials: 'AYK',
+                avatarType: 'default',
+                assignedProjectIds: ['proj-demo-26-001', 'proj-demo-26-002', 'proj-demo-25-003'],
+                notifications: {
+                    actionItem: true,
+                    risk: true,
+                    meeting: true,
+                    officialDoc: true,
+                    artifact: true,
+                    projectOverdue: true
+                }
+            },
+            {
                 email: 'admin@aetherpmo.com',
                 password: 'admin1234',
                 role: 'SYS_ADMIN',
@@ -18110,7 +25225,7 @@ class AetherPMO {
             // Close notification panel if open
             const notifPanel = document.getElementById('notif-panel');
             if (notifPanel) notifPanel.classList.remove('open');
-            
+
             // Close sidebar user menu if open
             const sidebarMenu = document.getElementById('sidebar-user-menu-panel');
             if (sidebarMenu) sidebarMenu.classList.remove('open');
@@ -18125,7 +25240,7 @@ class AetherPMO {
             // Close notification panel if open
             const notifPanel = document.getElementById('notif-panel');
             if (notifPanel) notifPanel.classList.remove('open');
-            
+
             // Close header menu if open
             const headerMenu = document.getElementById('user-menu-panel');
             if (headerMenu) headerMenu.classList.remove('open');
@@ -18142,7 +25257,7 @@ class AetherPMO {
         const updateAvatar = (el) => {
             if (!el) return;
             el.innerHTML = '';
-            
+
             // Clean classes but keep avatar
             el.className = 'avatar';
             el.classList.add(`role-${user.role}`);
@@ -18250,7 +25365,7 @@ class AetherPMO {
 
         // Trigger preview refresh
         this.updateProfileModalPreview();
-        
+
         // Re-trigger Lucide icons in modal if any
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -18378,7 +25493,7 @@ class AetherPMO {
         user.profileImage = this.tempProfileImage;
         user.avatarType = this.tempAvatarType;
         user.profileColor = this.tempProfileColor;
-        
+
         // Derive initials
         user.initials = nameVal.substring(0, 2);
 
@@ -18403,7 +25518,7 @@ class AetherPMO {
                 role: user.role,
                 name: user.name
             }));
-            
+
             // Re-render auth and layout components
             this.checkAuth();
         }
@@ -18423,14 +25538,14 @@ class AetherPMO {
         if (!tbody) return;
 
         tbody.innerHTML = '';
-        
+
         if (!this.state.users) {
             this.state.users = this.getDefaultUsers();
         }
 
         this.state.users.forEach(u => {
             const tr = document.createElement('tr');
-            
+
             // Generate avatar preview markup
             let avatarContent = '';
             if (u.avatarType === 'image' && u.profileImage) {
@@ -18552,6 +25667,7 @@ class AetherPMO {
      */
     getDefaultProjectTypes() {
         return [
+            { key: 'nirs-master',  label: 'NIRS 자원통합 마스터', icon: 'shield-check' },
             { key: 'operation',    label: '운영사업',       icon: 'settings-2' },
             { key: 'construction', label: '구축사업',       icon: 'building-2'  },
             { key: 'sw-separate',  label: 'SW분리발주사업', icon: 'layers'      },
@@ -19292,7 +26408,7 @@ class AetherPMO {
             console.error('[Sidebar Mode Toggle] Menu or button element not found in DOM!');
             return;
         }
-        
+
         const isOpen = menu.style.display === 'block';
         if (isOpen) {
             menu.style.display = 'none';
@@ -19362,7 +26478,7 @@ class AetherPMO {
             const el = document.getElementById(`smi-${m}`);
             if (el) el.classList.toggle('active', m === mode);
         });
-        
+
         // Update mode button icon
         const btn = document.getElementById('sidebar-mode-btn');
         if (btn) {
@@ -19424,14 +26540,14 @@ class AetherPMO {
             const enterHandler = (e) => {
                 const appContainer = document.getElementById('app-section');
                 if (!appContainer || !appContainer.classList.contains('sidebar-compact')) return;
-                
+
                 // Do not show flyout if sidebar is hovered-expanded in autohide mode
                 const sidebar = document.querySelector('.sidebar');
                 if (sidebar && sidebar.classList.contains('expanded')) return;
 
                 const rect = navLink.getBoundingClientRect();
                 const items = submenu.querySelectorAll('.submenu-item');
-                
+
                 // Construct flyout HTML
                 flyout.innerHTML = `
                     <div class="compact-flyout-header">${navLink.querySelector('span')?.textContent || ''}</div>
@@ -19442,7 +26558,7 @@ class AetherPMO {
                         return `<a href="${href}" class="compact-flyout-item ${activeClass}" onclick="document.getElementById('compact-flyout').classList.remove('visible')">${label}</a>`;
                     }).join('')}
                 `;
-                
+
                 // Position flyout
                 flyout.style.top = `${rect.top}px`;
                 flyout.style.left = `${rect.right + 12}px`; /* 12px offset */
@@ -19488,7 +26604,7 @@ class AetherPMO {
         if (userMenu && userMenu.classList.contains('open')) {
             return true;
         }
-        
+
         return false;
     }
 
@@ -19501,9 +26617,9 @@ class AetherPMO {
         }
         if (project.status === 'Bidding') return true;
         const biddingStatuses = [
-            '제안준비중', '제안 준비중', 
-            '제안제출', '제안 제출', 
-            '결과대기', '결과 대기', 
+            '제안준비중', '제안 준비중',
+            '제안제출', '제안 제출',
+            '결과대기', '결과 대기',
             '수주', '실패'
         ];
         return biddingStatuses.includes(project.status) || biddingStatuses.includes(project.bidStatus);
@@ -19650,7 +26766,7 @@ class AetherPMO {
         const m = project.consortiumMembers[idx];
         document.getElementById('consortium-modal-title').textContent = '컨소시엄 구성원 수정';
         document.getElementById('consortium-id-field').value = idx;
-        
+
         document.getElementById('consortium-company-name').value = m.companyName;
         document.getElementById('consortium-role').value = m.role;
         document.getElementById('consortium-share-rate').value = m.shareRate;
@@ -19868,7 +26984,7 @@ class AetherPMO {
     onMemberUserSelectChange() {
         const userSelect = document.getElementById('member-user-select');
         const selectedOption = userSelect.options[userSelect.selectedIndex];
-        
+
         if (selectedOption && selectedOption.value) {
             const userId = selectedOption.value;
             const user = this.state.users.find(u => (u.id === userId || u.email === userId));
@@ -19913,6 +27029,68 @@ class AetherPMO {
         }
     }
 
+    checkMemberSeveranceStatus() {
+        const empType = document.getElementById('member-employment-type')?.value;
+        const startDate = document.getElementById('member-start-date')?.value;
+        const endDate = document.getElementById('member-end-date')?.value;
+        const box = document.getElementById('member-severance-notice-box');
+        const notice = document.getElementById('member-severance-notice');
+
+        if (!box || !notice) return;
+
+        // 자사화(INSOURCED_CONTRACTOR) 또는 프로젝트 계약직(PROJECT_CONTRACTOR) 인력인 경우 투입기간 검사
+        const isContractor = (empType === 'INSOURCED_CONTRACTOR' || empType === 'outsourcing' || empType === 'PROJECT_CONTRACTOR' || empType === 'project_contract');
+
+        if (isContractor) {
+            if (startDate && endDate) {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                const diffDays = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+                box.style.display = 'block';
+                if (diffDays >= 365) {
+                    notice.style.background = 'rgba(234, 179, 8, 0.12)';
+                    notice.style.color = '#d97706';
+                    notice.style.border = '1px solid rgba(234, 179, 8, 0.3)';
+                    notice.innerHTML = `
+                        <span style="display:flex; align-items:center; gap:6px;">
+                            <i data-lucide="coins" style="width:14px; height:14px;"></i>
+                            <strong>💰 퇴직금 발생 대상 (투입 1년 이상)</strong>
+                        </span>
+                        <span style="font-size:10px; font-weight:800; background:#d97706; color:#fff; padding:2px 6px; border-radius:4px;">총 ${diffDays}일 투입</span>
+                    `;
+                } else {
+                    notice.style.background = 'var(--bg-hover-item)';
+                    notice.style.color = 'var(--text-muted)';
+                    notice.style.border = '1px solid var(--border-color)';
+                    notice.innerHTML = `
+                        <span style="display:flex; align-items:center; gap:6px;">
+                            <i data-lucide="info" style="width:14px; height:14px;"></i>
+                            계약직/자사화 인력 (투입기간 365일 미만)
+                        </span>
+                        <span style="font-size:10px; font-weight:700;">${diffDays > 0 ? diffDays + '일 투입 (퇴직금 미발생)' : '기간 확인 필요'}</span>
+                    `;
+                }
+            } else {
+                box.style.display = 'block';
+                notice.style.background = 'var(--bg-hover-item)';
+                notice.style.color = 'var(--text-muted)';
+                notice.style.border = '1px solid var(--border-color)';
+                notice.innerHTML = `
+                    <span style="display:flex; align-items:center; gap:6px;">
+                        <i data-lucide="info" style="width:14px; height:14px;"></i>
+                        계약직/자사화 인력 퇴직금 확인
+                    </span>
+                    <span style="font-size:10px;">투입 시작일과 종료일을 입력하면 퇴직금 대상 여부가 자동 계산됩니다.</span>
+                `;
+            }
+        } else {
+            box.style.display = 'none';
+        }
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
     resetMemberForm() {
         document.getElementById('member-id').value = '';
         document.getElementById('member-user-select').value = '';
@@ -19933,6 +27111,7 @@ class AetherPMO {
         document.getElementById('member-memo').value = '';
         document.getElementById('member-form-title').textContent = '참여 인력 추가';
         document.getElementById('btn-save-member').textContent = '추가';
+        this.checkMemberSeveranceStatus();
     }
 
     renderMembersModalList() {
@@ -19967,15 +27146,15 @@ class AetherPMO {
 
         container.innerHTML = members.map(m => {
             const roleBadgeClass = m.isActive ? 'status-badge status-bidding' : 'status-badge status-onhold';
-            const activeStatusText = m.isActive 
-                ? '<span class="status-badge status-completed" style="font-size:10px; padding:2px 6px;">투입중</span>' 
+            const activeStatusText = m.isActive
+                ? '<span class="status-badge status-completed" style="font-size:10px; padding:2px 6px;">투입중</span>'
                 : '<span class="status-badge status-onhold" style="font-size:10px; padding:2px 6px;">제외됨</span>';
 
             // Buttons based on role permissions
             let actionButtons = '';
             if (hasWriteAccess) {
                 actionButtons += `<button type="button" class="btn btn-xs btn-outline" onclick="app.editMemberClick('${m.id}')" style="padding:1px 6px; font-size:10px; height:auto; min-height:auto;">수정</button>`;
-                
+
                 if (m.isActive) {
                     actionButtons += `<button type="button" class="btn btn-xs btn-outline btn-warning" onclick="app.deactivateMemberClick('${m.id}')" style="padding:1px 6px; font-size:10px; height:auto; min-height:auto; margin-left:4px;">제외</button>`;
                 } else {
@@ -19988,7 +27167,7 @@ class AetherPMO {
             }
 
             const deptInfo = [m.department, m.position].filter(Boolean).join(' / ') || '소속 미지정';
-            const durationText = (m.startDate || m.endDate) 
+            const durationText = (m.startDate || m.endDate)
                 ? `${m.startDate || ''} ~ ${m.endDate || ''}`
                 : '기간 미지정';
 
@@ -19999,13 +27178,24 @@ class AetherPMO {
             else if (m.employmentType === 'PROJECT_CONTRACTOR' || m.employmentType === 'project_contract') empCss = 'employment-project';
             const typeBadge = `<span class="employment-badge ${empCss}" style="font-size:10px; padding:2px 6px;">${typeLabel}</span>`;
 
+            // 퇴직금 발생 여부 체크 (자사화 및 프로젝트 계약직 365일 이상 투입)
+            let severanceBadge = '';
+            const isContractor = (m.employmentType === 'INSOURCED_CONTRACTOR' || m.employmentType === 'outsourcing' || m.employmentType === 'PROJECT_CONTRACTOR' || m.employmentType === 'project_contract');
+            if (isContractor && m.startDate && m.endDate) {
+                const days = Math.floor((new Date(m.endDate) - new Date(m.startDate)) / (1000 * 60 * 60 * 24)) + 1;
+                if (days >= 365) {
+                    severanceBadge = `<span class="badge-severance" style="font-size:10px; background:rgba(234,179,8,0.15); color:#d97706; border:1px solid rgba(234,179,8,0.3); padding:2px 6px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:3px;" title="자사화/계약직 투입 365일 이상 (${days}일)"><i data-lucide="coins" style="width:11px; height:11px;"></i> 퇴직금 대상</span>`;
+                }
+            }
+
             return `
                 <div class="dashboard-card" style="margin-bottom:10px; padding:12px; background: var(--bg-card-hover); border-color: ${m.isActive ? 'var(--bg-card-border)' : 'transparent'}; opacity: ${m.isActive ? 1 : 0.65};">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                         <div>
-                            <div style="display:flex; align-items:center; gap:8px;">
+                            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                                 <span style="font-size:13px; font-weight:700;">${m.name}</span>
                                 ${typeBadge}
+                                ${severanceBadge}
                                 <span class="${roleBadgeClass}" style="font-size:10px; padding:2px 6px;">${roleLabels[m.participationRole] || m.participationRole}</span>
                                 ${activeStatusText}
                             </div>
@@ -20050,6 +27240,7 @@ class AetherPMO {
 
         document.getElementById('member-form-title').textContent = '참여 인력 수정';
         document.getElementById('btn-save-member').textContent = '수정';
+        this.checkMemberSeveranceStatus();
     }
 
     async saveMemberForm() {
@@ -20085,8 +27276,8 @@ class AetherPMO {
             existingRes = (this.state.resources || []).find(r => r.userId === userId);
         }
         if (!existingRes) {
-            existingRes = (this.state.resources || []).find(r => 
-                this.safeText(r.name) === this.safeText(name) && 
+            existingRes = (this.state.resources || []).find(r =>
+                this.safeText(r.name) === this.safeText(name) &&
                 r.employmentType === employmentType
             );
         }
@@ -20119,6 +27310,12 @@ class AetherPMO {
 
         const isNew = !memberId;
         const finalId = isNew ? this.generateUuid() : memberId;
+        const isContractor = (employmentType === 'INSOURCED_CONTRACTOR' || employmentType === 'outsourcing' || employmentType === 'PROJECT_CONTRACTOR' || employmentType === 'project_contract');
+        let calcDays = 0;
+        if (startDate && endDate) {
+            calcDays = Math.floor((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
+        }
+        const isSeveranceEligible = isContractor && calcDays >= 365;
 
         const memberObj = {
             id: finalId,
@@ -20136,7 +27333,9 @@ class AetherPMO {
             isProjectManager: participationRole === 'PM',
             employmentType,
             resourceId,
-            participationRate: 100
+            participationRate: 100,
+            isSeveranceEligible,
+            is_severance_eligible: isSeveranceEligible
         };
 
         if (isNew) {
@@ -20155,7 +27354,7 @@ class AetherPMO {
             project.managerId = userId;
             project.manager = name;
             const changedBy = this.currentUser ? this.currentUser.id : null;
-            
+
             // Insert manager change history locally
             if (!this.state.projectManagerHistory) this.state.projectManagerHistory = [];
             const historyObj = {
@@ -20168,7 +27367,7 @@ class AetherPMO {
                 reason: '참여인력 관리에서 PM 지정'
             };
             this.state.projectManagerHistory.push(historyObj);
-            
+
             this.saveState('project_upsert', project);
             if (this.useSupabase) {
                 await this.supabase.from('project_manager_history').insert({
@@ -20183,10 +27382,25 @@ class AetherPMO {
 
         await this.saveState('member_upsert', memberObj);
 
-        alert(isNew ? '참여 인력이 추가되었습니다.' : '참여 인력 정보가 수정되었습니다.');
-        this.resetMemberForm();
+        if (isNew) {
+            // 이름과 선택연동만 비우고 나머지 폼 조건 유지 (연속 등록 모드)
+            document.getElementById('member-id').value = '';
+            document.getElementById('member-user-select').value = '';
+            if (document.getElementById('member-resource-select')) {
+                document.getElementById('member-resource-select').value = '';
+            }
+            document.getElementById('member-name').value = '';
+            this.showToast('참여 인력이 추가되었습니다. (이름 수정 후 연속 등록 가능)', 'success');
+            setTimeout(() => {
+                document.getElementById('member-name')?.focus();
+            }, 100);
+        } else {
+            this.showToast('참여 인력 정보가 수정되었습니다.', 'success');
+            this.resetMemberForm();
+        }
+
         this.renderMembersModalList();
-        
+
         // Refresh project detail view
         const currentHash = window.location.hash.substring(1) || 'dashboard';
         if (currentHash.startsWith('project-detail/')) {
@@ -20194,6 +27408,7 @@ class AetherPMO {
         }
         this.renderProjects();
     }
+
 
     toggleInactiveMembers(checked) {
         this.renderProjectDetail(this.activeProjectId);
@@ -20207,7 +27422,7 @@ class AetherPMO {
             member.isActive = false;
             await this.saveState('member_upsert', member);
             this.renderMembersModalList();
-            
+
             const currentHash = window.location.hash.substring(1) || 'dashboard';
             if (currentHash.startsWith('project-detail/')) {
                 this.renderProjectDetail(this.activeProjectId);
@@ -20223,7 +27438,7 @@ class AetherPMO {
         member.isActive = true;
         this.saveState('member_upsert', member);
         this.renderMembersModalList();
-        
+
         const currentHash = window.location.hash.substring(1) || 'dashboard';
         if (currentHash.startsWith('project-detail/')) {
             this.renderProjectDetail(this.activeProjectId);
@@ -20239,7 +27454,7 @@ class AetherPMO {
             this.state.projectMembers = this.state.projectMembers.filter(m => m.id !== id);
             this.saveState('member_delete', id);
             this.renderMembersModalList();
-            
+
             const currentHash = window.location.hash.substring(1) || 'dashboard';
             if (currentHash.startsWith('project-detail/')) {
                 this.renderProjectDetail(this.activeProjectId);
@@ -20248,7 +27463,7 @@ class AetherPMO {
         }
     }
 
-    populateProjectManagerSelect(selectedIdOrName = '') {
+    populateProjectManagerSelect(selectedNameOrId = '', fallbackId = '') {
         const select = document.getElementById('project-manager-select');
         if (!select) return;
 
@@ -20269,18 +27484,20 @@ class AetherPMO {
 
         const customInput = document.getElementById('project-manager-custom');
 
-        // Set selected value
-        if (selectedIdOrName) {
-            // Check if selectedIdOrName corresponds to a profile ID/email first
-            let actualName = selectedIdOrName;
-            const matchedUser = this.state.users ? this.state.users.find(u => u.id === selectedIdOrName || u.email === selectedIdOrName) : null;
-            if (matchedUser) {
-                actualName = matchedUser.name;
-            }
+        let targetName = selectedNameOrId || fallbackId;
 
-            const exists = defaultPms.includes(actualName);
+        // If targetName looks like a UUID or email, check if there's a matching user name
+        if (targetName && this.state.users) {
+            const matchedUser = this.state.users.find(u => u.id === targetName || u.email === targetName);
+            if (matchedUser) {
+                targetName = matchedUser.name;
+            }
+        }
+
+        if (targetName) {
+            const exists = defaultPms.includes(targetName);
             if (exists) {
-                select.value = actualName;
+                select.value = targetName;
                 if (customInput) {
                     customInput.style.display = 'none';
                     customInput.value = '';
@@ -20289,7 +27506,7 @@ class AetherPMO {
                 select.value = 'custom';
                 if (customInput) {
                     customInput.style.display = 'block';
-                    customInput.value = actualName;
+                    customInput.value = targetName;
                 }
             }
         } else {
@@ -20399,10 +27616,10 @@ class AetherPMO {
         console.log('[SaaS Demo] Initializing presentation controls...');
         const watermark = document.getElementById('demo-watermark');
         if (watermark) watermark.style.display = 'none';
-        
+
         const tourConsole = document.getElementById('presentation-tour-console');
         if (tourConsole) tourConsole.classList.remove('active');
-        
+
         window.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') {
                 e.preventDefault();
@@ -20419,15 +27636,15 @@ class AetherPMO {
         const toggleBtn = document.getElementById('demo-mode-toggle-btn');
         const icon = document.getElementById('demo-mode-icon');
         const label = document.getElementById('demo-mode-label');
-        
+
         if (!this.demoMode) {
             this.demoMode = true;
             this._savedUseSupabase = this.useSupabase;
             this.useSupabase = false;
             this._savedState = JSON.parse(JSON.stringify(this.state));
-            
+
             this.loadDemoDatabase();
-            
+
             if (toggleBtn) toggleBtn.classList.add('active');
             if (icon) {
                 icon.setAttribute('data-lucide', 'sparkles');
@@ -20441,14 +27658,14 @@ class AetherPMO {
         } else {
             this.demoMode = false;
             this.useSupabase = this._savedUseSupabase;
-            
+
             if (this._savedState) {
                 this.state = this._savedState;
                 this._savedState = null;
             } else {
                 this.loadState();
             }
-            
+
             if (toggleBtn) toggleBtn.classList.remove('active');
             if (icon) {
                 icon.setAttribute('data-lucide', 'play');
@@ -20460,14 +27677,14 @@ class AetherPMO {
             }
             this.showToast('데모 모드가 비활성화되었습니다. (실제 데이터 복구 완료)', 'info');
         }
-        
+
         if (window.lucide) window.lucide.createIcons();
         this.handleRouting();
     }
 
     loadDemoDatabase() {
         console.log('[SaaS Demo] Populating high-fidelity demo database...');
-        
+
         const projects = [
             {
                 id: 'proj-1',
@@ -20742,7 +27959,7 @@ class AetherPMO {
             const statusVal = (i % 3 === 0) ? 'Completed' : ((i % 3 === 1) ? 'In Progress' : 'Pending');
             const priorityVal = (i % 4 === 0) ? 'Critical' : ((i % 4 === 1) ? 'High' : ((i % 4 === 2) ? 'Medium' : 'Low'));
             const dateOffset = i * 2;
-            
+
             actionItems.push({
                 id: `act-${i}`,
                 projectId: proj.id,
@@ -20769,11 +27986,11 @@ class AetherPMO {
                 const category = artCategories[catIdx];
                 const stage = artStages[(a - 1) % artStages.length];
                 const ext = artExtensions[(pIdx + a) % artExtensions.length];
-                
+
                 const artId = `art-${artIdCounter++}`;
                 let fileName = '';
                 let title = '';
-                
+
                 switch(category) {
                     case 'Requirements':
                         title = `${proj.name} - 요구사항 정의서 v1.${a}`;
@@ -20816,7 +28033,7 @@ class AetherPMO {
                 }
 
                 const fileSizes = ['1.2 MB', '4.5 MB', '15.8 MB', '8.9 MB', '24.1 MB'];
-                
+
                 artifacts.push({
                     id: artId,
                     projectId: proj.id,
@@ -20895,15 +28112,15 @@ class AetherPMO {
         const body = document.body;
         const tourConsole = document.getElementById('presentation-tour-console');
         const watermark = document.getElementById('demo-watermark');
-        
+
         if (!this.presentationMode) {
             this.presentationMode = true;
             body.classList.add('presentation-mode-active');
             if (tourConsole) tourConsole.classList.add('active');
             if (watermark) watermark.style.display = 'block';
-            
+
             this.setSidebarMode('compact');
-            
+
             this.tourStep = 1;
             this.applyTourStep();
             this.showToast('발표 모드가 시작되었습니다. 하단 콘솔의 시나리오 가이드를 확인하세요.', 'success');
@@ -20912,7 +28129,7 @@ class AetherPMO {
             body.classList.remove('presentation-mode-active');
             if (tourConsole) tourConsole.classList.remove('active');
             if (watermark) watermark.style.display = 'none';
-            
+
             this.setSidebarMode('expanded');
             this.showToast('발표 모드가 종료되었습니다.', 'info');
         }
@@ -20921,7 +28138,7 @@ class AetherPMO {
     setSidebarMode(mode) {
         const smiCompact = document.getElementById('smi-compact');
         const smiExpanded = document.getElementById('smi-expanded');
-        
+
         if (mode === 'compact' && smiCompact) {
             smiCompact.click();
         } else if (mode === 'expanded' && smiExpanded) {
@@ -20949,11 +28166,11 @@ class AetherPMO {
         const stepTitle = document.getElementById('tour-step-title');
         const stepDesc = document.getElementById('tour-step-description');
         const stepIndicator = document.getElementById('tour-step-indicator');
-        
+
         if (!stepTitle || !stepDesc || !stepIndicator) return;
-        
+
         stepIndicator.textContent = `${this.tourStep} / 4`;
-        
+
         const chatPanel = document.getElementById('ai-chat-panel');
         if (chatPanel && this.tourStep !== 4) {
             chatPanel.classList.remove('open');
@@ -20979,7 +28196,7 @@ class AetherPMO {
             case 4:
                 stepTitle.textContent = "4단계: AI 어시스턴트 협업 및 지능형 회의록 분석";
                 stepDesc.textContent = "발표 멘트: 마지막으로 AI 협업 기능입니다. 우측 하단의 AI 어시스턴트 챗봇을 통해 자연어로 현황 파악이 가능하며, 회의록 상세 창에서 클릭 한번으로 생성된 AI 요약을 기반으로 핵심 Action Item을 표준 DB에 즉시 등록 및 전파합니다.";
-                
+
                 setTimeout(() => {
                     if (this.tourStep === 4) {
                         const panel = document.getElementById('ai-chat-panel');
@@ -20997,7 +28214,7 @@ class AetherPMO {
     toggleAIChat() {
         const panel = document.getElementById('ai-chat-panel');
         if (!panel) return;
-        
+
         if (!this.aiChatOpen) {
             panel.classList.add('open');
             this.aiChatOpen = true;
@@ -21015,21 +28232,21 @@ class AetherPMO {
     sendAIMessage() {
         const input = document.getElementById('ai-chat-input');
         if (!input || !input.value.trim()) return;
-        
+
         const query = input.value.trim();
         this.addUserMessage(query);
         input.value = '';
-        
+
         this.generateAIResponse(query);
     }
 
     addUserMessage(text) {
         const container = document.getElementById('ai-chat-messages');
         if (!container) return;
-        
+
         const presets = document.getElementById('ai-presets-container');
         if (presets) presets.remove();
-        
+
         const msgDiv = document.createElement('div');
         msgDiv.className = 'ai-message user';
         msgDiv.textContent = text;
@@ -21040,7 +28257,7 @@ class AetherPMO {
     addBotMessage(text) {
         const container = document.getElementById('ai-chat-messages');
         if (!container) return;
-        
+
         const msgDiv = document.createElement('div');
         msgDiv.className = 'ai-message bot';
         msgDiv.innerHTML = this._renderMarkdown(text);
@@ -21051,7 +28268,7 @@ class AetherPMO {
     showTypingIndicator() {
         const container = document.getElementById('ai-chat-messages');
         if (!container) return null;
-        
+
         const indicator = document.createElement('div');
         indicator.className = 'ai-message bot typing-indicator';
         indicator.id = 'ai-typing-indicator';
@@ -21063,23 +28280,23 @@ class AetherPMO {
 
     generateAIResponse(query) {
         const indicator = this.showTypingIndicator();
-        
+
         setTimeout(() => {
             if (indicator) indicator.remove();
-            
+
             let response = '';
             const projects = this.state.projects || [];
             const issues = this.state.issues || [];
             const actionItems = this.state.actionItems || [];
-            
+
             const activeProjectsCount = projects.filter(p => p.status !== 'Completed').length;
             const completedCount = projects.filter(p => p.status === 'Completed').length;
             const delayedProjects = projects.filter(p => p.status === 'Delay');
-            
+
             if (query.includes('현황 요약') || query.includes('프로젝트 현황')) {
                 const totalProgress = projects.reduce((sum, p) => sum + p.progress, 0);
                 const avgProgress = projects.length > 0 ? (totalProgress / projects.length).toFixed(1) : 0;
-                
+
                 response = `📊 **전사 프로젝트 현황 요약 분석**\n\n` +
                            `현재 총 **${projects.length}개**의 프로젝트가 등록되어 있습니다.\n` +
                            `- **수행 중 (미완료)**: ${activeProjectsCount}개\n` +
@@ -21118,9 +28335,9 @@ class AetherPMO {
                            `현재 데모 모드 인메모리 엔진이 활성화되어 있으며, 총 **${projects.length}개** 프로젝트 및 **${issues.length}개** 리스크 이슈의 컨텍스트를 실시간 학습하고 있습니다.\n\n` +
                            `추가로 지원해 드릴 업무가 있으시면 말씀해 주세요.`;
             }
-            
+
             this.addBotMessage(response);
-            
+
             const container = document.getElementById('ai-chat-messages');
             if (container) {
                 const presetsDiv = document.createElement('div');
@@ -21140,12 +28357,12 @@ class AetherPMO {
     aiSummarizeMeetingMinutes() {
         const container = document.getElementById('meet-ai-summary-container');
         const btn = document.getElementById('btn-ai-summarize-minutes');
-        
+
         if (!container) return;
-        
+
         if (btn) btn.disabled = true;
         container.style.display = 'block';
-        
+
         // Render dynamic loading screen
         container.innerHTML = `
             <div id="ai-summary-loading" class="ai-summary-loading" style="display:flex; align-items:center; gap:10px; padding:20px; background:rgba(67, 56, 202, 0.05); border:1px dashed var(--primary); border-radius:8px; justify-content:center; color:var(--primary); font-weight:500;">
@@ -21153,7 +28370,7 @@ class AetherPMO {
                 <span>AI 요약 분석 보고서 생성 중...</span>
             </div>
         `;
-        
+
         setTimeout(() => {
             // Render AI Summary Report Card
             container.innerHTML = `
@@ -21187,7 +28404,7 @@ class AetherPMO {
                     </div>
                 </div>
             `;
-            
+
             if (btn) btn.disabled = false;
             if (window.lucide) window.lucide.createIcons();
             this.showToast('AI 요약 보고서 및 추천 Action Item이 정상 생성되었습니다.', 'success');
@@ -21198,7 +28415,7 @@ class AetherPMO {
         const projectId = this.activeProjectId || 'proj-1';
         const projects = this.state.projects || [];
         const activeProj = projects.find(p => p.id === projectId) || projects[0] || { name: '차세대 스마트홈 IoT 플랫폼 구축', id: 'proj-1' };
-        
+
         const itemsToRegister = [
             {
                 id: 'ai-act-' + this.generateUuid().substring(0, 8),
@@ -21237,15 +28454,15 @@ class AetherPMO {
                 completedDate: null
             }
         ];
-        
+
         for (const item of itemsToRegister) {
             this.state.actionItems.unshift(item);
             await this.saveState('action_upsert', item);
         }
-        
+
         this.showToast('추천 Action Item 3건이 프로젝트에 즉시 등록 및 동기화되었습니다.', 'success');
         this.handleRouting();
-        
+
         const detailModal = document.getElementById('meeting-minutes-detail-modal');
         if (detailModal) detailModal.classList.remove('open');
     }
@@ -21356,26 +28573,92 @@ class AetherPMO {
     getDefaultBoardPosts() {
         return [
             {
-                id: 'board-post-1',
-                category: 'question',
-                title: '시스템 투입 공수(M/D) 소수점 입력 가능한가요?',
-                content: '인력 투입 관리 탭에서 M/D 입력 시 소수점 둘째 자리까지 입력하려고 하는데 에러가 납니다. 혹시 소수점 처리가 가능하도록 변경해 주실 수 있나요?',
-                status: 'answered',
-                authorName: '박지민 대리',
-                authorId: 'user-worker-uuid',
-                createdAt: '2026-07-09T10:00:00Z',
-                updatedAt: '2026-07-09T15:30:00Z'
+                id: 'board-notice-1',
+                category: 'notice',
+                title: '[공지] AetherPMO 시스템 정기 점검 및 업데이트 안내',
+                content: '안녕하세요, 관리자입니다. 2026년 8월 정기 시스템 기능 개선 및 데이터베이스 최적화 작업이 진행될 예정입니다. 점검 시간 동안 서비스 이용에 참고 바랍니다.',
+                status: 'published',
+                authorName: '최고관리자',
+                authorId: 'user-admin-uuid',
+                createdAt: '2026-08-07T09:00:00Z',
+                updatedAt: '2026-08-07T09:00:00Z'
             },
             {
-                id: 'board-post-2',
-                category: 'bug',
-                title: '회의록 작성 시 특수문자 입력 오류 제보',
-                content: '회의록 안건 입력 란에 홑따옴표(\')나 백슬래시(\\)를 포함하여 작성한 후 저장하면 데이터베이스 동기화 오류 레이아웃이 팝업됩니다. 백엔드 특수문자 이스케이프 처리가 필요해 보입니다.',
+                id: 'board-notice-2',
+                category: 'notice',
+                title: '[공지] 2026년 3분기 프로젝트 월급여 품의 및 서류 제출 일정 안내',
+                content: '각 사업 PM 및 경영관리 담당자께서는 3분기 인력 월급여 지급품의를 매월 20일까지 상신하여 주시기 바랍니다.',
+                status: 'published',
+                authorName: '경영지원팀',
+                authorId: 'user-admin-uuid',
+                createdAt: '2026-08-06T14:30:00Z',
+                updatedAt: '2026-08-06T14:30:00Z'
+            },
+            {
+                id: 'board-notice-3',
+                category: 'notice',
+                title: '[공지] 기관별 표준 산출물 양식 개정판(v2.4) 등록 안내',
+                content: '기관별 표준 산출물 양식이 새롭게 업데이트되었습니다. 산출물 관리 메뉴에서 최신 템플릿을 확인하시기 바랍니다.',
+                status: 'published',
+                authorName: 'PMO본부',
+                authorId: 'user-admin-uuid',
+                createdAt: '2026-08-05T11:00:00Z',
+                updatedAt: '2026-08-05T11:00:00Z'
+            },
+            {
+                id: 'board-notice-4',
+                category: 'notice',
+                title: '[공지] 입찰 파이프라인 수주/실패 프로세스 가이드 개정',
+                content: '입찰단계 상세 필터 및 수주/실패 처리 프로세스가 개선되었습니다. 영업 및 제안 담당자분들은 이용 가이드를 참조바랍니다.',
+                status: 'published',
+                authorName: '영업기획팀',
+                authorId: 'user-admin-uuid',
+                createdAt: '2026-08-04T16:20:00Z',
+                updatedAt: '2026-08-04T16:20:00Z'
+            },
+            {
+                id: 'board-inquiry-1',
+                category: 'inquiry',
+                title: '참여인력 M/D 소수점 입력 및 반올림 기준 문의',
+                content: '참여인력 월별 M/D 입력 시 소수점 둘째 자리 반올림 적용 기준을 확인 부탁드립니다.',
+                status: 'answered',
+                authorName: '김철수 PM',
+                authorId: 'user-pm-uuid',
+                createdAt: '2026-08-03T10:00:00Z',
+                updatedAt: '2026-08-03T15:30:00Z'
+            },
+            {
+                id: 'board-inquiry-2',
+                category: 'inquiry',
+                title: '회의록 작성 시 특수문자 입력 오동작 문의',
+                content: '회의록 안건 입력 시 작은따옴표 및 백슬래시 사용 관련 문의드립니다.',
                 status: 'pending',
                 authorName: '이영희 PM',
                 authorId: 'user-pm-uuid',
-                createdAt: '2026-07-10T09:12:00Z',
-                updatedAt: '2026-07-10T09:12:00Z'
+                createdAt: '2026-08-02T11:20:00Z',
+                updatedAt: '2026-08-02T11:20:00Z'
+            },
+            {
+                id: 'board-resource-1',
+                category: 'resource',
+                title: '[양식] 2026년 표준 프로젝트 착수보고서 및 검수요청서 템플릿',
+                content: '프로젝트 착수 및 검수 요청 시 활용 가능한 표준 HWPX/DOCX 템플릿 양식입니다.',
+                status: 'published',
+                authorName: '품질관리팀',
+                authorId: 'user-admin-uuid',
+                createdAt: '2026-08-01T13:00:00Z',
+                updatedAt: '2026-08-01T13:00:00Z'
+            },
+            {
+                id: 'board-resource-2',
+                category: 'resource',
+                title: '[서식] 프로젝트 월급여 지급품의서 표준 양식',
+                content: '자사 및 계약직 참여인력 월급여 상신용 지급품의서 표준 양식 파일입니다.',
+                status: 'published',
+                authorName: '경영지원팀',
+                authorId: 'user-admin-uuid',
+                createdAt: '2026-07-31T15:10:00Z',
+                updatedAt: '2026-07-31T15:10:00Z'
             }
         ];
     }
@@ -21440,7 +28723,7 @@ class AetherPMO {
             const projectDisplay = project ? (project.projectCode ? `[${project.projectCode}] ${project.name}` : project.name) : '-';
 
             if (isEditing) {
-                const projOptions = (this.state.projects || []).map(p => 
+                const projOptions = (this.state.projects || []).map(p =>
                     `<option value="${p.id}" ${p.id === c.projectId ? 'selected' : ''}>${p.projectCode ? `[${p.projectCode}] ` : ''}${p.name}</option>`
                 ).join('');
 
@@ -21512,8 +28795,8 @@ class AetherPMO {
                     </tr>
                 `;
             } else {
-                const statusBadge = c.status === 'active' 
-                    ? '<span class="status-badge status-inprogress" style="padding:2px 6px; font-size:11px;">진행중</span>' 
+                const statusBadge = c.status === 'active'
+                    ? '<span class="status-badge status-inprogress" style="padding:2px 6px; font-size:11px;">진행중</span>'
                     : (c.status === 'completed' ? '<span class="status-badge status-completed" style="padding:2px 6px; font-size:11px;">완료</span>' : '<span class="status-badge" style="background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; font-size:11px;">대기</span>');
 
                 let typeBadge = '';
@@ -21660,7 +28943,7 @@ class AetherPMO {
         }
 
         if (keyword) {
-            list = list.filter(s => 
+            list = list.filter(s =>
                 (s.employeeName || '').toLowerCase().includes(keyword) ||
                 (s.department || '').toLowerCase().includes(keyword)
             );
@@ -21741,8 +29024,8 @@ class AetherPMO {
                 const badgeStyle = typeColorMap[s.employmentType || 'regular'] || typeColorMap.regular;
                 const typeBadge = `<span class="badge" style="background:${badgeStyle.bg}; color:${badgeStyle.text}; border:1px solid ${badgeStyle.border}; font-size:12px; padding:2px 8px; border-radius:4px; font-weight:700;">${typeLabel}</span>`;
 
-                const statusBadge = s.status === 'paid' 
-                    ? '<span class="status-badge status-completed" style="padding:2px 6px; font-size:11px;">지급완료</span>' 
+                const statusBadge = s.status === 'paid'
+                    ? '<span class="status-badge status-completed" style="padding:2px 6px; font-size:11px;">지급완료</span>'
                     : (s.status === 'pending' ? '<span class="status-badge status-inprogress" style="padding:2px 6px; font-size:11px;">결재대기</span>' : '<span class="status-badge" style="background:var(--bg-hover-item); color:var(--text-muted); padding:2px 6px; font-size:11px;">미지급</span>');
 
                 html += `
@@ -21848,7 +29131,5099 @@ class AetherPMO {
         this.showToast('급여 지급 정보가 삭제되었습니다.', 'info');
         this.renderSalariesView();
     }
+
+    // ============================================================================
+    // AETHERPMO MONTHLY SALARY PAYMENT APPROVAL & WORKFORCE MANAGEMENT SYSTEM
+    // ============================================================================
+
+    // ── 1. Core Utilities (Korean Money, Masking, Sanitizing, Mustache Engine) ──
+    numberToKoreanMoney(amount) {
+        const num = Math.round(Number(amount) || 0);
+        if (num === 0) return '금 영원정';
+        if (num < 0) return '금 마이너스 ' + this.numberToKoreanMoney(Math.abs(num)).replace('금 ', '');
+
+        const units = ['', '만', '억', '조', '경'];
+        const digits = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
+        const subUnits = ['', '십', '백', '천'];
+
+        let str = '';
+        let numStr = String(num);
+        let len = numStr.length;
+
+        for (let i = 0; i < len; i++) {
+            let digit = Number(numStr[i]);
+            let pos = len - 1 - i;
+            let unitPos = Math.floor(pos / 4);
+            let subPos = pos % 4;
+
+            if (digit !== 0) {
+                if (!(digit === 1 && subPos > 0)) {
+                    str += digits[digit];
+                }
+                str += subUnits[subPos];
+            }
+
+            if (subPos === 0 && str.slice(-1) !== units[unitPos]) {
+                let groupVal = Number(numStr.slice(Math.max(0, i - 3), i + 1));
+                if (groupVal > 0) {
+                    str += units[unitPos];
+                }
+            }
+        }
+        return '금 ' + str + '원정';
+    }
+
+    maskAccountNumber(accountNo) {
+        if (!accountNo) return '-';
+        const str = String(accountNo).trim();
+        if (str.length <= 6) return '***-***';
+        const visibleFront = str.slice(0, 3);
+        const visibleBack = str.slice(-3);
+        return `${visibleFront}-***-***${visibleBack}`;
+    }
+
+    sanitizeHtml(html) {
+        if (!html) return '';
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        // Remove dangerous elements
+        const dangerous = doc.querySelectorAll('script, iframe, object, embed, form, link, style');
+        dangerous.forEach(el => el.remove());
+
+        // Remove inline event attributes and javascript: URLs
+        const allElements = doc.querySelectorAll('*');
+        allElements.forEach(el => {
+            Array.from(el.attributes).forEach(attr => {
+                if (attr.name.startsWith('on')) {
+                    el.removeAttribute(attr.name);
+                }
+                if ((attr.name === 'href' || attr.name === 'src') && attr.value.trim().toLowerCase().startsWith('javascript:')) {
+                    el.removeAttribute(attr.name);
+                }
+            });
+        });
+        return doc.body.innerHTML;
+    }
+
+    renderMustacheTemplate(templateHtml, context) {
+        if (!templateHtml) return '';
+        let result = templateHtml;
+
+        // 1. Loop replacement: {{#payment_items}} ... {{/payment_items}}
+        const loopRegex = /\{\{#payment_items\}\}([\s\S]*?)\{\{\/payment_items\}\}/g;
+        result = result.replace(loopRegex, (match, itemTemplate) => {
+            const items = context.payment_items || [];
+            return items.map((item, idx) => {
+                let rowHtml = itemTemplate;
+                const itemContext = {
+                    ...item,
+                    index: idx + 1,
+                    base_salary: (Number(item.base_salary) || 0).toLocaleString() + '원',
+                    meal_allowance: (Number(item.meal_allowance) || 0).toLocaleString() + '원',
+                    other_allowance: (Number(item.other_allowance) || 0).toLocaleString() + '원',
+                    total_payment: (Number(item.total_payment) || 0).toLocaleString() + '원'
+                };
+                for (const key in itemContext) {
+                    const val = itemContext[key] !== undefined && itemContext[key] !== null ? itemContext[key] : '';
+                    rowHtml = rowHtml.replace(new RegExp(`\{\{${key}\}\}`, 'g'), val);
+                }
+                return rowHtml;
+            }).join('');
+        });
+
+        // 2. Single variable replacements
+        for (const key in context) {
+            if (key === 'payment_items') continue;
+            const val = context[key] !== undefined && context[key] !== null ? context[key] : '';
+            result = result.replace(new RegExp(`\{\{${key}\}\}`, 'g'), val);
+        }
+
+        return this.sanitizeHtml(result);
+    }
+
+    // ── 2. Workforce Master View (참여인력 관리) ──────────────────────────
+    renderResourcesView() {
+        const keyword = (document.getElementById('resource-search-input')?.value || '').toLowerCase().trim();
+        const typeFilter = document.getElementById('resource-filter-type')?.value || 'all';
+        const statusFilter = document.getElementById('resource-filter-status')?.value || 'all';
+
+        let list = [...(this.state.resources || [])];
+
+        if (typeFilter !== 'all') {
+            list = list.filter(r => (r.employmentType || r.employment_type) === typeFilter);
+        }
+        if (statusFilter === 'active') {
+            list = list.filter(r => r.isActive !== false);
+        } else if (statusFilter === 'inactive') {
+            list = list.filter(r => r.isActive === false);
+        }
+
+        if (keyword) {
+            list = list.filter(r =>
+                (r.name || '').toLowerCase().includes(keyword) ||
+                (r.department || '').toLowerCase().includes(keyword) ||
+                (r.position || '').toLowerCase().includes(keyword) ||
+                (r.roleName || '').toLowerCase().includes(keyword)
+            );
+        }
+
+        const tbody = document.getElementById('resources-table-body');
+        if (!tbody) return;
+
+        let html = '';
+        if (list.length === 0) {
+            html = `<tr><td colspan="9" class="text-center" style="padding:40px; color:var(--text-muted);">등록된 참여인력 정보가 없습니다.</td></tr>`;
+        } else {
+            list.forEach(r => {
+                const empTypeLabel = (r.employmentType === 'INSOURCED_CONTRACTOR' || r.employment_type === 'INSOURCED_CONTRACTOR') ?
+                    '<span class="badge badge-primary">자사화 인력</span>' :
+                    '<span class="badge badge-info">프로젝트 계약직</span>';
+
+                // Find active project memberships
+                const activeMems = (this.state.projectMembers || []).filter(m => (m.resourceId === r.id || m.resource_id === r.id) && m.status !== 'COMPLETED');
+                const projectNames = activeMems.map(m => {
+                    const p = (this.state.projects || []).find(proj => proj.id === (m.projectId || m.project_id));
+                    return p ? p.name : '프로젝트';
+                }).join(', ') || '<span style="color:var(--text-muted); font-size:11px;">미투입</span>';
+
+                const statusBadge = r.isActive !== false ?
+                    '<span class="badge badge-success">재직</span>' :
+                    '<span class="badge badge-subtle">퇴사</span>';
+
+                html += `
+                    <tr>
+                        <td style="font-weight:600; color:var(--text-primary);">${r.name}</td>
+                        <td>${empTypeLabel}</td>
+                        <td>${r.department || '-'}</td>
+                        <td>${r.position || '-'}</td>
+                        <td>${r.roleName || '-'}</td>
+                        <td style="font-family:monospace; font-size:11.5px; color:var(--text-muted);">${r.bankName ? r.bankName + ' ' : ''}${this.maskAccountNumber(r.accountNumber || r.account_number)}</td>
+                        <td style="font-size:12px;">${projectNames}</td>
+                        <td class="text-center">${statusBadge}</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-outline" onclick="app.openResourceModal('${r.id}')" title="수정">
+                                <i data-lucide="edit-3" style="width:12px; height:12px;"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+        tbody.innerHTML = html;
+        if (window.lucide) lucide.createIcons();
+    }
+
+    openResourceModal(resourceId = null) {
+        const modal = document.getElementById('modal-resource-edit');
+        if (!modal) return;
+
+        const title = document.getElementById('res-modal-title');
+        const idInput = document.getElementById('res-edit-id');
+        const nameInput = document.getElementById('res-edit-name');
+        const typeSelect = document.getElementById('res-edit-employment-type');
+        const deptInput = document.getElementById('res-edit-department');
+        const posInput = document.getElementById('res-edit-position');
+        const bankInput = document.getElementById('res-edit-bank-name');
+        const accInput = document.getElementById('res-edit-account-number');
+        const activeChk = document.getElementById('res-edit-is-active');
+
+        if (resourceId) {
+            const r = (this.state.resources || []).find(res => res.id === resourceId);
+            if (r) {
+                if (title) title.textContent = '참여인력 정보 수정';
+                if (idInput) idInput.value = r.id;
+                if (nameInput) nameInput.value = r.name || '';
+                if (typeSelect) typeSelect.value = r.employmentType || r.employment_type || 'INSOURCED_CONTRACTOR';
+                if (deptInput) deptInput.value = r.department || '';
+                if (posInput) posInput.value = r.position || '';
+                if (bankInput) bankInput.value = r.bankName || r.bank_name || '';
+                if (accInput) accInput.value = r.accountNumber || r.account_number || '';
+                if (activeChk) activeChk.checked = r.isActive !== false;
+            }
+        } else {
+            if (title) title.textContent = '신규 참여인력 등록';
+            if (idInput) idInput.value = '';
+            if (nameInput) nameInput.value = '';
+            if (typeSelect) typeSelect.value = 'INSOURCED_CONTRACTOR';
+            if (deptInput) deptInput.value = '';
+            if (posInput) posInput.value = '';
+            if (bankInput) bankInput.value = '';
+            if (accInput) accInput.value = '';
+            if (activeChk) activeChk.checked = true;
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    closeResourceModal() {
+        const modal = document.getElementById('modal-resource-edit');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async saveResource() {
+        const idInput = document.getElementById('res-edit-id');
+        const nameInput = document.getElementById('res-edit-name');
+        const typeSelect = document.getElementById('res-edit-employment-type');
+        const deptInput = document.getElementById('res-edit-department');
+        const posInput = document.getElementById('res-edit-position');
+        const bankInput = document.getElementById('res-edit-bank-name');
+        const accInput = document.getElementById('res-edit-account-number');
+        const activeChk = document.getElementById('res-edit-is-active');
+
+        if (!nameInput?.value.trim()) {
+            this.showToast('성명을 입력해주세요.', 'warning');
+            return;
+        }
+
+        const isNew = !idInput?.value;
+        const resourceId = isNew ? (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'res-' + Date.now()) : idInput.value;
+
+        const record = {
+            id: resourceId,
+            name: nameInput.value.trim(),
+            employmentType: typeSelect.value,
+            employment_type: typeSelect.value,
+            department: deptInput?.value.trim() || '',
+            position: posInput?.value.trim() || '',
+            bankName: bankInput?.value.trim() || '',
+            bank_name: bankInput?.value.trim() || '',
+            accountNumber: accInput?.value.trim() || '',
+            account_number: accInput?.value.trim() || '',
+            isActive: activeChk ? activeChk.checked : true,
+            is_active: activeChk ? activeChk.checked : true,
+            updatedAt: new Date().toISOString()
+        };
+
+        if (isNew) {
+            this.state.resources = this.state.resources || [];
+            this.state.resources.push(record);
+        } else {
+            const idx = this.state.resources.findIndex(r => r.id === resourceId);
+            if (idx !== -1) this.state.resources[idx] = record;
+        }
+
+        await this.saveState('resource_upsert', record);
+        this.closeResourceModal();
+        this.showToast('참여인력 정보가 저장되었습니다.', 'success');
+        this.renderResourcesView();
+    }
+
+    // ── 3. Monthly Salary Management Sub-Tabs & Target Engine ─────────────
+    switchSalarySubTab(tabName) {
+        const btns = document.querySelectorAll('.salary-tab-btn');
+        btns.forEach(b => {
+            if (b.getAttribute('data-salary-tab') === tabName) {
+                b.classList.add('active');
+            } else {
+                b.classList.remove('active');
+            }
+        });
+
+        const panes = document.querySelectorAll('.salary-tab-pane');
+        panes.forEach(p => {
+            p.style.display = 'none';
+        });
+
+        const targetPane = document.getElementById(`salary-tab-content-${tabName}`);
+        if (targetPane) targetPane.style.display = 'block';
+
+        if (tabName === 'target') {
+            this.initSalaryTargetTab();
+        } else if (tabName === 'approvals') {
+            this.renderSalaryApprovalsTable();
+        } else if (tabName === 'templates') {
+            this.renderSalaryTemplatesTable();
+        } else if (tabName === 'history') {
+            this.renderSalaryHistoryView();
+        }
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    initSalaryTargetTab() {
+        const monthInput = document.getElementById('salary-target-month');
+        if (monthInput && !monthInput.value) {
+            const now = new Date();
+            monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        const projSelect = document.getElementById('salary-target-project');
+        if (projSelect) {
+            const projects = this.state.projects || [];
+            let options = `<option value="">프로젝트를 선택하세요</option>`;
+            projects.forEach(p => {
+                options += `<option value="${p.id}">${p.name} (${p.code || p.id.slice(0, 6)})</option>`;
+            });
+            projSelect.innerHTML = options;
+        }
+    }
+
+    fetchMonthlySalaryTargets() {
+        const monthVal = document.getElementById('salary-target-month')?.value;
+        const projId = document.getElementById('salary-target-project')?.value;
+        const tbody = document.getElementById('salary-targets-tbody');
+        if (!tbody) return;
+
+        if (!monthVal || !projId) {
+            tbody.innerHTML = `<tr><td colspan="11" class="text-center" style="padding:40px; color:var(--text-muted);">지급연월과 프로젝트를 선택해주세요.</td></tr>`;
+            return;
+        }
+
+        const year = Number(monthVal.split('-')[0]);
+        const month = Number(monthVal.split('-')[1]);
+        const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
+        const lastDayNum = new Date(year, month, 0).getDate();
+        const monthEnd = `${year}-${String(month).padStart(2, '0')}-${String(lastDayNum).padStart(2, '0')}`;
+
+        const project = (this.state.projects || []).find(p => p.id === projId);
+
+        // Fetch assigned project members
+        const members = (this.state.projectMembers || []).filter(m => {
+            const mProjId = m.projectId || m.project_id;
+            if (mProjId !== projId) return false;
+
+            const st = m.startDate || m.start_date || '2000-01-01';
+            const ed = m.endDate || m.end_date || null;
+            const status = m.status || 'ACTIVE';
+
+            // Clause: start_date <= monthEnd AND (end_date IS NULL OR end_date >= monthStart) AND status === 'ACTIVE'
+            const startOk = st <= monthEnd;
+            const endOk = (!ed || ed >= monthStart);
+            const statusOk = (status === 'ACTIVE');
+
+            return startOk && endOk && statusOk;
+        });
+
+        if (members.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="11" class="text-center" style="padding:40px; color:var(--text-muted);">${monthVal} 해당월에 투입 중인 진행(ACTIVE) 상태의 참여인력이 없습니다.</td></tr>`;
+            return;
+        }
+
+        this.currentSalaryTargets = members.map(m => {
+            const res = (this.state.resources || []).find(r => r.id === (m.resourceId || m.resource_id)) || {};
+            const st = m.startDate || m.start_date || '';
+            const ed = m.endDate || m.end_date || '';
+
+            // Mid-month check: started after 1st of month OR ended before last day of month
+            const isMidMonth = (st > monthStart) || (ed && ed < monthEnd);
+
+            const baseSalary = Number(m.baseSalary || m.base_salary || 0);
+            const mealAllowance = Number(m.mealAllowance || m.meal_allowance || 0);
+            const otherAllowance = Number(m.otherAllowance || m.other_allowance || 0);
+            const adjustment = 0;
+            const total = baseSalary + mealAllowance + otherAllowance + adjustment;
+
+            return {
+                memberId: m.id,
+                resourceId: res.id || m.resourceId || m.resource_id || m.id,
+                memberName: m.name || res.name || '참여인력',
+                employmentType: m.employmentType || res.employmentType || res.employment_type || 'INSOURCED_CONTRACTOR',
+                department: m.department || res.department || '',
+                position: m.position || res.position || '',
+                assignedTask: m.roleName || m.assigned_task || '',
+                startDate: st,
+                endDate: ed,
+                baseSalary,
+                mealAllowance,
+                otherAllowance,
+                adjustmentAmount: adjustment,
+                adjustmentReason: '',
+                totalPayment: total,
+                bankName: res.bankName || res.bank_name || '',
+                accountNumberMasked: this.maskAccountNumber(res.accountNumber || res.account_number),
+                isMidMonth,
+                selected: true
+            };
+        });
+
+        this.renderSalaryTargetsTable();
+    }
+
+    renderSalaryTargetsTable() {
+        const tbody = document.getElementById('salary-targets-tbody');
+        if (!tbody || !this.currentSalaryTargets) return;
+
+        const projId = document.getElementById('salary-target-project')?.value;
+        const project = (this.state.projects || []).find(p => p.id === projId);
+
+        let html = '';
+        this.currentSalaryTargets.forEach((t, idx) => {
+            const empTypeLabel = t.employmentType === 'INSOURCED_CONTRACTOR' ?
+                '<span class="badge badge-primary">자사화</span>' : '<span class="badge badge-info">계약직</span>';
+
+            const midMonthBadge = t.isMidMonth ?
+                '<span class="badge badge-warning" title="월 중 입·퇴사자로서 금액 조정이 필요할 수 있습니다.">⚠️ 월중 입·퇴사자</span>' :
+                '<span class="badge badge-success">정상</span>';
+
+            html += `
+                <tr>
+                    <td class="text-center"><input type="checkbox" class="chk-salary-target-item" data-idx="${idx}" ${t.selected ? 'checked' : ''} onchange="app.currentSalaryTargets[${idx}].selected = this.checked;" /></td>
+                    <td style="font-weight:600; font-size:12px;">${project ? project.name : '-'}</td>
+                    <td style="font-weight:700; color:var(--text-primary);">${t.memberName}</td>
+                    <td>${empTypeLabel}</td>
+                    <td style="font-size:11.5px; color:var(--text-muted);">${t.startDate || '~'} ~ ${t.endDate || '계속'}</td>
+                    <td style="text-align:right; font-weight:600;">${t.baseSalary.toLocaleString()}원</td>
+                    <td style="text-align:right;">${t.mealAllowance.toLocaleString()}원</td>
+                    <td style="text-align:right;">${t.otherAllowance.toLocaleString()}원</td>
+                    <td style="text-align:right;">
+                        <input type="number" value="${t.adjustmentAmount}" onchange="app.updateTargetAdjustment(${idx}, this.value)" style="width:85px; text-align:right; height:28px; padding:0 4px; font-size:12px; border-radius:4px; border:1px solid var(--border-color); background:var(--bg-input);" />
+                    </td>
+                    <td style="text-align:right; font-weight:700; color:#6366F1;" id="target-total-${idx}">${t.totalPayment.toLocaleString()}원</td>
+                    <td class="text-center">${midMonthBadge}</td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        if (window.lucide) lucide.createIcons();
+    }
+
+    updateTargetAdjustment(idx, value) {
+        if (!this.currentSalaryTargets || !this.currentSalaryTargets[idx]) return;
+        const adj = Number(value) || 0;
+        const item = this.currentSalaryTargets[idx];
+        item.adjustmentAmount = adj;
+        item.totalPayment = item.baseSalary + item.mealAllowance + item.otherAllowance + adj;
+
+        const cell = document.getElementById(`target-total-${idx}`);
+        if (cell) cell.textContent = item.totalPayment.toLocaleString() + '원';
+    }
+
+    toggleSalaryTargetSelectAll(checked) {
+        if (!this.currentSalaryTargets) return;
+        this.currentSalaryTargets.forEach(t => t.selected = checked);
+        const chks = document.querySelectorAll('.chk-salary-target-item');
+        chks.forEach(c => c.checked = checked);
+    }
+
+    // ── 4. Atomic Payment Approval Creation & Snapshot ─────────────────────
+    async createSalaryPaymentApproval() {
+        const monthVal = document.getElementById('salary-target-month')?.value;
+        const projId = document.getElementById('salary-target-project')?.value;
+
+        if (!monthVal || !projId) {
+            this.showToast('지급연월과 프로젝트를 선택해주세요.', 'warning');
+            return;
+        }
+
+        const selectedTargets = (this.currentSalaryTargets || []).filter(t => t.selected);
+        if (selectedTargets.length === 0) {
+            this.showToast('지급품의 대상 인력을 최소 1명 이상 선택해주세요.', 'warning');
+            return;
+        }
+
+        // DB Level Partial Unique Index / Active Approval Duplicate Check
+        const existingApprovals = this.state.salaryApprovals || [];
+        const activeDuplicate = existingApprovals.find(a =>
+            a.projectId === projId && a.paymentMonth === monthVal && a.status !== 'CANCELLED'
+        );
+
+        if (activeDuplicate) {
+            this.showToast(`이미 ${monthVal}월 해당 프로젝트에 활성 상태의 지급품의(${activeDuplicate.approvalNo})가 존재합니다.`, 'error');
+            return;
+        }
+
+        const project = (this.state.projects || []).find(p => p.id === projId) || { name: '프로젝트' };
+        const defaultTemplate = (this.state.salaryTemplates || []).find(t => t.isDefault) || this.getDefaultSalaryTemplate();
+
+        const approvalId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'appr-' + Date.now();
+        const approvalNo = `SPA-${monthVal.replace('-', '')}-${String(Math.floor(Math.random() * 900) + 100)}`;
+        const title = `[급여] ${project.name} ${monthVal} 월급여 지급품의서`;
+
+        let totalBase = 0, totalMeal = 0, totalOther = 0, totalAdj = 0, totalPayment = 0;
+        const items = selectedTargets.map(t => {
+            totalBase += t.baseSalary;
+            totalMeal += t.mealAllowance;
+            totalOther += t.otherAllowance;
+            totalAdj += t.adjustmentAmount;
+            totalPayment += t.totalPayment;
+
+            return {
+                id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'item-' + Date.now() + Math.random(),
+                approvalId,
+                projectId: projId,
+                paymentMonth: monthVal,
+                resourceId: t.resourceId,
+                memberId: t.memberId,
+                approvalStatus: 'DRAFT',
+                memberName: t.memberName,
+                employmentType: t.employmentType,
+                department: t.department,
+                position: t.position,
+                assignedTask: t.assignedTask,
+                assignmentStartDate: t.startDate,
+                assignmentEndDate: t.endDate,
+                baseSalary: t.baseSalary,
+                mealAllowance: t.mealAllowance,
+                otherAllowance: t.otherAllowance,
+                adjustmentAmount: t.adjustmentAmount,
+                adjustmentReason: t.adjustmentReason,
+                totalPayment: t.totalPayment,
+                bankName: t.bankName,
+                accountNumberMasked: t.accountNumberMasked,
+                isMidMonth: t.isMidMonth,
+                memberSnapshot: JSON.parse(JSON.stringify(t))
+            };
+        });
+
+        // Context for Mustache Template Engine
+        const mustacheContext = {
+            project_name: project.name,
+            project_code: project.code || projId.slice(0, 8),
+            client_name: project.customer || project.clientName || '발주처',
+            project_start_date: project.startDate || '-',
+            project_end_date: project.endDate || '-',
+            payment_month: monthVal,
+            payment_date: `${monthVal}-25`,
+            total_member_count: selectedTargets.length + '명',
+            total_payment_amount: totalPayment.toLocaleString() + '원',
+            total_payment_amount_korean: this.numberToKoreanMoney(totalPayment),
+            payment_items: selectedTargets.map(t => ({
+                member_name: t.memberName,
+                employment_type_name: t.employmentType === 'INSOURCED_CONTRACTOR' ? '자사화' : '계약직',
+                assignment_period: `${t.startDate || '~'} ~ ${t.endDate || '계속'}`,
+                base_salary: t.baseSalary,
+                meal_allowance: t.mealAllowance,
+                other_allowance: t.otherAllowance,
+                total_payment: t.totalPayment
+            }))
+        };
+
+        const renderedHtml = this.renderMustacheTemplate(defaultTemplate.htmlContent, mustacheContext);
+
+        const approvalRecord = {
+            id: approvalId,
+            approvalNo,
+            projectId: projId,
+            paymentMonth: monthVal,
+            paymentDate: `${monthVal}-25`,
+            templateId: defaultTemplate.id,
+            templateVersion: defaultTemplate.version || 1,
+            title,
+            totalMemberCount: selectedTargets.length,
+            totalBaseSalary: totalBase,
+            totalMealAllowance: totalMeal,
+            totalOtherAllowance: totalOther,
+            totalAdjustmentAmount: totalAdj,
+            totalPaymentAmount: totalPayment,
+            status: 'DRAFT',
+            htmlSnapshot: renderedHtml,
+            projectSnapshot: JSON.parse(JSON.stringify(project)),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        // State update
+        this.state.salaryApprovals = this.state.salaryApprovals || [];
+        this.state.salaryApprovals.unshift(approvalRecord);
+
+        this.state.salaryItems = this.state.salaryItems || [];
+        this.state.salaryItems.push(...items);
+
+        // Sync with Supabase (RPC or table upserts)
+        await this.saveState('salary_approval_create', { approval: approvalRecord, items });
+
+        this.showToast(`지급품의서(${approvalNo}) 초안이 생성되었습니다.`, 'success');
+        this.switchSalarySubTab('approvals');
+    }
+
+    // ── 5. Payment Approvals View & Detail Modal ─────────────────────────
+    renderSalaryApprovalsTable() {
+        const statusFilter = document.getElementById('salary-approval-filter-status')?.value || 'all';
+        const searchKw = (document.getElementById('salary-approval-search')?.value || '').toLowerCase().trim();
+
+        let list = [...(this.state.salaryApprovals || [])];
+
+        if (statusFilter !== 'all') {
+            list = list.filter(a => a.status === statusFilter);
+        }
+
+        if (searchKw) {
+            list = list.filter(a =>
+                (a.approvalNo || '').toLowerCase().includes(searchKw) ||
+                (a.title || '').toLowerCase().includes(searchKw) ||
+                (a.paymentMonth || '').toLowerCase().includes(searchKw)
+            );
+        }
+
+        const tbody = document.getElementById('salary-approvals-tbody');
+        if (!tbody) return;
+
+        if (list.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center" style="padding:40px; color:var(--text-muted);">생성된 월 급여 지급품의서가 없습니다.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        list.forEach(a => {
+            const project = (this.state.projects || []).find(p => p.id === a.projectId) || a.projectSnapshot || { name: '-' };
+            const statusClass = `badge-status-${(a.status || 'DRAFT').toLowerCase()}`;
+            const statusLabel = {
+                DRAFT: '초안', SUBMITTED: '상신', APPROVED: '승인', REJECTED: '반려', PAID: '지급완료', CANCELLED: '취소'
+            }[a.status] || a.status;
+
+            html += `
+                <tr>
+                    <td style="font-family:monospace; font-weight:700; color:#8B5CF6;">${a.approvalNo}</td>
+                    <td style="font-weight:600;">${a.paymentMonth}</td>
+                    <td style="font-size:12px;">${project.name}</td>
+                    <td style="font-weight:600; color:var(--text-primary);">${a.title}</td>
+                    <td class="text-center">${a.totalMemberCount}명</td>
+                    <td style="text-align:right; font-weight:700; color:#6366F1;">${Number(a.totalPaymentAmount || 0).toLocaleString()}원</td>
+                    <td class="text-center"><span class="badge ${statusClass}">${statusLabel}</span></td>
+                    <td class="text-center" style="font-size:11.5px; color:var(--text-muted);">${(a.submittedAt || a.createdAt || '').slice(0, 10)}</td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline" onclick="app.openSalaryApprovalDetailModal('${a.id}')">
+                            <i data-lucide="eye" style="width:12px; height:12px; margin-right:2px;"></i> 상세
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        if (window.lucide) lucide.createIcons();
+    }
+
+    openSalaryApprovalDetailModal(approvalId) {
+        const modal = document.getElementById('modal-salary-approval-detail');
+        if (!modal) return;
+
+        const approval = (this.state.salaryApprovals || []).find(a => a.id === approvalId);
+        if (!approval) return;
+
+        this.currentApprovalDetail = approval;
+
+        // Populate header modal elements
+        const titleEl = document.getElementById('sal-approval-modal-title');
+        const statusBadge = document.getElementById('sal-approval-modal-status-badge');
+        if (titleEl) titleEl.textContent = approval.title;
+        if (statusBadge) {
+            statusBadge.className = `badge badge-status-${(approval.status || 'DRAFT').toLowerCase()}`;
+            statusBadge.textContent = approval.status;
+        }
+
+        document.getElementById('sal-modal-approval-no').textContent = approval.approvalNo;
+        document.getElementById('sal-modal-payment-month').textContent = approval.paymentMonth;
+        const project = (this.state.projects || []).find(p => p.id === approval.projectId) || approval.projectSnapshot || {};
+        document.getElementById('sal-modal-project-name').textContent = project.name || '-';
+        document.getElementById('sal-modal-member-count').textContent = approval.totalMemberCount + '명';
+        document.getElementById('sal-modal-total-amount').textContent = Number(approval.totalPaymentAmount || 0).toLocaleString() + '원';
+
+        // Rendered A4 HTML Preview
+        const previewCont = document.getElementById('sal-modal-a4-preview');
+        if (previewCont) previewCont.innerHTML = approval.htmlSnapshot || '<div>품의서 내용이 없습니다.</div>';
+
+        // Render Items Table
+        const items = (this.state.salaryItems || []).filter(i => i.approvalId === approvalId);
+        const itemsTbody = document.getElementById('sal-modal-items-tbody');
+        if (itemsTbody) {
+            let itemsHtml = '';
+            items.forEach((item, idx) => {
+                itemsHtml += `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td style="font-weight:700;">${item.memberName}</td>
+                        <td>${item.employmentType === 'INSOURCED_CONTRACTOR' ? '자사화' : '계약직'}</td>
+                        <td style="font-size:11px; color:var(--text-muted);">${item.assignmentStartDate || '~'} ~ ${item.assignmentEndDate || '계속'}</td>
+                        <td style="text-align:right;">${Number(item.baseSalary || 0).toLocaleString()}원</td>
+                        <td style="text-align:right;">${Number(item.mealAllowance || 0).toLocaleString()}원</td>
+                        <td style="text-align:right;">${Number(item.otherAllowance || 0).toLocaleString()}원</td>
+                        <td style="text-align:right;">${Number(item.adjustmentAmount || 0).toLocaleString()}원</td>
+                        <td style="text-align:right; font-weight:700; color:#6366F1;">${Number(item.totalPayment || 0).toLocaleString()}원</td>
+                    </tr>
+                `;
+            });
+            itemsTbody.innerHTML = itemsHtml;
+        }
+
+        // Populate Raw HTML input
+        const rawInput = document.getElementById('sal-modal-raw-html-input');
+        if (rawInput) rawInput.value = approval.htmlSnapshot || '';
+
+        // Dynamically build allowed status action buttons
+        this.renderSalaryApprovalModalActionButtons(approval);
+
+        this.switchSalaryApprovalModalView('doc');
+        modal.style.display = 'flex';
+        if (window.lucide) lucide.createIcons();
+    }
+
+    closeSalaryApprovalDetailModal() {
+        const modal = document.getElementById('modal-salary-approval-detail');
+        if (modal) modal.style.display = 'none';
+        this.currentApprovalDetail = null;
+    }
+
+    switchSalaryApprovalModalView(viewType) {
+        ['doc', 'items', 'html'].forEach(v => {
+            const btn = document.getElementById(`btn-sal-modal-view-${v}`);
+            const pane = document.getElementById(`sal-modal-pane-${v}`);
+            if (btn && pane) {
+                if (v === viewType) {
+                    btn.classList.add('active');
+                    pane.style.display = 'block';
+                } else {
+                    btn.classList.remove('active');
+                    pane.style.display = 'none';
+                }
+            }
+        });
+    }
+
+    renderSalaryApprovalModalActionButtons(approval) {
+        const container = document.getElementById('sal-modal-actions-container');
+        if (!container) return;
+
+        const st = approval.status;
+        let btnsHtml = '';
+
+        if (st === 'DRAFT') {
+            btnsHtml = `
+                <button type="button" class="btn btn-outline-danger" onclick="app.updateSalaryApprovalStatus('${approval.id}', 'CANCELLED')">취소 처리</button>
+                <button type="button" class="btn btn-primary" onclick="app.updateSalaryApprovalStatus('${approval.id}', 'SUBMITTED')">
+                    <i data-lucide="send" style="width:14px; height:14px; margin-right:4px;"></i> 상신 처리
+                </button>
+            `;
+        } else if (st === 'SUBMITTED') {
+            btnsHtml = `
+                <button type="button" class="btn btn-outline-danger" onclick="app.promptApprovalRejection('${approval.id}')">반려</button>
+                <button type="button" class="btn btn-success" onclick="app.updateSalaryApprovalStatus('${approval.id}', 'APPROVED')">
+                    <i data-lucide="check-circle" style="width:14px; height:14px; margin-right:4px;"></i> 승인
+                </button>
+            `;
+        } else if (st === 'REJECTED') {
+            btnsHtml = `
+                <button type="button" class="btn btn-outline-danger" onclick="app.updateSalaryApprovalStatus('${approval.id}', 'CANCELLED')">취소 처리</button>
+                <button type="button" class="btn btn-outline-primary" onclick="app.updateSalaryApprovalStatus('${approval.id}', 'DRAFT')">초안으로 회수/재작성</button>
+            `;
+        } else if (st === 'APPROVED') {
+            btnsHtml = `
+                <span style="font-size:12px; color:var(--text-muted); align-self:center;">🔒 승인완료 (수정불가)</span>
+                <button type="button" class="btn btn-primary" onclick="app.updateSalaryApprovalStatus('${approval.id}', 'PAID')">
+                    <i data-lucide="banknote" style="width:14px; height:14px; margin-right:4px;"></i> 지급완료 처리
+                </button>
+            `;
+        } else if (st === 'PAID') {
+            btnsHtml = `<span style="font-size:12px; color:var(--text-muted); align-self:center;">🔒 지급완료 확정 (수정/전환 불가)</span>`;
+        } else if (st === 'CANCELLED') {
+            btnsHtml = `<span style="font-size:12px; color:var(--text-muted); align-self:center;">🚫 취소된 품의서</span>`;
+        }
+
+        container.innerHTML = btnsHtml;
+    }
+
+    async updateSalaryApprovalStatus(approvalId, newStatus, rejectionReason = '') {
+        const approval = (this.state.salaryApprovals || []).find(a => a.id === approvalId);
+        if (!approval) return;
+
+        const currentStatus = approval.status;
+
+        // Transition validation rules:
+        // DRAFT -> SUBMITTED, CANCELLED
+        // SUBMITTED -> APPROVED, REJECTED
+        // REJECTED -> DRAFT, CANCELLED
+        // APPROVED -> PAID
+        // PAID -> NONE (Locked)
+        const validTransitions = {
+            DRAFT: ['SUBMITTED', 'CANCELLED'],
+            SUBMITTED: ['APPROVED', 'REJECTED'],
+            REJECTED: ['DRAFT', 'CANCELLED'],
+            APPROVED: ['PAID'],
+            PAID: [],
+            CANCELLED: []
+        };
+
+        if (!validTransitions[currentStatus]?.includes(newStatus)) {
+            this.showToast(`'${currentStatus}' 상태에서 '${newStatus}' 상태로의 전환은 불허됩니다.`, 'error');
+            return;
+        }
+
+        approval.status = newStatus;
+        approval.updatedAt = new Date().toISOString();
+
+        if (newStatus === 'SUBMITTED') approval.submittedAt = new Date().toISOString();
+        if (newStatus === 'APPROVED') approval.approvedAt = new Date().toISOString();
+        if (newStatus === 'PAID') approval.paidAt = new Date().toISOString();
+        if (newStatus === 'REJECTED') approval.rejectionReason = rejectionReason;
+
+        // Update items status for DB partial unique index sync
+        const items = (this.state.salaryItems || []).filter(i => i.approvalId === approvalId);
+        items.forEach(i => i.approvalStatus = newStatus);
+
+        // Record Activity Log
+        const actRecord = {
+            id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'act-' + Date.now(),
+            actionType: 'SALARY_APPROVAL_STATUS_CHANGE',
+            title: `지급품의서 ${approval.approvalNo} 상태 변경 (${currentStatus} -> ${newStatus})`,
+            remarks: rejectionReason ? `반려사유: ${rejectionReason}` : '',
+            createdAt: new Date().toISOString()
+        };
+        this.state.activities = this.state.activities || [];
+        this.state.activities.unshift(actRecord);
+
+        await this.saveState('salary_approval_status_update', { approval, items, activity: actRecord });
+
+        this.showToast(`지급품의서 상태가 '${newStatus}'(으)로 변경되었습니다.`, 'success');
+        this.closeSalaryApprovalDetailModal();
+        this.renderSalaryApprovalsTable();
+    }
+
+    promptApprovalRejection(approvalId) {
+        const reason = prompt('지급품의서 반려 사유를 입력하세요:');
+        if (reason === null) return;
+        if (!reason.trim()) {
+            this.showToast('반려 사유를 입력하셔야 합니다.', 'warning');
+            return;
+        }
+        this.updateSalaryApprovalStatus(approvalId, 'REJECTED', reason.trim());
+    }
+
+    printSalaryApprovalDocument() {
+        if (!this.currentApprovalDetail) {
+            this.showToast('인쇄할 품의서 정보가 없습니다.', 'warning');
+            return;
+        }
+        window.print();
+    }
+
+    // ── 6. HTML Templates Master View ────────────────────────────────────
+    getDefaultSalaryTemplate() {
+        return {
+            id: 'tmpl-sal-default',
+            template_name: '월급여 지급품의서 (표준)',
+            employment_type_target: 'ALL',
+            is_default: true,
+            is_active: true,
+            version: 1,
+            htmlContent: `
+                <div style="font-family:'Malgun Gothic', '맑은 고딕', sans-serif; padding:10px;">
+                    <h2 style="text-align:center; font-size:24px; font-weight:800; border-bottom:2px solid #333; padding-bottom:10px; margin-bottom:20px;">월 급여 지급 품의서</h2>
+                    <table style="width:100%; border-collapse:collapse; margin-bottom:20px; font-size:12px;">
+                        <tr>
+                            <th style="border:1px solid #ddd; background:#f4f4f4; padding:8px; width:15%;">품의번호</th>
+                            <td style="border:1px solid #ddd; padding:8px; width:35%;">{{approval_no}}</td>
+                            <th style="border:1px solid #ddd; background:#f4f4f4; padding:8px; width:15%;">지급연월</th>
+                            <td style="border:1px solid #ddd; padding:8px; width:35%;">{{payment_month}}</td>
+                        </tr>
+                        <tr>
+                            <th style="border:1px solid #ddd; background:#f4f4f4; padding:8px;">프로젝트명</th>
+                            <td style="border:1px solid #ddd; padding:8px;">{{project_name}} ({{project_code}})</td>
+                            <th style="border:1px solid #ddd; background:#f4f4f4; padding:8px;">발주처</th>
+                            <td style="border:1px solid #ddd; padding:8px;">{{client_name}}</td>
+                        </tr>
+                        <tr>
+                            <th style="border:1px solid #ddd; background:#f4f4f4; padding:8px;">총 지급인원</th>
+                            <td style="border:1px solid #ddd; padding:8px;">{{total_member_count}}</td>
+                            <th style="border:1px solid #ddd; background:#f4f4f4; padding:8px;">총 지급액</th>
+                            <td style="border:1px solid #ddd; padding:8px; font-weight:700; color:#3730A3;">{{total_payment_amount}} ({{total_payment_amount_korean}})</td>
+                        </tr>
+                    </table>
+
+                    <h3 style="font-size:14px; font-weight:700; margin-bottom:8px;">1. 세부 지급 명세 목록</h3>
+                    <table style="width:100%; border-collapse:collapse; text-align:center; font-size:11.5px;">
+                        <thead>
+                            <tr style="background:#eef2ff;">
+                                <th style="border:1px solid #ccc; padding:6px;">No</th>
+                                <th style="border:1px solid #ccc; padding:6px;">성명</th>
+                                <th style="border:1px solid #ccc; padding:6px;">고용형태</th>
+                                <th style="border:1px solid #ccc; padding:6px;">투입기간</th>
+                                <th style="border:1px solid #ccc; padding:6px;">기본급</th>
+                                <th style="border:1px solid #ccc; padding:6px;">식대</th>
+                                <th style="border:1px solid #ccc; padding:6px;">기타수당</th>
+                                <th style="border:1px solid #ccc; padding:6px;">최종 지급액</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{#payment_items}}
+                            <tr>
+                                <td style="border:1px solid #ccc; padding:6px;">{{index}}</td>
+                                <td style="border:1px solid #ccc; padding:6px; font-weight:700;">{{member_name}}</td>
+                                <td style="border:1px solid #ccc; padding:6px;">{{employment_type_name}}</td>
+                                <td style="border:1px solid #ccc; padding:6px;">{{assignment_period}}</td>
+                                <td style="border:1px solid #ccc; padding:6px; text-align:right;">{{base_salary}}</td>
+                                <td style="border:1px solid #ccc; padding:6px; text-align:right;">{{meal_allowance}}</td>
+                                <td style="border:1px solid #ccc; padding:6px; text-align:right;">{{other_allowance}}</td>
+                                <td style="border:1px solid #ccc; padding:6px; text-align:right; font-weight:700;">{{total_payment}}</td>
+                            </tr>
+                            {{/payment_items}}
+                        </tbody>
+                    </table>
+
+                    <div style="margin-top:30px; font-size:12px; line-height:1.8;">
+                        <p>위와 같이 {{payment_month}}월 프로젝트 참여인력 급여 지급품의서를 상신하오니 검토 후 승인하여 주시기 바랍니다.</p>
+                        <p style="text-align:right; margin-top:20px;">작성일자: {{payment_date}}</p>
+                    </div>
+                </div>
+            `
+        };
+    }
+
+    renderSalaryTemplatesTable() {
+        const list = this.state.salaryTemplates || [this.getDefaultSalaryTemplate()];
+        const tbody = document.getElementById('salary-templates-tbody');
+        if (!tbody) return;
+
+        let html = '';
+        list.forEach(t => {
+            html += `
+                <tr>
+                    <td style="font-weight:700; color:var(--text-primary);">${t.template_name || t.templateName}</td>
+                    <td>${(t.employment_type_target || t.employmentTypeTarget) === 'ALL' ? '전체 공용' : (t.employment_type_target || t.employmentTypeTarget)}</td>
+                    <td class="text-center">v${t.version || 1}</td>
+                    <td class="text-center">${t.is_default || t.isDefault ? '<span class="badge badge-success">기본</span>' : '-'}</td>
+                    <td class="text-center">${t.is_active !== false ? '<span class="badge badge-primary">사용중</span>' : '<span class="badge badge-subtle">중지</span>'}</td>
+                    <td class="text-center" style="font-size:11.5px; color:var(--text-muted);">${(t.updated_at || t.updatedAt || '').slice(0, 10)}</td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline" onclick="event.preventDefault(); event.stopPropagation(); app.openSalaryTemplateModal('${t.id}');">수정</button>
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+    }
+
+        openSalaryTemplateEditModal(templateId = null) {
+        const modal = document.getElementById('modal-salary-template-edit') || document.getElementById('salary-template-modal');
+        if (!modal) return;
+
+        const title = document.getElementById('sal-tmpl-modal-title');
+        const idInput = document.getElementById('sal-tmpl-id');
+        const nameInput = document.getElementById('sal-tmpl-name') || document.getElementById('salary-template-name');
+        const targetSelect = document.getElementById('sal-tmpl-target') || document.getElementById('salary-template-employment-type');
+        const defaultChk = document.getElementById('sal-tmpl-is-default');
+        const activeChk = document.getElementById('sal-tmpl-is-active');
+        const htmlInput = document.getElementById('sal-tmpl-html') || document.getElementById('salary-template-html');
+
+        if (templateId) {
+            const t = (this.state.salaryTemplates || []).find(tmpl => tmpl.id === templateId);
+            if (t) {
+                if (title) title.textContent = 'HTML 품의서 양식 수정';
+                if (idInput) idInput.value = t.id;
+                if (nameInput) nameInput.value = t.template_name || t.templateName || '';
+                if (targetSelect) targetSelect.value = t.employment_type_target || t.employmentTypeTarget || 'ALL';
+                if (defaultChk) defaultChk.checked = !!(t.is_default || t.isDefault);
+                if (activeChk) activeChk.checked = t.is_active !== false;
+                if (htmlInput) htmlInput.value = t.htmlContent || t.html_content || '';
+            }
+        } else {
+            const def = this.getDefaultSalaryTemplate();
+            if (title) title.textContent = '신규 HTML 품의서 양식 등록';
+            if (idInput) idInput.value = '';
+            if (nameInput) nameInput.value = '';
+            if (targetSelect) targetSelect.value = 'ALL';
+            if (defaultChk) defaultChk.checked = false;
+            if (activeChk) activeChk.checked = true;
+            if (htmlInput) htmlInput.value = def.htmlContent;
+        }
+
+        modal.style.display = 'flex';
+        this.updateSalaryTemplatePreview();
+        if (window.lucide) lucide.createIcons();
+    }
+
+    updateSalaryTemplatePreview() {
+        const htmlInput = document.getElementById('sal-tmpl-html') || document.getElementById('salary-template-html');
+        const previewCont = document.getElementById('sal-tmpl-preview') || document.getElementById('salary-template-preview');
+        if (!previewCont) return;
+
+        const rawHtml = htmlInput?.value || '';
+
+        // Sample context for live preview
+        const sampleContext = {
+            approval_no: 'SPA-202608-001',
+            payment_month: '2026-08',
+            payment_date: '2026-08-25',
+            project_name: '행정통합시스템 구축 사업',
+            project_code: 'PRJ-2026-08',
+            client_name: '국가정보자원관리원',
+            total_member_count: '2명',
+            total_payment_amount: '12,500,000원',
+            total_payment_amount_korean: '금 일천이백오십만원정',
+            payment_items: [
+                { member_name: '안유경', employment_type_name: '자사화', assignment_period: '2026.03.01 ~ 계속', base_salary: 5500000, meal_allowance: 200000, other_allowance: 300000, total_payment: 6000000 },
+                { member_name: '홍길동', employment_type_name: '계약직', assignment_period: '2026.04.01 ~ 2026.12.31', base_salary: 6000000, meal_allowance: 200000, other_allowance: 300000, total_payment: 6500000 }
+            ]
+        };
+
+        const rendered = this.renderMustacheTemplate(rawHtml, sampleContext);
+        previewCont.innerHTML = rendered || '<div style="color:#94a3b8; text-align:center; padding:40px;">HTML 코드를 입력하면 실시간으로 미리보기가 표시됩니다.</div>';
+    }
+
+    closeSalaryTemplateEditModal() {
+        const modal = document.getElementById('modal-salary-template-edit');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async saveSalaryTemplate() {
+        const idInput = document.getElementById('sal-tmpl-id');
+        const nameInput = document.getElementById('sal-tmpl-name');
+        const targetSelect = document.getElementById('sal-tmpl-target');
+        const defaultChk = document.getElementById('sal-tmpl-is-default');
+        const activeChk = document.getElementById('sal-tmpl-is-active');
+        const htmlInput = document.getElementById('sal-tmpl-html');
+
+        if (!nameInput?.value.trim() || !htmlInput?.value.trim()) {
+            this.showToast('양식명과 HTML 본문을 모두 입력해주세요.', 'warning');
+            return;
+        }
+
+        const isNew = !idInput?.value;
+        const tmplId = isNew ? (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'tmpl-' + Date.now()) : idInput.value;
+
+        const record = {
+            id: tmplId,
+            template_name: nameInput.value.trim(),
+            templateName: nameInput.value.trim(),
+            employment_type_target: targetSelect.value,
+            employmentTypeTarget: targetSelect.value,
+            is_default: defaultChk ? defaultChk.checked : false,
+            isDefault: defaultChk ? defaultChk.checked : false,
+            is_active: activeChk ? activeChk.checked : true,
+            html_content: htmlInput.value.trim(),
+            htmlContent: htmlInput.value.trim(),
+            version: 1,
+            updatedAt: new Date().toISOString()
+        };
+
+        this.state.salaryTemplates = this.state.salaryTemplates || [this.getDefaultSalaryTemplate()];
+
+        if (record.isDefault) {
+            this.state.salaryTemplates.forEach(t => t.is_default = t.isDefault = false);
+        }
+
+        if (isNew) {
+            this.state.salaryTemplates.push(record);
+        } else {
+            const idx = this.state.salaryTemplates.findIndex(t => t.id === tmplId);
+            if (idx !== -1) this.state.salaryTemplates[idx] = record;
+        }
+
+        await this.saveState('salary_template_upsert', record);
+        this.closeSalaryTemplateEditModal();
+        this.showToast('품의서 양식이 저장되었습니다.', 'success');
+        this.renderSalaryTemplatesTable();
+    }
+
+    // ── 7. Payment History View ──────────────────────────────────────────
+    renderSalaryHistoryView() {
+        const list = (this.state.salaryApprovals || []).filter(a => a.status === 'PAID');
+        const tbody = document.getElementById('salary-history-tbody');
+        if (!tbody) return;
+
+        if (list.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center" style="padding:40px; color:var(--text-muted);">지급 완료(PAID) 처리된 급여 이력이 없습니다.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        list.forEach(a => {
+            const items = (this.state.salaryItems || []).filter(i => i.approvalId === a.id);
+            const project = (this.state.projects || []).find(p => p.id === a.projectId) || a.projectSnapshot || {};
+
+            items.forEach(i => {
+                html += `
+                    <tr>
+                        <td style="font-weight:600;">${a.paymentMonth}</td>
+                        <td style="font-size:12px;">${project.name || '-'}</td>
+                        <td style="font-weight:700;">${i.memberName}</td>
+                        <td>${i.employmentType === 'INSOURCED_CONTRACTOR' ? '자사화' : '계약직'}</td>
+                        <td style="text-align:right;">${Number(i.baseSalary || 0).toLocaleString()}원</td>
+                        <td style="text-align:right;">${Number(i.mealAllowance || 0).toLocaleString()}원</td>
+                        <td style="text-align:right;">${Number(i.otherAllowance || 0).toLocaleString()}원</td>
+                        <td style="text-align:right;">${Number(i.adjustmentAmount || 0).toLocaleString()}원</td>
+                        <td style="text-align:right; font-weight:700; color:#3730A3;">${Number(i.totalPayment || 0).toLocaleString()}원</td>
+                        <td class="text-center" style="font-size:11.5px; color:var(--text-muted);">${(a.paidAt || a.updatedAt || '').slice(0, 10)}</td>
+                    </tr>
+                `;
+            });
+        });
+        tbody.innerHTML = html;
+    }
+
+        exportSalaryHistoryToExcel() {
+        this.showToast('급여 지급 완료 이력을 CSV 파일로 내보냅니다.', 'info');
+        const list = (this.state.salaryApprovals || []).filter(a => a.status === 'PAID');
+        let csv = '지급연월,프로젝트,성명,고용형태,기본급,식대,기타수당,조정금액,최종지급액,지급일자\n';
+
+        list.forEach(a => {
+            const items = (this.state.salaryItems || []).filter(i => i.approvalId === a.id);
+            const project = (this.state.projects || []).find(p => p.id === a.projectId) || a.projectSnapshot || {};
+            items.forEach(i => {
+                csv += `"${a.paymentMonth}","${project.name || ''}","${i.memberName}","${i.employmentType}",${i.baseSalary},${i.mealAllowance},${i.otherAllowance},${i.adjustmentAmount},${i.totalPayment},"${(a.paidAt || '').slice(0,10)}"\n`;
+            });
+        });
+
+        const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `AetherPMO_Salary_History_${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+    }
+
+
+
+    // ── RESOURCE & SALARY UTILITIES & BUSINESS LOGIC ─────────────────────────────
+    getLastDayOfMonth(yearMonth) {
+        if (!yearMonth) return '';
+        const parts = yearMonth.split('-').map(Number);
+        const y = parts[0];
+        const m = parts[1];
+        const lastDayObj = new Date(y, m, 0);
+        const yyyy = lastDayObj.getFullYear();
+        const mm = String(lastDayObj.getMonth() + 1).padStart(2, '0');
+        const dd = String(lastDayObj.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    calculateSalaryScheduleInfo(yearMonth) {
+        const now = new Date();
+        const targetMonth = yearMonth || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const [y, m] = targetMonth.split('-').map(Number);
+        const lastDay = this.getLastDayOfMonth(targetMonth);
+        const deadlineStr = `${y}-${String(m).padStart(2, '0')}-20`;
+
+        return {
+            targetMonth,
+            deadlineStr,
+            lastDayStr: lastDay,
+            displayNotice: `귀속 ${targetMonth} | 상신마감 20일까지 / 말일(${lastDay.split('-')[2]}일) 급여 지급 예정`
+        };
+    }
+
+    // ── PARTICIPATING RESOURCES (RESOURCE MASTER) MANAGEMENT ────────────────────
+    renderResourcesView() {
+        console.log('[renderResourcesView] Rendering participating members master view...');
+
+        const resources = Array.isArray(this.state.resources) ? this.state.resources : [];
+        const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
+        const projectMembers = Array.isArray(this.state.projectMembers) ? this.state.projectMembers : [];
+
+        // 1. Populate Project Filter Select
+        const projSelect = document.getElementById('resources-filter-project');
+        if (projSelect) {
+            const curVal = projSelect.value || 'all';
+            let options = '<option value="all">전체 프로젝트</option>';
+            projects.forEach(p => {
+                options += `<option value="${p.id}" ${p.id === curVal ? 'selected' : ''}>${p.name} (${p.code || p.id.slice(0, 6)})</option>`;
+            });
+            projSelect.innerHTML = options;
+        }
+
+        // 2. Synchronized Stats Calculations
+        const totalResourcesCount = resources.length;
+        const workingCount = resources.filter(r => {
+            const st = String(r.status || r.employment_status || 'ACTIVE').toUpperCase();
+            return r.isActive !== false && st !== 'OFFBOARDED' && st !== 'INACTIVE' && st !== '퇴사';
+        }).length;
+
+        const insourcedCount = resources.filter(r => {
+            const t = String(r.employmentType || r.employment_type || '').toLowerCase();
+            return t === 'outsourcing' || t === 'insourced_contractor';
+        }).length;
+
+        const contractorCount = resources.filter(r => {
+            const t = String(r.employmentType || r.employment_type || '').toLowerCase();
+            return t === 'project_contract' || t === 'contract';
+        }).length;
+
+        const projSet = new Set();
+        projectMembers.forEach(pm => {
+            if (pm.projectId || pm.project_id) projSet.add(pm.projectId || pm.project_id);
+        });
+        const totalProjectsCount = projSet.size || projects.length;
+
+        // Update Stat Cards
+        const statMap = {
+            'res-stat-total': `${totalResourcesCount}명`,
+            'res-stat-working': `${workingCount}명`,
+            'res-stat-insourced': `${insourcedCount}명`,
+            'res-stat-contractor': `${contractorCount}명`,
+            'res-stat-projects': `${totalProjectsCount}건`
+        };
+
+        for (const [id, val] of Object.entries(statMap)) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        }
+
+        const summaryEl = document.getElementById('resources-summary-text');
+        if (summaryEl) {
+            summaryEl.textContent = `전체 인력 마스터 ${totalResourcesCount}명 중 수행단계 투입 인력 ${workingCount}명(자사화 ${insourcedCount}명, 계약직 ${contractorCount}명)을 통합 연동 관리 중입니다.`;
+        }
+
+        // 3. Render Master Table (1 Row Per Person)
+        this.renderResourcesTable();
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    renderResourcesTable() {
+        const tbody = document.getElementById('resources-table-body');
+        if (!tbody) return;
+
+        const resources = Array.isArray(this.state.resources) ? this.state.resources : [];
+        const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
+        const projectMembers = Array.isArray(this.state.projectMembers) ? this.state.projectMembers : [];
+
+        const projFilter = document.getElementById('resources-filter-project')?.value || 'all';
+        const statusFilter = document.getElementById('resource-filter-status')?.value || 'all';
+        const keyword = (document.getElementById('resources-search-input')?.value || '').toLowerCase().trim();
+
+        const checkedTypes = Array.from(document.querySelectorAll('.res-type-checkbox:checked')).map(c => c.value);
+
+        let filtered = resources.filter(r => {
+            const empType = String(r.employmentType || r.employment_type || 'regular').toLowerCase();
+            const normalizedType = empType.includes('insourced') ? 'outsourcing' : (empType.includes('contract') ? 'project_contract' : empType);
+            if (checkedTypes.length > 0 && !checkedTypes.includes(normalizedType) && !checkedTypes.includes(empType)) {
+                return false;
+            }
+
+            const st = String(r.status || r.employment_status || 'ACTIVE').toUpperCase();
+            if (statusFilter === 'ACTIVE' && (r.isActive === false || st === 'OFFBOARDED' || st === 'INACTIVE' || st === '퇴사')) return false;
+            if (statusFilter === 'STANDBY' && st !== 'STANDBY') return false;
+            if (statusFilter === 'OFFBOARDED' && (r.isActive !== false && st !== 'OFFBOARDED' && st !== 'INACTIVE' && st !== '퇴사')) return false;
+
+            if (keyword) {
+                const matchName = (r.name || '').toLowerCase().includes(keyword);
+                const matchDept = (r.department || '').toLowerCase().includes(keyword);
+                const matchPos = (r.position || '').toLowerCase().includes(keyword);
+                const matchRole = (r.roleName || r.participationRole || '').toLowerCase().includes(keyword);
+                if (!matchName && !matchDept && !matchPos && !matchRole) return false;
+            }
+
+            return true;
+        });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 40px; color: var(--text-muted);">조건에 해당하는 참여 인력이 없습니다.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        filtered.forEach((r, idx) => {
+            const assignedMembers = projectMembers.filter(pm =>
+                (pm.resourceId && pm.resourceId === r.id) ||
+                (pm.userId && r.userId && pm.userId === r.userId) ||
+                (pm.name === r.name)
+            );
+
+            if (projFilter !== 'all') {
+                const hasProj = assignedMembers.some(pm => (pm.projectId || pm.project_id) === projFilter);
+                if (!hasProj) return;
+            }
+
+            let projBadgesHtml = '';
+            let totalInputRatio = 0;
+            let minStartDate = '2026-03-01';
+            let maxEndDate = '2026-12-31';
+
+            // Filter out '종료' (Completed/Closed) projects from execution stage badges
+            const activeAssignedMembers = assignedMembers.filter(pm => {
+                const p = projects.find(proj => proj.id === (pm.projectId || pm.project_id));
+                if (!p) return false;
+                const st = String(p.status || '').trim();
+                if (st === 'Completed' || st === 'Closed' || st === '종료' || st === '완료') return false;
+                return true;
+            });
+
+            if (activeAssignedMembers.length > 0) {
+                const badges = [];
+                activeAssignedMembers.forEach(pm => {
+                    const p = projects.find(proj => proj.id === (pm.projectId || pm.project_id));
+                    const projName = p ? p.name : '프로젝트';
+                    const stage = pm.stage || pm.participationRole || '수행';
+                    badges.push(`<span class="badge badge-indigo" style="margin-right: 4px; margin-bottom: 2px;">${projName} (${stage})</span>`);
+
+                    const ratio = parseFloat(pm.inputRatio || pm.participationRate || 100);
+                    totalInputRatio += ratio;
+
+                    if (pm.startDate && pm.startDate < minStartDate) minStartDate = pm.startDate;
+                    if (pm.endDate && pm.endDate > maxEndDate) maxEndDate = pm.endDate;
+                });
+                projBadgesHtml = badges.join(' ');
+            } else {
+                projBadgesHtml = '<span style="color: var(--text-muted); font-size: 12px;">미배치 (대기)</span>';
+                totalInputRatio = 0;
+            }
+
+            let ratioBadge = `<span style="font-weight: 700;">${totalInputRatio}%</span>`;
+            if (totalInputRatio > 100) {
+                ratioBadge = `<span class="badge badge-warning" style="font-weight: 700;" title="여러 프로젝트 투입률 합계가 100%를 초과하였습니다.">⚠️ ${totalInputRatio}% (초과)</span>`;
+            } else if (totalInputRatio === 0) {
+                ratioBadge = `<span style="color: var(--text-muted);">0%</span>`;
+            }
+
+            let typeBadge = '';
+            const t = String(r.employmentType || r.employment_type || 'regular').toLowerCase();
+            if (t === 'regular') typeBadge = '<span class="badge badge-primary">정규직</span>';
+            else if (t === 'outsourcing' || t === 'insourced_contractor') typeBadge = '<span class="badge badge-indigo">자사화</span>';
+            else if (t === 'project_contract' || t === 'contract') typeBadge = '<span class="badge badge-teal">프로젝트 계약직</span>';
+            else if (t === 'turnkey') typeBadge = '<span class="badge badge-secondary">외주(턴키)</span>';
+            else typeBadge = `<span class="badge badge-secondary">${r.employmentType || '기타'}</span>`;
+
+            const isOffboarded = r.isActive === false || String(r.status || '').toUpperCase() === 'OFFBOARDED';
+            const statusBadge = isOffboarded ?
+                '<span class="badge badge-secondary">종료</span>' :
+                (activeAssignedMembers.length > 0 ? '<span class="badge badge-success">투입중</span>' : '<span class="badge badge-warning">대기</span>');
+
+            const salaryVal = (r.baseSalary || r.monthlySalary || r.payRate || 0).toLocaleString();
+
+            html += `
+                <tr style="border-bottom: 1px solid var(--bg-card-border); transition: background 0.15s;">
+                    <td style="padding: 12px 14px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                        <a href="javascript:void(0)" onclick="app.openResourceDetailModal('${r.id}')" style="font-weight: 700; color: var(--primary); text-decoration: underline;">
+                            ${r.name || '미상'}
+                        </a>
+                    </td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">${typeBadge}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">${r.department || '-'}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                        <span style="font-weight: 600;">${r.position || '-'}</span> / <span style="color: var(--text-muted); font-size: 12px;">${r.roleName || r.participationRole || '멤버'}</span>
+                    </td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border);">${projBadgesHtml}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; font-size: 12px; color: var(--text-muted);">
+                        ${assignedMembers.length > 0 ? `${minStartDate} ~ ${maxEndDate}` : '-'}
+                    </td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">${ratioBadge}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: right; font-weight: 700; color: #6366F1;">${salaryVal}원</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">${statusBadge}</td>
+                    <td style="padding: 12px 14px; text-align: center;">
+                        <div style="display: flex; gap: 4px; justify-content: center;">
+                            <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceDetailModal('${r.id}')" title="상세보기">
+                                <i data-lucide="eye" style="width: 12px; height: 12px;"></i>
+                            </button>
+                            <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceModal('${r.id}')" title="수정">
+                                <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i>
+                            </button>
+                            <button type="button" class="btn btn-xs btn-outline-danger" onclick="app.deleteResource('${r.id}')" title="삭제/종료">
+                                <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    handleResourceAllTypesChange(checked) {
+        document.querySelectorAll('.res-type-checkbox').forEach(cb => cb.checked = checked);
+        this.renderResourcesView();
+    }
+
+    handleResourceSubTypesChange() {
+        const allCb = document.getElementById('res-type-all');
+        const checkboxes = Array.from(document.querySelectorAll('.res-type-checkbox'));
+        const allChecked = checkboxes.every(cb => cb.checked);
+        if (allCb) allCb.checked = allChecked;
+        this.renderResourcesView();
+    }
+
+    openResourceDetailModal(resourceId) {
+        const modal = document.getElementById('modal-resource-detail');
+        if (!modal) return;
+
+        const resources = this.state.resources || [];
+        const r = resources.find(item => item.id === resourceId);
+        if (!r) return;
+
+        const projects = this.state.projects || [];
+        const projectMembers = this.state.projectMembers || [];
+
+        const nameEl = document.getElementById('res-detail-name');
+        if (nameEl) nameEl.textContent = `${r.name} (${r.position || '직급미정'}) 상세 정보`;
+
+        const nameTypeEl = document.getElementById('res-detail-name-type');
+        if (nameTypeEl) nameTypeEl.textContent = `${r.name} / ${r.employmentType || '자사화'}`;
+
+        const deptPosEl = document.getElementById('res-detail-dept-pos');
+        if (deptPosEl) deptPosEl.textContent = `${r.department || '-'} / ${r.position || '-'}`;
+
+        const salaryEl = document.getElementById('res-detail-salary');
+        if (salaryEl) salaryEl.textContent = `${(r.baseSalary || r.monthlySalary || 0).toLocaleString()}원 (세전월지급액)`;
+
+        const assigned = projectMembers.filter(pm =>
+            (pm.resourceId && pm.resourceId === r.id) ||
+            (pm.userId && r.userId && pm.userId === r.userId) ||
+            (pm.name === r.name)
+        );
+
+        let totalRatio = 0;
+        const tbody = document.getElementById('res-detail-projects-tbody');
+        if (tbody) {
+            if (assigned.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">현재 수행단계에 배치된 프로젝트가 없습니다.</td></tr>`;
+            } else {
+                let rowsHtml = '';
+                assigned.forEach(pm => {
+                    const p = projects.find(proj => proj.id === (pm.projectId || pm.project_id));
+                    const ratio = parseFloat(pm.inputRatio || pm.participationRate || 100);
+                    totalRatio += ratio;
+
+                    rowsHtml += `
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 10px 12px; font-weight:700;">${p ? p.name : '프로젝트'}</td>
+                            <td style="padding: 10px 12px; text-align:center;">${pm.stage || pm.participationRole || '수행'} / ${pm.roleName || '멤버'}</td>
+                            <td style="padding: 10px 12px; text-align:center; font-size:12px; color:var(--text-muted);">${pm.startDate || '2026-03-01'} ~ ${pm.endDate || '2026-12-31'}</td>
+                            <td style="padding: 10px 12px; text-align:center; font-weight:700;">${ratio}%</td>
+                            <td style="padding: 10px 12px; text-align:center;"><span class="badge badge-success">투입중</span></td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = rowsHtml;
+            }
+        }
+
+        const totalRatioEl = document.getElementById('res-detail-total-ratio');
+        if (totalRatioEl) {
+            totalRatioEl.innerHTML = totalRatio > 100 ? `<span style="color:#ef4444; font-weight:800;">⚠️ ${totalRatio}% (초과)</span>` : `${totalRatio}%`;
+        }
+
+        modal.style.display = 'flex';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    closeResourceDetailModal() {
+        const modal = document.getElementById('modal-resource-detail');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async deleteResource(resourceId) {
+        const resources = this.state.resources || [];
+        const idx = resources.findIndex(r => r.id === resourceId);
+        if (idx === -1) return;
+
+        const r = resources[idx];
+        const projectMembers = this.state.projectMembers || [];
+        const salaries = this.state.salaries || [];
+        const salaryApprovals = this.state.salaryApprovals || [];
+
+        const hasProjectHistory = projectMembers.some(pm => pm.resourceId === r.id || pm.name === r.name);
+        const hasSalaryHistory = salaries.some(s => s.employeeName === r.name) || salaryApprovals.some(sa => (sa.items || []).some(item => item.memberName === r.name));
+
+        if (hasProjectHistory || hasSalaryHistory) {
+            r.isActive = false;
+            r.status = 'OFFBOARDED';
+            r.employment_status = 'OFFBOARDED';
+
+            await this.saveState('resource_upsert', r);
+            this.renderResourcesView();
+            this.showToast(`'${r.name}' 님은 연계 프로젝트 및 급여 이력이 존재하여 '종료/비활성' 상태로 안전하게 전환되었습니다.`, 'info');
+        } else {
+            if (confirm(`'${r.name}' 님은 연계 이력이 없는 신규 등록 인력입니다. 정말로 삭제하시겠습니까?`)) {
+                resources.splice(idx, 1);
+                await this.saveState('resource_delete', { id: resourceId });
+                this.renderResourcesView();
+                this.showToast(`'${r.name}' 님이 삭제되었습니다.`, 'success');
+            }
+        }
+    }
+
+    // ── MONTHLY SALARY MANAGEMENT (월급여 관리 4대 서브탭 로직) ────────────────────
+    switchSalarySubTab(tabName) {
+        console.log('[switchSalarySubTab]', tabName);
+        const btns = document.querySelectorAll('.salary-tab-btn');
+        btns.forEach(b => {
+            if (b.getAttribute('data-salary-tab') === tabName) {
+                b.classList.add('active');
+                b.style.background = 'var(--primary)';
+                b.style.color = '#ffffff';
+            } else {
+                b.classList.remove('active');
+                b.style.background = 'var(--bg-card)';
+                b.style.color = 'var(--text-muted)';
+            }
+        });
+
+        const panes = document.querySelectorAll('.salary-tab-pane');
+        panes.forEach(p => {
+            p.style.display = 'none';
+        });
+
+        const targetPane = document.getElementById(`salary-tab-content-${tabName}`);
+        if (targetPane) targetPane.style.display = 'block';
+
+        if (tabName === 'target') {
+            this.initSalaryTargetTab();
+            this.renderSalaryTargetsTable();
+        } else if (tabName === 'approvals') {
+            this.renderSalaryApprovalsTable();
+        } else if (tabName === 'templates') {
+            this.renderSalaryTemplatesTable();
+        } else if (tabName === 'history') {
+            this.renderSalariesView();
+        }
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    initSalaryTargetTab() {
+        const monthInput = document.getElementById('salary-target-month');
+        if (monthInput && !monthInput.value) {
+            const now = new Date();
+            monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        const projSelect = document.getElementById('salary-target-project');
+        if (projSelect) {
+            const projects = this.state.projects || [];
+            let options = `<option value="">전체 프로젝트 (통합 품의)</option>`;
+            projects.forEach(p => {
+                options += `<option value="${p.id}">${p.name} (${p.code || p.id.slice(0, 6)})</option>`;
+            });
+            projSelect.innerHTML = options;
+        }
+    }
+
+    renderSalaryTargetsTable() {
+        const tbody = document.getElementById('salary-targets-tbody');
+        if (!tbody) return;
+
+        const monthVal = document.getElementById('salary-target-month')?.value || new Date().toISOString().slice(0, 7);
+        const projId = document.getElementById('salary-target-project')?.value;
+        const searchKw = (document.getElementById('salary-target-search')?.value || '').toLowerCase().trim();
+
+        const sched = this.calculateSalaryScheduleInfo(monthVal);
+        const ddayBadge = document.getElementById('salary-schedule-dday-badge');
+        if (ddayBadge) {
+            ddayBadge.textContent = `${sched.displayNotice}`;
+        }
+
+        const resources = Array.isArray(this.state.resources) ? this.state.resources : [];
+        const projectMembers = Array.isArray(this.state.projectMembers) ? this.state.projectMembers : [];
+        const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
+
+        const monthStart = `${monthVal}-01`;
+        const monthEnd = sched.lastDayStr;
+
+        let targets = [];
+        resources.forEach(r => {
+            const empType = String(r.employmentType || r.employment_type || '').toLowerCase();
+            const isInsourced = empType === 'outsourcing' || empType === 'insourced_contractor';
+            const isContractor = empType === 'project_contract' || empType === 'contract';
+
+            if (!isInsourced && !isContractor) return;
+
+            const assignedMembers = projectMembers.filter(pm =>
+                (pm.resourceId && pm.resourceId === r.id) ||
+                (pm.userId && r.userId && pm.userId === r.userId) ||
+                (pm.name === r.name)
+            );
+
+            let projName = '본사/자사화';
+            let startDate = '2026-03-01';
+            let endDate = '2026-12-31';
+
+            if (assignedMembers.length > 0) {
+                const firstPm = assignedMembers[0];
+                const p = projects.find(proj => proj.id === (firstPm.projectId || firstPm.project_id));
+                if (p) projName = p.name;
+                if (firstPm.startDate) startDate = firstPm.startDate;
+                if (firstPm.endDate) endDate = firstPm.endDate;
+
+                if (projId && !assignedMembers.some(pm => (pm.projectId || pm.project_id) === projId)) {
+                    return;
+                }
+            } else if (projId) {
+                return;
+            }
+
+            if (startDate > monthEnd || endDate < monthStart) {
+                return;
+            }
+
+            const isMidMonth = (startDate > monthStart) || (endDate < monthEnd);
+
+            if (searchKw) {
+                const matchName = (r.name || '').toLowerCase().includes(searchKw);
+                const matchDept = (r.department || '').toLowerCase().includes(searchKw);
+                if (!matchName && !matchDept) return;
+            }
+
+            const baseSalary = r.baseSalary || r.monthlySalary || 4500000;
+            const mealAllowance = r.mealAllowance || 200000;
+            const otherAllowance = r.carAllowance || r.otherAllowance || 100000;
+            const adjustmentAmount = r.adjustmentAmount || 0;
+
+            targets.push({
+                resourceId: r.id,
+                memberName: r.name,
+                employmentType: isInsourced ? '자사화' : '프로젝트 계약직',
+                department: r.department || 'SI사업본부',
+                projectName: projName,
+                baseSalary,
+                mealAllowance,
+                otherAllowance,
+                adjustmentAmount,
+                totalPayment: baseSalary + mealAllowance + otherAllowance + adjustmentAmount,
+                isMidMonth,
+                startDate,
+                endDate,
+                selected: true
+            });
+        });
+
+        this.currentSalaryTargets = targets;
+
+        let totalCount = targets.length;
+        let sumBase = 0, sumAllowance = 0, sumTotal = 0;
+        targets.forEach(t => {
+            sumBase += t.baseSalary;
+            sumAllowance += (t.mealAllowance + t.otherAllowance);
+            sumTotal += t.totalPayment;
+        });
+
+        const cntEl = document.getElementById('target-kpi-count');
+        if (cntEl) cntEl.textContent = `${totalCount}명`;
+        const baseEl = document.getElementById('target-kpi-base');
+        if (baseEl) baseEl.textContent = `${sumBase.toLocaleString()}원`;
+        const allowEl = document.getElementById('target-kpi-allowance');
+        if (allowEl) allowEl.textContent = `${sumAllowance.toLocaleString()}원`;
+        const totEl = document.getElementById('target-kpi-total');
+        if (totEl) totEl.textContent = `${sumTotal.toLocaleString()}원`;
+
+        if (targets.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:40px; color:var(--text-muted);">귀속년월(${monthVal}) 기준 급여 지급 대상자(자사화·프로젝트 계약직)가 없습니다.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        targets.forEach((t, idx) => {
+            const empBadge = t.employmentType === '자사화' ?
+                '<span class="badge badge-indigo">자사화</span>' : '<span class="badge badge-teal">프로젝트 계약직</span>';
+
+            const midMonthBadge = t.isMidMonth ?
+                '<span class="badge badge-warning" title="월 중 입·퇴사자로서 담당자 검토 및 일할조정액 직접 입력이 필요합니다.">⚠️ 월중 입·퇴사자</span>' :
+                '<span class="badge badge-success">정상</span>';
+
+            html += `
+                <tr style="border-bottom: 1px solid var(--bg-card-border);">
+                    <td style="padding: 10px; text-align: center; border-right: 1px solid var(--bg-card-border);">
+                        <input type="checkbox" class="chk-salary-target-item" data-idx="${idx}" ${t.selected ? 'checked' : ''} onchange="app.currentSalaryTargets[${idx}].selected = this.checked;" style="width: 15px; height: 15px; cursor: pointer;" />
+                    </td>
+                    <td style="padding: 10px 12px; text-align: center; border-right: 1px solid var(--bg-card-border); font-weight: 600;">${monthVal}</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); font-weight: 600;">${t.projectName}</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: center; font-weight: 700; color: var(--text-main);">${t.memberName}</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">${empBadge}</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: center;">${t.department}</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: right; font-weight: 600;">${t.baseSalary.toLocaleString()}원</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">${t.mealAllowance.toLocaleString()}원</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">${t.otherAllowance.toLocaleString()}원</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: right;">
+                        <input type="number" value="${t.adjustmentAmount}" onchange="app.updateTargetAdjustment(${idx}, this.value)" style="width: 85px; text-align: right; height: 30px; padding: 0 6px; font-size: 12px; border-radius: 4px; border: 1px solid var(--bg-card-border); background: var(--bg-input); color: var(--text-main); font-weight: 600;" placeholder="0" />
+                    </td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: right; font-weight: 800; color: #6366F1;" id="target-total-${idx}">${t.totalPayment.toLocaleString()}원</td>
+                    <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: center; font-size: 12px; font-weight: 700; color: var(--text-muted);">${sched.lastDayStr}</td>
+                    <td style="padding: 10px 12px; text-align: center;">${midMonthBadge}</td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    updateTargetAdjustment(idx, val) {
+        if (!this.currentSalaryTargets || !this.currentSalaryTargets[idx]) return;
+        const target = this.currentSalaryTargets[idx];
+        const numVal = parseInt(val, 10) || 0;
+        target.adjustmentAmount = numVal;
+        target.totalPayment = target.baseSalary + target.mealAllowance + target.otherAllowance + numVal;
+
+        const cell = document.getElementById(`target-total-${idx}`);
+        if (cell) cell.textContent = `${target.totalPayment.toLocaleString()}원`;
+
+        let sumTotal = 0;
+        this.currentSalaryTargets.forEach(t => sumTotal += t.totalPayment);
+        const totEl = document.getElementById('target-kpi-total');
+        if (totEl) totEl.textContent = `${sumTotal.toLocaleString()}원`;
+    }
+
+    toggleSalaryTargetSelectAll(checked) {
+        if (!this.currentSalaryTargets) return;
+        this.currentSalaryTargets.forEach(t => t.selected = checked);
+        document.querySelectorAll('.chk-salary-target-item').forEach(chk => chk.checked = checked);
+    }
+
+    async createSalaryPaymentApproval() {
+        const monthVal = document.getElementById('salary-target-month')?.value;
+        const projId = document.getElementById('salary-target-project')?.value;
+
+        if (!monthVal) {
+            this.showToast('귀속년월을 선택해주세요.', 'warning');
+            return;
+        }
+
+        const selectedTargets = (this.currentSalaryTargets || []).filter(t => t.selected);
+        if (selectedTargets.length === 0) {
+            this.showToast('지급 품의 대상 인력을 최소 1명 이상 선택해주세요.', 'warning');
+            return;
+        }
+
+        const sched = this.calculateSalaryScheduleInfo(monthVal);
+        const existingApprovals = this.state.salaryApprovals || [];
+
+        const activeDuplicate = existingApprovals.find(a =>
+            a.paymentMonth === monthVal &&
+            (projId ? a.projectId === projId : (!a.projectId || a.projectId === 'ALL')) &&
+            a.status !== 'CANCELLED'
+        );
+
+        if (activeDuplicate) {
+            this.showToast(`이미 귀속년월(${monthVal})에 작성중/결재대기/승인완료 상태의 지급 품의서(${activeDuplicate.approvalNo})가 존재합니다.`, 'error');
+            return;
+        }
+
+        const project = (this.state.projects || []).find(p => p.id === projId) || { name: '전체 프로젝트 통합' };
+
+        const seq = String(existingApprovals.length + 1).padStart(3, '0');
+        const approvalNo = `SPA-${monthVal.replace('-', '')}-${seq}`;
+        const title = `[급여] ${project.name} ${monthVal} 월급여 지급 품의서`;
+
+        let totalPaymentSum = 0;
+        selectedTargets.forEach(t => totalPaymentSum += t.totalPayment);
+
+        const record = {
+            id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'appr-' + Date.now(),
+            approvalNo,
+            title,
+            paymentMonth: monthVal,
+            projectId: projId || 'ALL',
+            projectName: project.name,
+            targetCount: selectedTargets.length,
+            totalPayment: totalPaymentSum,
+            status: 'SUBMITTED',
+            submittedAt: new Date().toISOString().slice(0, 10),
+            paymentDueDate: sched.lastDayStr,
+            items: selectedTargets,
+            createdAt: new Date().toISOString()
+        };
+
+        this.state.salaryApprovals = this.state.salaryApprovals || [];
+        this.state.salaryApprovals.unshift(record);
+
+        await this.saveState('salary_approval_create', record);
+        this.showToast(`지급 품의서(${approvalNo})가 생성되어 결재함에 정상 제출되었습니다.`, 'success');
+        this.switchSalarySubTab('approvals');
+    }
+
+    renderSalaryApprovalsTable() {
+        const tbody = document.getElementById('salary-approvals-tbody');
+        if (!tbody) return;
+
+        const statusFilter = document.getElementById('salary-approval-filter-status')?.value || 'all';
+        const searchKw = (document.getElementById('salary-approval-search')?.value || '').toLowerCase().trim();
+
+        let list = [...(this.state.salaryApprovals || [])];
+
+        if (statusFilter !== 'all') {
+            list = list.filter(a => a.status === statusFilter);
+        }
+
+        if (searchKw) {
+            list = list.filter(a =>
+                (a.approvalNo || '').toLowerCase().includes(searchKw) ||
+                (a.title || '').toLowerCase().includes(searchKw) ||
+                (a.paymentMonth || '').toLowerCase().includes(searchKw)
+            );
+        }
+
+        if (list.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 40px; color: var(--text-muted);">등록되거나 진행 중인 지급 품의 결재 내역이 없습니다.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        list.forEach((a, idx) => {
+            let statusBadge = '<span class="badge badge-warning">결재대기</span>';
+            if (a.status === 'DRAFT') statusBadge = '<span class="badge badge-secondary">작성중</span>';
+            else if (a.status === 'APPROVED') statusBadge = '<span class="badge badge-success">승인완료</span>';
+            else if (a.status === 'PAID') statusBadge = '<span class="badge badge-primary">지급완료</span>';
+
+            html += `
+                <tr style="border-bottom: 1px solid var(--bg-card-border);">
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); font-family: monospace; font-weight: 700; color: var(--primary);">${a.approvalNo}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); font-weight: 700;">${a.title}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; font-weight: 600;">${a.paymentMonth}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; font-weight: 700;">${a.targetCount || (a.items ? a.items.length : 0)}명</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: right; font-weight: 800; color: #6366F1;">${(a.totalPayment || 0).toLocaleString()}원</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; font-size: 12px; color: var(--text-muted);">${(a.submittedAt || a.createdAt || '').slice(0, 10)}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; font-size: 12px; font-weight: 700; color: var(--text-muted);">${a.paymentDueDate || '-'}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">${statusBadge}</td>
+                    <td style="padding: 12px 14px; text-align: center;">
+                        <div style="display: flex; gap: 4px; justify-content: center;">
+                            <button type="button" class="btn btn-xs btn-outline" onclick="app.openSalaryApprovalDetailModal('${a.id}')" title="품의서 상세/출력">
+                                <i data-lucide="file-text" style="width: 12px; height: 12px;"></i> 상세
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+
+
+
+    // ── RESOURCE MODAL & PERSISTENT SAVE ─────────────────────────────────────────
+    openResourceModal(resourceId = null) {
+        console.log('[openResourceModal]', resourceId);
+        const modal = document.getElementById('modal-resource-edit');
+        if (!modal) return;
+
+        const title = document.getElementById('res-modal-title');
+        const idInput = document.getElementById('res-edit-id');
+        const nameInput = document.getElementById('res-edit-name');
+        const typeSelect = document.getElementById('res-edit-employment-type');
+        const deptInput = document.getElementById('res-edit-department');
+        const posInput = document.getElementById('res-edit-position');
+        const phoneInput = document.getElementById('res-edit-phone');
+        const emailInput = document.getElementById('res-edit-email');
+        const startDateInput = document.getElementById('res-edit-start-date');
+        const endDateInput = document.getElementById('res-edit-end-date');
+        const salaryInput = document.getElementById('res-edit-base-salary');
+        const statusSelect = document.getElementById('res-edit-status');
+        const memoInput = document.getElementById('res-edit-memo');
+
+        if (resourceId) {
+            const r = (this.state.resources || []).find(res => res.id === resourceId);
+            if (r) {
+                if (title) title.textContent = '참여인력 정보 수정';
+                if (idInput) idInput.value = r.id;
+                if (nameInput) nameInput.value = r.name || '';
+                if (typeSelect) typeSelect.value = r.employmentType || r.employment_type || 'outsourcing';
+                if (deptInput) deptInput.value = r.department || r.company || '';
+                if (posInput) posInput.value = r.position || r.roleName || '';
+                if (phoneInput) phoneInput.value = r.phone || r.contact || '';
+                if (emailInput) emailInput.value = r.email || '';
+                if (startDateInput) startDateInput.value = r.startDate || r.start_date || '';
+                if (endDateInput) endDateInput.value = r.endDate || r.end_date || '';
+                if (salaryInput) salaryInput.value = r.baseSalary || r.monthlySalary || '';
+                if (statusSelect) statusSelect.value = r.status || (r.isActive !== false ? 'ACTIVE' : 'OFFBOARDED');
+                if (memoInput) memoInput.value = r.memo || r.notes || '';
+            }
+        } else {
+            if (title) title.textContent = '신규 인력 등록';
+            if (idInput) idInput.value = '';
+            if (nameInput) nameInput.value = '';
+            if (typeSelect) typeSelect.value = 'outsourcing';
+            if (deptInput) deptInput.value = '';
+            if (posInput) posInput.value = '';
+            if (phoneInput) phoneInput.value = '';
+            if (emailInput) emailInput.value = '';
+            if (startDateInput) startDateInput.value = '2026-03-01';
+            if (endDateInput) endDateInput.value = '2026-12-31';
+            if (salaryInput) salaryInput.value = '4500000';
+            if (statusSelect) statusSelect.value = 'ACTIVE';
+            if (memoInput) memoInput.value = '';
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    closeResourceModal() {
+        const modal = document.getElementById('modal-resource-edit');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async saveResource() {
+        const idInput = document.getElementById('res-edit-id');
+        const nameInput = document.getElementById('res-edit-name');
+        const typeSelect = document.getElementById('res-edit-employment-type');
+        const deptInput = document.getElementById('res-edit-department');
+        const posInput = document.getElementById('res-edit-position');
+        const phoneInput = document.getElementById('res-edit-phone');
+        const emailInput = document.getElementById('res-edit-email');
+        const startDateInput = document.getElementById('res-edit-start-date');
+        const endDateInput = document.getElementById('res-edit-end-date');
+        const salaryInput = document.getElementById('res-edit-base-salary');
+        const statusSelect = document.getElementById('res-edit-status');
+        const memoInput = document.getElementById('res-edit-memo');
+
+        const nameVal = nameInput ? nameInput.value.trim() : '';
+        const typeVal = typeSelect ? typeSelect.value : 'outsourcing';
+
+        if (!nameVal) {
+            this.showToast('성명을 입력해 주세요.', 'warning');
+            return;
+        }
+
+        const isNew = !idInput || !idInput.value;
+        const resourceId = isNew ? (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'res-' + Date.now()) : idInput.value;
+
+        const stVal = statusSelect ? statusSelect.value : 'ACTIVE';
+        const isAct = stVal === 'ACTIVE' || stVal === 'STANDBY';
+
+        const record = {
+            id: resourceId,
+            name: nameVal,
+            employmentType: typeVal,
+            employment_type: typeVal,
+            department: deptInput ? deptInput.value.trim() : '',
+            company: deptInput ? deptInput.value.trim() : '',
+            position: posInput ? posInput.value.trim() : '',
+            phone: phoneInput ? phoneInput.value.trim() : '',
+            contact: phoneInput ? phoneInput.value.trim() : '',
+            email: emailInput ? emailInput.value.trim() : '',
+            startDate: startDateInput ? startDateInput.value : '',
+            endDate: endDateInput ? endDateInput.value : '',
+            baseSalary: parseInt(salaryInput ? salaryInput.value : 0, 10) || 0,
+            monthlySalary: parseInt(salaryInput ? salaryInput.value : 0, 10) || 0,
+            status: stVal,
+            employment_status: stVal,
+            isActive: isAct,
+            is_active: isAct,
+            memo: memoInput ? memoInput.value.trim() : '',
+            updatedAt: new Date().toISOString()
+        };
+
+        this.state.resources = this.state.resources || [];
+        if (isNew) {
+            this.state.resources.push(record);
+        } else {
+            const idx = this.state.resources.findIndex(r => r.id === resourceId);
+            if (idx !== -1) this.state.resources[idx] = record;
+        }
+
+        // Persist to Supabase DB & LocalStorage across page reloads (F5)
+        await this.saveState('resource_upsert', record);
+
+        this.closeResourceModal();
+        this.renderResourcesView();
+        this.showToast(`인력 정보('${nameVal}')가 성공적으로 저장되었습니다.`, 'success');
+    }
+
+    // ── EXCEL EXPORT METHODS & DEFENSIVE LOGIC ──────────────────────────────────
+    exportResourcesToExcel() {
+        console.log('[exportResourcesToExcel] Generating participating resources CSV/Excel export...');
+        try {
+            const resources = Array.isArray(this.state.resources) ? this.state.resources : [];
+            const projectMembers = Array.isArray(this.state.projectMembers) ? this.state.projectMembers : [];
+            const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
+
+            if (resources.length === 0) {
+                this.showToast('내보낼 참여인력 데이터가 없습니다.', 'info');
+                return;
+            }
+
+            const headers = ['성명', '인력구분', '소속회사/부서', '연락처', '이메일', '계약기간', '재직상태', '참여 프로젝트', '투입기간', '투입률', '월 계약금액'];
+            const rows = [headers];
+
+            resources.forEach(r => {
+                const assignedMembers = projectMembers.filter(pm =>
+                    (pm.resourceId && pm.resourceId === r.id) ||
+                    (pm.userId && r.userId && pm.userId === r.userId) ||
+                    (pm.name === r.name)
+                );
+
+                let projNames = [];
+                let totalRatio = 0;
+                let minStartDate = r.startDate || '2026-03-01';
+                let maxEndDate = r.endDate || '2026-12-31';
+
+                assignedMembers.forEach(pm => {
+                    const p = projects.find(proj => proj.id === (pm.projectId || pm.project_id));
+                    if (p) {
+                        const st = String(p.status || '').trim();
+                        if (st === 'Completed' || st === 'Closed' || st === '종료' || st === '완료') return;
+                        projNames.push(p.name);
+                    }
+                    const ratio = parseFloat(pm.inputRatio || pm.participationRate || 100);
+                    totalRatio += ratio;
+                    if (pm.startDate && pm.startDate < minStartDate) minStartDate = pm.startDate;
+                    if (pm.endDate && pm.endDate > maxEndDate) maxEndDate = pm.endDate;
+                });
+
+                const empTypeLabel = r.employmentType === 'outsourcing' ? '자사화' :
+                    (r.employmentType === 'project_contract' ? '프로젝트 계약직' : (r.employmentType === 'regular' ? '정규직' : '외주/턴키'));
+
+                const statusLabel = r.isActive !== false ? '재직' : '종료';
+
+                rows.push([
+                    `"${r.name || ''}"`,
+                    `"${empTypeLabel}"`,
+                    `"${r.department || r.company || ''}"`,
+                    `"${r.phone || r.contact || ''}"`,
+                    `"${r.email || ''}"`,
+                    `"${r.startDate || ''} ~ ${r.endDate || ''}"`,
+                    `"${statusLabel}"`,
+                    `"${projNames.join(', ') || '미배치'}"`,
+                    `"${assignedMembers.length > 0 ? `${minStartDate} ~ ${maxEndDate}` : '-'}"`,
+                    `"${totalRatio}%"`,
+                    `"${(r.baseSalary || r.monthlySalary || 0).toLocaleString()}원"`
+                ]);
+            });
+
+            const csvContent = "\ufeff" + rows.map(e => e.join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            a.download = `참여인력목록_${dateStr}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            this.showToast('참여인력목록 엑셀(CSV) 파일이 성공적으로 다운로드되었습니다.', 'success');
+        } catch (err) {
+            console.error('[exportResourcesToExcel Error]', err);
+            this.showToast('엑셀 내보내기 중 오류가 발생하였습니다.', 'error');
+        }
+    }
+
+    exportSalaryHistoryToExcel() {
+        console.log('[exportSalaryHistoryToExcel] Generating monthly salary history CSV/Excel export...');
+        try {
+            const approvals = Array.isArray(this.state.salaryApprovals) ? this.state.salaryApprovals : [];
+
+            if (approvals.length === 0) {
+                this.showToast('내보낼 월별 급여 이력 데이터가 없습니다.', 'info');
+                return;
+            }
+
+            const headers = ['귀속년월', '품의번호', '프로젝트명', '프로젝트 코드', '성명', '인력구분', '계약기간', '월 계약금액', '일할조정액', '세전 지급 예정액', '품의상태', '지급예정일'];
+            const rows = [headers];
+
+            approvals.forEach(a => {
+                const items = a.items || [];
+                items.forEach(item => {
+                    rows.push([
+                        `"${a.paymentMonth || ''}"`,
+                        `"${a.approvalNo || ''}"`,
+                        `"${a.projectName || item.projectName || '통합품의'}"`,
+                        `"${a.projectId || ''}"`,
+                        `"${item.memberName || ''}"`,
+                        `"${item.employmentType || ''}"`,
+                        `"${item.startDate || ''} ~ ${item.endDate || ''}"`,
+                        `"${(item.baseSalary || 0).toLocaleString()}원"`,
+                        `"${(item.adjustmentAmount || 0).toLocaleString()}원"`,
+                        `"${(item.totalPayment || 0).toLocaleString()}원"`,
+                        `"${a.status || 'SUBMITTED'}"`,
+                        `"${a.paymentDueDate || ''}"`
+                    ]);
+                });
+            });
+
+            const csvContent = "\ufeff" + rows.map(e => e.join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const dateStr = new Date().toISOString().slice(0, 7).replace('-', '');
+            a.download = `월별급여이력_${dateStr}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            this.showToast('월별 급여 이력 엑셀(CSV) 파일이 성공적으로 다운로드되었습니다.', 'success');
+        } catch (err) {
+            console.error('[exportSalaryHistoryToExcel Error]', err);
+            this.showToast('엑셀 내보내기 중 오류가 발생하였습니다.', 'error');
+        }
+    }
+
+    exportMonthlySalaryToExcel() {
+        this.exportSalaryHistoryToExcel();
+    }
+
+
+
+
+    // ── SALARY TEMPLATE MANAGEMENT METHODS ──────────────────────────────────────
+    renderSalaryTemplatesTable() {
+        const tbody = document.getElementById('salary-templates-tbody');
+        if (!tbody) return;
+
+        // Ensure state array initialized with default templates if empty
+        if (!Array.isArray(this.state.salaryTemplates) || this.state.salaryTemplates.length === 0) {
+            this.state.salaryTemplates = [
+                {
+                    id: 'TMPL-001',
+                    name: '월급여 지급 품의서 (자사화/계약직 표준형)',
+                    title: '[지급품의] {YYYY}년 {MM}월 참여인력 급여 지급의 건',
+                    content: '<p>1. 귀사의 일일 일신을 기원합니다.</p><p>2. {YYYY}년 {MM}월 참여인력 급여를 다음과 같이 지급하고자 품의합니다.</p>',
+                    targetType: '자사화 및 계약직',
+                    isActive: true,
+                    isDefault: true,
+                    memo: '기본 월급여 지급 품의 양식',
+                    updatedAt: '2026-08-01'
+                },
+                {
+                    id: 'TMPL-002',
+                    name: '프로젝트 특별 일할조정 급여 품의서',
+                    title: '[특별품의] {YYYY}년 {MM}월 프로젝트 계약직 일할조정 지급의 건',
+                    content: '<p>1. 프로젝트 계약직 인력의 중도 입퇴사 일할조정 내역을 다음과 같이 품의합니다.</p>',
+                    targetType: '프로젝트 계약직',
+                    isActive: true,
+                    isDefault: false,
+                    memo: '중도 입/퇴사자 일할조정용',
+                    updatedAt: '2026-08-02'
+                }
+            ];
+        }
+
+        const templates = this.state.salaryTemplates;
+        if (templates.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding:40px; color:var(--text-muted);">등록된 품의서 양식이 없습니다. [신규 양식 등록] 버튼을 눌러 양식을 추가하세요.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        templates.forEach((t, index) => {
+            const activeBadge = t.isActive !== false ?
+                `<span class="badge badge-success" style="background:#10B981; color:#fff; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">사용중</span>` :
+                `<span class="badge badge-secondary" style="background:#6B7280; color:#fff; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">중지</span>`;
+
+            const defaultBadge = t.isDefault ?
+                `<span class="badge badge-primary" style="background:#6366F1; color:#fff; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">★ 기본양식</span>` :
+                `<span style="color:var(--text-muted); font-size:12px;">일반</span>`;
+
+            html += `
+                <tr style="border-bottom: 1px solid var(--border-color); font-size: 13.5px;">
+                    <td class="text-center" style="padding: 12px 14px; font-weight: 700; border-right: 1px solid var(--border-color);">${index + 1}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--border-color);">
+                        <div style="font-weight: 700; color: var(--text-primary);">${this.escapeHtml(t.name || '')}</div>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">${this.escapeHtml(t.title || '')}</div>
+                    </td>
+                    <td class="text-center" style="padding: 12px 14px; border-right: 1px solid var(--border-color); color: var(--text-muted);">${this.escapeHtml(t.targetType || '전체 인력')}</td>
+                    <td class="text-center" style="padding: 12px 14px; border-right: 1px solid var(--border-color);">${defaultBadge}</td>
+                    <td class="text-center" style="padding: 12px 14px; border-right: 1px solid var(--border-color); font-size: 12px; color: var(--text-muted);">${t.updatedAt || '2026-08-03'}</td>
+                    <td class="text-center" style="padding: 12px 14px;">
+                        <div style="display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-sm btn-outline" data-action="edit-template" data-template-id="${t.id}" onclick="app.openSalaryTemplateModal('${t.id}')" title="양식 수정" style="padding:3px 8px; font-size:12px;">수정</button>
+                            <button type="button" class="btn btn-sm btn-outline" data-action="preview-template" data-template-id="${t.id}" onclick="app.previewSalaryTemplate('${t.id}')" title="미리보기" style="padding:3px 8px; font-size:12px;">미리보기</button>
+                            <button type="button" class="btn btn-sm btn-outline" data-action="clone-template" data-template-id="${t.id}" onclick="app.cloneSalaryTemplate('${t.id}')" title="양식 복제" style="padding:3px 8px; font-size:12px;">복제</button>
+                            ${!t.isDefault ? `<button type="button" class="btn btn-sm btn-outline" data-action="default-template" data-template-id="${t.id}" onclick="app.setDefaultSalaryTemplate('${t.id}')" title="기본 양식으로 지정" style="padding:3px 8px; font-size:12px;">기본지정</button>` : ''}
+                            <button type="button" class="btn btn-sm btn-outline" data-action="delete-template" data-template-id="${t.id}" onclick="app.deleteSalaryTemplate('${t.id}')" title="양식 삭제" style="padding:3px 8px; font-size:12px; color:#ef4444; border-color:#fca5a5;">삭제</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        this.bindSalaryTemplateEvents();
+    }
+
+    bindSalaryTemplateEvents() {
+        const tbody = document.getElementById('salary-templates-tbody');
+        if (!tbody || tbody.dataset.listenerBound === 'true') return;
+
+        tbody.dataset.listenerBound = 'true';
+        tbody.addEventListener('click', (event) => {
+            const editBtn = event.target.closest('[data-action="edit-template"]');
+            if (editBtn && editBtn.dataset.templateId) {
+                this.openSalaryTemplateModal(editBtn.dataset.templateId);
+                return;
+            }
+
+            const cloneBtn = event.target.closest('[data-action="clone-template"]');
+            if (cloneBtn && cloneBtn.dataset.templateId) {
+                this.cloneSalaryTemplate(cloneBtn.dataset.templateId);
+                return;
+            }
+
+            const prevBtn = event.target.closest('[data-action="preview-template"]');
+            if (prevBtn && prevBtn.dataset.templateId) {
+                this.previewSalaryTemplate(prevBtn.dataset.templateId);
+                return;
+            }
+
+            const defBtn = event.target.closest('[data-action="default-template"]');
+            if (defBtn && defBtn.dataset.templateId) {
+                this.setDefaultSalaryTemplate(defBtn.dataset.templateId);
+                return;
+            }
+
+            const delBtn = event.target.closest('[data-action="delete-template"]');
+            if (delBtn && delBtn.dataset.templateId) {
+                this.deleteSalaryTemplate(delBtn.dataset.templateId);
+                return;
+            }
+        });
+    }
+
+    openSalaryTemplateModal(templateId = null) {
+        console.log('[openSalaryTemplateModal]', templateId);
+        const modal = document.getElementById('modal-salary-template');
+        if (!modal) {
+            this.showToast('품의서 양식 모달을 찾을 수 없습니다.', 'error');
+            return;
+        }
+
+        const label = document.getElementById('salary-template-title-label');
+        const idInput = document.getElementById('salary-template-id');
+        const nameInput = document.getElementById('salary-template-name');
+        const titleInput = document.getElementById('salary-template-title');
+        const contentInput = document.getElementById('salary-template-content');
+        const activeSelect = document.getElementById('salary-template-active');
+        const defaultSelect = document.getElementById('salary-template-default');
+        const memoInput = document.getElementById('salary-template-memo');
+
+        if (templateId) {
+            const templates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+            const target = templates.find(t => t.id === templateId);
+
+            if (!target) {
+                this.showToast('수정할 품의서 양식을 찾을 수 없습니다.', 'warning');
+                return;
+            }
+
+            this.salaryTemplateModalMode = 'edit';
+            this.editingSalaryTemplateId = templateId;
+
+            if (label) label.textContent = '품의서 양식 수정';
+            if (idInput) idInput.value = target.id;
+            if (nameInput) nameInput.value = target.name || '';
+            if (titleInput) titleInput.value = target.title || '';
+            if (contentInput) contentInput.value = target.content || '';
+            if (activeSelect) activeSelect.value = target.isActive !== false ? 'true' : 'false';
+            if (defaultSelect) defaultSelect.value = target.isDefault ? 'true' : 'false';
+            if (memoInput) memoInput.value = target.memo || '';
+        } else {
+            this.salaryTemplateModalMode = 'create';
+            this.editingSalaryTemplateId = null;
+
+            if (label) label.textContent = '신규 품의서 양식 등록';
+            if (idInput) idInput.value = '';
+            if (nameInput) nameInput.value = '';
+            if (titleInput) titleInput.value = '[품의] {YYYY}년 {MM}월 참여인력 급여 지급의 건';
+            if (contentInput) contentInput.value = '<p>1. 귀사의 일일 일신을 기원합니다.</p><p>2. {YYYY}년 {MM}월 참여인력 급여를 다음과 같이 지급하고자 품의합니다.</p>';
+            if (activeSelect) activeSelect.value = 'true';
+            if (defaultSelect) defaultSelect.value = 'false';
+            if (memoInput) memoInput.value = '';
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    openSalaryTemplateEditModal(templateId = null) {
+        this.openSalaryTemplateModal(templateId);
+    }
+
+    closeSalaryTemplateModal() {
+        const modal = document.getElementById('modal-salary-template');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async saveSalaryTemplate() {
+        const idInput = document.getElementById('salary-template-id');
+        const nameInput = document.getElementById('salary-template-name');
+        const titleInput = document.getElementById('salary-template-title');
+        const contentInput = document.getElementById('salary-template-content');
+        const activeSelect = document.getElementById('salary-template-active');
+        const defaultSelect = document.getElementById('salary-template-default');
+        const memoInput = document.getElementById('salary-template-memo');
+
+        const nameVal = nameInput ? nameInput.value.trim() : '';
+        const titleVal = titleInput ? titleInput.value.trim() : '';
+        const contentVal = contentInput ? contentInput.value : '';
+        const isActiveVal = activeSelect ? activeSelect.value === 'true' : true;
+        const isDefaultVal = defaultSelect ? defaultSelect.value === 'true' : false;
+        const memoVal = memoInput ? memoInput.value.trim() : '';
+
+        if (!nameVal || !titleVal) {
+            this.showToast('양식명과 품의 제목을 입력해 주세요.', 'warning');
+            return;
+        }
+
+        // Rule 8: Inactive template cannot be set as default
+        if (!isActiveVal && isDefaultVal) {
+            this.showToast('사용 중지된 양식은 기본 양식으로 설정할 수 없습니다.', 'warning');
+            return;
+        }
+
+        this.state.salaryTemplates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+
+        // Rule 8: If setting as default, clear default flag on all other templates
+        if (isDefaultVal) {
+            this.state.salaryTemplates.forEach(t => t.isDefault = false);
+        }
+
+        const isEdit = this.salaryTemplateModalMode === 'edit' && idInput && idInput.value;
+        const templateId = isEdit ? idInput.value : ('TMPL-' + Date.now());
+
+        const record = {
+            id: templateId,
+            name: nameVal,
+            title: titleVal,
+            content: contentVal,
+            targetType: '자사화 및 계약직',
+            isActive: isActiveVal,
+            isDefault: isDefaultVal,
+            memo: memoVal,
+            updatedAt: new Date().toISOString().slice(0, 10)
+        };
+
+        if (isEdit) {
+            const idx = this.state.salaryTemplates.findIndex(t => t.id === templateId);
+            if (idx !== -1) {
+                this.state.salaryTemplates[idx] = record;
+            } else {
+                this.state.salaryTemplates.push(record);
+            }
+        } else {
+            this.state.salaryTemplates.push(record);
+        }
+
+        // Persist to Supabase DB & LocalStorage across page reloads (F5)
+        await this.saveState('salary_templates_upsert', record);
+
+        this.closeSalaryTemplateModal();
+        this.renderSalaryTemplatesTable();
+        this.showToast(`품의서 양식('${nameVal}')이 성공적으로 저장되었습니다.`, 'success');
+    }
+
+    async deleteSalaryTemplate(templateId) {
+        if (!templateId) return;
+
+        this.state.salaryTemplates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+        const idx = this.state.salaryTemplates.findIndex(t => t.id === templateId);
+
+        if (idx === -1) {
+            this.showToast('삭제할 품의서 양식을 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        const target = this.state.salaryTemplates[idx];
+        if (target.isDefault) {
+            this.showToast('기본 양식은 삭제할 수 없습니다. 다른 양식을 기본 양식으로 지정 후 삭제해 주세요.', 'warning');
+            return;
+        }
+
+        const name = target.name;
+        this.state.salaryTemplates.splice(idx, 1);
+        await this.saveState('salary_template_delete', { id: templateId });
+
+        this.renderSalaryTemplatesTable();
+        this.showToast(`품의서 양식('${name}')이 삭제되었습니다.`, 'info');
+    }
+
+    async cloneSalaryTemplate(templateId) {
+        if (!templateId) return;
+
+        this.state.salaryTemplates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+        const target = this.state.salaryTemplates.find(t => t.id === templateId);
+
+        if (!target) {
+            this.showToast('복제할 품의서 양식을 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        const clonedRecord = {
+            ...target,
+            id: 'TMPL-COPY-' + Date.now(),
+            name: target.name + ' (복사본)',
+            isDefault: false,
+            updatedAt: new Date().toISOString().slice(0, 10)
+        };
+
+        this.state.salaryTemplates.push(clonedRecord);
+        await this.saveState('salary_templates_upsert', clonedRecord);
+
+        this.renderSalaryTemplatesTable();
+        this.showToast(`품의서 양식('${target.name}')이 복제되었습니다.`, 'success');
+    }
+
+    previewSalaryTemplate(templateId) {
+        if (!templateId) return;
+
+        this.state.salaryTemplates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+        const target = this.state.salaryTemplates.find(t => t.id === templateId);
+
+        if (!target) {
+            this.showToast('미리볼 품의서 양식을 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        const modal = document.getElementById('modal-salary-template-preview');
+        const nameEl = document.getElementById('prev-template-name');
+        const titleEl = document.getElementById('prev-template-title');
+        const contentEl = document.getElementById('prev-template-content');
+
+        if (nameEl) nameEl.textContent = `[미리보기] ${target.name}`;
+        if (titleEl) titleEl.textContent = target.title || '';
+        if (contentEl) contentEl.innerHTML = target.content || '<p class="text-muted">본문 내용이 없습니다.</p>';
+
+        if (modal) modal.style.display = 'flex';
+    }
+
+    async setDefaultSalaryTemplate(templateId) {
+        if (!templateId) return;
+
+        this.state.salaryTemplates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+        const target = this.state.salaryTemplates.find(t => t.id === templateId);
+
+        if (!target) {
+            this.showToast('기본 지정할 품의서 양식을 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        if (target.isActive === false) {
+            this.showToast('사용 중지된 양식은 기본 양식으로 설정할 수 없습니다.', 'warning');
+            return;
+        }
+
+        this.state.salaryTemplates.forEach(t => t.isDefault = (t.id === templateId));
+        await this.saveState('salary_template_set_default', { id: templateId });
+
+        this.renderSalaryTemplatesTable();
+        this.showToast(`'${target.name}' 양식이 기본 품의서 양식으로 지정되었습니다.`, 'success');
+    }
+
+    async toggleSalaryTemplateActive(templateId) {
+        if (!templateId) return;
+
+        this.state.salaryTemplates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+        const target = this.state.salaryTemplates.find(t => t.id === templateId);
+
+        if (!target) return;
+
+        target.isActive = !target.isActive;
+        if (!target.isActive && target.isDefault) {
+            target.isDefault = false;
+        }
+
+        await this.saveState('salary_templates_upsert', target);
+        this.renderSalaryTemplatesTable();
+        this.showToast(`'${target.name}' 양식의 사용 여부가 변경되었습니다.`, 'info');
+    }
+
+
+
+
+    // ── TABLE COLUMN RESIZER METHOD ──────────────────────────────────────────
+    initTableResizers(containerId = null) {
+        try {
+            console.log('[initTableResizers] Initializing resizable columns for tables...');
+            const selector = containerId ? `#${containerId} table.excel-grid-table` : 'table.excel-grid-table';
+            const tables = document.querySelectorAll(selector);
+
+            tables.forEach(table => {
+                if (table.dataset.resizersInitialized === 'true') return;
+                table.dataset.resizersInitialized = 'true';
+
+                const headers = table.querySelectorAll('th');
+                headers.forEach(th => {
+                    th.style.position = th.style.position || 'relative';
+                    const grip = document.createElement('div');
+                    grip.className = 'table-resizer-grip';
+                    grip.style.cssText = 'position:absolute; top:0; right:0; width:6px; cursor:col-resize; user-select:none; height:100%; z-index:2;';
+
+                    let startX = 0;
+                    let startWidth = 0;
+
+                    const onMouseMove = (e) => {
+                        const width = Math.max(40, startWidth + (e.pageX - startX));
+                        th.style.width = width + 'px';
+                    };
+
+                    const onMouseUp = () => {
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+                    };
+
+                    grip.addEventListener('mousedown', (e) => {
+                        startX = e.pageX;
+                        startWidth = th.offsetWidth;
+                        document.addEventListener('mousemove', onMouseMove);
+                        document.addEventListener('mouseup', onMouseUp);
+                        e.preventDefault();
+                    });
+
+                    th.appendChild(grip);
+                });
+            });
+        } catch (err) {
+            console.warn('[initTableResizers Safe Catch]', err);
+        }
+    }
+
+    // ── SALARY SUBTAB CLEAN ARCHITECTURE ──────────────────────────────────────
+    switchSalarySubTab(tabName) {
+        this.activeSalaryTab = tabName;
+        console.log('[switchSalarySubTab]', tabName);
+
+        const tabs = document.querySelectorAll('.salary-tab-btn');
+        tabs.forEach(btn => {
+            if (btn.dataset.salaryTab === tabName) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        const panes = document.querySelectorAll('.salary-tab-pane');
+        panes.forEach(pane => {
+            if (pane.id === `salary-tab-content-${tabName}`) {
+                pane.style.display = 'block';
+            } else {
+                pane.style.display = 'none';
+            }
+        });
+
+        switch (tabName) {
+            case 'target':
+            case 'targets':
+                this.initSalaryTargetTab();
+                this.renderSalaryTargetsTable();
+                break;
+            case 'approvals':
+                this.renderSalaryApprovalsTable();
+                break;
+            case 'templates':
+                this.renderSalaryTemplatesTable();
+                break;
+            case 'history':
+                this.renderSalaryHistoryView();
+                break;
+        }
+
+        if (typeof this.initTableResizers === 'function') {
+            this.initTableResizers('view-salaries');
+        }
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    renderSalaryHistoryView() {
+        const tbody = document.getElementById('salary-history-tbody');
+        if (!tbody) return;
+
+        const approvals = Array.isArray(this.state.salaryApprovals) ? this.state.salaryApprovals : [];
+        if (approvals.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center" style="padding:40px; color:var(--text-muted);">등록된 월별 급여 이력이 없습니다.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        let rowNum = 1;
+
+        approvals.forEach(a => {
+            const items = a.items || [];
+            if (items.length === 0) {
+                html += `
+                    <tr style="border-bottom:1px solid var(--border-color);">
+                        <td class="text-center" style="padding:12px;">${rowNum++}</td>
+                        <td class="text-center" style="padding:12px;">${this.escapeHtml(a.paymentMonth || '')}</td>
+                        <td class="text-center" style="padding:12px; font-weight:700;">${this.escapeHtml(a.approvalNo || '')}</td>
+                        <td style="padding:12px;">${this.escapeHtml(a.title || '월급여 지급 품의')}</td>
+                        <td class="text-center" style="padding:12px;">전체 (${a.targetCount || 0}명)</td>
+                        <td class="text-right" style="padding:12px; font-weight:700; color:var(--primary-color);">${(a.totalPayment || 0).toLocaleString()}원</td>
+                        <td class="text-center" style="padding:12px;"><span class="badge badge-success">${this.escapeHtml(a.status || 'SUBMITTED')}</span></td>
+                        <td class="text-center" style="padding:12px;">${a.paymentDueDate || ''}</td>
+                        <td class="text-center" style="padding:12px;"><button class="btn btn-sm btn-outline" onclick="app.exportSalaryHistoryToExcel()">엑셀</button></td>
+                    </tr>
+                `;
+            } else {
+                items.forEach(item => {
+                    html += `
+                        <tr style="border-bottom:1px solid var(--border-color);">
+                            <td class="text-center" style="padding:12px;">${rowNum++}</td>
+                            <td class="text-center" style="padding:12px;">${this.escapeHtml(a.paymentMonth || '')}</td>
+                            <td class="text-center" style="padding:12px; font-weight:700;">${this.escapeHtml(a.approvalNo || '')}</td>
+                            <td style="padding:12px;">${this.escapeHtml(item.memberName || '')} (${this.escapeHtml(item.employmentType || '')})</td>
+                            <td class="text-center" style="padding:12px;">${this.escapeHtml(item.projectName || a.projectId || '-')}</td>
+                            <td class="text-right" style="padding:12px; font-weight:700; color:var(--primary-color);">${(item.totalPayment || 0).toLocaleString()}원</td>
+                            <td class="text-center" style="padding:12px;"><span class="badge badge-success">${this.escapeHtml(a.status || 'SUBMITTED')}</span></td>
+                            <td class="text-center" style="padding:12px;">${a.paymentDueDate || ''}</td>
+                            <td class="text-center" style="padding:12px;"><button class="btn btn-sm btn-outline" onclick="app.exportSalaryHistoryToExcel()">엑셀</button></td>
+                        </tr>
+                    `;
+                });
+            }
+        });
+
+        tbody.innerHTML = html;
+    }
+
+    // ── UNIFIED SALARY TEMPLATES RENDER & DELEGATION ────────────────────────────
+    renderSalaryTemplatesTable() {
+        const tbody = document.getElementById('salary-templates-tbody');
+        if (!tbody) return;
+
+        if (!Array.isArray(this.state.salaryTemplates) || this.state.salaryTemplates.length === 0) {
+            this.state.salaryTemplates = [
+                {
+                    id: 'TMPL-001',
+                    name: '월급여 지급 품의서 (자사화/계약직 표준형)',
+                    title: '[지급품의] {YYYY}년 {MM}월 참여인력 급여 지급의 건',
+                    content: '<p>1. 귀사의 일일 일신을 기원합니다.</p><p>2. {YYYY}년 {MM}월 참여인력 급여를 다음과 같이 지급하고자 품의합니다.</p>',
+                    targetType: '자사화 및 계약직',
+                    isActive: true,
+                    isDefault: true,
+                    memo: '기본 월급여 지급 품의 양식',
+                    updatedAt: '2026-08-01'
+                },
+                {
+                    id: 'TMPL-002',
+                    name: '프로젝트 특별 일할조정 급여 품의서',
+                    title: '[특별품의] {YYYY}년 {MM}월 프로젝트 계약직 일할조정 지급의 건',
+                    content: '<p>1. 프로젝트 계약직 인력의 중도 입퇴사 일할조정 내역을 다음과 같이 품의합니다.</p>',
+                    targetType: '프로젝트 계약직',
+                    isActive: true,
+                    isDefault: false,
+                    memo: '중도 입/퇴사자 일할조정용',
+                    updatedAt: '2026-08-02'
+                }
+            ];
+        }
+
+        const templates = this.state.salaryTemplates;
+        if (templates.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding:40px; color:var(--text-muted);">등록된 품의서 양식이 없습니다. [신규 양식 등록] 버튼을 눌러 양식을 추가하세요.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        templates.forEach((t, index) => {
+            const activeBadge = t.isActive !== false ?
+                `<span class="badge badge-success" style="background:#10B981; color:#fff; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">사용중</span>` :
+                `<span class="badge badge-secondary" style="background:#6B7280; color:#fff; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">중지</span>`;
+
+            const defaultBadge = t.isDefault ?
+                `<span class="badge badge-primary" style="background:#6366F1; color:#fff; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700;">★ 기본양식</span>` :
+                `<span style="color:var(--text-muted); font-size:12px;">일반</span>`;
+
+            // Render buttons with ONLY data-action attributes and NO inline onclick to avoid double execution
+            html += `
+                <tr style="border-bottom: 1px solid var(--border-color); font-size: 13.5px;">
+                    <td class="text-center" style="padding: 12px 14px; font-weight: 700; border-right: 1px solid var(--border-color);">${index + 1}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--border-color);">
+                        <div style="font-weight: 700; color: var(--text-primary);">${this.escapeHtml(t.name || '')}</div>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">${this.escapeHtml(t.title || '')}</div>
+                    </td>
+                    <td class="text-center" style="padding: 12px 14px; border-right: 1px solid var(--border-color); color: var(--text-muted);">${this.escapeHtml(t.targetType || '전체 인력')}</td>
+                    <td class="text-center" style="padding: 12px 14px; border-right: 1px solid var(--border-color);">${defaultBadge}</td>
+                    <td class="text-center" style="padding: 12px 14px; border-right: 1px solid var(--border-color); font-size: 12px; color: var(--text-muted);">${t.updatedAt || '2026-08-03'}</td>
+                    <td class="text-center" style="padding: 12px 14px;">
+                        <div style="display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-sm btn-outline" data-action="edit-template" data-template-id="${t.id}" title="양식 수정" style="padding:3px 8px; font-size:12px;">수정</button>
+                            <button type="button" class="btn btn-sm btn-outline" data-action="preview-template" data-template-id="${t.id}" title="미리보기" style="padding:3px 8px; font-size:12px;">미리보기</button>
+                            <button type="button" class="btn btn-sm btn-outline" data-action="duplicate-template" data-template-id="${t.id}" title="양식 복제" style="padding:3px 8px; font-size:12px;">복제</button>
+                            ${!t.isDefault ? `<button type="button" class="btn btn-sm btn-outline" data-action="default-template" data-template-id="${t.id}" title="기본 양식으로 지정" style="padding:3px 8px; font-size:12px;">기본지정</button>` : ''}
+                            <button type="button" class="btn btn-sm btn-outline" data-action="delete-template" data-template-id="${t.id}" title="양식 삭제" style="padding:3px 8px; font-size:12px; color:#ef4444; border-color:#fca5a5;">삭제</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        this.bindSalaryTemplateEvents();
+    }
+
+    duplicateSalaryTemplate(templateId) {
+        if (!templateId) return;
+
+        this.state.salaryTemplates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+        const target = this.state.salaryTemplates.find(t => t.id === templateId);
+
+        if (!target) {
+            this.showToast('복제할 품의서 양식을 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        const baseName = target.name.replace(/(\s*-\s*복사본(\s*\(\d+\))?)+$/g, '').trim();
+        let copyName = `${baseName} - 복사본`;
+        let counter = 1;
+
+        while (this.state.salaryTemplates.some(t => t.name === copyName)) {
+            counter++;
+            copyName = `${baseName} - 복사본 (${counter})`;
+        }
+
+        const clonedRecord = {
+            ...target,
+            id: 'TMPL-COPY-' + Date.now(),
+            name: copyName,
+            isDefault: false,
+            updatedAt: new Date().toISOString().slice(0, 10)
+        };
+
+        this.state.salaryTemplates.push(clonedRecord);
+        this.saveState('salary_templates_upsert', clonedRecord);
+
+        this.renderSalaryTemplatesTable();
+        this.showToast(`품의서 양식('${copyName}')이 복제되었습니다.`, 'success');
+    }
+
+    cloneSalaryTemplate(templateId) {
+        this.duplicateSalaryTemplate(templateId);
+    }
+
+
+
+
+    // ── UNIFIED BODY-LEVEL MODAL HELPERS ──────────────────────────────────────
+    openModal(modalId) {
+        console.log('[openModal]', modalId);
+        const modal = document.getElementById(modalId);
+        if (!modal) {
+            this.showToast?.('모달 요소를 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        // Ensure modal is a direct child of document.body to prevent parent clipping/transform bugs
+        if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+
+        modal.classList.add('is-open', 'active');
+        modal.style.display = 'flex';
+        document.body.classList.add('modal-open');
+        if (window.lucide) lucide.createIcons();
+    }
+
+    closeModal(modalId) {
+        console.log('[closeModal]', modalId);
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.remove('is-open', 'active');
+            modal.style.display = 'none';
+        }
+
+        const openModals = document.querySelectorAll('.modal.is-open, .modal.active, .modal-overlay.is-open, .modal-overlay.active');
+        if (openModals.length === 0) {
+            document.body.classList.remove('modal-open');
+        }
+    }
+
+    // ── SALARY SUBTAB SELECTION & RENDERING STYLING ────────────────────────────
+    switchSalarySubTab(tabName) {
+        this.activeSalaryTab = tabName;
+        console.log('[switchSalarySubTab:active-state]', tabName);
+
+        const allSubtabs = document.querySelectorAll('.salary-tab-btn, .salary-subtab');
+        allSubtabs.forEach(tab => {
+            tab.classList.remove('active', 'is-active');
+            tab.setAttribute('aria-selected', 'false');
+        });
+
+        const activeTabs = document.querySelectorAll(
+            `.salary-tab-btn[data-salary-tab="${tabName}"], .salary-tab-btn[data-tab="${tabName}"], .salary-subtab[data-salary-tab="${tabName}"], .salary-subtab[data-tab="${tabName}"]`
+        );
+
+        activeTabs.forEach(activeTab => {
+            activeTab.classList.add('active', 'is-active');
+            activeTab.setAttribute('aria-selected', 'true');
+        });
+
+        const panes = document.querySelectorAll('.salary-tab-pane');
+        panes.forEach(pane => {
+            if (pane.id === `salary-tab-content-${tabName}`) {
+                pane.style.display = 'block';
+            } else {
+                pane.style.display = 'none';
+            }
+        });
+
+        switch (tabName) {
+            case 'target':
+            case 'targets':
+                this.initSalaryTargetTab();
+                this.renderSalaryTargetsTable();
+                break;
+            case 'approvals':
+                this.renderSalaryApprovalsTable();
+                break;
+            case 'templates':
+                this.renderSalaryTemplatesTable();
+                break;
+            case 'history':
+                this.renderSalaryHistoryView();
+                break;
+        }
+
+        if (typeof this.initTableResizers === 'function') {
+            this.initTableResizers('view-salaries');
+        }
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    openSalaryTemplateModal(templateId = null) {
+        console.log('[openSalaryTemplateModal]', templateId);
+        const modal = document.getElementById('modal-salary-template');
+        if (!modal) {
+            this.showToast('품의서 양식 모달을 찾을 수 없습니다.', 'error');
+            return;
+        }
+
+        const label = document.getElementById('salary-template-title-label');
+        const idInput = document.getElementById('salary-template-id');
+        const nameInput = document.getElementById('salary-template-name');
+        const titleInput = document.getElementById('salary-template-title');
+        const contentInput = document.getElementById('salary-template-content');
+        const activeSelect = document.getElementById('salary-template-active');
+        const defaultSelect = document.getElementById('salary-template-default');
+        const memoInput = document.getElementById('salary-template-memo');
+
+        if (templateId) {
+            const templates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+            const target = templates.find(t => t.id === templateId);
+
+            if (!target) {
+                this.showToast('수정할 품의서 양식을 찾을 수 없습니다.', 'warning');
+                return;
+            }
+
+            this.salaryTemplateModalMode = 'edit';
+            this.editingSalaryTemplateId = templateId;
+
+            if (label) label.textContent = '품의서 양식 수정';
+            if (idInput) idInput.value = target.id;
+            if (nameInput) nameInput.value = target.name || '';
+            if (titleInput) titleInput.value = target.title || '';
+            if (contentInput) contentInput.value = target.content || '';
+            if (activeSelect) activeSelect.value = target.isActive !== false ? 'true' : 'false';
+            if (defaultSelect) defaultSelect.value = target.isDefault ? 'true' : 'false';
+            if (memoInput) memoInput.value = target.memo || '';
+        } else {
+            this.salaryTemplateModalMode = 'create';
+            this.editingSalaryTemplateId = null;
+
+            if (label) label.textContent = '신규 품의서 양식 등록';
+            if (idInput) idInput.value = '';
+            if (nameInput) nameInput.value = '';
+            if (titleInput) titleInput.value = '[품의] {YYYY}년 {MM}월 참여인력 급여 지급의 건';
+            if (contentInput) contentInput.value = '<p>1. 귀사의 일일 일신을 기원합니다.</p><p>2. {YYYY}년 {MM}월 참여인력 급여를 다음과 같이 지급하고자 품의합니다.</p>';
+            if (activeSelect) activeSelect.value = 'true';
+            if (defaultSelect) defaultSelect.value = 'false';
+            if (memoInput) memoInput.value = '';
+        }
+
+        this.openModal('modal-salary-template');
+    }
+
+    closeSalaryTemplateModal() {
+        this.closeModal('modal-salary-template');
+    }
+
+    previewSalaryTemplate(templateId) {
+        if (!templateId) return;
+
+        this.state.salaryTemplates = Array.isArray(this.state.salaryTemplates) ? this.state.salaryTemplates : [];
+        const target = this.state.salaryTemplates.find(t => t.id === templateId);
+
+        if (!target) {
+            this.showToast('미리볼 품의서 양식을 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        const modal    = document.getElementById('modal-salary-template-preview');
+        const nameEl   = document.getElementById('salary-template-preview-name');
+        const titleEl  = document.getElementById('salary-template-preview-title');
+        const contentEl = document.getElementById('salary-template-preview-body');
+
+        if (nameEl)   nameEl.textContent  = `[미리보기] ${target.name}`;
+        if (titleEl)  titleEl.textContent = target.title || target.name || '';
+
+        // HTML 형태로 본문 렌더링
+        if (contentEl) {
+            const rawHtml = target.content || '';
+            if (rawHtml.trim()) {
+                contentEl.innerHTML = rawHtml;
+            } else {
+                contentEl.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:24px 0;">본문 내용이 없습니다.</p>';
+            }
+        }
+
+        if (modal) modal.style.display = 'flex';
+    }
+
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // ── SYSTEM MENU MANAGEMENT ───────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /** Supabase에서 메뉴 + 역할 데이터 로드 후 state 저장 */
+    async loadSystemMenus() {
+        if (!this.useSupabase || !this.supabase) return;
+        try {
+            const { data: menus, error: mErr } = await this.supabase
+                .from('system_menus')
+                .select('*')
+                .order('sort_order', { ascending: true });
+            if (mErr) throw mErr;
+
+            const { data: roles, error: rErr } = await this.supabase
+                .from('system_menu_roles')
+                .select('*');
+            if (rErr) throw rErr;
+
+            this.state.systemMenus = menus || [];
+            this.state.systemMenuRoles = roles || [];
+        } catch (e) {
+            console.warn('[loadSystemMenus] 로드 실패 — 정적 사이드바 사용:', e.message);
+            this.state.systemMenus = null; // null = 정적 폴백 신호
+        }
+    }
+
+    /** 역할 허용 메뉴만 필터링 */
+    _getVisibleMenus() {
+        const menus = this.state.systemMenus;
+        if (!menus || !menus.length) return null; // 폴백 신호
+        const roles  = this.state.systemMenuRoles || [];
+        const role   = this.currentUser?.role || '';
+
+        return menus
+            .filter(m => m.is_active)
+            .filter(m => {
+                const rolesForMenu = roles.filter(r => r.menu_id === m.id);
+                if (!rolesForMenu.length) return true; // 권한 미설정 = 전체 허용
+                return rolesForMenu.some(r => r.role_code === role && r.can_view);
+            })
+            .sort((a, b) => a.sort_order - b.sort_order);
+    }
+
+    /** 사이드바 동적 렌더링 (폴백: 정적 HTML 유지) */
+    renderDynamicSidebar() {
+        const nav = document.getElementById('sidebar-nav-dynamic');
+        if (!nav) return;
+
+        const visible = this._getVisibleMenus();
+        if (!visible) return; // null = 정적 HTML 폴백 유지
+
+        const topMenus = visible.filter(m => !m.parent_id);
+
+        const typeIcon = {
+            GROUP: 'chevron-down', SCREEN: '', EXTERNAL: 'external-link', DISABLED: 'clock'
+        };
+
+        let html = '';
+        topMenus.forEach(m => {
+            const children = visible.filter(c => c.parent_id === m.id);
+            const icon = m.icon ? `<i data-lucide="${m.icon}"></i>` : '';
+            const route = m.route || '#';
+
+            if (children.length > 0) {
+                // 그룹 메뉴 (아코디언)
+                html += `
+                <div class="nav-item-wrapper" id="nav-wrapper-${m.menu_code.toLowerCase()}">
+                    <a href="${route}" class="nav-item" data-view="${m.view_id?.replace('view-','') || m.menu_code.toLowerCase()}" data-tooltip="${m.menu_name}"
+                       onclick="event.preventDefault();event.stopPropagation();window.app?.switchView?.('${m.view_id?.replace('view-','') || m.menu_code.toLowerCase()}')">
+                        ${icon}
+                        <span>${m.menu_name}</span>
+                        <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
+                    </a>
+                    <div class="nav-submenu">`;
+                children.forEach(c => {
+                    const cIcon = c.icon ? `<i data-lucide="${c.icon}"></i>` : '';
+                    const cRoute = c.route || '#';
+                    const cViewTarget = c.view_id ? c.view_id.replace('view-', '') : (c.route ? c.route.replace('#', '') : c.menu_code.toLowerCase());
+                    html += `
+                        <a href="${cRoute}" class="submenu-item" data-subview="${c.menu_code.toLowerCase()}"
+                           onclick="event.preventDefault();event.stopPropagation();window.app?.switchView?.('${cViewTarget}')">
+                            ${cIcon}<span>${c.menu_name}</span>
+                        </a>`;
+                });
+                html += `
+                    </div>
+                </div>`;
+            } else if (m.menu_type === 'EXTERNAL') {
+                html += `
+                <a href="${route}" class="nav-item" target="_blank" rel="noopener" data-tooltip="${m.menu_name}">
+                    ${icon}<span>${m.menu_name}</span>
+                    <i data-lucide="external-link" style="width:12px;height:12px;margin-left:auto;"></i>
+                </a>`;
+            } else if (m.menu_type === 'DISABLED') {
+                html += `
+                <a href="#" class="nav-item" style="opacity:0.45;cursor:not-allowed;" data-tooltip="${m.menu_name} (준비 중)">
+                    ${icon}<span>${m.menu_name}</span>
+                </a>`;
+            } else {
+                const viewKey = m.view_id?.replace('view-','') || m.menu_code.toLowerCase();
+                html += `
+                <a href="${route}" class="nav-item" data-view="${viewKey}" data-tooltip="${m.menu_name}"
+                   onclick="event.preventDefault();event.stopPropagation();window.app?.switchView?.('${viewKey}')">
+                    ${icon}<span>${m.menu_name}</span>
+                </a>`;
+            }
+        });
+
+        nav.innerHTML = html;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // ── 메뉴 설정 화면 렌더링 ────────────────────────────────────────────────
+
+    renderMenuSettings() {
+        try {
+            const container = document.getElementById('view-menu-settings');
+            if (!container) {
+                console.warn('[MenuSettings] #view-menu-settings 컨테이너를 찾을 수 없습니다.');
+                return;
+            }
+
+            const tbody = document.getElementById('menu-settings-tbody');
+            if (!tbody) {
+                console.warn('[MenuSettings] #menu-settings-tbody 를 찾을 수 없습니다.');
+                return;
+            }
+
+            const menus = this.state.systemMenus;
+
+            // 데이터 없음 상태
+            if (!menus) {
+                tbody.innerHTML = `
+                    <tr><td colspan="8" style="text-align:center;padding:40px;">
+                        <div style="color:var(--text-muted);">
+                            <i data-lucide="database" style="width:32px;height:32px;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;"></i>
+                            <div style="font-size:14px;font-weight:600;margin-bottom:6px;">메뉴 설정 정보를 불러오지 못했습니다.</div>
+                            <div style="font-size:12px;">Supabase에 <code>system_menus</code> 테이블이 없거나 권한이 없을 수 있습니다.</div>
+                            <div style="font-size:11px;margin-top:6px;color:var(--text-muted);">콘솔 오류와 <code>supabase_menu_tables.sql</code> 실행 여부를 확인해주세요.</div>
+                        </div>
+                    </td></tr>`;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                return;
+            }
+
+            if (!menus.length) {
+                tbody.innerHTML = `
+                    <tr><td colspan="8" style="text-align:center;padding:40px;">
+                        <div style="color:var(--text-muted);">
+                            <i data-lucide="layout-list" style="width:32px;height:32px;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;"></i>
+                            <div style="font-size:14px;font-weight:600;">등록된 메뉴 정보가 없습니다.</div>
+                            <div style="font-size:12px;margin-top:4px;">우측 상단 [메뉴 추가] 버튼으로 첫 번째 메뉴를 등록하세요.</div>
+                        </div>
+                    </td></tr>`;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                return;
+            }
+
+            const roles  = this.state.systemMenuRoles || [];
+            const sorted = [...menus].sort((a, b) => a.sort_order - b.sort_order);
+            const topMenus = sorted.filter(m => !m.parent_id);
+
+            const ROLE_LABELS = {
+                SYS_ADMIN:'SYS', EXEC_ADMIN:'EXEC', PM:'PM', PL:'PL', DEV:'DEV', QA:'QA', VIEWER:'VIEW'
+            };
+            const TYPE_BADGE = {
+                GROUP:'그룹', SCREEN:'화면', EXTERNAL:'외부', DISABLED:'준비중'
+            };
+
+            const renderRow = (m, isChild) => {
+                const indent = isChild ? 'padding-left:28px;' : '';
+                const activeText = m.is_active
+                    ? '<span style="color:var(--success,#22c55e);font-weight:700;">●</span>'
+                    : '<span style="color:var(--text-muted);font-weight:700;">○</span>';
+                const sysTag = m.is_system ? '<span style="font-size:10px;background:rgba(99,102,241,0.15);color:var(--primary);padding:1px 5px;border-radius:3px;margin-left:4px;">필수</span>' : '';
+
+                const menuRoles = roles.filter(r => r.menu_id === m.id && r.can_view).map(r => ROLE_LABELS[r.role_code] || r.role_code);
+                const roleHtml = menuRoles.length
+                    ? menuRoles.map(r => `<span style="font-size:10px;background:var(--bg-hover-item);border:1px solid var(--border-color);padding:1px 5px;border-radius:3px;">${r}</span>`).join(' ')
+                    : '<span style="color:var(--text-muted);font-size:11px;">없음</span>';
+
+                const delBtn = m.is_system
+                    ? `<button class="btn-icon" title="시스템 메뉴 삭제 불가" disabled style="opacity:0.35;"><i data-lucide="trash-2" style="width:13px;height:13px;"></i></button>`
+                    : `<button class="btn-icon" title="삭제" onclick="app.deleteSystemMenu('${m.id}')" style="color:var(--danger);"><i data-lucide="trash-2" style="width:13px;height:13px;"></i></button>`;
+
+                return `
+                <tr style="border-bottom:1px solid var(--border-color);">
+                    <td style="padding:10px 14px;${indent}font-weight:${isChild?'500':'600'};">
+                        ${isChild ? '<span style="color:var(--text-muted);margin-right:4px;">└</span>' : ''}
+                        ${m.icon ? `<i data-lucide="${m.icon}" style="width:13px;height:13px;vertical-align:middle;margin-right:4px;"></i>` : ''}
+                        ${m.menu_name}${sysTag}
+                    </td>
+                    <td style="padding:10px 14px;color:var(--text-muted);font-size:11px;font-family:monospace;">${m.menu_code}</td>
+                    <td style="padding:10px 14px;"><span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--bg-hover-item);border:1px solid var(--border-color);">${TYPE_BADGE[m.menu_type]||m.menu_type}</span></td>
+                    <td style="padding:10px 14px;font-size:11px;color:var(--text-muted);font-family:monospace;">${m.route||''}</td>
+                    <td style="padding:10px 14px;text-align:center;">
+                        <button onclick="app.reorderMenuSettings('${m.id}','up')" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--text-muted);" title="위"><i data-lucide="chevron-up" style="width:13px;height:13px;"></i></button>
+                        <span style="font-size:11px;color:var(--text-muted);">${m.sort_order}</span>
+                        <button onclick="app.reorderMenuSettings('${m.id}','down')" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--text-muted);" title="아래"><i data-lucide="chevron-down" style="width:13px;height:13px;"></i></button>
+                    </td>
+                    <td style="padding:10px 14px;text-align:center;">
+                        <button onclick="app.toggleMenuActive('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:16px;">${activeText}</button>
+                    </td>
+                    <td style="padding:10px 14px;text-align:center;">${roleHtml}</td>
+                    <td style="padding:10px 14px;text-align:center;white-space:nowrap;">
+                        <button class="btn-icon" onclick="app.openMenuFormModal('${m.id}')" title="수정" style="margin-right:4px;"><i data-lucide="pencil" style="width:13px;height:13px;"></i></button>
+                        ${delBtn}
+                    </td>
+                </tr>`;
+            };
+
+            let rows = '';
+            topMenus.forEach(m => {
+                rows += renderRow(m, false);
+                sorted.filter(c => c.parent_id === m.id).forEach(c => {
+                    rows += renderRow(c, true);
+                });
+            });
+
+            tbody.innerHTML = rows;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        } catch (error) {
+            console.error('[MenuSettings] render failed:', error);
+            this.renderMenuSettingsErrorState(error);
+        }
+    }
+
+    renderMenuSettingsErrorState(error) {
+        const tbody = document.getElementById('menu-settings-tbody');
+        if (!tbody) return;
+        tbody.innerHTML = `
+            <tr><td colspan="8" style="text-align:center;padding:40px;">
+                <div style="color:var(--danger,#ef4444);">
+                    <i data-lucide="alert-triangle" style="width:32px;height:32px;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;"></i>
+                    <div style="font-size:14px;font-weight:600;margin-bottom:6px;">메뉴 설정 렌더링에 실패했습니다.</div>
+                    <div style="font-size:12px;color:var(--text-muted);">${error?.message || String(error)}</div>
+                    <div style="font-size:11px;margin-top:8px;color:var(--text-muted);">콘솔 오류와 데이터 저장 구조를 확인해주세요.</div>
+                </div>
+            </td></tr>`;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // ── 메뉴 등록/수정 모달 ──────────────────────────────────────────────────
+
+    openMenuFormModal(menuId = null) {
+        const modal = document.getElementById('modal-menu-form');
+        if (!modal) return;
+
+        const menus = this.state.systemMenus || [];
+        const ROLES = ['SYS_ADMIN','EXEC_ADMIN','PM','PL','DEV','QA','VIEWER'];
+        const ROLE_KO = {SYS_ADMIN:'SYS',EXEC_ADMIN:'EXEC',PM:'PM',PL:'PL',DEV:'DEV',QA:'QA',VIEWER:'VIEW'};
+
+        // 상위 메뉴 select 채우기
+        const parentSel = document.getElementById('menu-form-parent');
+        if (parentSel) {
+            parentSel.innerHTML = '<option value="">─ 최상위 메뉴 ─</option>';
+            menus.filter(m => !m.parent_id && m.menu_type === 'GROUP').forEach(m => {
+                parentSel.innerHTML += `<option value="${m.id}">${m.menu_name}</option>`;
+            });
+        }
+
+        // 역할 체크박스 채우기
+        const rolesDiv = document.getElementById('menu-form-roles');
+        if (rolesDiv) {
+            rolesDiv.innerHTML = ROLES.map(r =>
+                `<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;">
+                    <input type="checkbox" class="menu-form-role-chk" data-role="${r}" style="cursor:pointer;">
+                    <span>${ROLE_KO[r]}</span>
+                </label>`
+            ).join('');
+        }
+
+        const title = document.getElementById('menu-form-title');
+
+        if (menuId) {
+            // 수정 모드
+            const target = menus.find(m => m.id === menuId);
+            if (!target) return;
+            if (title) title.textContent = '메뉴 수정';
+            document.getElementById('menu-form-id').value    = target.id;
+            document.getElementById('menu-form-name').value  = target.menu_name;
+            document.getElementById('menu-form-code').value  = target.menu_code;
+            document.getElementById('menu-form-type').value  = target.menu_type;
+            document.getElementById('menu-form-route').value = target.route || '';
+            document.getElementById('menu-form-view-id').value = target.view_id || '';
+            document.getElementById('menu-form-icon').value  = target.icon || '';
+            document.getElementById('menu-form-sort').value  = target.sort_order;
+            document.getElementById('menu-form-active').checked = !!target.is_active;
+            document.getElementById('menu-form-desc').value  = target.description || '';
+            if (parentSel) parentSel.value = target.parent_id || '';
+
+            // 역할 체크
+            const menuRoles = (this.state.systemMenuRoles||[]).filter(r => r.menu_id === menuId && r.can_view).map(r => r.role_code);
+            document.querySelectorAll('.menu-form-role-chk').forEach(chk => {
+                chk.checked = menuRoles.includes(chk.dataset.role);
+            });
+        } else {
+            // 신규 모드
+            if (title) title.textContent = '메뉴 추가';
+            ['menu-form-id','menu-form-name','menu-form-code','menu-form-route','menu-form-view-id','menu-form-icon','menu-form-desc'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            document.getElementById('menu-form-sort').value = 10;
+            document.getElementById('menu-form-active').checked = true;
+            document.getElementById('menu-form-type').value = 'SCREEN';
+            // 신규: 전체 역할 체크
+            document.querySelectorAll('.menu-form-role-chk').forEach(chk => { chk.checked = true; });
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    closeMenuFormModal() {
+        const modal = document.getElementById('modal-menu-form');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async saveMenuForm() {
+        const menuId   = document.getElementById('menu-form-id')?.value?.trim() || null;
+        const menuName = document.getElementById('menu-form-name')?.value?.trim();
+        const menuCode = document.getElementById('menu-form-code')?.value?.trim().toUpperCase();
+        const menuType = document.getElementById('menu-form-type')?.value;
+        const route    = document.getElementById('menu-form-route')?.value?.trim() || null;
+        const viewId   = document.getElementById('menu-form-view-id')?.value?.trim() || null;
+        const icon     = document.getElementById('menu-form-icon')?.value?.trim() || null;
+        const sortOrder = parseInt(document.getElementById('menu-form-sort')?.value) || 10;
+        const isActive = document.getElementById('menu-form-active')?.checked ?? true;
+        const desc     = document.getElementById('menu-form-desc')?.value?.trim() || null;
+        const parentId = document.getElementById('menu-form-parent')?.value || null;
+
+        // 유효성 검증
+        if (!menuName) { this.showToast('메뉴명을 입력하세요.', 'warning'); return; }
+        if (!menuCode) { this.showToast('메뉴 코드를 입력하세요.', 'warning'); return; }
+        if (!/^[A-Z0-9_]+$/.test(menuCode)) { this.showToast('메뉴 코드는 영문 대문자, 숫자, 언더스코어만 허용됩니다.', 'warning'); return; }
+
+        // 코드 중복 검사
+        const menus = this.state.systemMenus || [];
+        const dup = menus.find(m => m.menu_code === menuCode && m.id !== menuId);
+        if (dup) { this.showToast(`'${menuCode}' 코드가 이미 존재합니다.`, 'warning'); return; }
+
+        // 외부 링크 URL 검증
+        if (menuType === 'EXTERNAL' && route) {
+            if (!/^https?:\/\//.test(route)) { this.showToast('외부 링크는 https:// 또는 http://로 시작해야 합니다.', 'warning'); return; }
+        }
+
+        // 역할 수집
+        const selectedRoles = [];
+        document.querySelectorAll('.menu-form-role-chk:checked').forEach(chk => {
+            selectedRoles.push(chk.dataset.role);
+        });
+
+        const payload = {
+            menu_code: menuCode, menu_name: menuName, menu_type: menuType,
+            parent_id: parentId || null, route, view_id: viewId, icon,
+            sort_order: sortOrder, is_active: isActive, description: desc
+        };
+
+        try {
+            let savedId = menuId;
+            if (this.useSupabase && this.supabase) {
+                if (menuId) {
+                    // UPDATE
+                    const { data, error } = await this.supabase.from('system_menus').update(payload).eq('id', menuId).select().single();
+                    if (error) throw error;
+                    // state 업데이트
+                    const idx = menus.findIndex(m => m.id === menuId);
+                    if (idx !== -1) this.state.systemMenus[idx] = data;
+                } else {
+                    // INSERT
+                    const { data, error } = await this.supabase.from('system_menus').insert(payload).select().single();
+                    if (error) throw error;
+                    savedId = data.id;
+                    this.state.systemMenus = [...(this.state.systemMenus || []), data];
+                }
+
+                // 역할 권한 저장 (기존 삭제 후 재삽입)
+                await this.supabase.from('system_menu_roles').delete().eq('menu_id', savedId);
+                if (selectedRoles.length > 0) {
+                    const roleRows = selectedRoles.map(r => ({ menu_id: savedId, role_code: r, can_view: true }));
+                    const { error: rErr } = await this.supabase.from('system_menu_roles').insert(roleRows);
+                    if (rErr) console.warn('[saveMenuForm] 역할 저장 실패:', rErr.message);
+                }
+                // state 역할 갱신
+                this.state.systemMenuRoles = (this.state.systemMenuRoles || []).filter(r => r.menu_id !== savedId);
+                selectedRoles.forEach(r => {
+                    this.state.systemMenuRoles.push({ menu_id: savedId, role_code: r, can_view: true });
+                });
+
+                this.logActivity(`메뉴 ${menuId ? '수정' : '추가'}: ${menuName} (${menuCode})`);
+            } else {
+                // 로컬 전용 처리
+                if (menuId) {
+                    const idx = menus.findIndex(m => m.id === menuId);
+                    if (idx !== -1) this.state.systemMenus[idx] = { ...menus[idx], ...payload };
+                } else {
+                    const newMenu = { id: crypto.randomUUID(), ...payload, is_system: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+                    this.state.systemMenus = [...(this.state.systemMenus || []), newMenu];
+                }
+            }
+
+            this.closeMenuFormModal();
+            this.renderMenuSettings();
+            this.renderDynamicSidebar(); // 사이드바 즉시 갱신
+            this.showToast(`메뉴 '${menuName}'이(가) ${menuId ? '수정' : '추가'}되었습니다.`, 'success');
+        } catch (e) {
+            console.error('[saveMenuForm] 저장 실패:', e);
+            this.showToast('저장 실패: ' + (e.message || e), 'error');
+        }
+    }
+
+    async deleteSystemMenu(menuId) {
+        if (!menuId) return;
+        const menu = (this.state.systemMenus || []).find(m => m.id === menuId);
+        if (!menu) return;
+        if (menu.is_system) { this.showToast('시스템 필수 메뉴는 삭제할 수 없습니다.', 'warning'); return; }
+
+        if (!confirm(`'${menu.menu_name}' 메뉴를 삭제하시겠습니까?\n하위 메뉴가 있으면 상위 메뉴 연결이 해제됩니다.`)) return;
+
+        try {
+            if (this.useSupabase && this.supabase) {
+                const { error } = await this.supabase.from('system_menus').delete().eq('id', menuId);
+                if (error) throw error;
+                this.logActivity(`메뉴 삭제: ${menu.menu_name} (${menu.menu_code})`);
+            }
+            this.state.systemMenus = (this.state.systemMenus || []).filter(m => m.id !== menuId);
+            this.state.systemMenuRoles = (this.state.systemMenuRoles || []).filter(r => r.menu_id !== menuId);
+            this.renderMenuSettings();
+            this.renderDynamicSidebar();
+            this.showToast(`'${menu.menu_name}' 메뉴가 삭제되었습니다.`, 'info');
+        } catch (e) {
+            this.showToast('삭제 실패: ' + (e.message || e), 'error');
+        }
+    }
+
+    async toggleMenuActive(menuId) {
+        const menu = (this.state.systemMenus || []).find(m => m.id === menuId);
+        if (!menu) return;
+        if (menu.is_system && !menu.is_active) {
+            this.showToast('시스템 메뉴는 비활성화할 수 없습니다.', 'warning'); return;
+        }
+        const newVal = !menu.is_active;
+        try {
+            if (this.useSupabase && this.supabase) {
+                const { error } = await this.supabase.from('system_menus').update({ is_active: newVal }).eq('id', menuId);
+                if (error) throw error;
+            }
+            menu.is_active = newVal;
+            this.renderMenuSettings();
+            this.renderDynamicSidebar();
+            this.showToast(`'${menu.menu_name}' 메뉴가 ${newVal ? '활성화' : '비활성화'}되었습니다.`, 'info');
+        } catch (e) {
+            this.showToast('변경 실패: ' + (e.message || e), 'error');
+        }
+    }
+
+    async reorderMenuSettings(menuId, direction) {
+        const menus = this.state.systemMenus || [];
+        const menu = menus.find(m => m.id === menuId);
+        if (!menu) return;
+
+        // 같은 부모 내에서 정렬
+        const siblings = menus
+            .filter(m => m.parent_id === menu.parent_id)
+            .sort((a, b) => a.sort_order - b.sort_order);
+
+        const idx = siblings.findIndex(m => m.id === menuId);
+        const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (swapIdx < 0 || swapIdx >= siblings.length) return;
+
+        const swapMenu = siblings[swapIdx];
+        const tempOrder = menu.sort_order;
+        menu.sort_order = swapMenu.sort_order;
+        swapMenu.sort_order = tempOrder;
+
+        try {
+            if (this.useSupabase && this.supabase) {
+                await Promise.all([
+                    this.supabase.from('system_menus').update({ sort_order: menu.sort_order }).eq('id', menu.id),
+                    this.supabase.from('system_menus').update({ sort_order: swapMenu.sort_order }).eq('id', swapMenu.id)
+                ]);
+            }
+            this.renderMenuSettings();
+            this.renderDynamicSidebar();
+        } catch (e) {
+            this.showToast('순서 변경 실패: ' + (e.message || e), 'error');
+        }
+    }
+
+    // ── GLOBAL ENTERPRISE MODAL MANAGER SYSTEM ──────────────────────────────
+    initGlobalModalManager() {
+        if (document.body.dataset.modalManagerBound === 'true') {
+            return;
+        }
+
+        document.body.dataset.modalManagerBound = 'true';
+
+        document.addEventListener('click', event => {
+            const closeButton = event.target.closest('[data-modal-close], .close-btn');
+
+            if (closeButton) {
+                const modal = closeButton.closest('.app-modal-overlay, .modal-overlay, .modal');
+
+                if (modal) {
+                    this.closeModal(modal);
+                }
+
+                return;
+            }
+
+            // Backdrop click to close
+            const overlay = event.target.closest('.app-modal-overlay, .modal-overlay, .modal');
+
+            if (
+                overlay &&
+                event.target === overlay &&
+                overlay.dataset.backdropClose !== 'false'
+            ) {
+                this.closeModal(overlay);
+            }
+        });
+
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') return;
+
+            const stack = this.modalStack || [];
+            const topModal = stack[stack.length - 1];
+
+            if (
+                topModal &&
+                topModal.dataset.escapeClose !== 'false'
+            ) {
+                this.closeModal(topModal);
+            }
+        });
+
+        this.normalizeAllModals();
+    }
+
+    normalizeAllModals() {
+        const modalElements = document.querySelectorAll('[data-app-modal], .modal-overlay, .modal');
+
+        modalElements.forEach(modal => {
+            if (modal.parentElement && modal.parentElement !== document.body) {
+                document.body.appendChild(modal);
+            }
+
+            modal.classList.add('app-modal-overlay');
+            modal.setAttribute('aria-hidden', 'true');
+            modal.setAttribute('data-app-modal', 'true');
+
+            const dialog = modal.querySelector(
+                '.app-modal-dialog, .modal-dialog, .modal-content, .modal-card, :scope > div'
+            );
+
+            if (dialog) {
+                dialog.classList.add('app-modal-dialog');
+                const size = modal.dataset.modalSize || 'md';
+                if (!dialog.classList.contains(`app-modal-${size}`)) {
+                    dialog.classList.add(`app-modal-${size}`);
+                }
+            }
+        });
+    }
+
+    openModal(modalOrId, options = {}) {
+        const modal = typeof modalOrId === 'string'
+            ? document.getElementById(modalOrId)
+            : modalOrId;
+
+        if (!modal) {
+            console.error('[ModalManager] Modal not found:', modalOrId);
+            this.showToast?.('화면을 열 수 없습니다.', 'error');
+            return false;
+        }
+
+        // Direct child of body to prevent sidebar / view / table clipping & transform bugs
+        if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+
+        // Clear inline position styles
+        Object.assign(modal.style, {
+            position: '',
+            top: '',
+            left: '',
+            right: '',
+            bottom: '',
+            width: '',
+            height: '',
+            margin: '',
+            transform: ''
+        });
+
+        modal.classList.add('app-modal-overlay', 'is-open', 'active');
+        modal.setAttribute('aria-hidden', 'false');
+
+        if (!modal.hasAttribute('role')) {
+            modal.setAttribute('role', 'dialog');
+        }
+
+        if (!modal.hasAttribute('aria-modal')) {
+            modal.setAttribute('aria-modal', 'true');
+        }
+
+        document.body.classList.add('app-modal-open');
+
+        // Manage modal stack
+        this.modalStack = this.modalStack || [];
+
+        if (!this.modalStack.includes(modal)) {
+            this.modalStack.push(modal);
+        }
+
+        // Apply modal size
+        const dialog = modal.querySelector(
+            '.app-modal-dialog, .modal-dialog, .modal-content, .modal-card'
+        );
+
+        if (dialog) {
+            dialog.classList.add('app-modal-dialog');
+
+            dialog.classList.remove(
+                'app-modal-sm',
+                'app-modal-md',
+                'app-modal-lg',
+                'app-modal-xl',
+                'app-modal-full'
+            );
+
+            const size = options.size || modal.dataset.modalSize || 'md';
+            dialog.classList.add(`app-modal-${size}`);
+        }
+
+        // Focus first interactive element
+        requestAnimationFrame(() => {
+            const focusTarget = modal.querySelector(
+                '[autofocus], button:not([disabled]), input:not([disabled]), ' +
+                'select:not([disabled]), textarea:not([disabled]), ' +
+                '[tabindex]:not([tabindex="-1"])'
+            );
+
+            focusTarget?.focus();
+        });
+
+        if (window.lucide) lucide.createIcons();
+        return true;
+    }
+
+    closeModal(modalOrId) {
+        const modal = typeof modalOrId === 'string'
+            ? document.getElementById(modalOrId)
+            : modalOrId;
+
+        if (!modal) return false;
+
+        modal.classList.remove('is-open', 'active');
+        modal.setAttribute('aria-hidden', 'true');
+        modal.style.display = 'none';
+
+        this.modalStack = (this.modalStack || [])
+            .filter(item => item !== modal);
+
+        if (this.modalStack.length === 0) {
+            document.body.classList.remove('app-modal-open');
+        } else {
+            const previousModal =
+                this.modalStack[this.modalStack.length - 1];
+
+            const focusTarget = previousModal?.querySelector(
+                'button:not([disabled]), input:not([disabled]), ' +
+                'select:not([disabled]), textarea:not([disabled])'
+            );
+
+            focusTarget?.focus();
+        }
+
+        return true;
+    }
+
+
+
+
+    // ── PROJECT SOFT DELETE & DUPLICATE AUDIT SYSTEM ─────────────────────────
+    openDeleteProjectModal(projectId) {
+        performance.mark('openDeleteModal_start');
+        if (!projectId) return;
+
+        const role = this.currentUser ? (this.currentUser.role || 'WORKER') : 'WORKER';
+        const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN' || (typeof this.isAdminRole === 'function' && this.isAdminRole(role));
+        if (!isAdmin) {
+            this.showToast?.('프로젝트 삭제 권한이 없습니다. (관리자 전용)', 'error');
+            return;
+        }
+
+        const project = (this.state?.projects || []).find(p => p.id === projectId);
+        if (!project) {
+            this.showToast?.('삭제할 프로젝트를 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        this.deletingProjectId = projectId;
+        const projCode = (project.projectCode || project.code || project.project_code || '').trim();
+        this.deletingProjectCode = projCode || project.id || '';
+
+        const nameEl = document.getElementById('delete-target-project-name');
+        const codeEl = document.getElementById('delete-target-project-code');
+        const inputEl = document.getElementById('delete-project-code-input');
+        const btnConfirm = document.getElementById('btn-confirm-delete-project');
+        const idInput = document.getElementById('delete-target-project-id');
+
+        if (nameEl) nameEl.textContent = project.name || '';
+        if (codeEl) codeEl.textContent = `코드: ${this.deletingProjectCode}`;
+        if (inputEl) {
+            inputEl.value = '';
+            inputEl.placeholder = this.deletingProjectCode;
+            setTimeout(() => inputEl.focus(), 50);
+        }
+        if (idInput) idInput.value = projectId;
+        if (btnConfirm) {
+            btnConfirm.disabled = true;
+            btnConfirm.innerHTML = '최종 삭제';
+        }
+
+        this.openModal('modal-project-delete');
+        performance.mark('openDeleteModal_end');
+        performance.measure('INP: openDeleteProjectModal', 'openDeleteModal_start', 'openDeleteModal_end');
+        const measure = performance.getEntriesByName('INP: openDeleteProjectModal').pop();
+        console.log(`[PERF] openDeleteProjectModal INP: ${measure?.duration.toFixed(2)}ms`);
+    }
+
+    validateDeleteProjectCodeInput(val) {
+        const btnConfirm = document.getElementById('btn-confirm-delete-project');
+        if (!btnConfirm) return;
+        const targetCode = (this.deletingProjectCode || '').trim();
+        const inputCode = (val || '').trim();
+        btnConfirm.disabled = (targetCode.toLowerCase() !== inputCode.toLowerCase());
+    }
+
+    async confirmDeleteProject() {
+        const btnConfirm = document.getElementById('btn-confirm-delete-project');
+        if (btnConfirm && btnConfirm.disabled) return;
+
+        const projectId = this.deletingProjectId || document.getElementById('delete-target-project-id')?.value;
+        if (!projectId) return;
+
+        if (btnConfirm) {
+            btnConfirm.disabled = true;
+            btnConfirm.innerHTML = '삭제 중...';
+        }
+
+        try {
+            this._isConfirmedDelete = true;
+            await this.deleteProject(projectId);
+        } catch (err) {
+            console.error('[confirmDeleteProject] error:', err);
+            this.showToast?.('프로젝트 삭제 중 오류가 발생했습니다.', 'error');
+        } finally {
+            this._isConfirmedDelete = false;
+            if (btnConfirm) {
+                btnConfirm.innerHTML = '최종 삭제';
+            }
+            this.closeModal('modal-project-delete');
+        }
+    }
+
+    async deleteProject(projectId) {
+        console.log('[deleteProject]', projectId);
+
+        // Safety Mechanism: If deleteProject is triggered directly without modal confirmation, open the safety modal first.
+        if (!this._isConfirmedDelete && this.deletingProjectId !== projectId) {
+            this.openDeleteProjectModal(projectId);
+            return false;
+        }
+
+        const role = this.currentUser ? (this.currentUser.role || 'WORKER') : 'WORKER';
+        const isAdmin = role === 'SYS_ADMIN' || role === 'EXEC_ADMIN' || (typeof this.isAdminRole === 'function' && this.isAdminRole(role));
+        if (!isAdmin) {
+            this.showToast('프로젝트 삭제 권한이 없습니다. (관리자 전용)', 'error');
+            return false;
+        }
+
+        const index = (this.state.projects || []).findIndex(p => String(p.id) === String(projectId));
+        if (index === -1) {
+            this.showToast('삭제할 프로젝트가 존재하지 않습니다.', 'warning');
+            return false;
+        }
+
+        const project = this.state.projects[index];
+        const deletedAt = new Date().toISOString();
+        const deletedBy = this.currentUser && this.isUuid(this.currentUser.id) ? this.currentUser.id : null;
+
+        if (this.useSupabase) {
+            try {
+                const { data, error } = await this.supabase
+                    .from('projects')
+                    .update({
+                        deleted_at: deletedAt,
+                        deleted_by: deletedBy
+                    })
+                    .eq('id', projectId)
+                    .select('id, deleted_at, deleted_by');
+
+                if (error) {
+                    console.error('[Supabase Delete Error]', error);
+                    this.showToast(`DB 삭제 오류: ${error.message || error.details}`, 'error');
+                    return false;
+                }
+
+                if (!data || data.length === 0) {
+                    console.error('[Supabase Delete No Rows Changed]', projectId);
+                    this.showToast('삭제 대상 프로젝트가 DB에서 변경되지 않았거나 RLS 권한이 없습니다.', 'error');
+                    return false;
+                }
+            } catch (err) {
+                console.error('[deleteProject Supabase Exception]', err);
+                this.showToast(`프로젝트 삭제 처리 실패: ${err.message || '서버 오류'}`, 'error');
+                return false;
+            }
+        }
+
+        // Update Local State ONLY on DB Success
+        this.state.projects = (this.state.projects || []).filter(p => String(p.id) !== String(projectId));
+
+        this.addActivityLog(projectId, project.name, 'project', `프로젝트 보관/삭제 처리: "${project.name}" (${project.projectCode})`);
+
+        if (!this.demoMode) {
+            try {
+                localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+            } catch (e) {
+                console.warn('[LocalStorage Save Error]', e);
+            }
+        }
+
+        this.showToast(`프로젝트 "${project.name}"이(가) 삭제되었습니다.`, 'success');
+
+        const isDetailView = this.activeView === 'project-detail' ||
+                             String(this.activeProjectId) === String(projectId) ||
+                             (window.location.hash && window.location.hash.includes('project-detail'));
+
+        if (isDetailView) {
+            this.activeProjectId = null;
+            window.location.hash = 'projects';
+            await this.switchView('projects');
+        } else {
+            this.renderProjects();
+        }
+
+        return true;
+    }
+
+    auditDuplicateProjects() {
+        console.log('=== AUDITING DUPLICATE PROJECTS ===');
+        const projects = (this.state.projects || []).filter(p => !p.deletedAt && !p.deleted_at);
+        const duplicatesGrouped = {};
+
+        projects.forEach(p => {
+            const key = `${p.projectCode || p.code || ''}_${p.name || ''}_${p.manager || ''}`;
+            if (!duplicatesGrouped[key]) duplicatesGrouped[key] = [];
+            duplicatesGrouped[key].push(p);
+        });
+
+        const duplicateCandidates = [];
+        Object.entries(duplicatesGrouped).forEach(([key, group]) => {
+            if (group.length > 1) {
+                group.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+                const targetToKeep = group[0];
+                const candidatesToDelete = group.slice(1);
+
+                duplicateCandidates.push({
+                    key,
+                    targetToKeepId: targetToKeep.id,
+                    candidatesToDelete: candidatesToDelete.map(c => c.id),
+                    groupSize: group.length,
+                    details: group.map(g => ({ id: g.id, code: g.projectCode, name: g.name, manager: g.manager }))
+                });
+            }
+        });
+
+        console.log('[Duplicate Project Audit Results]', duplicateCandidates);
+        return duplicateCandidates;
+    }
+
+    // ── Bidding Kanban Pipeline Board V2 Controller ──────────────────────────
+
+    getBiddingProjectYear(p) {
+        if (!p) return new Date().getFullYear();
+        
+        // Priority 1: Proposal / Bid Due Date
+        const dueDate = p.proposalDueDate || p.bidDueDate || p.dueDate || p.submissionDate;
+        if (dueDate && dueDate.length >= 4) {
+            const y = parseInt(dueDate.substring(0, 4), 10);
+            if (!isNaN(y) && y > 2000 && y < 2100) return y;
+        }
+
+        // Priority 2: Announcement / Notice Date
+        const noticeDate = p.announcementDate || p.g2bDate || p.noticeDate || p.notice_date;
+        if (noticeDate && noticeDate.length >= 4) {
+            const y = parseInt(noticeDate.substring(0, 4), 10);
+            if (!isNaN(y) && y > 2000 && y < 2100) return y;
+        }
+
+        // Priority 3: Bidding Registration Date
+        const regDate = p.createdAt || p.regDate || p.registrationDate;
+        if (regDate && regDate.length >= 4) {
+            const y = parseInt(regDate.substring(0, 4), 10);
+            if (!isNaN(y) && y > 2000 && y < 2100) return y;
+        }
+
+        // Priority 4: Project Start Date
+        if (p.startDate && p.startDate.length >= 4) {
+            const y = parseInt(p.startDate.substring(0, 4), 10);
+            if (!isNaN(y) && y > 2000 && y < 2100) return y;
+        }
+
+        return new Date().getFullYear();
+    }
+
+    getBiddingYears() {
+        const years = new Set();
+        const currentYear = new Date().getFullYear();
+        years.add(currentYear);
+
+        (this.state.projects || []).forEach(p => {
+            if (this.isBiddingProject(p)) {
+                const y = this.getBiddingProjectYear(p);
+                years.add(y);
+            }
+        });
+
+        return Array.from(years).sort((a, b) => b - a);
+    }
+
+    isBiddingProject(p) {
+        if (!p) return false;
+        const st = (p.status || '').toLowerCase();
+        const bSt = (p.bidding_status || p.biddingStatus || p.bid_status || '').toLowerCase();
+        return st === 'bidding' || bSt !== '' || p.isBidding === true || p.stage === 'bidding';
+    }
+
+    getBiddingProjectsByYear(year) {
+        const targetYear = parseInt(year || this.activeBiddingYear || new Date().getFullYear(), 10);
+        return (this.state.projects || []).filter(p => {
+            if (!this.isBiddingProject(p)) return false;
+            return this.getBiddingProjectYear(p) === targetYear;
+        });
+    }
+
+    getFilteredBiddingProjects(year) {
+        let projects = (this.state.projects || []).filter(p => this.isBiddingProject(p));
+
+        const fs = this.biddingFilterState;
+        if (!fs) {
+            const targetYear = parseInt(year || this.activeBiddingYear || new Date().getFullYear(), 10);
+            return projects.filter(p => this.getBiddingProjectYear(p) === targetYear);
+        }
+
+        return projects.filter(p => {
+            // 1. 기준연도
+            if (fs.year && fs.year !== 'all') {
+                const targetYear = parseInt(fs.year, 10);
+                if (this.getBiddingProjectYear(p) !== targetYear) return false;
+            }
+
+            // 2. 입찰 진행상태
+            if (fs.status && fs.status !== 'all') {
+                const pStatus = (p.bidding_status || p.biddingStatus || p.bid_stage || '').toLowerCase();
+                if (pStatus !== fs.status.toLowerCase()) return false;
+            }
+
+            // 3. 발주기관
+            if (fs.customer) {
+                const cust = (p.customer || p.client || p.ordering_agency || p.customer_name || '').toLowerCase();
+                if (!cust.includes(fs.customer.toLowerCase())) return false;
+            }
+
+            // 4. 담당 PM
+            if (fs.manager) {
+                const mgr = (p.manager || p.pm || p.project_manager || p.manager_name || '').toLowerCase();
+                if (!mgr.includes(fs.manager.toLowerCase())) return false;
+            }
+
+            // 5. 제안 마감일 범위
+            const rawDueDate = p.proposalDueDate || p.bidDueDate || p.dueDate || p.endDate || p.proposal_due_date || '';
+            const pDueDate = rawDueDate ? rawDueDate.substring(0, 10) : '';
+            if (fs.minDate && pDueDate && pDueDate < fs.minDate) return false;
+            if (fs.maxDate && pDueDate && pDueDate > fs.maxDate) return false;
+
+            // 6. 예정금액 범위 (단위: 만원)
+            const amt = Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || p.totalContractAmount || p.budget || 0);
+            if (fs.minAmount !== '' && !isNaN(Number(fs.minAmount))) {
+                const minWon = Number(fs.minAmount) * 10000;
+                if (amt < minWon) return false;
+            }
+            if (fs.maxAmount !== '' && !isNaN(Number(fs.maxAmount))) {
+                const maxWon = Number(fs.maxAmount) * 10000;
+                if (amt > maxWon) return false;
+            }
+
+            // 7. 수주/실패 여부
+            if (fs.outcome && fs.outcome !== 'all') {
+                const st = (p.bidding_status || p.biddingStatus || p.status || '').toLowerCase();
+                if (fs.outcome === 'won' && st !== 'won') return false;
+                if (fs.outcome === 'lost' && st !== 'lost') return false;
+                if (fs.outcome === 'in_progress' && (st === 'won' || st === 'lost')) return false;
+            }
+
+            return true;
+        });
+    }
+
+    populateBiddingYearSelect() {
+        const select = document.getElementById('bidding-year-select');
+        if (!select) return;
+
+        const availableYears = this.getBiddingYears();
+        if (!this.activeBiddingYear) {
+            this.activeBiddingYear = new Date().getFullYear();
+        }
+
+        let html = '';
+        availableYears.forEach(y => {
+            const isSelected = y === this.activeBiddingYear;
+            html += `<option value="${y}" ${isSelected ? 'selected' : ''}>${y}년</option>`;
+        });
+
+        select.innerHTML = html;
+    }
+
+    switchBiddingYear(yearStr) {
+        const year = parseInt(yearStr, 10);
+        if (isNaN(year)) return;
+        this.activeBiddingYear = year;
+        this.renderBiddingPipeline();
+    }
+
+    switchBiddingViewMode(mode) {
+        this.biddingViewMode = mode;
+        const btnBoard = document.getElementById('btn-bidding-view-board');
+        const btnList = document.getElementById('btn-bidding-view-list');
+
+        if (btnBoard) {
+            btnBoard.classList.toggle('active', mode === 'board');
+            btnBoard.setAttribute('aria-selected', mode === 'board' ? 'true' : 'false');
+        }
+        if (btnList) {
+            btnList.classList.toggle('active', mode === 'list');
+            btnList.setAttribute('aria-selected', mode === 'list' ? 'true' : 'false');
+        }
+
+        this.renderBiddingPipeline();
+    }
+
+    switchBiddingResultTab(tabName) {
+        this.activeBiddingResultTab = tabName;
+
+        ['active', 'won', 'lost'].forEach(t => {
+            const btn = document.getElementById(`btn-bidding-tab-${t}`);
+            if (btn) {
+                const isActive = t === tabName;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            }
+        });
+
+        this.renderBiddingPipeline();
+    }
+
+    renderBiddingSplitPane() { this.renderBiddingPipeline(); }
+
+    renderBiddingPipeline() {
+        const splitContainer = document.getElementById('bidding-split-container');
+        if (!splitContainer) return;
+
+        if (!this.activeBiddingYear) this.activeBiddingYear = new Date().getFullYear();
+        if (!this.biddingViewMode) this.biddingViewMode = 'board';
+        if (!this.activeBiddingResultTab) this.activeBiddingResultTab = 'active';
+
+        this.populateBiddingYearSelect();
+        const yearBiddingProjects = this.getFilteredBiddingProjects(this.activeBiddingYear);
+
+        // Render 5 KPI cards
+        this.renderBiddingKpisV2(yearBiddingProjects);
+
+        const boardContainer = document.getElementById('bidding-kanban-board-container');
+        const listContainer = document.getElementById('bidding-list-view-container');
+
+        if (this.biddingViewMode === 'board') {
+            if (boardContainer) boardContainer.style.display = 'flex';
+            if (listContainer) listContainer.style.display = 'none';
+            this.renderBiddingKanbanBoardV2(yearBiddingProjects);
+        } else {
+            if (boardContainer) boardContainer.style.display = 'none';
+            if (listContainer) listContainer.style.display = 'block';
+            this.renderBiddingListViewV2(yearBiddingProjects);
+        }
+
+        if (typeof lucide !== 'undefined') { try { lucide.createIcons(); } catch(e){} }
+    }
+
+    renderBiddingKpisV2(biddingProjects) {
+        const container = document.getElementById('bidding-kpi-cards-v2');
+        if (!container) return;
+
+        const totalCount = biddingProjects.length;
+
+        // 2. 총 예상 수주금액 (당사 예상 계약금액 기준)
+        let totalCompanyExpectedAmount = 0;
+        let activeCount = 0;
+        let proposalProgressCount = 0;
+        let dueThisWeekCount = 0;
+
+        const today = new Date();
+        const nextWeek = new Date();
+        nextWeek.setDate(today.getDate() + 7);
+        const todayStr = today.toISOString().substring(0, 10);
+        const nextWeekStr = nextWeek.toISOString().substring(0, 10);
+
+        biddingProjects.forEach(p => {
+            const normSt = this.normalizeBiddingStatus(p);
+            const expAmt = Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0);
+
+            if (!isNaN(expAmt) && expAmt > 0) {
+                totalCompanyExpectedAmount += expAmt;
+            }
+
+            // 3. 진행 중 입찰 (수주 won, 실패 lost 제외)
+            if (normSt !== 'won' && normSt !== 'lost' && p.status !== 'Completed') {
+                activeCount++;
+            }
+
+            // 4. 제안 진행 중: 참여검토(review), 제안준비(proposal_prep), 제안서 작성(proposal_writing) 건수 합계
+            if (normSt === 'review' || normSt === 'proposal_prep' || normSt === 'proposal_writing') {
+                proposalProgressCount++;
+            }
+
+            // 5. 금주 마감
+            const dueDate = p.proposalDueDate || p.bidDueDate || p.dueDate || p.endDate;
+            if (dueDate && normSt !== 'won' && normSt !== 'lost') {
+                if (dueDate >= todayStr && dueDate <= nextWeekStr) {
+                    dueThisWeekCount++;
+                }
+            }
+        });
+
+        const formattedAmt = this.formatAmountShort(totalCompanyExpectedAmount);
+
+        container.innerHTML = `
+            <div class="bidding-kpi-card-v2">
+                <div class="kpi-header"><span>전체 입찰</span><i data-lucide="file-text" style="width:14px; height:14px; color:var(--primary);"></i></div>
+                <div class="kpi-value">${totalCount}건</div>
+                <div class="kpi-subtext">선택 연도 입찰 프로젝트</div>
+            </div>
+            <div class="bidding-kpi-card-v2">
+                <div class="kpi-header"><span>총 예상 수주금액</span><i data-lucide="coins" style="width:14px; height:14px; color:var(--success);"></i></div>
+                <div class="kpi-value" style="color:var(--success);">${formattedAmt}</div>
+                <div class="kpi-subtext">당사 예상 계약금액 합계</div>
+            </div>
+            <div class="bidding-kpi-card-v2">
+                <div class="kpi-header"><span>진행 중 입찰</span><i data-lucide="play-circle" style="width:14px; height:14px; color:var(--info);"></i></div>
+                <div class="kpi-value" style="color:var(--info);">${activeCount}건</div>
+                <div class="kpi-subtext">수주 / 실패 제외 진행 건</div>
+            </div>
+            <div class="bidding-kpi-card-v2">
+                <div class="kpi-header"><span>제안 진행 중</span><i data-lucide="edit-3" style="width:14px; height:14px; color:var(--warning);"></i></div>
+                <div class="kpi-value" style="color:var(--warning);">${proposalProgressCount}건</div>
+                <div class="kpi-subtext">검토 / 준비 / 작성 단계</div>
+            </div>
+            <div class="bidding-kpi-card-v2">
+                <div class="kpi-header"><span>금주 마감</span><i data-lucide="clock" style="width:14px; height:14px; color:var(--danger);"></i></div>
+                <div class="kpi-value" style="color:var(--danger);">${dueThisWeekCount}건</div>
+                <div class="kpi-subtext">7일 이내 제안 마감 예정</div>
+            </div>
+        `;
+    }
+
+        toggleBiddingCardMenu(event, projectId) {
+        if (event) event.stopPropagation();
+        const btn = event ? (event.currentTarget || (event.target ? event.target.closest('.bidding-card-menu-btn, .card-more-button') : null)) : null;
+
+        // Close all existing open menus
+        document.querySelectorAll('.bidding-card-menu-popup').forEach(el => {
+            if (el.id !== `bidding-card-menu-${projectId}`) {
+                el.style.display = 'none';
+                const card = el.closest('.bidding-kanban-card-v2');
+                if (card) card.classList.remove('menu-open');
+                const prevBtn = el.previousElementSibling;
+                if (prevBtn) prevBtn.classList.remove('active');
+            }
+        });
+
+        const popup = document.getElementById(`bidding-card-menu-${projectId}`);
+        if (popup) {
+            const isHidden = popup.style.display === 'none' || popup.style.display === '';
+            popup.style.display = isHidden ? 'block' : 'none';
+            const card = popup.closest('.bidding-kanban-card-v2');
+            const targetBtn = btn || popup.previousElementSibling;
+
+            if (card) {
+                if (isHidden) {
+                    card.classList.add('menu-open');
+                } else {
+                    card.classList.remove('menu-open');
+                }
+            }
+
+            if (targetBtn) {
+                if (isHidden) {
+                    targetBtn.classList.add('active');
+                } else {
+                    targetBtn.classList.remove('active');
+                }
+            }
+
+            if (isHidden && typeof lucide !== 'undefined') {
+                try { lucide.createIcons(); } catch(e){}
+            }
+        }
+    }
+
+    closeAllBiddingCardMenus() {
+        document.querySelectorAll('.bidding-card-menu-popup').forEach(el => {
+            el.style.display = 'none';
+            const card = el.closest('.bidding-kanban-card-v2');
+            if (card) card.classList.remove('menu-open');
+        });
+    }
+
+    renderBiddingKanbanBoardV2(biddingProjects) {
+        const container = document.getElementById('bidding-kanban-board-container');
+        if (!container) return;
+
+        const resultTab = this.activeBiddingResultTab || 'active';
+
+        // 1. Won Results View
+        if (resultTab === 'won') {
+            const wonProjects = biddingProjects.filter(p => (p.bidding_status || '').toLowerCase() === 'won');
+            this.renderBiddingOutcomeList(container, wonProjects, 'won');
+            return;
+        }
+
+        // 2. Lost Results View
+        if (resultTab === 'lost') {
+            const lostProjects = biddingProjects.filter(p => (p.bidding_status || '').toLowerCase() === 'lost');
+            this.renderBiddingOutcomeList(container, lostProjects, 'lost');
+            return;
+        }
+
+        // Close menus when clicking outside
+        document.removeEventListener('click', this._closeBiddingMenusHandler);
+        this._closeBiddingMenusHandler = () => this.closeAllBiddingCardMenus();
+        document.addEventListener('click', this._closeBiddingMenusHandler);
+
+        // 3. Active 5-Stage Kanban Board
+        const stages = [
+            { key: 'review', title: '참여 검토', badgeColor: '#a855f7', bgGlow: 'rgba(168, 85, 247, 0.08)', progress: 20, defaultProb: 30 },
+            { key: 'proposal_prep', title: '제안 준비', badgeColor: '#3b82f6', bgGlow: 'rgba(59, 130, 246, 0.08)', progress: 40, defaultProb: 50 },
+            { key: 'proposal_writing', title: '제안서 작성', badgeColor: '#f59e0b', bgGlow: 'rgba(245, 158, 11, 0.08)', progress: 60, defaultProb: 70 },
+            { key: 'proposal_submitted', title: '제출 완료', badgeColor: '#06b6d4', bgGlow: 'rgba(6, 182, 212, 0.08)', progress: 80, defaultProb: 85 },
+            { key: 'waiting_result', title: '결과 대기', badgeColor: '#10b981', bgGlow: 'rgba(16, 185, 129, 0.08)', progress: 100, defaultProb: 90 }
+        ];
+
+        let boardHtml = '';
+
+        stages.forEach((stage, index) => {
+            const stageProjects = biddingProjects.filter(p => {
+                const bSt = this.normalizeBiddingStatus(p);
+                return bSt === stage.key;
+            });
+
+            const count = stageProjects.length;
+            const stageSumAmt = stageProjects.reduce((sum, p) => sum + Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0), 0);
+            const sumStr = this.formatAmountShort(stageSumAmt);
+
+            // Add arrow pipeline indicator between columns
+            if (index > 0) {
+                boardHtml += `
+                    <div class="kanban-pipeline-arrow">
+                        <i data-lucide="chevron-right" style="width:20px; height:20px;"></i>
+                    </div>
+                `;
+            }
+
+            boardHtml += `
+                <div class="bidding-kanban-col-v2" data-stage="${stage.key}"
+                     ondragover="app.handleBiddingDragOver(event)"
+                     ondragleave="app.handleBiddingDragLeave(event)"
+                     ondrop="app.handleBiddingDrop(event, '${stage.key}')">
+                    <div class="bidding-kanban-col-header" style="border-top: 4px solid ${stage.badgeColor}; background: linear-gradient(180deg, ${stage.bgGlow} 0%, var(--bg-card) 100%);">
+                        <div class="col-title-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+                            <span class="col-title" style="font-weight: 800; font-size: 15px; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                                <span style="width: 10px; height: 10px; border-radius: 50%; background: ${stage.badgeColor}; display: inline-block;"></span>
+                                ${stage.title}
+                            </span>
+                            <span class="col-count-badge" style="background:${stage.badgeColor}; color:#fff; font-size:12px; font-weight:800; padding:2px 8px; border-radius:12px;">${count}건</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted); margin-bottom:8px;">
+                            <span>예상합계 <strong style="color:var(--text-main); font-weight:700;">${sumStr}</strong></span>
+                            <span style="font-weight:700; color:${stage.badgeColor};">진률 ${stage.progress}%</span>
+                        </div>
+                        <div style="width:100%; height:4px; background:rgba(255,255,255,0.12); border-radius:2px; overflow:hidden;">
+                            <div style="width:${stage.progress}%; height:100%; background:${stage.badgeColor}; transition:width 0.3s ease;"></div>
+                        </div>
+                    </div>
+                    <div class="bidding-kanban-cards-wrapper">
+            `;
+
+            if (count === 0) {
+                boardHtml += `<div style="font-size:12px; color:var(--text-muted); text-align:center; padding:40px 0; font-style:italic;">해당 단계 입찰 없음</div>`;
+            } else {
+                stageProjects.forEach(p => {
+                    boardHtml += this.renderBiddingKanbanCardHtml(p, stage);
+                });
+            }
+
+            boardHtml += `
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = boardHtml;
+    }
+
+        normalizeBiddingProject(project) {
+        if (!project) return {};
+
+        const projectName =
+            project.name ||
+            project.projectName ||
+            project.businessName ||
+            project.bidName ||
+            project.announcementName ||
+            project.project_name ||
+            project.title ||
+            '사업명 미등록';
+
+        const clientName =
+            project.client ||
+            project.clientName ||
+            project.orderingAgency ||
+            project.agency ||
+            project.demandOrganization ||
+            project.customer ||
+            project.customerName ||
+            project.dminsttNm ||
+            project.orderInsttNm ||
+            '발주기관 미등록';
+
+        const expAmt = Number(
+            project.companyExpectedAmount ||
+            project.company_contract_amount ||
+            project.companyContractAmount ||
+            project.budget ||
+            project.totalContractAmount ||
+            project.contract_amount ||
+            0
+        );
+
+        const pmName = project.manager || project.pmName || project.pm_name || 'PM 미배정';
+        const dueDate = project.proposalDueDate || project.bidDueDate || project.dueDate || project.endDate || '-';
+        const winProb = project.winProbability || project.win_rate || project.winRate || 50;
+
+        return {
+            ...project,
+            normalizedProjectName: projectName,
+            normalizedClientName: clientName,
+            normalizedExpectedAmount: expAmt,
+            normalizedPmName: pmName,
+            normalizedDueDate: dueDate,
+            normalizedWinProbability: winProb
+        };
+    }
+
+        renderBiddingKanbanCardHtml(p, stageInfo = {}) {
+        // 1. 공통 프로젝트 정규화 (Normalization)
+        const norm = this.normalizeBiddingProject(p);
+        const dueDate = norm.normalizedDueDate;
+        let dDayBadge = '';
+
+        if (dueDate !== '-') {
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const due = new Date(dueDate);
+            due.setHours(0,0,0,0);
+            const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+
+            if (diffDays < 0) {
+                dDayBadge = `<span class="d-day-badge d-day-closed" style="font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px;">마감지연 (${Math.abs(diffDays)}일)</span>`;
+            } else if (diffDays === 0) {
+                dDayBadge = `<span class="d-day-badge d-day-urgent" style="font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px; background:#ef4444; color:#fff;">D-Day</span>`;
+            } else if (diffDays <= 3) {
+                dDayBadge = `<span class="d-day-badge d-day-urgent" style="font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px; background:#ef4444; color:#fff;">D-${diffDays}</span>`;
+            } else if (diffDays <= 7) {
+                dDayBadge = `<span class="d-day-badge d-day-warning" style="font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px; background:#f59e0b; color:#fff;">D-${diffDays}</span>`;
+            } else {
+                dDayBadge = `<span class="d-day-badge d-day-normal" style="font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px;">D-${diffDays}</span>`;
+            }
+        } else {
+            dDayBadge = `<span class="d-day-badge d-day-normal" style="font-size:12px; font-weight:700; padding:4px 8px;">기한 미정</span>`;
+        }
+
+        const nameStr = norm.normalizedProjectName;
+        const custName = norm.normalizedClientName;
+        const expAmt = norm.normalizedExpectedAmount;
+        const expAmtStr = expAmt > 0 ? this.formatAmountShort(expAmt) : '금액 미입력';
+        const pmName = norm.normalizedPmName;
+        const winProb = norm.normalizedWinProbability || stageInfo.defaultProb || 50;
+        const stageColor = stageInfo.badgeColor || '#3b82f6';
+
+        // 2. 단일 공통 카드 템플릿 반환 (순서: D-Day -> 사업명(2줄) -> 발주기관 -> 예상금액 -> 수주확률 -> PM/마감일)
+        return `
+            <div class="bidding-kanban-card-v2" draggable="true" ondragstart="app.handleBiddingDragStart(event, '${p.id}')" onclick="app.openBiddingDetailModal('${p.id}')">
+                <!-- 1. D-Day 및 우상단 케밥 메뉴 -->
+                <div class="card-top-row" style="display:flex; justify-content:space-between; align-items:center;">
+                    ${dDayBadge}
+                    <div class="bidding-card-menu-dropdown" onclick="event.stopPropagation();">
+                        <button type="button" class="bidding-card-menu-btn card-more-button" onclick="app.toggleBiddingCardMenu(event, '${p.id}')" title="메뉴 열기">
+                            <i data-lucide="more-vertical" style="width:16px; height:16px;"></i>
+                        </button>
+                        <div id="bidding-card-menu-${p.id}" class="bidding-card-menu-popup" style="display:none;">
+                            <div onclick="app.closeAllBiddingCardMenus(); app.openEditProjectModal('${p.id}');" class="menu-item">
+                                <i data-lucide="edit-3"></i> 입찰 정보 수정
+                            </div>
+                            <div onclick="app.closeAllBiddingCardMenus(); app.openBiddingWonModal('${p.id}');" class="menu-item">
+                                <i data-lucide="trophy"></i> 수주 성공 처리
+                            </div>
+                            <div onclick="app.closeAllBiddingCardMenus(); app.openBiddingLostModal('${p.id}');" class="menu-item danger">
+                                <i data-lucide="x-circle"></i> 실패/실주 처리
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 사업명 (2줄 Clamped) -->
+                <div class="card-title bidding-card-title" title="${this.escapeHtml(nameStr)}">
+                    ${this.escapeHtml(nameStr)}
+                </div>
+
+                <!-- 3. 발주기관 -->
+                <div class="card-customer" title="${this.escapeHtml(custName)}">
+                    <i data-lucide="building" style="width: 13px; height: 13px; color: var(--primary); flex-shrink: 0;"></i>
+                    <span>${this.escapeHtml(custName)}</span>
+                </div>
+                
+                <!-- 4. 당사 예상금액 -->
+                <div class="card-amount-row" style="display:flex; justify-content:space-between; align-items:center; font-size:12.5px; margin-top:2px;">
+                    <span style="color:var(--text-muted);">당사 예상금액</span>
+                    <strong class="card-amount-val" style="font-size:14.5px; color:var(--primary); font-weight:700;">${expAmtStr}</strong>
+                </div>
+
+                <!-- 5. 수주확률 Progress Bar -->
+                <div class="card-win-prob-row" style="margin-top:4px; padding-top:4px; border-top:1px dashed var(--bg-card-border);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-bottom:3px;">
+                        <span style="color:var(--text-muted);">수주확률</span>
+                        <strong style="color:${stageColor}; font-weight:700;">${winProb}%</strong>
+                    </div>
+                    <div style="width:100%; height:6px; background:var(--bg-hover-item); border-radius:3px; overflow:hidden;">
+                        <div style="width:${winProb}%; height:100%; background:linear-gradient(90deg, ${stageColor}, #10b981); border-radius:3px; transition:width 0.3s ease;"></div>
+                    </div>
+                </div>
+
+                <!-- 6. 담당자 / 마감일 -->
+                <div class="card-bottom-row" style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-muted); margin-top:2px;">
+                    <div class="card-pm-info" style="display:flex; align-items:center; gap:4px;">
+                        <i data-lucide="user" style="width:12px; height:12px;"></i>
+                        <span>${this.escapeHtml(pmName)}</span>
+                    </div>
+                    <span>${dueDate !== '-' ? '마감: ' + dueDate : ''}</span>
+                </div>
+            </div>
+        `;
+    }
+
+    renderBiddingOutcomeList(container, projects, type) {
+        if (!projects || projects.length === 0) {
+            const msg = type === 'won' ? '수주 성공한 입찰 프로젝트가 없습니다.' : '실패/실주 처리된 입찰 프로젝트가 없습니다.';
+            container.innerHTML = `<div class="portfolio-stat-empty" style="width:100%; text-align:center; padding:40px 0;"><i data-lucide="info" style="width:20px; height:20px;"></i><div>${msg}</div></div>`;
+            return;
+        }
+
+        const reasonLabels = {
+            'PRICE': '가격 경쟁력',
+            'TECH_SCORE': '기술평가 점수',
+            'PROPOSAL_QUALITY': '제안서 품질',
+            'REQ_MISMATCH': '요구사항 미충족',
+            'RESOURCE': '인력/레퍼런스 부족',
+            'COMPETITOR': '경쟁사 우위',
+            'INTERNAL_WITHDRAW': '내부 참여 철회',
+            'CANCELLED': '유찰/사업 취소',
+            'OTHER': '기타'
+        };
+
+        let html = `
+            <div style="width:100%; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:10px; padding:16px; box-shadow:var(--shadow-sm);">
+                <h3 style="font-size:14px; font-weight:800; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                    <i data-lucide="${type === 'won' ? 'trophy' : 'x-circle'}" style="color:${type === 'won' ? 'var(--success)' : 'var(--danger)'}; width:16px; height:16px;"></i>
+                    <span>${type === 'won' ? '수주 성공 프로젝트 목록' : '실패 / 실주 분석 목록'} (${projects.length}건)</span>
+                </h3>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>프로젝트명</th>
+                                <th>발주기관</th>
+                                <th>당사 예상금액</th>
+                                <th>담당 PM</th>
+                                ${type === 'won' ? '<th>연결 수행 프로젝트 ID</th><th>전환일시</th>' : '<th>실패 원인 코드</th><th>상세 실패 사유</th>'}
+                                <th class="text-center">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        projects.forEach(p => {
+            const expAmt = Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0);
+            const amtStr = expAmt > 0 ? this.formatAmountShort(expAmt) : '미입력';
+
+            if (type === 'won') {
+                const linkedId = p.linkedExecutionProjectId || '-';
+                const convertedAt = (p.convertedAt || p.updatedAt || '-').substring(0, 10);
+                html += `
+                    <tr>
+                        <td style="font-weight:700;">${this.escapeHtml(p.name)}</td>
+                        <td>${this.escapeHtml(p.customer || '-')}</td>
+                        <td style="font-weight:700; color:var(--success);">${amtStr}</td>
+                        <td>${this.escapeHtml(p.manager || '-')}</td>
+                        <td><span class="badge badge-success">${linkedId}</span></td>
+                        <td>${convertedAt}</td>
+                        <td class="text-center">
+                            <button class="btn btn-xs btn-outline" onclick="app.rollbackBiddingStage('${p.id}')">원복 (관리자)</button>
+                            <button class="btn btn-xs btn-outline-danger" onclick="app.openDeleteProjectModal('${p.id}')" style="margin-left:4px;">삭제 (관리자)</button>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                const codeLabel = reasonLabels[p.failureReasonCode] || p.failureReasonCode || '기타';
+                const detailText = p.failureReasonDetail || '-';
+                html += `
+                    <tr>
+                        <td style="font-weight:700;">${this.escapeHtml(p.name)}</td>
+                        <td>${this.escapeHtml(p.customer || '-')}</td>
+                        <td style="font-weight:700; color:var(--text-muted);">${amtStr}</td>
+                        <td>${this.escapeHtml(p.manager || '-')}</td>
+                        <td><span class="badge badge-error">${codeLabel}</span></td>
+                        <td style="font-size:11px; color:var(--text-muted); max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${this.escapeHtml(detailText)}">${this.escapeHtml(detailText)}</td>
+                        <td class="text-center">
+                            <button class="btn btn-xs btn-outline" onclick="app.rollbackBiddingStage('${p.id}')">원복 (관리자)</button>
+                            <button class="btn btn-xs btn-outline-danger" onclick="app.openDeleteProjectModal('${p.id}')" style="margin-left:4px;">삭제 (관리자)</button>
+                        </td>
+                    </tr>
+                `;
+            }
+        });
+
+        html += `</tbody></table></div></div>`;
+        container.innerHTML = html;
+    }
+
+    renderBiddingListViewV2(biddingProjects) {
+        const container = document.getElementById('bidding-list-view-container');
+        if (!container) return;
+
+        if (!biddingProjects || biddingProjects.length === 0) {
+            container.innerHTML = `<div class="portfolio-stat-empty"><i data-lucide="info" style="width:20px; height:20px;"></i><div>등록된 입찰 프로젝트가 없습니다.</div></div>`;
+            return;
+        }
+
+        const stageLabels = {
+            'review': '참여 검토',
+            'proposal_prep': '제안 준비',
+            'proposal_writing': '제안서 작성',
+            'proposal_preparing': '제안서 작성',
+            'proposal_submitted': '제출 완료',
+            'waiting_result': '결과 대기',
+            'won': '수주 성공',
+            'lost': '실패/실주'
+        };
+
+        let html = `
+            <div style="background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:10px; padding:16px; box-shadow:var(--shadow-sm);">
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>프로젝트명</th>
+                                <th>발주기관</th>
+                                <th class="text-center">입찰 단계</th>
+                                <th>당사 예상금액</th>
+                                <th>제안 마감일</th>
+                                <th>담당 PM</th>
+                                <th class="text-center">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        biddingProjects.forEach(p => {
+            const normSt = this.normalizeBiddingStatus(p);
+            const stageText = stageLabels[normSt] || normSt;
+            const expAmt = Number(p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0);
+            const amtStr = expAmt > 0 ? this.formatAmountShort(expAmt) : '미입력';
+            const dueDate = p.proposalDueDate || p.bidDueDate || p.dueDate || p.endDate || '-';
+
+            html += `
+                <tr>
+                    <td style="font-weight:700; cursor:pointer;" onclick="app.openBiddingDetailModal('${p.id}')">${this.escapeHtml(p.name)}</td>
+                    <td>${this.escapeHtml(p.customer || '-')}</td>
+                    <td class="text-center">
+                        <select class="form-control" style="font-size:11px; padding:2px 6px; width:auto;" onchange="app.updateBiddingStageDirect('${p.id}', this.value)">
+                            <option value="review" ${normSt === 'review' ? 'selected' : ''}>참여 검토</option>
+                            <option value="proposal_prep" ${normSt === 'proposal_prep' ? 'selected' : ''}>제안 준비</option>
+                            <option value="proposal_writing" ${normSt === 'proposal_writing' ? 'selected' : ''}>제안서 작성</option>
+                            <option value="proposal_submitted" ${normSt === 'proposal_submitted' ? 'selected' : ''}>제출 완료</option>
+                            <option value="waiting_result" ${normSt === 'waiting_result' ? 'selected' : ''}>결과 대기</option>
+                            <option value="won" ${normSt === 'won' ? 'selected' : ''}>수주 성공</option>
+                            <option value="lost" ${normSt === 'lost' ? 'selected' : ''}>실패/실주</option>
+                        </select>
+                    </td>
+                    <td style="font-weight:700; color:var(--primary);">${amtStr}</td>
+                    <td>${dueDate}</td>
+                    <td>${this.escapeHtml(p.manager || '-')}</td>
+                    <td class="text-center">
+                        <button class="btn btn-xs btn-outline-success" onclick="app.openBiddingWonModal('${p.id}')">수주</button>
+                        <button class="btn btn-xs btn-outline-danger" onclick="app.openBiddingLostModal('${p.id}')">실패</button>
+                        <button class="btn btn-xs btn-outline-secondary" onclick="app.openDeleteProjectModal('${p.id}')" style="margin-left:2px;" title="삭제">삭제</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table></div></div>`;
+        container.innerHTML = html;
+    }
+
+    // Drag & Drop event handlers
+    handleBiddingDragStart(ev, projectId) {
+        ev.dataTransfer.setData('text/plain', projectId);
+        ev.dataTransfer.effectAllowed = 'move';
+    }
+
+    handleBiddingDragOver(ev) {
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = 'move';
+        ev.currentTarget.classList.add('drag-over');
+    }
+
+    handleBiddingDragLeave(ev) {
+        ev.currentTarget.classList.remove('drag-over');
+    }
+
+    async handleBiddingDrop(ev, newStage) {
+        ev.preventDefault();
+        ev.currentTarget.classList.remove('drag-over');
+        const projectId = ev.dataTransfer.getData('text/plain');
+        if (!projectId) return;
+
+        const proj = this.state.projects.find(p => p.id === projectId);
+        if (!proj) return;
+
+        const oldStage = (proj.bidding_status || 'review').toLowerCase();
+        if (oldStage === 'won' || oldStage === 'lost') {
+            const role = this.currentUser?.role;
+            if (role !== 'SYS_ADMIN') {
+                this.showToast('수주 또는 실패 처리된 입찰 프로젝트는 일반 사용자가 원복할 수 없습니다. (SYS_ADMIN 전용)', 'error');
+                return;
+            }
+        }
+
+        if (newStage === 'won') {
+            this.openBiddingWonModal(projectId);
+            return;
+        }
+        if (newStage === 'lost') {
+            this.openBiddingLostModal(projectId);
+            return;
+        }
+
+        await this.updateBiddingStageDirect(projectId, newStage);
+    }
+
+    async updateBiddingStageDirect(projectId, newStage) {
+        const proj = this.state.projects.find(p => p.id === projectId);
+        if (!proj) return;
+
+        const oldStage = proj.bidding_status || 'review';
+
+        // Only update bidding_status (do not mutate general project status)
+        proj.bidding_status = newStage;
+        proj.biddingStatus = newStage;
+
+        if (!proj.biddingHistory) proj.biddingHistory = [];
+        proj.biddingHistory.push({
+            fromStage: oldStage,
+            toStage: newStage,
+            changedAt: new Date().toISOString(),
+            changedBy: this.currentUser?.name || '사용자'
+        });
+
+        await this.saveState();
+        this.showToast(`입찰 단계가 '${this.getBiddingStageLabel(newStage)}'(으)로 변경되었습니다.`);
+        this.renderBiddingPipeline();
+    }
+
+    getBiddingStageLabel(stageKey) {
+        const labels = {
+            'review': '참여 검토',
+            'proposal_prep': '제안 준비',
+            'proposal_writing': '제안서 작성',
+            'proposal_submitted': '제출 완료',
+            'waiting_result': '결과 대기',
+            'won': '수주 성공',
+            'lost': '실패/실주'
+        };
+        return labels[stageKey] || stageKey;
+    }
+
+    // Modal Won Conversion Logic (Duplicate Creation Prevention)
+    openBiddingWonModal(projectId) {
+        const proj = this.state.projects.find(p => p.id === projectId);
+        if (!proj) return;
+
+        if (proj.linkedExecutionProjectId) {
+            this.showToast(`이미 수행 프로젝트(ID: ${proj.linkedExecutionProjectId})가 생성된 입찰 건입니다. 중복 생성이 차단됩니다.`, 'error');
+            return;
+        }
+
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.value = val || '';
+        };
+
+        setVal('bidding-won-project-id', proj.id);
+        setVal('bidding-won-new-name', proj.name);
+        setVal('bidding-won-customer', proj.customer || proj.customerName || '');
+        setVal('bidding-won-manager', proj.manager || proj.pmName || '');
+        setVal('bidding-won-total-amount', proj.totalContractAmount || proj.budget || proj.companyExpectedAmount || '');
+        setVal('bidding-won-company-amount', proj.companyExpectedAmount || proj.company_contract_amount || proj.companyContractAmount || '');
+        setVal('bidding-won-share-rate', proj.companyShareRate || 100);
+
+        const todayStr = new Date().toISOString().substring(0, 10);
+        setVal('bidding-won-start-date', proj.startDate || todayStr);
+        setVal('bidding-won-end-date', proj.endDate || '');
+
+        const modal = document.getElementById('modal-bidding-won-convert');
+        if (modal) modal.style.display = 'flex';
+    }
+
+    closeBiddingWonModal() {
+        const modal = document.getElementById('modal-bidding-won-convert');
+        if (modal) modal.style.display = 'none';
+        this.isSubmittingWon = false;
+    }
+
+    async confirmBiddingWon() {
+        if (this.isSubmittingWon) return;
+
+        const projId = document.getElementById('bidding-won-project-id')?.value;
+        const bProj = this.state.projects.find(p => p.id === projId);
+        if (!bProj) return;
+
+        if (bProj.linkedExecutionProjectId) {
+            this.showToast(`이미 연결된 수행 프로젝트(ID: ${bProj.linkedExecutionProjectId})가 존재합니다. 중복 생성이 금지됩니다.`, 'error');
+            return;
+        }
+
+        const newName = document.getElementById('bidding-won-new-name')?.value.trim();
+        const companyAmt = Number(document.getElementById('bidding-won-company-amount')?.value);
+        const startDate = document.getElementById('bidding-won-start-date')?.value;
+        const endDate = document.getElementById('bidding-won-end-date')?.value;
+
+        if (!newName || isNaN(companyAmt) || companyAmt <= 0 || !startDate || !endDate) {
+            alert('필수 입력 항목(프로젝트명, 당사 계약금액, 수행 시작/종료일)을 정확히 입력해주세요.');
+            return;
+        }
+
+        this.isSubmittingWon = true;
+        const btnConfirm = document.getElementById('btn-confirm-bidding-won');
+        if (btnConfirm) btnConfirm.disabled = true;
+
+        try {
+            const newExecutionProjectId = 'PRJ-' + Date.now();
+            const nowIso = new Date().toISOString();
+
+            // 1. Create NEW execution project
+            const newExecutionProject = {
+                id: newExecutionProjectId,
+                code: newExecutionProjectId,
+                name: newName,
+                status: 'In Progress',
+                businessType: bProj.businessType || '공공 SI',
+                customer: document.getElementById('bidding-won-customer')?.value.trim() || bProj.customer || '발주기관',
+                manager: document.getElementById('bidding-won-manager')?.value.trim() || bProj.manager || 'PM',
+                totalContractAmount: Number(document.getElementById('bidding-won-total-amount')?.value || companyAmt),
+                companyContractAmount: companyAmt,
+                companyShareRate: Number(document.getElementById('bidding-won-share-rate')?.value || 100),
+                startDate: startDate,
+                endDate: endDate,
+                progress: 0,
+                contractMemo: document.getElementById('bidding-won-memo')?.value.trim() || '',
+                biddingOriginId: bProj.id,
+                createdAt: nowIso,
+                updatedAt: nowIso
+            };
+
+            this.state.projects.push(newExecutionProject);
+
+            // 2. Update bidding project status atomically
+            const oldStage = bProj.bidding_status || 'waiting_result';
+            bProj.bidding_status = 'won';
+            bProj.linkedExecutionProjectId = newExecutionProjectId;
+            bProj.convertedAt = nowIso;
+
+            if (!bProj.biddingHistory) bProj.biddingHistory = [];
+            bProj.biddingHistory.push({
+                fromStage: oldStage,
+                toStage: 'won',
+                changedAt: nowIso,
+                changedBy: this.currentUser?.name || '사용자',
+                linkedExecutionProjectId: newExecutionProjectId
+            });
+
+            await this.saveState();
+
+            this.closeBiddingWonModal();
+            this.showToast(`수주 성공 처리 완료! 수행 프로젝트 [${newName}]가 신규 생성되었습니다.`);
+            this.renderBiddingPipeline();
+        } catch (e) {
+            console.error('Bidding won confirmation failed:', e);
+            this.showToast('수주 성공 처리 중 오류가 발생했습니다.', 'error');
+        } finally {
+            this.isSubmittingWon = false;
+            if (btnConfirm) btnConfirm.disabled = false;
+        }
+    }
+
+    // Modal Lost Reason Logic
+    openBiddingLostModal(projectId) {
+        const proj = this.state.projects.find(p => p.id === projectId);
+        if (!proj) return;
+
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.value = val || '';
+        };
+
+        setVal('bidding-lost-project-id', proj.id);
+        setVal('bidding-lost-reason-code', '');
+        setVal('bidding-lost-detail-text', '');
+        this.handleBiddingLostReasonChange('');
+
+        const modal = document.getElementById('modal-bidding-lost-reason');
+        if (modal) modal.style.display = 'flex';
+    }
+
+    closeBiddingLostModal() {
+        const modal = document.getElementById('modal-bidding-lost-reason');
+        if (modal) modal.style.display = 'none';
+    }
+
+    handleBiddingLostReasonChange(code) {
+        const reqSpan = document.getElementById('bidding-lost-detail-required');
+        if (reqSpan) reqSpan.style.display = code === 'OTHER' ? 'inline' : 'none';
+    }
+
+    async confirmBiddingLost() {
+        const projId = document.getElementById('bidding-lost-project-id')?.value;
+        const bProj = this.state.projects.find(p => p.id === projId);
+        if (!bProj) return;
+
+        const reasonCode = document.getElementById('bidding-lost-reason-code')?.value;
+        const detailText = document.getElementById('bidding-lost-detail-text')?.value.trim();
+
+        if (!reasonCode) {
+            alert('표준 실패 원인 코드를 선택해주세요.');
+            return;
+        }
+
+        if (reasonCode === 'OTHER' && !detailText) {
+            alert("'기타' 원인 선택 시 상세 실패 사유 입력이 필수입니다.");
+            return;
+        }
+
+        const nowIso = new Date().toISOString();
+        const oldStage = bProj.bidding_status || 'review';
+
+        bProj.bidding_status = 'lost';
+        bProj.failureReasonCode = reasonCode;
+        bProj.failureReasonDetail = detailText;
+        bProj.lostAt = nowIso;
+
+        if (!bProj.biddingHistory) bProj.biddingHistory = [];
+        bProj.biddingHistory.push({
+            fromStage: oldStage,
+            toStage: 'lost',
+            changedAt: nowIso,
+            changedBy: this.currentUser?.name || '사용자',
+            failureReasonCode: reasonCode,
+            failureReasonDetail: detailText
+        });
+
+        await this.saveState();
+
+        this.closeBiddingLostModal();
+        this.showToast('입찰 실패/실주 처리가 완료되고 이력이 저장되었습니다.');
+        this.renderBiddingPipeline();
+    }
+
+    async rollbackBiddingStage(projectId) {
+        const role = this.currentUser?.role;
+        if (role !== 'SYS_ADMIN') {
+            this.showToast('수주 또는 실패 처리된 입찰 건의 원복은 SYS_ADMIN 권한만 가능합니다.', 'error');
+            return;
+        }
+
+        const bProj = this.state.projects.find(p => p.id === projectId);
+        if (!bProj) return;
+
+        if (bProj.linkedExecutionProjectId) {
+            if (!confirm(`이미 연결된 수행 프로젝트(ID: ${bProj.linkedExecutionProjectId})가 존재합니다.
+상태를 원복해도 신규 생성된 수행 프로젝트는 삭제되지 않습니다.
+원복을 진행하시겠습니까?`)) {
+                return;
+            }
+        }
+
+        bProj.bidding_status = 'waiting_result';
+        if (!bProj.biddingHistory) bProj.biddingHistory = [];
+        bProj.biddingHistory.push({
+            fromStage: 'won/lost',
+            toStage: 'waiting_result',
+            changedAt: new Date().toISOString(),
+            changedBy: this.currentUser?.name || 'SYS_ADMIN',
+            actionNote: 'SYS_ADMIN stage rollback'
+        });
+
+        await this.saveState();
+        this.showToast('입찰 단계가 결과 대기로 원복되었습니다.');
+        this.renderBiddingPipeline();
+    }
+
+    openBiddingFilterModal() {
+        let modalEl = document.getElementById('modal-bidding-filter');
+        if (!modalEl) {
+            console.error('[openBiddingFilterModal] #modal-bidding-filter not found in DOM');
+            return;
+        }
+
+        // 2. 모달을 document.body 직속 자식으로 이동
+        if (modalEl.parentElement !== document.body) {
+            document.body.appendChild(modalEl);
+        }
+
+        // 3. display:none, hidden, aria-hidden 제거
+        modalEl.removeAttribute('hidden');
+        modalEl.removeAttribute('aria-hidden');
+
+        // 4. 모달 오버레이 스타일 강제 적용
+        modalEl.style.cssText = 'position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; background: rgba(2, 6, 23, 0.72);';
+
+        // 5. 모달 본체 스타일 강제 적용
+        const dialogEl = modalEl.querySelector('.modal-dialog');
+        if (dialogEl) {
+            dialogEl.style.cssText = 'background: #111827; border: 1px solid #334155; color: #F8FAFC; width: min(680px, calc(100vw - 40px)); max-height: calc(100vh - 80px); overflow-y: auto; border-radius: 14px; box-shadow: 0 24px 64px rgba(0,0,0,0.55);';
+        }
+
+        // Populate year select options dynamically
+        const yearSelect = document.getElementById('bidding-filter-year');
+        if (yearSelect) {
+            const availableYears = typeof this.getBiddingYears === 'function' ? this.getBiddingYears() : [2026, 2025, 2024];
+            let yearHtml = '<option value="all">전체 연도</option>';
+            availableYears.forEach(y => {
+                const isSelected = this.biddingFilterState?.year === String(y) || (!this.biddingFilterState && y === this.activeBiddingYear);
+                yearHtml += `<option value="${y}" ${isSelected ? 'selected' : ''}>${y}년</option>`;
+            });
+            yearSelect.innerHTML = yearHtml;
+        }
+
+        // Restore current filter values into form fields if set
+        const fs = this.biddingFilterState;
+        if (fs) {
+            if (document.getElementById('bidding-filter-year') && fs.year) document.getElementById('bidding-filter-year').value = fs.year;
+            if (document.getElementById('bidding-filter-status')) document.getElementById('bidding-filter-status').value = fs.status || 'all';
+            if (document.getElementById('bidding-filter-customer')) document.getElementById('bidding-filter-customer').value = fs.customer || '';
+            if (document.getElementById('bidding-filter-manager')) document.getElementById('bidding-filter-manager').value = fs.manager || '';
+            if (document.getElementById('bidding-filter-min-date')) document.getElementById('bidding-filter-min-date').value = fs.minDate || '';
+            if (document.getElementById('bidding-filter-max-date')) document.getElementById('bidding-filter-max-date').value = fs.maxDate || '';
+            if (document.getElementById('bidding-filter-min-amount')) document.getElementById('bidding-filter-min-amount').value = fs.minAmount || '';
+            if (document.getElementById('bidding-filter-max-amount')) document.getElementById('bidding-filter-max-amount').value = fs.maxAmount || '';
+            if (document.getElementById('bidding-filter-outcome')) document.getElementById('bidding-filter-outcome').value = fs.outcome || 'all';
+        }
+
+        // 1 & 전역 Modal Manager 사용: openModal()로 열기
+        this.openModal('modal-bidding-filter');
+
+        // 9. 토스트는 모달이 실제로 열린 뒤에만 표시할 것
+        this.showToast('입찰 상세 필터 모달이 열렸습니다.', 'info');
+    }
+
+    applyBiddingFilter() {
+        this.biddingFilterState = {
+            year: document.getElementById('bidding-filter-year')?.value || 'all',
+            status: document.getElementById('bidding-filter-status')?.value || 'all',
+            customer: (document.getElementById('bidding-filter-customer')?.value || '').trim(),
+            manager: (document.getElementById('bidding-filter-manager')?.value || '').trim(),
+            minDate: document.getElementById('bidding-filter-min-date')?.value || '',
+            maxDate: document.getElementById('bidding-filter-max-date')?.value || '',
+            minAmount: document.getElementById('bidding-filter-min-amount')?.value || '',
+            maxAmount: document.getElementById('bidding-filter-max-amount')?.value || '',
+            outcome: document.getElementById('bidding-filter-outcome')?.value || 'all'
+        };
+
+        this.closeModal('modal-bidding-filter');
+        this.renderBiddingPipeline();
+        this.showToast('입찰 상세 필터 조건이 적용되었습니다.', 'success');
+    }
+
+    resetBiddingFilterForm() {
+        if (document.getElementById('bidding-filter-year')) document.getElementById('bidding-filter-year').value = 'all';
+        if (document.getElementById('bidding-filter-status')) document.getElementById('bidding-filter-status').value = 'all';
+        if (document.getElementById('bidding-filter-customer')) document.getElementById('bidding-filter-customer').value = '';
+        if (document.getElementById('bidding-filter-manager')) document.getElementById('bidding-filter-manager').value = '';
+        if (document.getElementById('bidding-filter-min-date')) document.getElementById('bidding-filter-min-date').value = '';
+        if (document.getElementById('bidding-filter-max-date')) document.getElementById('bidding-filter-max-date').value = '';
+        if (document.getElementById('bidding-filter-min-amount')) document.getElementById('bidding-filter-min-amount').value = '';
+        if (document.getElementById('bidding-filter-max-amount')) document.getElementById('bidding-filter-max-amount').value = '';
+        if (document.getElementById('bidding-filter-outcome')) document.getElementById('bidding-filter-outcome').value = 'all';
+
+        this.biddingFilterState = null;
+        this.renderBiddingPipeline();
+        this.showToast('입찰 필터 조건이 초기화되었습니다.', 'info');
+    }
+
+    exportBiddingCsv() {
+        const year = this.activeBiddingYear || new Date().getFullYear();
+        const projs = this.getBiddingProjectsByYear(year);
+
+        if (!projs || projs.length === 0) {
+            this.showToast('내보낼 입찰 데이터가 없습니다.', 'error');
+            return;
+        }
+
+        let csv = '﻿';
+        csv += '프로젝트코드,프로젝트명,발주기관,입찰단계,당사예상계약금액(원),전체계약금액(원),지분율(%),제안마감일,담당PM,실패원인코드,실패상세사유,연결수행프로젝트ID\n';
+
+
+        projs.forEach(p => {
+            const expAmt = p.companyExpectedAmount || p.company_contract_amount || p.companyContractAmount || 0;
+            const totAmt = p.totalContractAmount || p.budget || 0;
+            const share = p.companyShareRate || 100;
+            const dueDate = p.proposalDueDate || p.bidDueDate || p.dueDate || p.endDate || '';
+
+            csv += `"${p.code || p.id}","${p.name}","${p.customer || ''}","${p.bidding_status || ''}",${expAmt},${totAmt},${share},"${dueDate}","${p.manager || ''}","${p.failureReasonCode || ''}","${(p.failureReasonDetail || '').replace(/"/g, '""')}","${p.linkedExecutionProjectId || ''}"
+`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute('download', `AetherPMO_입찰Pipeline_${year}년.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        this.showToast(`${year}년 입찰 Pipeline 데이터 CSV 다운로드가 시작되었습니다.`);
+    }
 }
 
-// Instantiate Global Application
-const app = new AetherPMO();
+
+/* ============================================================================
+   AETHER PMO CORE APPLICATION BOOTSTRAPPER & GLOBAL INSTANTIATION
+   ============================================================================ */
+
+// Class alias for compatibility (supports both AetherPMO and AetherPMOApp)
+const AetherPMOApp = AetherPMO;
+if (typeof window !== 'undefined') {
+    window.AetherPMOApp = AetherPMOApp;
+    window.AetherPMO = AetherPMO;
+}
+
+let app;
+
+if (typeof window !== 'undefined' && window.app) {
+    app = window.app;
+    console.log('[BOOT] Existing window.app instance re-used');
+} else {
+    try {
+        console.log('[BOOT] STEP1 - Instantiating AetherPMOApp');
+        app = new AetherPMOApp();
+
+        if (typeof window !== 'undefined') {
+            window.app = app;
+            console.log('[BOOT] STEP2 - Global window.app assigned successfully:', typeof window.app);
+        }
+    } catch (err) {
+        console.error('[BOOT] App instantiation error:', err);
+    }
+}
+
+if (typeof document !== 'undefined') {
+    const initApp = async () => {
+        try {
+            console.log('[BOOT] STEP3 - Running app.init()');
+            if (app && typeof app.init === 'function') {
+                await app.init();
+            }
+            console.log('[BOOT] STEP4 - Application boot complete!');
+        } catch (error) {
+            console.error('[BOOT] App initialization failed:', error);
+        }
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+        initApp();
+    }
+}
+
+// Ensure Global Window App Instance Bindings & Event Listeners
+if (typeof window !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', () => {
+        const btnResExport = document.getElementById('btn-export-resources');
+        if (btnResExport) {
+            btnResExport.addEventListener('click', () => {
+                if (window.app && typeof window.app.exportResourcesToExcel === 'function') {
+                    window.app.exportResourcesToExcel();
+                }
+            });
+        }
+        const btnSalExport = document.getElementById('btn-export-salaries');
+        if (btnSalExport) {
+            btnSalExport.addEventListener('click', () => {
+                if (window.app && typeof window.app.exportSalaryHistoryToExcel === 'function') {
+                    window.app.exportSalaryHistoryToExcel();
+                }
+            });
+        }
+    });
+}
+
+
+if (typeof window !== 'undefined' && window.app) {
+    window.app.openSalaryTemplateModal = window.app.openSalaryTemplateModal.bind(window.app);
+    window.app.openSalaryTemplateEditModal = window.app.openSalaryTemplateEditModal.bind(window.app);
+    window.app.closeSalaryTemplateModal = window.app.closeSalaryTemplateModal.bind(window.app);
+    window.app.saveSalaryTemplate = window.app.saveSalaryTemplate.bind(window.app);
+    window.app.deleteSalaryTemplate = window.app.deleteSalaryTemplate.bind(window.app);
+    window.app.cloneSalaryTemplate = window.app.cloneSalaryTemplate.bind(window.app);
+    window.app.previewSalaryTemplate = window.app.previewSalaryTemplate.bind(window.app);
+    window.app.setDefaultSalaryTemplate = window.app.setDefaultSalaryTemplate.bind(window.app);
+    window.app.toggleSalaryTemplateActive = window.app.toggleSalaryTemplateActive.bind(window.app);
+}
+
+
+if (typeof window !== 'undefined' && window.app) {
+    window.app.initTableResizers = window.app.initTableResizers ? window.app.initTableResizers.bind(window.app) : function(cid) { if (window.app && typeof window.app.initTableResizers === 'function') window.app.initTableResizers(cid); };
+    window.app.duplicateSalaryTemplate = window.app.duplicateSalaryTemplate ? window.app.duplicateSalaryTemplate.bind(window.app) : function(id) { if (window.app && typeof window.app.duplicateSalaryTemplate === 'function') window.app.duplicateSalaryTemplate(id); };
+}
+
+
+if (typeof window !== 'undefined' && window.app) {
+    window.app.openModal = window.app.openModal ? window.app.openModal.bind(window.app) : function(id) { if (window.app && typeof window.app.openModal === 'function') window.app.openModal(id); };
+    window.app.closeModal = window.app.closeModal ? window.app.closeModal.bind(window.app) : function(id) { if (window.app && typeof window.app.closeModal === 'function') window.app.closeModal(id); };
+}
+
+// ── MENU MANAGEMENT GLOBAL BINDINGS ──────────────────────────────────────────
+if (typeof window !== 'undefined' && window.app) {
+    ['loadSystemMenus','renderDynamicSidebar','renderMenuSettings',
+     'openMenuFormModal','closeMenuFormModal','saveMenuForm',
+     'deleteSystemMenu','toggleMenuActive','reorderMenuSettings'].forEach(fn => {
+        if (typeof window.app[fn] === 'function') {
+            window.app[fn] = window.app[fn].bind(window.app);
+        }
+    });
+
+
+    }

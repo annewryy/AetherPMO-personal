@@ -20,9 +20,10 @@ if (!serviceRoleKey) {
     process.exit(1);
 }
 
-const supabaseUrl = process.env.SUPABASE_URL || 'https://xzlvxqzyxgtbfkkpqzxd.supabase.co';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://rhbyfzimvpkkuljmnfct.supabase.co';
 
 const demoAccounts = [
+    { email: 'admin.personal@aetherpmo.com', password: 'admin1234', name: '안유경 (개인 관리자)', role: 'SYS_ADMIN' },
     { email: 'admin@aetherpmo.com', password: 'admin1234', name: '시스템 관리자', role: 'SYS_ADMIN' },
     { email: 'manager@aetherpmo.com', password: 'manager1234', name: '총괄 관리자', role: 'EXEC_ADMIN' },
     { email: 'pm@aetherpmo.com', password: 'pm1234', name: '안유경 PM', role: 'PM' },
