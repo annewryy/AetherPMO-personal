@@ -103,6 +103,20 @@ async function runBoardPostsTestSuite(appInstance) {
         const hideExp = localStorage.getItem('hide_board_popup_test-popup-id-123');
         logTest("Popup Dismissed Today Set Expiry", !!hideExp && parseInt(hideExp, 10) > Date.now());
 
+        // 7. Status Field Inquiry Category Scoping Test
+        console.log("Test 7: Status Field Inquiry Category Scoping Test");
+        const inquiryPost = { id: 'test-inquiry-1', category: 'inquiry', title: '문의 테스트', content: '내용', status: 'pending' };
+        const noticePost = { id: 'test-notice-1', category: 'notice', title: '공지 테스트', content: '내용' };
+        appInstance.state.boardPosts.push(inquiryPost, noticePost);
+
+        appInstance.openBoardPostDetailModal('test-notice-1');
+        const statusRowNotice = document.getElementById('det-board-status-row');
+        logTest("Status Row Hidden for Notice Post", statusRowNotice && statusRowNotice.style.display === 'none');
+
+        appInstance.openBoardPostDetailModal('test-inquiry-1');
+        const statusRowInquiry = document.getElementById('det-board-status-row');
+        logTest("Status Row Visible for Inquiry Post", statusRowInquiry && statusRowInquiry.style.display === '');
+
         console.log(`=== TEST SUITE COMPLETE: ${results.passed} PASSED, ${results.failed} FAILED ===`);
         return results;
     } catch (e) {

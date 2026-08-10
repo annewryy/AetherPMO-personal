@@ -23361,13 +23361,23 @@ renderTodayTasksRoleBased(todayStr) {
         if (!tableBody) return;
 
         const categoryFilter = this.activeBoardCategoryFilter || 'all';
-        const statusFilter = document.getElementById('board-filter-status')?.value || 'all';
+        const statusFilterEl = document.getElementById('board-filter-status');
+        const statusFilterGroup = statusFilterEl ? statusFilterEl.closest('.filter-group') : null;
+        if (statusFilterGroup) {
+            if (categoryFilter === 'notice' || categoryFilter === 'resource') {
+                statusFilterGroup.style.display = 'none';
+            } else {
+                statusFilterGroup.style.display = '';
+            }
+        }
+
+        const statusFilter = statusFilterEl?.value || 'all';
         const keyword = this.safeText(document.getElementById('board-search-input')?.value).toLowerCase().trim();
 
-        // Filter posts locally for keyword and status filter
+        // Filter posts locally for keyword and status filter (status filter applies only to inquiry category)
         const filteredPosts = (this.state.boardPosts || []).filter(post => {
             if (categoryFilter !== 'all' && post.category !== categoryFilter) return false;
-            if (statusFilter !== 'all' && post.status !== statusFilter) return false;
+            if (statusFilter !== 'all' && post.category === 'inquiry' && post.status !== statusFilter) return false;
             if (keyword) {
                 const titleMatch = (post.title || '').toLowerCase().includes(keyword);
                 const contentMatch = (post.content || '').toLowerCase().includes(keyword);
@@ -23409,8 +23419,10 @@ renderTodayTasksRoleBased(todayStr) {
             else if (post.category === 'inquiry') catClass = 'badge-warning';
             else if (post.category === 'resource') catClass = 'badge-success';
 
+            const isInquiry = post.category === 'inquiry';
             const statusLabel = post.status === 'answered' ? '답변완료' : '답변대기';
             const statusBadgeClass = post.status === 'answered' ? 'status-badge status-answered' : 'status-badge status-pending';
+            const statusCellContent = isInquiry ? `<span class="${statusBadgeClass}">${statusLabel}</span>` : `<span style="font-size: 12px; color: var(--text-muted);">-</span>`;
 
             const author = post.authorName || '익명';
             const dateStr = post.createdAt ? new Date(post.createdAt).toLocaleString('ko-KR', {
@@ -23436,7 +23448,7 @@ renderTodayTasksRoleBased(todayStr) {
                 <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); font-size: 13px; color: var(--text-main);">${this.escapeHtml(author)}</td>
                 <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); font-size: 12px; color: var(--text-muted);">${dateStr}</td>
                 <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border);">
-                    <span class="${statusBadgeClass}">${statusLabel}</span>
+                    ${statusCellContent}
                 </td>
                 <td style="text-align: center; padding: 12px; display: flex; align-items: center; justify-content: center; gap: 6px;">
                     ${canManage ? `
@@ -23831,14 +23843,28 @@ renderTodayTasksRoleBased(todayStr) {
             }
         };
 
+        const isInquiry = post.category === 'inquiry';
         const statusLabel = post.status === 'answered' ? '답변완료' : '답변대기';
         const statusBadgeClass = post.status === 'answered' ? 'status-badge status-answered' : 'status-badge status-pending';
+
+        const statusRow = document.getElementById('det-board-status-row');
+        if (statusRow) {
+            statusRow.style.display = isInquiry ? '' : 'none';
+        }
+        const statusEl = document.getElementById('det-board-status');
+        if (statusEl) {
+            statusEl.innerHTML = isInquiry ? `<span class="${statusBadgeClass}">${statusLabel}</span>` : '-';
+        }
+
+        const contentHeader = document.getElementById('det-board-content-header');
+        if (contentHeader) {
+            contentHeader.textContent = isInquiry ? '문의 내용' : '내용';
+        }
 
         document.getElementById('det-board-category').innerHTML = `<span class="badge badge-blue">${translateCategory(post.category)}</span>`;
         document.getElementById('det-board-title').textContent = post.title;
         document.getElementById('det-board-author').textContent = post.authorName || '익명';
         document.getElementById('det-board-date').textContent = post.createdAt ? new Date(post.createdAt).toLocaleString('ko-KR') : '-';
-        document.getElementById('det-board-status').innerHTML = `<span class="${statusBadgeClass}">${statusLabel}</span>`;
         document.getElementById('det-board-content').textContent = post.content;
 
         // Render replies list
