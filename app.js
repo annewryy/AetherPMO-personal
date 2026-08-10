@@ -9036,16 +9036,9 @@ renderTodayTasksRoleBased(todayStr) {
     openBiddingDetailModal(projectId) {
         console.count('[Bidding Detail Open]');
         console.log('[Bidding Detail Click]', projectId);
-        if (projectId) {
-            this.closeBiddingDetailModal();
-            this.state.projectDetailSourceView = 'projects/bidding';
-            this.activeProjectStageFilter = 'Bidding';
-            this.switchView('project-detail', projectId);
-            return;
-        }
-
         const allBiddingProjects = this.getBiddingProjectsList();
         const project = allBiddingProjects.find(p => (p.id && p.id === projectId) || (p.project_id && p.project_id === projectId)) || (this.state.projects || []).find(p => (p.id && p.id === projectId) || (p.project_id && p.project_id === projectId));
+        console.log('[Bidding Detail Project]', project);
         if (!project) return;
 
         this.activeBiddingDetailProject = project;
@@ -9064,15 +9057,13 @@ renderTodayTasksRoleBased(todayStr) {
     }
 
     async navigateToBiddingProjectDetail(projectId) {
+        if (!projectId) return;
+
         this.closeBiddingDetailModal();
         this.state.projectDetailSourceView = 'projects/bidding';
         this.activeProjectStageFilter = 'Bidding';
-        if (projectId) {
-            await this.switchView('project-detail', projectId);
-        } else {
-            window.location.hash = 'projects/bidding';
-            await this.switchView('projects/bidding');
-        }
+
+        await this.switchView('project-detail', projectId);
     }
 
     closeBiddingDetailModal() {
@@ -9100,7 +9091,7 @@ renderTodayTasksRoleBased(todayStr) {
 
         if (entryContainer) {
             entryContainer.innerHTML = `
-                <button class="btn btn-primary" onclick="app.closeBiddingDetailModal(); app.switchView('project-detail', '${p.id}');" style="display:inline-flex; align-items:center; gap:6px;">
+                <button class="btn btn-primary" onclick="app.navigateToBiddingProjectDetail('${p.id}');" style="display:inline-flex; align-items:center; gap:6px;">
                     <i data-lucide="file-signature" style="width:14px; height:14px;"></i>
                     <span>입찰 준비 페이지로 이동 ➔</span>
                 </button>
@@ -17453,14 +17444,14 @@ renderTodayTasksRoleBased(todayStr) {
         document.querySelectorAll('.detail-tab-btn').forEach(btn => {
             const tab = btn.getAttribute('data-tab');
             if (isBidding) {
-                // 입찰단계 프로젝트: '입찰 준비현황', '제안 Task', 'WBS', '간트', '컨소시엄', 'VRB', '개요' 노출 ('산출물' 탭 제외)
-                if (tab === 'overview' || tab === 'bid-readiness' || tab === 'bidding-tasks' || tab === 'bidding-wbs' || tab === 'bidding-gantt' || tab === 'consortium' || tab === 'vrb') {
+                // 입찰단계 프로젝트: 개요, 입찰 준비현황, 제안 Task, WBS, 간트, 회의록, 컨소시엄, VRB 탭 노출
+                if (tab === 'overview' || tab === 'bid-readiness' || tab === 'bidding-tasks' || tab === 'bidding-wbs' || tab === 'bidding-gantt' || tab === 'meeting-minutes' || tab === 'consortium' || tab === 'vrb') {
                     btn.style.display = 'inline-block';
                 } else {
                     btn.style.display = 'none';
                 }
             } else {
-                // 수행단계 프로젝트: '입찰 준비현황' 대신 '산출물' 탭 및 수행단계 전용 탭(이슈, 리스크, Action Item, 회의록, 공문, 참여인력) 노출
+                // 수행단계 프로젝트: 입찰 전용 탭 숨김, 수행단계 탭(개요, 산출물, 이슈, 리스크, Action Item, 회의록, 공문, 참여인력, 테일러링) 노출
                 if (tab === 'bid-readiness' || tab === 'bidding-tasks' || tab === 'bidding-wbs' || tab === 'bidding-gantt' || tab === 'consortium' || tab === 'vrb' || tab === 'methodology') {
                     btn.style.display = 'none';
                 } else {
