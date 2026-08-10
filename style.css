@@ -12115,3 +12115,58 @@ body.dark-mode .project-delete-modal .btn-confirm-delete:disabled,
     }
 }
 
+/* ============================================================
+   COMMON MODAL FORM INNER STYLING
+   Target Modals: 회의록 등록 (meeting-minutes-form), VRB 정보 수정 (vrb-form), 구성원 추가 (member-form)
+   ============================================================ */
+.modal-form-inner {
+    width: 100%;
+    max-width: 558px;
+    padding-inline: 10px;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+.modal-form-inner input,
+.modal-form-inner select,
+.modal-form-inner textarea {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.modal-form-inner .form-grid {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.modal-form-inner .form-group {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Align Header and Footer left/right baseline to 10px padding for target modals */
+#meeting-minutes-modal .modal-header,
+#meeting-minutes-modal .modal-footer,
+#vrb-modal .modal-header,
+#vrb-modal .modal-footer {
+    padding-left: 10px;
+    padding-right: 10px;
+    box-sizing: border-box;
+}
+
+#project-members-modal .modal-header {
+    padding-left: 10px;
+    padding-right: 10px;
+    box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+    .modal-form-inner {
+        width: 100%;
+        max-width: 100%;
+        padding-inline: 10px;
+    }
+}
+

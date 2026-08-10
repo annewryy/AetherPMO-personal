@@ -4904,7 +4904,7 @@
                 <h2 id="meeting-minutes-modal-title">새 회의록 등록</h2>
                 <button class="modal-close-btn" onclick="app.closeMeetingMinutesModal()">&times;</button>
             </div>
-            <form id="meeting-minutes-form" onsubmit="event.preventDefault(); app.saveMeetingMinutesForm();">
+            <form id="meeting-minutes-form" class="modal-form-inner" onsubmit="event.preventDefault(); app.saveMeetingMinutesForm();">
                 <input type="hidden" id="meeting-minutes-id-field">
                 <div class="form-grid">
                     <div class="form-group span-2">
@@ -5403,7 +5403,7 @@
                 <h2>VRB 정보 수정</h2>
                 <button class="modal-close-btn" onclick="app.closeVrbModal()">&times;</button>
             </div>
-            <form id="vrb-form" onsubmit="event.preventDefault(); app.saveVrbForm();">
+            <form id="vrb-form" class="modal-form-inner" onsubmit="event.preventDefault(); app.saveVrbForm();">
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="vrb-status">진행 상태</label>
@@ -5465,7 +5465,7 @@
                 <!-- Right Pane: Add/Edit Form -->
                 <div style="display: flex; flex-direction: column; max-height: 60vh; min-height: 350px; height: 100%;">
                     <h3 style="margin:0 0 12px 0; font-size:14px; font-weight:700;" id="member-form-title">참여 인력 추가</h3>
-                    <form id="member-form" onsubmit="event.preventDefault(); app.saveMemberForm();" style="display:flex; flex-direction:column; justify-content:space-between; height:100%;">
+                    <form id="member-form" class="modal-form-inner" onsubmit="event.preventDefault(); app.saveMemberForm();" style="display:flex; flex-direction:column; justify-content:space-between; height:100%;">
                         <div style="overflow-y:auto; flex:1; padding-right:5px; margin-bottom:12px;">
                             <input type="hidden" id="member-id">
                             <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 12px;">
