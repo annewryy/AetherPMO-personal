@@ -9036,9 +9036,16 @@ renderTodayTasksRoleBased(todayStr) {
     openBiddingDetailModal(projectId) {
         console.count('[Bidding Detail Open]');
         console.log('[Bidding Detail Click]', projectId);
+        if (projectId) {
+            this.closeBiddingDetailModal();
+            this.state.projectDetailSourceView = 'projects/bidding';
+            this.activeProjectStageFilter = 'Bidding';
+            this.switchView('project-detail', projectId);
+            return;
+        }
+
         const allBiddingProjects = this.getBiddingProjectsList();
         const project = allBiddingProjects.find(p => (p.id && p.id === projectId) || (p.project_id && p.project_id === projectId)) || (this.state.projects || []).find(p => (p.id && p.id === projectId) || (p.project_id && p.project_id === projectId));
-        console.log('[Bidding Detail Project]', project);
         if (!project) return;
 
         this.activeBiddingDetailProject = project;
@@ -9058,11 +9065,13 @@ renderTodayTasksRoleBased(todayStr) {
 
     async navigateToBiddingProjectDetail(projectId) {
         this.closeBiddingDetailModal();
+        this.state.projectDetailSourceView = 'projects/bidding';
         this.activeProjectStageFilter = 'Bidding';
-        window.location.hash = 'projects/bidding';
-        await this.switchView('projects/bidding');
         if (projectId) {
-            this.openBiddingDetailModal(projectId);
+            await this.switchView('project-detail', projectId);
+        } else {
+            window.location.hash = 'projects/bidding';
+            await this.switchView('projects/bidding');
         }
     }
 
@@ -9090,20 +9099,12 @@ renderTodayTasksRoleBased(todayStr) {
         const isWonOrActive = statusKey === 'won' || p.status === 'In Progress';
 
         if (entryContainer) {
-            if (isWonOrActive) {
-                entryContainer.innerHTML = `
-                    <button class="btn btn-primary" onclick="app.closeBiddingDetailModal(); app.switchView('project-detail', '${p.id}');">
-                        <span>프로젝트 상세 화면으로 이동 ➔</span>
-                    </button>
-                `;
-            } else {
-                entryContainer.innerHTML = `
-                    <button class="btn btn-primary" onclick="app.navigateToBiddingProjectDetail('${p.id}');" style="display:inline-flex; align-items:center; gap:6px;">
-                        <i data-lucide="file-signature" style="width:14px; height:14px;"></i>
-                        <span>입찰 준비 페이지로 이동 ➔</span>
-                    </button>
-                `;
-            }
+            entryContainer.innerHTML = `
+                <button class="btn btn-primary" onclick="app.closeBiddingDetailModal(); app.switchView('project-detail', '${p.id}');" style="display:inline-flex; align-items:center; gap:6px;">
+                    <i data-lucide="file-signature" style="width:14px; height:14px;"></i>
+                    <span>입찰 준비 페이지로 이동 ➔</span>
+                </button>
+            `;
             if (typeof lucide !== 'undefined') {
                 try { lucide.createIcons(); } catch(e){}
             }
