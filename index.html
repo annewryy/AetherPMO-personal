@@ -4997,55 +4997,55 @@
 
     <!-- 14.2. BOARD POST CREATION & EDITION DIALOG -->
     <div class="modal-overlay" id="board-form-modal" data-app-modal data-modal-size="lg">
-        <div class="modal-card">
+        <div class="modal-card wide-modal" style="max-width: 860px; width: 100%;">
             <div class="modal-header">
                 <h2 id="board-modal-title">게시글 작성</h2>
                 <button class="modal-close-btn" onclick="app.closeBoardFormModal()">&times;</button>
             </div>
             <form id="board-post-form" onsubmit="event.preventDefault(); app.saveBoardPostForm();">
                 <input type="hidden" id="board-post-id-field">
-                <div class="form-grid">
-                    <div class="form-group span-2">
-                        <label for="board-post-category">게시판 분류 <span class="required">*</span></label>
-                        <select id="board-post-category" required style="width:100%; height:38px; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 12px;">
-                            <option value="notice">공지사항</option>
-                            <option value="inquiry">문의사항</option>
-                            <option value="resource">자료실</option>
-                        </select>
-                    </div>
-                    <div class="form-group span-2">
-                        <label for="board-post-title">제목 <span class="required">*</span></label>
-                        <input type="text" id="board-post-title" required placeholder="제목을 입력하세요." style="width:100%; height:38px; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 12px;">
-                    </div>
-                    <div class="form-group span-2">
-                        <label for="board-post-content">내용 <span class="required">*</span></label>
-                        <textarea id="board-post-content" rows="6" required placeholder="게시글 내용을 입력하세요." style="width:100%; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:12px; font-family:inherit; resize:vertical;"></textarea>
-                    </div>
-                    <div class="form-group span-2">
-                        <label for="board-post-file-input">첨부파일</label>
-                        <input type="file" id="board-post-file-input" style="width:100%; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; padding:6px 12px;">
-                    </div>
-                    <div class="form-group span-2">
-                        <label for="board-post-allow-comments">답변/댓글 작성 설정 <span class="required">*</span></label>
-                        <select id="board-post-allow-comments" required style="width:100%; height:38px; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 12px;">
-                            <option value="true">답변/댓글 작성 허용</option>
-                            <option value="false">답변/댓글 작성 금지</option>
-                        </select>
-                    </div>
-                    <div class="form-group span-2" id="board-post-is-popup-container" style="background: var(--bg-hover-item); padding: 12px; border-radius: 6px; border: 1px solid var(--bg-card-border);">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main); margin: 0;">
-                            <input type="checkbox" id="board-post-is-popup" style="width: 17px; height: 17px; accent-color: var(--primary); cursor: pointer;">
-                            <span>📌 대시보드 팝업 적용 (대시보드 첫 진입 시 팝업창으로 공지)</span>
-                        </label>
+                <div class="detail-modal-body" style="padding: 24px; max-height: calc(85vh - 140px); overflow-y: auto;">
+                    <div class="form-grid">
+                        <div class="form-group span-2">
+                            <label for="board-post-category">게시판 분류 <span class="required">*</span></label>
+                            <select id="board-post-category" required style="width:100%; height:38px; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 12px;">
+                                <option value="notice">공지사항</option>
+                                <option value="inquiry">문의사항</option>
+                                <option value="resource">자료실</option>
+                            </select>
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="board-post-title">제목 <span class="required">*</span></label>
+                            <input type="text" id="board-post-title" required placeholder="제목을 입력하세요." style="width:100%; height:38px; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 12px;">
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="board-post-content">내용 <span class="required">*</span></label>
+                            <textarea id="board-post-content" rows="6" required placeholder="게시글 내용을 입력하세요." style="width:100%; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:12px; font-family:inherit; resize:vertical;"></textarea>
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="board-post-file-input">첨부파일</label>
+                            <input type="file" id="board-post-file-input" style="width:100%; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; padding:6px 12px;">
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="board-post-allow-comments">답변/댓글 작성 설정 <span class="required">*</span></label>
+                            <select id="board-post-allow-comments" required style="width:100%; height:38px; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 12px;">
+                                <option value="true">답변/댓글 작성 허용</option>
+                                <option value="false">답변/댓글 작성 금지</option>
+                            </select>
+                        </div>
+                        <div class="form-group span-2" id="board-post-is-popup-container" style="background: var(--bg-hover-item); padding: 12px; border-radius: 6px; border: 1px solid var(--bg-card-border);">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main); margin: 0;">
+                                <input type="checkbox" id="board-post-is-popup" style="width: 17px; height: 17px; accent-color: var(--primary); cursor: pointer;">
+                                <span>📌 대시보드 팝업 적용 (대시보드 첫 진입 시 팝업창으로 공지)</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer" style="margin-top: 0;">
                     <button type="button" class="btn btn-outline" onclick="app.closeBoardFormModal()">취소</button>
                     <button type="submit" class="btn btn-primary" id="btn-save-board-post">저장하기</button>
                 </div>
             </form>
-        </div>
-    </div>
         </div>
     </div>
 
@@ -5056,7 +5056,7 @@
                 <h2>문의 내용 상세보기</h2>
                 <button class="modal-close-btn" onclick="document.getElementById('board-detail-modal').classList.remove('open')">&times;</button>
             </div>
-            <div class="detail-modal-body" style="max-height: calc(85vh - 120px); overflow-y: auto;">
+            <div class="detail-modal-body" style="padding: 24px; max-height: calc(85vh - 120px); overflow-y: auto;">
                 <table class="detail-info-table" style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
                     <tr>
                         <th style="width: 120px; font-weight:700;">구분</th>
