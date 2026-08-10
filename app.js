@@ -5054,6 +5054,8 @@ class AetherPMO {
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
+
+        this.checkDashboardNoticePopup();
     }
 
     toggleDashboardMode() {
@@ -24006,7 +24008,36 @@ renderTodayTasksRoleBased(todayStr) {
         }
     }
 
-    checkDashboardNoticePopup() {
+    async checkDashboardNoticePopup() {
+        if (!Array.isArray(this.state.boardPosts) || this.state.boardPosts.length === 0) {
+            if (this.useSupabase && this.supabase) {
+                try {
+                    const { data, error } = await this.supabase
+                        .from('board_posts')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    if (!error && Array.isArray(data)) {
+                        this.state.boardPosts = data.map(item => ({
+                            id: item.id,
+                            category: item.category,
+                            title: item.title,
+                            content: item.content,
+                            authorId: item.author_id,
+                            authorName: item.author_name,
+                            attachmentUrl: item.attachment_url,
+                            allowComments: item.allow_comments !== false,
+                            isPopup: item.is_popup === true,
+                            createdAt: item.created_at,
+                            updatedAt: item.updated_at
+                        }));
+                    }
+                } catch (e) {
+                    console.error('팝업 공지사항 게시글 로드 실패:', e);
+                }
+            }
+        }
+
         if (!Array.isArray(this.state.boardPosts) || this.state.boardPosts.length === 0) return;
 
         const now = Date.now();

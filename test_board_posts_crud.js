@@ -95,9 +95,10 @@ async function runBoardPostsTestSuite(appInstance) {
         };
         appInstance.state.boardPosts.unshift(testPopupPost);
         localStorage.removeItem('hide_board_popup_test-popup-id-123');
+        appInstance.activePopupPostId = null;
 
-        appInstance.checkDashboardNoticePopup();
-        logTest("Popup Active Post ID Set", appInstance.activePopupPostId === 'test-popup-id-123');
+        await appInstance.renderDashboard();
+        logTest("Dashboard Render Triggers Notice Popup", appInstance.activePopupPostId === 'test-popup-id-123');
 
         appInstance.dismissDashboardNoticePopup('today');
         const hideExp = localStorage.getItem('hide_board_popup_test-popup-id-123');
