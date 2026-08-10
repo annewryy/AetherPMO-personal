@@ -12172,3 +12172,123 @@ body.dark-mode .project-delete-modal .btn-confirm-delete:disabled,
     }
 }
 
+
+
+/* ── DARK MODE COLOR SYSTEM FOR #modal-task ── */
+body.dark-theme #modal-task .modal-dialog,
+body.dark-mode #modal-task .modal-dialog,
+[data-theme="dark"] #modal-task .modal-dialog,
+html.dark #modal-task .modal-dialog {
+    background: #111827 !important;
+    border: 1px solid #334155 !important;
+    color: #F8FAFC !important;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65) !important;
+}
+
+body.dark-theme #modal-task .modal-header,
+body.dark-mode #modal-task .modal-header,
+[data-theme="dark"] #modal-task .modal-header,
+html.dark #modal-task .modal-header {
+    background: #1E293B !important;
+    border-bottom: 1px solid #334155 !important;
+}
+
+body.dark-theme #modal-task .modal-header h3,
+body.dark-mode #modal-task .modal-header h3,
+[data-theme="dark"] #modal-task .modal-header h3,
+html.dark #modal-task .modal-header h3,
+body.dark-theme #modal-task .modal-header h3 span,
+body.dark-mode #modal-task .modal-header h3 span,
+[data-theme="dark"] #modal-task .modal-header h3 span,
+html.dark #modal-task .modal-header h3 span {
+    color: #F8FAFC !important;
+}
+
+body.dark-theme #modal-task .close-btn,
+body.dark-mode #modal-task .close-btn,
+[data-theme="dark"] #modal-task .close-btn,
+html.dark #modal-task .close-btn {
+    color: #94A3B8 !important;
+}
+
+body.dark-theme #modal-task .close-btn:hover,
+body.dark-mode #modal-task .close-btn:hover,
+[data-theme="dark"] #modal-task .close-btn:hover,
+html.dark #modal-task .close-btn:hover {
+    color: #F8FAFC !important;
+}
+
+body.dark-theme #modal-task .modal-body,
+body.dark-mode #modal-task .modal-body,
+[data-theme="dark"] #modal-task .modal-body,
+html.dark #modal-task .modal-body {
+    background: #111827 !important;
+    color: #F8FAFC !important;
+}
+
+body.dark-theme #modal-task label,
+body.dark-mode #modal-task label,
+[data-theme="dark"] #modal-task label,
+html.dark #modal-task label {
+    color: #CBD5E1 !important;
+}
+
+body.dark-theme #modal-task input[type="text"],
+body.dark-mode #modal-task input[type="text"],
+[data-theme="dark"] #modal-task input[type="text"],
+body.dark-theme #modal-task input[type="date"],
+body.dark-mode #modal-task input[type="date"],
+[data-theme="dark"] #modal-task input[type="date"],
+body.dark-theme #modal-task input[type="number"],
+body.dark-mode #modal-task input[type="number"],
+[data-theme="dark"] #modal-task input[type="number"],
+body.dark-theme #modal-task select,
+body.dark-mode #modal-task select,
+[data-theme="dark"] #modal-task select,
+html.dark #modal-task input,
+html.dark #modal-task select {
+    background: #0F172A !important;
+    color: #F8FAFC !important;
+    border: 1px solid #475569 !important;
+    color-scheme: dark !important;
+}
+
+body.dark-theme #modal-task input::placeholder,
+body.dark-mode #modal-task input::placeholder,
+[data-theme="dark"] #modal-task input::placeholder,
+html.dark #modal-task input::placeholder {
+    color: #64748B !important;
+}
+
+body.dark-theme #modal-task select option,
+body.dark-mode #modal-task select option,
+[data-theme="dark"] #modal-task select option,
+html.dark #modal-task select option {
+    background: #0F172A !important;
+    color: #F8FAFC !important;
+}
+
+body.dark-theme #modal-task .modal-footer,
+body.dark-mode #modal-task .modal-footer,
+[data-theme="dark"] #modal-task .modal-footer,
+html.dark #modal-task .modal-footer {
+    background: #151B2B !important;
+    border-top: 1px solid #334155 !important;
+}
+
+body.dark-theme #modal-task .btn-outline,
+body.dark-mode #modal-task .btn-outline,
+[data-theme="dark"] #modal-task .btn-outline,
+html.dark #modal-task .btn-outline {
+    background: transparent !important;
+    color: #CBD5E1 !important;
+    border: 1px solid #475569 !important;
+}
+
+body.dark-theme #modal-task .btn-outline:hover,
+body.dark-mode #modal-task .btn-outline:hover,
+[data-theme="dark"] #modal-task .btn-outline:hover,
+html.dark #modal-task .btn-outline:hover {
+    background: #1E293B !important;
+    color: #F8FAFC !important;
+}
