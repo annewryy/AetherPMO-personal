@@ -10108,48 +10108,60 @@ body.app-modal-open {
 /* ==========================================
    LIGHT MODE SPECIFICATIONS ([data-theme="light"])
    ========================================== */
+/* ==========================================
+   LIGHT MODE SPECIFICATIONS ([data-theme="light"])
+   ========================================== */
 [data-theme="light"] .card-more-button,
-[data-theme="light"] .bidding-card-menu-btn {
-    background-color: #F1F5F9 !important;
-    border: 1px solid #E2E8F0 !important;
-    color: #475569 !important;
+[data-theme="light"] .bidding-card-menu-btn,
+[data-theme="light"] .bid-action-menu-btn {
+    background-color: #4C1D95 !important;
+    border: none !important;
+    color: #FFFFFF !important;
 }
 
 [data-theme="light"] .card-more-button i,
 [data-theme="light"] .card-more-button svg,
 [data-theme="light"] .bidding-card-menu-btn i,
-[data-theme="light"] .bidding-card-menu-btn svg {
-    stroke: #475569 !important;
-    color: #475569 !important;
+[data-theme="light"] .bidding-card-menu-btn svg,
+[data-theme="light"] .bid-action-menu-btn i,
+[data-theme="light"] .bid-action-menu-btn svg {
+    stroke: #FFFFFF !important;
+    color: #FFFFFF !important;
 }
 
 /* Light Mode Hover */
 [data-theme="light"] .card-more-button:hover,
-[data-theme="light"] .bidding-card-menu-btn:hover {
-    background-color: #E2E8F0 !important;
-    border-color: #CBD5E1 !important;
-    color: #1E293B !important;
+[data-theme="light"] .bidding-card-menu-btn:hover,
+[data-theme="light"] .bid-action-menu-btn:hover {
+    background-color: #5B21B6 !important;
+    border-color: transparent !important;
+    color: #FFFFFF !important;
 }
 
 [data-theme="light"] .card-more-button:hover i,
 [data-theme="light"] .card-more-button:hover svg,
 [data-theme="light"] .bidding-card-menu-btn:hover i,
-[data-theme="light"] .bidding-card-menu-btn:hover svg {
-    stroke: #1E293B !important;
-    color: #1E293B !important;
+[data-theme="light"] .bidding-card-menu-btn:hover svg,
+[data-theme="light"] .bid-action-menu-btn:hover i,
+[data-theme="light"] .bid-action-menu-btn:hover svg {
+    stroke: #FFFFFF !important;
+    color: #FFFFFF !important;
 }
 
-/* Light Mode Active / Menu Open */
+/* Light Mode Active / Menu Open -> #6D28D9 */
 [data-theme="light"] .card-more-button.active,
 [data-theme="light"] .card-more-button:active,
 [data-theme="light"] .bidding-card-menu-btn.active,
 [data-theme="light"] .bidding-card-menu-btn:active,
+[data-theme="light"] .bid-action-menu-btn.active,
+[data-theme="light"] .bid-action-menu-btn:active,
 [data-theme="light"] .menu-open .card-more-button,
 [data-theme="light"] .menu-open .bidding-card-menu-btn,
+[data-theme="light"] .menu-open .bid-action-menu-btn,
 [data-theme="light"] .bidding-card-menu-dropdown.open .bidding-card-menu-btn {
-    background-color: #DDD6FE !important;
-    border-color: #C4B5FD !important;
-    color: #6D28D9 !important;
+    background-color: #6D28D9 !important;
+    border-color: transparent !important;
+    color: #FFFFFF !important;
 }
 
 [data-theme="light"] .card-more-button.active i,
@@ -10160,14 +10172,20 @@ body.app-modal-open {
 [data-theme="light"] .bidding-card-menu-btn.active svg,
 [data-theme="light"] .bidding-card-menu-btn:active i,
 [data-theme="light"] .bidding-card-menu-btn:active svg,
+[data-theme="light"] .bid-action-menu-btn.active i,
+[data-theme="light"] .bid-action-menu-btn.active svg,
+[data-theme="light"] .bid-action-menu-btn:active i,
+[data-theme="light"] .bid-action-menu-btn:active svg,
 [data-theme="light"] .menu-open .card-more-button i,
 [data-theme="light"] .menu-open .card-more-button svg,
 [data-theme="light"] .menu-open .bidding-card-menu-btn i,
 [data-theme="light"] .menu-open .bidding-card-menu-btn svg,
+[data-theme="light"] .menu-open .bid-action-menu-btn i,
+[data-theme="light"] .menu-open .bid-action-menu-btn svg,
 [data-theme="light"] .bidding-card-menu-dropdown.open .bidding-card-menu-btn i,
 [data-theme="light"] .bidding-card-menu-dropdown.open .bidding-card-menu-btn svg {
-    stroke: #6D28D9 !important;
-    color: #6D28D9 !important;
+    stroke: #FFFFFF !important;
+    color: #FFFFFF !important;
 }
 
 /* ==========================================
@@ -10269,7 +10287,8 @@ body.app-modal-open {
 }
 
 /* Context Menu Popup Theme Styling */
-.bidding-card-menu-popup {
+.bidding-card-menu-popup,
+.bid-action-menu {
     position: absolute !important;
     top: 36px !important;
     right: 0 !important;
@@ -10277,23 +10296,33 @@ body.app-modal-open {
     width: 168px !important;
     padding: 6px !important;
     border-radius: 10px !important;
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25) !important;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14) !important;
     box-sizing: border-box !important;
 }
 
-[data-theme="light"] .bidding-card-menu-popup {
+/* 라이트 모드 - 입찰 카드 액션 메뉴 박스 */
+[data-theme="light"] .bidding-card-menu-popup,
+[data-theme="light"] .bid-action-menu {
     background: #FFFFFF !important;
     border: 1px solid #E2E8F0 !important;
+    color: #334155 !important;
+    border-radius: 10px !important;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14) !important;
 }
 
 [data-theme="dark"] .bidding-card-menu-popup,
-:root:not([data-theme="light"]) .bidding-card-menu-popup {
+[data-theme="dark"] .bid-action-menu,
+:root:not([data-theme="light"]) .bidding-card-menu-popup,
+:root:not([data-theme="light"]) .bid-action-menu {
     background: #111827 !important;
     border: 1px solid #334155 !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4) !important;
 }
 
-/* Popup Items Light Mode */
-[data-theme="light"] .bidding-card-menu-popup .menu-item {
+/* Popup Items Light Mode - 기본 글자 및 아이콘 #334155 */
+[data-theme="light"] .bidding-card-menu-popup .menu-item,
+[data-theme="light"] .bid-action-menu .menu-item,
+[data-theme="light"] .bid-action-menu button {
     height: 36px !important;
     min-height: 36px !important;
     padding: 0 10px !important;
@@ -10308,36 +10337,76 @@ body.app-modal-open {
     transition: background-color 0.15s ease, color 0.15s ease !important;
     white-space: nowrap !important;
     box-sizing: border-box !important;
+    background: transparent;
 }
 
 [data-theme="light"] .bidding-card-menu-popup .menu-item i,
-[data-theme="light"] .bidding-card-menu-popup .menu-item svg {
+[data-theme="light"] .bidding-card-menu-popup .menu-item svg,
+[data-theme="light"] .bid-action-menu .menu-item i,
+[data-theme="light"] .bid-action-menu .menu-item svg,
+[data-theme="light"] .bid-action-menu button i,
+[data-theme="light"] .bid-action-menu button svg {
     width: 16px !important;
     height: 16px !important;
-    stroke: #64748B !important;
-    color: #64748B !important;
+    stroke: #334155 !important;
+    color: #334155 !important;
     flex-shrink: 0 !important;
 }
 
-[data-theme="light"] .bidding-card-menu-popup .menu-item:hover {
-    background: #F1F5F9 !important;
-    color: #0F172A !important;
+/* 라이트 모드 - 메뉴 hover 배경: #F5F3FF, 글자·아이콘: #6D28D9 */
+[data-theme="light"] .bidding-card-menu-popup .menu-item:hover,
+[data-theme="light"] .bid-action-menu .menu-item:hover,
+[data-theme="light"] .bid-action-menu button:hover {
+    background: #F5F3FF !important;
+    color: #6D28D9 !important;
 }
 
 [data-theme="light"] .bidding-card-menu-popup .menu-item:hover i,
-[data-theme="light"] .bidding-card-menu-popup .menu-item:hover svg {
-    stroke: #0F172A !important;
-    color: #0F172A !important;
+[data-theme="light"] .bidding-card-menu-popup .menu-item:hover svg,
+[data-theme="light"] .bid-action-menu .menu-item:hover i,
+[data-theme="light"] .bid-action-menu .menu-item:hover svg,
+[data-theme="light"] .bid-action-menu button:hover i,
+[data-theme="light"] .bid-action-menu button:hover svg {
+    stroke: #6D28D9 !important;
+    color: #6D28D9 !important;
 }
 
+/* 라이트 모드 - 실패/실주처리 글자·아이콘: #DC2626 */
 [data-theme="light"] .bidding-card-menu-popup .menu-item.danger,
-[data-theme="light"] .bidding-card-menu-popup .menu-item.menu-item-danger {
-    color: #EF4444 !important;
+[data-theme="light"] .bidding-card-menu-popup .menu-item.menu-item-danger,
+[data-theme="light"] .bid-action-menu .menu-item.danger,
+[data-theme="light"] .bid-action-menu .danger {
+    color: #DC2626 !important;
 }
 
 [data-theme="light"] .bidding-card-menu-popup .menu-item.danger i,
-[data-theme="light"] .bidding-card-menu-popup .menu-item.danger svg {
-    stroke: #EF4444 !important;
+[data-theme="light"] .bidding-card-menu-popup .menu-item.danger svg,
+[data-theme="light"] .bid-action-menu .menu-item.danger i,
+[data-theme="light"] .bid-action-menu .menu-item.danger svg,
+[data-theme="light"] .bid-action-menu .danger i,
+[data-theme="light"] .bid-action-menu .danger svg {
+    stroke: #DC2626 !important;
+    color: #DC2626 !important;
+}
+
+/* 라이트 모드 - 실패 항목 hover 배경: #FEF2F2 */
+[data-theme="light"] .bidding-card-menu-popup .menu-item.danger:hover,
+[data-theme="light"] .bidding-card-menu-popup .menu-item.menu-item-danger:hover,
+[data-theme="light"] .bid-action-menu .menu-item.danger:hover,
+[data-theme="light"] .bid-action-menu .danger:hover {
+    background: #FEF2F2 !important;
+    color: #DC2626 !important;
+}
+
+[data-theme="light"] .bidding-card-menu-popup .menu-item.danger:hover i,
+[data-theme="light"] .bidding-card-menu-popup .menu-item.danger:hover svg,
+[data-theme="light"] .bid-action-menu .menu-item.danger:hover i,
+[data-theme="light"] .bid-action-menu .menu-item.danger:hover svg,
+[data-theme="light"] .bid-action-menu .danger:hover i,
+[data-theme="light"] .bid-action-menu .danger:hover svg {
+    stroke: #DC2626 !important;
+    color: #DC2626 !important;
+}
     color: #EF4444 !important;
 }
 

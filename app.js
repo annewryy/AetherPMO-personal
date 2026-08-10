@@ -33928,10 +33928,10 @@ renderTodayTasksRoleBased(todayStr) {
                 <div class="card-top-row" style="display:flex; justify-content:space-between; align-items:center;">
                     ${dDayBadge}
                     <div class="bidding-card-menu-dropdown" onclick="event.stopPropagation();">
-                        <button type="button" class="bidding-card-menu-btn card-more-button" onclick="app.toggleBiddingCardMenu(event, '${p.id}')" title="메뉴 열기">
+                        <button type="button" class="bidding-card-menu-btn card-more-button bid-action-menu-btn" onclick="app.toggleBiddingCardMenu(event, '${p.id}')" title="메뉴 열기">
                             <i data-lucide="more-vertical" style="width:16px; height:16px;"></i>
                         </button>
-                        <div id="bidding-card-menu-${p.id}" class="bidding-card-menu-popup" style="display:none;">
+                        <div id="bidding-card-menu-${p.id}" class="bidding-card-menu-popup bid-action-menu" style="display:none;">
                             <div onclick="app.closeAllBiddingCardMenus(); app.openEditProjectModal('${p.id}');" class="menu-item">
                                 <i data-lucide="edit-3"></i> 입찰 정보 수정
                             </div>
