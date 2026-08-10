@@ -11710,3 +11710,215 @@ body.dark-mode .project-delete-modal .btn-confirm-delete:disabled,
     cursor: not-allowed !important;
     opacity: 1 !important;
 }
+
+/* ==========================================================================
+   MOBILE FIRST RESPONSIVE OVERHAUL & Z-INDEX HIERARCHY
+   ========================================================================== */
+
+/* 1. Global Layer Hierarchy (z-index system) */
+.main-header {
+    z-index: 100 !important;
+}
+.sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 900 !important;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+.sidebar-backdrop.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+.sidebar {
+    z-index: 1000 !important;
+}
+.modal-overlay,
+.app-modal-overlay {
+    z-index: 2000 !important;
+}
+.toast,
+#toast-container,
+.notification-toast {
+    z-index: 3000 !important;
+}
+
+/* 2. Desktop Defaults (min-width: 1025px) */
+@media (min-width: 1025px) {
+    .mobile-drawer-toggle,
+    .mobile-view-title,
+    .sidebar-backdrop {
+        display: none !important;
+    }
+}
+
+/* 3. Tablet (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .mobile-drawer-toggle,
+    .mobile-view-title,
+    .sidebar-backdrop {
+        display: none !important;
+    }
+    .bidding-kpi-cards-v2-grid {
+        grid-template-columns: repeat(3, 1fr) !important;
+    }
+}
+
+/* 4. Mobile (max-width: 768px) */
+@media (max-width: 768px) {
+    /* Touch Target & iOS Auto-zoom Prevention */
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea {
+        font-size: 16px !important; /* Minimum 16px to prevent iOS Safari auto-zoom */
+    }
+
+    button,
+    .btn,
+    .nav-item,
+    input[type="button"],
+    input[type="submit"] {
+        min-height: 44px !important;
+    }
+
+    /* Mobile Drawer */
+    .sidebar {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        bottom: 0 !important;
+        width: min(84vw, 320px) !important;
+        height: 100dvh !important;
+        transform: translateX(-100%) !important;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4) !important;
+    }
+
+    .sidebar.mobile-open {
+        transform: translateX(0) !important;
+    }
+
+    .main-layout {
+        padding-left: 0 !important;
+        width: 100% !important;
+        min-height: 100dvh !important;
+    }
+
+    .main-header {
+        padding: 8px 16px !important;
+        gap: 12px;
+        min-height: 56px;
+    }
+
+    .mobile-drawer-toggle {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        background: transparent;
+        border: none;
+        color: var(--text-main);
+        cursor: pointer;
+        font-size: 20px;
+        border-radius: 8px;
+        padding: 0;
+        flex-shrink: 0;
+    }
+
+    .mobile-drawer-toggle:hover,
+    .mobile-drawer-toggle:active {
+        background: var(--bg-hover-item);
+    }
+
+    .mobile-view-title {
+        display: inline-block !important;
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text-main);
+        margin-left: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 140px;
+    }
+
+    .header-search {
+        display: none !important; /* Hide global search in mobile top bar to save space */
+    }
+
+    /* Selective Fullscreen Modals */
+    .modal-overlay.open .modal-card:not(.mini-modal):not(.confirm-dialog) {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* Compact Confirm Dialogs stay centered */
+    .modal-card.mini-modal,
+    .modal-card.confirm-dialog {
+        width: calc(100vw - 32px) !important;
+        max-width: 400px !important;
+        margin: auto !important;
+        border-radius: 12px !important;
+    }
+
+    /* Table Responsive & Sticky First Column */
+    .table-responsive-container,
+    .excel-table-container {
+        width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .sticky-col-first,
+    .excel-grid-table th:first-child,
+    .excel-grid-table td:first-child,
+    .detail-info-table th:first-child {
+        position: sticky !important;
+        left: 0 !important;
+        z-index: 2 !important;
+        background-color: var(--bg-card) !important; /* Solid background matching Light/Dark theme */
+    }
+
+    /* Dashboard KPI Grids */
+    .bidding-kpi-cards-v2-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+/* 5. Small Mobile (max-width: 480px) */
+@media (max-width: 480px) {
+    .bidding-kpi-cards-v2-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .modal-header,
+    .modal-footer {
+        padding: 14px 16px !important;
+    }
+
+    .detail-modal-body {
+        padding: 16px !important;
+    }
+}
+
+/* 6. Motion Sensitivity (prefers-reduced-motion) */
+@media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+

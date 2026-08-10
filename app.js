@@ -348,6 +348,30 @@ class AetherPMO {
         // Initialize demo and presentation modes
         this.initDemoAndPresentation();
 
+        // Register PWA Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').then(reg => {
+                console.log('[PWA] ServiceWorker registered:', reg.scope);
+            }).catch(err => {
+                console.warn('[PWA] ServiceWorker registration failed:', err);
+            });
+        }
+
+        // Auto-close mobile drawer when window resizes to >= 769px
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 769) {
+                this.closeMobileDrawer();
+            }
+        });
+
+        // Online / Offline Status Event Listeners
+        window.addEventListener('offline', () => {
+            this.showToast('네트워크 연결이 해제되었습니다. 오프라인 상태입니다.', 'warning');
+        });
+        window.addEventListener('online', () => {
+            this.showToast('네트워크에 다시 연결되었습니다.', 'success');
+        });
+
         // Initialise Lucide icons
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -4143,6 +4167,22 @@ class AetherPMO {
      * Set up DOM Event Listeners
      */
     setupEventListeners() {
+        // Global ESC key listener (closes topmost modal first, then mobile drawer)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const openModals = Array.from(document.querySelectorAll('.modal-overlay.open, .app-modal-overlay.is-open, .modal.open, .modal.is-open'));
+                if (openModals.length > 0) {
+                    const topModal = openModals[openModals.length - 1];
+                    topModal.classList.remove('open', 'is-open', 'active');
+                    return;
+                }
+                const sidebar = document.querySelector('.sidebar');
+                if (sidebar && sidebar.classList.contains('mobile-open')) {
+                    this.closeMobileDrawer();
+                }
+            }
+        });
+
         // Document click delegation for sidebar mode button and items
         document.addEventListener('click', (e) => {
             const modeBtn = e.target.closest('#sidebar-mode-btn');
@@ -4594,7 +4634,60 @@ class AetherPMO {
     /**
      * Switch view display block/none
      */
+    toggleMobileDrawer() {
+        const sidebar = document.querySelector('.sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        const toggleBtn = document.getElementById('btn-mobile-drawer-toggle');
+
+        const isOpen = sidebar && sidebar.classList.contains('mobile-open');
+        if (isOpen) {
+            this.closeMobileDrawer();
+        } else {
+            if (sidebar) sidebar.classList.add('mobile-open');
+            if (backdrop) backdrop.classList.add('active');
+            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
+            document.body.style.overflow = 'hidden';
+
+            const firstNavItem = sidebar ? sidebar.querySelector('.sidebar-nav a, .sidebar-nav button') : null;
+            if (firstNavItem) firstNavItem.focus();
+        }
+    }
+
+    closeMobileDrawer() {
+        const sidebar = document.querySelector('.sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        const toggleBtn = document.getElementById('btn-mobile-drawer-toggle');
+
+        if (sidebar) sidebar.classList.remove('mobile-open');
+        if (backdrop) backdrop.classList.remove('active');
+        if (toggleBtn) {
+            toggleBtn.setAttribute('aria-expanded', 'false');
+        }
+        document.body.style.overflow = '';
+    }
+
     async switchView(viewName, params = null, options = {}) {
+        this.closeMobileDrawer();
+
+        const titleMap = {
+            'dashboard': '홈',
+            'projects': '프로젝트',
+            'projects-g2b': '나라장터 공고',
+            'artifacts': '표준 산출물',
+            'resources': '참여인력',
+            'salaries': '월급여',
+            'board': '게시판',
+            'board/notices': '공지사항',
+            'board/inquiries': '문의사항',
+            'board/resources': '자료실',
+            'backup': '관리자 설정',
+            'my-account': '내 정보'
+        };
+        const titleEl = document.getElementById('mobile-view-title');
+        if (titleEl) {
+            titleEl.textContent = titleMap[viewName] || 'AetherPMO';
+        }
+
         let updateHash = true;
         if (options && typeof options.updateHash === 'boolean') {
             updateHash = options.updateHash;

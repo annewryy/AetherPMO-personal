@@ -16,16 +16,22 @@
         };
     </script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>AetherPMO | 사업관리 플랫폼</title>
     <!-- Google Fonts: Plus Jakarta Sans for UI, Noto Sans KR for Korean -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- PWA Manifest & Icons -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" href="favicon.png" type="image/png">
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="favicon.png" type="image/png">
 </head>
 <body class="dark-theme">
         <!-- Login Section -->
@@ -88,6 +94,9 @@
 
     <!-- Top-level Grid Container -->
     <div class="app-container" id="app-section" style="display: none;">
+        <!-- Mobile Sidebar Backdrop Overlay -->
+        <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="app.closeMobileDrawer()"></div>
+
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -284,7 +293,10 @@
             <!-- Header bar -->
             <header class="main-header">
                 <div class="header-left">
-                    
+                    <button class="mobile-drawer-toggle" id="btn-mobile-drawer-toggle" aria-label="메뉴 열기" aria-controls="sidebar-nav-dynamic" aria-expanded="false" onclick="app.toggleMobileDrawer()">
+                        <i data-lucide="menu"></i>
+                    </button>
+                    <span class="mobile-view-title" id="mobile-view-title">홈</span>
                     <div class="header-search">
                         <i data-lucide="search" class="search-icon"></i>
                         <input type="text" id="global-search" placeholder="프로젝트, 산출물, 작성자 검색...">
