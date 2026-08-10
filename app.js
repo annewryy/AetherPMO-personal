@@ -4568,6 +4568,8 @@ class AetherPMO {
             } else {
                 await this.switchView('projects');
             }
+        } else if (mainRoute === 'board') {
+            await this.switchView(hash);
         } else if (mainRoute === 'artifacts') {
             let type = 'operation';
             let stage = 'initiation';
@@ -23251,6 +23253,20 @@ renderTodayTasksRoleBased(todayStr) {
             }
         });
 
+        // Sync sidebar menu active state
+        let route = 'board';
+        if (category === 'notice') route = 'board/notices';
+        else if (category === 'inquiry') route = 'board/inquiries';
+        else if (category === 'resource') route = 'board/resources';
+
+        this.setActiveSidebarMenu(route);
+
+        // Update window location hash quietly
+        let targetHash = `#${route}`;
+        if (window.location.hash !== targetHash) {
+            history.pushState(null, '', targetHash);
+        }
+
         this.fetchBoardPosts(category);
     }
 
@@ -32109,8 +32125,10 @@ renderTodayTasksRoleBased(todayStr) {
                 children.forEach(c => {
                     const cIcon = c.icon ? `<i data-lucide="${c.icon}"></i>` : '';
                     const cRoute = c.route || '#';
+                    const cViewTarget = c.view_id ? c.view_id.replace('view-', '') : (c.route ? c.route.replace('#', '') : c.menu_code.toLowerCase());
                     html += `
-                        <a href="${cRoute}" class="submenu-item" data-subview="${c.menu_code.toLowerCase()}">
+                        <a href="${cRoute}" class="submenu-item" data-subview="${c.menu_code.toLowerCase()}"
+                           onclick="event.preventDefault();event.stopPropagation();window.app?.switchView?.('${cViewTarget}')">
                             ${cIcon}<span>${c.menu_name}</span>
                         </a>`;
                 });

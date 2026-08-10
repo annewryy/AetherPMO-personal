@@ -71,6 +71,17 @@ async function runBoardPostsTestSuite(appInstance) {
         const fetchId2 = appInstance.boardFetchCounter;
         logTest("Fetch Counter Increment", fetchId2 === fetchId1 + 3, "Stale responses properly invalidated");
 
+        // 5. Subroutes Navigation Test
+        console.log("Test 5: Subroutes Navigation (switchView board/notices, board/inquiries, board/resources)");
+        await appInstance.switchView('board/notices');
+        logTest("Subroute 'board/notices'", appInstance.activeBoardCategoryFilter === 'notice');
+
+        await appInstance.switchView('board/inquiries');
+        logTest("Subroute 'board/inquiries'", appInstance.activeBoardCategoryFilter === 'inquiry');
+
+        await appInstance.switchView('board/resources');
+        logTest("Subroute 'board/resources'", appInstance.activeBoardCategoryFilter === 'resource');
+
         console.log(`=== TEST SUITE COMPLETE: ${results.passed} PASSED, ${results.failed} FAILED ===`);
         return results;
     } catch (e) {
