@@ -4773,7 +4773,13 @@ class AetherPMO {
             updateHash = params.updateHash;
         }
 
-        console.log(`[switchView: ${viewName}, updateHash: ${updateHash}]`);
+        if (viewName === 'projects/bidding') {
+            this.activeProjectStageFilter = 'Bidding';
+        } else if (viewName === 'projects/active') {
+            this.activeProjectStageFilter = 'Active';
+        } else if (viewName === 'projects/completed') {
+            this.activeProjectStageFilter = 'Completed';
+        }
 
         const routes = {
             'dashboard': 'view-dashboard',
@@ -4782,6 +4788,9 @@ class AetherPMO {
             'board/inquiries': 'view-board',
             'board/resources': 'view-board',
             'projects': 'view-projects',
+            'projects/bidding': 'view-projects',
+            'projects/active': 'view-projects',
+            'projects/completed': 'view-projects',
             'projects-g2b': 'view-projects-g2b',
             'projects-g2b-detail': 'view-projects-g2b-detail',
             'projects-g2b-pre-detail': 'view-projects-g2b-pre-detail',
@@ -9047,6 +9056,16 @@ renderTodayTasksRoleBased(todayStr) {
         }
     }
 
+    async navigateToBiddingProjectDetail(projectId) {
+        this.closeBiddingDetailModal();
+        this.activeProjectStageFilter = 'Bidding';
+        window.location.hash = 'projects/bidding';
+        await this.switchView('projects/bidding');
+        if (projectId) {
+            this.openBiddingDetailModal(projectId);
+        }
+    }
+
     closeBiddingDetailModal() {
         const modal = document.getElementById('bidding-detail-modal');
         if (modal) {
@@ -9079,7 +9098,7 @@ renderTodayTasksRoleBased(todayStr) {
                 `;
             } else {
                 entryContainer.innerHTML = `
-                    <button class="btn btn-primary" onclick="app.closeBiddingDetailModal(); app.switchView('projects/bidding');" style="display:inline-flex; align-items:center; gap:6px;">
+                    <button class="btn btn-primary" onclick="app.navigateToBiddingProjectDetail('${p.id}');" style="display:inline-flex; align-items:center; gap:6px;">
                         <i data-lucide="file-signature" style="width:14px; height:14px;"></i>
                         <span>입찰 준비 페이지로 이동 ➔</span>
                     </button>
@@ -33938,6 +33957,9 @@ renderTodayTasksRoleBased(todayStr) {
                         <div id="bidding-card-menu-${p.id}" class="bidding-card-menu-popup bid-action-menu" style="display:none;">
                             <div onclick="app.closeAllBiddingCardMenus(); app.openEditProjectModal('${p.id}');" class="menu-item">
                                 <i data-lucide="edit-3"></i><span>입찰정보 수정</span>
+                            </div>
+                            <div onclick="app.closeAllBiddingCardMenus(); app.openBiddingWonModal('${p.id}');" class="menu-item">
+                                <i data-lucide="trophy"></i><span>수주/성공 처리</span>
                             </div>
                             <div onclick="app.closeAllBiddingCardMenus(); app.openBiddingLostModal('${p.id}');" class="menu-item danger">
                                 <i data-lucide="x-circle"></i><span>실패/실주 처리</span>
