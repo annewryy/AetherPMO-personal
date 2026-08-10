@@ -23550,31 +23550,39 @@ renderTodayTasksRoleBased(todayStr) {
             const fileExt = file.name.split('.').pop();
             const filePath = `attachments/${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
 
-            const { data: uploadData, error: uploadError } = await this.supabase.storage
-                .from('board-attachments')
-                .upload(filePath, file);
+            try {
+                const { data: uploadData, error: uploadError } = await this.supabase.storage
+                    .from('board-attachments')
+                    .upload(filePath, file);
 
-            if (uploadError) {
-                console.error('첨부파일 업로드 실패:', {
-                    code: uploadError.code,
-                    message: uploadError.message,
-                    details: uploadError.details,
-                    hint: uploadError.hint
-                });
-                this.showToast(`첨부파일 업로드 실패: ${uploadError.message}`, 'error');
+                if (uploadError) {
+                    console.error('첨부파일 업로드 실패:', {
+                        code: uploadError.code,
+                        message: uploadError.message,
+                        details: uploadError.details,
+                        hint: uploadError.hint
+                    });
+                    this.showToast(`첨부파일 업로드 실패: ${uploadError.message}`, 'error');
+                    resetBtnState();
+                    return; // STOP post creation!
+                }
+
+                const { data: publicUrlData } = this.supabase.storage
+                    .from('board-attachments')
+                    .getPublicUrl(filePath);
+
+                attachmentUrl = publicUrlData.publicUrl;
+            } catch (e) {
+                console.error('첨부파일 업로드 예외:', e);
+                this.showToast('첨부파일 업로드 중 오류가 발생했습니다.', 'error');
                 resetBtnState();
-                return; // STOP post creation!
+                return;
             }
-
-            const { data: publicUrlData } = this.supabase.storage
-                .from('board-attachments')
-                .getPublicUrl(filePath);
-
-            attachmentUrl = publicUrlData.publicUrl;
         }
 
         const authorName = currentUser ? (currentUser.name || currentUser.email.split('@')[0]) : '익명';
-        const authorId = currentUser ? currentUser.id : null;
+        const rawAuthorId = currentUser ? currentUser.id : null;
+        const authorId = (rawAuthorId && this.isUuid(rawAuthorId)) ? rawAuthorId : null;
 
         if (id) {
             // Requirement 3: Restricted update fields
@@ -23585,6 +23593,8 @@ renderTodayTasksRoleBased(todayStr) {
                 attachment_url: attachmentUrl,
                 updated_at: new Date().toISOString()
             };
+
+            const idx = (this.state.boardPosts || []).findIndex(p => p.id === id);
 
             if (this.useSupabase && this.supabase) {
                 // Requirement 5: UPDATE verification
@@ -23606,23 +23616,49 @@ renderTodayTasksRoleBased(todayStr) {
                     resetBtnState();
                     return; // DO NOT close modal!
                 }
+
+                if (idx !== -1) {
+                    this.state.boardPosts[idx] = {
+                        ...this.state.boardPosts[idx],
+                        category: data.category,
+                        title: data.title,
+                        content: data.content,
+                        attachmentUrl: data.attachment_url,
+                        updatedAt: data.updated_at
+                    };
+                }
+            } else {
+                if (idx !== -1) {
+                    this.state.boardPosts[idx] = {
+                        ...this.state.boardPosts[idx],
+                        category,
+                        title,
+                        content,
+                        attachmentUrl,
+                        updatedAt: updateData.updated_at
+                    };
+                    this.saveState('board_post_upsert', this.state.boardPosts[idx]);
+                }
             }
         } else {
             // Requirement 3 & 4 & 5: INSERT
             const newId = this.generateUuid();
-            const insertData = {
-                id: newId,
-                category,
-                title,
-                content,
-                author_id: authorId,
-                author_name: authorName,
-                attachment_url: attachmentUrl,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            };
+            const nowIso = new Date().toISOString();
 
             if (this.useSupabase && this.supabase) {
+                const insertData = {
+                    id: newId,
+                    category,
+                    title,
+                    content,
+                    status: 'pending',
+                    author_id: authorId,
+                    author_name: authorName,
+                    attachment_url: attachmentUrl,
+                    created_at: nowIso,
+                    updated_at: nowIso
+                };
+
                 const { data, error } = await this.supabase
                     .from('board_posts')
                     .insert([insertData])
@@ -23640,6 +23676,39 @@ renderTodayTasksRoleBased(todayStr) {
                     resetBtnState();
                     return; // DO NOT close modal! DO NOT temporarily add to state!
                 }
+
+                const insertedPost = {
+                    id: data.id,
+                    category: data.category,
+                    title: data.title,
+                    content: data.content,
+                    status: data.status || 'pending',
+                    authorId: data.author_id,
+                    authorName: data.author_name || authorName,
+                    attachmentUrl: data.attachment_url,
+                    createdAt: data.created_at,
+                    updatedAt: data.updated_at
+                };
+
+                if (!Array.isArray(this.state.boardPosts)) this.state.boardPosts = [];
+                this.state.boardPosts.unshift(insertedPost);
+            } else {
+                const newPost = {
+                    id: newId,
+                    category,
+                    title,
+                    content,
+                    status: 'pending',
+                    authorName,
+                    authorId,
+                    attachmentUrl,
+                    createdAt: nowIso,
+                    updatedAt: nowIso
+                };
+
+                if (!Array.isArray(this.state.boardPosts)) this.state.boardPosts = [];
+                this.state.boardPosts.unshift(newPost);
+                this.saveState('board_post_upsert', newPost);
             }
         }
 
@@ -23647,8 +23716,12 @@ renderTodayTasksRoleBased(todayStr) {
         this.closeBoardFormModal();
         this.showToast(id ? '게시글이 수정되었습니다.' : '게시글이 등록되었습니다.', 'success');
 
-        // Requirement 6: Re-fetch list from Supabase
-        await this.fetchBoardPosts(this.activeBoardCategoryFilter || 'all');
+        // Re-fetch or re-render list
+        if (this.useSupabase && this.supabase) {
+            await this.fetchBoardPosts(this.activeBoardCategoryFilter || 'all');
+        } else {
+            this.renderBoardView();
+        }
     }
 
     async deleteBoardPost(id) {

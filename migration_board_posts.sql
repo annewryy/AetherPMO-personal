@@ -54,10 +54,10 @@ CREATE POLICY "board_posts_select_policy" ON public.board_posts
     FOR SELECT TO authenticated
     USING (true);
 
--- Policy 2: Authenticated users can insert board posts with their own author_id
+-- Policy 2: Authenticated users can insert board posts with their own author_id (or NULL if unlinked)
 CREATE POLICY "board_posts_insert_policy" ON public.board_posts
     FOR INSERT TO authenticated
-    WITH CHECK (auth.uid() = author_id);
+    WITH CHECK (auth.uid() = author_id OR author_id IS NULL);
 
 -- Policy 3: Authors can update their own posts, or SYS_ADMIN can update any post
 CREATE POLICY "board_posts_update_policy" ON public.board_posts
@@ -84,3 +84,19 @@ CREATE POLICY "board_posts_delete_policy" ON public.board_posts
 -- Grants
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.board_posts TO authenticated;
 GRANT ALL ON TABLE public.board_posts TO service_role;
+
+-- 6. Storage Bucket DDL for board-attachments
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('board-attachments', 'board-attachments', true)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Allow public read on board-attachments" ON storage.objects;
+CREATE POLICY "Allow public read on board-attachments"
+    ON storage.objects FOR SELECT TO public
+    USING (bucket_id = 'board-attachments');
+
+DROP POLICY IF EXISTS "Allow authenticated upload on board-attachments" ON storage.objects;
+CREATE POLICY "Allow authenticated upload on board-attachments"
+    ON storage.objects FOR INSERT TO authenticated
+    WITH CHECK (bucket_id = 'board-attachments');
+
