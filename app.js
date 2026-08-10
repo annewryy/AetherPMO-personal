@@ -33933,13 +33933,10 @@ renderTodayTasksRoleBased(todayStr) {
                         </button>
                         <div id="bidding-card-menu-${p.id}" class="bidding-card-menu-popup bid-action-menu" style="display:none;">
                             <div onclick="app.closeAllBiddingCardMenus(); app.openEditProjectModal('${p.id}');" class="menu-item">
-                                <i data-lucide="edit-3"></i> 입찰 정보 수정
-                            </div>
-                            <div onclick="app.closeAllBiddingCardMenus(); app.openBiddingWonModal('${p.id}');" class="menu-item">
-                                <i data-lucide="trophy"></i> 수주 성공 처리
+                                <i data-lucide="edit-3"></i><span>입찰정보 수정</span>
                             </div>
                             <div onclick="app.closeAllBiddingCardMenus(); app.openBiddingLostModal('${p.id}');" class="menu-item danger">
-                                <i data-lucide="x-circle"></i> 실패/실주 처리
+                                <i data-lucide="x-circle"></i><span>실패/실주 처리</span>
                             </div>
                         </div>
                     </div>

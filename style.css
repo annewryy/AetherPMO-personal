@@ -10111,90 +10111,270 @@ body.app-modal-open {
 /* ==========================================
    LIGHT MODE SPECIFICATIONS ([data-theme="light"])
    ========================================== */
-[data-theme="light"] .card-more-button,
-[data-theme="light"] .bidding-card-menu-btn,
-[data-theme="light"] .bid-action-menu-btn {
+/* ==========================================================================
+   BIDDING CARD ACTION MENU - DEFAULT & LIGHT MODE
+   ========================================================================== */
+
+/* Menu Popup Container: White background, #D8DEE9 border, 150px min-width, 8px radius, 0 6px 18px shadow */
+.bidding-card-menu-popup,
+.bid-action-menu {
+    position: absolute !important;
+    top: 36px !important;
+    right: 0 !important;
+    z-index: 100 !important;
+    min-width: 150px !important;
+    width: auto !important;
+    padding: 4px !important;
+    background: #FFFFFF !important;
+    border: 1px solid #D8DEE9 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.16) !important;
+    box-sizing: border-box !important;
+}
+
+[data-theme="light"] .bidding-card-menu-popup,
+[data-theme="light"] .bid-action-menu,
+body:not(.dark-theme) .bidding-card-menu-popup,
+body:not(.dark-theme) .bid-action-menu {
+    background: #FFFFFF !important;
+    border: 1px solid #D8DEE9 !important;
+    color: #334155 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.16) !important;
+}
+
+/* Menu Trigger Button: Purple Background (#4C1D95), White Icon (#FFFFFF) */
+.card-more-button,
+.bidding-card-menu-btn,
+.bid-action-menu-btn {
     background-color: #4C1D95 !important;
     border: none !important;
     color: #FFFFFF !important;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: background-color 0.15s ease !important;
 }
 
-[data-theme="light"] .card-more-button i,
-[data-theme="light"] .card-more-button svg,
-[data-theme="light"] .bidding-card-menu-btn i,
-[data-theme="light"] .bidding-card-menu-btn svg,
-[data-theme="light"] .bid-action-menu-btn i,
-[data-theme="light"] .bid-action-menu-btn svg {
+.card-more-button i,
+.card-more-button svg,
+.bidding-card-menu-btn i,
+.bidding-card-menu-btn svg,
+.bid-action-menu-btn i,
+.bid-action-menu-btn svg {
     stroke: #FFFFFF !important;
     color: #FFFFFF !important;
+    width: 16px !important;
+    height: 16px !important;
 }
 
-/* Light Mode Hover */
-[data-theme="light"] .card-more-button:hover,
-[data-theme="light"] .bidding-card-menu-btn:hover,
-[data-theme="light"] .bid-action-menu-btn:hover {
+/* Button Hover: #5B21B6 */
+.card-more-button:hover,
+.bidding-card-menu-btn:hover,
+.bid-action-menu-btn:hover {
     background-color: #5B21B6 !important;
     border-color: transparent !important;
     color: #FFFFFF !important;
 }
 
-[data-theme="light"] .card-more-button:hover i,
-[data-theme="light"] .card-more-button:hover svg,
-[data-theme="light"] .bidding-card-menu-btn:hover i,
-[data-theme="light"] .bidding-card-menu-btn:hover svg,
-[data-theme="light"] .bid-action-menu-btn:hover i,
-[data-theme="light"] .bid-action-menu-btn:hover svg {
+.card-more-button:hover i,
+.card-more-button:hover svg,
+.bidding-card-menu-btn:hover i,
+.bidding-card-menu-btn:hover svg,
+.bid-action-menu-btn:hover i,
+.bid-action-menu-btn:hover svg {
     stroke: #FFFFFF !important;
     color: #FFFFFF !important;
 }
 
-/* Light Mode Active / Menu Open -> #6D28D9 */
-[data-theme="light"] .card-more-button.active,
-[data-theme="light"] .card-more-button:active,
-[data-theme="light"] .bidding-card-menu-btn.active,
-[data-theme="light"] .bidding-card-menu-btn:active,
-[data-theme="light"] .bid-action-menu-btn.active,
-[data-theme="light"] .bid-action-menu-btn:active,
-[data-theme="light"] .menu-open .card-more-button,
-[data-theme="light"] .menu-open .bidding-card-menu-btn,
-[data-theme="light"] .menu-open .bid-action-menu-btn,
-[data-theme="light"] .bidding-card-menu-dropdown.open .bidding-card-menu-btn {
+/* Button Active / Open: #6D28D9 Background */
+.card-more-button.active,
+.card-more-button:active,
+.bidding-card-menu-btn.active,
+.bidding-card-menu-btn:active,
+.bid-action-menu-btn.active,
+.bid-action-menu-btn:active,
+.menu-open .card-more-button,
+.menu-open .bidding-card-menu-btn,
+.menu-open .bid-action-menu-btn,
+.bidding-card-menu-dropdown.open .bidding-card-menu-btn {
     background-color: #6D28D9 !important;
     border-color: transparent !important;
     color: #FFFFFF !important;
 }
 
-[data-theme="light"] .card-more-button.active i,
-[data-theme="light"] .card-more-button.active svg,
-[data-theme="light"] .card-more-button:active i,
-[data-theme="light"] .card-more-button:active svg,
-[data-theme="light"] .bidding-card-menu-btn.active i,
-[data-theme="light"] .bidding-card-menu-btn.active svg,
-[data-theme="light"] .bidding-card-menu-btn:active i,
-[data-theme="light"] .bidding-card-menu-btn:active svg,
-[data-theme="light"] .bid-action-menu-btn.active i,
-[data-theme="light"] .bid-action-menu-btn.active svg,
-[data-theme="light"] .bid-action-menu-btn:active i,
-[data-theme="light"] .bid-action-menu-btn:active svg,
-[data-theme="light"] .menu-open .card-more-button i,
-[data-theme="light"] .menu-open .card-more-button svg,
-[data-theme="light"] .menu-open .bidding-card-menu-btn i,
-[data-theme="light"] .menu-open .bidding-card-menu-btn svg,
-[data-theme="light"] .menu-open .bid-action-menu-btn i,
-[data-theme="light"] .menu-open .bid-action-menu-btn svg,
-[data-theme="light"] .bidding-card-menu-dropdown.open .bidding-card-menu-btn i,
-[data-theme="light"] .bidding-card-menu-dropdown.open .bidding-card-menu-btn svg {
+.card-more-button.active i,
+.card-more-button.active svg,
+.card-more-button:active i,
+.card-more-button:active svg,
+.bidding-card-menu-btn.active i,
+.bidding-card-menu-btn.active svg,
+.bidding-card-menu-btn:active i,
+.bidding-card-menu-btn:active svg,
+.bid-action-menu-btn.active i,
+.bid-action-menu-btn.active svg,
+.bid-action-menu-btn:active i,
+.bid-action-menu-btn:active svg,
+.menu-open .card-more-button i,
+.menu-open .card-more-button svg,
+.menu-open .bidding-card-menu-btn i,
+.menu-open .bidding-card-menu-btn svg,
+.menu-open .bid-action-menu-btn i,
+.menu-open .bid-action-menu-btn svg,
+.bidding-card-menu-dropdown.open .bidding-card-menu-btn i,
+.bidding-card-menu-dropdown.open .bidding-card-menu-btn svg {
     stroke: #FFFFFF !important;
     color: #FFFFFF !important;
 }
 
-/* ==========================================
-   DARK MODE SPECIFICATIONS ([data-theme="dark"])
-   ========================================== */
+/* Menu Items (Height: 34px, Single row flex alignment, Default: transparent background, #334155 text & icon) */
+.bidding-card-menu-popup .menu-item,
+.bid-action-menu .menu-item,
+.bid-action-menu button {
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 10px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #334155 !important;
+    background: transparent !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: background-color 0.15s ease, color 0.15s ease !important;
+    white-space: nowrap !important;
+    box-sizing: border-box !important;
+    border: none !important;
+    width: 100% !important;
+    text-align: left !important;
+}
+
+.bidding-card-menu-popup .menu-item i,
+.bidding-card-menu-popup .menu-item svg,
+.bid-action-menu .menu-item i,
+.bid-action-menu .menu-item svg,
+.bid-action-menu button i,
+.bid-action-menu button svg {
+    width: 16px !important;
+    height: 16px !important;
+    stroke: #334155 !important;
+    color: #334155 !important;
+    flex-shrink: 0 !important;
+    display: inline-block !important;
+}
+
+.bidding-card-menu-popup .menu-item span,
+.bid-action-menu .menu-item span,
+.bid-action-menu button span {
+    color: inherit !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    line-height: 1 !important;
+}
+
+/* Item Hover: Background #F1F5F9, Text & Icon #1E293B */
+.bidding-card-menu-popup .menu-item:hover,
+.bid-action-menu .menu-item:hover,
+.bid-action-menu button:hover,
+body:not(.dark-theme) .bidding-card-menu-popup .menu-item:hover,
+body:not(.dark-theme) .bid-action-menu .menu-item:hover,
+body:not(.dark-theme) .bid-action-menu button:hover {
+    background: #F1F5F9 !important;
+    color: #1E293B !important;
+}
+
+.bidding-card-menu-popup .menu-item:hover i,
+.bidding-card-menu-popup .menu-item:hover svg,
+.bid-action-menu .menu-item:hover i,
+.bid-action-menu .menu-item:hover svg,
+.bid-action-menu button:hover i,
+.bid-action-menu button:hover svg,
+body:not(.dark-theme) .bidding-card-menu-popup .menu-item:hover i,
+body:not(.dark-theme) .bidding-card-menu-popup .menu-item:hover svg,
+body:not(.dark-theme) .bid-action-menu .menu-item:hover i,
+body:not(.dark-theme) .bid-action-menu .menu-item:hover svg,
+body:not(.dark-theme) .bid-action-menu button:hover i,
+body:not(.dark-theme) .bid-action-menu button:hover svg {
+    stroke: #1E293B !important;
+    color: #1E293B !important;
+}
+
+/* Danger Item (실패/실주 처리): Text & Icon #DC2626 */
+.bidding-card-menu-popup .menu-item.danger,
+.bidding-card-menu-popup .menu-item.menu-item-danger,
+.bid-action-menu .menu-item.danger,
+.bid-action-menu .danger,
+body:not(.dark-theme) .bidding-card-menu-popup .menu-item.danger,
+body:not(.dark-theme) .bid-action-menu .danger {
+    color: #DC2626 !important;
+    background: transparent !important;
+}
+
+.bidding-card-menu-popup .menu-item.danger i,
+.bidding-card-menu-popup .menu-item.danger svg,
+.bid-action-menu .menu-item.danger i,
+.bid-action-menu .menu-item.danger svg,
+.bid-action-menu .danger i,
+.bid-action-menu .danger svg,
+body:not(.dark-theme) .bidding-card-menu-popup .menu-item.danger i,
+body:not(.dark-theme) .bidding-card-menu-popup .menu-item.danger svg,
+body:not(.dark-theme) .bid-action-menu .danger i,
+body:not(.dark-theme) .bid-action-menu .danger svg {
+    stroke: #DC2626 !important;
+    color: #DC2626 !important;
+}
+
+/* Danger Item Hover: Background #FEF2F2, Text & Icon #DC2626 */
+.bidding-card-menu-popup .menu-item.danger:hover,
+.bidding-card-menu-popup .menu-item.menu-item-danger:hover,
+.bid-action-menu .menu-item.danger:hover,
+.bid-action-menu .danger:hover,
+body:not(.dark-theme) .bidding-card-menu-popup .menu-item.danger:hover,
+body:not(.dark-theme) .bid-action-menu .danger:hover {
+    background: #FEF2F2 !important;
+    color: #DC2626 !important;
+}
+
+.bidding-card-menu-popup .menu-item.danger:hover i,
+.bidding-card-menu-popup .menu-item.danger:hover svg,
+.bid-action-menu .menu-item.danger:hover i,
+.bid-action-menu .menu-item.danger:hover svg,
+.bid-action-menu .danger:hover i,
+.bid-action-menu .danger:hover svg,
+body:not(.dark-theme) .bidding-card-menu-popup .menu-item.danger:hover i,
+body:not(.dark-theme) .bidding-card-menu-popup .menu-item.danger:hover svg,
+body:not(.dark-theme) .bid-action-menu .danger:hover i,
+body:not(.dark-theme) .bid-action-menu .danger:hover svg {
+    stroke: #DC2626 !important;
+    color: #DC2626 !important;
+}
+
+/* ==========================================================================
+   BIDDING CARD ACTION MENU - DARK MODE ONLY ([data-theme="dark"] / body.dark-theme)
+   ========================================================================== */
+
+[data-theme="dark"] .bidding-card-menu-popup,
+[data-theme="dark"] .bid-action-menu,
+body.dark-theme .bidding-card-menu-popup,
+body.dark-theme .bid-action-menu {
+    background: #111827 !important;
+    border: 1px solid #334155 !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4) !important;
+}
+
 [data-theme="dark"] .card-more-button,
 [data-theme="dark"] .bidding-card-menu-btn,
-:root:not([data-theme="light"]) .card-more-button,
-:root:not([data-theme="light"]) .bidding-card-menu-btn {
+[data-theme="dark"] .bid-action-menu-btn,
+body.dark-theme .card-more-button,
+body.dark-theme .bidding-card-menu-btn,
+body.dark-theme .bid-action-menu-btn {
     background-color: #1E293B !important;
     border: 1px solid #334155 !important;
     color: #CBD5E1 !important;
@@ -10204,19 +10384,24 @@ body.app-modal-open {
 [data-theme="dark"] .card-more-button svg,
 [data-theme="dark"] .bidding-card-menu-btn i,
 [data-theme="dark"] .bidding-card-menu-btn svg,
-:root:not([data-theme="light"]) .card-more-button i,
-:root:not([data-theme="light"]) .card-more-button svg,
-:root:not([data-theme="light"]) .bidding-card-menu-btn i,
-:root:not([data-theme="light"]) .bidding-card-menu-btn svg {
+[data-theme="dark"] .bid-action-menu-btn i,
+[data-theme="dark"] .bid-action-menu-btn svg,
+body.dark-theme .card-more-button i,
+body.dark-theme .card-more-button svg,
+body.dark-theme .bidding-card-menu-btn i,
+body.dark-theme .bidding-card-menu-btn svg,
+body.dark-theme .bid-action-menu-btn i,
+body.dark-theme .bid-action-menu-btn svg {
     stroke: #CBD5E1 !important;
     color: #CBD5E1 !important;
 }
 
-/* Dark Mode Hover */
 [data-theme="dark"] .card-more-button:hover,
 [data-theme="dark"] .bidding-card-menu-btn:hover,
-:root:not([data-theme="light"]) .card-more-button:hover,
-:root:not([data-theme="light"]) .bidding-card-menu-btn:hover {
+[data-theme="dark"] .bid-action-menu-btn:hover,
+body.dark-theme .card-more-button:hover,
+body.dark-theme .bidding-card-menu-btn:hover,
+body.dark-theme .bid-action-menu-btn:hover {
     background-color: #334155 !important;
     border-color: #475569 !important;
     color: #F8FAFC !important;
@@ -10226,29 +10411,36 @@ body.app-modal-open {
 [data-theme="dark"] .card-more-button:hover svg,
 [data-theme="dark"] .bidding-card-menu-btn:hover i,
 [data-theme="dark"] .bidding-card-menu-btn:hover svg,
-:root:not([data-theme="light"]) .card-more-button:hover i,
-:root:not([data-theme="light"]) .card-more-button:hover svg,
-:root:not([data-theme="light"]) .bidding-card-menu-btn:hover i,
-:root:not([data-theme="light"]) .bidding-card-menu-btn:hover svg {
+[data-theme="dark"] .bid-action-menu-btn:hover i,
+[data-theme="dark"] .bid-action-menu-btn:hover svg,
+body.dark-theme .card-more-button:hover i,
+body.dark-theme .card-more-button:hover svg,
+body.dark-theme .bidding-card-menu-btn:hover i,
+body.dark-theme .bidding-card-menu-btn:hover svg,
+body.dark-theme .bid-action-menu-btn:hover i,
+body.dark-theme .bid-action-menu-btn:hover svg {
     stroke: #F8FAFC !important;
     color: #F8FAFC !important;
 }
 
-/* Dark Mode Active / Menu Open */
 [data-theme="dark"] .card-more-button.active,
 [data-theme="dark"] .card-more-button:active,
 [data-theme="dark"] .bidding-card-menu-btn.active,
 [data-theme="dark"] .bidding-card-menu-btn:active,
+[data-theme="dark"] .bid-action-menu-btn.active,
+[data-theme="dark"] .bid-action-menu-btn:active,
 [data-theme="dark"] .menu-open .card-more-button,
 [data-theme="dark"] .menu-open .bidding-card-menu-btn,
-[data-theme="dark"] .bidding-card-menu-dropdown.open .bidding-card-menu-btn,
-:root:not([data-theme="light"]) .card-more-button.active,
-:root:not([data-theme="light"]) .card-more-button:active,
-:root:not([data-theme="light"]) .bidding-card-menu-btn.active,
-:root:not([data-theme="light"]) .bidding-card-menu-btn:active,
-:root:not([data-theme="light"]) .menu-open .card-more-button,
-:root:not([data-theme="light"]) .menu-open .bidding-card-menu-btn,
-:root:not([data-theme="light"]) .bidding-card-menu-dropdown.open .bidding-card-menu-btn {
+[data-theme="dark"] .menu-open .bid-action-menu-btn,
+body.dark-theme .card-more-button.active,
+body.dark-theme .card-more-button:active,
+body.dark-theme .bidding-card-menu-btn.active,
+body.dark-theme .bidding-card-menu-btn:active,
+body.dark-theme .bid-action-menu-btn.active,
+body.dark-theme .bid-action-menu-btn:active,
+body.dark-theme .menu-open .card-more-button,
+body.dark-theme .menu-open .bidding-card-menu-btn,
+body.dark-theme .menu-open .bid-action-menu-btn {
     background-color: #2E245C !important;
     border-color: #8B5CF6 !important;
     color: #C4B5FD !important;
@@ -10262,207 +10454,120 @@ body.app-modal-open {
 [data-theme="dark"] .bidding-card-menu-btn.active svg,
 [data-theme="dark"] .bidding-card-menu-btn:active i,
 [data-theme="dark"] .bidding-card-menu-btn:active svg,
+[data-theme="dark"] .bid-action-menu-btn.active i,
+[data-theme="dark"] .bid-action-menu-btn.active svg,
+[data-theme="dark"] .bid-action-menu-btn:active i,
+[data-theme="dark"] .bid-action-menu-btn:active svg,
 [data-theme="dark"] .menu-open .card-more-button i,
 [data-theme="dark"] .menu-open .card-more-button svg,
 [data-theme="dark"] .menu-open .bidding-card-menu-btn i,
 [data-theme="dark"] .menu-open .bidding-card-menu-btn svg,
-[data-theme="dark"] .bidding-card-menu-dropdown.open .bidding-card-menu-btn i,
-[data-theme="dark"] .bidding-card-menu-dropdown.open .bidding-card-menu-btn svg,
-:root:not([data-theme="light"]) .card-more-button.active i,
-:root:not([data-theme="light"]) .card-more-button.active svg,
-:root:not([data-theme="light"]) .card-more-button:active i,
-:root:not([data-theme="light"]) .card-more-button:active svg,
-:root:not([data-theme="light"]) .bidding-card-menu-btn.active i,
-:root:not([data-theme="light"]) .bidding-card-menu-btn.active svg,
-:root:not([data-theme="light"]) .bidding-card-menu-btn:active i,
-:root:not([data-theme="light"]) .bidding-card-menu-btn:active svg,
-:root:not([data-theme="light"]) .menu-open .card-more-button i,
-:root:not([data-theme="light"]) .menu-open .card-more-button svg,
-:root:not([data-theme="light"]) .menu-open .bidding-card-menu-btn i,
-:root:not([data-theme="light"]) .menu-open .bidding-card-menu-btn svg,
-:root:not([data-theme="light"]) .bidding-card-menu-dropdown.open .bidding-card-menu-btn i,
-:root:not([data-theme="light"]) .bidding-card-menu-dropdown.open .bidding-card-menu-btn svg {
+[data-theme="dark"] .menu-open .bid-action-menu-btn i,
+[data-theme="dark"] .menu-open .bid-action-menu-btn svg,
+body.dark-theme .card-more-button.active i,
+body.dark-theme .card-more-button.active svg,
+body.dark-theme .card-more-button:active i,
+body.dark-theme .card-more-button:active svg,
+body.dark-theme .bidding-card-menu-btn.active i,
+body.dark-theme .bidding-card-menu-btn.active svg,
+body.dark-theme .bidding-card-menu-btn:active i,
+body.dark-theme .bidding-card-menu-btn:active svg,
+body.dark-theme .bid-action-menu-btn.active i,
+body.dark-theme .bid-action-menu-btn.active svg,
+body.dark-theme .bid-action-menu-btn:active i,
+body.dark-theme .bid-action-menu-btn:active svg,
+body.dark-theme .menu-open .card-more-button i,
+body.dark-theme .menu-open .card-more-button svg,
+body.dark-theme .menu-open .bidding-card-menu-btn i,
+body.dark-theme .menu-open .bidding-card-menu-btn svg,
+body.dark-theme .menu-open .bid-action-menu-btn i,
+body.dark-theme .menu-open .bid-action-menu-btn svg {
     stroke: #C4B5FD !important;
     color: #C4B5FD !important;
 }
 
-/* Context Menu Popup Theme Styling */
-.bidding-card-menu-popup,
-.bid-action-menu {
-    position: absolute !important;
-    top: 36px !important;
-    right: 0 !important;
-    z-index: 100 !important;
-    width: 168px !important;
-    padding: 6px !important;
-    border-radius: 10px !important;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14) !important;
-    box-sizing: border-box !important;
-}
-
-/* 라이트 모드 - 입찰 카드 액션 메뉴 박스 */
-[data-theme="light"] .bidding-card-menu-popup,
-[data-theme="light"] .bid-action-menu {
-    background: #FFFFFF !important;
-    border: 1px solid #E2E8F0 !important;
-    color: #334155 !important;
-    border-radius: 10px !important;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14) !important;
-}
-
-[data-theme="dark"] .bidding-card-menu-popup,
-[data-theme="dark"] .bid-action-menu,
-:root:not([data-theme="light"]) .bidding-card-menu-popup,
-:root:not([data-theme="light"]) .bid-action-menu {
-    background: #111827 !important;
-    border: 1px solid #334155 !important;
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4) !important;
-}
-
-/* Popup Items Light Mode - 기본 글자 및 아이콘 #334155 */
-[data-theme="light"] .bidding-card-menu-popup .menu-item,
-[data-theme="light"] .bid-action-menu .menu-item,
-[data-theme="light"] .bid-action-menu button {
-    height: 36px !important;
-    min-height: 36px !important;
-    padding: 0 10px !important;
-    font-size: 13px !important;
-    font-weight: 500 !important;
-    color: #334155 !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-    border-radius: 6px !important;
-    cursor: pointer !important;
-    transition: background-color 0.15s ease, color 0.15s ease !important;
-    white-space: nowrap !important;
-    box-sizing: border-box !important;
-    background: transparent;
-}
-
-[data-theme="light"] .bidding-card-menu-popup .menu-item i,
-[data-theme="light"] .bidding-card-menu-popup .menu-item svg,
-[data-theme="light"] .bid-action-menu .menu-item i,
-[data-theme="light"] .bid-action-menu .menu-item svg,
-[data-theme="light"] .bid-action-menu button i,
-[data-theme="light"] .bid-action-menu button svg {
-    width: 16px !important;
-    height: 16px !important;
-    stroke: #334155 !important;
-    color: #334155 !important;
-    flex-shrink: 0 !important;
-}
-
-/* 라이트 모드 - 메뉴 hover 배경: #F5F3FF, 글자·아이콘: #6D28D9 */
-[data-theme="light"] .bidding-card-menu-popup .menu-item:hover,
-[data-theme="light"] .bid-action-menu .menu-item:hover,
-[data-theme="light"] .bid-action-menu button:hover {
-    background: #F5F3FF !important;
-    color: #6D28D9 !important;
-}
-
-[data-theme="light"] .bidding-card-menu-popup .menu-item:hover i,
-[data-theme="light"] .bidding-card-menu-popup .menu-item:hover svg,
-[data-theme="light"] .bid-action-menu .menu-item:hover i,
-[data-theme="light"] .bid-action-menu .menu-item:hover svg,
-[data-theme="light"] .bid-action-menu button:hover i,
-[data-theme="light"] .bid-action-menu button:hover svg {
-    stroke: #6D28D9 !important;
-    color: #6D28D9 !important;
-}
-
-/* 라이트 모드 - 실패/실주처리 글자·아이콘: #DC2626 */
-[data-theme="light"] .bidding-card-menu-popup .menu-item.danger,
-[data-theme="light"] .bidding-card-menu-popup .menu-item.menu-item-danger,
-[data-theme="light"] .bid-action-menu .menu-item.danger,
-[data-theme="light"] .bid-action-menu .danger {
-    color: #DC2626 !important;
-}
-
-[data-theme="light"] .bidding-card-menu-popup .menu-item.danger i,
-[data-theme="light"] .bidding-card-menu-popup .menu-item.danger svg,
-[data-theme="light"] .bid-action-menu .menu-item.danger i,
-[data-theme="light"] .bid-action-menu .menu-item.danger svg,
-[data-theme="light"] .bid-action-menu .danger i,
-[data-theme="light"] .bid-action-menu .danger svg {
-    stroke: #DC2626 !important;
-    color: #DC2626 !important;
-}
-
-/* 라이트 모드 - 실패 항목 hover 배경: #FEF2F2 */
-[data-theme="light"] .bidding-card-menu-popup .menu-item.danger:hover,
-[data-theme="light"] .bidding-card-menu-popup .menu-item.menu-item-danger:hover,
-[data-theme="light"] .bid-action-menu .menu-item.danger:hover,
-[data-theme="light"] .bid-action-menu .danger:hover {
-    background: #FEF2F2 !important;
-    color: #DC2626 !important;
-}
-
-[data-theme="light"] .bidding-card-menu-popup .menu-item.danger:hover i,
-[data-theme="light"] .bidding-card-menu-popup .menu-item.danger:hover svg,
-[data-theme="light"] .bid-action-menu .menu-item.danger:hover i,
-[data-theme="light"] .bid-action-menu .menu-item.danger:hover svg,
-[data-theme="light"] .bid-action-menu .danger:hover i,
-[data-theme="light"] .bid-action-menu .danger:hover svg {
-    stroke: #DC2626 !important;
-    color: #DC2626 !important;
-}
-    color: #EF4444 !important;
-}
-
-/* Popup Items Dark Mode */
 [data-theme="dark"] .bidding-card-menu-popup .menu-item,
-:root:not([data-theme="light"]) .bidding-card-menu-popup .menu-item {
-    height: 36px !important;
-    min-height: 36px !important;
+[data-theme="dark"] .bid-action-menu .menu-item,
+[data-theme="dark"] .bid-action-menu button,
+body.dark-theme .bidding-card-menu-popup .menu-item,
+body.dark-theme .bid-action-menu .menu-item,
+body.dark-theme .bid-action-menu button {
+    height: 34px !important;
+    min-height: 34px !important;
     padding: 0 10px !important;
     font-size: 13px !important;
     font-weight: 500 !important;
     color: #CBD5E1 !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-    border-radius: 6px !important;
-    cursor: pointer !important;
-    transition: background-color 0.15s ease, color 0.15s ease !important;
-    white-space: nowrap !important;
-    box-sizing: border-box !important;
+    background: transparent !important;
 }
 
 [data-theme="dark"] .bidding-card-menu-popup .menu-item i,
 [data-theme="dark"] .bidding-card-menu-popup .menu-item svg,
-:root:not([data-theme="light"]) .bidding-card-menu-popup .menu-item i,
-:root:not([data-theme="light"]) .bidding-card-menu-popup .menu-item svg {
+[data-theme="dark"] .bid-action-menu .menu-item i,
+[data-theme="dark"] .bid-action-menu .menu-item svg,
+[data-theme="dark"] .bid-action-menu button i,
+[data-theme="dark"] .bid-action-menu button svg,
+body.dark-theme .bidding-card-menu-popup .menu-item i,
+body.dark-theme .bidding-card-menu-popup .menu-item svg,
+body.dark-theme .bid-action-menu .menu-item i,
+body.dark-theme .bid-action-menu .menu-item svg,
+body.dark-theme .bid-action-menu button i,
+body.dark-theme .bid-action-menu button svg {
     width: 16px !important;
     height: 16px !important;
     stroke: #94A3B8 !important;
     color: #94A3B8 !important;
-    flex-shrink: 0 !important;
 }
 
 [data-theme="dark"] .bidding-card-menu-popup .menu-item:hover,
-:root:not([data-theme="light"]) .bidding-card-menu-popup .menu-item:hover {
+[data-theme="dark"] .bid-action-menu .menu-item:hover,
+[data-theme="dark"] .bid-action-menu button:hover,
+body.dark-theme .bidding-card-menu-popup .menu-item:hover,
+body.dark-theme .bid-action-menu .menu-item:hover,
+body.dark-theme .bid-action-menu button:hover {
     background: #1E293B !important;
     color: #F8FAFC !important;
 }
 
 [data-theme="dark"] .bidding-card-menu-popup .menu-item:hover i,
-:root:not([data-theme="light"]) .bidding-card-menu-popup .menu-item:hover svg {
+[data-theme="dark"] .bidding-card-menu-popup .menu-item:hover svg,
+[data-theme="dark"] .bid-action-menu .menu-item:hover i,
+[data-theme="dark"] .bid-action-menu .menu-item:hover svg,
+[data-theme="dark"] .bid-action-menu button:hover i,
+[data-theme="dark"] .bid-action-menu button:hover svg,
+body.dark-theme .bidding-card-menu-popup .menu-item:hover i,
+body.dark-theme .bidding-card-menu-popup .menu-item:hover svg,
+body.dark-theme .bid-action-menu .menu-item:hover i,
+body.dark-theme .bid-action-menu .menu-item:hover svg,
+body.dark-theme .bid-action-menu button:hover i,
+body.dark-theme .bid-action-menu button:hover svg {
     stroke: #F8FAFC !important;
     color: #F8FAFC !important;
 }
 
 [data-theme="dark"] .bidding-card-menu-popup .menu-item.danger,
 [data-theme="dark"] .bidding-card-menu-popup .menu-item.menu-item-danger,
-:root:not([data-theme="light"]) .bidding-card-menu-popup .menu-item.danger,
-:root:not([data-theme="light"]) .bidding-card-menu-popup .menu-item.menu-item-danger {
+[data-theme="dark"] .bid-action-menu .menu-item.danger,
+[data-theme="dark"] .bid-action-menu .danger,
+body.dark-theme .bidding-card-menu-popup .menu-item.danger,
+body.dark-theme .bidding-card-menu-popup .menu-item.menu-item-danger,
+body.dark-theme .bid-action-menu .menu-item.danger,
+body.dark-theme .bid-action-menu .danger {
     color: #F87171 !important;
 }
 
 [data-theme="dark"] .bidding-card-menu-popup .menu-item.danger i,
 [data-theme="dark"] .bidding-card-menu-popup .menu-item.danger svg,
-:root:not([data-theme="light"]) .bidding-card-menu-popup .menu-item.danger i,
-:root:not([data-theme="light"]) .bidding-card-menu-popup .menu-item.danger svg {
+[data-theme="dark"] .bid-action-menu .menu-item.danger i,
+[data-theme="dark"] .bid-action-menu .menu-item.danger svg,
+[data-theme="dark"] .bid-action-menu .danger i,
+[data-theme="dark"] .bid-action-menu .danger svg,
+body.dark-theme .bidding-card-menu-popup .menu-item.danger i,
+body.dark-theme .bidding-card-menu-popup .menu-item.danger svg,
+body.dark-theme .bid-action-menu .menu-item.danger i,
+body.dark-theme .bid-action-menu .menu-item.danger svg,
+body.dark-theme .bid-action-menu .danger i,
+body.dark-theme .bid-action-menu .danger svg {
     stroke: #F87171 !important;
     color: #F87171 !important;
 }
