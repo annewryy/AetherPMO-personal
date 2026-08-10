@@ -1,17 +1,21 @@
 /**
  * AetherPMO PWA Service Worker
- * Caching Strategy:
- * - Supabase API & Auth requests: NETWORK ONLY (never cached)
- * - HTML (index.html): NETWORK FIRST (with offline cache fallback)
- * - Static Assets (CSS, JS, Fonts, Images): STALE-WHILE-REVALIDATE
- * - Automatic cache versioning & cleanup on activate
+ * Manual Cache Version Constant: 'aetherpmo-v1.0.2-20260810'
+ * 
+ * Strict Bypass & Caching Strategy:
+ * 1. NETWORK ONLY (Bypass SW respondWith completely):
+ *    - Cross-origin requests (url.origin !== self.location.origin)
+ *    - Supabase API endpoints (*.supabase.co, /auth/v1/, /rest/v1/, /storage/v1/, /realtime/v1/, /rpc/)
+ *    - Any non-GET HTTP methods (POST, PUT, DELETE, PATCH)
+ * 2. NETWORK FIRST: Navigation & HTML document requests
+ * 3. STALE-WHILE-REVALIDATE: Same-origin static App Shell assets (CSS, JS, Fonts, Images)
  */
 
-const CACHE_VERSION = 'aetherpmo-v1.0.1-20260810';
+const CACHE_VERSION = 'aetherpmo-v1.0.2-20260810';
 const STATIC_CACHE_NAME = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE_NAME = `dynamic-${CACHE_VERSION}`;
 
-// Core static App Shell assets to pre-cache
+// Core static App Shell assets to pre-cache (Same-Origin only)
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -20,7 +24,10 @@ const STATIC_ASSETS = [
     '/manifest.webmanifest',
     '/favicon.png',
     '/icon-192.png',
-    '/icon-512.png'
+    '/icon-192-maskable.png',
+    '/icon-512.png',
+    '/icon-512-maskable.png',
+    '/apple-touch-icon-180.png'
 ];
 
 // Install Event: Pre-cache static App Shell
@@ -52,13 +59,17 @@ self.addEventListener('activate', event => {
     );
 });
 
-// Fetch Event: Apply strict network vs cache strategies
+// Fetch Event: Apply strict origin checks & network vs cache strategies
 self.addEventListener('fetch', event => {
     const request = event.request;
     const url = new URL(request.url);
 
-    // 1. NETWORK ONLY: Supabase API (Auth, REST, Storage, Realtime, RPC), external domain requests, and all non-GET requests
+    // 1. NETWORK ONLY BYPASS:
+    // - Cross-origin requests (url.origin !== self.location.origin)
+    // - Supabase API endpoints (*.supabase.co, /auth/v1/, /rest/v1/, /storage/v1/, /realtime/v1/, /rpc/)
+    // - Any non-GET requests (POST, PUT, DELETE, PATCH, etc.)
     if (
+        url.origin !== self.location.origin ||
         url.hostname.includes('supabase.co') ||
         url.pathname.includes('/auth/v1/') ||
         url.pathname.includes('/rest/v1/') ||
@@ -67,10 +78,10 @@ self.addEventListener('fetch', event => {
         url.pathname.includes('/rpc/') ||
         request.method !== 'GET'
     ) {
-        return; // Early return without event.respondWith(), browser fetches directly over network
+        return; // Early return without event.respondWith(), browser handles request directly over network
     }
 
-    // 2. NETWORK FIRST: Navigation & HTML requests
+    // 2. NETWORK FIRST: Navigation & HTML requests (Same-Origin)
     if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
         event.respondWith(
             fetch(request)
@@ -84,6 +95,7 @@ self.addEventListener('fetch', event => {
                     return networkResponse;
                 })
                 .catch(() => {
+                    // Offline fallback to cached HTML
                     return caches.match(request).then(cachedResponse => {
                         return cachedResponse || caches.match('/index.html');
                     });
@@ -92,12 +104,12 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    // 3. STALE-WHILE-REVALIDATE: Static assets (CSS, JS, Fonts, Images)
+    // 3. STALE-WHILE-REVALIDATE: Same-origin static GET assets (CSS, JS, Images, Fonts)
     event.respondWith(
         caches.match(request).then(cachedResponse => {
             const fetchPromise = fetch(request)
                 .then(networkResponse => {
-                    if (networkResponse && networkResponse.status === 200) {
+                    if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
                         const responseClone = networkResponse.clone();
                         caches.open(DYNAMIC_CACHE_NAME).then(cache => {
                             cache.put(request, responseClone);
@@ -105,8 +117,8 @@ self.addEventListener('fetch', event => {
                     }
                     return networkResponse;
                 })
-                .catch(() => {
-                    // Ignore network failure for background revalidation
+                .catch(err => {
+                    console.debug('[SW] Fetch failed, serving cache if available:', err);
                 });
 
             return cachedResponse || fetchPromise;

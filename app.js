@@ -1042,6 +1042,11 @@ class AetherPMO {
 
     async syncDb(type, data, extra = null) {
         if (!this.useSupabase) return;
+
+        if (!navigator.onLine) {
+            this.showToast('오프라인 상태입니다. 네트워크 연결 확인 후 다시 시도해 주세요.', 'warning');
+            throw new Error('Offline mode: Network connection unavailable');
+        }
         try {
             switch(type) {
                 case 'project_upsert': {
@@ -4466,6 +4471,49 @@ class AetherPMO {
                 }
             });
         }
+
+        // Tab key focus trap inside mobile sidebar drawer & Escape key listener
+        document.addEventListener('keydown', (e) => {
+            const sidebar = document.querySelector('.sidebar');
+            if (sidebar && sidebar.classList.contains('mobile-open')) {
+                if (e.key === 'Tab') {
+                    const focusables = Array.from(sidebar.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+                    if (focusables.length > 0) {
+                        const first = focusables[0];
+                        const last = focusables[focusables.length - 1];
+                        if (e.shiftKey && document.activeElement === first) {
+                            e.preventDefault();
+                            last.focus();
+                        } else if (!e.shiftKey && document.activeElement === last) {
+                            e.preventDefault();
+                            first.focus();
+                        }
+                    }
+                } else if (e.key === 'Escape') {
+                    this.closeMobileDrawer();
+                }
+            }
+        });
+
+        // Window resize listener to handle >= 769px desktop layout reset
+        window.addEventListener('resize', () => {
+            const sidebar = document.querySelector('.sidebar');
+            const mainLayout = document.querySelector('.main-layout');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            if (window.innerWidth >= 769) {
+                if (sidebar) {
+                    sidebar.classList.remove('mobile-open');
+                    sidebar.setAttribute('aria-hidden', 'false');
+                }
+                if (mainLayout) {
+                    mainLayout.removeAttribute('aria-hidden');
+                }
+                if (backdrop) backdrop.classList.remove('active');
+                document.body.style.overflow = '';
+            } else if (sidebar && !sidebar.classList.contains('mobile-open')) {
+                sidebar.setAttribute('aria-hidden', 'true');
+            }
+        });
     }
 
     calculateOverallProgressFromModalInputs() {
@@ -4638,14 +4686,19 @@ class AetherPMO {
         const sidebar = document.querySelector('.sidebar');
         const backdrop = document.getElementById('sidebar-backdrop');
         const toggleBtn = document.getElementById('btn-mobile-drawer-toggle');
+        const mainLayout = document.querySelector('.main-layout');
 
         const isOpen = sidebar && sidebar.classList.contains('mobile-open');
         if (isOpen) {
             this.closeMobileDrawer();
         } else {
+            this.previousActiveElement = document.activeElement;
             if (sidebar) {
                 sidebar.classList.add('mobile-open');
                 sidebar.setAttribute('aria-hidden', 'false');
+            }
+            if (mainLayout) {
+                mainLayout.setAttribute('aria-hidden', 'true');
             }
             if (backdrop) backdrop.classList.add('active');
             if (toggleBtn) {
@@ -4654,8 +4707,10 @@ class AetherPMO {
             }
             document.body.style.overflow = 'hidden';
 
-            const firstNavItem = sidebar ? sidebar.querySelector('.sidebar-nav a, .sidebar-nav button') : null;
-            if (firstNavItem) firstNavItem.focus();
+            const focusables = sidebar ? Array.from(sidebar.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')) : [];
+            if (focusables.length > 0) {
+                focusables[0].focus();
+            }
         }
     }
 
@@ -4663,10 +4718,18 @@ class AetherPMO {
         const sidebar = document.querySelector('.sidebar');
         const backdrop = document.getElementById('sidebar-backdrop');
         const toggleBtn = document.getElementById('btn-mobile-drawer-toggle');
+        const mainLayout = document.querySelector('.main-layout');
 
         if (sidebar) {
             sidebar.classList.remove('mobile-open');
-            sidebar.setAttribute('aria-hidden', 'true');
+            if (window.innerWidth < 769) {
+                sidebar.setAttribute('aria-hidden', 'true');
+            } else {
+                sidebar.setAttribute('aria-hidden', 'false');
+            }
+        }
+        if (mainLayout) {
+            mainLayout.removeAttribute('aria-hidden');
         }
         if (backdrop) backdrop.classList.remove('active');
         if (toggleBtn) {
@@ -4674,6 +4737,11 @@ class AetherPMO {
             toggleBtn.setAttribute('aria-label', '메뉴 열기');
         }
         document.body.style.overflow = '';
+
+        if (this.previousActiveElement && typeof this.previousActiveElement.focus === 'function') {
+            this.previousActiveElement.focus();
+            this.previousActiveElement = null;
+        }
     }
 
     async switchView(viewName, params = null, options = {}) {

@@ -11779,12 +11779,29 @@ body.dark-mode .project-delete-modal .btn-confirm-delete:disabled,
         font-size: 16px !important; /* Minimum 16px to prevent iOS Safari auto-zoom */
     }
 
-    button:not(.btn-xs):not(.btn-sm):not(.icon-btn):not(.table-action-btn):not(.modal-close-btn):not(.tab-btn),
-    .btn:not(.btn-xs):not(.btn-sm):not(.icon-btn):not(.table-action-btn),
+    /* Mobile Touch Target (Minimum 44px x 44px interactive tap area) */
+    button,
+    .btn,
     .nav-item,
     input[type="button"],
     input[type="submit"] {
         min-height: 44px !important;
+    }
+
+    /* Compact / Icon / Table / Tab Buttons: Maintain crisp inner icon size while expanding tap area to 44px */
+    .btn-xs,
+    .btn-sm,
+    .icon-btn,
+    .table-action-btn,
+    .modal-close-btn,
+    .tab-btn {
+        min-width: 44px !important;
+        min-height: 44px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
+        padding: 8px !important;
     }
 
     /* Mobile Drawer */
