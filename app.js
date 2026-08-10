@@ -9079,10 +9079,14 @@ renderTodayTasksRoleBased(todayStr) {
                 `;
             } else {
                 entryContainer.innerHTML = `
-                    <span class="text-xs text-muted font-bold" style="background:var(--bg-input); padding:6px 12px; border-radius:6px; border:1px solid var(--bg-card-border);">
-                        🔒 수주 확정 후 수행 프로젝트 상세 연결 가능
-                    </span>
+                    <button class="btn btn-primary" onclick="app.closeBiddingDetailModal(); app.switchView('projects/bidding');" style="display:inline-flex; align-items:center; gap:6px;">
+                        <i data-lucide="file-signature" style="width:14px; height:14px;"></i>
+                        <span>입찰 준비 페이지로 이동 ➔</span>
+                    </button>
                 `;
+            }
+            if (typeof lucide !== 'undefined') {
+                try { lucide.createIcons(); } catch(e){}
             }
         }
 
