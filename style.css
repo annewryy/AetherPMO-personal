@@ -12150,7 +12150,9 @@ body.dark-mode .project-delete-modal .btn-confirm-delete:disabled,
 #meeting-minutes-modal .modal-header,
 #meeting-minutes-modal .modal-footer,
 #vrb-modal .modal-header,
-#vrb-modal .modal-footer {
+#vrb-modal .modal-footer,
+#consortium-modal .modal-header,
+#consortium-modal .modal-footer {
     padding-left: 10px;
     padding-right: 10px;
     box-sizing: border-box;
