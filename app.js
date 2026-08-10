@@ -23319,6 +23319,7 @@ renderTodayTasksRoleBased(todayStr) {
             category: p.category,
             title: p.title,
             content: p.content,
+            allowComments: p.allow_comments !== false,
             authorId: p.author_id,
             authorName: p.author_name || '익명',
             attachmentUrl: p.attachment_url,
@@ -23456,6 +23457,9 @@ renderTodayTasksRoleBased(todayStr) {
         document.getElementById('board-post-id-field').value = '';
         this.editingBoardPostId = null;
 
+        const allowCommentsEl = document.getElementById('board-post-allow-comments');
+        if (allowCommentsEl) allowCommentsEl.value = 'true';
+
         const currentCat = this.activeBoardCategoryFilter;
         if (currentCat && ['notice', 'inquiry', 'resource'].includes(currentCat)) {
             document.getElementById('board-post-category').value = currentCat;
@@ -23474,6 +23478,9 @@ renderTodayTasksRoleBased(todayStr) {
         document.getElementById('board-post-title').value = post.title || '';
         document.getElementById('board-post-content').value = post.content || '';
 
+        const allowCommentsEl = document.getElementById('board-post-allow-comments');
+        if (allowCommentsEl) allowCommentsEl.value = post.allowComments === false ? 'false' : 'true';
+
         const fileInput = document.getElementById('board-post-file-input');
         if (fileInput) fileInput.value = '';
 
@@ -23490,6 +23497,7 @@ renderTodayTasksRoleBased(todayStr) {
         const category = document.getElementById('board-post-category').value;
         const title = document.getElementById('board-post-title').value.trim();
         const content = document.getElementById('board-post-content').value.trim();
+        const allowComments = document.getElementById('board-post-allow-comments')?.value !== 'false';
 
         if (!category || !title || !content) {
             alert('필수 항목을 입력하세요.');
@@ -23590,6 +23598,7 @@ renderTodayTasksRoleBased(todayStr) {
                 category,
                 title,
                 content,
+                allow_comments: allowComments,
                 attachment_url: attachmentUrl,
                 updated_at: new Date().toISOString()
             };
@@ -23623,6 +23632,7 @@ renderTodayTasksRoleBased(todayStr) {
                         category: data.category,
                         title: data.title,
                         content: data.content,
+                        allowComments: data.allow_comments !== false,
                         attachmentUrl: data.attachment_url,
                         updatedAt: data.updated_at
                     };
@@ -23634,6 +23644,7 @@ renderTodayTasksRoleBased(todayStr) {
                         category,
                         title,
                         content,
+                        allowComments,
                         attachmentUrl,
                         updatedAt: updateData.updated_at
                     };
@@ -23652,6 +23663,7 @@ renderTodayTasksRoleBased(todayStr) {
                     title,
                     content,
                     status: 'pending',
+                    allow_comments: allowComments,
                     author_id: authorId,
                     author_name: authorName,
                     attachment_url: attachmentUrl,
@@ -23682,6 +23694,7 @@ renderTodayTasksRoleBased(todayStr) {
                     category: data.category,
                     title: data.title,
                     content: data.content,
+                    allowComments: data.allow_comments !== false,
                     status: data.status || 'pending',
                     authorId: data.author_id,
                     authorName: data.author_name || authorName,
@@ -23698,6 +23711,7 @@ renderTodayTasksRoleBased(todayStr) {
                     category,
                     title,
                     content,
+                    allowComments,
                     status: 'pending',
                     authorName,
                     authorId,
@@ -23782,11 +23796,17 @@ renderTodayTasksRoleBased(todayStr) {
         // Render replies list
         this.renderBoardRepliesList(id);
 
-        // Show/hide reply writing form (Admin/PM only)
+        // Show/hide reply writing form vs reply disabled notice
         const isMgmt = this.currentUser && (this.currentUser.role === 'SYS_ADMIN' || this.currentUser.role === 'PM');
         const replyFormContainer = document.getElementById('board-reply-form-container');
-        if (replyFormContainer) {
-            replyFormContainer.style.display = isMgmt ? 'flex' : 'none';
+        const replyDisabledNotice = document.getElementById('board-reply-disabled-notice');
+
+        if (post.allowComments === false) {
+            if (replyFormContainer) replyFormContainer.style.display = 'none';
+            if (replyDisabledNotice) replyDisabledNotice.style.display = 'flex';
+        } else {
+            if (replyDisabledNotice) replyDisabledNotice.style.display = 'none';
+            if (replyFormContainer) replyFormContainer.style.display = isMgmt ? 'flex' : 'none';
         }
 
         // Reset reply input
@@ -23840,6 +23860,12 @@ renderTodayTasksRoleBased(todayStr) {
     saveBoardReply() {
         const postId = this.activeBoardPostId;
         if (!postId) return;
+
+        const post = (this.state.boardPosts || []).find(p => p.id === postId);
+        if (post && post.allowComments === false) {
+            this.showToast('이 게시글은 답변 및 댓글 작성이 제한되어 있습니다.', 'warning');
+            return;
+        }
 
         const replyInput = document.getElementById('board-reply-input');
         const content = replyInput ? replyInput.value.trim() : '';

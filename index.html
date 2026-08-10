@@ -5025,6 +5025,13 @@
                         <label for="board-post-file-input">첨부파일</label>
                         <input type="file" id="board-post-file-input" style="width:100%; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:13px; padding:6px 12px;">
                     </div>
+                    <div class="form-group span-2">
+                        <label for="board-post-allow-comments">답변/댓글 작성 설정 <span class="required">*</span></label>
+                        <select id="board-post-allow-comments" required style="width:100%; height:38px; border-radius:6px; border:1px solid var(--bg-card-border); background:var(--bg-input); color:var(--text-main); font-size:14px; padding:0 12px;">
+                            <option value="true">답변/댓글 작성 허용</option>
+                            <option value="false">답변/댓글 작성 금지</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline" onclick="app.closeBoardFormModal()">취소</button>
@@ -5090,6 +5097,12 @@
                                 <i data-lucide="send" style="width: 12px; height: 12px; margin-right: 4px;"></i> 답변 등록
                             </button>
                         </div>
+                    </div>
+
+                    <!-- Reply Disabled Notice -->
+                    <div id="board-reply-disabled-notice" style="display: none; background: var(--bg-hover-item); padding: 14px 16px; border-radius: 8px; border: 1px solid var(--bg-card-border); color: var(--text-muted); font-size: 13px; text-align: center; align-items: center; justify-content: center; gap: 6px;">
+                        <i data-lucide="lock" style="width: 14px; height: 14px; color: var(--warning);"></i>
+                        <span>이 게시글은 작성자에 의해 답변 및 댓글 작성이 제한되었습니다.</span>
                     </div>
                 </div>
             </div>
