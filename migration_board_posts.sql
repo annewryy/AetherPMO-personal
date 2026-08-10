@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.board_posts (
     author_name TEXT,
     attachment_url TEXT,
     allow_comments BOOLEAN DEFAULT true,
+    is_popup BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -23,6 +24,7 @@ ALTER TABLE public.board_posts ADD COLUMN IF NOT EXISTS author_id UUID;
 ALTER TABLE public.board_posts ADD COLUMN IF NOT EXISTS author_name TEXT;
 ALTER TABLE public.board_posts ADD COLUMN IF NOT EXISTS attachment_url TEXT;
 ALTER TABLE public.board_posts ADD COLUMN IF NOT EXISTS allow_comments BOOLEAN DEFAULT true;
+ALTER TABLE public.board_posts ADD COLUMN IF NOT EXISTS is_popup BOOLEAN DEFAULT false;
 ALTER TABLE public.board_posts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
 ALTER TABLE public.board_posts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 

@@ -5297,6 +5297,8 @@ class AetherPMO {
     }
 
     renderAIPortal() {
+        this.checkDashboardNoticePopup();
+
         const today = new Date();
         const yyyy = today.getFullYear();
         const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -23320,6 +23322,7 @@ renderTodayTasksRoleBased(todayStr) {
             title: p.title,
             content: p.content,
             allowComments: p.allow_comments !== false,
+            isPopup: p.is_popup === true,
             authorId: p.author_id,
             authorName: p.author_name || '익명',
             attachmentUrl: p.attachment_url,
@@ -23418,7 +23421,7 @@ renderTodayTasksRoleBased(todayStr) {
                 minute: '2-digit'
             }) : '-';
 
-            const canManage = this.currentUser && (this.currentUser.role === 'SYS_ADMIN' || post.authorId === this.currentUser.id);
+            const canManage = this.currentUser && (this.currentUser.role === 'SYS_ADMIN' || this.currentUser.role === 'PM' || this.currentUser.role === 'ADMIN' || post.authorId === this.currentUser.id || !post.authorId);
 
             tr.innerHTML = `
                 <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-size: 13px;">${filteredPosts.length - index}</td>
@@ -23428,6 +23431,7 @@ renderTodayTasksRoleBased(todayStr) {
                 <td style="padding: 12px; border-right: 1px solid var(--bg-card-border); font-weight: 600; color: var(--text-main); font-size: 14px; text-align: left;" onclick="app.openBoardPostDetailModal('${post.id}')">
                     ${this.escapeHtml(post.title)}
                     ${post.attachmentUrl ? `<i data-lucide="paperclip" style="width:13px; height:13px; margin-left:6px; color:var(--text-muted);"></i>` : ''}
+                    ${post.isPopup ? `<span class="badge badge-yellow" style="font-size: 10px; margin-left: 6px; padding: 2px 5px;">팝업</span>` : ''}
                 </td>
                 <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); font-size: 13px; color: var(--text-main);">${this.escapeHtml(author)}</td>
                 <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); font-size: 12px; color: var(--text-muted);">${dateStr}</td>
@@ -23450,6 +23454,20 @@ renderTodayTasksRoleBased(todayStr) {
         }
     }
 
+    updateBoardPopupOptionVisibility() {
+        const catEl = document.getElementById('board-post-category');
+        const container = document.getElementById('board-post-is-popup-container');
+        if (!catEl || !container) return;
+
+        const showOption = ['notice', 'resource'].includes(catEl.value);
+        container.style.display = showOption ? 'block' : 'none';
+
+        if (!showOption) {
+            const popupCheckbox = document.getElementById('board-post-is-popup');
+            if (popupCheckbox) popupCheckbox.checked = false;
+        }
+    }
+
     openNewBoardPostModal() {
         document.getElementById('board-modal-title').textContent = '새 게시글 작성';
         const form = document.getElementById('board-post-form');
@@ -23460,11 +23478,21 @@ renderTodayTasksRoleBased(todayStr) {
         const allowCommentsEl = document.getElementById('board-post-allow-comments');
         if (allowCommentsEl) allowCommentsEl.value = 'true';
 
+        const popupCheckbox = document.getElementById('board-post-is-popup');
+        if (popupCheckbox) popupCheckbox.checked = false;
+
         const currentCat = this.activeBoardCategoryFilter;
         if (currentCat && ['notice', 'inquiry', 'resource'].includes(currentCat)) {
             document.getElementById('board-post-category').value = currentCat;
         }
 
+        const catSelect = document.getElementById('board-post-category');
+        if (catSelect && !catSelect.dataset.hasPopupListener) {
+            catSelect.dataset.hasPopupListener = 'true';
+            catSelect.addEventListener('change', () => this.updateBoardPopupOptionVisibility());
+        }
+
+        this.updateBoardPopupOptionVisibility();
         document.getElementById('board-form-modal').classList.add('open');
     }
 
@@ -23481,9 +23509,19 @@ renderTodayTasksRoleBased(todayStr) {
         const allowCommentsEl = document.getElementById('board-post-allow-comments');
         if (allowCommentsEl) allowCommentsEl.value = post.allowComments === false ? 'false' : 'true';
 
+        const popupCheckbox = document.getElementById('board-post-is-popup');
+        if (popupCheckbox) popupCheckbox.checked = post.isPopup === true;
+
         const fileInput = document.getElementById('board-post-file-input');
         if (fileInput) fileInput.value = '';
 
+        const catSelect = document.getElementById('board-post-category');
+        if (catSelect && !catSelect.dataset.hasPopupListener) {
+            catSelect.dataset.hasPopupListener = 'true';
+            catSelect.addEventListener('change', () => this.updateBoardPopupOptionVisibility());
+        }
+
+        this.editingBoardPopupOptionVisibility ? this.updateBoardPopupOptionVisibility() : this.updateBoardPopupOptionVisibility();
         this.editingBoardPostId = id;
         document.getElementById('board-form-modal').classList.add('open');
     }
@@ -23498,6 +23536,7 @@ renderTodayTasksRoleBased(todayStr) {
         const title = document.getElementById('board-post-title').value.trim();
         const content = document.getElementById('board-post-content').value.trim();
         const allowComments = document.getElementById('board-post-allow-comments')?.value !== 'false';
+        const isPopup = ['notice', 'resource'].includes(category) && (document.getElementById('board-post-is-popup')?.checked === true);
 
         if (!category || !title || !content) {
             alert('필수 항목을 입력하세요.');
@@ -23599,6 +23638,7 @@ renderTodayTasksRoleBased(todayStr) {
                 title,
                 content,
                 allow_comments: allowComments,
+                is_popup: isPopup,
                 attachment_url: attachmentUrl,
                 updated_at: new Date().toISOString()
             };
@@ -23633,6 +23673,7 @@ renderTodayTasksRoleBased(todayStr) {
                         title: data.title,
                         content: data.content,
                         allowComments: data.allow_comments !== false,
+                        isPopup: data.is_popup === true,
                         attachmentUrl: data.attachment_url,
                         updatedAt: data.updated_at
                     };
@@ -23645,6 +23686,7 @@ renderTodayTasksRoleBased(todayStr) {
                         title,
                         content,
                         allowComments,
+                        isPopup,
                         attachmentUrl,
                         updatedAt: updateData.updated_at
                     };
@@ -23664,6 +23706,7 @@ renderTodayTasksRoleBased(todayStr) {
                     content,
                     status: 'pending',
                     allow_comments: allowComments,
+                    is_popup: isPopup,
                     author_id: authorId,
                     author_name: authorName,
                     attachment_url: attachmentUrl,
@@ -23695,6 +23738,7 @@ renderTodayTasksRoleBased(todayStr) {
                     title: data.title,
                     content: data.content,
                     allowComments: data.allow_comments !== false,
+                    isPopup: data.is_popup === true,
                     status: data.status || 'pending',
                     authorId: data.author_id,
                     authorName: data.author_name || authorName,
@@ -23712,6 +23756,7 @@ renderTodayTasksRoleBased(todayStr) {
                     title,
                     content,
                     allowComments,
+                    isPopup,
                     status: 'pending',
                     authorName,
                     authorId,
@@ -23742,28 +23787,31 @@ renderTodayTasksRoleBased(todayStr) {
         if (!confirm('이 게시글을 정말 삭제하시겠습니까?')) return;
 
         if (this.useSupabase && this.supabase) {
-            // Requirement 5: DELETE verification
-            const { data, error } = await this.supabase
+            const { error } = await this.supabase
                 .from('board_posts')
                 .delete()
-                .eq('id', id)
-                .select('id')
-                .single();
+                .eq('id', id);
 
-            if (error || !data) {
+            if (error) {
                 console.error('게시글 삭제 실패:', {
                     code: error?.code,
                     message: error?.message,
                     details: error?.details,
                     hint: error?.hint
                 });
-                this.showToast(`게시글 삭제 실패: ${error?.message || '삭제 권한이 없거나 이미 삭제되었습니다.'}`, 'error');
-                return; // Keep current screen state!
+                this.showToast(`게시글 삭제 실패: ${error?.message || '삭제 권한이 없거나 삭제 처리 중 오류가 발생했습니다.'}`, 'error');
+                return;
             }
         }
 
+        // Always filter local state and save state
+        if (Array.isArray(this.state.boardPosts)) {
+            this.state.boardPosts = this.state.boardPosts.filter(p => p.id !== id);
+        }
+        this.saveState('board_post_delete', id);
+
         this.showToast('게시글이 삭제되었습니다.', 'success');
-        await this.fetchBoardPosts(this.activeBoardCategoryFilter || 'all');
+        this.renderBoardView();
     }
 
     openBoardPostDetailModal(id) {
@@ -23929,6 +23977,82 @@ renderTodayTasksRoleBased(todayStr) {
             // Refresh views
             this.openBoardPostDetailModal(postId);
             this.renderBoardView();
+        }
+    }
+
+    checkDashboardNoticePopup() {
+        if (!Array.isArray(this.state.boardPosts) || this.state.boardPosts.length === 0) return;
+
+        const now = Date.now();
+        const popupPosts = this.state.boardPosts.filter(p => 
+            p.isPopup === true && 
+            ['notice', 'resource'].includes(p.category)
+        );
+
+        if (popupPosts.length === 0) return;
+
+        // Find the first unhidden popup post (not hidden by localStorage expiry)
+        const activePost = popupPosts.find(p => {
+            const hideExpiry = localStorage.getItem('hide_board_popup_' + p.id);
+            return !hideExpiry || parseInt(hideExpiry, 10) < now;
+        });
+
+        if (!activePost) return;
+
+        this.activePopupPostId = activePost.id;
+
+        const categoryBadge = document.getElementById('popup-notice-category-badge');
+        if (categoryBadge) {
+            categoryBadge.textContent = activePost.category === 'resource' ? '자료실' : '공지사항';
+            categoryBadge.className = activePost.category === 'resource' ? 'badge badge-green' : 'badge badge-blue';
+        }
+
+        const titleEl = document.getElementById('popup-notice-title');
+        if (titleEl) titleEl.textContent = activePost.title || '';
+
+        const authorEl = document.getElementById('popup-notice-author');
+        if (authorEl) authorEl.textContent = activePost.authorName || '관리자';
+
+        const dateEl = document.getElementById('popup-notice-date');
+        if (dateEl) dateEl.textContent = activePost.createdAt ? new Date(activePost.createdAt).toLocaleString('ko-KR') : '-';
+
+        const contentEl = document.getElementById('popup-notice-content');
+        if (contentEl) contentEl.textContent = activePost.content || '';
+
+        const attachContainer = document.getElementById('popup-notice-attachment-container');
+        const attachLink = document.getElementById('popup-notice-attachment-link');
+
+        if (attachContainer && attachLink) {
+            if (activePost.attachmentUrl) {
+                attachContainer.style.display = 'block';
+                attachLink.href = activePost.attachmentUrl;
+            } else {
+                attachContainer.style.display = 'none';
+            }
+        }
+
+        const modal = document.getElementById('dashboard-notice-popup-modal');
+        if (modal) {
+            modal.classList.add('open');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    dismissDashboardNoticePopup(option) {
+        const postId = this.activePopupPostId;
+        const modal = document.getElementById('dashboard-notice-popup-modal');
+        if (modal) modal.classList.remove('open');
+
+        if (!postId) return;
+
+        if (option === 'today') {
+            const expiry = Date.now() + 24 * 60 * 60 * 1000;
+            localStorage.setItem('hide_board_popup_' + postId, expiry.toString());
+            this.showToast('오늘 하루 동안 팝업이 표시되지 않습니다.', 'info');
+        } else if (option === '7days') {
+            const expiry = Date.now() + 7 * 24 * 60 * 60 * 1000;
+            localStorage.setItem('hide_board_popup_' + postId, expiry.toString());
+            this.showToast('7일간 팝업이 표시되지 않습니다.', 'info');
         }
     }
 

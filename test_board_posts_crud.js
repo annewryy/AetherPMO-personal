@@ -82,6 +82,27 @@ async function runBoardPostsTestSuite(appInstance) {
         await appInstance.switchView('board/resources');
         logTest("Subroute 'board/resources'", appInstance.activeBoardCategoryFilter === 'resource');
 
+        // 6. Dashboard Notice Popup Test
+        console.log("Test 6: Dashboard Notice Popup Test");
+        if (!appInstance.state.boardPosts) appInstance.state.boardPosts = [];
+        const testPopupPost = {
+            id: 'test-popup-id-123',
+            category: 'notice',
+            title: '테스트 팝업 공지',
+            content: '테스트 팝업 내용입니다.',
+            isPopup: true,
+            createdAt: new Date().toISOString()
+        };
+        appInstance.state.boardPosts.unshift(testPopupPost);
+        localStorage.removeItem('hide_board_popup_test-popup-id-123');
+
+        appInstance.checkDashboardNoticePopup();
+        logTest("Popup Active Post ID Set", appInstance.activePopupPostId === 'test-popup-id-123');
+
+        appInstance.dismissDashboardNoticePopup('today');
+        const hideExp = localStorage.getItem('hide_board_popup_test-popup-id-123');
+        logTest("Popup Dismissed Today Set Expiry", !!hideExp && parseInt(hideExp, 10) > Date.now());
+
         console.log(`=== TEST SUITE COMPLETE: ${results.passed} PASSED, ${results.failed} FAILED ===`);
         return results;
     } catch (e) {
