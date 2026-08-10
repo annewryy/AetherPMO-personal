@@ -15636,6 +15636,142 @@ renderTodayTasksRoleBased(todayStr) {
         }
     }
 
+
+    openNewTaskModal(projectId = null, taskId = null) {
+        const targetProjectId = projectId || this.activeProjectId;
+        if (!targetProjectId) return;
+
+        const project = this.state.projects?.find(p => String(p.id) === String(targetProjectId));
+        const today = new Date().toISOString().split('T')[0];
+        const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+
+        const modalTitle = document.getElementById('task-modal-title');
+        const projIdInput = document.getElementById('task-modal-project-id');
+        const taskIdInput = document.getElementById('task-modal-id');
+        const stageInput = document.getElementById('task-modal-stage');
+        const titleInput = document.getElementById('task-modal-task-title');
+        const assigneeInput = document.getElementById('task-modal-assignee');
+        const priorityInput = document.getElementById('task-modal-priority');
+        const startInput = document.getElementById('task-modal-start-date');
+        const dueInput = document.getElementById('task-modal-due-date');
+        const statusInput = document.getElementById('task-modal-status');
+        const progressInput = document.getElementById('task-modal-progress');
+
+        if (projIdInput) projIdInput.value = targetProjectId;
+
+        if (taskId) {
+            const tasks = this.getBiddingTasks(targetProjectId);
+            const task = tasks.find(t => String(t.id) === String(taskId));
+            if (task) {
+                if (modalTitle) modalTitle.innerHTML = '<i data-lucide="edit-3" style="width:18px; height:18px; color:var(--primary);"></i><span>Task 수정</span>';
+                if (taskIdInput) taskIdInput.value = task.id;
+                if (stageInput) stageInput.value = task.stage || '기획/분석';
+                if (titleInput) titleInput.value = task.title || '';
+                if (assigneeInput) assigneeInput.value = task.assignee || '';
+                if (priorityInput) priorityInput.value = task.priority || '보통';
+                if (startInput) startInput.value = task.startDate || project?.startDate || today;
+                if (dueInput) dueInput.value = task.dueDate || project?.endDate || nextWeek;
+                if (statusInput) statusInput.value = task.status || 'NOT_STARTED';
+                if (progressInput) progressInput.value = task.progress !== undefined ? task.progress : 0;
+            }
+        } else {
+            if (modalTitle) modalTitle.innerHTML = '<i data-lucide="check-square" style="width:18px; height:18px; color:var(--primary);"></i><span>신규 Task 등록</span>';
+            if (taskIdInput) taskIdInput.value = '';
+            if (stageInput) stageInput.value = '기획/분석';
+            if (titleInput) titleInput.value = '';
+            if (assigneeInput) assigneeInput.value = this.currentUser?.name || '';
+            if (priorityInput) priorityInput.value = '높음';
+            if (startInput) startInput.value = project?.startDate || today;
+            if (dueInput) dueInput.value = project?.endDate || nextWeek;
+            if (statusInput) statusInput.value = 'NOT_STARTED';
+            if (progressInput) progressInput.value = 0;
+        }
+
+        this.openModal('modal-task');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    closeTaskModal() {
+        this.closeModal('modal-task');
+    }
+
+    saveTaskModal(e) {
+        if (e && e.preventDefault) e.preventDefault();
+
+        const projectId = document.getElementById('task-modal-project-id')?.value || this.activeProjectId;
+        if (!projectId) return;
+
+        const taskId = document.getElementById('task-modal-id')?.value;
+        const stage = document.getElementById('task-modal-stage')?.value || '기획/분석';
+        const title = (document.getElementById('task-modal-task-title')?.value || '').trim();
+        const assignee = (document.getElementById('task-modal-assignee')?.value || '').trim();
+        const priority = document.getElementById('task-modal-priority')?.value || '보통';
+        const startDate = document.getElementById('task-modal-start-date')?.value || '';
+        const dueDate = document.getElementById('task-modal-due-date')?.value || '';
+        let status = document.getElementById('task-modal-status')?.value || 'NOT_STARTED';
+        let progress = Number(document.getElementById('task-modal-progress')?.value || 0);
+
+        if (!title) {
+            alert('Task명을 입력해주세요.');
+            return;
+        }
+
+        if (status === 'COMPLETED' && progress < 100) progress = 100;
+        if (progress === 100 && status !== 'COMPLETED') status = 'COMPLETED';
+
+        const tasks = this.getBiddingTasks(projectId);
+
+        if (taskId) {
+            const task = tasks.find(t => String(t.id) === String(taskId));
+            if (task) {
+                task.stage = stage;
+                task.title = title;
+                task.assignee = assignee;
+                task.priority = priority;
+                task.startDate = startDate;
+                task.dueDate = dueDate;
+                task.status = status;
+                task.progress = progress;
+            }
+        } else {
+            const newTask = {
+                id: 'btask-' + Date.now(),
+                stage,
+                title,
+                assignee: assignee || '미지정',
+                startDate: startDate || new Date().toISOString().split('T')[0],
+                dueDate: dueDate || new Date().toISOString().split('T')[0],
+                progress,
+                status,
+                priority,
+                weight: 10
+            };
+            tasks.push(newTask);
+        }
+
+        try {
+            localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+        } catch(err) {}
+
+        this.closeTaskModal();
+        this.refreshBiddingScheduleViews(projectId);
+        this.showToast(taskId ? 'Task가 수정되었습니다.' : '신규 Task가 등록되었습니다.', 'success');
+    }
+
+    deleteBiddingTask(projectId, taskId) {
+        if (!confirm('정말 이 Task를 삭제하시겠습니까?')) return;
+        const projectKey = String(projectId);
+        const tasks = this.getBiddingTasks(projectKey);
+        this.state.biddingTasksMap[projectKey] = tasks.filter(t => String(t.id) !== String(taskId));
+
+        try {
+            localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+        } catch(e) {}
+
+        this.refreshBiddingScheduleViews(projectKey);
+        this.showToast('Task가 삭제되었습니다.', 'info');
+    }
+
     renderBiddingTasksTab(projectId) {
         const container = document.getElementById('detail-tab-content-bidding-tasks');
         if (!container) {
@@ -15677,6 +15813,7 @@ renderTodayTasksRoleBased(todayStr) {
                                 <th style="padding:10px; text-align:center; width:120px;">진척률</th>
                                 <th style="padding:10px; text-align:center; width:110px;">상태</th>
                                 <th style="padding:10px; text-align:center; width:90px;">우선순위</th>
+                                <th style="padding:10px; text-align:center; width:80px;">관리</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -15707,6 +15844,16 @@ renderTodayTasksRoleBased(todayStr) {
                                         </td>
                                         <td style="padding:8px 10px; text-align:center;">
                                             <span class="badge ${t.priority === '긴급' ? 'badge-danger' : 'badge-warning'}" style="font-size:10px;">${t.priority}</span>
+                                        </td>
+                                        <td style="padding:8px 10px; text-align:center;">
+                                            <div style="display:flex; justify-content:center; gap:4px;">
+                                                <button class="btn btn-xs btn-outline" onclick="app.openNewTaskModal('${projectId}', '${t.id}')" title="수정" style="padding:2px 6px; font-size:11px;">
+                                                    <i data-lucide="edit-2" style="width:12px; height:12px;"></i>
+                                                </button>
+                                                <button class="btn btn-xs btn-outline-danger" onclick="app.deleteBiddingTask('${projectId}', '${t.id}')" title="삭제" style="padding:2px 6px; font-size:11px; color:var(--danger); border-color:var(--danger);">
+                                                    <i data-lucide="trash-2" style="width:12px; height:12px;"></i>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 `;
@@ -34704,3 +34851,11 @@ if (typeof window !== 'undefined' && window.app) {
 
 
     }
+
+if (typeof window !== 'undefined' && window.app) {
+    ['openNewTaskModal', 'closeTaskModal', 'saveTaskModal', 'deleteBiddingTask'].forEach(fn => {
+        if (typeof window.app[fn] === 'function') {
+            window.app[fn] = window.app[fn].bind(window.app);
+        }
+    });
+}
