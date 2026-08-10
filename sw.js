@@ -57,15 +57,17 @@ self.addEventListener('fetch', event => {
     const request = event.request;
     const url = new URL(request.url);
 
-    // 1. NETWORK ONLY: Supabase API, Auth, and external domain requests
+    // 1. NETWORK ONLY: Supabase API (Auth, REST, Storage, Realtime, RPC), external domain requests, and all non-GET requests
     if (
         url.hostname.includes('supabase.co') ||
         url.pathname.includes('/auth/v1/') ||
         url.pathname.includes('/rest/v1/') ||
         url.pathname.includes('/storage/v1/') ||
+        url.pathname.includes('/realtime/v1/') ||
+        url.pathname.includes('/rpc/') ||
         request.method !== 'GET'
     ) {
-        return; // Let browser handle network request natively
+        return; // Early return without event.respondWith(), browser fetches directly over network
     }
 
     // 2. NETWORK FIRST: Navigation & HTML requests
