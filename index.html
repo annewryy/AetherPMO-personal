@@ -877,12 +877,12 @@
                             </div>
 
                             <!-- Advanced Search Collapsible Panel (Default Hidden) -->
-                            <div id="advanced-search-panel" style="display: none; padding-top: 14px; margin-top: 10px; border-top: 1px dashed var(--bg-card-border);">
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; font-size: 12px;">
-                                    <!-- 사업장소 -->
+                            <div id="advanced-search-panel" class="advanced-search-panel" style="display: none;">
+                                <div class="project-advanced-search">
+                                    <!-- Row 1: 사업장소 / 수행 기간 시작일 / 수행 기간 종료일 / 담당 PM -->
                                     <div class="filter-group">
-                                        <label for="adv-search-location" style="display: block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">사업장소</label>
-                                        <select id="adv-search-location" style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--bg-card-border); padding: 0 8px; font-size: 12px; background: var(--bg-input);" onchange="app.renderProjects()">
+                                        <label for="adv-search-location">사업장소</label>
+                                        <select id="adv-search-location" onchange="app.renderProjects()">
                                             <option value="all">전체</option>
                                             <option value="서울">서울</option>
                                             <option value="대전">대전</option>
@@ -892,40 +892,46 @@
                                         </select>
                                     </div>
 
-                                    <!-- 수행기간 (시작일 범위) -->
                                     <div class="filter-group">
-                                        <label for="adv-search-start-date" style="display: block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">수행 기간 (시작일)</label>
-                                        <input type="date" id="adv-search-start-date" style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--bg-card-border); padding: 0 8px; font-size: 12px; background: var(--bg-input);" onchange="app.renderProjects()">
+                                        <label for="adv-search-start-date">수행 기간 (시작일)</label>
+                                        <input type="date" id="adv-search-start-date" onchange="app.renderProjects()">
                                     </div>
 
-                                    <!-- 수행기간 (종료일 범위) -->
                                     <div class="filter-group">
-                                        <label for="adv-search-end-date" style="display: block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">수행 기간 (종료일)</label>
-                                        <input type="date" id="adv-search-end-date" style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--bg-card-border); padding: 0 8px; font-size: 12px; background: var(--bg-input);" onchange="app.renderProjects()">
+                                        <label for="adv-search-end-date">수행 기간 (종료일)</label>
+                                        <input type="date" id="adv-search-end-date" onchange="app.renderProjects()">
                                     </div>
 
-                                    <!-- 담당 PM -->
                                     <div class="filter-group">
-                                        <label for="adv-search-pm" style="display: block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">담당 PM</label>
-                                        <input type="text" id="adv-search-pm" placeholder="PM 이름 입력..." style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--bg-card-border); padding: 0 10px; font-size: 12px; background: var(--bg-input);" oninput="app.renderProjects()">
+                                        <label for="adv-search-pm">담당 PM</label>
+                                        <input type="text" id="adv-search-pm" placeholder="PM 이름 입력..." oninput="app.renderProjects()">
                                     </div>
 
-                                    <!-- 고객사 -->
+                                    <!-- Row 2: 고객사 / 프로젝트명 / 프로젝트 코드 / 상세조건 검색·초기화 버튼 -->
                                     <div class="filter-group">
-                                        <label for="adv-search-customer" style="display: block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">고객사</label>
-                                        <input type="text" id="adv-search-customer" placeholder="고객사명 입력..." style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--bg-card-border); padding: 0 10px; font-size: 12px; background: var(--bg-input);" oninput="app.renderProjects()">
+                                        <label for="adv-search-customer">고객사</label>
+                                        <input type="text" id="adv-search-customer" placeholder="고객사명 입력..." oninput="app.renderProjects()">
                                     </div>
 
-                                    <!-- 프로젝트명 -->
                                     <div class="filter-group">
-                                        <label for="adv-search-name" style="display: block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">프로젝트명</label>
-                                        <input type="text" id="adv-search-name" placeholder="프로젝트명 상세..." style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--bg-card-border); padding: 0 10px; font-size: 12px; background: var(--bg-input);" oninput="app.renderProjects()">
+                                        <label for="adv-search-name">프로젝트명</label>
+                                        <input type="text" id="adv-search-name" placeholder="프로젝트명 상세..." oninput="app.renderProjects()">
                                     </div>
 
-                                    <!-- 프로젝트 코드 -->
                                     <div class="filter-group">
-                                        <label for="adv-search-code" style="display: block; margin-bottom: 4px; font-weight: 600; color: var(--text-muted);">프로젝트 코드</label>
-                                        <input type="text" id="adv-search-code" placeholder="예: PRJ-2026-001..." style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--bg-card-border); padding: 0 10px; font-size: 12px; background: var(--bg-input);" oninput="app.renderProjects()">
+                                        <label for="adv-search-code">프로젝트 코드</label>
+                                        <input type="text" id="adv-search-code" placeholder="예: PRJ-2026-001..." oninput="app.renderProjects()">
+                                    </div>
+
+                                    <div class="filter-group project-advanced-search__actions">
+                                        <button type="button" class="btn btn-secondary" onclick="app.renderProjects()" title="상세조건 검색">
+                                            <i data-lucide="search" style="width: 14px; height: 14px;"></i>
+                                            <span>검색</span>
+                                        </button>
+                                        <button type="button" class="btn btn-ghost text-muted" onclick="app.resetProjectFilters()" title="모든 검색 조건 초기화">
+                                            <i data-lucide="rotate-ccw" style="width: 13px; height: 13px;"></i>
+                                            <span>초기화</span>
+                                        </button>
                                     </div>
                                 </div>
                             </div>

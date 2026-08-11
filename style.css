@@ -9504,6 +9504,126 @@ body.app-modal-open {
     }
 }
 
+/* ============================================================
+   PROJECT ADVANCED SEARCH PANEL LAYOUT
+   ============================================================ */
+#advanced-search-panel {
+    display: none;
+    width: 100%;
+    margin-top: 12px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--bg-card-border);
+    box-sizing: border-box;
+}
+
+#advanced-search-panel[style*="display: none"] {
+    display: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    height: 0 !important;
+    overflow: hidden !important;
+}
+
+.project-advanced-search {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(180px, 1fr));
+    gap: 16px 20px;
+    width: 100%;
+    align-items: end;
+    box-sizing: border-box;
+}
+
+.project-advanced-search .filter-group {
+    min-width: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.project-advanced-search label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.project-advanced-search select,
+.project-advanced-search input[type="text"],
+.project-advanced-search input[type="date"] {
+    width: 100%;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid var(--bg-card-border);
+    padding: 0 12px;
+    font-size: 12px;
+    font-family: inherit;
+    background: var(--bg-input);
+    color: var(--text-main);
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.project-advanced-search select:focus,
+.project-advanced-search input[type="text"]:focus,
+.project-advanced-search input[type="date"]:focus {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 0 0 2px var(--primary-glow);
+}
+
+.project-advanced-search__actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+}
+
+.project-advanced-search__actions .btn {
+    height: 40px;
+    padding: 0 14px;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+.project-advanced-search__actions .btn-ghost {
+    border: 1px solid var(--bg-card-border);
+}
+
+@media (max-width: 1200px) {
+    .project-advanced-search {
+        grid-template-columns: repeat(2, minmax(180px, 1fr));
+        gap: 14px 16px;
+    }
+}
+
+@media (max-width: 640px) {
+    .project-advanced-search {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .project-advanced-search__actions {
+        justify-content: stretch;
+        width: 100%;
+    }
+
+    .project-advanced-search__actions .btn {
+        flex: 1;
+    }
+}
+
 .portfolio-ranking-item .rank-badge {
     width: 18px;
     height: 18px;
