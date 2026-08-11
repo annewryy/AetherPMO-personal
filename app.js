@@ -6420,6 +6420,10 @@ class AetherPMO {
     }
 
     switchPortfolioStatTab(tabName) {
+        if (this.portfolioAnimFrameId) {
+            cancelAnimationFrame(this.portfolioAnimFrameId);
+            this.portfolioAnimFrameId = null;
+        }
         this.activePortfolioStatTab = tabName;
 
         // Update tab buttons active & aria-selected state
@@ -6429,8 +6433,8 @@ class AetherPMO {
             btn.setAttribute('aria-selected', isTarget ? 'true' : 'false');
         });
 
-        // Re-render ONLY card content
-        this.renderPortfolioStatCard();
+        // Re-render ONLY card content with animation
+        this.renderPortfolioStatCard({ animate: true });
     }
 
     formatAmountShort(amount) {
@@ -6452,7 +6456,7 @@ class AetherPMO {
         return `${val.toLocaleString()} 원`;
     }
 
-    renderPortfolioStatCard() {
+    renderPortfolioStatCard(options = { animate: true }) {
         const cardBody = document.getElementById('portfolio-stat-card-body');
         if (!cardBody) return;
 
@@ -6462,39 +6466,23 @@ class AetherPMO {
 
         const yearProjects = this.getDashboardProjectsByYear(year);
 
-        if (tab === 'bizType') {
-            this.renderBizTypeStat(yearProjects);
-        } else if (tab === 'amount') {
-            this.renderContractAmountStat(yearProjects);
-        } else if (tab === 'status') {
-            this.renderProgressStatusStat(yearProjects);
-        } else if (tab === 'customer') {
-            this.renderCustomerStat(yearProjects);
-        } else if (tab === 'partType') {
-            this.renderParticipationTypeStat(yearProjects);
+        let data = null;
+        if (tab === 'bizType') data = this.computeBizTypeStatData(yearProjects);
+        else if (tab === 'amount') data = this.computeContractAmountStatData(yearProjects);
+        else if (tab === 'status') data = this.computeProgressStatusStatData(yearProjects);
+        else if (tab === 'customer') data = this.computeCustomerStatData(yearProjects);
+        else if (tab === 'partType') data = this.computeParticipationTypeStatData(yearProjects);
+
+        if (data) {
+            this.animatePortfolioStatCard(data, options);
         }
     }
 
-    renderBizTypeStat(yearProjects) {
-        this.togglePortfolioContainers(true);
-        const group = document.getElementById('donut-portfolio-segments-group');
-        const centerValue = document.getElementById('portfolio-center-value');
-        const centerLabel = document.getElementById('portfolio-center-label');
-        const rankingList = document.getElementById('portfolio-ranking-list');
-        const rankingHeader = document.getElementById('portfolio-ranking-header');
-
-        if (!group || !rankingList) return;
-
+    computeBizTypeStatData(yearProjects) {
         const total = yearProjects.length;
-
         if (total === 0) {
-            this.showPortfolioEmptyState('집계할 사업유형 데이터가 없습니다.');
-            return;
+            return { emptyMsg: '집계할 사업유형 데이터가 없습니다.', segments: [] };
         }
-
-        centerValue.textContent = total;
-        centerLabel.textContent = '전체 사업 수';
-        rankingHeader.innerHTML = `<span>순위</span><span>사업유형</span><span style="text-align:right;">건수 (비율)</span>`;
 
         const counts = {};
         yearProjects.forEach(p => {
@@ -6517,43 +6505,30 @@ class AetherPMO {
         const segments = [];
         for (const [key, count] of Object.entries(counts)) {
             const color = presetColors[key] || fallbackColors[(colorIdx++) % fallbackColors.length];
-            segments.push({ label: key, count, color, pct: (count / total) * 100 });
+            segments.push({
+                label: key,
+                count: count,
+                color: color,
+                pct: (count / total) * 100,
+                clickAction: `app.filterProjectsByBizType('${this.escapeHtml(key)}')`
+            });
         }
         segments.sort((a, b) => b.count - a.count);
 
-        this.renderDonutSVG(group, segments);
-
-        let rankHtml = '';
-        segments.forEach((seg, idx) => {
-            rankHtml += `
-                <div class="portfolio-ranking-item" onclick="app.filterProjectsByBizType('${seg.label}')" title="${this.escapeHtml(seg.label)} (${seg.count}건)">
-                    <span class="rank-badge">${idx + 1}</span>
-                    <span class="item-name">${this.escapeHtml(seg.label)}</span>
-                    <div class="item-val-group">
-                        <span class="item-count">${seg.count}건</span>
-                        <span class="item-pct">${seg.pct.toFixed(1)}%</span>
-                    </div>
-                </div>
-            `;
-        });
-        rankingList.innerHTML = rankHtml;
+        return {
+            total,
+            centerLabel: '전체 사업 수',
+            centerValueFinal: total,
+            centerIsAmount: false,
+            rankingHeaderHtml: `<span>순위</span><span>사업유형</span><span style="text-align:right;">건수 (비율)</span>`,
+            segments
+        };
     }
 
-    renderContractAmountStat(yearProjects) {
-        this.togglePortfolioContainers(true);
-        const group = document.getElementById('donut-portfolio-segments-group');
-        const centerValue = document.getElementById('portfolio-center-value');
-        const centerLabel = document.getElementById('portfolio-center-label');
-        const rankingList = document.getElementById('portfolio-ranking-list');
-        const rankingHeader = document.getElementById('portfolio-ranking-header');
-
-        if (!group || !rankingList) return;
-
-        // 수행 중 프로젝트만 필터링 (In Progress or Delay)
+    computeContractAmountStatData(yearProjects) {
         const inProgressProjects = yearProjects.filter(p => p.status === 'In Progress' || p.status === 'Delay');
         const totalInProgressCount = inProgressProjects.length;
 
-        // 금액 유효 프로젝트만 추출 (당사 계약금액 > 0)
         const amountProjects = inProgressProjects
             .map(p => {
                 const amt = Number(p.companyContractAmount || p.company_contract_amount || 0);
@@ -6563,169 +6538,108 @@ class AetherPMO {
             .sort((a, b) => b.calcAmount - a.calcAmount);
 
         if (totalInProgressCount === 0 || amountProjects.length === 0) {
-            this.showPortfolioEmptyState('진행 중인 프로젝트의 당사 계약금액 데이터가 없습니다.');
-            return;
+            return { emptyMsg: '진행 중인 프로젝트의 당사 계약금액 데이터가 없습니다.', segments: [] };
         }
 
         const totalCompanyAmount = amountProjects.reduce((sum, p) => sum + p.calcAmount, 0);
 
-        centerValue.innerHTML = `<span style="font-size:14px; font-weight:800;">${this.formatAmountShort(totalCompanyAmount)}</span>`;
-        centerLabel.innerHTML = `<span style="font-size:10px; color:var(--text-muted); display:block; margin-top:2px;">금액 등록 ${amountProjects.length}개 / 전체 수행 ${totalInProgressCount}개</span>`;
-        rankingHeader.innerHTML = `<span>순위</span><span>프로젝트명</span><span style="text-align:right;">당사금액 (비중)</span>`;
-
-        // 상위 5개 + 기타
         const top5 = amountProjects.slice(0, 5);
         const rest = amountProjects.slice(5);
 
-        const colors = ['#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#64748b'];
+        const palette = ['var(--primary)', '#06b6d4', '#f59e0b', '#a855f7', '#ec4899', '#64748b'];
+
         const segments = top5.map((p, idx) => ({
-            label: p.name,
-            code: p.projectCode || p.code || p.id,
             id: p.id,
+            label: p.name,
+            amount: p.calcAmount,
             count: p.calcAmount,
-            color: colors[idx % colors.length],
+            color: palette[idx % palette.length],
             pct: (p.calcAmount / totalCompanyAmount) * 100,
-            isOther: false,
-            projectObj: p
+            clickAction: `window.location.hash='project-detail/${p.id}'`
         }));
 
         if (rest.length > 0) {
-            const restSum = rest.reduce((sum, p) => sum + p.calcAmount, 0);
+            const restAmt = rest.reduce((sum, p) => sum + p.calcAmount, 0);
             segments.push({
-                label: `기타 (${rest.length}개)`,
-                code: 'OTHER',
-                id: 'OTHER',
-                count: restSum,
-                color: '#64748b',
-                pct: (restSum / totalCompanyAmount) * 100,
-                isOther: true
+                label: `기타 (${rest.length}개 사업)`,
+                amount: restAmt,
+                count: restAmt,
+                color: palette[5],
+                pct: (restAmt / totalCompanyAmount) * 100,
+                isOther: true,
+                clickAction: `window.location.hash='projects/active'`
             });
         }
 
-        this.renderDonutSVG(group, segments);
-
-        let rankHtml = '';
-        segments.forEach((seg, idx) => {
-            const clickAction = seg.isOther
-                ? `window.location.hash = 'projects/active'`
-                : `window.location.hash = 'project-detail/${seg.id}'`;
-
-            let tooltipText = '';
-            if (seg.isOther) {
-                tooltipText = `기타 ${rest.length}개 프로젝트 (총 ${this.formatAmountFull(seg.count)})`;
-            } else {
-                const p = seg.projectObj;
-                const totalContractStr = this.formatAmountFull(p.totalContractAmount || p.budget || p.calcAmount);
-                const companyContractStr = this.formatAmountFull(p.calcAmount);
-                const shareRateStr = p.companyShareRate !== undefined && p.companyShareRate !== null ? `${p.companyShareRate}%` : '-';
-                tooltipText = `프로젝트명: ${p.name}\n프로젝트 코드: ${seg.code}\n전체 계약금액: ${totalContractStr}\n당사 계약금액: ${companyContractStr}\n지분율: ${shareRateStr}\n총 수행금액 대비 비율: ${seg.pct.toFixed(1)}%`;
-            }
-
-            rankHtml += `
-                <div class="portfolio-ranking-item" onclick="${clickAction}" title="${this.escapeHtml(tooltipText)}">
-                    <span class="rank-badge">${idx + 1}</span>
-                    <span class="item-name">${this.escapeHtml(seg.label)}</span>
-                    <div class="item-val-group">
-                        <span class="item-count" style="font-size:11px;">${this.formatAmountShort(seg.count)}</span>
-                        <span class="item-pct">${seg.pct.toFixed(1)}%</span>
-                    </div>
-                </div>
-            `;
-        });
-        rankingList.innerHTML = rankHtml;
+        return {
+            total: amountProjects.length,
+            totalCompanyAmount,
+            centerLabel: `<span style="font-size:10px; color:var(--text-muted); display:block; margin-top:2px;">금액 등록 ${amountProjects.length}건</span>`,
+            centerValueFinal: `<span style="font-size:14px; font-weight:800;">${this.formatAmountShort(totalCompanyAmount)}</span>`,
+            centerIsAmount: true,
+            rankingHeaderHtml: `<span>순위</span><span>사업명</span><span style="text-align:right;">금액 (비중)</span>`,
+            segments
+        };
     }
 
-    renderProgressStatusStat(yearProjects) {
-        this.togglePortfolioContainers(true);
-        const group = document.getElementById('donut-portfolio-segments-group');
-        const centerValue = document.getElementById('portfolio-center-value');
-        const centerLabel = document.getElementById('portfolio-center-label');
-        const rankingList = document.getElementById('portfolio-ranking-list');
-        const rankingHeader = document.getElementById('portfolio-ranking-header');
-
-        if (!group || !rankingList) return;
-
+    computeProgressStatusStatData(yearProjects) {
         const total = yearProjects.length;
-
         if (total === 0) {
-            this.showPortfolioEmptyState('집계할 프로젝트 상태 데이터가 없습니다.');
-            return;
+            return { emptyMsg: '집계할 프로젝트 상태 데이터가 없습니다.', segments: [] };
         }
 
-        centerValue.textContent = total;
-        centerLabel.textContent = '선택 연도 프로젝트';
-        rankingHeader.innerHTML = `<span>순위</span><span>진행상태</span><span style="text-align:right;">건수 (비율)</span>`;
-
-        let countBidding = 0;
-        let countActive = 0;
-        let countDelay = 0;
-        let countCompleted = 0;
-        let countLost = 0;
+        let countBidding = 0, countActive = 0, countDelay = 0, countCompleted = 0, countLost = 0;
 
         yearProjects.forEach(p => {
             const st = p.status || 'In Progress';
-            const bSt = (p.bidding_status || p.biddingStatus || p.bid_status || '').toLowerCase();
+            const bSt = (p.bidding_status || p.biddingStatus || '').toLowerCase();
 
-            if (st === 'Completed' || st === 'Closed' || st === '종료') {
-                countCompleted++;
-            } else if (bSt === 'lost' || st === 'Lost' || st === '실패') {
-                countLost++;
-            } else if (st === 'Delay' || p.isOverdue) {
+            if (st === 'Bidding' || p.is_bidding_project) {
+                if (bSt === 'lost' || p.bid_result === 'LOST') countLost++;
+                else countBidding++;
+            } else if (st === 'Delay' || st === '지연') {
                 countDelay++;
-            } else if (st === 'Bidding' || bSt === 'proposal_preparing' || bSt === 'proposal_submitted' || bSt === 'waiting_result') {
-                countBidding++;
+            } else if (st === 'Completed' || st === '종료' || st === '완료') {
+                countCompleted++;
             } else {
                 countActive++;
             }
         });
 
-        const statusMap = [
-            { label: '수행중', count: countActive, color: 'var(--info)', hash: 'projects/active' },
-            { label: '입찰', count: countBidding, color: 'var(--warning)', hash: 'projects/bidding' },
-            { label: '지연', count: countDelay, color: 'var(--danger)', hash: 'projects/active' },
-            { label: '수행종료', count: countCompleted, color: 'var(--success)', hash: 'projects/completed' },
-            { label: '실패', count: countLost, color: '#64748b', hash: 'projects/bidding' }
+        const statusConfig = [
+            { key: 'Active', label: '수행중', count: countActive, color: 'var(--primary)', hash: 'projects/active' },
+            { key: 'Bidding', label: '입찰중', count: countBidding, color: 'var(--info)', hash: 'projects/bidding' },
+            { key: 'Delay', label: '수행지연', count: countDelay, color: 'var(--warning)', hash: 'projects/delay' },
+            { key: 'Completed', label: '수행완료', count: countCompleted, color: 'var(--success)', hash: 'projects/completed' },
+            { key: 'Lost', label: '탈락/유찰', count: countLost, color: '#64748b', hash: 'projects/lost' }
         ];
 
-        const activeSegments = statusMap
+        const segments = statusConfig
             .filter(s => s.count > 0)
-            .map(s => ({ ...s, pct: (s.count / total) * 100 }))
+            .map(s => ({
+                label: s.label,
+                count: s.count,
+                color: s.color,
+                pct: (s.count / total) * 100,
+                clickAction: `window.location.hash='${s.hash}'`
+            }))
             .sort((a, b) => b.count - a.count);
 
-        this.renderDonutSVG(group, activeSegments);
-
-        let rankHtml = '';
-        activeSegments.forEach((seg, idx) => {
-            rankHtml += `
-                <div class="portfolio-ranking-item" onclick="window.location.hash='${seg.hash}'" title="${seg.label} ${seg.count}건 (${seg.pct.toFixed(1)}%)">
-                    <span class="rank-badge">${idx + 1}</span>
-                    <span class="item-name" style="color:${seg.color}">${this.escapeHtml(seg.label)}</span>
-                    <div class="item-val-group">
-                        <span class="item-count">${seg.count}건</span>
-                        <span class="item-pct">${seg.pct.toFixed(1)}%</span>
-                    </div>
-                </div>
-            `;
-        });
-        rankingList.innerHTML = rankHtml;
+        return {
+            total,
+            centerLabel: '선택 연도 프로젝트',
+            centerValueFinal: total,
+            centerIsAmount: false,
+            rankingHeaderHtml: `<span>순위</span><span>진행상태</span><span style="text-align:right;">건수 (비율)</span>`,
+            segments
+        };
     }
 
-    renderCustomerStat(yearProjects) {
-        this.togglePortfolioContainers(false);
-        const barContainer = document.getElementById('portfolio-bar-chart-container');
-        const rankingList = document.getElementById('portfolio-ranking-list');
-        const rankingHeader = document.getElementById('portfolio-ranking-header');
-
-        if (!barContainer || !rankingList) return;
-
+    computeCustomerStatData(yearProjects) {
         const total = yearProjects.length;
-
         if (total === 0) {
-            this.showPortfolioEmptyState('집계할 발주기관 데이터가 없습니다.');
-            return;
+            return { emptyMsg: '집계할 발주기관 데이터가 없습니다.', segments: [] };
         }
-
-        rankingHeader.innerHTML = `<span>순위</span><span>발주기관명</span><span style="text-align:right;">건수 (비율)</span>`;
 
         const customerMap = {};
         yearProjects.forEach(p => {
@@ -6738,7 +6652,6 @@ class AetherPMO {
             if (!isNaN(amt) && amt > 0) customerMap[cust].totalAmount += amt;
         });
 
-        // 1순위 건수(내림차순), 2순위 당사 계약금액(내림차순)
         const sortedCustomers = Object.values(customerMap).sort((a, b) => {
             if (b.count !== a.count) return b.count - a.count;
             return b.totalAmount - a.totalAmount;
@@ -6747,86 +6660,44 @@ class AetherPMO {
         const top5 = sortedCustomers.slice(0, 5);
         const rest = sortedCustomers.slice(5);
 
-        const items = top5.map(c => ({
+        const palette = ['var(--primary)', '#06b6d4', '#f59e0b', '#a855f7', '#10b981', '#64748b'];
+        let colorIdx = 0;
+
+        const segments = top5.map(c => ({
             label: c.name,
             count: c.count,
-            amount: c.totalAmount,
+            color: palette[(colorIdx++) % palette.length],
             pct: (c.count / total) * 100,
-            isOther: false
+            clickAction: `app.filterProjectsByCustomer('${this.escapeHtml(c.name)}')`
         }));
 
         if (rest.length > 0) {
             const restCount = rest.reduce((sum, c) => sum + c.count, 0);
-            const restAmount = rest.reduce((sum, c) => sum + c.totalAmount, 0);
-            items.push({
+            segments.push({
                 label: `기타 (${rest.length}개 기관)`,
                 count: restCount,
-                amount: restAmount,
+                color: palette[5],
                 pct: (restCount / total) * 100,
-                isOther: true
+                isOther: true,
+                clickAction: `window.location.hash='projects'`
             });
         }
 
-        let maxCount = Math.max(...items.map(i => i.count), 1);
-        let barHtml = '';
-        items.forEach(item => {
-            const widthPct = Math.round((item.count / maxCount) * 100);
-            const clickAction = item.isOther
-                ? `window.location.hash = 'projects'`
-                : `app.filterProjectsByCustomer('${this.escapeHtml(item.label)}')`;
-            barHtml += `
-                <div class="portfolio-bar-item" onclick="${clickAction}" title="${this.escapeHtml(item.label)} (${item.count}건)">
-                    <div class="portfolio-bar-header">
-                        <span class="portfolio-bar-label-name" style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px;">${this.escapeHtml(item.label)}</span>
-                        <span style="font-weight:700; color:var(--primary);">${item.count}건</span>
-                    </div>
-                    <div class="portfolio-bar-track">
-                        <div class="portfolio-bar-fill" style="width:${widthPct}%;"></div>
-                    </div>
-                </div>
-            `;
-        });
-        barContainer.innerHTML = barHtml;
-
-        let rankHtml = '';
-        items.forEach((item, idx) => {
-            const clickAction = item.isOther
-                ? `window.location.hash = 'projects'`
-                : `app.filterProjectsByCustomer('${this.escapeHtml(item.label)}')`;
-            rankHtml += `
-                <div class="portfolio-ranking-item" onclick="${clickAction}" title="${this.escapeHtml(item.label)} (${item.count}건, ${this.formatAmountShort(item.amount)})">
-                    <span class="rank-badge">${idx + 1}</span>
-                    <span class="item-name">${this.escapeHtml(item.label)}</span>
-                    <div class="item-val-group">
-                        <span class="item-count">${item.count}건</span>
-                        <span class="item-pct">${item.pct.toFixed(1)}%</span>
-                    </div>
-                </div>
-            `;
-        });
-        rankingList.innerHTML = rankHtml;
+        return {
+            total,
+            centerLabel: '선택 연도 프로젝트',
+            centerValueFinal: total,
+            centerIsAmount: false,
+            rankingHeaderHtml: `<span>순위</span><span>발주기관명</span><span style="text-align:right;">건수 (비율)</span>`,
+            segments
+        };
     }
 
-    renderParticipationTypeStat(yearProjects) {
-        this.togglePortfolioContainers(true);
-        const group = document.getElementById('donut-portfolio-segments-group');
-        const centerValue = document.getElementById('portfolio-center-value');
-        const centerLabel = document.getElementById('portfolio-center-label');
-        const rankingList = document.getElementById('portfolio-ranking-list');
-        const rankingHeader = document.getElementById('portfolio-ranking-header');
-
-        if (!group || !rankingList) return;
-
+    computeParticipationTypeStatData(yearProjects) {
         const total = yearProjects.length;
-
         if (total === 0) {
-            this.showPortfolioEmptyState('집계할 참여형태 데이터가 없습니다.');
-            return;
+            return { emptyMsg: '집계할 참여형태 데이터가 없습니다.', segments: [] };
         }
-
-        centerValue.textContent = total;
-        centerLabel.textContent = '선택 연도 프로젝트';
-        rankingHeader.innerHTML = `<span>순위</span><span>참여형태</span><span style="text-align:right;">건수 (비율)</span>`;
 
         const typeCounts = {
             '주사업자': 0,
@@ -6865,26 +6736,207 @@ class AetherPMO {
                 label,
                 count,
                 color: presetColors[label] || '#64748b',
-                pct: (count / total) * 100
+                pct: (count / total) * 100,
+                clickAction: `app.filterProjectsByParticipationType('${this.escapeHtml(label)}')`
             }))
             .sort((a, b) => b.count - a.count);
 
-        this.renderDonutSVG(group, segments);
+        return {
+            total,
+            centerLabel: '선택 연도 프로젝트',
+            centerValueFinal: total,
+            centerIsAmount: false,
+            rankingHeaderHtml: `<span>순위</span><span>참여형태</span><span style="text-align:right;">건수 (비율)</span>`,
+            segments
+        };
+    }
 
+    renderBizTypeStat(yearProjects, options = { animate: true }) {
+        const data = this.computeBizTypeStatData(yearProjects);
+        this.animatePortfolioStatCard(data, options);
+    }
+
+    renderContractAmountStat(yearProjects, options = { animate: true }) {
+        const data = this.computeContractAmountStatData(yearProjects);
+        this.animatePortfolioStatCard(data, options);
+    }
+
+    renderProgressStatusStat(yearProjects, options = { animate: true }) {
+        const data = this.computeProgressStatusStatData(yearProjects);
+        this.animatePortfolioStatCard(data, options);
+    }
+
+    renderCustomerStat(yearProjects, options = { animate: true }) {
+        const data = this.computeCustomerStatData(yearProjects);
+        this.animatePortfolioStatCard(data, options);
+    }
+
+    renderParticipationTypeStat(yearProjects, options = { animate: true }) {
+        const data = this.computeParticipationTypeStatData(yearProjects);
+        this.animatePortfolioStatCard(data, options);
+    }
+
+    animatePortfolioStatCard(data, options = {}) {
+        if (this.portfolioAnimFrameId) {
+            cancelAnimationFrame(this.portfolioAnimFrameId);
+            this.portfolioAnimFrameId = null;
+        }
+
+        const group = document.getElementById('donut-portfolio-segments-group');
+        const centerValue = document.getElementById('portfolio-center-value');
+        const centerLabel = document.getElementById('portfolio-center-label');
+        const rankingList = document.getElementById('portfolio-ranking-list');
+        const rankingHeader = document.getElementById('portfolio-ranking-header');
+
+        if (!group || !rankingList || !centerValue || !centerLabel) return;
+
+        this.togglePortfolioContainers(true);
+
+        if (!data.segments || data.segments.length === 0) {
+            this.showPortfolioEmptyState(data.emptyMsg || '집계할 데이터가 없습니다.');
+            return;
+        }
+
+        if (data.rankingHeaderHtml && rankingHeader) rankingHeader.innerHTML = data.rankingHeaderHtml;
+        if (data.centerLabel) centerLabel.innerHTML = data.centerLabel;
+
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const duration = (options.animate !== false && !prefersReducedMotion) ? 900 : 0;
+
+        // Render SVG Segments DOM
+        let svgHtml = '';
+        data.segments.forEach((seg, idx) => {
+            svgHtml += `
+                <circle class="donut-segment" data-segment-index="${idx}" cx="21" cy="21" r="15.91549430918954" fill="transparent"
+                        stroke="${seg.color}" stroke-width="4"
+                        stroke-dasharray="0 100"
+                        stroke-dashoffset="0"
+                        onclick="${seg.clickAction}">
+                </circle>
+            `;
+        });
+        group.innerHTML = svgHtml;
+
+        // Render Ranking List DOM
         let rankHtml = '';
-        segments.forEach((seg, idx) => {
+        data.segments.forEach((seg, idx) => {
+            const initialVal = data.centerIsAmount ? '0원' : '0건';
             rankHtml += `
-                <div class="portfolio-ranking-item" onclick="app.filterProjectsByParticipationType('${seg.label}')" title="${seg.label} ${seg.count}건 (${seg.pct.toFixed(1)}%)">
+                <div class="portfolio-ranking-item" data-rank-index="${idx}" onclick="${seg.clickAction}" title="${this.escapeHtml(seg.label)} (${data.centerIsAmount ? this.formatAmountShort(seg.amount || 0) : seg.count + '건'})">
                     <span class="rank-badge">${idx + 1}</span>
-                    <span class="item-name">${this.escapeHtml(seg.label)}</span>
+                    <span class="item-name" style="color:${seg.color}">${this.escapeHtml(seg.label)}</span>
                     <div class="item-val-group">
-                        <span class="item-count">${seg.count}건</span>
-                        <span class="item-pct">${seg.pct.toFixed(1)}%</span>
+                        <span class="item-count" id="portfolio-rank-count-${idx}">${initialVal}</span>
+                        <span class="item-pct" id="portfolio-rank-pct-${idx}">0.0%</span>
                     </div>
                 </div>
             `;
         });
         rankingList.innerHTML = rankHtml;
+
+        // Attach Bi-Directional Hover Event Listeners
+        const svgSegments = group.querySelectorAll('.donut-segment');
+        const rankingItems = rankingList.querySelectorAll('.portfolio-ranking-item');
+
+        const setHighlight = (index) => {
+            svgSegments.forEach((el, i) => el.classList.toggle('highlighted', i === index));
+            rankingItems.forEach((el, i) => el.classList.toggle('highlighted', i === index));
+        };
+        const clearHighlight = () => {
+            svgSegments.forEach(el => el.classList.remove('highlighted'));
+            rankingItems.forEach(el => el.classList.remove('highlighted'));
+        };
+
+        svgSegments.forEach((segEl, i) => {
+            segEl.addEventListener('mouseenter', () => setHighlight(i));
+            segEl.addEventListener('mouseleave', clearHighlight);
+        });
+
+        rankingItems.forEach((itemEl, i) => {
+            itemEl.addEventListener('mouseenter', () => setHighlight(i));
+            itemEl.addEventListener('mouseleave', clearHighlight);
+        });
+
+        // Animation Step Loop
+        const startTime = performance.now();
+        const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+
+        const step = (now) => {
+            const elapsed = now - startTime;
+            const rawProgress = duration > 0 ? Math.min(1.0, elapsed / duration) : 1.0;
+            const p = duration > 0 ? easeOutCubic(rawProgress) : 1.0;
+
+            // Update Donut Segments
+            let accumulatedOffset = 0;
+            data.segments.forEach((seg, idx) => {
+                const segCircle = svgSegments[idx];
+                if (segCircle) {
+                    const currentPct = seg.pct * p;
+                    const currentOffset = -accumulatedOffset * p;
+                    segCircle.setAttribute('stroke-dasharray', `${currentPct} ${100 - currentPct}`);
+                    segCircle.setAttribute('stroke-dashoffset', `${currentOffset}`);
+                }
+                accumulatedOffset += seg.pct;
+            });
+
+            // Update Center Text
+            if (data.centerIsAmount) {
+                const currentAmount = Math.round((data.totalCompanyAmount || 0) * p);
+                centerValue.innerHTML = `<span style="font-size:14px; font-weight:800;">${this.formatAmountShort(currentAmount)}</span>`;
+            } else {
+                const currentCount = Math.round((data.total || 0) * p);
+                centerValue.textContent = currentCount;
+            }
+
+            // Update Ranking List Items
+            data.segments.forEach((seg, idx) => {
+                const countEl = document.getElementById(`portfolio-rank-count-${idx}`);
+                const pctEl = document.getElementById(`portfolio-rank-pct-${idx}`);
+
+                if (countEl) {
+                    if (data.centerIsAmount) {
+                        const curAmt = Math.round((seg.amount || 0) * p);
+                        countEl.textContent = this.formatAmountShort(curAmt);
+                    } else {
+                        const curCount = Math.round((seg.count || 0) * p);
+                        countEl.textContent = `${curCount}건`;
+                    }
+                }
+
+                if (pctEl) {
+                    const curPct = (seg.pct * p).toFixed(1);
+                    pctEl.textContent = `${curPct}%`;
+                }
+            });
+
+            if (rawProgress < 1.0) {
+                this.portfolioAnimFrameId = requestAnimationFrame(step);
+            } else {
+                // Final Frame Precision Lock
+                this.portfolioAnimFrameId = null;
+                if (data.centerIsAmount) {
+                    centerValue.innerHTML = `<span style="font-size:14px; font-weight:800;">${this.formatAmountShort(data.totalCompanyAmount)}</span>`;
+                } else {
+                    centerValue.textContent = data.total;
+                }
+                data.segments.forEach((seg, idx) => {
+                    const countEl = document.getElementById(`portfolio-rank-count-${idx}`);
+                    const pctEl = document.getElementById(`portfolio-rank-pct-${idx}`);
+                    if (countEl) {
+                        countEl.textContent = data.centerIsAmount ? this.formatAmountShort(seg.amount || 0) : `${seg.count}건`;
+                    }
+                    if (pctEl) {
+                        pctEl.textContent = `${seg.pct.toFixed(1)}%`;
+                    }
+                });
+            }
+        };
+
+        if (duration > 0) {
+            this.portfolioAnimFrameId = requestAnimationFrame(step);
+        } else {
+            step(performance.now() + 1000);
+        }
     }
 
     renderDonutSVG(group, segments) {
@@ -6893,6 +6945,32 @@ class AetherPMO {
             group.innerHTML = `<circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="var(--bg-card-border)" stroke-width="4"></circle>`;
             return;
         }
+
+        let accumulatedOffset = 0;
+        let svgHtml = '';
+
+        segments.forEach(seg => {
+            const strokeDash = `${seg.pct} ${100 - seg.pct}`;
+            const strokeOffset = -accumulatedOffset;
+            const clickAction = seg.clickAction || (seg.isOther
+                ? "window.location.hash='projects/active'"
+                : (seg.id ? `window.location.hash='project-detail/${seg.id}'` : `app.filterProjectsByBizType('${seg.label}')`));
+
+            svgHtml += `
+                <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent"
+                        stroke="${seg.color}" stroke-width="4"
+                        stroke-dasharray="${strokeDash}"
+                        stroke-dashoffset="${strokeOffset}"
+                        style="cursor:pointer;"
+                        onclick="${clickAction}">
+                </circle>
+            `;
+            accumulatedOffset += seg.pct;
+        });
+
+        group.innerHTML = svgHtml;
+    }
+
 
         let accumulatedOffset = 0;
         let svgHtml = '';

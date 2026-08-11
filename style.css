@@ -1329,6 +1329,19 @@ body.light-theme .badge-error {
     transform: rotate(-90deg);
 }
 
+.donut-segment {
+    transform-origin: 21px 21px;
+    transition: stroke-width 0.25s cubic-bezier(0.25, 1, 0.5, 1), transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), filter 0.25s ease, opacity 0.25s ease;
+    cursor: pointer;
+}
+
+.donut-segment:hover,
+.donut-segment.highlighted {
+    stroke-width: 5.2px !important;
+    transform: scale(1.035);
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
+}
+
 .chart-center-text {
     position: absolute;
     top: 50%;
@@ -9474,10 +9487,21 @@ body.app-modal-open {
     transition: all 0.15s ease;
 }
 
-.portfolio-ranking-item:hover {
-    border-color: var(--primary-glow);
-    background: color-mix(in srgb, var(--primary) 10%, var(--bg-hover-item));
-    transform: translateX(2px);
+.portfolio-ranking-item:hover,
+.portfolio-ranking-item.highlighted {
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 15%, var(--bg-hover-item));
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .donut-segment {
+        transition: none !important;
+    }
+    .portfolio-ranking-item {
+        transition: none !important;
+    }
 }
 
 .portfolio-ranking-item .rank-badge {
