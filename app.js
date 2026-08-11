@@ -6971,32 +6971,6 @@ class AetherPMO {
         group.innerHTML = svgHtml;
     }
 
-
-        let accumulatedOffset = 0;
-        let svgHtml = '';
-
-        segments.forEach(seg => {
-            const strokeDash = `${seg.pct} ${100 - seg.pct}`;
-            const strokeOffset = -accumulatedOffset;
-            const clickAction = seg.isOther
-                ? "window.location.hash='projects/active'"
-                : (seg.id ? `window.location.hash='project-detail/${seg.id}'` : `app.filterProjectsByBizType('${seg.label}')`);
-
-            svgHtml += `
-                <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent"
-                        stroke="${seg.color}" stroke-width="4"
-                        stroke-dasharray="${strokeDash}"
-                        stroke-dashoffset="${strokeOffset}"
-                        style="transition: stroke-dashoffset 0.5s ease; cursor:pointer;"
-                        onclick="${clickAction}">
-                </circle>
-            `;
-            accumulatedOffset += seg.pct;
-        });
-
-        group.innerHTML = svgHtml;
-    }
-
     togglePortfolioContainers(isDonut) {
         const svgContainer = document.getElementById('portfolio-svg-chart-container');
         const barContainer = document.getElementById('portfolio-bar-chart-container');
