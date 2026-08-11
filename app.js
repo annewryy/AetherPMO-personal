@@ -314,6 +314,7 @@ class AetherPMO {
     }
 
     async init() {
+        this.initializePerformanceDiagnostics();
         this.setupEventListeners();
 
         // Check authentication state first
@@ -375,6 +376,71 @@ class AetherPMO {
         // Initialise Lucide icons
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
+        }
+    }
+
+    initializePerformanceDiagnostics() {
+        const isDevelopment = typeof window !== 'undefined' && typeof location !== 'undefined' && (
+            location.hostname === 'localhost' ||
+            location.hostname === '127.0.0.1'
+        );
+
+        // Remove any existing INP issue popups/overlays from DOM if present
+        const existingPopup = document.getElementById('inp-issue-popup');
+        if (existingPopup) existingPopup.remove();
+
+        const existingOverlay = document.getElementById('inp-issue-overlay');
+        if (existingOverlay) existingOverlay.remove();
+
+        // Prevent duplicate PerformanceObserver registration
+        if (this._performanceObserverInitialized) return;
+        this._performanceObserverInitialized = true;
+
+        if (typeof PerformanceObserver !== 'undefined' && PerformanceObserver.supportedEntryTypes && PerformanceObserver.supportedEntryTypes.includes('event')) {
+            try {
+                const observer = new PerformanceObserver((list) => {
+                    for (const entry of list.getEntries()) {
+                        // Interaction to Next Paint (INP) duration threshold check (> 200ms)
+                        if (entry.duration > 200) {
+                            const msg = `[INP Issue] Event handlers on this element blocked UI updates (${Math.round(entry.duration)}ms - ${entry.name || 'interaction-to-next-paint'})`;
+                            // Log performance metrics to console.warn only; do NOT show screen popup overlays in production
+                            console.warn(msg, {
+                                duration: entry.duration,
+                                entryType: entry.entryType,
+                                name: entry.name,
+                                target: entry.target
+                            });
+
+                            if (isDevelopment) {
+                                this.showINPIssue(entry);
+                            }
+                        }
+                    }
+                });
+
+                observer.observe({ type: 'event', buffered: true, durationThreshold: 16 });
+                this.performanceObserver = observer;
+            } catch (e) {
+                // PerformanceObserver for event timing not supported or restricted
+            }
+        }
+    }
+
+    showINPIssue(entry) {
+        // INP Issue diagnostic popup/overlay is strictly disabled in production
+        const isDevelopment = typeof window !== 'undefined' && typeof location !== 'undefined' && (
+            location.hostname === 'localhost' ||
+            location.hostname === '127.0.0.1'
+        );
+
+        if (!isDevelopment) {
+            // Production environment: Never create any popup or overlay
+            return;
+        }
+
+        // Development mode only: log diagnostic warning
+        if (entry) {
+            console.warn('[INP Issue Diagnostic]', entry);
         }
     }
 
