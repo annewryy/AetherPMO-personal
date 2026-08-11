@@ -8760,8 +8760,6 @@ renderTodayTasksRoleBased(todayStr) {
             if (g2bSubmenu) g2bSubmenu.classList.add('active');
             if (projectsNav) projectsNav.classList.add('active');
         } else if (route === 'projects/all' || route === 'projects') {
-            const allSubmenu = document.querySelector('.submenu-item[data-subview="all"]');
-            if (allSubmenu) allSubmenu.classList.add('active');
             if (projectsNav) projectsNav.classList.add('active');
         } else if (typeof route === 'string' && (route.startsWith('board/') || route === 'board')) {
             const sub = route.includes('/') ? route.split('/')[1] : 'notices';
