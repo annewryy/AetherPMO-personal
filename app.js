@@ -6498,13 +6498,8 @@ class AetherPMO {
 
         const counts = {};
         yearProjects.forEach(p => {
-            let bt = (p.businessType || p.business_type || p.bizType || '').trim();
+            let bt = (p.bizType || p.businessType || p.business_type || '').trim();
             if (!bt) bt = '미분류';
-            else if (bt.includes('SI') || bt.includes('구축')) bt = '공공 SI';
-            else if (bt.includes('유지') || bt.includes('운영')) bt = '유지관리';
-            else if (bt.includes('ISP')) bt = 'ISP';
-            else if (bt.includes('컨설팅') || bt.includes('BPR')) bt = '컨설팅';
-            else if (bt === 'AI' || bt.includes('AI') || bt.includes('인공지능')) bt = 'AI';
             counts[bt] = (counts[bt] || 0) + 1;
         });
 
@@ -7720,8 +7715,9 @@ renderTodayTasksRoleBased(todayStr) {
                     const customerMatch = this.safeText(p.customer || p.customerName).toLowerCase().includes(fKeyword);
                     const managerMatch = this.safeText(p.manager || p.pmName || p.proposalPm).toLowerCase().includes(fKeyword);
                     const descMatch = (this.safeText(p.desc) + ' ' + this.safeText(p.remarks)).toLowerCase().includes(fKeyword);
+                    const bizTypeMatch = (this.safeText(p.bizType) + ' ' + this.safeText(p.businessType) + ' ' + this.safeText(p.business_type)).toLowerCase().includes(fKeyword);
 
-                    if (!nameMatch && !codeMatch && !customerMatch && !managerMatch && !descMatch) {
+                    if (!nameMatch && !codeMatch && !customerMatch && !managerMatch && !descMatch && !bizTypeMatch) {
                         return false;
                     }
                 }
@@ -19924,7 +19920,7 @@ renderTodayTasksRoleBased(todayStr) {
         const initialRelDesc = project.relatedProjects || project.related_projects || '';
         this.initRelatedProjectsSelector(project.id, initialRelIds, initialRelDesc);
 
-        const currBizType = project.businessType || project.business_type || project.bizType || '공공 SI';
+        const currBizType = project.bizType || project.businessType || project.business_type || '공공 SI';
         const standardTypes = ['공공 SI', '유지관리', 'ISP', '컨설팅', 'AI'];
         const bizSelect = document.getElementById('project-biz-type-select');
         const bizCustom = document.getElementById('project-biz-type-custom');
@@ -20055,7 +20051,7 @@ renderTodayTasksRoleBased(todayStr) {
         }
     }
 
-    handleBizTypeChange(value) {
+    handleProjectBizTypeSelectChange(value) {
         const customInput = document.getElementById('project-biz-type-custom');
         if (customInput) {
             if (value === 'custom') {
@@ -20357,14 +20353,21 @@ renderTodayTasksRoleBased(todayStr) {
 
         const bizSelectVal = document.getElementById('project-biz-type-select')?.value || '';
         const bizCustomVal = document.getElementById('project-biz-type-custom')?.value?.trim() || '';
+        if (bizSelectVal === 'custom' && !bizCustomVal) {
+            alert('사업 유형을 직접 입력해주세요.');
+            if (saveBtn) saveBtn.disabled = false;
+            this.isSavingProject = false;
+            return;
+        }
         const rawBizType = (bizSelectVal === 'custom') ? bizCustomVal : bizSelectVal;
 
         const biddingSelectVal = document.getElementById('project-business-type')?.value || '';
         const biddingCustomVal = document.getElementById('project-business-type-custom')?.value?.trim() || '';
         const rawBiddingType = (biddingSelectVal === 'custom') ? biddingCustomVal : biddingSelectVal;
 
-        const businessType = rawBiddingType || rawBizType || '공공 SI';
-        const bizType = rawBizType || rawBiddingType || '공공 SI';
+        const finalBizType = rawBizType || rawBiddingType || '공공 SI';
+        const businessType = finalBizType;
+        const bizType = finalBizType;
         const contractDate = document.getElementById('project-contract-date')?.value || '';
         const location = document.getElementById('project-location')?.value?.trim() || '';
         const relatedBiz = document.getElementById('project-related-biz')?.value?.trim() || '';
@@ -20539,8 +20542,8 @@ renderTodayTasksRoleBased(todayStr) {
                     riskAndMitigation, risk_mitigation: riskAndMitigation,
                     relatedProjects, related_projects: relatedProjects,
                     relatedProjectIds, related_project_ids: relatedProjectIds,
-                    projectCode, bizType, contractDate, location, relatedBiz, riskLevel, wbs,
-                    bidNumber, customerName, projectBudget, businessType,
+                    projectCode, bizType: finalBizType, businessType: finalBizType, business_type: finalBizType, contractDate, location, relatedBiz, riskLevel, wbs,
+                    bidNumber, customerName, projectBudget,
                     salesOwner, sales_owner: salesOwner,
                     bdManager, bd_manager: bdManager,
                     internalPm, internal_pm: internalPm,
@@ -20607,7 +20610,9 @@ renderTodayTasksRoleBased(todayStr) {
                     relatedProjects, related_projects: relatedProjects,
                     relatedProjectIds, related_project_ids: relatedProjectIds,
                     projectCode: projectCode || (status === 'Bidding' ? this.generateNextProjectCode() : `PRJ-2026-${String(Date.now()).substring(7)}`),
-                    bizType: bizType || 'SI 구축',
+                    bizType: finalBizType,
+                    businessType: finalBizType,
+                    business_type: finalBizType,
                     contractDate: contractDate || startDate,
                     location: location || '정부서울청사',
                     relatedBiz: relatedBiz || '연계 구축 사업',
