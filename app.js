@@ -24825,10 +24825,6 @@ renderTodayTasksRoleBased(todayStr) {
     switchResourceSubTab(subtab = 'members') {
         this.activeResourceSubTab = subtab;
 
-        const membersBtn = document.getElementById('res-subtab-members');
-        const custBtn = document.getElementById('res-subtab-customers');
-        const vendorBtn = document.getElementById('res-subtab-vendors');
-
         const membersPanel = document.getElementById('res-panel-members');
         const custPanel = document.getElementById('res-panel-customers');
         const vendorPanel = document.getElementById('res-panel-vendors');
@@ -24836,44 +24832,25 @@ renderTodayTasksRoleBased(todayStr) {
         const titleEl = document.getElementById('resources-view-title');
         const subtitleEl = document.getElementById('resources-view-subtitle');
 
-        [membersBtn, custBtn, vendorBtn].forEach(b => {
-            if (b) {
-                b.classList.remove('active', 'btn-primary');
-                b.classList.add('btn-outline');
-            }
-        });
-
         [membersPanel, custPanel, vendorPanel].forEach(p => {
             if (p) p.style.display = 'none';
         });
 
         if (subtab === 'customers') {
-            if (custBtn) {
-                custBtn.classList.add('active');
-                custBtn.classList.remove('btn-outline');
-            }
             if (custPanel) custPanel.style.display = 'block';
-            if (titleEl) titleEl.textContent = '고객 연락처 관리';
+            if (titleEl) titleEl.textContent = '고객사 담당자 관리';
             if (subtitleEl) subtitleEl.textContent = '프로젝트 발주처 및 주요 고객사 실무/관리 담당자 연락처를 통합 관리합니다.';
             this.setActiveSidebarMenu('resources/customers');
             this.renderCustomerContactsView();
         } else if (subtab === 'vendors') {
-            if (vendorBtn) {
-                vendorBtn.classList.add('active');
-                vendorBtn.classList.remove('btn-outline');
-            }
             if (vendorPanel) vendorPanel.style.display = 'block';
-            if (titleEl) titleEl.textContent = '업체 연락처 관리';
+            if (titleEl) titleEl.textContent = '협력업체 담당자 관리';
             if (subtitleEl) subtitleEl.textContent = '협력사, 외주사, 컨소시엄 구성원 및 분야별 파트너 업체 연락처를 통합 관리합니다.';
             this.setActiveSidebarMenu('resources/vendors');
             this.renderVendorContactsView();
         } else {
-            if (membersBtn) {
-                membersBtn.classList.add('active');
-                membersBtn.classList.remove('btn-outline');
-            }
             if (membersPanel) membersPanel.style.display = 'block';
-            if (titleEl) titleEl.textContent = '참여인력 관리';
+            if (titleEl) titleEl.textContent = '참여인력 목록';
             if (subtitleEl) subtitleEl.textContent = '프로젝트 단계별 투입 및 계약직·외주 인력 현황과 자격/경력을 통합 관리합니다.';
             this.setActiveSidebarMenu('resources/members');
             this.renderResourcesView();
@@ -25003,7 +24980,7 @@ renderTodayTasksRoleBased(todayStr) {
         if (id) {
             const c = (this.state.customerContacts || []).find(item => item.id === id);
             if (c) {
-                if (titleEl) titleEl.textContent = '고객 연락처 수정';
+                if (titleEl) titleEl.textContent = '고객사 담당자 수정';
                 if (idField) idField.value = c.id;
                 document.getElementById('cust-modal-company').value = c.company || '';
                 document.getElementById('cust-modal-name').value = c.name || '';
@@ -25015,7 +24992,7 @@ renderTodayTasksRoleBased(todayStr) {
                 document.getElementById('cust-modal-remarks').value = c.remarks || '';
             }
         } else {
-            if (titleEl) titleEl.textContent = '신규 고객 연락처 등록';
+            if (titleEl) titleEl.textContent = '신규 고객사 담당자 등록';
             if (idField) idField.value = '';
             document.getElementById('cust-modal-company').value = '';
             document.getElementById('cust-modal-name').value = '';
@@ -25079,7 +25056,7 @@ renderTodayTasksRoleBased(todayStr) {
         this.saveState();
         this.closeCustomerContactModal();
         this.renderCustomerContactsView();
-        if (typeof this.showToast === 'function') this.showToast('고객 연락처가 저장되었습니다.');
+        if (typeof this.showToast === 'function') this.showToast('고객사 담당자 정보가 저장되었습니다.');
     }
 
     deleteCustomerContact(id) {
@@ -25213,7 +25190,7 @@ renderTodayTasksRoleBased(todayStr) {
         if (id) {
             const v = (this.state.vendorContacts || []).find(item => item.id === id);
             if (v) {
-                if (titleEl) titleEl.textContent = '업체 연락처 수정';
+                if (titleEl) titleEl.textContent = '협력업체 담당자 수정';
                 if (idField) idField.value = v.id;
                 document.getElementById('vendor-modal-category').value = v.category || '협력사';
                 document.getElementById('vendor-modal-company').value = v.company || '';
@@ -25226,7 +25203,7 @@ renderTodayTasksRoleBased(todayStr) {
                 document.getElementById('vendor-modal-remarks').value = v.remarks || '';
             }
         } else {
-            if (titleEl) titleEl.textContent = '신규 업체 연락처 등록';
+            if (titleEl) titleEl.textContent = '신규 협력업체 담당자 등록';
             if (idField) idField.value = '';
             document.getElementById('vendor-modal-category').value = '협력사';
             document.getElementById('vendor-modal-company').value = '';
@@ -25293,7 +25270,7 @@ renderTodayTasksRoleBased(todayStr) {
         this.saveState();
         this.closeVendorContactModal();
         this.renderVendorContactsView();
-        if (typeof this.showToast === 'function') this.showToast('업체 연락처가 저장되었습니다.');
+        if (typeof this.showToast === 'function') this.showToast('협력업체 담당자 정보가 저장되었습니다.');
     }
 
     deleteVendorContact(id) {

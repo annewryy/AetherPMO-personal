@@ -154,23 +154,23 @@
 
                 <!-- 인력 및 연락처 관리 그룹 -->
                 <div class="nav-item-wrapper" id="nav-wrapper-hr">
-                    <a href="#resources" class="nav-item" data-view="resources" data-tooltip="참여인력 관리" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('resources');">
+                    <a href="#resources" class="nav-item" data-view="resources" data-tooltip="참여인력 관리">
                         <i data-lucide="users"></i>
                         <span>참여인력 관리</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
                     </a>
                     <div class="nav-submenu">
-                        <a href="#resources/members" class="submenu-item" data-subview="resources-members" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('resources/members');">
+                        <a href="#resources/members" class="submenu-item" data-subview="resources-members">
                             <i data-lucide="user-check"></i>
-                            <span>참여인력</span>
+                            <span>참여인력 목록</span>
                         </a>
-                        <a href="#resources/customers" class="submenu-item" data-subview="resources-customers" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('resources/customers');">
+                        <a href="#resources/customers" class="submenu-item" data-subview="resources-customers">
                             <i data-lucide="id-card"></i>
-                            <span>고객 연락처</span>
+                            <span>고객사 담당자</span>
                         </a>
-                        <a href="#resources/vendors" class="submenu-item" data-subview="resources-vendors" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('resources/vendors');">
+                        <a href="#resources/vendors" class="submenu-item" data-subview="resources-vendors">
                             <i data-lucide="building-2"></i>
-                            <span>업체 연락처</span>
+                            <span>협력업체 담당자</span>
                         </a>
                     </div>
                 </div>
@@ -2296,21 +2296,7 @@
                         </div>
                     </div>
 
-                    <!-- Sub-tabs Navigation -->
-                    <div class="resources-subtabs-nav" style="display: flex; gap: 10px; margin-bottom: 24px; border-bottom: 2px solid var(--bg-card-border); padding-bottom: 12px;">
-                        <button type="button" class="btn resource-subtab-btn active" id="res-subtab-members" onclick="app.switchResourceSubTab('members')" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 700; border-radius: 8px; padding: 10px 18px; font-size: 14px;">
-                            <i data-lucide="user-check" style="width: 16px; height: 16px;"></i>
-                            <span>참여인력 목록</span>
-                        </button>
-                        <button type="button" class="btn resource-subtab-btn btn-outline" id="res-subtab-customers" onclick="app.switchResourceSubTab('customers')" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 700; border-radius: 8px; padding: 10px 18px; font-size: 14px;">
-                            <i data-lucide="id-card" style="width: 16px; height: 16px;"></i>
-                            <span>고객 연락처</span>
-                        </button>
-                        <button type="button" class="btn resource-subtab-btn btn-outline" id="res-subtab-vendors" onclick="app.switchResourceSubTab('vendors')" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 700; border-radius: 8px; padding: 10px 18px; font-size: 14px;">
-                            <i data-lucide="building-2" style="width: 16px; height: 16px;"></i>
-                            <span>업체 연락처</span>
-                        </button>
-                    </div>
+                    
 
                     <!-- PANEL 1: MEMBERS (기존 참여인력) -->
                     <div id="res-panel-members">
@@ -2559,7 +2545,7 @@
                             </button>
                             <button type="button" class="btn btn-primary" onclick="app.openCustomerContactModal()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
                                 <i data-lucide="user-plus" style="width: 14px; height: 14px;"></i>
-                                <span>신규 고객 연락처 등록</span>
+                                <span>신규 고객사 담당자 등록</span>
                             </button>
                         </div>
                     </div>
@@ -2624,7 +2610,7 @@
                             </button>
                             <button type="button" class="btn btn-primary" onclick="app.openVendorContactModal()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
                                 <i data-lucide="building-2" style="width: 14px; height: 14px;"></i>
-                                <span>신규 업체 연락처 등록</span>
+                                <span>신규 협력업체 담당자 등록</span>
                             </button>
                         </div>
                     </div>
@@ -6926,7 +6912,7 @@
 <div class="modal-overlay" id="modal-customer-contact">
     <div class="modal-container" style="max-width: 600px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--border-color); overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
         <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--bg-input);">
-            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0;" id="cust-modal-title">신규 고객 연락처 등록</h3>
+            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0;" id="cust-modal-title">신규 고객사 담당자 등록</h3>
             <button type="button" onclick="app.closeCustomerContactModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px;"><i data-lucide="x" style="width: 18px; height: 18px;"></i></button>
         </div>
         <form id="form-customer-contact" onsubmit="event.preventDefault(); app.saveCustomerContact();">
@@ -6985,7 +6971,7 @@
 <div class="modal-overlay" id="modal-vendor-contact">
     <div class="modal-container" style="max-width: 650px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--border-color); overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
         <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--bg-input);">
-            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0;" id="vendor-modal-title">신규 업체 연락처 등록</h3>
+            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0;" id="vendor-modal-title">신규 협력업체 담당자 등록</h3>
             <button type="button" onclick="app.closeVendorContactModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px;"><i data-lucide="x" style="width: 18px; height: 18px;"></i></button>
         </div>
         <form id="form-vendor-contact" onsubmit="event.preventDefault(); app.saveVendorContact();">
