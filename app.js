@@ -8780,7 +8780,6 @@ renderTodayTasksRoleBased(todayStr) {
             if (subItem) subItem.classList.add('active');
             const boardNav = document.querySelector('.nav-item[data-view="board"]');
             if (boardNav) boardNav.classList.add('active');
-        } else {
         } else if (typeof route === 'string' && (route.startsWith('resources/') || route === 'resources')) {
             const sub = route.includes('/') ? route.split('/')[1] : 'members';
             let subview = 'resources-members';
