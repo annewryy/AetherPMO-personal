@@ -24900,7 +24900,7 @@ renderTodayTasksRoleBased(todayStr) {
             compSelect.innerHTML = opts;
         }
 
-        # 2. Populate Project Select
+        // 2. Populate Project Select
         const projSelect = document.getElementById('cust-filter-project');
         if (projSelect) {
             const curVal = projSelect.value || 'all';
