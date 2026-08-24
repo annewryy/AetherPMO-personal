@@ -24620,27 +24620,6 @@ renderTodayTasksRoleBased(todayStr) {
         const dateEl = document.getElementById('popup-notice-date');
         if (dateEl) dateEl.textContent = activePost.createdAt ? new Date(activePost.createdAt).toLocaleString('ko-KR') : '-';
 
-        const periodContainer = document.getElementById('popup-notice-period-container');
-        const periodText = document.getElementById('popup-notice-period-text');
-        const startDateVal = activePost.popupStartDate || activePost.popup_start_date;
-        const endDateVal = activePost.popupEndDate || activePost.popup_end_date;
-
-        if (periodContainer && periodText) {
-            if (startDateVal || endDateVal) {
-                const fmtStr = (val) => {
-                    if (!val) return '제한없음';
-                    const d = new Date(val);
-                    if (isNaN(d.getTime())) return '제한없음';
-                    const pad = (n) => String(n).padStart(2, '0');
-                    return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-                };
-                periodText.textContent = `팝업기간: ${fmtStr(startDateVal)} ~ ${fmtStr(endDateVal)}`;
-                periodContainer.style.display = 'inline-flex';
-            } else {
-                periodContainer.style.display = 'none';
-            }
-        }
-
         const contentEl = document.getElementById('popup-notice-content');
         if (contentEl) contentEl.textContent = activePost.content || '';
 
