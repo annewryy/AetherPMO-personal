@@ -1824,6 +1824,8 @@ class AetherPMO {
                     if (!this.state.officialDocs) this.state.officialDocs = [];
                     if (!this.state.meetingMinutes) this.state.meetingMinutes = [];
                     if (!this.state.resources) this.state.resources = this.getDefaultResources();
+        if (!this.state.customerContacts) this.state.customerContacts = this.getDefaultCustomerContacts();
+        if (!this.state.vendorContacts) this.state.vendorContacts = this.getDefaultVendorContacts();
                     if (!this.state.contracts) this.state.contracts = this.getDefaultContracts();
                     if (!this.state.salaries) this.state.salaries = this.getDefaultSalaries();
                     if (!this.state.theme) this.state.theme = 'dark';
@@ -4865,6 +4867,9 @@ class AetherPMO {
             'project-detail': 'view-project-detail',
             'tailoring': 'view-tailoring',
             'artifacts': 'view-artifacts',
+            'resources/members': 'view-resources',
+            'resources/customers': 'view-resources',
+            'resources/vendors': 'view-resources',
             'resources': 'view-resources',
             'salaries': 'view-salaries',
             'backup': 'view-backup',
@@ -4957,8 +4962,12 @@ class AetherPMO {
         if (viewName === 'dashboard') {
             this.renderDashboard();
             this.renderPersonalizedDashboard();
-        } else if (viewName === 'resources') {
-            this.renderResourcesView();
+        } else if (viewName === 'resources' || (typeof viewName === 'string' && viewName.startsWith('resources/'))) {
+            const parts = viewName.split('/');
+            let sub = 'members';
+            if (parts[1] === 'customers') sub = 'customers';
+            else if (parts[1] === 'vendors') sub = 'vendors';
+            this.switchResourceSubTab(sub);
         } else if (viewName === 'salaries') {
             this.switchSalarySubTab('target');
         } else if (viewName === 'projects') {
@@ -8771,6 +8780,17 @@ renderTodayTasksRoleBased(todayStr) {
             if (subItem) subItem.classList.add('active');
             const boardNav = document.querySelector('.nav-item[data-view="board"]');
             if (boardNav) boardNav.classList.add('active');
+        } else {
+        } else if (typeof route === 'string' && (route.startsWith('resources/') || route === 'resources')) {
+            const sub = route.includes('/') ? route.split('/')[1] : 'members';
+            let subview = 'resources-members';
+            if (sub === 'customers') subview = 'resources-customers';
+            else if (sub === 'vendors') subview = 'resources-vendors';
+
+            const subItem = document.querySelector(`.submenu-item[data-subview="${subview}"]`);
+            if (subItem) subItem.classList.add('active');
+            const resNav = document.querySelector('.nav-item[data-view="resources"]');
+            if (resNav) resNav.classList.add('active');
         } else {
             const navItem = document.querySelector(`.nav-item[data-view="${route}"]`);
             if (navItem) navItem.classList.add('active');
@@ -24678,6 +24698,627 @@ renderTodayTasksRoleBased(todayStr) {
             allCb.checked = allChecked;
         }
         this.renderResourcesView();
+    }
+
+
+    getDefaultCustomerContacts() {
+        return [
+            {
+                id: 'cust-1',
+                company: '한국전력공사',
+                name: '김철수',
+                department: '정보화기획처',
+                position: '주무관',
+                phone: '010-2345-6789',
+                email: 'chulsoo.kim@kepco.co.kr',
+                projectId: 'proj-1',
+                projectName: '차세대 스마트홈 IoT 플랫폼 구축',
+                remarks: '프로젝트 검수 담당자 / 매주 목요일 현장 미팅'
+            },
+            {
+                id: 'cust-2',
+                company: 'KB국민은행',
+                name: '이영희',
+                department: 'IT개발부',
+                position: '부장',
+                phone: '010-3456-7890',
+                email: 'younghee.lee@kbfg.com',
+                projectId: 'proj-2',
+                projectName: 'AI 기반 다국어 고객 상담 어시스턴트 개발',
+                remarks: '총괄 사업책임자'
+            },
+            {
+                id: 'cust-3',
+                company: '기획재정부',
+                name: '박민수',
+                department: '디지털예산회계시스템 운용단',
+                position: '서기관',
+                phone: '010-4567-8901',
+                email: 'minsoo.park@korea.kr',
+                projectId: 'proj-3',
+                projectName: '지능형 통합 대시보드 구축',
+                remarks: '중간보고회 발표 담당'
+            },
+            {
+                id: 'cust-4',
+                company: '서울시 교통정보과',
+                name: '정수진',
+                department: '교통정보센터',
+                position: '팀장',
+                phone: '010-5678-9012',
+                email: 'sujin.jung@seoul.go.kr',
+                projectId: 'proj-4',
+                projectName: '스마트 교통 빅데이터 분석 플랫폼',
+                remarks: '데이터 연계 협조 요청창구'
+            },
+            {
+                id: 'cust-5',
+                company: '오케스트로 스마트홈 사업부',
+                name: '최동현',
+                department: '스마트홈 개발팀',
+                position: '수석연구원',
+                phone: '010-6789-0123',
+                email: 'dh.choi@okestro.com',
+                projectId: 'proj-1',
+                projectName: '차세대 스마트홈 IoT 플랫폼 구축',
+                remarks: 'H/W 연동 기술 지원 담당'
+            }
+        ];
+    }
+
+    getDefaultVendorContacts() {
+        return [
+            {
+                id: 'vendor-1',
+                category: '협력사',
+                company: '(주)글로벌IT솔루션',
+                name: '강태진',
+                position: 'SI사업부 / 이사',
+                phone: '010-7890-1234',
+                email: 'tj.kang@globalit.co.kr',
+                projectId: 'proj-1',
+                projectName: '차세대 스마트홈 IoT 플랫폼 구축',
+                status: 'ACTIVE',
+                remarks: 'IoT 게이트웨이 파트너사'
+            },
+            {
+                id: 'vendor-2',
+                category: '외주사',
+                company: '(주)넥스트소프트',
+                name: '윤서연',
+                position: '개발1팀 / 팀장',
+                phone: '010-8901-2345',
+                email: 'sy.yoon@nextsoft.io',
+                projectId: 'proj-2',
+                projectName: 'AI 기반 다국어 고객 상담 어시스턴트 개발',
+                status: 'ACTIVE',
+                remarks: 'NLP 텍스트 처리 외주 개발'
+            },
+            {
+                id: 'vendor-3',
+                category: '컨소시엄',
+                company: '(주)클라우드웨어',
+                name: '한상우',
+                position: '클라우드사업본부 / 상무',
+                phone: '010-9012-3456',
+                email: 'sw.han@cloudware.com',
+                projectId: 'proj-3',
+                projectName: '지능형 통합 대시보드 구축',
+                status: 'ACTIVE',
+                remarks: '공동수급체 구성원 (지분율 30%)'
+            },
+            {
+                id: 'vendor-4',
+                category: '파트너',
+                company: '(주)시큐리티네트웍스',
+                name: '임재범',
+                position: '보안컨설팅팀 / 부장',
+                phone: '010-0123-4567',
+                email: 'jb.lim@secunet.co.kr',
+                projectId: 'proj-4',
+                projectName: '스마트 교통 빅데이터 분석 플랫폼',
+                status: 'ACTIVE',
+                remarks: '보안 취약점 점검 및 ISMS 컨설팅'
+            }
+        ];
+    }
+
+    switchResourceSubTab(subtab = 'members') {
+        this.activeResourceSubTab = subtab;
+
+        const membersBtn = document.getElementById('res-subtab-members');
+        const custBtn = document.getElementById('res-subtab-customers');
+        const vendorBtn = document.getElementById('res-subtab-vendors');
+
+        const membersPanel = document.getElementById('res-panel-members');
+        const custPanel = document.getElementById('res-panel-customers');
+        const vendorPanel = document.getElementById('res-panel-vendors');
+
+        const titleEl = document.getElementById('resources-view-title');
+        const subtitleEl = document.getElementById('resources-view-subtitle');
+
+        [membersBtn, custBtn, vendorBtn].forEach(b => {
+            if (b) {
+                b.classList.remove('active', 'btn-primary');
+                b.classList.add('btn-outline');
+            }
+        });
+
+        [membersPanel, custPanel, vendorPanel].forEach(p => {
+            if (p) p.style.display = 'none';
+        });
+
+        if (subtab === 'customers') {
+            if (custBtn) {
+                custBtn.classList.add('active');
+                custBtn.classList.remove('btn-outline');
+            }
+            if (custPanel) custPanel.style.display = 'block';
+            if (titleEl) titleEl.textContent = '고객 연락처 관리';
+            if (subtitleEl) subtitleEl.textContent = '프로젝트 발주처 및 주요 고객사 실무/관리 담당자 연락처를 통합 관리합니다.';
+            this.setActiveSidebarMenu('resources/customers');
+            this.renderCustomerContactsView();
+        } else if (subtab === 'vendors') {
+            if (vendorBtn) {
+                vendorBtn.classList.add('active');
+                vendorBtn.classList.remove('btn-outline');
+            }
+            if (vendorPanel) vendorPanel.style.display = 'block';
+            if (titleEl) titleEl.textContent = '업체 연락처 관리';
+            if (subtitleEl) subtitleEl.textContent = '협력사, 외주사, 컨소시엄 구성원 및 분야별 파트너 업체 연락처를 통합 관리합니다.';
+            this.setActiveSidebarMenu('resources/vendors');
+            this.renderVendorContactsView();
+        } else {
+            if (membersBtn) {
+                membersBtn.classList.add('active');
+                membersBtn.classList.remove('btn-outline');
+            }
+            if (membersPanel) membersPanel.style.display = 'block';
+            if (titleEl) titleEl.textContent = '참여인력 관리';
+            if (subtitleEl) subtitleEl.textContent = '프로젝트 단계별 투입 및 계약직·외주 인력 현황과 자격/경력을 통합 관리합니다.';
+            this.setActiveSidebarMenu('resources/members');
+            this.renderResourcesView();
+        }
+    }
+
+    renderCustomerContactsView() {
+        console.log('[renderCustomerContactsView] Rendering customer contacts...');
+        if (!Array.isArray(this.state.customerContacts) || this.state.customerContacts.length === 0) {
+            this.state.customerContacts = this.getDefaultCustomerContacts();
+        }
+        const contacts = this.state.customerContacts;
+        const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
+
+        // 1. Populate Company Select
+        const compSelect = document.getElementById('cust-filter-company');
+        if (compSelect) {
+            const curVal = compSelect.value || 'all';
+            const companies = Array.from(new Set(contacts.map(c => c.company).filter(Boolean)));
+            let opts = '<option value="all">전체 고객사</option>';
+            companies.forEach(comp => {
+                opts += `<option value="${this.escapeHtml(comp)}" ${comp === curVal ? 'selected' : ''}>${this.escapeHtml(comp)}</option>`;
+            });
+            compSelect.innerHTML = opts;
+        }
+
+        # 2. Populate Project Select
+        const projSelect = document.getElementById('cust-filter-project');
+        if (projSelect) {
+            const curVal = projSelect.value || 'all';
+            let opts = '<option value="all">전체 프로젝트</option>';
+            projects.forEach(p => {
+                opts += `<option value="${p.id}" ${p.id === curVal ? 'selected' : ''}>${this.escapeHtml(p.name)}</option>`;
+            });
+            projSelect.innerHTML = opts;
+        }
+
+        this.renderCustomerContactsTable();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    renderCustomerContactsTable() {
+        const tbody = document.getElementById('customer-contacts-table-body');
+        if (!tbody) return;
+
+        const contacts = Array.isArray(this.state.customerContacts) ? this.state.customerContacts : [];
+        const companyFilter = document.getElementById('cust-filter-company')?.value || 'all';
+        const projFilter = document.getElementById('cust-filter-project')?.value || 'all';
+        const keyword = (document.getElementById('cust-search-input')?.value || '').toLowerCase().trim();
+
+        let filtered = contacts.filter(c => {
+            if (companyFilter !== 'all' && c.company !== companyFilter) return false;
+            if (projFilter !== 'all' && c.projectId !== projFilter) return false;
+            if (keyword) {
+                const matchComp = (c.company || '').toLowerCase().includes(keyword);
+                const matchName = (c.name || '').toLowerCase().includes(keyword);
+                const matchDept = (c.department || '').toLowerCase().includes(keyword);
+                const matchPos = (c.position || '').toLowerCase().includes(keyword);
+                const matchPhone = (c.phone || '').toLowerCase().includes(keyword);
+                const matchEmail = (c.email || '').toLowerCase().includes(keyword);
+                const matchProj = (c.projectName || '').toLowerCase().includes(keyword);
+                if (!matchComp && !matchName && !matchDept && !matchPos && !matchPhone && !matchEmail && !matchProj) return false;
+            }
+            return true;
+        });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                        <i data-lucide="id-card" style="width: 36px; height: 36px; margin-bottom: 8px; opacity: 0.4;"></i>
+                        <p style="margin: 0; font-size: 14px;">등록되었거나 조건에 맞는 고객 연락처가 없습니다.</p>
+                    </td>
+                </tr>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+
+        let html = '';
+        filtered.forEach(c => {
+            const projName = c.projectName || (this.state.projects?.find(p => p.id === c.projectId)?.name) || '-';
+            html += `
+                <tr style="border-bottom: 1px solid var(--bg-card-border); font-size: 13px;">
+                    <td style="padding: 12px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.company || '-')}</td>
+                    <td style="padding: 12px 14px; font-weight: 700; text-align: center; color: var(--primary); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.name || '-')}</td>
+                    <td style="padding: 12px 14px; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.department || '')} ${c.position ? `(${this.escapeHtml(c.position)})` : ''}</td>
+                    <td style="padding: 12px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.phone || '-')}</td>
+                    <td style="padding: 12px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.email || '-')}</td>
+                    <td style="padding: 12px 14px; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(projName)}</td>
+                    <td style="padding: 12px 14px; color: var(--text-muted); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.remarks || '-')}</td>
+                    <td style="padding: 12px 14px; text-align: center;">
+                        <div style="display: flex; gap: 6px; justify-content: center;">
+                            <button type="button" class="btn btn-sm btn-outline" onclick="app.openCustomerContactModal('${c.id}')" title="수정" style="padding: 4px 8px;">
+                                <i data-lucide="edit-3" style="width: 14px; height: 14px;"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="app.deleteCustomerContact('${c.id}')" title="삭제" style="padding: 4px 8px; color: #ef4444;">
+                                <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    openCustomerContactModal(id = null) {
+        const modal = document.getElementById('modal-customer-contact');
+        if (!modal) return;
+
+        const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
+        const projSelect = document.getElementById('cust-modal-project');
+        if (projSelect) {
+            let opts = '<option value="">(전체/지정 없음)</option>';
+            projects.forEach(p => {
+                opts += `<option value="${p.id}">${this.escapeHtml(p.name)}</option>`;
+            });
+            projSelect.innerHTML = opts;
+        }
+
+        const titleEl = document.getElementById('cust-modal-title');
+        const idField = document.getElementById('cust-modal-id');
+
+        if (id) {
+            const c = (this.state.customerContacts || []).find(item => item.id === id);
+            if (c) {
+                if (titleEl) titleEl.textContent = '고객 연락처 수정';
+                if (idField) idField.value = c.id;
+                document.getElementById('cust-modal-company').value = c.company || '';
+                document.getElementById('cust-modal-name').value = c.name || '';
+                document.getElementById('cust-modal-dept').value = c.department || '';
+                document.getElementById('cust-modal-position').value = c.position || '';
+                document.getElementById('cust-modal-phone').value = c.phone || '';
+                document.getElementById('cust-modal-email').value = c.email || '';
+                document.getElementById('cust-modal-project').value = c.projectId || '';
+                document.getElementById('cust-modal-remarks').value = c.remarks || '';
+            }
+        } else {
+            if (titleEl) titleEl.textContent = '신규 고객 연락처 등록';
+            if (idField) idField.value = '';
+            document.getElementById('cust-modal-company').value = '';
+            document.getElementById('cust-modal-name').value = '';
+            document.getElementById('cust-modal-dept').value = '';
+            document.getElementById('cust-modal-position').value = '';
+            document.getElementById('cust-modal-phone').value = '';
+            document.getElementById('cust-modal-email').value = '';
+            document.getElementById('cust-modal-project').value = '';
+            document.getElementById('cust-modal-remarks').value = '';
+        }
+
+        modal.classList.add('open');
+    }
+
+    closeCustomerContactModal() {
+        const modal = document.getElementById('modal-customer-contact');
+        if (modal) modal.classList.remove('open');
+    }
+
+    saveCustomerContact() {
+        if (!Array.isArray(this.state.customerContacts)) this.state.customerContacts = [];
+
+        const id = document.getElementById('cust-modal-id')?.value;
+        const company = document.getElementById('cust-modal-company')?.value?.trim();
+        const name = document.getElementById('cust-modal-name')?.value?.trim();
+        const department = document.getElementById('cust-modal-dept')?.value?.trim();
+        const position = document.getElementById('cust-modal-position')?.value?.trim();
+        const phone = document.getElementById('cust-modal-phone')?.value?.trim();
+        const email = document.getElementById('cust-modal-email')?.value?.trim();
+        const projectId = document.getElementById('cust-modal-project')?.value;
+        const remarks = document.getElementById('cust-modal-remarks')?.value?.trim();
+
+        if (!company || !name || !phone) {
+            alert('고객사명, 담당자 성명, 연락처는 필수 입력 사항입니다.');
+            return;
+        }
+
+        const projName = this.state.projects?.find(p => p.id === projectId)?.name || '';
+
+        const dataObj = {
+            id: id || `cust-${Date.now()}`,
+            company,
+            name,
+            department,
+            position,
+            phone,
+            email,
+            projectId: projectId || null,
+            projectName: projName,
+            remarks
+        };
+
+        if (id) {
+            const idx = this.state.customerContacts.findIndex(c => c.id === id);
+            if (idx >= 0) this.state.customerContacts[idx] = dataObj;
+            else this.state.customerContacts.push(dataObj);
+        } else {
+            this.state.customerContacts.push(dataObj);
+        }
+
+        this.saveState();
+        this.closeCustomerContactModal();
+        this.renderCustomerContactsView();
+        if (typeof this.showToast === 'function') this.showToast('고객 연락처가 저장되었습니다.');
+    }
+
+    deleteCustomerContact(id) {
+        if (!confirm('이 고객 연락처를 삭제하시겠습니까?')) return;
+        this.state.customerContacts = (this.state.customerContacts || []).filter(c => c.id !== id);
+        this.saveState();
+        this.renderCustomerContactsView();
+        if (typeof this.showToast === 'function') this.showToast('고객 연락처가 삭제되었습니다.');
+    }
+
+    exportCustomerContactsToExcel() {
+        const contacts = Array.isArray(this.state.customerContacts) ? this.state.customerContacts : [];
+        let csv = '고객사,담당자,부서/직급,연락처,이메일,관련프로젝트,비고\n';
+        contacts.forEach(c => {
+            csv += `"${c.company || ''}","${c.name || ''}","${(c.department || '') + ' ' + (c.position || '')}","${c.phone || ''}","${c.email || ''}","${c.projectName || ''}","${c.remarks || ''}"\n`;
+        });
+
+        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `고객연락처목록_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    renderVendorContactsView() {
+        console.log('[renderVendorContactsView] Rendering vendor contacts...');
+        if (!Array.isArray(this.state.vendorContacts) || this.state.vendorContacts.length === 0) {
+            this.state.vendorContacts = this.getDefaultVendorContacts();
+        }
+
+        this.renderVendorContactsTable();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    renderVendorContactsTable() {
+        const tbody = document.getElementById('vendor-contacts-table-body');
+        if (!tbody) return;
+
+        const vendors = Array.isArray(this.state.vendorContacts) ? this.state.vendorContacts : [];
+        const catFilter = document.getElementById('vendor-filter-category')?.value || 'all';
+        const statusFilter = document.getElementById('vendor-filter-status')?.value || 'all';
+        const keyword = (document.getElementById('vendor-search-input')?.value || '').toLowerCase().trim();
+
+        let filtered = vendors.filter(v => {
+            if (catFilter !== 'all' && v.category !== catFilter) return false;
+            if (statusFilter !== 'all' && (v.status || 'ACTIVE') !== statusFilter) return false;
+            if (keyword) {
+                const matchCat = (v.category || '').toLowerCase().includes(keyword);
+                const matchComp = (v.company || '').toLowerCase().includes(keyword);
+                const matchName = (v.name || '').toLowerCase().includes(keyword);
+                const matchPos = (v.position || '').toLowerCase().includes(keyword);
+                const matchPhone = (v.phone || '').toLowerCase().includes(keyword);
+                const matchEmail = (v.email || '').toLowerCase().includes(keyword);
+                const matchProj = (v.projectName || '').toLowerCase().includes(keyword);
+                if (!matchCat && !matchComp && !matchName && !matchPos && !matchPhone && !matchEmail && !matchProj) return false;
+            }
+            return true;
+        });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                        <i data-lucide="building-2" style="width: 36px; height: 36px; margin-bottom: 8px; opacity: 0.4;"></i>
+                        <p style="margin: 0; font-size: 14px;">등록되었거나 조건에 맞는 업체 연락처가 없습니다.</p>
+                    </td>
+                </tr>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+
+        let html = '';
+        filtered.forEach(v => {
+            const st = v.status || 'ACTIVE';
+            let stBadge = '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">거래중</span>';
+            if (st === 'STANDBY') stBadge = '<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">대기</span>';
+            else if (st === 'CLOSED') stBadge = '<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">종료</span>';
+
+            const catColor = v.category === '컨소시엄' ? '#8b5cf6' : (v.category === '외주사' ? '#06b6d4' : '#6366f1');
+
+            html += `
+                <tr style="border-bottom: 1px solid var(--bg-card-border); font-size: 13px;">
+                    <td style="padding: 12px 14px; text-align: center; border-right: 1px solid var(--bg-card-border);">
+                        <span class="badge" style="background: rgba(99, 102, 241, 0.12); color: ${catColor}; font-weight: 700;">${this.escapeHtml(v.category || '협력사')}</span>
+                    </td>
+                    <td style="padding: 12px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.company || '-')}</td>
+                    <td style="padding: 12px 14px; font-weight: 700; text-align: center; color: var(--primary); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.name || '-')}</td>
+                    <td style="padding: 12px 14px; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.position || '-')}</td>
+                    <td style="padding: 12px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.phone || '-')}</td>
+                    <td style="padding: 12px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.email || '-')}</td>
+                    <td style="padding: 12px 14px; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.projectName || '-')}</td>
+                    <td style="padding: 12px 14px; text-align: center; border-right: 1px solid var(--bg-card-border);">${stBadge}</td>
+                    <td style="padding: 12px 14px; text-align: center;">
+                        <div style="display: flex; gap: 6px; justify-content: center;">
+                            <button type="button" class="btn btn-sm btn-outline" onclick="app.openVendorContactModal('${v.id}')" title="수정" style="padding: 4px 8px;">
+                                <i data-lucide="edit-3" style="width: 14px; height: 14px;"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="app.deleteVendorContact('${v.id}')" title="삭제" style="padding: 4px 8px; color: #ef4444;">
+                                <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    openVendorContactModal(id = null) {
+        const modal = document.getElementById('modal-vendor-contact');
+        if (!modal) return;
+
+        const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
+        const projSelect = document.getElementById('vendor-modal-project');
+        if (projSelect) {
+            let opts = '<option value="">(전체/지정 없음)</option>';
+            projects.forEach(p => {
+                opts += `<option value="${p.id}">${this.escapeHtml(p.name)}</option>`;
+            });
+            projSelect.innerHTML = opts;
+        }
+
+        const titleEl = document.getElementById('vendor-modal-title');
+        const idField = document.getElementById('vendor-modal-id');
+
+        if (id) {
+            const v = (this.state.vendorContacts || []).find(item => item.id === id);
+            if (v) {
+                if (titleEl) titleEl.textContent = '업체 연락처 수정';
+                if (idField) idField.value = v.id;
+                document.getElementById('vendor-modal-category').value = v.category || '협력사';
+                document.getElementById('vendor-modal-company').value = v.company || '';
+                document.getElementById('vendor-modal-name').value = v.name || '';
+                document.getElementById('vendor-modal-position').value = v.position || '';
+                document.getElementById('vendor-modal-phone').value = v.phone || '';
+                document.getElementById('vendor-modal-email').value = v.email || '';
+                document.getElementById('vendor-modal-project').value = v.projectId || '';
+                document.getElementById('vendor-modal-status').value = v.status || 'ACTIVE';
+                document.getElementById('vendor-modal-remarks').value = v.remarks || '';
+            }
+        } else {
+            if (titleEl) titleEl.textContent = '신규 업체 연락처 등록';
+            if (idField) idField.value = '';
+            document.getElementById('vendor-modal-category').value = '협력사';
+            document.getElementById('vendor-modal-company').value = '';
+            document.getElementById('vendor-modal-name').value = '';
+            document.getElementById('vendor-modal-position').value = '';
+            document.getElementById('vendor-modal-phone').value = '';
+            document.getElementById('vendor-modal-email').value = '';
+            document.getElementById('vendor-modal-project').value = '';
+            document.getElementById('vendor-modal-status').value = 'ACTIVE';
+            document.getElementById('vendor-modal-remarks').value = '';
+        }
+
+        modal.classList.add('open');
+    }
+
+    closeVendorContactModal() {
+        const modal = document.getElementById('modal-vendor-contact');
+        if (modal) modal.classList.remove('open');
+    }
+
+    saveVendorContact() {
+        if (!Array.isArray(this.state.vendorContacts)) this.state.vendorContacts = [];
+
+        const id = document.getElementById('vendor-modal-id')?.value;
+        const category = document.getElementById('vendor-modal-category')?.value;
+        const company = document.getElementById('vendor-modal-company')?.value?.trim();
+        const name = document.getElementById('vendor-modal-name')?.value?.trim();
+        const position = document.getElementById('vendor-modal-position')?.value?.trim();
+        const phone = document.getElementById('vendor-modal-phone')?.value?.trim();
+        const email = document.getElementById('vendor-modal-email')?.value?.trim();
+        const projectId = document.getElementById('vendor-modal-project')?.value;
+        const status = document.getElementById('vendor-modal-status')?.value || 'ACTIVE';
+        const remarks = document.getElementById('vendor-modal-remarks')?.value?.trim();
+
+        if (!company || !name || !phone) {
+            alert('업체명, 담당자 성명, 연락처는 필수 입력 사항입니다.');
+            return;
+        }
+
+        const projName = this.state.projects?.find(p => p.id === projectId)?.name || '';
+
+        const dataObj = {
+            id: id || `vendor-${Date.now()}`,
+            category: category || '협력사',
+            company,
+            name,
+            position,
+            phone,
+            email,
+            projectId: projectId || null,
+            projectName: projName,
+            status,
+            remarks
+        };
+
+        if (id) {
+            const idx = this.state.vendorContacts.findIndex(v => v.id === id);
+            if (idx >= 0) this.state.vendorContacts[idx] = dataObj;
+            else this.state.vendorContacts.push(dataObj);
+        } else {
+            this.state.vendorContacts.push(dataObj);
+        }
+
+        this.saveState();
+        this.closeVendorContactModal();
+        this.renderVendorContactsView();
+        if (typeof this.showToast === 'function') this.showToast('업체 연락처가 저장되었습니다.');
+    }
+
+    deleteVendorContact(id) {
+        if (!confirm('이 업체 연락처를 삭제하시겠습니까?')) return;
+        this.state.vendorContacts = (this.state.vendorContacts || []).filter(v => v.id !== id);
+        this.saveState();
+        this.renderVendorContactsView();
+        if (typeof this.showToast === 'function') this.showToast('업체 연락처가 삭제되었습니다.');
+    }
+
+    exportVendorContactsToExcel() {
+        const vendors = Array.isArray(this.state.vendorContacts) ? this.state.vendorContacts : [];
+        let csv = '업체구분,업체명,담당자/대표자,부서/직급,연락처,이메일,관련프로젝트,거래상태,비고\n';
+        vendors.forEach(v => {
+            csv += `"${v.category || ''}","${v.company || ''}","${v.name || ''}","${v.position || ''}","${v.phone || ''}","${v.email || ''}","${v.projectName || ''}","${v.status || ''}","${v.remarks || ''}"\n`;
+        });
+
+        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `업체연락처목록_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
     }
 
     renderResourcesView() {

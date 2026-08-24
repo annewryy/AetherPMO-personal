@@ -152,12 +152,27 @@
                     </a>
                 </div>
 
-                <!-- 인력 및 월급여 관리 그룹 -->
+                <!-- 인력 및 연락처 관리 그룹 -->
                 <div class="nav-item-wrapper" id="nav-wrapper-hr">
                     <a href="#resources" class="nav-item" data-view="resources" data-tooltip="참여인력 관리" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('resources');">
                         <i data-lucide="users"></i>
                         <span>참여인력 관리</span>
+                        <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
                     </a>
+                    <div class="nav-submenu">
+                        <a href="#resources/members" class="submenu-item" data-subview="resources-members" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('resources/members');">
+                            <i data-lucide="user-check"></i>
+                            <span>참여인력</span>
+                        </a>
+                        <a href="#resources/customers" class="submenu-item" data-subview="resources-customers" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('resources/customers');">
+                            <i data-lucide="id-card"></i>
+                            <span>고객 연락처</span>
+                        </a>
+                        <a href="#resources/vendors" class="submenu-item" data-subview="resources-vendors" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('resources/vendors');">
+                            <i data-lucide="building-2"></i>
+                            <span>업체 연락처</span>
+                        </a>
+                    </div>
                 </div>
                 <div class="nav-item-wrapper" id="nav-wrapper-salaries">
                     <a href="#salaries" class="nav-item" data-view="salaries" data-tooltip="월급여 관리" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('salaries');">
@@ -2276,10 +2291,29 @@
                 <section id="view-resources" class="content-view">
                     <div class="view-header">
                         <div>
-                            <h1>참여인력관리 (인력 마스터)</h1>
-                            <p class="subtitle">프로젝트 수행단계 세부내용으로 등록된 전체 참여인력 정보 및 배치 현황을 통합 관리합니다.</p>
+                            <h1 id="resources-view-title">참여인력 관리</h1>
+                            <p class="subtitle" id="resources-view-subtitle">참여인력 마스터, 고객사 연락처 및 협력/외주 업체 연락처를 통합 관리합니다.</p>
                         </div>
                     </div>
+
+                    <!-- Sub-tabs Navigation -->
+                    <div class="resources-subtabs-nav" style="display: flex; gap: 10px; margin-bottom: 24px; border-bottom: 2px solid var(--bg-card-border); padding-bottom: 12px;">
+                        <button type="button" class="btn resource-subtab-btn active" id="res-subtab-members" onclick="app.switchResourceSubTab('members')" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 700; border-radius: 8px; padding: 10px 18px; font-size: 14px;">
+                            <i data-lucide="user-check" style="width: 16px; height: 16px;"></i>
+                            <span>참여인력 목록</span>
+                        </button>
+                        <button type="button" class="btn resource-subtab-btn btn-outline" id="res-subtab-customers" onclick="app.switchResourceSubTab('customers')" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 700; border-radius: 8px; padding: 10px 18px; font-size: 14px;">
+                            <i data-lucide="id-card" style="width: 16px; height: 16px;"></i>
+                            <span>고객 연락처</span>
+                        </button>
+                        <button type="button" class="btn resource-subtab-btn btn-outline" id="res-subtab-vendors" onclick="app.switchResourceSubTab('vendors')" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 700; border-radius: 8px; padding: 10px 18px; font-size: 14px;">
+                            <i data-lucide="building-2" style="width: 16px; height: 16px;"></i>
+                            <span>업체 연락처</span>
+                        </button>
+                    </div>
+
+                    <!-- PANEL 1: MEMBERS (기존 참여인력) -->
+                    <div id="res-panel-members">
 
                     <!-- Summary Banner & KPI Cards -->
                     <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
@@ -2493,7 +2527,132 @@
                             </tbody>
                         </table>
                     </div>
-                </section>
+            </div><!-- /#res-panel-members -->
+
+            <!-- PANEL 2: CUSTOMER CONTACTS (고객 연락처) -->
+            <div id="res-panel-customers" style="display: none;">
+                <div class="card" style="margin-bottom: 24px; padding: 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                    <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+                        <div class="filter-group" style="flex: 1.2; min-width: 180px; display: flex; flex-direction: column; gap: 6px;">
+                            <label for="cust-filter-company" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">고객사</label>
+                            <select id="cust-filter-company" onchange="app.renderCustomerContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                <option value="all">전체 고객사</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="flex: 1.5; min-width: 200px; display: flex; flex-direction: column; gap: 6px;">
+                            <label for="cust-filter-project" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">관련 프로젝트</label>
+                            <select id="cust-filter-project" onchange="app.renderCustomerContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                <option value="all">전체 프로젝트</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="flex: 2; min-width: 240px; display: flex; flex-direction: column; gap: 6px;">
+                            <label for="cust-search-input" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">통합 검색</label>
+                            <div class="search-input-wrapper" style="position: relative;">
+                                <i data-lucide="search" style="position: absolute; left: 12px; top: 11px; width: 16px; height: 16px; color: var(--text-muted);"></i>
+                                <input type="text" id="cust-search-input" placeholder="고객사, 성명, 부서, 직급, 연락처, 이메일 검색..." oninput="app.renderCustomerContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px 0 36px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                            </div>
+                        </div>
+                        <div class="filter-actions" style="display: flex; gap: 8px; margin-left: auto;">
+                            <button type="button" class="btn btn-outline" onclick="app.exportCustomerContactsToExcel()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
+                                <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                                <span>엑셀 내보내기</span>
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="app.openCustomerContactModal()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
+                                <i data-lucide="user-plus" style="width: 14px; height: 14px;"></i>
+                                <span>신규 고객 연락처 등록</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="padding: 0; border-radius: 12px; overflow: hidden; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                    <div class="table-responsive">
+                        <table class="table" style="width: 100%; margin: 0; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: var(--bg-table-header, rgba(255,255,255,0.03)); border-bottom: 1px solid var(--bg-card-border); font-size: 13px; color: var(--text-muted);">
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; border-right: 1px solid var(--bg-card-border);">고객사</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 110px; border-right: 1px solid var(--bg-card-border);">담당자 성명</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; border-right: 1px solid var(--bg-card-border);">부서 / 직급</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 140px; border-right: 1px solid var(--bg-card-border);">연락처</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 180px; border-right: 1px solid var(--bg-card-border);">이메일</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; border-right: 1px solid var(--bg-card-border);">관련 프로젝트</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; border-right: 1px solid var(--bg-card-border);">비고</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 100px;">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customer-contacts-table-body">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div><!-- /#res-panel-customers -->
+
+            <!-- PANEL 3: VENDOR CONTACTS (업체 연락처) -->
+            <div id="res-panel-vendors" style="display: none;">
+                <div class="card" style="margin-bottom: 24px; padding: 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                    <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+                        <div class="filter-group" style="flex: 1.2; min-width: 160px; display: flex; flex-direction: column; gap: 6px;">
+                            <label for="vendor-filter-category" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">업체구분</label>
+                            <select id="vendor-filter-category" onchange="app.renderVendorContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                <option value="all">전체 구분</option>
+                                <option value="협력사">협력사</option>
+                                <option value="외주사">외주사</option>
+                                <option value="컨소시엄">컨소시엄 구성원</option>
+                                <option value="파트너">파트너</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="flex: 1.2; min-width: 160px; display: flex; flex-direction: column; gap: 6px;">
+                            <label for="vendor-filter-status" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">거래상태</label>
+                            <select id="vendor-filter-status" onchange="app.renderVendorContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                <option value="all">전체 상태</option>
+                                <option value="ACTIVE" selected>거래중 (활성)</option>
+                                <option value="STANDBY">대기</option>
+                                <option value="CLOSED">계약종료</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="flex: 2; min-width: 240px; display: flex; flex-direction: column; gap: 6px;">
+                            <label for="vendor-search-input" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">통합 검색</label>
+                            <div class="search-input-wrapper" style="position: relative;">
+                                <i data-lucide="search" style="position: absolute; left: 12px; top: 11px; width: 16px; height: 16px; color: var(--text-muted);"></i>
+                                <input type="text" id="vendor-search-input" placeholder="업체명, 담당자, 분야, 연락처, 이메일 검색..." oninput="app.renderVendorContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px 0 36px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                            </div>
+                        </div>
+                        <div class="filter-actions" style="display: flex; gap: 8px; margin-left: auto;">
+                            <button type="button" class="btn btn-outline" onclick="app.exportVendorContactsToExcel()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
+                                <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                                <span>엑셀 내보내기</span>
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="app.openVendorContactModal()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
+                                <i data-lucide="building-2" style="width: 14px; height: 14px;"></i>
+                                <span>신규 업체 연락처 등록</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="padding: 0; border-radius: 12px; overflow: hidden; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                    <div class="table-responsive">
+                        <table class="table" style="width: 100%; margin: 0; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: var(--bg-table-header, rgba(255,255,255,0.03)); border-bottom: 1px solid var(--bg-card-border); font-size: 13px; color: var(--text-muted);">
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 110px; border-right: 1px solid var(--bg-card-border);">업체구분</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; border-right: 1px solid var(--bg-card-border);">업체명</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 110px; border-right: 1px solid var(--bg-card-border);">담당자/대표</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; border-right: 1px solid var(--bg-card-border);">부서 / 직급</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 140px; border-right: 1px solid var(--bg-card-border);">연락처</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 180px; border-right: 1px solid var(--bg-card-border);">이메일</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; border-right: 1px solid var(--bg-card-border);">관련 프로젝트</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 90px; border-right: 1px solid var(--bg-card-border);">상태</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 100px;">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody id="vendor-contacts-table-body">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div><!-- /#res-panel-vendors -->
+        </section>
 
                 <!-- 7.5.3. SALARY MANAGEMENT VIEW -->
                 <!-- 7.5.3. MONTHLY SALARY MANAGEMENT VIEW -->
@@ -6756,6 +6915,140 @@
             </div>
             <div class="modal-footer" style="padding:14px 22px; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end; gap:10px;">
                 <button type="button" class="btn btn-outline" onclick="app.closeTaskModal()">취소</button>
+                <button type="submit" class="btn btn-primary">저장</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- MODAL: Customer Contact (신규/수정 고객 연락처) -->
+<div class="modal-overlay" id="modal-customer-contact">
+    <div class="modal-container" style="max-width: 600px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--border-color); overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+        <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--bg-input);">
+            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0;" id="cust-modal-title">신규 고객 연락처 등록</h3>
+            <button type="button" onclick="app.closeCustomerContactModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px;"><i data-lucide="x" style="width: 18px; height: 18px;"></i></button>
+        </div>
+        <form id="form-customer-contact" onsubmit="event.preventDefault(); app.saveCustomerContact();">
+            <input type="hidden" id="cust-modal-id" value="">
+            <div class="modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 14px; max-height: 75vh; overflow-y: auto;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">고객사 <span style="color: #ef4444;">*</span></label>
+                        <input type="text" id="cust-modal-company" required placeholder="예: 한국전력공사" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px; font-weight: 600;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">담당자 성명 <span style="color: #ef4444;">*</span></label>
+                        <input type="text" id="cust-modal-name" required placeholder="예: 홍길동" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px; font-weight: 600;">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">부서 / 팀</label>
+                        <input type="text" id="cust-modal-dept" placeholder="예: 정보화기획처" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">직급 / 직책</label>
+                        <input type="text" id="cust-modal-position" placeholder="예: 주무관, 팀장" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px;">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">연락처 (전화/휴대폰) <span style="color: #ef4444;">*</span></label>
+                        <input type="text" id="cust-modal-phone" required placeholder="010-0000-0000" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">이메일 주소</label>
+                        <input type="email" id="cust-modal-email" placeholder="example@customer.com" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px;">
+                    </div>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">관련 프로젝트</label>
+                    <select id="cust-modal-project" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px; font-weight: 600;">
+                        <option value="">(전체/지정 없음)</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">비고 및 특이사항</label>
+                    <textarea id="cust-modal-remarks" rows="3" placeholder="고객 담당자 관련 주요 메모 사항 입력..." style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px; resize: vertical;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 14px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px; background: var(--bg-input);">
+                <button type="button" class="btn btn-outline" onclick="app.closeCustomerContactModal()">취소</button>
+                <button type="submit" class="btn btn-primary">저장</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: Vendor Contact (신규/수정 업체 연락처) -->
+<div class="modal-overlay" id="modal-vendor-contact">
+    <div class="modal-container" style="max-width: 650px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--border-color); overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+        <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--bg-input);">
+            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0;" id="vendor-modal-title">신규 업체 연락처 등록</h3>
+            <button type="button" onclick="app.closeVendorContactModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px;"><i data-lucide="x" style="width: 18px; height: 18px;"></i></button>
+        </div>
+        <form id="form-vendor-contact" onsubmit="event.preventDefault(); app.saveVendorContact();">
+            <input type="hidden" id="vendor-modal-id" value="">
+            <div class="modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 14px; max-height: 75vh; overflow-y: auto;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">업체구분 <span style="color: #ef4444;">*</span></label>
+                        <select id="vendor-modal-category" required style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px; font-weight: 600;">
+                            <option value="협력사">협력사</option>
+                            <option value="외주사">외주사</option>
+                            <option value="컨소시엄">컨소시엄 구성원</option>
+                            <option value="파트너">파트너</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">업체명 <span style="color: #ef4444;">*</span></label>
+                        <input type="text" id="vendor-modal-company" required placeholder="예: (주)테크솔루션" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px; font-weight: 600;">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">담당자 / 대표자 성명 <span style="color: #ef4444;">*</span></label>
+                        <input type="text" id="vendor-modal-name" required placeholder="예: 이철수" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px; font-weight: 600;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">부서 / 직급</label>
+                        <input type="text" id="vendor-modal-position" placeholder="예: SI사업부 / 이사" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px;">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">연락처 (전화/휴대폰) <span style="color: #ef4444;">*</span></label>
+                        <input type="text" id="vendor-modal-phone" required placeholder="010-0000-0000" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">이메일 주소</label>
+                        <input type="email" id="vendor-modal-email" placeholder="partner@vendor.co.kr" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px;">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">관련 프로젝트</label>
+                        <select id="vendor-modal-project" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px; font-weight: 600;">
+                            <option value="">(전체/지정 없음)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">거래 상태</label>
+                        <select id="vendor-modal-status" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px; font-weight: 600;">
+                            <option value="ACTIVE">거래중 (활성)</option>
+                            <option value="STANDBY">대기</option>
+                            <option value="CLOSED">계약종료</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">비고 / 주요 전문분야</label>
+                    <textarea id="vendor-modal-remarks" rows="3" placeholder="업체 주요 보유기술 및 특이사항 메모..." style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px; resize: vertical;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 14px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px; background: var(--bg-input);">
+                <button type="button" class="btn btn-outline" onclick="app.closeVendorContactModal()">취소</button>
                 <button type="submit" class="btn btn-primary">저장</button>
             </div>
         </form>
