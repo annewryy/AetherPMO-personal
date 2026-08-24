@@ -31837,14 +31837,16 @@ renderTodayTasksRoleBased(todayStr) {
                 const matchDept = (r.department || '').toLowerCase().includes(keyword);
                 const matchPos = (r.position || '').toLowerCase().includes(keyword);
                 const matchRole = (r.roleName || r.participationRole || '').toLowerCase().includes(keyword);
-                if (!matchName && !matchDept && !matchPos && !matchRole) return false;
+                const matchPhone = (r.phone || r.mobile || '').includes(keyword);
+                const matchEmail = (r.email || r.userId || '').toLowerCase().includes(keyword);
+                if (!matchName && !matchDept && !matchPos && !matchRole && !matchPhone && !matchEmail) return false;
             }
 
             return true;
         });
 
         if (filtered.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 40px; color: var(--text-muted);">조건에 해당하는 참여 인력이 없습니다.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">조건에 해당하는 참여 인력이 없습니다.</td></tr>`;
             return;
         }
 
@@ -31862,11 +31864,6 @@ renderTodayTasksRoleBased(todayStr) {
             }
 
             let projBadgesHtml = '';
-            let totalInputRatio = 0;
-            let minStartDate = '2026-03-01';
-            let maxEndDate = '2026-12-31';
-
-            // Filter out '종료' (Completed/Closed) projects from execution stage badges
             const activeAssignedMembers = assignedMembers.filter(pm => {
                 const p = projects.find(proj => proj.id === (pm.projectId || pm.project_id));
                 if (!p) return false;
@@ -31882,61 +31879,29 @@ renderTodayTasksRoleBased(todayStr) {
                     const projName = p ? p.name : '프로젝트';
                     const stage = pm.stage || pm.participationRole || '수행';
                     badges.push(`<span class="badge badge-indigo" style="margin-right: 4px; margin-bottom: 2px;">${projName} (${stage})</span>`);
-
-                    const ratio = parseFloat(pm.inputRatio || pm.participationRate || 100);
-                    totalInputRatio += ratio;
-
-                    if (pm.startDate && pm.startDate < minStartDate) minStartDate = pm.startDate;
-                    if (pm.endDate && pm.endDate > maxEndDate) maxEndDate = pm.endDate;
                 });
                 projBadgesHtml = badges.join(' ');
             } else {
-                projBadgesHtml = '<span style="color: var(--text-muted); font-size: 12px;">미배치 (대기)</span>';
-                totalInputRatio = 0;
+                projBadgesHtml = r.remarks ? `<span style="color: var(--text-main); font-size: 12.5px;">${this.escapeHtml(r.remarks)}</span>` : '<span style="color: var(--text-muted); font-size: 12px;">대기 (미배치)</span>';
             }
 
-            let ratioBadge = `<span style="font-weight: 700;">${totalInputRatio}%</span>`;
-            if (totalInputRatio > 100) {
-                ratioBadge = `<span class="badge badge-warning" style="font-weight: 700;" title="여러 프로젝트 투입률 합계가 100%를 초과하였습니다.">⚠️ ${totalInputRatio}% (초과)</span>`;
-            } else if (totalInputRatio === 0) {
-                ratioBadge = `<span style="color: var(--text-muted);">0%</span>`;
-            }
-
-            let typeBadge = '';
-            const t = String(r.employmentType || r.employment_type || 'regular').toLowerCase();
-            if (t === 'regular') typeBadge = '<span class="badge badge-primary">정규직</span>';
-            else if (t === 'outsourcing' || t === 'insourced_contractor') typeBadge = '<span class="badge badge-indigo">자사화</span>';
-            else if (t === 'project_contract' || t === 'contract') typeBadge = '<span class="badge badge-teal">프로젝트 계약직</span>';
-            else if (t === 'turnkey') typeBadge = '<span class="badge badge-secondary">외주(턴키)</span>';
-            else typeBadge = `<span class="badge badge-secondary">${r.employmentType || '기타'}</span>`;
-
-            const isOffboarded = r.isActive === false || String(r.status || '').toUpperCase() === 'OFFBOARDED';
-            const statusBadge = isOffboarded ?
-                '<span class="badge badge-secondary">종료</span>' :
-                (activeAssignedMembers.length > 0 ? '<span class="badge badge-success">투입중</span>' : '<span class="badge badge-warning">대기</span>');
-
-            const salaryVal = (r.baseSalary || r.monthlySalary || r.payRate || 0).toLocaleString();
+            const org = r.department || r.company || 'SI사업본부';
+            const pos = r.position || r.roleName || '책임';
+            const phone = r.phone || r.mobile || '010-1234-5678';
+            const email = r.email || r.userId || 'user@company.com';
 
             html += `
-                <tr style="border-bottom: 1px solid var(--bg-card-border); transition: background 0.15s;">
-                    <td style="padding: 12px 14px; text-align: center; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
+                <tr style="border-bottom: 1px solid var(--bg-card-border); transition: background 0.15s; font-size: 13.5px;">
+                    <td style="padding: 12px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(org)}</td>
+                    <td style="padding: 12px 14px; text-align: center; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(pos)}</td>
                     <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">
                         <a href="javascript:void(0)" onclick="app.openResourceDetailModal('${r.id}')" style="font-weight: 700; color: var(--primary); text-decoration: underline;">
-                            ${r.name || '미상'}
+                            ${this.escapeHtml(r.name || '미상')}
                         </a>
                     </td>
-                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">${typeBadge}</td>
-                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">${r.department || '-'}</td>
-                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">
-                        <span style="font-weight: 600;">${r.position || '-'}</span> / <span style="color: var(--text-muted); font-size: 12px;">${r.roleName || r.participationRole || '멤버'}</span>
-                    </td>
+                    <td style="padding: 12px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(phone)}</td>
+                    <td style="padding: 12px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(email)}</td>
                     <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border);">${projBadgesHtml}</td>
-                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; font-size: 12px; color: var(--text-muted);">
-                        ${assignedMembers.length > 0 ? `${minStartDate} ~ ${maxEndDate}` : '-'}
-                    </td>
-                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">${ratioBadge}</td>
-                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: right; font-weight: 700; color: #6366F1;">${salaryVal}원</td>
-                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">${statusBadge}</td>
                     <td style="padding: 12px 14px; text-align: center;">
                         <div style="display: flex; gap: 4px; justify-content: center;">
                             <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceDetailModal('${r.id}')" title="상세보기">
@@ -32561,7 +32526,7 @@ renderTodayTasksRoleBased(todayStr) {
                 return;
             }
 
-            const headers = ['성명', '인력구분', '소속회사/부서', '연락처', '이메일', '계약기간', '재직상태', '참여 프로젝트', '투입기간', '투입률', '월 계약금액'];
+            const headers = ['소속', '직급', '성명', '휴대폰', 'e-mail', '비고'];
             const rows = [headers];
 
             resources.forEach(r => {
@@ -32572,40 +32537,29 @@ renderTodayTasksRoleBased(todayStr) {
                 );
 
                 let projNames = [];
-                let totalRatio = 0;
-                let minStartDate = r.startDate || '2026-03-01';
-                let maxEndDate = r.endDate || '2026-12-31';
-
                 assignedMembers.forEach(pm => {
                     const p = projects.find(proj => proj.id === (pm.projectId || pm.project_id));
                     if (p) {
                         const st = String(p.status || '').trim();
-                        if (st === 'Completed' || st === 'Closed' || st === '종료' || st === '완료') return;
-                        projNames.push(p.name);
+                        if (st !== 'Completed' && st !== 'Closed' && st !== '종료' && st !== '완료') {
+                            projNames.push(p.name);
+                        }
                     }
-                    const ratio = parseFloat(pm.inputRatio || pm.participationRate || 100);
-                    totalRatio += ratio;
-                    if (pm.startDate && pm.startDate < minStartDate) minStartDate = pm.startDate;
-                    if (pm.endDate && pm.endDate > maxEndDate) maxEndDate = pm.endDate;
                 });
 
-                const empTypeLabel = r.employmentType === 'outsourcing' ? '자사화' :
-                    (r.employmentType === 'project_contract' ? '프로젝트 계약직' : (r.employmentType === 'regular' ? '정규직' : '외주/턴키'));
-
-                const statusLabel = r.isActive !== false ? '재직' : '종료';
+                const org = r.department || r.company || 'SI사업본부';
+                const pos = r.position || r.roleName || '책임';
+                const phone = r.phone || r.mobile || '010-1234-5678';
+                const email = r.email || r.userId || 'user@company.com';
+                const remarks = r.remarks || (projNames.length > 0 ? projNames.join('; ') : '대기 (미배치)');
 
                 rows.push([
+                    `"${org}"`,
+                    `"${pos}"`,
                     `"${r.name || ''}"`,
-                    `"${empTypeLabel}"`,
-                    `"${r.department || r.company || ''}"`,
-                    `"${r.phone || r.contact || ''}"`,
-                    `"${r.email || ''}"`,
-                    `"${r.startDate || ''} ~ ${r.endDate || ''}"`,
-                    `"${statusLabel}"`,
-                    `"${projNames.join(', ') || '미배치'}"`,
-                    `"${assignedMembers.length > 0 ? `${minStartDate} ~ ${maxEndDate}` : '-'}"`,
-                    `"${totalRatio}%"`,
-                    `"${(r.baseSalary || r.monthlySalary || 0).toLocaleString()}원"`
+                    `"${phone}"`,
+                    `"${email}"`,
+                    `"${remarks}"`
                 ]);
             });
 
@@ -32614,14 +32568,10 @@ renderTodayTasksRoleBased(todayStr) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-            a.download = `참여인력목록_${dateStr}.csv`;
-            document.body.appendChild(a);
+            a.download = `참여인력_목록_${new Date().toISOString().slice(0, 10)}.csv`;
             a.click();
-            document.body.removeChild(a);
             URL.revokeObjectURL(url);
-
-            this.showToast('참여인력목록 엑셀(CSV) 파일이 성공적으로 다운로드되었습니다.', 'success');
+            this.showToast('참여인력 목록이 엑셀(CSV)로 다운로드되었습니다.');
         } catch (err) {
             console.error('[exportResourcesToExcel Error]', err);
             this.showToast('엑셀 내보내기 중 오류가 발생하였습니다.', 'error');
