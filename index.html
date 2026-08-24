@@ -5047,11 +5047,32 @@
                                 <option value="false">답변/댓글 작성 금지</option>
                             </select>
                         </div>
-                        <div class="form-group span-2" id="board-post-is-popup-container" style="background: var(--bg-hover-item); padding: 12px; border-radius: 6px; border: 1px solid var(--bg-card-border);">
+                        <div class="form-group span-2" id="board-post-is-popup-container" style="background: var(--bg-hover-item); padding: 14px; border-radius: 8px; border: 1px solid var(--bg-card-border);">
                             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main); margin: 0;">
-                                <input type="checkbox" id="board-post-is-popup" style="width: 17px; height: 17px; accent-color: var(--primary); cursor: pointer;">
+                                <input type="checkbox" id="board-post-is-popup" style="width: 17px; height: 17px; accent-color: var(--primary); cursor: pointer;" onchange="app.toggleBoardPopupOptions()">
                                 <span>📌 대시보드 팝업 적용 (대시보드 첫 진입 시 팝업창으로 공지)</span>
                             </label>
+                            
+                            <!-- 팝업 상세 설정 (기간 및 시간) -->
+                            <div id="board-post-popup-details" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--bg-card-border);">
+                                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                                    <div style="flex: 1; min-width: 200px;">
+                                        <label for="board-post-popup-start" style="font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 4px; display: block;">
+                                            ⏰ 팝업 시작 일시
+                                        </label>
+                                        <input type="datetime-local" id="board-post-popup-start" style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--bg-card-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; padding: 0 10px;">
+                                    </div>
+                                    <div style="flex: 1; min-width: 200px;">
+                                        <label for="board-post-popup-end" style="font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 4px; display: block;">
+                                            🏁 팝업 종료 일시
+                                        </label>
+                                        <input type="datetime-local" id="board-post-popup-end" style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--bg-card-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; padding: 0 10px;">
+                                    </div>
+                                </div>
+                                <div style="margin-top: 6px; font-size: 11px; color: var(--text-muted);">
+                                    💡 시작/종료 일시를 설정하면 지정된 일시에만 대시보드 팝업이 노출됩니다. (비워둘 경우 작성 즉시 제한없이 적용)
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -5143,9 +5164,15 @@
                 <button class="modal-close-btn" onclick="app.dismissDashboardNoticePopup('close')">&times;</button>
             </div>
             <div style="padding: 20px; max-height: 55vh; overflow-y: auto; color: var(--text-main); font-size: 14px; line-height: 1.6;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-size: 12px; color: var(--text-muted); padding-bottom: 10px; border-bottom: 1px solid var(--bg-card-border);">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-size: 12px; color: var(--text-muted); padding-bottom: 10px; border-bottom: 1px solid var(--bg-card-border); flex-wrap: wrap; gap: 8px;">
                     <span>작성자: <strong id="popup-notice-author" style="color: var(--text-main);">-</strong></span>
-                    <span id="popup-notice-date">-</span>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span id="popup-notice-period-container" style="display: none; background: rgba(59, 130, 246, 0.1); color: var(--primary); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;">
+                            <i data-lucide="clock" style="width: 12px; height: 12px; display: inline; vertical-align: -1px; margin-right: 3px;"></i>
+                            <span id="popup-notice-period-text"></span>
+                        </span>
+                        <span id="popup-notice-date">-</span>
+                    </div>
                 </div>
                 <div id="popup-notice-content" class="pre-wrap" style="white-space: pre-wrap; word-break: break-word; font-size: 14px; color: var(--text-main);">
                     <!-- Popup Post Content -->

@@ -23779,6 +23779,8 @@ renderTodayTasksRoleBased(todayStr) {
             content: p.content,
             allowComments: p.allow_comments !== false,
             isPopup: p.is_popup === true,
+            popupStartDate: p.popup_start_date || p.popupStartDate || null,
+            popupEndDate: p.popup_end_date || p.popupEndDate || null,
             authorId: p.author_id,
             authorName: p.author_name || '익명',
             attachmentUrl: p.attachment_url,
@@ -23922,6 +23924,32 @@ renderTodayTasksRoleBased(todayStr) {
         }
     }
 
+    formatDateTimeForInput(dateVal) {
+        if (!dateVal) return '';
+        try {
+            const d = new Date(dateVal);
+            if (isNaN(d.getTime())) return '';
+            const pad = (n) => String(n).padStart(2, '0');
+            const year = d.getFullYear();
+            const month = pad(d.getMonth() + 1);
+            const day = pad(d.getDate());
+            const hours = pad(d.getHours());
+            const minutes = pad(d.getMinutes());
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        } catch (e) {
+            return '';
+        }
+    }
+
+    toggleBoardPopupOptions() {
+        const popupCheckbox = document.getElementById('board-post-is-popup');
+        const detailsContainer = document.getElementById('board-post-popup-details');
+        if (!popupCheckbox || !detailsContainer) return;
+
+        const isChecked = popupCheckbox.checked;
+        detailsContainer.style.display = isChecked ? 'block' : 'none';
+    }
+
     updateBoardPopupOptionVisibility() {
         const catEl = document.getElementById('board-post-category');
         const container = document.getElementById('board-post-is-popup-container');
@@ -23934,6 +23962,7 @@ renderTodayTasksRoleBased(todayStr) {
             const popupCheckbox = document.getElementById('board-post-is-popup');
             if (popupCheckbox) popupCheckbox.checked = false;
         }
+        this.toggleBoardPopupOptions();
     }
 
     openNewBoardPostModal() {
@@ -23948,6 +23977,11 @@ renderTodayTasksRoleBased(todayStr) {
 
         const popupCheckbox = document.getElementById('board-post-is-popup');
         if (popupCheckbox) popupCheckbox.checked = false;
+
+        const popupStartEl = document.getElementById('board-post-popup-start');
+        const popupEndEl = document.getElementById('board-post-popup-end');
+        if (popupStartEl) popupStartEl.value = '';
+        if (popupEndEl) popupEndEl.value = '';
 
         const currentCat = this.activeBoardCategoryFilter;
         if (currentCat && ['notice', 'inquiry', 'resource'].includes(currentCat)) {
@@ -23980,6 +24014,11 @@ renderTodayTasksRoleBased(todayStr) {
         const popupCheckbox = document.getElementById('board-post-is-popup');
         if (popupCheckbox) popupCheckbox.checked = post.isPopup === true;
 
+        const popupStartEl = document.getElementById('board-post-popup-start');
+        const popupEndEl = document.getElementById('board-post-popup-end');
+        if (popupStartEl) popupStartEl.value = this.formatDateTimeForInput(post.popupStartDate || post.popup_start_date);
+        if (popupEndEl) popupEndEl.value = this.formatDateTimeForInput(post.popupEndDate || post.popup_end_date);
+
         const fileInput = document.getElementById('board-post-file-input');
         if (fileInput) fileInput.value = '';
 
@@ -23989,7 +24028,7 @@ renderTodayTasksRoleBased(todayStr) {
             catSelect.addEventListener('change', () => this.updateBoardPopupOptionVisibility());
         }
 
-        this.editingBoardPopupOptionVisibility ? this.updateBoardPopupOptionVisibility() : this.updateBoardPopupOptionVisibility();
+        this.updateBoardPopupOptionVisibility();
         this.editingBoardPostId = id;
         document.getElementById('board-form-modal').classList.add('open');
     }
@@ -24006,9 +24045,22 @@ renderTodayTasksRoleBased(todayStr) {
         const allowComments = document.getElementById('board-post-allow-comments')?.value !== 'false';
         const isPopup = ['notice', 'resource'].includes(category) && (document.getElementById('board-post-is-popup')?.checked === true);
 
+        const rawPopupStart = document.getElementById('board-post-popup-start')?.value;
+        const rawPopupEnd = document.getElementById('board-post-popup-end')?.value;
+
+        const popupStartDate = (isPopup && rawPopupStart) ? new Date(rawPopupStart).toISOString() : null;
+        const popupEndDate = (isPopup && rawPopupEnd) ? new Date(rawPopupEnd).toISOString() : null;
+
         if (!category || !title || !content) {
             alert('필수 항목을 입력하세요.');
             return;
+        }
+
+        if (isPopup && rawPopupStart && rawPopupEnd) {
+            if (new Date(rawPopupEnd) < new Date(rawPopupStart)) {
+                alert('팝업 종료 일시는 시작 일시보다 이후여야 합니다.');
+                return;
+            }
         }
 
         // Requirement 6: Prevent double submission
@@ -24113,6 +24165,8 @@ renderTodayTasksRoleBased(todayStr) {
                 content,
                 allow_comments: allowComments,
                 is_popup: isPopup,
+                popup_start_date: popupStartDate,
+                popup_end_date: popupEndDate,
                 attachment_url: attachmentUrl,
                 updated_at: new Date().toISOString()
             };
@@ -24148,6 +24202,8 @@ renderTodayTasksRoleBased(todayStr) {
                         content: data.content,
                         allowComments: data.allow_comments !== false,
                         isPopup: data.is_popup === true,
+                        popupStartDate: data.popup_start_date || popupStartDate,
+                        popupEndDate: data.popup_end_date || popupEndDate,
                         attachmentUrl: data.attachment_url,
                         updatedAt: data.updated_at
                     };
@@ -24161,6 +24217,8 @@ renderTodayTasksRoleBased(todayStr) {
                         content,
                         allowComments,
                         isPopup,
+                        popupStartDate,
+                        popupEndDate,
                         attachmentUrl,
                         updatedAt: updateData.updated_at
                     };
@@ -24181,6 +24239,8 @@ renderTodayTasksRoleBased(todayStr) {
                     status: 'pending',
                     allow_comments: allowComments,
                     is_popup: isPopup,
+                    popup_start_date: popupStartDate,
+                    popup_end_date: popupEndDate,
                     author_id: authorId,
                     author_name: authorName,
                     attachment_url: attachmentUrl,
@@ -24213,6 +24273,8 @@ renderTodayTasksRoleBased(todayStr) {
                     content: data.content,
                     allowComments: data.allow_comments !== false,
                     isPopup: data.is_popup === true,
+                    popupStartDate: data.popup_start_date || popupStartDate,
+                    popupEndDate: data.popup_end_date || popupEndDate,
                     status: data.status || 'pending',
                     authorId: data.author_id,
                     authorName: data.author_name || authorName,
@@ -24231,6 +24293,8 @@ renderTodayTasksRoleBased(todayStr) {
                     content,
                     allowComments,
                     isPopup,
+                    popupStartDate,
+                    popupEndDate,
                     status: 'pending',
                     authorName,
                     authorId,
@@ -24493,6 +24557,8 @@ renderTodayTasksRoleBased(todayStr) {
                             attachmentUrl: item.attachment_url,
                             allowComments: item.allow_comments !== false,
                             isPopup: item.is_popup === true,
+                            popupStartDate: item.popup_start_date || item.popupStartDate || null,
+                            popupEndDate: item.popup_end_date || item.popupEndDate || null,
                             createdAt: item.created_at,
                             updatedAt: item.updated_at
                         }));
@@ -24505,18 +24571,34 @@ renderTodayTasksRoleBased(todayStr) {
 
         if (!Array.isArray(this.state.boardPosts) || this.state.boardPosts.length === 0) return;
 
-        const now = Date.now();
-        const popupPosts = this.state.boardPosts.filter(p => 
-            p.isPopup === true && 
-            ['notice', 'resource'].includes(p.category)
-        );
+        const now = new Date();
+        const nowMs = now.getTime();
+
+        const popupPosts = this.state.boardPosts.filter(p => {
+            if (p.isPopup !== true) return false;
+            if (!['notice', 'resource'].includes(p.category)) return false;
+
+            const startDateVal = p.popupStartDate || p.popup_start_date;
+            if (startDateVal) {
+                const start = new Date(startDateVal);
+                if (!isNaN(start.getTime()) && now < start) return false;
+            }
+
+            const endDateVal = p.popupEndDate || p.popup_end_date;
+            if (endDateVal) {
+                const end = new Date(endDateVal);
+                if (!isNaN(end.getTime()) && now > end) return false;
+            }
+
+            return true;
+        });
 
         if (popupPosts.length === 0) return;
 
         // Find the first unhidden popup post (not hidden by localStorage expiry)
         const activePost = popupPosts.find(p => {
             const hideExpiry = localStorage.getItem('hide_board_popup_' + p.id);
-            return !hideExpiry || parseInt(hideExpiry, 10) < now;
+            return !hideExpiry || parseInt(hideExpiry, 10) < nowMs;
         });
 
         if (!activePost) return;
@@ -24537,6 +24619,27 @@ renderTodayTasksRoleBased(todayStr) {
 
         const dateEl = document.getElementById('popup-notice-date');
         if (dateEl) dateEl.textContent = activePost.createdAt ? new Date(activePost.createdAt).toLocaleString('ko-KR') : '-';
+
+        const periodContainer = document.getElementById('popup-notice-period-container');
+        const periodText = document.getElementById('popup-notice-period-text');
+        const startDateVal = activePost.popupStartDate || activePost.popup_start_date;
+        const endDateVal = activePost.popupEndDate || activePost.popup_end_date;
+
+        if (periodContainer && periodText) {
+            if (startDateVal || endDateVal) {
+                const fmtStr = (val) => {
+                    if (!val) return '제한없음';
+                    const d = new Date(val);
+                    if (isNaN(d.getTime())) return '제한없음';
+                    const pad = (n) => String(n).padStart(2, '0');
+                    return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                };
+                periodText.textContent = `팝업기간: ${fmtStr(startDateVal)} ~ ${fmtStr(endDateVal)}`;
+                periodContainer.style.display = 'inline-flex';
+            } else {
+                periodContainer.style.display = 'none';
+            }
+        }
 
         const contentEl = document.getElementById('popup-notice-content');
         if (contentEl) contentEl.textContent = activePost.content || '';

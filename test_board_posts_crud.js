@@ -91,14 +91,46 @@ async function runBoardPostsTestSuite(appInstance) {
             title: '테스트 팝업 공지',
             content: '테스트 팝업 내용입니다.',
             isPopup: true,
+            popupStartDate: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+            popupEndDate: new Date(Date.now() + 3600000).toISOString(),   // 1 hour later
             createdAt: new Date().toISOString()
         };
         appInstance.state.boardPosts.unshift(testPopupPost);
         localStorage.removeItem('hide_board_popup_test-popup-id-123');
         appInstance.activePopupPostId = null;
 
-        await appInstance.renderDashboard();
-        logTest("Dashboard Render Triggers Notice Popup", appInstance.activePopupPostId === 'test-popup-id-123');
+        await appInstance.checkDashboardNoticePopup();
+        logTest("Dashboard Render Triggers Notice Popup for Active Period", appInstance.activePopupPostId === 'test-popup-id-123');
+
+        // Test future popup period (should NOT show)
+        const futurePopupPost = {
+            id: 'test-popup-future',
+            category: 'notice',
+            title: '미래 팝업',
+            content: '미래 내용',
+            isPopup: true,
+            popupStartDate: new Date(Date.now() + 86400000).toISOString(), // 1 day future
+            popupEndDate: new Date(Date.now() + 172800000).toISOString()
+        };
+        appInstance.state.boardPosts.unshift(futurePopupPost);
+        appInstance.activePopupPostId = null;
+        await appInstance.checkDashboardNoticePopup();
+        logTest("Future Popup Period Filtered Out", appInstance.activePopupPostId !== 'test-popup-future');
+
+        // Test past expired popup period (should NOT show)
+        const expiredPopupPost = {
+            id: 'test-popup-expired',
+            category: 'notice',
+            title: '만료 팝업',
+            content: '만료 내용',
+            isPopup: true,
+            popupStartDate: new Date(Date.now() - 172800000).toISOString(),
+            popupEndDate: new Date(Date.now() - 86400000).toISOString() // 1 day ago expired
+        };
+        appInstance.state.boardPosts.unshift(expiredPopupPost);
+        appInstance.activePopupPostId = null;
+        await appInstance.checkDashboardNoticePopup();
+        logTest("Expired Popup Period Filtered Out", appInstance.activePopupPostId !== 'test-popup-expired');
 
         appInstance.dismissDashboardNoticePopup('today');
         const hideExp = localStorage.getItem('hide_board_popup_test-popup-id-123');
