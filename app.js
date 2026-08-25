@@ -807,14 +807,15 @@ class AetherPMO {
         const projectId = this.activeProjectId;
         const project = projectId ? this.state.projects.find(p => p.id === projectId) : null;
 
-        // 1. Sidebar menu visibility — 관리자 섹션 (sidebar-admin-section)
+        // 1. Sidebar menu visibility — 관리자 설정 (nav-wrapper-system-settings)
+        const adminWrapper = document.getElementById('nav-wrapper-system-settings');
+        if (adminWrapper) {
+            adminWrapper.style.display = (role === 'SYS_ADMIN') ? 'flex' : 'none';
+        }
         const adminSection = document.getElementById('sidebar-admin-section');
         if (adminSection) {
-            adminSection.style.display = (role === 'SYS_ADMIN') ? 'flex' : 'none';
+            adminSection.style.display = 'none';
         }
-        // 호환: 이전 구조 잔재 제거 보호
-        const legacyBackupWrapper = document.getElementById('nav-wrapper-system-settings');
-        if (legacyBackupWrapper) legacyBackupWrapper.style.display = 'none';
 
         const officialDocsMenu = document.querySelector('.sidebar-nav .nav-item[data-view="official-docs"]');
         if (officialDocsMenu) {

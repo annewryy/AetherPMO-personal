@@ -230,27 +230,7 @@
                     </div>
                 </div>
 
-                <!-- 관리자 설정 (nav 스크롤 영역 최하단, SYS_ADMIN 전용) -->
-                <div class="sidebar-admin-section" id="sidebar-admin-section" style="display:none;">
-                    <button class="sidebar-group-toggle" id="sidebar-admin-toggle"
-                            onclick="this.closest('.sidebar-admin-section').classList.toggle('open')">
-                        <span class="sidebar-menu-icon"><i data-lucide="settings"></i></span>
-                        <span class="sidebar-menu-label">관리자 설정</span>
-                        <i data-lucide="chevron-down" class="sidebar-menu-chevron"></i>
-                    </button>
-                    <div class="sidebar-submenu">
-                        <button class="sidebar-menu-item" id="nav-user-mgmt-btn" data-view="backup"
-                                onclick="window.app?.switchView?.('backup')">
-                            <i data-lucide="user-cog" style="width:15px;height:15px;flex-shrink:0;"></i>
-                            <span>사용자 관리</span>
-                        </button>
-                        <button class="sidebar-menu-item" id="nav-menu-settings-btn" data-view="menu-settings"
-                                onclick="window.app?.switchView?.('menu-settings')">
-                            <i data-lucide="layout-list" style="width:15px;height:15px;flex-shrink:0;"></i>
-                            <span>메뉴 설정</span>
-                        </button>
-                    </div>
-                </div>
+                
             </nav>
 
 
