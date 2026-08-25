@@ -27783,6 +27783,41 @@ renderTodayTasksRoleBased(todayStr) {
     /**
      * Toggle sidebar collapse / expand state
      */
+    /**
+     * Toggle sidebar accordion menu (collapse/expand submenus)
+     */
+    toggleNavAccordion(target) {
+        const item = target && target.closest ? target.closest('.nav-item') : target;
+        if (!item) return;
+        const wrapper = item.closest('.nav-item-wrapper');
+        if (!wrapper) return;
+
+        // If in compact mode, expand sidebar when clicking group menu
+        const container = document.getElementById('app-section') || document.querySelector('.app-container');
+        if (container && container.classList.contains('sidebar-compact')) {
+            this.toggleSidebarCollapse();
+            wrapper.classList.remove('collapsed');
+            return;
+        }
+
+        const isCollapsed = wrapper.classList.toggle('collapsed');
+        const view = item.getAttribute('data-view');
+
+        if (!isCollapsed && view) {
+            if (view === 'projects') {
+                const stage = (this.activeProjectStageFilter || 'Bidding').toLowerCase();
+                window.location.hash = `projects/${stage}`;
+            } else if (view === 'resources') {
+                const sub = (this.activeResourceSubTab || 'members');
+                window.location.hash = `resources/${sub}`;
+            } else if (view === 'board') {
+                window.location.hash = 'board/notices';
+            } else {
+                window.location.hash = view;
+            }
+        }
+    }
+
     toggleSidebarCollapse() {
         const container = document.getElementById('app-section') || document.querySelector('.app-container');
         if (!container) return;
@@ -33389,7 +33424,7 @@ renderTodayTasksRoleBased(todayStr) {
                 html += `
                 <div class="nav-item-wrapper" id="nav-wrapper-${m.menu_code.toLowerCase()}">
                     <a href="${route}" class="nav-item" data-view="${m.view_id?.replace('view-','') || m.menu_code.toLowerCase()}" data-tooltip="${m.menu_name}"
-                       onclick="event.preventDefault();event.stopPropagation();window.app?.switchView?.('${m.view_id?.replace('view-','') || m.menu_code.toLowerCase()}')">
+                       onclick="event.preventDefault(); window.app?.toggleNavAccordion?.(this)">
                         ${icon}
                         <span>${m.menu_name}</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
@@ -35405,6 +35440,8 @@ if (typeof window !== 'undefined') {
 let app;
 
 if (typeof window !== 'undefined' && window.app) {
+    window.app.toggleNavAccordion = window.app.toggleNavAccordion ? window.app.toggleNavAccordion.bind(window.app) : function(el) { if (window.app?.toggleNavAccordion) window.app.toggleNavAccordion(el); };
+    
     window.app.toggleSidebarCollapse = window.app.toggleSidebarCollapse ? window.app.toggleSidebarCollapse.bind(window.app) : function() { if (window.app?.toggleSidebarCollapse) window.app.toggleSidebarCollapse(); };
     window.app.closeMobileDrawer = window.app.closeMobileDrawer ? window.app.closeMobileDrawer.bind(window.app) : function() { if (window.app?.closeMobileDrawer) window.app.closeMobileDrawer(); };
     app = window.app;

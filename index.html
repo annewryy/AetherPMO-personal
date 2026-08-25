@@ -109,7 +109,7 @@
                         <span class="brand-sub">사업관리 플랫폼</span>
                     </div>
                 </div>
-                <button type="button" class="sidebar-collapse-btn" id="btn-sidebar-collapse-toggle" onclick="app.toggleSidebarCollapse()" title="사이드바 축소 (단축키: [ )" aria-label="사이드바 축소/확장">
+                <button type="button" class="sidebar-collapse-btn" id="btn-sidebar-collapse-toggle" onclick="event.preventDefault(); window.app?.toggleSidebarCollapse?.();" title="사이드바 축소/펼치기" aria-label="사이드바 축소/펼치기">
                     <i data-lucide="panel-left-close" id="sidebar-toggle-icon"></i>
                 </button>
             </div>
@@ -121,7 +121,7 @@
                 </a>
                 
                 <div class="nav-item-wrapper" id="nav-wrapper-projects">
-                    <a href="#projects" class="nav-item" data-view="projects" data-tooltip="프로젝트">
+                    <a href="#projects" class="nav-item" data-view="projects" data-tooltip="프로젝트" onclick="event.preventDefault(); window.app?.toggleNavAccordion?.(this);">
                         <i data-lucide="folder-kanban"></i>
                         <span>프로젝트</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
@@ -156,7 +156,7 @@
 
                 <!-- 인력 및 연락처 관리 그룹 -->
                 <div class="nav-item-wrapper" id="nav-wrapper-hr">
-                    <a href="#resources" class="nav-item" data-view="resources" data-tooltip="참여인력 관리">
+                    <a href="#resources" class="nav-item" data-view="resources" data-tooltip="참여인력 관리" onclick="event.preventDefault(); window.app?.toggleNavAccordion?.(this);">
                         <i data-lucide="users"></i>
                         <span>참여인력 관리</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
@@ -185,7 +185,7 @@
 
                 <!-- 게시판 그룹 (월급여 관리 다음 위치) -->
                 <div class="nav-item-wrapper" id="nav-wrapper-board">
-                    <a href="#board" class="nav-item" data-view="board" data-tooltip="게시판">
+                    <a href="#board" class="nav-item" data-view="board" data-tooltip="게시판" onclick="event.preventDefault(); window.app?.toggleNavAccordion?.(this);">
                         <i data-lucide="message-square"></i>
                         <span>게시판</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
@@ -213,7 +213,7 @@
 
                 <!-- 관리자 설정 (사이드바 최하단 위치, SYS_ADMIN 전용) -->
                 <div class="nav-item-wrapper" id="nav-wrapper-system-settings" style="display:none;">
-                    <a href="#backup" class="nav-item" data-view="backup" data-tooltip="관리자 설정">
+                    <a href="#backup" class="nav-item" data-view="backup" data-tooltip="관리자 설정" onclick="event.preventDefault(); window.app?.toggleNavAccordion?.(this);">
                         <i data-lucide="settings"></i>
                         <span>관리자 설정</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
