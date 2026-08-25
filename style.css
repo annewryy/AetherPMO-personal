@@ -302,29 +302,70 @@ body {
     background-color: var(--primary-light);
 }
 
-/* Sidebar Nav Submenu */
-.nav-submenu {
-    padding-left: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-top: 4px;
-    margin-bottom: 4px;
+/* Sidebar Nav Item Wrapper - Guaranteed Vertical Layout */
+.nav-item-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.nav-item-wrapper .nav-item {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.nav-item-wrapper .nav-submenu {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    padding-left: 20px !important;
+    box-sizing: border-box !important;
+    gap: 4px !important;
+    margin-top: 4px !important;
+    margin-bottom: 4px !important;
+}
+
+.nav-item-wrapper.collapsed .nav-submenu {
+    display: none !important;
+}
+
+.nav-item-wrapper .submenu-toggle-icon {
+    margin-left: auto !important;
+    width: 16px !important;
+    height: 16px !important;
+    transition: transform var(--transition-fast) !important;
+}
+
+.nav-item-wrapper.collapsed .submenu-toggle-icon {
+    transform: rotate(-90deg) !important;
+    display: block !important;
 }
 
 .submenu-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    color: var(--text-muted);
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: 600;
-    border-radius: 8px;
-    transition: all var(--transition-fast);
-    border-left: 3px solid transparent;
-    outline: none;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 9px 14px !important;
+    color: var(--text-muted) !important;
+    text-decoration: none !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    transition: all var(--transition-fast) !important;
+    border-left: 3px solid transparent !important;
+    outline: none !important;
+    white-space: nowrap !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+}
+
+.submenu-item span {
+    white-space: nowrap !important;
 }
 
 .submenu-item::before,
@@ -334,25 +375,25 @@ body {
 }
 
 .submenu-item i {
-    width: 15px;
-    height: 15px;
-    transition: transform var(--transition-fast);
+    width: 15px !important;
+    height: 15px !important;
+    transition: transform var(--transition-fast) !important;
 }
 
 .submenu-item:hover {
-    color: var(--text-main);
-    background-color: var(--bg-hover-item);
+    color: var(--text-main) !important;
+    background-color: var(--bg-hover-item) !important;
 }
 
 .submenu-item:hover i {
-    transform: translateX(2px);
+    transform: translateX(2px) !important;
 }
 
 .submenu-item.active {
-    color: var(--text-main);
-    background-color: var(--primary-light);
-    border-left: 3px solid var(--primary);
-    border-radius: 0 8px 8px 0;
+    color: var(--text-main) !important;
+    background-color: var(--primary-light) !important;
+    border-left: 3px solid var(--primary) !important;
+    border-radius: 0 8px 8px 0 !important;
 }
 
 .sidebar-footer {
@@ -7094,13 +7135,7 @@ body.dark-theme .portal-copilot-task-item {
     background: rgba(15, 23, 42, 0.6);
 }
 
-/* Sidebar submenu toggle & collapse overrides */
-.nav-item-wrapper.collapsed .nav-submenu {
-    display: none !important;
-}
-.nav-item-wrapper.collapsed .submenu-toggle-icon {
-    display: none !important;
-}
+/* Sidebar submenu toggle & collapse overrides handled in main block */
 
 /* Board specific status badges & reply styles */
 .status-badge.status-pending {
