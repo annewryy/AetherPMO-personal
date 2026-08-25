@@ -183,21 +183,21 @@
 
                 <!-- 게시판 그룹 (월급여 관리 다음 위치) -->
                 <div class="nav-item-wrapper" id="nav-wrapper-board">
-                    <a href="#board" class="nav-item" data-view="board" data-tooltip="게시판" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('board/notices');">
+                    <a href="#board" class="nav-item" data-view="board" data-tooltip="게시판">
                         <i data-lucide="message-square"></i>
                         <span>게시판</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
                     </a>
                     <div class="nav-submenu">
-                        <a href="#board/notices" class="submenu-item" data-subview="board-notices" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('board/notices');">
+                        <a href="#board/notices" class="submenu-item" data-subview="board-notices">
                             <i data-lucide="megaphone"></i>
                             <span>공지사항</span>
                         </a>
-                        <a href="#board/inquiries" class="submenu-item" data-subview="board-inquiries" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('board/inquiries');">
+                        <a href="#board/inquiries" class="submenu-item" data-subview="board-inquiries">
                             <i data-lucide="help-circle"></i>
                             <span>문의사항</span>
                         </a>
-                        <a href="#board/resources" class="submenu-item" data-subview="board-resources" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('board/resources');">
+                        <a href="#board/resources" class="submenu-item" data-subview="board-resources">
                             <i data-lucide="folder-archive"></i>
                             <span>자료실</span>
                         </a>
@@ -211,8 +211,7 @@
 
                 <!-- 관리자 설정 (사이드바 최하단 위치, SYS_ADMIN 전용) -->
                 <div class="nav-item-wrapper" id="nav-wrapper-system-settings" style="display:none;">
-                    <a href="#backup" class="nav-item" data-view="backup" data-tooltip="관리자 설정"
-                       onclick="event.preventDefault();event.stopPropagation();window.app?.switchView?.('backup')">
+                    <a href="#backup" class="nav-item" data-view="backup" data-tooltip="관리자 설정">
                         <i data-lucide="settings"></i>
                         <span>관리자 설정</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
