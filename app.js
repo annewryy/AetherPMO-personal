@@ -33422,7 +33422,7 @@ renderTodayTasksRoleBased(todayStr) {
             if (children.length > 0) {
                 // 그룹 메뉴 (아코디언)
                 html += `
-                <div class="nav-item-wrapper" id="nav-wrapper-${m.menu_code.toLowerCase()}">
+                <div class="nav-item-wrapper collapsed" id="nav-wrapper-${m.menu_code.toLowerCase()}">
                     <a href="${route}" class="nav-item" data-view="${m.view_id?.replace('view-','') || m.menu_code.toLowerCase()}" data-tooltip="${m.menu_name}"
                        onclick="event.preventDefault(); window.app?.toggleNavAccordion?.(this)">
                         ${icon}
