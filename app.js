@@ -27750,212 +27750,71 @@ renderTodayTasksRoleBased(todayStr) {
     /**
      * Initialize sidebar mode from local storage
      */
+        /**
+     * Initialize sidebar collapse mode from local storage
+     */
     initSidebarMode() {
-        this.sidebarTimeout = null;
+        const savedCollapsed = localStorage.getItem('pms_sidebar_collapsed');
+        const container = document.getElementById('app-section') || document.querySelector('.app-container');
 
-        // 1. Check if #sidebar-mode-btn element exists in DOM
-        const modeBtnExists = !!document.getElementById('sidebar-mode-btn');
-        console.log('[Sidebar Mode Log 1] #sidebar-mode-btn element exists in DOM:', modeBtnExists);
-
-        let savedMode = localStorage.getItem('pms-sidebar-mode') || 'expanded';
-        if (savedMode === 'compact' || savedMode === 'autohide') {
-            savedMode = 'expanded';
-            localStorage.setItem('pms-sidebar-mode', 'expanded');
+        if (container) {
+            if (savedCollapsed === 'true') {
+                container.classList.add('sidebar-compact');
+                this.updateSidebarCollapseIcon(true);
+                this.setupCompactFlyouts();
+            } else {
+                container.classList.remove('sidebar-compact');
+                this.updateSidebarCollapseIcon(false);
+            }
         }
-        console.log('[Sidebar Mode Log Initial] Loaded saved mode:', savedMode);
-        this.applySidebarMode(savedMode, false);
 
-        // Sidebar Hover Events for Auto-Hide
-        const sidebar = document.querySelector('.sidebar');
-        if (sidebar) {
-            sidebar.addEventListener('mouseenter', () => {
-                const appContainer = document.getElementById('app-section');
-                if (appContainer && appContainer.classList.contains('sidebar-autohide')) {
-                    clearTimeout(this.sidebarTimeout);
-                    sidebar.classList.add('expanded');
-                    console.log('[Sidebar Mode Hover] Mouse entered sidebar. Expanded.');
-                }
-            });
-
-            sidebar.addEventListener('mouseleave', () => {
-                const appContainer = document.getElementById('app-section');
-                if (appContainer && appContainer.classList.contains('sidebar-autohide')) {
-                    clearTimeout(this.sidebarTimeout);
-                    this.sidebarTimeout = setTimeout(() => {
-                        if (this.isSidebarInteractiveOpen()) {
-                            console.log('[Sidebar Mode Hover] Mouse left sidebar but interactive menu is open. Keeping expanded.');
-                            return;
-                        }
-                        sidebar.classList.remove('expanded');
-                        console.log('[Sidebar Mode Hover] Mouse left sidebar. Collapsed after 700ms.');
-                    }, 700);
+        // Add keyboard shortcut '[' to toggle sidebar collapse
+        if (!this._sidebarKeyHandlerAttached) {
+            this._sidebarKeyHandlerAttached = true;
+            document.addEventListener('keydown', (e) => {
+                if (e.key === '[' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+                    e.preventDefault();
+                    this.toggleSidebarCollapse();
                 }
             });
         }
     }
 
     /**
-     * Change active sidebar mode
+     * Toggle sidebar collapse / expand state
      */
-    setSidebarMode(mode) {
-        // 5. Check if setSidebarMode is called with the mode when .sidebar-mode-item is clicked
-        console.log('[Sidebar Mode Log 5] setSidebarMode(mode) called with mode:', mode);
-        this.applySidebarMode(mode, true);
-        const menu = document.getElementById('sidebar-mode-menu');
-        if (menu) {
-            menu.style.display = 'none';
-            menu.classList.remove('open');
-            console.log('[Sidebar Mode Log 4] #sidebar-mode-menu has open class removed');
-        }
+    toggleSidebarCollapse() {
+        const container = document.getElementById('app-section') || document.querySelector('.app-container');
+        if (!container) return;
 
-        const modeLabels = {
-            expanded: '일반 고정 모드',
-            compact: '아이콘 축소 모드',
-            autohide: '자동 숨김 모드'
-        };
-        this.showToast(`사이드바가 ${modeLabels[mode] || mode}로 변경되었습니다.`);
-    }
+        const isCurrentlyCompact = container.classList.contains('sidebar-compact');
+        const nextCompact = !isCurrentlyCompact;
 
-    /**
-     * Apply the sidebar mode class and sub-features
-     */
-    applySidebarMode(mode, save = true) {
-        const container = document.getElementById('app-section');
-        const sidebar = document.querySelector('.sidebar');
-        if (!container) {
-            console.error('[Sidebar Mode Apply] Container #app-section not found!');
-            return;
-        }
-
-        // Clear all mode classes
-        container.classList.remove('sidebar-autohide', 'sidebar-compact');
-        if (sidebar) sidebar.classList.remove('expanded');
-
-        // Apply selected mode
-        if (mode === 'compact') {
+        if (nextCompact) {
             container.classList.add('sidebar-compact');
-            this.setupCompactFlyouts();
-        } else if (mode === 'autohide') {
-            // Auto-hide runs on top of compact layout (72px)
-            container.classList.add('sidebar-compact', 'sidebar-autohide');
+            localStorage.setItem('pms_sidebar_collapsed', 'true');
             this.setupCompactFlyouts();
         } else {
-            // 'expanded' / default
+            container.classList.remove('sidebar-compact');
+            localStorage.setItem('pms_sidebar_collapsed', 'false');
             this.destroyCompactFlyouts();
         }
 
-        // 6. Check if class sidebar-compact or sidebar-autohide is attached to #app-section
-        console.log('[Sidebar Mode Log 6] Classes on #app-section:', container.className);
+        this.updateSidebarCollapseIcon(nextCompact);
+    }
 
-        if (save) {
-            localStorage.setItem('pms-sidebar-mode', mode);
-            // 7. Check if localStorage value is updated
-            console.log('[Sidebar Mode Log 7] localStorage pms-sidebar-mode updated to:', localStorage.getItem('pms-sidebar-mode'));
-        }
-        this.currentSidebarMode = mode;
-        this.updateSidebarModeMenu(mode);
+    /**
+     * Update collapse button icon and tooltip
+     */
+    updateSidebarCollapseIcon(isCompact) {
+        const toggleBtn = document.getElementById('btn-sidebar-collapse-toggle');
+        if (!toggleBtn) return;
+
+        toggleBtn.title = isCompact ? '사이드바 펼치기 (단축키: [ )' : '사이드바 축소 (단축키: [ )';
+        toggleBtn.innerHTML = isCompact ? '<i data-lucide="panel-left-open"></i>' : '<i data-lucide="panel-left-close"></i>';
+
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
-        }
-    }
-
-    /**
-     * Toggle the sidebar mode selector dropdown menu
-     */
-    toggleSidebarModeMenu(e) {
-        // 3. Check if toggleSidebarModeMenu is called
-        console.log('[Sidebar Mode Log 3] toggleSidebarModeMenu(e) called');
-        e.stopPropagation();
-        const menu = document.getElementById('sidebar-mode-menu');
-        const btn = document.getElementById('sidebar-mode-btn');
-        if (!menu || !btn) {
-            console.error('[Sidebar Mode Toggle] Menu or button element not found in DOM!');
-            return;
-        }
-
-        const isOpen = menu.style.display === 'block';
-        if (isOpen) {
-            menu.style.display = 'none';
-            menu.classList.remove('open');
-            // 4. Check if #sidebar-mode-menu has open class removed
-            console.log('[Sidebar Mode Log 4] #sidebar-mode-menu has open class removed');
-        } else {
-            // Position the menu dynamically
-            const rect = btn.getBoundingClientRect();
-            let top, left;
-
-            // "다시 SIDEBAR 표시방식을 클릭하면 SIDEBAR 표시 드롭박스를 오른쪽에 표시해서 화면에 가리지 않게 해줘"
-            if (this.currentSidebarMode === 'compact' || this.currentSidebarMode === 'autohide') {
-                // Position to the right of the button
-                top = rect.top;
-                left = rect.right + 12;
-            } else {
-                // Position below the button
-                top = rect.bottom + 8;
-                left = rect.left;
-            }
-
-            menu.style.top = `${top}px`;
-            menu.style.left = `${left}px`;
-            menu.style.display = 'block';
-            menu.classList.add('open');
-            // 4. Check if #sidebar-mode-menu has open class added
-            console.log('[Sidebar Mode Log 4] #sidebar-mode-menu has open class added');
-
-            // Viewport overflow prevention
-            const menuRect = menu.getBoundingClientRect();
-            if (left + menuRect.width > window.innerWidth) {
-                left = window.innerWidth - menuRect.width - 12;
-                menu.style.left = `${left}px`;
-            }
-            if (top + menuRect.height > window.innerHeight) {
-                top = window.innerHeight - menuRect.height - 12;
-                menu.style.top = `${top}px`;
-            }
-            if (left < 0) {
-                menu.style.left = '12px';
-            }
-            if (top < 0) {
-                menu.style.top = '12px';
-            }
-
-            // Close when clicking outside
-            setTimeout(() => {
-                const handler = (ev) => {
-                    if (!menu.contains(ev.target) && !btn.contains(ev.target)) {
-                        menu.style.display = 'none';
-                        menu.classList.remove('open');
-                        console.log('[Sidebar Mode Log 4] #sidebar-mode-menu has open class removed due to click outside');
-                        document.removeEventListener('click', handler);
-                    }
-                };
-                document.addEventListener('click', handler);
-            }, 0);
-        }
-    }
-
-    /**
-     * Update active checkmarks and icons in the mode menu
-     */
-    updateSidebarModeMenu(mode) {
-        ['expanded', 'compact', 'autohide'].forEach(m => {
-            const el = document.getElementById(`smi-${m}`);
-            if (el) el.classList.toggle('active', m === mode);
-        });
-
-        // Update mode button icon
-        const btn = document.getElementById('sidebar-mode-btn');
-        if (btn) {
-            const icons = {
-                expanded: 'layout-sidebar',
-                compact: 'columns-2',
-                autohide: 'eye-off'
-            };
-            const iconName = icons[mode] || 'layout-sidebar';
-            const iconEl = btn.querySelector('i');
-            if (iconEl) {
-                iconEl.setAttribute('data-lucide', iconName);
-            }
         }
     }
 
@@ -35546,6 +35405,8 @@ if (typeof window !== 'undefined') {
 let app;
 
 if (typeof window !== 'undefined' && window.app) {
+    window.app.toggleSidebarCollapse = window.app.toggleSidebarCollapse ? window.app.toggleSidebarCollapse.bind(window.app) : function() { if (window.app?.toggleSidebarCollapse) window.app.toggleSidebarCollapse(); };
+    window.app.closeMobileDrawer = window.app.closeMobileDrawer ? window.app.closeMobileDrawer.bind(window.app) : function() { if (window.app?.closeMobileDrawer) window.app.closeMobileDrawer(); };
     app = window.app;
     console.log('[BOOT] Existing window.app instance re-used');
 } else {

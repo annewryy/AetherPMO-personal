@@ -12471,3 +12471,158 @@ html.dark #modal-task .btn-outline:hover {
     background: #1E293B !important;
     color: #F8FAFC !important;
 }
+
+
+/* Sidebar Header Collapse Toggle Button */
+.sidebar-header {
+    padding: 20px 16px;
+    border-bottom: 1px solid var(--bg-card-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    position: relative;
+    transition: padding 0.25s ease;
+}
+
+.sidebar-collapse-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.sidebar-collapse-btn:hover {
+    background: var(--bg-hover-item);
+    color: var(--text-main);
+    border-color: var(--bg-card-border);
+}
+
+.sidebar-collapse-btn i {
+    width: 18px;
+    height: 18px;
+}
+
+/* --- Compact Mode Layout (68px wide) --- */
+.app-container.sidebar-compact {
+    display: grid;
+    grid-template-columns: 68px 1fr !important;
+    transition: grid-template-columns 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-container.sidebar-compact .sidebar {
+    width: 68px !important;
+    min-width: 68px !important;
+    overflow: visible;
+    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-container.sidebar-compact .sidebar-header {
+    padding: 16px 8px;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.app-container.sidebar-compact .logo-area {
+    justify-content: center;
+    padding: 0;
+    gap: 0;
+}
+
+.app-container.sidebar-compact .logo-text {
+    display: none !important;
+}
+
+.app-container.sidebar-compact .sidebar-collapse-btn {
+    width: 32px;
+    height: 32px;
+}
+
+.app-container.sidebar-compact .sidebar-nav {
+    padding: 16px 6px;
+    gap: 6px;
+}
+
+.app-container.sidebar-compact .nav-item {
+    padding: 12px 0;
+    justify-content: center;
+    gap: 0;
+    position: relative;
+    border-radius: 8px;
+    width: 100%;
+}
+
+.app-container.sidebar-compact .nav-item span,
+.app-container.sidebar-compact .nav-item .submenu-toggle-icon {
+    display: none !important;
+}
+
+.app-container.sidebar-compact .nav-item i {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+}
+
+.app-container.sidebar-compact .nav-submenu {
+    display: none !important;
+}
+
+.app-container.sidebar-compact .sidebar-footer {
+    padding: 16px 6px;
+}
+
+.app-container.sidebar-compact .sidebar-footer .theme-label,
+.app-container.sidebar-compact .sidebar-footer .theme-toggle-container span,
+.app-container.sidebar-compact .user-info {
+    display: none !important;
+}
+
+.app-container.sidebar-compact .sidebar-footer .theme-toggle-container {
+    justify-content: center;
+}
+
+.app-container.sidebar-compact .sidebar-footer .user-profile-badge {
+    justify-content: center;
+    padding: 8px;
+}
+
+.app-container.sidebar-compact .sidebar-footer .user-profile-badge i {
+    display: none !important;
+}
+
+/* Tooltip on compact sidebar */
+.app-container.sidebar-compact .sidebar .nav-item[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--bg-card, #1e293b);
+    color: var(--text-main, #ffffff);
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--bg-card-border, rgba(255,255,255,0.1));
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease 80ms, transform 0.15s ease 80ms;
+    z-index: 9999;
+}
+
+.app-container.sidebar-compact .sidebar .nav-item[data-tooltip]:hover::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(2px);
+}
