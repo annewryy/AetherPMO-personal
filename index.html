@@ -156,21 +156,24 @@
 
                 <!-- 인력 및 연락처 관리 그룹 -->
                 <div class="nav-item-wrapper collapsed" id="nav-wrapper-hr">
-                    <a href="#resources" class="nav-item" data-view="resources" data-tooltip="참여인력 관리" onclick="event.preventDefault(); window.app?.toggleNavAccordion?.(this);">
+                    <a href="#resources/members" class="nav-item" data-view="resources" data-tooltip="참여인력 관리" onclick="event.preventDefault(); window.app?.toggleNavAccordion?.(this);">
                         <i data-lucide="users"></i>
                         <span>참여인력 관리</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
                     </a>
                     <div class="nav-submenu">
-                        <a href="#resources/members" class="submenu-item" data-subview="resources-members">
+                        <a href="#resources/members" class="submenu-item" data-subview="resources-members"
+                           onclick="event.preventDefault(); event.stopPropagation(); window.app?.switchView?.('resources/members');">
                             <i data-lucide="user-check"></i>
                             <span>참여인력 목록</span>
                         </a>
-                        <a href="#resources/customers" class="submenu-item" data-subview="resources-customers">
+                        <a href="#resources/customers" class="submenu-item" data-subview="resources-customers"
+                           onclick="event.preventDefault(); event.stopPropagation(); window.app?.switchView?.('resources/customers');">
                             <i data-lucide="id-card"></i>
                             <span>고객사 담당자</span>
                         </a>
-                        <a href="#resources/vendors" class="submenu-item" data-subview="resources-vendors">
+                        <a href="#resources/vendors" class="submenu-item" data-subview="resources-vendors"
+                           onclick="event.preventDefault(); event.stopPropagation(); window.app?.switchView?.('resources/vendors');">
                             <i data-lucide="building-2"></i>
                             <span>협력업체 담당자</span>
                         </a>
