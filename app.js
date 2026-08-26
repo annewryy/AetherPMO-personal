@@ -24886,11 +24886,25 @@ renderTodayTasksRoleBased(todayStr) {
         const contacts = this.state.customerContacts;
         const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
 
-        // 1. Populate Company Select
+        // 1. KPI 집계
+        const uniqueCompanies = new Set(contacts.map(c => c.company).filter(Boolean));
+        const emailCount = contacts.filter(c => c.email && c.email.trim()).length;
+        const linkedProjects = new Set(contacts.map(c => c.projectId).filter(Boolean));
+
+        const statCompEl = document.getElementById('cust-stat-companies');
+        const statTotalEl = document.getElementById('cust-stat-total');
+        const statEmailEl = document.getElementById('cust-stat-email');
+        const statProjEl = document.getElementById('cust-stat-projects');
+        if (statCompEl) statCompEl.textContent = `${uniqueCompanies.size}곳`;
+        if (statTotalEl) statTotalEl.textContent = `${contacts.length}명`;
+        if (statEmailEl) statEmailEl.textContent = `${emailCount}명`;
+        if (statProjEl) statProjEl.textContent = `${linkedProjects.size}건`;
+
+        // 2. Populate Company Select
         const compSelect = document.getElementById('cust-filter-company');
         if (compSelect) {
             const curVal = compSelect.value || 'all';
-            const companies = Array.from(new Set(contacts.map(c => c.company).filter(Boolean)));
+            const companies = Array.from(uniqueCompanies);
             let opts = '<option value="all">전체 고객사</option>';
             companies.forEach(comp => {
                 opts += `<option value="${this.escapeHtml(comp)}" ${comp === curVal ? 'selected' : ''}>${this.escapeHtml(comp)}</option>`;
@@ -24898,7 +24912,7 @@ renderTodayTasksRoleBased(todayStr) {
             compSelect.innerHTML = opts;
         }
 
-        // 2. Populate Project Select
+        // 3. Populate Project Select
         const projSelect = document.getElementById('cust-filter-project');
         if (projSelect) {
             const curVal = projSelect.value || 'all';
@@ -25109,6 +25123,22 @@ renderTodayTasksRoleBased(todayStr) {
         if (!Array.isArray(this.state.vendorContacts) || this.state.vendorContacts.length === 0) {
             this.state.vendorContacts = this.getDefaultVendorContacts();
         }
+        const vendors = this.state.vendorContacts;
+
+        // KPI 집계
+        const uniqueCompanies = new Set(vendors.map(v => v.company).filter(Boolean));
+        const activeCount = vendors.filter(v => (v.status || 'ACTIVE') === 'ACTIVE').length;
+        const consortiumCount = vendors.filter(v => v.category === '컨소시엄').length;
+        const outsourceCount = vendors.filter(v => v.category === '외주사').length;
+
+        const statTotalEl = document.getElementById('vendor-stat-total');
+        const statActiveEl = document.getElementById('vendor-stat-active');
+        const statConsEl = document.getElementById('vendor-stat-consortium');
+        const statOutEl = document.getElementById('vendor-stat-outsource');
+        if (statTotalEl) statTotalEl.textContent = `${uniqueCompanies.size}곳`;
+        if (statActiveEl) statActiveEl.textContent = `${activeCount}곳`;
+        if (statConsEl) statConsEl.textContent = `${consortiumCount}곳`;
+        if (statOutEl) statOutEl.textContent = `${outsourceCount}곳`;
 
         this.renderVendorContactsTable();
         if (typeof lucide !== 'undefined') lucide.createIcons();

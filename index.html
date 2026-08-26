@@ -2497,6 +2497,40 @@
 
             <!-- PANEL 2: CUSTOMER CONTACTS (고객 연락처) -->
             <div id="res-panel-customers" style="display: none;">
+
+                <!-- KPI Summary Cards -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                    <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">고객사 수</span>
+                            <i data-lucide="building" style="width: 18px; height: 18px; color: #6366F1;"></i>
+                        </div>
+                        <div id="cust-stat-companies" style="font-size: 24px; font-weight: 800; color: var(--text-main); margin-top: 8px;">0곳</div>
+                    </div>
+                    <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">총 담당자 수</span>
+                            <i data-lucide="id-card" style="width: 18px; height: 18px; color: #10B981;"></i>
+                        </div>
+                        <div id="cust-stat-total" style="font-size: 24px; font-weight: 800; color: #10B981; margin-top: 8px;">0명</div>
+                    </div>
+                    <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">이메일 등록</span>
+                            <i data-lucide="mail" style="width: 18px; height: 18px; color: #F59E0B;"></i>
+                        </div>
+                        <div id="cust-stat-email" style="font-size: 24px; font-weight: 800; color: #F59E0B; margin-top: 8px;">0명</div>
+                    </div>
+                    <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">연결 프로젝트</span>
+                            <i data-lucide="folder-kanban" style="width: 18px; height: 18px; color: #8B5CF6;"></i>
+                        </div>
+                        <div id="cust-stat-projects" style="font-size: 24px; font-weight: 800; color: #8B5CF6; margin-top: 8px;">0건</div>
+                    </div>
+                </div>
+
+                <!-- Filter Bar -->
                 <div class="card" style="margin-bottom: 24px; padding: 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
                     <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
                         <div class="filter-group" style="flex: 1.2; min-width: 180px; display: flex; flex-direction: column; gap: 6px;">
@@ -2531,18 +2565,20 @@
                     </div>
                 </div>
 
+                <!-- Table -->
                 <div class="card" style="padding: 0; border-radius: 12px; overflow: hidden; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
                     <div class="table-responsive">
                         <table class="table" style="width: 100%; margin: 0; border-collapse: collapse;">
                             <thead>
                                 <tr style="background: var(--bg-table-header, rgba(255,255,255,0.03)); border-bottom: 1px solid var(--bg-card-border); font-size: 13px; color: var(--text-muted);">
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 180px; border-right: 1px solid var(--bg-card-border);">소속</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 110px; border-right: 1px solid var(--bg-card-border);">직급</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 100px; border-right: 1px solid var(--bg-card-border);">성명</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 130px; border-right: 1px solid var(--bg-card-border);">휴대폰</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 180px; border-right: 1px solid var(--bg-card-border);">e-mail</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 180px; border-right: 1px solid var(--bg-card-border);">고객사</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 100px; border-right: 1px solid var(--bg-card-border);">담당자</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 180px; border-right: 1px solid var(--bg-card-border);">부서 / 직급</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 130px; border-right: 1px solid var(--bg-card-border);">연락처</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 200px; border-right: 1px solid var(--bg-card-border);">이메일</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 160px; border-right: 1px solid var(--bg-card-border);">관련 프로젝트</th>
                                     <th style="padding: 12px 14px; font-weight: 700; text-align: left; border-right: 1px solid var(--bg-card-border);">비고</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 100px;">관리</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 90px;">관리</th>
                                 </tr>
                             </thead>
                             <tbody id="customer-contacts-table-body">
@@ -2554,6 +2590,40 @@
 
             <!-- PANEL 3: VENDOR CONTACTS (업체 연락처) -->
             <div id="res-panel-vendors" style="display: none;">
+
+                <!-- KPI Summary Cards -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                    <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">총 협력업체</span>
+                            <i data-lucide="building-2" style="width: 18px; height: 18px; color: #6366F1;"></i>
+                        </div>
+                        <div id="vendor-stat-total" style="font-size: 24px; font-weight: 800; color: var(--text-main); margin-top: 8px;">0곳</div>
+                    </div>
+                    <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">거래중 (활성)</span>
+                            <i data-lucide="check-circle" style="width: 18px; height: 18px; color: #10B981;"></i>
+                        </div>
+                        <div id="vendor-stat-active" style="font-size: 24px; font-weight: 800; color: #10B981; margin-top: 8px;">0곳</div>
+                    </div>
+                    <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">컨소시엄</span>
+                            <i data-lucide="git-merge" style="width: 18px; height: 18px; color: #8B5CF6;"></i>
+                        </div>
+                        <div id="vendor-stat-consortium" style="font-size: 24px; font-weight: 800; color: #8B5CF6; margin-top: 8px;">0곳</div>
+                    </div>
+                    <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">외주사</span>
+                            <i data-lucide="users-2" style="width: 18px; height: 18px; color: #06B6D4;"></i>
+                        </div>
+                        <div id="vendor-stat-outsource" style="font-size: 24px; font-weight: 800; color: #06B6D4; margin-top: 8px;">0곳</div>
+                    </div>
+                </div>
+
+                <!-- Filter Bar -->
                 <div class="card" style="margin-bottom: 24px; padding: 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
                     <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
                         <div class="filter-group" style="flex: 1.2; min-width: 160px; display: flex; flex-direction: column; gap: 6px;">
@@ -2595,18 +2665,21 @@
                     </div>
                 </div>
 
+                <!-- Table -->
                 <div class="card" style="padding: 0; border-radius: 12px; overflow: hidden; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
                     <div class="table-responsive">
                         <table class="table" style="width: 100%; margin: 0; border-collapse: collapse;">
                             <thead>
                                 <tr style="background: var(--bg-table-header, rgba(255,255,255,0.03)); border-bottom: 1px solid var(--bg-card-border); font-size: 13px; color: var(--text-muted);">
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 180px; border-right: 1px solid var(--bg-card-border);">소속</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 110px; border-right: 1px solid var(--bg-card-border);">직급</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 100px; border-right: 1px solid var(--bg-card-border);">성명</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 130px; border-right: 1px solid var(--bg-card-border);">휴대폰</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 180px; border-right: 1px solid var(--bg-card-border);">e-mail</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; border-right: 1px solid var(--bg-card-border);">비고</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 100px;">관리</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 90px; border-right: 1px solid var(--bg-card-border);">구분</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 170px; border-right: 1px solid var(--bg-card-border);">업체명</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 100px; border-right: 1px solid var(--bg-card-border);">담당자</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 150px; border-right: 1px solid var(--bg-card-border);">부서 / 직급</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 130px; border-right: 1px solid var(--bg-card-border);">연락처</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 190px; border-right: 1px solid var(--bg-card-border);">이메일</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 150px; border-right: 1px solid var(--bg-card-border);">관련 프로젝트</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 90px; border-right: 1px solid var(--bg-card-border);">거래상태</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 90px;">관리</th>
                                 </tr>
                             </thead>
                             <tbody id="vendor-contacts-table-body">
