@@ -2346,78 +2346,262 @@
                                 </select>
                             </div>
                             <div class="filter-group" style="flex: 2; min-width: 320px; display: flex; flex-direction: column; gap: 6px;">
-                                <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">인력구분 (다중 필터)</span>
-                                <div style="display: flex; gap: 14px; align-items: center; height: 38px; flex-wrap: wrap; background: var(--bg-input); border: 1px solid var(--bg-card-border); border-radius: 8px; padding: 0 14px;">
-                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main);">
-                                        <input type="checkbox" id="res-type-all" checked onchange="app.handleResourceAllTypesChange(this.checked)" style="width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer;">
-                                        <span>전체</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main);">
-                                        <input type="checkbox" class="res-type-checkbox" value="regular" checked onchange="app.handleResourceSubTypesChange()" style="width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer;">
-                                        <span>정규직</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main);">
-                                        <input type="checkbox" class="res-type-checkbox" value="outsourcing" checked onchange="app.handleResourceSubTypesChange()" style="width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer;">
-                                        <span>자사화</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main);">
-                                        <input type="checkbox" class="res-type-checkbox" value="project_contract" checked onchange="app.handleResourceSubTypesChange()" style="width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer;">
-                                        <span>프로젝트 계약직</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main);">
-                                        <input type="checkbox" class="res-type-checkbox" value="turnkey" checked onchange="app.handleResourceSubTypesChange()" style="width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer;">
-                                        <span>외주(턴키)</span>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="filter-group" style="flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: 6px;">
-                                <label for="resource-filter-status" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">투입 상태</label>
-                                <select id="resource-filter-status" onchange="app.renderResourcesView()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
-                                    <option value="all">전체 상태</option>
-                                    <option value="ACTIVE" selected>투입중 (활동)</option>
-                                    <option value="STANDBY">대기</option>
-                                    <option value="OFFBOARDED">종료 / 퇴사</option>
-                                </select>
-                            </div>
-                            <div class="filter-group" style="flex: 1.8; min-width: 220px; display: flex; flex-direction: column; gap: 6px;">
-                                <label for="resources-search-input" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">통합 검색</label>
-                                <div class="search-input-wrapper" style="position: relative;">
-                                    <i data-lucide="search" style="position: absolute; left: 12px; top: 11px; width: 16px; height: 16px; color: var(--text-muted);"></i>
-                                    <input type="text" id="resources-search-input" placeholder="성명, 부서, 역할, 기술로 검색..." oninput="app.renderResourcesView()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px 0 36px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
-                                </div>
-                            </div>
-                            <div class="filter-actions" style="display: flex; gap: 8px; margin-left: auto;">
-                                <button type="button" class="btn btn-outline" id="btn-export-resources" onclick="app.exportResourcesToExcel()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
-                                    <i data-lucide="download" style="width: 14px; height: 14px;"></i>
-                                    <span>엑셀 내보내기</span>
-                                </button>
-                                <button type="button" class="btn btn-primary" onclick="app.openResourceModal()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
-                                    <i data-lucide="user-plus" style="width: 14px; height: 14px;"></i>
-                                    <span>신규 인력 등록</span>
-                                </button>
                             </div>
                         </div>
                     </div>
+                    </div><!-- /#res-panel-members -->
 
-                    <!-- Resource Master Spreadsheet Grid (1 Row Per Person) -->
-                    <div class="card" style="padding: 0; overflow-x: auto; border: 1px solid var(--bg-card-border); border-radius: 12px; background: var(--bg-card);">
-                        <table class="excel-grid-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px;">
-                            <thead>
-                                <tr style="background: var(--bg-hover-item); border-bottom: 2px solid var(--bg-card-border);">
-                                    <th style="padding: 12px 14px; font-weight: 700; width: 160px; min-width: 130px; border-right: 1px solid var(--bg-card-border); text-align: left;">소속</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; width: 110px; min-width: 90px; border-right: 1px solid var(--bg-card-border); text-align: center;">직급</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; width: 100px; min-width: 80px; border-right: 1px solid var(--bg-card-border); text-align: center;">성명</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; width: 130px; min-width: 120px; border-right: 1px solid var(--bg-card-border); text-align: center;">휴대폰</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; width: 180px; min-width: 150px; border-right: 1px solid var(--bg-card-border); text-align: left;">e-mail</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; border-right: 1px solid var(--bg-card-border); text-align: left;">비고</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; width: 100px; text-align: center;">관리</th>
-                                </tr>
-                            </thead>
-                            <tbody id="resources-table-body">
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
+                    <!-- PANEL 2: CUSTOMER CONTACTS (고객 연락처) -->
+                    <div id="res-panel-customers" style="display: none;">
+
+                        <!-- KPI Summary Cards -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                            <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">고객사 수</span>
+                                    <i data-lucide="building" style="width: 18px; height: 18px; color: #6366F1;"></i>
+                                </div>
+                                <div id="cust-stat-companies" style="font-size: 24px; font-weight: 800; color: var(--text-main); margin-top: 8px;">0곳</div>
+                            </div>
+                            <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">총 담당자 수</span>
+                                    <i data-lucide="id-card" style="width: 18px; height: 18px; color: #10B981;"></i>
+                                </div>
+                                <div id="cust-stat-total" style="font-size: 24px; font-weight: 800; color: #10B981; margin-top: 8px;">0명</div>
+                            </div>
+                            <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">이메일 등록</span>
+                                    <i data-lucide="mail" style="width: 18px; height: 18px; color: #F59E0B;"></i>
+                                </div>
+                                <div id="cust-stat-email" style="font-size: 24px; font-weight: 800; color: #F59E0B; margin-top: 8px;">0명</div>
+                            </div>
+                            <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">연결 프로젝트</span>
+                                    <i data-lucide="folder-kanban" style="width: 18px; height: 18px; color: #8B5CF6;"></i>
+                                </div>
+                                <div id="cust-stat-projects" style="font-size: 24px; font-weight: 800; color: #8B5CF6; margin-top: 8px;">0건</div>
+                            </div>
+                        </div>
+
+                        <!-- Filter Bar -->
+                        <div class="card" style="margin-bottom: 24px; padding: 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+                                <div class="filter-group" style="flex: 1.2; min-width: 180px; display: flex; flex-direction: column; gap: 6px;">
+                                    <label for="cust-filter-company" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">고객사</label>
+                                    <select id="cust-filter-company" onchange="app.renderCustomerContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                        <option value="all">전체 고객사</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group" style="flex: 1.5; min-width: 200px; display: flex; flex-direction: column; gap: 6px;">
+                                    <label for="cust-filter-project" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">관련 프로젝트</label>
+                                    <select id="cust-filter-project" onchange="app.renderCustomerContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                        <option value="all">전체 프로젝트</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group" style="flex: 2; min-width: 240px; display: flex; flex-direction: column; gap: 6px;">
+                                    <label for="cust-search-input" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">통합 검색</label>
+                                    <div class="search-input-wrapper" style="position: relative;">
+                                        <i data-lucide="search" style="position: absolute; left: 12px; top: 11px; width: 16px; height: 16px; color: var(--text-muted);"></i>
+                                        <input type="text" id="cust-search-input" placeholder="고객사, 성명, 부서, 직급, 연락처, 이메일 검색..." oninput="app.renderCustomerContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px 0 36px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                    </div>
+                                </div>
+                                <div class="filter-actions" style="display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap;">
+                                    <!-- 숨겨진 엑셀 업로드 input -->
+                                    <input type="file" id="cust-excel-upload-input" accept=".xlsx,.xls,.csv" style="display:none;" onchange="app.uploadCustomerContactsExcel(this)">
+                                    <button type="button" class="btn btn-outline" onclick="document.getElementById('cust-excel-upload-input').click()" style="height: 38px; display: flex; align-items: center; gap: 6px;" title="엑셀 파일을 업로드하여 담당자를 일괄 등록합니다">
+                                        <i data-lucide="upload" style="width: 14px; height: 14px;"></i>
+                                        <span>엑셀 업로드</span>
+                                    </button>
+                                    <button type="button" class="btn btn-outline" id="cust-export-selected-btn" onclick="app.exportCustomerContactsToExcel(true)" style="height: 38px; display: flex; align-items: center; gap: 6px;" title="체크된 항목만 엑셀로 내보냅니다 (미선택 시 전체 내보내기)">
+                                        <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                                        <span id="cust-export-btn-label">전체 내보내기</span>
+                                    </button>
+                                    <button type="button" class="btn btn-primary" onclick="app.openCustomerContactModal()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
+                                        <i data-lucide="user-plus" style="width: 14px; height: 14px;"></i>
+                                        <span>신규 등록</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- 엑셀 업로드 양식 안내 -->
+                            <div id="cust-upload-template-hint" style="margin-top: 12px; padding: 10px 14px; border-radius: 8px; background: rgba(99,102,241,0.07); border: 1px dashed rgba(99,102,241,0.3); font-size: 12px; color: var(--text-muted); display: none;">
+                                <strong style="color: #6366F1;">📋 엑셀 업로드 양식 안내</strong> —
+                                A열: 고객사명 &nbsp;|&nbsp; B열: 담당자 성명 &nbsp;|&nbsp; C열: 부서 &nbsp;|&nbsp; D열: 직급/직책 &nbsp;|&nbsp; E열: 연락처 &nbsp;|&nbsp; F열: 이메일 &nbsp;|&nbsp; G열: 비고
+                                &nbsp;<button type="button" onclick="app.downloadCustomerContactTemplate()" style="background: none; border: none; color: #6366F1; cursor: pointer; font-size: 12px; font-weight: 700; text-decoration: underline;">양식 다운로드</button>
+                            </div>
+                        </div>
+
+                        <!-- 선택 상태 액션바 (체크 시 나타남) -->
+                        <div id="cust-selection-bar" style="display: none; margin-bottom: 12px; padding: 10px 16px; border-radius: 8px; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); align-items: center; gap: 12px;">
+                            <span id="cust-selected-count" style="font-size: 13px; font-weight: 700; color: #6366F1;">0개 선택됨</span>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="app.exportCustomerContactsToExcel(true)" style="height: 30px; display: flex; align-items: center; gap: 4px; font-size: 12px;">
+                                <i data-lucide="download" style="width: 12px; height: 12px;"></i> 선택 항목 내보내기
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="app.deleteSelectedCustomerContacts()" style="height: 30px; display: flex; align-items: center; gap: 4px; font-size: 12px; color: #ef4444;">
+                                <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i> 선택 삭제
+                            </button>
+                            <button type="button" onclick="app.clearCustomerSelection()" style="margin-left: auto; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px;">선택 해제</button>
+                        </div>
+
+                        <!-- Table -->
+                        <div class="card" style="padding: 0; border-radius: 12px; overflow: hidden; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div class="table-responsive">
+                                <table class="table" id="customer-contacts-table" style="width: 100%; margin: 0; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: var(--bg-table-header, rgba(255,255,255,0.03)); border-bottom: 1px solid var(--bg-card-border); font-size: 13px; color: var(--text-muted);">
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 44px; border-right: 1px solid var(--bg-card-border);">
+                                                <input type="checkbox" id="cust-check-all" onchange="app.toggleAllCustomerContacts(this.checked)" style="width: 15px; height: 15px; cursor: pointer; accent-color: #6366F1;">
+                                            </th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 44px; border-right: 1px solid var(--bg-card-border);">No.</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 170px; border-right: 1px solid var(--bg-card-border);">고객사명</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 90px; border-right: 1px solid var(--bg-card-border);">담당자</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 100px; border-right: 1px solid var(--bg-card-border);">부서</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 80px; border-right: 1px solid var(--bg-card-border);">직급/직책</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 130px; border-right: 1px solid var(--bg-card-border);">연락처</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 190px; border-right: 1px solid var(--bg-card-border);">이메일</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 150px; border-right: 1px solid var(--bg-card-border);">관련 프로젝트</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: left; border-right: 1px solid var(--bg-card-border);">비고</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 80px;">관리</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="customer-contacts-table-body">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div><!-- /#res-panel-customers -->
+
+                    <!-- PANEL 3: VENDOR CONTACTS (업체 연락처) -->
+                    <div id="res-panel-vendors" style="display: none;">
+
+                        <!-- KPI Summary Cards -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                            <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">총 협력업체</span>
+                                    <i data-lucide="building-2" style="width: 18px; height: 18px; color: #6366F1;"></i>
+                                </div>
+                                <div id="vendor-stat-total" style="font-size: 24px; font-weight: 800; color: var(--text-main); margin-top: 8px;">0곳</div>
+                            </div>
+                            <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">거래중 (활성)</span>
+                                    <i data-lucide="check-circle" style="width: 18px; height: 18px; color: #10B981;"></i>
+                                </div>
+                                <div id="vendor-stat-active" style="font-size: 24px; font-weight: 800; color: #10B981; margin-top: 8px;">0곳</div>
+                            </div>
+                            <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">컨소시엄</span>
+                                    <i data-lucide="git-merge" style="width: 18px; height: 18px; color: #8B5CF6;"></i>
+                                </div>
+                                <div id="vendor-stat-consortium" style="font-size: 24px; font-weight: 800; color: #8B5CF6; margin-top: 8px;">0곳</div>
+                            </div>
+                            <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">외주사</span>
+                                    <i data-lucide="users-2" style="width: 18px; height: 18px; color: #06B6D4;"></i>
+                                </div>
+                                <div id="vendor-stat-outsource" style="font-size: 24px; font-weight: 800; color: #06B6D4; margin-top: 8px;">0곳</div>
+                            </div>
+                        </div>
+
+                        <!-- Filter Bar -->
+                        <div class="card" style="margin-bottom: 24px; padding: 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+                                <div class="filter-group" style="flex: 1.2; min-width: 160px; display: flex; flex-direction: column; gap: 6px;">
+                                    <label for="vendor-filter-category" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">업체구분</label>
+                                    <select id="vendor-filter-category" onchange="app.renderVendorContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                        <option value="all">전체 구분</option>
+                                        <option value="협력사">협력사</option>
+                                        <option value="외주사">외주사</option>
+                                        <option value="컨소시엄">컨소시엄 구성원</option>
+                                        <option value="파트너">파트너</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group" style="flex: 1.2; min-width: 160px; display: flex; flex-direction: column; gap: 6px;">
+                                    <label for="vendor-filter-status" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">거래상태</label>
+                                    <select id="vendor-filter-status" onchange="app.renderVendorContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                        <option value="all">전체 상태</option>
+                                        <option value="ACTIVE" selected>거래중 (활성)</option>
+                                        <option value="STANDBY">대기</option>
+                                        <option value="CLOSED">계약종료</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group" style="flex: 2; min-width: 240px; display: flex; flex-direction: column; gap: 6px;">
+                                    <label for="vendor-search-input" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">통합 검색</label>
+                                    <div class="search-input-wrapper" style="position: relative;">
+                                        <i data-lucide="search" style="position: absolute; left: 12px; top: 11px; width: 16px; height: 16px; color: var(--text-muted);"></i>
+                                        <input type="text" id="vendor-search-input" placeholder="업체명, 담당자, 분야, 연락처, 이메일 검색..." oninput="app.renderVendorContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px 0 36px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                    </div>
+                                </div>
+                                <div class="filter-actions" style="display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap;">
+                                    <input type="file" id="vendor-excel-upload-input" accept=".xlsx,.xls,.csv" style="display:none;" onchange="app.uploadVendorContactsExcel(this)">
+                                    <button type="button" class="btn btn-outline" onclick="document.getElementById('vendor-excel-upload-input').click()" style="height: 38px; display: flex; align-items: center; gap: 6px;" title="엑셀 파일을 업로드하여 협력업체 담당자를 일괄 등록합니다">
+                                        <i data-lucide="upload" style="width: 14px; height: 14px;"></i>
+                                        <span>엑셀 업로드</span>
+                                    </button>
+                                    <button type="button" class="btn btn-outline" id="vendor-export-selected-btn" onclick="app.exportVendorContactsToExcel(true)" style="height: 38px; display: flex; align-items: center; gap: 6px;" title="체크된 항목만 엑셀로 내보냅니다 (미선택 시 전체 내보내기)">
+                                        <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                                        <span id="vendor-export-btn-label">전체 내보내기</span>
+                                    </button>
+                                    <button type="button" class="btn btn-primary" onclick="app.openVendorContactModal()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
+                                        <i data-lucide="building-2" style="width: 14px; height: 14px;"></i>
+                                        <span>신규 등록</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- 엑셀 업로드 양식 안내 -->
+                            <div id="vendor-upload-template-hint" style="margin-top: 12px; padding: 10px 14px; border-radius: 8px; background: rgba(99,102,241,0.07); border: 1px dashed rgba(99,102,241,0.3); font-size: 12px; color: var(--text-muted); display: none;">
+                                <strong style="color: #6366F1;">📋 엑셀 업로드 양식 안내</strong> —
+                                A열: 업체구분 &nbsp;|&nbsp; B열: 업체명 &nbsp;|&nbsp; C열: 담당자 성명 &nbsp;|&nbsp; D열: 부서/직급 &nbsp;|&nbsp; E열: 연락처 &nbsp;|&nbsp; F열: 이메일 &nbsp;|&nbsp; G열: 거래상태(ACTIVE/STANDBY/CLOSED) &nbsp;|&nbsp; H열: 비고
+                                &nbsp;<button type="button" onclick="app.downloadVendorContactTemplate()" style="background: none; border: none; color: #6366F1; cursor: pointer; font-size: 12px; font-weight: 700; text-decoration: underline;">양식 다운로드</button>
+                            </div>
+                        </div>
+
+                        <!-- 선택 상태 액션바 -->
+                        <div id="vendor-selection-bar" style="display: none; margin-bottom: 12px; padding: 10px 16px; border-radius: 8px; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); align-items: center; gap: 12px;">
+                            <span id="vendor-selected-count" style="font-size: 13px; font-weight: 700; color: #6366F1;">0개 선택됨</span>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="app.exportVendorContactsToExcel(true)" style="height: 30px; display: flex; align-items: center; gap: 4px; font-size: 12px;">
+                                <i data-lucide="download" style="width: 12px; height: 12px;"></i> 선택 항목 내보내기
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="app.deleteSelectedVendorContacts()" style="height: 30px; display: flex; align-items: center; gap: 4px; font-size: 12px; color: #ef4444;">
+                                <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i> 선택 삭제
+                            </button>
+                            <button type="button" onclick="app.clearVendorSelection()" style="margin-left: auto; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px;">선택 해제</button>
+                        </div>
+
+                        <!-- Table -->
+                        <div class="card" style="padding: 0; border-radius: 12px; overflow: hidden; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div class="table-responsive">
+                                <table class="table" id="vendor-contacts-table" style="width: 100%; margin: 0; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: var(--bg-table-header, rgba(255,255,255,0.03)); border-bottom: 1px solid var(--bg-card-border); font-size: 13px; color: var(--text-muted);">
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 44px; border-right: 1px solid var(--bg-card-border);">
+                                                <input type="checkbox" id="vendor-check-all" onchange="app.toggleAllVendorContacts(this.checked)" style="width: 15px; height: 15px; cursor: pointer; accent-color: #6366F1;">
+                                            </th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 44px; border-right: 1px solid var(--bg-card-border);">No.</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 80px; border-right: 1px solid var(--bg-card-border);">구분</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 160px; border-right: 1px solid var(--bg-card-border);">업체명</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 80px; border-right: 1px solid var(--bg-card-border);">담당자</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 150px; border-right: 1px solid var(--bg-card-border);">부서 / 직급</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 125px; border-right: 1px solid var(--bg-card-border);">연락처</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 185px; border-right: 1px solid var(--bg-card-border);">이메일</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 140px; border-right: 1px solid var(--bg-card-border);">관련 프로젝트</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 80px; border-right: 1px solid var(--bg-card-border);">거래상태</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: left; border-right: 1px solid var(--bg-card-border);">비고</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 80px;">관리</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="vendor-contacts-table-body">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div><!-- /#res-panel-vendors -->
+                </section><!-- /#view-resources -->
 
                 <!-- 7.5.2. CONTRACT MANAGEMENT VIEW -->
                 <section id="view-contracts" class="content-view">
@@ -2493,186 +2677,6 @@
                             </tbody>
                         </table>
                     </div>
-            </div><!-- /#res-panel-members -->
-
-            <!-- PANEL 2: CUSTOMER CONTACTS (고객 연락처) -->
-            <div id="res-panel-customers" style="display: none;">
-
-                <!-- KPI Summary Cards -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                    <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">고객사 수</span>
-                            <i data-lucide="building" style="width: 18px; height: 18px; color: #6366F1;"></i>
-                        </div>
-                        <div id="cust-stat-companies" style="font-size: 24px; font-weight: 800; color: var(--text-main); margin-top: 8px;">0곳</div>
-                    </div>
-                    <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">총 담당자 수</span>
-                            <i data-lucide="id-card" style="width: 18px; height: 18px; color: #10B981;"></i>
-                        </div>
-                        <div id="cust-stat-total" style="font-size: 24px; font-weight: 800; color: #10B981; margin-top: 8px;">0명</div>
-                    </div>
-                    <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">이메일 등록</span>
-                            <i data-lucide="mail" style="width: 18px; height: 18px; color: #F59E0B;"></i>
-                        </div>
-                        <div id="cust-stat-email" style="font-size: 24px; font-weight: 800; color: #F59E0B; margin-top: 8px;">0명</div>
-                    </div>
-                    <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">연결 프로젝트</span>
-                            <i data-lucide="folder-kanban" style="width: 18px; height: 18px; color: #8B5CF6;"></i>
-                        </div>
-                        <div id="cust-stat-projects" style="font-size: 24px; font-weight: 800; color: #8B5CF6; margin-top: 8px;">0건</div>
-                    </div>
-                </div>
-
-                <!-- Filter Bar -->
-                <div class="card" style="margin-bottom: 24px; padding: 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
-                    <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
-                        <div class="filter-group" style="flex: 1.2; min-width: 180px; display: flex; flex-direction: column; gap: 6px;">
-                            <label for="cust-filter-company" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">고객사</label>
-                            <select id="cust-filter-company" onchange="app.renderCustomerContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
-                                <option value="all">전체 고객사</option>
-                            </select>
-                        </div>
-                        <div class="filter-group" style="flex: 1.5; min-width: 200px; display: flex; flex-direction: column; gap: 6px;">
-                            <label for="cust-filter-project" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">관련 프로젝트</label>
-                            <select id="cust-filter-project" onchange="app.renderCustomerContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
-                                <option value="all">전체 프로젝트</option>
-                            </select>
-                        </div>
-                        <div class="filter-group" style="flex: 2; min-width: 240px; display: flex; flex-direction: column; gap: 6px;">
-                            <label for="cust-search-input" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">통합 검색</label>
-                            <div class="search-input-wrapper" style="position: relative;">
-                                <i data-lucide="search" style="position: absolute; left: 12px; top: 11px; width: 16px; height: 16px; color: var(--text-muted);"></i>
-                                <input type="text" id="cust-search-input" placeholder="고객사, 성명, 부서, 직급, 연락처, 이메일 검색..." oninput="app.renderCustomerContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px 0 36px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
-                            </div>
-                        </div>
-                        <div class="filter-actions" style="display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap;">
-                            <!-- 숨겨진 엑셀 업로드 input -->
-                            <input type="file" id="cust-excel-upload-input" accept=".xlsx,.xls,.csv" style="display:none;" onchange="app.uploadCustomerContactsExcel(this)">
-                            <button type="button" class="btn btn-outline" onclick="document.getElementById('cust-excel-upload-input').click()" style="height: 38px; display: flex; align-items: center; gap: 6px;" title="엑셀 파일을 업로드하여 담당자를 일괄 등록합니다">
-                                <i data-lucide="upload" style="width: 14px; height: 14px;"></i>
-                                <span>엑셀 업로드</span>
-                            </button>
-                            <button type="button" class="btn btn-outline" id="cust-export-selected-btn" onclick="app.exportCustomerContactsToExcel(true)" style="height: 38px; display: flex; align-items: center; gap: 6px;" title="체크된 항목만 엑셀로 내보냅니다 (미선택 시 전체 내보내기)">
-                                <i data-lucide="download" style="width: 14px; height: 14px;"></i>
-                                <span id="cust-export-btn-label">전체 내보내기</span>
-                            </button>
-                            <button type="button" class="btn btn-primary" onclick="app.openCustomerContactModal()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
-                                <i data-lucide="user-plus" style="width: 14px; height: 14px;"></i>
-                                <span>신규 등록</span>
-                            </button>
-                        </div>
-                    </div>
-                    <!-- 엑셀 업로드 양식 안내 -->
-                    <div id="cust-upload-template-hint" style="margin-top: 12px; padding: 10px 14px; border-radius: 8px; background: rgba(99,102,241,0.07); border: 1px dashed rgba(99,102,241,0.3); font-size: 12px; color: var(--text-muted); display: none;">
-                        <strong style="color: #6366F1;">📋 엑셀 업로드 양식 안내</strong> —
-                        A열: 고객사명 &nbsp;|&nbsp; B열: 담당자 성명 &nbsp;|&nbsp; C열: 부서 &nbsp;|&nbsp; D열: 직급/직책 &nbsp;|&nbsp; E열: 연락처 &nbsp;|&nbsp; F열: 이메일 &nbsp;|&nbsp; G열: 비고
-                        &nbsp;<button type="button" onclick="app.downloadCustomerContactTemplate()" style="background: none; border: none; color: #6366F1; cursor: pointer; font-size: 12px; font-weight: 700; text-decoration: underline;">양식 다운로드</button>
-                    </div>
-                </div>
-
-                <!-- 선택 상태 액션바 (체크 시 나타남) -->
-                <div id="cust-selection-bar" style="display: none; margin-bottom: 12px; padding: 10px 16px; border-radius: 8px; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); align-items: center; gap: 12px;">
-                    <span id="cust-selected-count" style="font-size: 13px; font-weight: 700; color: #6366F1;">0개 선택됨</span>
-                    <button type="button" class="btn btn-sm btn-outline" onclick="app.exportCustomerContactsToExcel(true)" style="height: 30px; display: flex; align-items: center; gap: 4px; font-size: 12px;">
-                        <i data-lucide="download" style="width: 12px; height: 12px;"></i> 선택 항목 내보내기
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline" onclick="app.deleteSelectedCustomerContacts()" style="height: 30px; display: flex; align-items: center; gap: 4px; font-size: 12px; color: #ef4444;">
-                        <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i> 선택 삭제
-                    </button>
-                    <button type="button" onclick="app.clearCustomerSelection()" style="margin-left: auto; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px;">선택 해제</button>
-                </div>
-
-                <!-- Table -->
-                <div class="card" style="padding: 0; border-radius: 12px; overflow: hidden; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
-                    <div class="table-responsive">
-                        <table class="table" id="customer-contacts-table" style="width: 100%; margin: 0; border-collapse: collapse;">
-                            <thead>
-                                <tr style="background: var(--bg-table-header, rgba(255,255,255,0.03)); border-bottom: 1px solid var(--bg-card-border); font-size: 13px; color: var(--text-muted);">
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 44px; border-right: 1px solid var(--bg-card-border);">
-                                        <input type="checkbox" id="cust-check-all" onchange="app.toggleAllCustomerContacts(this.checked)" style="width: 15px; height: 15px; cursor: pointer; accent-color: #6366F1;">
-                                    </th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 44px; border-right: 1px solid var(--bg-card-border);">No.</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 170px; border-right: 1px solid var(--bg-card-border);">고객사명</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 90px; border-right: 1px solid var(--bg-card-border);">담당자</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 100px; border-right: 1px solid var(--bg-card-border);">부서</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 80px; border-right: 1px solid var(--bg-card-border);">직급/직책</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 130px; border-right: 1px solid var(--bg-card-border);">연락처</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 190px; border-right: 1px solid var(--bg-card-border);">이메일</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 150px; border-right: 1px solid var(--bg-card-border);">관련 프로젝트</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: left; border-right: 1px solid var(--bg-card-border);">비고</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 80px;">관리</th>
-                                </tr>
-                            </thead>
-                            <tbody id="customer-contacts-table-body">
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div><!-- /#res-panel-customers -->
-
-            <!-- PANEL 3: VENDOR CONTACTS (업체 연락처) -->
-            <div id="res-panel-vendors" style="display: none;">
-
-                <!-- KPI Summary Cards -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                    <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">총 협력업체</span>
-                            <i data-lucide="building-2" style="width: 18px; height: 18px; color: #6366F1;"></i>
-                        </div>
-                        <div id="vendor-stat-total" style="font-size: 24px; font-weight: 800; color: var(--text-main); margin-top: 8px;">0곳</div>
-                    </div>
-                    <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">거래중 (활성)</span>
-                            <i data-lucide="check-circle" style="width: 18px; height: 18px; color: #10B981;"></i>
-                        </div>
-                        <div id="vendor-stat-active" style="font-size: 24px; font-weight: 800; color: #10B981; margin-top: 8px;">0곳</div>
-                    </div>
-                    <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">컨소시엄</span>
-                            <i data-lucide="git-merge" style="width: 18px; height: 18px; color: #8B5CF6;"></i>
-                        </div>
-                        <div id="vendor-stat-consortium" style="font-size: 24px; font-weight: 800; color: #8B5CF6; margin-top: 8px;">0곳</div>
-                    </div>
-                    <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">외주사</span>
-                            <i data-lucide="users-2" style="width: 18px; height: 18px; color: #06B6D4;"></i>
-                        </div>
-                        <div id="vendor-stat-outsource" style="font-size: 24px; font-weight: 800; color: #06B6D4; margin-top: 8px;">0곳</div>
-                    </div>
-                </div>
-
-                <!-- Filter Bar -->
-                <div class="card" style="margin-bottom: 24px; padding: 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
-                    <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
-                        <div class="filter-group" style="flex: 1.2; min-width: 160px; display: flex; flex-direction: column; gap: 6px;">
-                            <label for="vendor-filter-category" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">업체구분</label>
-                            <select id="vendor-filter-category" onchange="app.renderVendorContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
-                                <option value="all">전체 구분</option>
-                                <option value="협력사">협력사</option>
-                                <option value="외주사">외주사</option>
-                                <option value="컨소시엄">컨소시엄 구성원</option>
-                                <option value="파트너">파트너</option>
-                            </select>
-                        </div>
-                        <div class="filter-group" style="flex: 1.2; min-width: 160px; display: flex; flex-direction: column; gap: 6px;">
-                            <label for="vendor-filter-status" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">거래상태</label>
-                            <select id="vendor-filter-status" onchange="app.renderVendorContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
-                                <option value="all">전체 상태</option>
-                                <option value="ACTIVE" selected>거래중 (활성)</option>
-                                <option value="STANDBY">대기</option>
-                                <option value="CLOSED">계약종료</option>
-                            </select>
                         </div>
                         <div class="filter-group" style="flex: 2; min-width: 240px; display: flex; flex-direction: column; gap: 6px;">
                             <label for="vendor-search-input" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">통합 검색</label>
