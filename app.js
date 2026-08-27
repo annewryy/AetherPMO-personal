@@ -31206,11 +31206,43 @@ renderTodayTasksRoleBased(todayStr) {
         const checkedTypes = Array.from(document.querySelectorAll('.res-type-checkbox:checked')).map(c => c.value);
         const isProposalSubtab = this.activeResourceSubTab === 'proposal';
 
+        // Update Dynamic Table Head according to Subtab
+        const headEl = document.getElementById('resources-table-head');
+        if (headEl) {
+            if (isProposalSubtab) {
+                headEl.innerHTML = `
+                    <tr style="background: var(--bg-hover-item); border-bottom: 2px solid var(--bg-card-border);">
+                        <th style="padding: 12px 14px; font-weight: 700; width: 60px; border-right: 1px solid var(--bg-card-border); text-align: center;">No.</th>
+                        <th style="padding: 12px 14px; font-weight: 700; width: 90px; border-right: 1px solid var(--bg-card-border); text-align: center;">법인 구분</th>
+                        <th style="padding: 12px 14px; font-weight: 700; width: 170px; border-right: 1px solid var(--bg-card-border); text-align: left;">소속 본부</th>
+                        <th style="padding: 12px 14px; font-weight: 700; width: 140px; border-right: 1px solid var(--bg-card-border); text-align: left;">팀</th>
+                        <th style="padding: 12px 14px; font-weight: 700; width: 130px; border-right: 1px solid var(--bg-card-border); text-align: left;">파트</th>
+                        <th style="padding: 12px 14px; font-weight: 700; width: 100px; border-right: 1px solid var(--bg-card-border); text-align: center;">성명</th>
+                        <th style="padding: 12px 14px; font-weight: 700; width: 170px; border-right: 1px solid var(--bg-card-border); text-align: left;">이메일</th>
+                        <th style="padding: 12px 14px; font-weight: 700; width: 220px; border-right: 1px solid var(--bg-card-border); text-align: left;">비고 (투입프로젝트)</th>
+                        <th style="padding: 12px 14px; font-weight: 700; width: 95px; text-align: center;">관리</th>
+                    </tr>
+                `;
+            } else {
+                headEl.innerHTML = `
+                    <tr style="background: var(--bg-hover-item); border-bottom: 2px solid var(--bg-card-border);">
+                        <th style="padding: 12px 14px; font-weight: 700; width: 170px; min-width: 150px; white-space: nowrap; border-right: 1px solid var(--bg-card-border); text-align: left;">소속 본부</th>
+                        <th style="padding: 12px 14px; font-weight: 700; width: 90px; min-width: 80px; border-right: 1px solid var(--bg-card-border); text-align: center;">법인구분</th>
+                        <th style="padding: 12px 14px; font-weight: 700; width: 90px; min-width: 75px; border-right: 1px solid var(--bg-card-border); text-align: center;">직급</th>
+                        <th style="padding: 12px 14px; font-weight: 700; width: 100px; min-width: 80px; border-right: 1px solid var(--bg-card-border); text-align: center;">성명</th>
+                        <th style="padding: 12px 14px; font-weight: 700; width: 140px; min-width: 130px; white-space: nowrap; border-right: 1px solid var(--bg-card-border); text-align: center;">휴대폰</th>
+                        <th style="padding: 12px 14px; font-weight: 700; width: 170px; min-width: 140px; border-right: 1px solid var(--bg-card-border); text-align: left;">e-mail</th>
+                        <th style="padding: 12px 14px; font-weight: 700; width: 230px; border-right: 1px solid var(--bg-card-border); text-align: left;">비고 (투입 프로젝트)</th>
+                        <th style="padding: 12px 14px; font-weight: 700; width: 95px; text-align: center;">관리</th>
+                    </tr>
+                `;
+            }
+        }
+
         let filtered = resources.filter(r => {
             // Proposal subtab filter
             if (isProposalSubtab) {
                 if (r.isProposal !== true && r.category !== 'proposal' && !String(r.remarks || '').includes('제안')) {
-                    // Fallback to allow showing proposal resources if specified or even-indexed sample
                     if (resources.filter(item => item.isProposal === true || item.category === 'proposal').length > 0) {
                         return false;
                     }
@@ -31246,19 +31278,21 @@ renderTodayTasksRoleBased(todayStr) {
             if (keyword) {
                 const matchName = (r.name || '').toLowerCase().includes(keyword);
                 const matchDept = (r.department || '').toLowerCase().includes(keyword);
+                const matchTeam = (r.team || '').toLowerCase().includes(keyword);
+                const matchPart = (r.part || '').toLowerCase().includes(keyword);
                 const matchLegal = (r.legalEntity || r.legal_entity || '').toLowerCase().includes(keyword);
                 const matchPos = (r.position || '').toLowerCase().includes(keyword);
                 const matchRole = (r.roleName || r.participationRole || '').toLowerCase().includes(keyword);
                 const matchPhone = (r.phone || r.mobile || '').includes(keyword);
                 const matchEmail = (r.email || r.userId || '').toLowerCase().includes(keyword);
-                if (!matchName && !matchDept && !matchLegal && !matchPos && !matchRole && !matchPhone && !matchEmail) return false;
+                if (!matchName && !matchDept && !matchTeam && !matchPart && !matchLegal && !matchPos && !matchRole && !matchPhone && !matchEmail) return false;
             }
 
             return true;
         });
 
         if (filtered.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted); font-weight: 600;">조건에 해당하는 ${isProposalSubtab ? '제안' : '참여'} 인력이 없습니다.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="${isProposalSubtab ? 9 : 8}" style="text-align: center; padding: 40px; color: var(--text-muted); font-weight: 600;">조건에 해당하는 ${isProposalSubtab ? '제안' : '참여'} 인력이 없습니다.</td></tr>`;
             return;
         }
 
@@ -31298,6 +31332,8 @@ renderTodayTasksRoleBased(todayStr) {
             }
 
             const org = r.department || '클라우드사업수행1본부';
+            const team = r.team || (idx % 2 === 0 ? '클라우드컨설팅팀' : '인프라수행팀');
+            const part = r.part || (idx % 2 === 0 ? '아키텍처파트' : '엔지니어링파트');
             const pos = r.position || r.roleName || '책임';
             const phone = r.phone || r.mobile || '010-1234-5678';
             const email = r.email || r.userId || 'user@company.com';
@@ -31309,34 +31345,68 @@ renderTodayTasksRoleBased(todayStr) {
                 ? `<span class="badge" style="background:#06B6D4; color:#ffffff; font-weight:800; padding:4px 8px; border-radius:6px; font-size:12px;" title="오케스트로 클라우드">OKC</span>`
                 : `<span class="badge" style="background:#4F46E5; color:#ffffff; font-weight:800; padding:4px 8px; border-radius:6px; font-size:12px;" title="오케스트로">OKE</span>`;
 
-            html += `
-                <tr style="border-bottom: 1px solid var(--bg-card-border); transition: background 0.15s; font-size: 13.5px;">
-                    <td style="padding: 12px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border); white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(org)}">${this.escapeHtml(org)}</td>
-                    <td style="padding: 12px 14px; text-align: center; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${legalBadgeHtml}</td>
-                    <td style="padding: 12px 14px; text-align: center; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(pos)}</td>
-                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; white-space: nowrap;">
-                        <a href="javascript:void(0)" onclick="app.openResourceDetailModal('${r.id}')" style="font-weight: 700; color: var(--primary); text-decoration: underline;">
-                            ${this.escapeHtml(r.name || '미상')}
-                        </a>
-                    </td>
-                    <td style="padding: 12px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(phone)}</td>
-                    <td style="padding: 12px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border); max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(email)}">${this.escapeHtml(email)}</td>
-                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); max-width: 230px; word-break: break-word;">${projBadgesHtml}</td>
-                    <td style="padding: 12px 14px; text-align: center;">
-                        <div style="display: flex; gap: 4px; justify-content: center;">
-                            <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceDetailModal('${r.id}')" title="상세보기">
-                                <i data-lucide="eye" style="width: 12px; height: 12px;"></i>
-                            </button>
-                            <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceModal('${r.id}')" title="수정">
-                                <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i>
-                            </button>
-                            <button type="button" class="btn btn-xs btn-outline-danger" onclick="app.deleteResource('${r.id}')" title="삭제/종료">
-                                <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
+            if (isProposalSubtab) {
+                // Proposal table row layout requested by user:
+                // No., 법인 구분, 소속 본부, 팀, 파트, 성명, 이메일, 비고(투입프로젝트), 관리 (상세, 수정, 삭제)
+                html += `
+                    <tr style="border-bottom: 1px solid var(--bg-card-border); transition: background 0.15s; font-size: 13.5px;">
+                        <td style="padding: 12px 14px; text-align: center; font-weight: 700; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${idx + 1}</td>
+                        <td style="padding: 12px 14px; text-align: center; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${legalBadgeHtml}</td>
+                        <td style="padding: 12px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border); white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(org)}">${this.escapeHtml(org)}</td>
+                        <td style="padding: 12px 14px; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(team)}</td>
+                        <td style="padding: 12px 14px; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(part)}</td>
+                        <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; white-space: nowrap;">
+                            <a href="javascript:void(0)" onclick="app.openResourceDetailModal('${r.id}')" style="font-weight: 700; color: var(--primary); text-decoration: underline;">
+                                ${this.escapeHtml(r.name || '미상')}
+                            </a>
+                        </td>
+                        <td style="padding: 12px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border); max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(email)}">${this.escapeHtml(email)}</td>
+                        <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); max-width: 220px; word-break: break-word;">${projBadgesHtml}</td>
+                        <td style="padding: 12px 14px; text-align: center;">
+                            <div style="display: flex; gap: 4px; justify-content: center;">
+                                <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceDetailModal('${r.id}')" title="상세보기">
+                                    <i data-lucide="eye" style="width: 12px; height: 12px;"></i>
+                                </button>
+                                <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceModal('${r.id}')" title="수정">
+                                    <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i>
+                                </button>
+                                <button type="button" class="btn btn-xs btn-outline-danger" onclick="app.deleteResource('${r.id}')" title="삭제/종료">
+                                    <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                html += `
+                    <tr style="border-bottom: 1px solid var(--bg-card-border); transition: background 0.15s; font-size: 13.5px;">
+                        <td style="padding: 12px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border); white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(org)}">${this.escapeHtml(org)}</td>
+                        <td style="padding: 12px 14px; text-align: center; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${legalBadgeHtml}</td>
+                        <td style="padding: 12px 14px; text-align: center; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(pos)}</td>
+                        <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; white-space: nowrap;">
+                            <a href="javascript:void(0)" onclick="app.openResourceDetailModal('${r.id}')" style="font-weight: 700; color: var(--primary); text-decoration: underline;">
+                                ${this.escapeHtml(r.name || '미상')}
+                            </a>
+                        </td>
+                        <td style="padding: 12px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(phone)}</td>
+                        <td style="padding: 12px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border); max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(email)}">${this.escapeHtml(email)}</td>
+                        <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); max-width: 230px; word-break: break-word;">${projBadgesHtml}</td>
+                        <td style="padding: 12px 14px; text-align: center;">
+                            <div style="display: flex; gap: 4px; justify-content: center;">
+                                <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceDetailModal('${r.id}')" title="상세보기">
+                                    <i data-lucide="eye" style="width: 12px; height: 12px;"></i>
+                                </button>
+                                <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceModal('${r.id}')" title="수정">
+                                    <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i>
+                                </button>
+                                <button type="button" class="btn btn-xs btn-outline-danger" onclick="app.deleteResource('${r.id}')" title="삭제/종료">
+                                    <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
         });
 
         tbody.innerHTML = html;
@@ -33138,6 +33208,8 @@ renderTodayTasksRoleBased(todayStr) {
         const nameInput = document.getElementById('res-edit-name');
         const typeSelect = document.getElementById('res-edit-employment-type');
         const deptInput = document.getElementById('res-edit-department');
+        const teamInput = document.getElementById('res-edit-team');
+        const partInput = document.getElementById('res-edit-part');
         const legalEntitySelect = document.getElementById('res-edit-legal-entity');
         const posInput = document.getElementById('res-edit-position');
         const phoneInput = document.getElementById('res-edit-phone');
@@ -33151,11 +33223,13 @@ renderTodayTasksRoleBased(todayStr) {
         if (resourceId) {
             const r = (this.state.resources || []).find(res => res.id === resourceId);
             if (r) {
-                if (title) title.textContent = '참여인력 정보 수정';
+                if (title) title.textContent = this.activeResourceSubTab === 'proposal' ? '제안인력 정보 수정' : '참여인력 정보 수정';
                 if (idInput) idInput.value = r.id;
                 if (nameInput) nameInput.value = r.name || '';
                 if (typeSelect) typeSelect.value = r.employmentType || r.employment_type || 'outsourcing';
                 if (deptInput) deptInput.value = r.department || '클라우드사업수행1본부';
+                if (teamInput) teamInput.value = r.team || '클라우드컨설팅팀';
+                if (partInput) partInput.value = r.part || '아키텍처파트';
                 if (legalEntitySelect) legalEntitySelect.value = r.legalEntity || r.legal_entity || '오케스트로';
                 if (posInput) posInput.value = r.position || r.roleName || '';
                 if (phoneInput) phoneInput.value = r.phone || r.contact || '';
@@ -33172,6 +33246,8 @@ renderTodayTasksRoleBased(todayStr) {
             if (nameInput) nameInput.value = '';
             if (typeSelect) typeSelect.value = 'outsourcing';
             if (deptInput) deptInput.value = '클라우드사업수행1본부';
+            if (teamInput) teamInput.value = '클라우드컨설팅팀';
+            if (partInput) partInput.value = '아키텍처파트';
             if (legalEntitySelect) legalEntitySelect.value = '오케스트로';
             if (posInput) posInput.value = '';
             if (phoneInput) phoneInput.value = '';
@@ -33196,6 +33272,8 @@ renderTodayTasksRoleBased(todayStr) {
         const nameInput = document.getElementById('res-edit-name');
         const typeSelect = document.getElementById('res-edit-employment-type');
         const deptInput = document.getElementById('res-edit-department');
+        const teamInput = document.getElementById('res-edit-team');
+        const partInput = document.getElementById('res-edit-part');
         const legalEntitySelect = document.getElementById('res-edit-legal-entity');
         const posInput = document.getElementById('res-edit-position');
         const phoneInput = document.getElementById('res-edit-phone');
@@ -33227,6 +33305,8 @@ renderTodayTasksRoleBased(todayStr) {
             employment_type: typeVal,
             department: deptInput ? deptInput.value : '클라우드사업수행1본부',
             company: deptInput ? deptInput.value : '클라우드사업수행1본부',
+            team: teamInput ? teamInput.value.trim() : '클라우드컨설팅팀',
+            part: partInput ? partInput.value.trim() : '아키텍처파트',
             legalEntity: legalEntitySelect ? legalEntitySelect.value : '오케스트로',
             legal_entity: legalEntitySelect ? legalEntitySelect.value : '오케스트로',
             isProposal: this.activeResourceSubTab === 'proposal',
