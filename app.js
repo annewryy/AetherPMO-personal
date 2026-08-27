@@ -25002,10 +25002,10 @@ renderTodayTasksRoleBased(todayStr) {
                     <td style="padding: 10px 14px; font-weight: 700; text-align: center; color: var(--primary); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.name || '-')}</td>
                     <td style="padding: 10px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.department || '-')}</td>
                     <td style="padding: 10px 14px; text-align: center; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.position || '-')}</td>
-                    <td style="padding: 10px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.phone || '-')}</td>
+                    <td style="padding: 10px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(c.phone || '-')}</td>
                     <td style="padding: 10px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${c.email ? `<a href="mailto:${this.escapeHtml(c.email)}" style="color: var(--primary); text-decoration: none;">${this.escapeHtml(c.email)}</a>` : '-'}</td>
-                    <td style="padding: 10px 14px; color: var(--text-main); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(projName)}</td>
-                    <td style="padding: 10px 14px; color: var(--text-muted); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.remarks || '-')}</td>
+                    <td style="padding: 10px 14px; color: var(--text-main); font-size: 12px; border-right: 1px solid var(--bg-card-border); max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(projName)}">${this.escapeHtml(projName)}</td>
+                    <td style="padding: 10px 14px; color: var(--text-muted); font-size: 12px; border-right: 1px solid var(--bg-card-border); max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(c.remarks || '-')}">${this.escapeHtml(c.remarks || '-')}</td>
                     <td style="padding: 10px 14px; text-align: center;">
                         <div style="display: flex; gap: 4px; justify-content: center;">
                             <button type="button" class="btn btn-sm btn-outline" onclick="app.openCustomerContactModal('${c.id}')" title="수정" style="padding: 4px 7px;">
@@ -25420,17 +25420,17 @@ renderTodayTasksRoleBased(todayStr) {
                             style="width: 15px; height: 15px; cursor: pointer; accent-color: #6366F1;">
                     </td>
                     <td style="padding: 10px 14px; text-align: center; color: var(--text-muted); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${idx + 1}</td>
-                    <td style="padding: 10px 14px; text-align: center; border-right: 1px solid var(--bg-card-border);">
-                        <span class="badge" style="background: rgba(99,102,241,0.12); color: ${catColor}; font-weight: 700; font-size: 11px;">${this.escapeHtml(v.category || '협력사')}</span>
+                    <td style="padding: 10px 14px; text-align: center; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">
+                        <span class="badge" style="background: rgba(99,102,241,0.12); color: ${catColor}; font-weight: 700; font-size: 11px; display: inline-block; white-space: nowrap;">${this.escapeHtml(v.category || '협력사')}</span>
                     </td>
                     <td style="padding: 10px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.company || '-')}</td>
                     <td style="padding: 10px 14px; font-weight: 700; text-align: center; color: var(--primary); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.name || '-')}</td>
                     <td style="padding: 10px 14px; color: var(--text-muted); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(dept)}</td>
-                    <td style="padding: 10px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.phone || '-')}</td>
+                    <td style="padding: 10px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(v.phone || '-')}</td>
                     <td style="padding: 10px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${v.email ? `<a href="mailto:${this.escapeHtml(v.email)}" style="color: var(--primary); text-decoration: none;">${this.escapeHtml(v.email)}</a>` : '-'}</td>
-                    <td style="padding: 10px 14px; color: var(--text-main); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(projName)}</td>
-                    <td style="padding: 10px 14px; text-align: center; border-right: 1px solid var(--bg-card-border);">${stBadge}</td>
-                    <td style="padding: 10px 14px; color: var(--text-muted); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.remarks || '-')}</td>
+                    <td style="padding: 10px 14px; color: var(--text-main); font-size: 12px; border-right: 1px solid var(--bg-card-border); max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(projName)}">${this.escapeHtml(projName)}</td>
+                    <td style="padding: 10px 14px; text-align: center; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${stBadge}</td>
+                    <td style="padding: 10px 14px; color: var(--text-muted); font-size: 12px; border-right: 1px solid var(--bg-card-border); max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(v.remarks || '-')}">${this.escapeHtml(v.remarks || '-')}</td>
                     <td style="padding: 10px 14px; text-align: center;">
                         <div style="display: flex; gap: 4px; justify-content: center;">
                             <button type="button" class="btn btn-sm btn-outline" onclick="app.openVendorContactModal('${v.id}')" title="수정" style="padding: 4px 7px;">
