@@ -31906,6 +31906,43 @@ renderTodayTasksRoleBased(todayStr) {
         if (window.lucide) lucide.createIcons();
     }
 
+    openSalaryApprovalEditModal(approvalId) {
+        this.openSalaryApprovalDetailModal(approvalId);
+        this.switchSalaryApprovalModalView('html');
+        setTimeout(() => {
+            const input = document.getElementById('sal-modal-raw-html-input');
+            if (input) input.focus();
+        }, 100);
+    }
+
+    onSalaryApprovalHtmlInput(val) {
+        const previewCont = document.getElementById('sal-modal-a4-preview');
+        if (previewCont) previewCont.innerHTML = val || '<div>품의서 내용이 없습니다.</div>';
+    }
+
+    async saveSalaryApprovalHtmlChanges() {
+        if (!this.currentApprovalDetail) {
+            this.showToast('선택된 품의서가 없습니다.', 'warning');
+            return;
+        }
+
+        const input = document.getElementById('sal-modal-raw-html-input');
+        if (!input) return;
+
+        const updatedHtml = input.value;
+        this.currentApprovalDetail.htmlSnapshot = updatedHtml;
+
+        const idx = (this.state.salaryApprovals || []).findIndex(a => a.id === this.currentApprovalDetail.id);
+        if (idx !== -1) {
+            this.state.salaryApprovals[idx].htmlSnapshot = updatedHtml;
+        }
+
+        await this.saveState('salary_approval_update_html', this.currentApprovalDetail);
+        this.showToast('품의서 내용 수정이 성공적으로 저장되었습니다.', 'success');
+
+        this.onSalaryApprovalHtmlInput(updatedHtml);
+    }
+
     closeSalaryApprovalDetailModal() {
         const modal = document.getElementById('modal-salary-approval-detail');
         if (modal) modal.style.display = 'none';
@@ -32985,6 +33022,9 @@ renderTodayTasksRoleBased(todayStr) {
                         <div style="display: flex; gap: 4px; justify-content: center;">
                             <button type="button" class="btn btn-xs btn-outline" onclick="app.openSalaryApprovalDetailModal('${a.id}')" title="품의서 상세/출력">
                                 <i data-lucide="file-text" style="width: 12px; height: 12px;"></i> 상세
+                            </button>
+                            <button type="button" class="btn btn-xs btn-outline" onclick="app.openSalaryApprovalEditModal('${a.id}')" title="품의서 내용/서식 수정" style="color: #6366F1; border-color: rgba(99,102,241,0.4);">
+                                <i data-lucide="edit-3" style="width: 12px; height: 12px;"></i> 품의 수정
                             </button>
                         </div>
                     </td>
