@@ -31340,7 +31340,57 @@ renderTodayTasksRoleBased(todayStr) {
         });
 
         tbody.innerHTML = html;
-    }wance || m.meal_allowance || 0);
+    }
+
+    fetchMonthlySalaryTargets() {
+        const monthVal = document.getElementById('salary-target-month')?.value;
+        const projId = document.getElementById('salary-target-project')?.value;
+        const tbody = document.getElementById('salary-targets-tbody');
+        if (!tbody) return;
+
+        if (!monthVal || !projId) {
+            tbody.innerHTML = `<tr><td colspan="11" class="text-center" style="padding:40px; color:var(--text-muted);">지급연월과 프로젝트를 선택해주세요.</td></tr>`;
+            return;
+        }
+
+        const year = Number(monthVal.split('-')[0]);
+        const month = Number(monthVal.split('-')[1]);
+        const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
+        const lastDayNum = new Date(year, month, 0).getDate();
+        const monthEnd = `${year}-${String(month).padStart(2, '0')}-${String(lastDayNum).padStart(2, '0')}`;
+
+        const project = (this.state.projects || []).find(p => p.id === projId);
+
+        // Fetch assigned project members
+        const members = (this.state.projectMembers || []).filter(m => {
+            const mProjId = m.projectId || m.project_id;
+            if (mProjId !== projId) return false;
+
+            const st = m.startDate || m.start_date || '2000-01-01';
+            const ed = m.endDate || m.end_date || null;
+            const status = m.status || 'ACTIVE';
+
+            const startOk = st <= monthEnd;
+            const endOk = (!ed || ed >= monthStart);
+            const statusOk = (status === 'ACTIVE');
+
+            return startOk && endOk && statusOk;
+        });
+
+        if (members.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="11" class="text-center" style="padding:40px; color:var(--text-muted);">${monthVal} 해당월에 투입 중인 진행(ACTIVE) 상태의 참여인력이 없습니다.</td></tr>`;
+            return;
+        }
+
+        this.currentSalaryTargets = members.map(m => {
+            const res = (this.state.resources || []).find(r => r.id === (m.resourceId || m.resource_id)) || {};
+            const st = m.startDate || m.start_date || '';
+            const ed = m.endDate || m.end_date || '';
+
+            const isMidMonth = (st > monthStart) || (ed && ed < monthEnd);
+
+            const baseSalary = Number(m.baseSalary || m.base_salary || 0);
+            const mealAllowance = Number(m.mealAllowance || m.meal_allowance || 0);
             const otherAllowance = Number(m.otherAllowance || m.other_allowance || 0);
             const adjustment = 0;
             const total = baseSalary + mealAllowance + otherAllowance + adjustment;
