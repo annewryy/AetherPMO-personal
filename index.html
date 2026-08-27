@@ -2346,8 +2346,76 @@
                                 </select>
                             </div>
                             <div class="filter-group" style="flex: 2; min-width: 320px; display: flex; flex-direction: column; gap: 6px;">
+                                <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">인력구분 (다중 필터)</span>
+                                <div style="display: flex; gap: 14px; align-items: center; height: 38px; flex-wrap: wrap; background: var(--bg-input); border: 1px solid var(--bg-card-border); border-radius: 8px; padding: 0 14px;">
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main);">
+                                        <input type="checkbox" id="res-type-all" checked onchange="app.handleResourceAllTypesChange(this.checked)" style="width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer;">
+                                        <span>전체</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main);">
+                                        <input type="checkbox" class="res-type-checkbox" value="regular" checked onchange="app.handleResourceSubTypesChange()" style="width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer;">
+                                        <span>정규직</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main);">
+                                        <input type="checkbox" class="res-type-checkbox" value="outsourcing" checked onchange="app.handleResourceSubTypesChange()" style="width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer;">
+                                        <span>자사화</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main);">
+                                        <input type="checkbox" class="res-type-checkbox" value="project_contract" checked onchange="app.handleResourceSubTypesChange()" style="width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer;">
+                                        <span>프로젝트 계약직</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main);">
+                                        <input type="checkbox" class="res-type-checkbox" value="turnkey" checked onchange="app.handleResourceSubTypesChange()" style="width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer;">
+                                        <span>외주(턴키)</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="filter-group" style="flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: 6px;">
+                                <label for="resource-filter-status" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">투입 상태</label>
+                                <select id="resource-filter-status" onchange="app.renderResourcesView()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                    <option value="all">전체 상태</option>
+                                    <option value="ACTIVE" selected>투입중 (활동)</option>
+                                    <option value="STANDBY">대기</option>
+                                    <option value="OFFBOARDED">종료 / 퇴사</option>
+                                </select>
+                            </div>
+                            <div class="filter-group" style="flex: 1.8; min-width: 220px; display: flex; flex-direction: column; gap: 6px;">
+                                <label for="resources-search-input" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">통합 검색</label>
+                                <div class="search-input-wrapper" style="position: relative;">
+                                    <i data-lucide="search" style="position: absolute; left: 12px; top: 11px; width: 16px; height: 16px; color: var(--text-muted);"></i>
+                                    <input type="text" id="resources-search-input" placeholder="성명, 부서, 역할, 기술로 검색..." oninput="app.renderResourcesView()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px 0 36px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                </div>
+                            </div>
+                            <div class="filter-actions" style="display: flex; gap: 8px; margin-left: auto;">
+                                <button type="button" class="btn btn-outline" id="btn-export-resources" onclick="app.exportResourcesToExcel()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
+                                    <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                                    <span>엑셀 내보내기</span>
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="app.openResourceModal()" style="height: 38px; display: flex; align-items: center; gap: 6px;">
+                                    <i data-lucide="user-plus" style="width: 14px; height: 14px;"></i>
+                                    <span>신규 인력 등록</span>
+                                </button>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Resource Master Spreadsheet Grid (1 Row Per Person) -->
+                    <div class="card" style="padding: 0; overflow-x: auto; border: 1px solid var(--bg-card-border); border-radius: 12px; background: var(--bg-card);">
+                        <table class="excel-grid-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px;">
+                            <thead>
+                                <tr style="background: var(--bg-hover-item); border-bottom: 2px solid var(--bg-card-border);">
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 160px; min-width: 130px; border-right: 1px solid var(--bg-card-border); text-align: left;">소속</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 110px; min-width: 90px; border-right: 1px solid var(--bg-card-border); text-align: center;">직급</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 100px; min-width: 80px; border-right: 1px solid var(--bg-card-border); text-align: center;">성명</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 130px; min-width: 120px; border-right: 1px solid var(--bg-card-border); text-align: center;">휴대폰</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 180px; min-width: 150px; border-right: 1px solid var(--bg-card-border); text-align: left;">e-mail</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; border-right: 1px solid var(--bg-card-border); text-align: left;">비고</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 100px; text-align: center;">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resources-table-body">
+                            </tbody>
+                        </table>
                     </div>
                     </div><!-- /#res-panel-members -->
 
