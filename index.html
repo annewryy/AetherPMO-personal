@@ -167,6 +167,11 @@
                             <i data-lucide="user-check"></i>
                             <span>참여인력 목록</span>
                         </a>
+                        <a href="#resources/proposal" class="submenu-item" data-subview="resources-proposal"
+                           onclick="event.preventDefault(); event.stopPropagation(); window.app?.switchView?.('resources/proposal');">
+                            <i data-lucide="user-plus"></i>
+                            <span>제안인력 관리</span>
+                        </a>
                         <a href="#resources/customers" class="submenu-item" data-subview="resources-customers"
                            onclick="event.preventDefault(); event.stopPropagation(); window.app?.switchView?.('resources/customers');">
                             <i data-lucide="id-card"></i>
@@ -2276,13 +2281,27 @@
                     <div class="view-header">
                         <div>
                             <h1 id="resources-view-title">참여인력 관리</h1>
-                            <p class="subtitle" id="resources-view-subtitle">참여인력 마스터, 고객사 연락처 및 협력/외주 업체 연락처를 통합 관리합니다.</p>
+                            <p class="subtitle" id="resources-view-subtitle">참여인력 마스터, 제안인력, 고객사 및 협력업체 담당자를 통합 관리합니다.</p>
                         </div>
                     </div>
 
-                    
+                    <!-- Sub-Tabs Navigation -->
+                    <div class="sub-tabs-container" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 12px; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-sm btn-outline active" id="res-subtab-members" onclick="app.switchResourceSubTab('members')">
+                            <i data-lucide="user-check" style="width: 14px; height: 14px; margin-right: 4px;"></i> 참여인력 목록
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline" id="res-subtab-proposal" onclick="app.switchResourceSubTab('proposal')">
+                            <i data-lucide="user-plus" style="width: 14px; height: 14px; margin-right: 4px;"></i> 제안인력 관리
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline" id="res-subtab-customers" onclick="app.switchResourceSubTab('customers')">
+                            <i data-lucide="id-card" style="width: 14px; height: 14px; margin-right: 4px;"></i> 고객사 담당자
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline" id="res-subtab-vendors" onclick="app.switchResourceSubTab('vendors')">
+                            <i data-lucide="building-2" style="width: 14px; height: 14px; margin-right: 4px;"></i> 협력업체 담당자
+                        </button>
+                    </div>
 
-                    <!-- PANEL 1: MEMBERS (기존 참여인력) -->
+                    <!-- PANEL 1: MEMBERS & PROPOSAL (참여인력 및 제안인력) -->
                     <div id="res-panel-members">
 
                     <!-- Summary Banner & KPI Cards -->
@@ -2339,13 +2358,22 @@
                     <!-- Filter & Control Bar -->
                     <div class="view-filters card" style="margin-bottom: 24px; padding: 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
                         <div class="filters-row" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
-                            <div class="filter-group" style="flex: 1.2; min-width: 200px; display: flex; flex-direction: column; gap: 6px;">
+                            <div class="filter-group" style="flex: 1.2; min-width: 180px; display: flex; flex-direction: column; gap: 6px;">
+                                <label for="resources-filter-dept" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">소속 본부</label>
+                                <select id="resources-filter-dept" onchange="app.renderResourcesView()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                    <option value="all">전체 본부</option>
+                                    <option value="클라우드사업수행1본부">클라우드사업수행1본부</option>
+                                    <option value="클라우드사업수행2본부">클라우드사업수행2본부</option>
+                                    <option value="custom">직접입력</option>
+                                </select>
+                            </div>
+                            <div class="filter-group" style="flex: 1.2; min-width: 180px; display: flex; flex-direction: column; gap: 6px;">
                                 <label for="resources-filter-project" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">수행 프로젝트</label>
                                 <select id="resources-filter-project" onchange="app.renderResourcesView()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
                                     <option value="all">전체 프로젝트</option>
                                 </select>
                             </div>
-                            <div class="filter-group" style="flex: 2; min-width: 320px; display: flex; flex-direction: column; gap: 6px;">
+                            <div class="filter-group" style="flex: 2; min-width: 280px; display: flex; flex-direction: column; gap: 6px;">
                                 <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">인력구분 (다중 필터)</span>
                                 <div style="display: flex; gap: 14px; align-items: center; height: 38px; flex-wrap: wrap; background: var(--bg-input); border: 1px solid var(--bg-card-border); border-radius: 8px; padding: 0 14px;">
                                     <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main);">
@@ -2370,7 +2398,7 @@
                                     </label>
                                 </div>
                             </div>
-                            <div class="filter-group" style="flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: 6px;">
+                            <div class="filter-group" style="flex: 1; min-width: 140px; display: flex; flex-direction: column; gap: 6px;">
                                 <label for="resource-filter-status" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">투입 상태</label>
                                 <select id="resource-filter-status" onchange="app.renderResourcesView()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
                                     <option value="all">전체 상태</option>
@@ -2379,7 +2407,7 @@
                                     <option value="OFFBOARDED">종료 / 퇴사</option>
                                 </select>
                             </div>
-                            <div class="filter-group" style="flex: 1.8; min-width: 220px; display: flex; flex-direction: column; gap: 6px;">
+                            <div class="filter-group" style="flex: 1.5; min-width: 180px; display: flex; flex-direction: column; gap: 6px;">
                                 <label for="resources-search-input" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">통합 검색</label>
                                 <div class="search-input-wrapper" style="position: relative;">
                                     <i data-lucide="search" style="position: absolute; left: 12px; top: 11px; width: 16px; height: 16px; color: var(--text-muted);"></i>
@@ -2404,12 +2432,13 @@
                         <table class="excel-grid-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px;">
                             <thead>
                                 <tr style="background: var(--bg-hover-item); border-bottom: 2px solid var(--bg-card-border);">
-                                    <th style="padding: 12px 14px; font-weight: 700; width: 200px; min-width: 160px; white-space: nowrap; border-right: 1px solid var(--bg-card-border); text-align: left;">소속</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; width: 100px; min-width: 80px; border-right: 1px solid var(--bg-card-border); text-align: center;">직급</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 170px; min-width: 150px; white-space: nowrap; border-right: 1px solid var(--bg-card-border); text-align: left;">소속 본부</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 90px; min-width: 80px; border-right: 1px solid var(--bg-card-border); text-align: center;">법인구분</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 90px; min-width: 75px; border-right: 1px solid var(--bg-card-border); text-align: center;">직급</th>
                                     <th style="padding: 12px 14px; font-weight: 700; width: 100px; min-width: 80px; border-right: 1px solid var(--bg-card-border); text-align: center;">성명</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; width: 150px; min-width: 140px; white-space: nowrap; border-right: 1px solid var(--bg-card-border); text-align: center;">휴대폰</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; width: 180px; min-width: 150px; border-right: 1px solid var(--bg-card-border); text-align: left;">e-mail</th>
-                                    <th style="padding: 12px 14px; font-weight: 700; width: 240px; border-right: 1px solid var(--bg-card-border); text-align: left;">비고</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 140px; min-width: 130px; white-space: nowrap; border-right: 1px solid var(--bg-card-border); text-align: center;">휴대폰</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 170px; min-width: 140px; border-right: 1px solid var(--bg-card-border); text-align: left;">e-mail</th>
+                                    <th style="padding: 12px 14px; font-weight: 700; width: 230px; border-right: 1px solid var(--bg-card-border); text-align: left;">비고 (투입 프로젝트)</th>
                                     <th style="padding: 12px 14px; font-weight: 700; width: 90px; text-align: center;">관리</th>
                                 </tr>
                             </thead>
@@ -6371,10 +6400,21 @@
                         </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                         <div>
-                            <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">소속회사 / 부서</label>
-                            <input type="text" id="res-edit-department" placeholder="SI사업본부 / (주)파트너스" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);" />
+                            <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">소속 본부</label>
+                            <select id="res-edit-department" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary); font-weight: 600;">
+                                <option value="클라우드사업수행1본부">클라우드사업수행1본부</option>
+                                <option value="클라우드사업수행2본부">클라우드사업수행2본부</option>
+                                <option value="직접입력">직접입력</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">법인구분 <span style="color:#ef4444;">*</span></label>
+                            <select id="res-edit-legal-entity" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary); font-weight: 600;">
+                                <option value="오케스트로">오케스트로 (OKE)</option>
+                                <option value="오케스트로 클라우드">오케스트로 클라우드 (OKC)</option>
+                            </select>
                         </div>
                         <div>
                             <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">직급 / 역할</label>

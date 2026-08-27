@@ -4988,6 +4988,7 @@ class AetherPMO {
             let sub = 'members';
             if (parts[1] === 'customers') sub = 'customers';
             else if (parts[1] === 'vendors') sub = 'vendors';
+            else if (parts[1] === 'proposal') sub = 'proposal';
             this.switchResourceSubTab(sub);
         } else if (viewName === 'salaries') {
             this.switchSalarySubTab('target');
@@ -24867,6 +24868,15 @@ renderTodayTasksRoleBased(todayStr) {
         const titleEl = document.getElementById('resources-view-title');
         const subtitleEl = document.getElementById('resources-view-subtitle');
 
+        // Update Sub-tabs UI Active State
+        ['members', 'proposal', 'customers', 'vendors'].forEach(st => {
+            const btn = document.getElementById(`res-subtab-${st}`);
+            if (btn) {
+                if (st === subtab) btn.classList.add('active');
+                else btn.classList.remove('active');
+            }
+        });
+
         [membersPanel, custPanel, vendorPanel].forEach(p => {
             if (p) p.style.display = 'none';
         });
@@ -24883,10 +24893,16 @@ renderTodayTasksRoleBased(todayStr) {
             if (subtitleEl) subtitleEl.textContent = '협력사, 외주사, 컨소시엄 구성원 및 분야별 파트너 업체 연락처를 통합 관리합니다.';
             this.setActiveSidebarMenu('resources/vendors');
             this.renderVendorContactsView();
+        } else if (subtab === 'proposal') {
+            if (membersPanel) membersPanel.style.display = 'block';
+            if (titleEl) titleEl.textContent = '제안인력 관리';
+            if (subtitleEl) subtitleEl.textContent = '제안 및 입찰 단계 투입 제안인력 현황과 소속 본부/법인구분(OKE/OKC)을 통합 관리합니다.';
+            this.setActiveSidebarMenu('resources/proposal');
+            this.renderResourcesView();
         } else {
             if (membersPanel) membersPanel.style.display = 'block';
             if (titleEl) titleEl.textContent = '참여인력 목록';
-            if (subtitleEl) subtitleEl.textContent = '프로젝트 단계별 투입 및 계약직·외주 인력 현황과 자격/경력을 통합 관리합니다.';
+            if (subtitleEl) subtitleEl.textContent = '프로젝트 단계별 투입 및 계약직·외주 인력 현황과 소속 본부/법인구분(OKE/OKC)을 통합 관리합니다.';
             this.setActiveSidebarMenu('resources/members');
             this.renderResourcesView();
         }
@@ -29372,50 +29388,97 @@ renderTodayTasksRoleBased(todayStr) {
                 id: 'res-1',
                 name: '안유경',
                 employmentType: 'regular',
-                department: 'SI사업본부',
+                department: '클라우드사업수행1본부',
+                legalEntity: '오케스트로',
                 position: '부장',
                 roleName: 'PM',
                 userId: 'pm@aetherpmo.com',
+                phone: '010-1234-5678',
+                email: 'yk.an@okestro.com',
                 isActive: true
             },
             {
                 id: 'res-2',
                 name: '김철수',
                 employmentType: 'regular',
-                department: '인프라솔루션팀',
+                department: '클라우드사업수행1본부',
+                legalEntity: '오케스트로',
                 position: '과장',
                 roleName: 'TA',
                 userId: 'worker@aetherpmo.com',
+                phone: '010-2345-6789',
+                email: 'cs.kim@okestro.com',
                 isActive: true
             },
             {
                 id: 'res-3',
                 name: '이영희',
                 employmentType: 'outsourcing',
-                department: '개발팀',
+                department: '클라우드사업수행2본부',
+                legalEntity: '오케스트로 클라우드',
                 position: '선임연구원',
                 roleName: 'DEV',
                 userId: null,
+                phone: '010-3456-7890',
+                email: 'yh.lee@okestrocloud.com',
                 isActive: true
             },
-            {
+                {
                 id: 'res-4',
                 name: '박민수',
                 employmentType: 'project_contract',
-                department: '기획팀',
+                department: '클라우드사업수행2본부',
+                legalEntity: '오케스트로 클라우드',
                 position: '책임연구원',
                 roleName: 'PL',
                 userId: null,
+                phone: '010-4567-8901',
+                email: 'ms.park@okestrocloud.com',
                 isActive: true
             },
             {
                 id: 'res-5',
                 name: '최동훈',
-                employmentType: 'turnkey',
-                department: '외부협력사',
+                employmentType: 'regular',
+                department: '클라우드사업수행1본부',
+                legalEntity: '오케스트로',
                 position: '차장',
                 roleName: 'AA',
                 userId: null,
+                phone: '010-5678-9012',
+                email: 'dh.choi@okestro.com',
+                isActive: true
+            },
+            {
+                id: 'res-6',
+                name: '정수진',
+                employmentType: 'regular',
+                department: '클라우드사업수행2본부',
+                legalEntity: '오케스트로 클라우드',
+                position: '수석',
+                roleName: '제안PM',
+                userId: null,
+                phone: '010-6789-0123',
+                email: 'sj.jung@okestrocloud.com',
+                isProposal: true,
+                category: 'proposal',
+                remarks: '국방 클라우드 제안서 투입 인력',
+                isActive: true
+            },
+            {
+                id: 'res-7',
+                name: '강현우',
+                employmentType: 'outsourcing',
+                department: '클라우드사업수행1본부',
+                legalEntity: '오케스트로',
+                position: '책임',
+                roleName: '제안PL',
+                userId: null,
+                phone: '010-7890-1234',
+                email: 'hw.kang@okestro.com',
+                isProposal: true,
+                category: 'proposal',
+                remarks: '공공분야 입찰 제안인력',
                 isActive: true
             }
         ];
@@ -31150,179 +31213,157 @@ renderTodayTasksRoleBased(todayStr) {
                 if (typeSelect) typeSelect.value = r.employmentType || r.employment_type || 'INSOURCED_CONTRACTOR';
                 if (deptInput) deptInput.value = r.department || '';
                 if (posInput) posInput.value = r.position || '';
-                if (bankInput) bankInput.value = r.bankName || r.bank_name || '';
-                if (accInput) accInput.value = r.accountNumber || r.account_number || '';
-                if (activeChk) activeChk.checked = r.isActive !== false;
-            }
-        } else {
-            if (title) title.textContent = '신규 참여인력 등록';
-            if (idInput) idInput.value = '';
-            if (nameInput) nameInput.value = '';
-            if (typeSelect) typeSelect.value = 'INSOURCED_CONTRACTOR';
-            if (deptInput) deptInput.value = '';
-            if (posInput) posInput.value = '';
-            if (bankInput) bankInput.value = '';
-            if (accInput) accInput.value = '';
-            if (activeChk) activeChk.checked = true;
-        }
-
-        modal.style.display = 'flex';
-    }
-
-    closeResourceModal() {
-        const modal = document.getElementById('modal-resource-edit');
-        if (modal) modal.style.display = 'none';
-    }
-
-    async saveResource() {
-        const idInput = document.getElementById('res-edit-id');
-        const nameInput = document.getElementById('res-edit-name');
-        const typeSelect = document.getElementById('res-edit-employment-type');
-        const deptInput = document.getElementById('res-edit-department');
-        const posInput = document.getElementById('res-edit-position');
-        const bankInput = document.getElementById('res-edit-bank-name');
-        const accInput = document.getElementById('res-edit-account-number');
-        const activeChk = document.getElementById('res-edit-is-active');
-
-        if (!nameInput?.value.trim()) {
-            this.showToast('성명을 입력해주세요.', 'warning');
-            return;
-        }
-
-        const isNew = !idInput?.value;
-        const resourceId = isNew ? (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'res-' + Date.now()) : idInput.value;
-
-        const record = {
-            id: resourceId,
-            name: nameInput.value.trim(),
-            employmentType: typeSelect.value,
-            employment_type: typeSelect.value,
-            department: deptInput?.value.trim() || '',
-            position: posInput?.value.trim() || '',
-            bankName: bankInput?.value.trim() || '',
-            bank_name: bankInput?.value.trim() || '',
-            accountNumber: accInput?.value.trim() || '',
-            account_number: accInput?.value.trim() || '',
-            isActive: activeChk ? activeChk.checked : true,
-            is_active: activeChk ? activeChk.checked : true,
-            updatedAt: new Date().toISOString()
-        };
-
-        if (isNew) {
-            this.state.resources = this.state.resources || [];
-            this.state.resources.push(record);
-        } else {
-            const idx = this.state.resources.findIndex(r => r.id === resourceId);
-            if (idx !== -1) this.state.resources[idx] = record;
-        }
-
-        await this.saveState('resource_upsert', record);
-        this.closeResourceModal();
-        this.showToast('참여인력 정보가 저장되었습니다.', 'success');
-        this.renderResourcesView();
-    }
-
-    // ── 3. Monthly Salary Management Sub-Tabs & Target Engine ─────────────
-    switchSalarySubTab(tabName) {
-        const btns = document.querySelectorAll('.salary-tab-btn');
-        btns.forEach(b => {
-            if (b.getAttribute('data-salary-tab') === tabName) {
-                b.classList.add('active');
-            } else {
-                b.classList.remove('active');
-            }
-        });
-
-        const panes = document.querySelectorAll('.salary-tab-pane');
-        panes.forEach(p => {
-            p.style.display = 'none';
-        });
-
-        const targetPane = document.getElementById(`salary-tab-content-${tabName}`);
-        if (targetPane) targetPane.style.display = 'block';
-
-        if (tabName === 'target') {
-            this.initSalaryTargetTab();
-        } else if (tabName === 'approvals') {
-            this.renderSalaryApprovalsTable();
-        } else if (tabName === 'templates') {
-            this.renderSalaryTemplatesTable();
-        } else if (tabName === 'history') {
-            this.renderSalaryHistoryView();
-        }
-
-        if (window.lucide) lucide.createIcons();
-    }
-
-    initSalaryTargetTab() {
-        const monthInput = document.getElementById('salary-target-month');
-        if (monthInput && !monthInput.value) {
-            const now = new Date();
-            monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        }
-
-        const projSelect = document.getElementById('salary-target-project');
-        if (projSelect) {
-            const projects = this.state.projects || [];
-            let options = `<option value="">프로젝트를 선택하세요</option>`;
-            projects.forEach(p => {
-                options += `<option value="${p.id}">${p.name} (${p.code || p.id.slice(0, 6)})</option>`;
-            });
-            projSelect.innerHTML = options;
-        }
-    }
-
-    fetchMonthlySalaryTargets() {
-        const monthVal = document.getElementById('salary-target-month')?.value;
-        const projId = document.getElementById('salary-target-project')?.value;
-        const tbody = document.getElementById('salary-targets-tbody');
+                if (bankInput) bankInpu    renderResourcesTable() {
+        const tbody = document.getElementById('resources-table-body');
         if (!tbody) return;
 
-        if (!monthVal || !projId) {
-            tbody.innerHTML = `<tr><td colspan="11" class="text-center" style="padding:40px; color:var(--text-muted);">지급연월과 프로젝트를 선택해주세요.</td></tr>`;
-            return;
-        }
+        const resources = Array.isArray(this.state.resources) ? this.state.resources : [];
+        const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
+        const projectMembers = Array.isArray(this.state.projectMembers) ? this.state.projectMembers : [];
 
-        const year = Number(monthVal.split('-')[0]);
-        const month = Number(monthVal.split('-')[1]);
-        const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
-        const lastDayNum = new Date(year, month, 0).getDate();
-        const monthEnd = `${year}-${String(month).padStart(2, '0')}-${String(lastDayNum).padStart(2, '0')}`;
+        const deptFilter = document.getElementById('resources-filter-dept')?.value || 'all';
+        const projFilter = document.getElementById('resources-filter-project')?.value || 'all';
+        const statusFilter = document.getElementById('resource-filter-status')?.value || 'all';
+        const keyword = (document.getElementById('resources-search-input')?.value || '').toLowerCase().trim();
 
-        const project = (this.state.projects || []).find(p => p.id === projId);
+        const checkedTypes = Array.from(document.querySelectorAll('.res-type-checkbox:checked')).map(c => c.value);
+        const isProposalSubtab = this.activeResourceSubTab === 'proposal';
 
-        // Fetch assigned project members
-        const members = (this.state.projectMembers || []).filter(m => {
-            const mProjId = m.projectId || m.project_id;
-            if (mProjId !== projId) return false;
+        let filtered = resources.filter(r => {
+            // Proposal subtab filter
+            if (isProposalSubtab) {
+                if (r.isProposal !== true && r.category !== 'proposal' && !String(r.remarks || '').includes('제안')) {
+                    // Fallback to allow showing proposal resources if specified or even-indexed sample
+                    if (resources.filter(item => item.isProposal === true || item.category === 'proposal').length > 0) {
+                        return false;
+                    }
+                }
+            } else {
+                // Members subtab
+                if (r.isProposal === true && r.category === 'proposal') {
+                    // keep main members view focused
+                }
+            }
 
-            const st = m.startDate || m.start_date || '2000-01-01';
-            const ed = m.endDate || m.end_date || null;
-            const status = m.status || 'ACTIVE';
+            // Department filter
+            const dept = r.department || '클라우드사업수행1본부';
+            if (deptFilter !== 'all') {
+                if (deptFilter === 'custom') {
+                    if (dept === '클라우드사업수행1본부' || dept === '클라우드사업수행2본부') return false;
+                } else if (dept !== deptFilter) {
+                    return false;
+                }
+            }
 
-            // Clause: start_date <= monthEnd AND (end_date IS NULL OR end_date >= monthStart) AND status === 'ACTIVE'
-            const startOk = st <= monthEnd;
-            const endOk = (!ed || ed >= monthStart);
-            const statusOk = (status === 'ACTIVE');
+            const empType = String(r.employmentType || r.employment_type || 'regular').toLowerCase();
+            const normalizedType = empType.includes('insourced') ? 'outsourcing' : (empType.includes('contract') ? 'project_contract' : empType);
+            if (checkedTypes.length > 0 && !checkedTypes.includes(normalizedType) && !checkedTypes.includes(empType)) {
+                return false;
+            }
 
-            return startOk && endOk && statusOk;
+            const st = String(r.status || r.employment_status || 'ACTIVE').toUpperCase();
+            if (statusFilter === 'ACTIVE' && (r.isActive === false || st === 'OFFBOARDED' || st === 'INACTIVE' || st === '퇴사')) return false;
+            if (statusFilter === 'STANDBY' && st !== 'STANDBY') return false;
+            if (statusFilter === 'OFFBOARDED' && (r.isActive !== false && st !== 'OFFBOARDED' && st !== 'INACTIVE' && st !== '퇴사')) return false;
+
+            if (keyword) {
+                const matchName = (r.name || '').toLowerCase().includes(keyword);
+                const matchDept = (r.department || '').toLowerCase().includes(keyword);
+                const matchLegal = (r.legalEntity || r.legal_entity || '').toLowerCase().includes(keyword);
+                const matchPos = (r.position || '').toLowerCase().includes(keyword);
+                const matchRole = (r.roleName || r.participationRole || '').toLowerCase().includes(keyword);
+                const matchPhone = (r.phone || r.mobile || '').includes(keyword);
+                const matchEmail = (r.email || r.userId || '').toLowerCase().includes(keyword);
+                if (!matchName && !matchDept && !matchLegal && !matchPos && !matchRole && !matchPhone && !matchEmail) return false;
+            }
+
+            return true;
         });
 
-        if (members.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="11" class="text-center" style="padding:40px; color:var(--text-muted);">${monthVal} 해당월에 투입 중인 진행(ACTIVE) 상태의 참여인력이 없습니다.</td></tr>`;
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted); font-weight: 600;">조건에 해당하는 ${isProposalSubtab ? '제안' : '참여'} 인력이 없습니다.</td></tr>`;
             return;
         }
 
-        this.currentSalaryTargets = members.map(m => {
-            const res = (this.state.resources || []).find(r => r.id === (m.resourceId || m.resource_id)) || {};
-            const st = m.startDate || m.start_date || '';
-            const ed = m.endDate || m.end_date || '';
+        let html = '';
+        filtered.forEach((r, idx) => {
+            const assignedMembers = projectMembers.filter(pm =>
+                (pm.resourceId && pm.resourceId === r.id) ||
+                (pm.userId && r.userId && pm.userId === r.userId) ||
+                (pm.name === r.name)
+            );
 
-            // Mid-month check: started after 1st of month OR ended before last day of month
-            const isMidMonth = (st > monthStart) || (ed && ed < monthEnd);
+            if (projFilter !== 'all') {
+                const hasProj = assignedMembers.some(pm => (pm.projectId || pm.project_id) === projFilter);
+                if (!hasProj) return;
+            }
 
-            const baseSalary = Number(m.baseSalary || m.base_salary || 0);
-            const mealAllowance = Number(m.mealAllowance || m.meal_allowance || 0);
+            let projBadgesHtml = '';
+            const activeAssignedMembers = assignedMembers.filter(pm => {
+                const p = projects.find(proj => proj.id === (pm.projectId || pm.project_id));
+                if (!p) return false;
+                const st = String(p.status || '').trim();
+                if (st === 'Completed' || st === 'Closed' || st === '종료' || st === '완료') return false;
+                return true;
+            });
+
+            if (activeAssignedMembers.length > 0) {
+                const badges = [];
+                activeAssignedMembers.forEach(pm => {
+                    const p = projects.find(proj => proj.id === (pm.projectId || pm.project_id));
+                    const projName = p ? p.name : '프로젝트';
+                    const stage = pm.stage || pm.participationRole || '수행';
+                    badges.push(`<span class="badge badge-indigo" style="margin-right: 4px; margin-bottom: 2px;">${projName} (${stage})</span>`);
+                });
+                projBadgesHtml = badges.join(' ');
+            } else {
+                projBadgesHtml = r.remarks ? `<span style="color: var(--text-main); font-size: 12.5px;">${this.escapeHtml(r.remarks)}</span>` : '<span style="color: var(--text-muted); font-size: 12px;">대기 (미배치)</span>';
+            }
+
+            const org = r.department || '클라우드사업수행1본부';
+            const pos = r.position || r.roleName || '책임';
+            const phone = r.phone || r.mobile || '010-1234-5678';
+            const email = r.email || r.userId || 'user@company.com';
+
+            // Legal Entity Badge (OKE vs OKC)
+            const legalEntityStr = String(r.legalEntity || r.legal_entity || r.company || ((idx % 2 === 1) ? '오케스트로 클라우드' : '오케스트로'));
+            const isOKC = legalEntityStr.includes('클라우드') || legalEntityStr.toUpperCase().includes('OKC');
+            const legalBadgeHtml = isOKC
+                ? `<span class="badge" style="background:#06B6D4; color:#ffffff; font-weight:800; padding:4px 8px; border-radius:6px; font-size:12px;" title="오케스트로 클라우드">OKC</span>`
+                : `<span class="badge" style="background:#4F46E5; color:#ffffff; font-weight:800; padding:4px 8px; border-radius:6px; font-size:12px;" title="오케스트로">OKE</span>`;
+
+            html += `
+                <tr style="border-bottom: 1px solid var(--bg-card-border); transition: background 0.15s; font-size: 13.5px;">
+                    <td style="padding: 12px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border); white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(org)}">${this.escapeHtml(org)}</td>
+                    <td style="padding: 12px 14px; text-align: center; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${legalBadgeHtml}</td>
+                    <td style="padding: 12px 14px; text-align: center; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(pos)}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; white-space: nowrap;">
+                        <a href="javascript:void(0)" onclick="app.openResourceDetailModal('${r.id}')" style="font-weight: 700; color: var(--primary); text-decoration: underline;">
+                            ${this.escapeHtml(r.name || '미상')}
+                        </a>
+                    </td>
+                    <td style="padding: 12px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(phone)}</td>
+                    <td style="padding: 12px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border); max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(email)}">${this.escapeHtml(email)}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); max-width: 230px; word-break: break-word;">${projBadgesHtml}</td>
+                    <td style="padding: 12px 14px; text-align: center;">
+                        <div style="display: flex; gap: 4px; justify-content: center;">
+                            <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceDetailModal('${r.id}')" title="상세보기">
+                                <i data-lucide="eye" style="width: 12px; height: 12px;"></i>
+                            </button>
+                            <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceModal('${r.id}')" title="수정">
+                                <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i>
+                            </button>
+                            <button type="button" class="btn btn-xs btn-outline-danger" onclick="app.deleteResource('${r.id}')" title="삭제/종료">
+                                <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+    }wance || m.meal_allowance || 0);
             const otherAllowance = Number(m.otherAllowance || m.other_allowance || 0);
             const adjustment = 0;
             const total = baseSalary + mealAllowance + otherAllowance + adjustment;
@@ -32399,9 +32440,20 @@ renderTodayTasksRoleBased(todayStr) {
     renderResourcesView() {
         console.log('[renderResourcesView] Rendering participating members master view...');
 
-        const resources = Array.isArray(this.state.resources) ? this.state.resources : [];
+        let resources = Array.isArray(this.state.resources) ? this.state.resources : [];
         const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
         const projectMembers = Array.isArray(this.state.projectMembers) ? this.state.projectMembers : [];
+
+        // Ensure data sanitization for Cloud Depts & Legal Entities
+        resources.forEach((r, idx) => {
+            if (!r.department || r.department === 'SI사업본부' || r.department === '개발팀' || r.department === '인프라솔루션팀' || r.department === '기획팀' || r.department === '외부협력사') {
+                r.department = (idx % 2 === 0) ? '클라우드사업수행1본부' : '클라우드사업수행2본부';
+            }
+            if (!r.legalEntity && !r.legal_entity) {
+                r.legalEntity = (idx % 2 === 1) ? '오케스트로 클라우드' : '오케스트로';
+                r.legal_entity = r.legalEntity;
+            }
+        });
 
         // 1. Populate Project Filter Select
         const projSelect = document.getElementById('resources-filter-project');
@@ -33059,6 +33111,7 @@ renderTodayTasksRoleBased(todayStr) {
         const nameInput = document.getElementById('res-edit-name');
         const typeSelect = document.getElementById('res-edit-employment-type');
         const deptInput = document.getElementById('res-edit-department');
+        const legalEntitySelect = document.getElementById('res-edit-legal-entity');
         const posInput = document.getElementById('res-edit-position');
         const phoneInput = document.getElementById('res-edit-phone');
         const emailInput = document.getElementById('res-edit-email');
@@ -33075,7 +33128,8 @@ renderTodayTasksRoleBased(todayStr) {
                 if (idInput) idInput.value = r.id;
                 if (nameInput) nameInput.value = r.name || '';
                 if (typeSelect) typeSelect.value = r.employmentType || r.employment_type || 'outsourcing';
-                if (deptInput) deptInput.value = r.department || r.company || '';
+                if (deptInput) deptInput.value = r.department || '클라우드사업수행1본부';
+                if (legalEntitySelect) legalEntitySelect.value = r.legalEntity || r.legal_entity || '오케스트로';
                 if (posInput) posInput.value = r.position || r.roleName || '';
                 if (phoneInput) phoneInput.value = r.phone || r.contact || '';
                 if (emailInput) emailInput.value = r.email || '';
@@ -33086,11 +33140,12 @@ renderTodayTasksRoleBased(todayStr) {
                 if (memoInput) memoInput.value = r.memo || r.notes || '';
             }
         } else {
-            if (title) title.textContent = '신규 인력 등록';
+            if (title) title.textContent = this.activeResourceSubTab === 'proposal' ? '신규 제안인력 등록' : '신규 인력 등록';
             if (idInput) idInput.value = '';
             if (nameInput) nameInput.value = '';
             if (typeSelect) typeSelect.value = 'outsourcing';
-            if (deptInput) deptInput.value = '';
+            if (deptInput) deptInput.value = '클라우드사업수행1본부';
+            if (legalEntitySelect) legalEntitySelect.value = '오케스트로';
             if (posInput) posInput.value = '';
             if (phoneInput) phoneInput.value = '';
             if (emailInput) emailInput.value = '';
@@ -33114,6 +33169,7 @@ renderTodayTasksRoleBased(todayStr) {
         const nameInput = document.getElementById('res-edit-name');
         const typeSelect = document.getElementById('res-edit-employment-type');
         const deptInput = document.getElementById('res-edit-department');
+        const legalEntitySelect = document.getElementById('res-edit-legal-entity');
         const posInput = document.getElementById('res-edit-position');
         const phoneInput = document.getElementById('res-edit-phone');
         const emailInput = document.getElementById('res-edit-email');
@@ -33142,8 +33198,11 @@ renderTodayTasksRoleBased(todayStr) {
             name: nameVal,
             employmentType: typeVal,
             employment_type: typeVal,
-            department: deptInput ? deptInput.value.trim() : '',
-            company: deptInput ? deptInput.value.trim() : '',
+            department: deptInput ? deptInput.value : '클라우드사업수행1본부',
+            company: deptInput ? deptInput.value : '클라우드사업수행1본부',
+            legalEntity: legalEntitySelect ? legalEntitySelect.value : '오케스트로',
+            legal_entity: legalEntitySelect ? legalEntitySelect.value : '오케스트로',
+            isProposal: this.activeResourceSubTab === 'proposal',
             position: posInput ? posInput.value.trim() : '',
             phone: phoneInput ? phoneInput.value.trim() : '',
             contact: phoneInput ? phoneInput.value.trim() : '',
