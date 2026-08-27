@@ -24952,38 +24952,54 @@ renderTodayTasksRoleBased(todayStr) {
             return true;
         });
 
+        // 현재 선택 상태 보존
+        const prevSelected = new Set(
+            [...document.querySelectorAll('#customer-contacts-table-body .cust-row-check:checked')]
+                .map(cb => cb.dataset.id)
+        );
+
         if (filtered.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <td colspan="11" style="text-align: center; padding: 40px; color: var(--text-muted);">
                         <i data-lucide="id-card" style="width: 36px; height: 36px; margin-bottom: 8px; opacity: 0.4;"></i>
                         <p style="margin: 0; font-size: 14px;">등록되었거나 조건에 맞는 고객 연락처가 없습니다.</p>
                     </td>
                 </tr>
             `;
             if (typeof lucide !== 'undefined') lucide.createIcons();
+            this._updateCustomerSelectionBar();
             return;
         }
 
         let html = '';
-        filtered.forEach(c => {
+        filtered.forEach((c, idx) => {
             const projName = c.projectName || (this.state.projects?.find(p => p.id === c.projectId)?.name) || '-';
+            const isChecked = prevSelected.has(c.id) ? 'checked' : '';
+            const rowBg = isChecked ? 'background: rgba(99,102,241,0.06);' : '';
             html += `
-                <tr style="border-bottom: 1px solid var(--bg-card-border); font-size: 13px;">
-                    <td style="padding: 12px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.company || '-')}</td>
-                    <td style="padding: 12px 14px; font-weight: 700; text-align: center; color: var(--primary); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.name || '-')}</td>
-                    <td style="padding: 12px 14px; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.department || '')} ${c.position ? `(${this.escapeHtml(c.position)})` : ''}</td>
-                    <td style="padding: 12px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.phone || '-')}</td>
-                    <td style="padding: 12px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.email || '-')}</td>
-                    <td style="padding: 12px 14px; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(projName)}</td>
-                    <td style="padding: 12px 14px; color: var(--text-muted); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.remarks || '-')}</td>
-                    <td style="padding: 12px 14px; text-align: center;">
-                        <div style="display: flex; gap: 6px; justify-content: center;">
-                            <button type="button" class="btn btn-sm btn-outline" onclick="app.openCustomerContactModal('${c.id}')" title="수정" style="padding: 4px 8px;">
-                                <i data-lucide="edit-3" style="width: 14px; height: 14px;"></i>
+                <tr class="cust-contact-row" data-id="${c.id}" style="border-bottom: 1px solid var(--bg-card-border); font-size: 13px; ${rowBg}">
+                    <td style="padding: 10px 14px; text-align: center; border-right: 1px solid var(--bg-card-border);">
+                        <input type="checkbox" class="cust-row-check" data-id="${c.id}" ${isChecked}
+                            onchange="app._onCustomerRowCheck(this)"
+                            style="width: 15px; height: 15px; cursor: pointer; accent-color: #6366F1;">
+                    </td>
+                    <td style="padding: 10px 14px; text-align: center; color: var(--text-muted); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${idx + 1}</td>
+                    <td style="padding: 10px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.company || '-')}</td>
+                    <td style="padding: 10px 14px; font-weight: 700; text-align: center; color: var(--primary); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.name || '-')}</td>
+                    <td style="padding: 10px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.department || '-')}</td>
+                    <td style="padding: 10px 14px; text-align: center; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.position || '-')}</td>
+                    <td style="padding: 10px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.phone || '-')}</td>
+                    <td style="padding: 10px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${c.email ? `<a href="mailto:${this.escapeHtml(c.email)}" style="color: var(--primary); text-decoration: none;">${this.escapeHtml(c.email)}</a>` : '-'}</td>
+                    <td style="padding: 10px 14px; color: var(--text-main); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(projName)}</td>
+                    <td style="padding: 10px 14px; color: var(--text-muted); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(c.remarks || '-')}</td>
+                    <td style="padding: 10px 14px; text-align: center;">
+                        <div style="display: flex; gap: 4px; justify-content: center;">
+                            <button type="button" class="btn btn-sm btn-outline" onclick="app.openCustomerContactModal('${c.id}')" title="수정" style="padding: 4px 7px;">
+                                <i data-lucide="edit-3" style="width: 13px; height: 13px;"></i>
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline" onclick="app.deleteCustomerContact('${c.id}')" title="삭제" style="padding: 4px 8px; color: #ef4444;">
-                                <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="app.deleteCustomerContact('${c.id}')" title="삭제" style="padding: 4px 7px; color: #ef4444;">
+                                <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
                             </button>
                         </div>
                     </td>
@@ -24993,7 +25009,183 @@ renderTodayTasksRoleBased(todayStr) {
 
         tbody.innerHTML = html;
         if (typeof lucide !== 'undefined') lucide.createIcons();
+        this._updateCustomerSelectionBar();
     }
+
+    _onCustomerRowCheck(checkbox) {
+        const row = checkbox.closest('tr');
+        if (row) row.style.background = checkbox.checked ? 'rgba(99,102,241,0.06)' : '';
+        this._updateCustomerSelectionBar();
+    }
+
+    _updateCustomerSelectionBar() {
+        const checked = document.querySelectorAll('#customer-contacts-table-body .cust-row-check:checked');
+        const total = document.querySelectorAll('#customer-contacts-table-body .cust-row-check');
+        const bar = document.getElementById('cust-selection-bar');
+        const countEl = document.getElementById('cust-selected-count');
+        const labelEl = document.getElementById('cust-export-btn-label');
+        const allCheck = document.getElementById('cust-check-all');
+
+        const n = checked.length;
+        if (bar) bar.style.display = n > 0 ? 'flex' : 'none';
+        if (countEl) countEl.textContent = `${n}개 선택됨`;
+        if (labelEl) labelEl.textContent = n > 0 ? `선택 내보내기 (${n})` : '전체 내보내기';
+        if (allCheck) {
+            allCheck.checked = total.length > 0 && n === total.length;
+            allCheck.indeterminate = n > 0 && n < total.length;
+        }
+    }
+
+    toggleAllCustomerContacts(checked) {
+        document.querySelectorAll('#customer-contacts-table-body .cust-row-check').forEach(cb => {
+            cb.checked = checked;
+            const row = cb.closest('tr');
+            if (row) row.style.background = checked ? 'rgba(99,102,241,0.06)' : '';
+        });
+        this._updateCustomerSelectionBar();
+    }
+
+    clearCustomerSelection() {
+        this.toggleAllCustomerContacts(false);
+        const allCheck = document.getElementById('cust-check-all');
+        if (allCheck) { allCheck.checked = false; allCheck.indeterminate = false; }
+    }
+
+    deleteSelectedCustomerContacts() {
+        const ids = [...document.querySelectorAll('#customer-contacts-table-body .cust-row-check:checked')]
+            .map(cb => cb.dataset.id);
+        if (ids.length === 0) return;
+        if (!confirm(`선택한 ${ids.length}개의 고객사 담당자 연락처를 삭제하시겠습니까?`)) return;
+        this.state.customerContacts = (this.state.customerContacts || []).filter(c => !ids.includes(c.id));
+        this.saveState();
+        this.renderCustomerContactsView();
+        if (typeof this.showToast === 'function') this.showToast(`${ids.length}개의 연락처가 삭제되었습니다.`);
+    }
+
+    exportCustomerContactsToExcel(selectedOnly = false) {
+        const contacts = Array.isArray(this.state.customerContacts) ? this.state.customerContacts : [];
+        let data = contacts;
+
+        if (selectedOnly) {
+            const ids = new Set(
+                [...document.querySelectorAll('#customer-contacts-table-body .cust-row-check:checked')]
+                    .map(cb => cb.dataset.id)
+            );
+            if (ids.size > 0) data = contacts.filter(c => ids.has(c.id));
+        }
+
+        if (data.length === 0) {
+            if (typeof this.showToast === 'function') this.showToast('내보낼 데이터가 없습니다.', 'warning');
+            return;
+        }
+
+        const rows = [
+            ['고객사명', '담당자 성명', '부서', '직급/직책', '연락처', '이메일', '관련 프로젝트', '비고']
+        ];
+        data.forEach(c => {
+            rows.push([
+                c.company || '',
+                c.name || '',
+                c.department || '',
+                c.position || '',
+                c.phone || '',
+                c.email || '',
+                c.projectName || (this.state.projects?.find(p => p.id === c.projectId)?.name) || '',
+                c.remarks || ''
+            ]);
+        });
+
+        if (typeof XLSX !== 'undefined') {
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            ws['!cols'] = [180, 100, 120, 100, 130, 200, 160, 200].map(w => ({ wch: Math.round(w / 7) }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '고객사담당자');
+            XLSX.writeFile(wb, `고객사담당자_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        } else {
+            // fallback CSV
+            let csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `고객사담당자_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+        }
+    }
+
+    downloadCustomerContactTemplate() {
+        const rows = [
+            ['고객사명', '담당자 성명', '부서', '직급/직책', '연락처', '이메일', '비고'],
+            ['한국전력공사', '홍길동', '정보화기획처', '처장', '010-1234-5678', 'hong@kepco.co.kr', ''],
+            ['국토교통부', '김민준', 'IT기획과', '주무관', '010-9876-5432', 'kim@molit.go.kr', '']
+        ];
+        if (typeof XLSX !== 'undefined') {
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            ws['!cols'] = [20, 12, 16, 12, 16, 28, 24].map(w => ({ wch: w }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '양식');
+            XLSX.writeFile(wb, '고객사담당자_업로드양식.xlsx');
+        }
+    }
+
+    uploadCustomerContactsExcel(input) {
+        const file = input.files[0];
+        if (!file) return;
+        input.value = '';
+
+        const hint = document.getElementById('cust-upload-template-hint');
+        if (hint) hint.style.display = 'block';
+
+        if (typeof XLSX === 'undefined') {
+            alert('엑셀 파싱 라이브러리가 로드되지 않았습니다. 잠시 후 다시 시도해주세요.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const wb = XLSX.read(e.target.result, { type: 'binary' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+                if (rows.length < 2) { alert('데이터가 없습니다.'); return; }
+
+                // 헤더 행 스킵, 1행부터 처리
+                let added = 0, skipped = 0;
+                if (!Array.isArray(this.state.customerContacts)) this.state.customerContacts = [];
+
+                for (let i = 1; i < rows.length; i++) {
+                    const r = rows[i];
+                    const company = String(r[0] || '').trim();
+                    const name = String(r[1] || '').trim();
+                    const phone = String(r[4] || '').trim();
+                    if (!company || !name) { skipped++; continue; }
+
+                    this.state.customerContacts.push({
+                        id: `cust-${Date.now()}-${i}`,
+                        company,
+                        name,
+                        department: String(r[2] || '').trim(),
+                        position: String(r[3] || '').trim(),
+                        phone,
+                        email: String(r[5] || '').trim(),
+                        projectId: null,
+                        projectName: '',
+                        remarks: String(r[6] || '').trim()
+                    });
+                    added++;
+                }
+
+                this.saveState();
+                this.renderCustomerContactsView();
+                const msg = `✅ ${added}건 업로드 완료${skipped > 0 ? ` (${skipped}건 건너뜀 — 고객사명/담당자 필수)` : ''}`;
+                if (typeof this.showToast === 'function') this.showToast(msg);
+                else alert(msg);
+            } catch (err) {
+                console.error('[uploadCustomerContactsExcel]', err);
+                alert('파일 파싱 중 오류가 발생했습니다. 양식을 확인해주세요.');
+            }
+        };
+        reader.readAsBinaryString(file);
+    }
+
 
     openCustomerContactModal(id = null) {
         const modal = document.getElementById('modal-customer-contact');
@@ -25169,47 +25361,65 @@ renderTodayTasksRoleBased(todayStr) {
             return true;
         });
 
+        // 현재 선택 상태 보존
+        const prevSelected = new Set(
+            [...document.querySelectorAll('#vendor-contacts-table-body .vendor-row-check:checked')]
+                .map(cb => cb.dataset.id)
+        );
+
         if (filtered.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <td colspan="12" style="text-align: center; padding: 40px; color: var(--text-muted);">
                         <i data-lucide="building-2" style="width: 36px; height: 36px; margin-bottom: 8px; opacity: 0.4;"></i>
                         <p style="margin: 0; font-size: 14px;">등록되었거나 조건에 맞는 업체 연락처가 없습니다.</p>
                     </td>
                 </tr>
             `;
             if (typeof lucide !== 'undefined') lucide.createIcons();
+            this._updateVendorSelectionBar();
             return;
         }
 
         let html = '';
-        filtered.forEach(v => {
+        filtered.forEach((v, idx) => {
             const st = v.status || 'ACTIVE';
-            let stBadge = '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">거래중</span>';
-            if (st === 'STANDBY') stBadge = '<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">대기</span>';
-            else if (st === 'CLOSED') stBadge = '<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">종료</span>';
+            let stBadge = '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 11px;">거래중</span>';
+            if (st === 'STANDBY') stBadge = '<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-size: 11px;">대기</span>';
+            else if (st === 'CLOSED') stBadge = '<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; font-size: 11px;">종료</span>';
 
             const catColor = v.category === '컨소시엄' ? '#8b5cf6' : (v.category === '외주사' ? '#06b6d4' : '#6366f1');
+            const isChecked = prevSelected.has(v.id) ? 'checked' : '';
+            const rowBg = isChecked ? 'background: rgba(99,102,241,0.06);' : '';
+            const dept = v.department ? `${v.department}${v.position ? ' / ' + v.position : ''}` : (v.position || '-');
+            const projName = v.projectName || (this.state.projects?.find(p => p.id === v.projectId)?.name) || '-';
 
             html += `
-                <tr style="border-bottom: 1px solid var(--bg-card-border); font-size: 13px;">
-                    <td style="padding: 12px 14px; text-align: center; border-right: 1px solid var(--bg-card-border);">
-                        <span class="badge" style="background: rgba(99, 102, 241, 0.12); color: ${catColor}; font-weight: 700;">${this.escapeHtml(v.category || '협력사')}</span>
+                <tr class="vendor-contact-row" data-id="${v.id}" style="border-bottom: 1px solid var(--bg-card-border); font-size: 13px; ${rowBg}">
+                    <td style="padding: 10px 14px; text-align: center; border-right: 1px solid var(--bg-card-border);">
+                        <input type="checkbox" class="vendor-row-check" data-id="${v.id}" ${isChecked}
+                            onchange="app._onVendorRowCheck(this)"
+                            style="width: 15px; height: 15px; cursor: pointer; accent-color: #6366F1;">
                     </td>
-                    <td style="padding: 12px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.company || '-')}</td>
-                    <td style="padding: 12px 14px; font-weight: 700; text-align: center; color: var(--primary); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.name || '-')}</td>
-                    <td style="padding: 12px 14px; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.position || '-')}</td>
-                    <td style="padding: 12px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.phone || '-')}</td>
-                    <td style="padding: 12px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.email || '-')}</td>
-                    <td style="padding: 12px 14px; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.projectName || '-')}</td>
-                    <td style="padding: 12px 14px; text-align: center; border-right: 1px solid var(--bg-card-border);">${stBadge}</td>
-                    <td style="padding: 12px 14px; text-align: center;">
-                        <div style="display: flex; gap: 6px; justify-content: center;">
-                            <button type="button" class="btn btn-sm btn-outline" onclick="app.openVendorContactModal('${v.id}')" title="수정" style="padding: 4px 8px;">
-                                <i data-lucide="edit-3" style="width: 14px; height: 14px;"></i>
+                    <td style="padding: 10px 14px; text-align: center; color: var(--text-muted); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${idx + 1}</td>
+                    <td style="padding: 10px 14px; text-align: center; border-right: 1px solid var(--bg-card-border);">
+                        <span class="badge" style="background: rgba(99,102,241,0.12); color: ${catColor}; font-weight: 700; font-size: 11px;">${this.escapeHtml(v.category || '협력사')}</span>
+                    </td>
+                    <td style="padding: 10px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.company || '-')}</td>
+                    <td style="padding: 10px 14px; font-weight: 700; text-align: center; color: var(--primary); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.name || '-')}</td>
+                    <td style="padding: 10px 14px; color: var(--text-muted); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(dept)}</td>
+                    <td style="padding: 10px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.phone || '-')}</td>
+                    <td style="padding: 10px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${v.email ? `<a href="mailto:${this.escapeHtml(v.email)}" style="color: var(--primary); text-decoration: none;">${this.escapeHtml(v.email)}</a>` : '-'}</td>
+                    <td style="padding: 10px 14px; color: var(--text-main); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(projName)}</td>
+                    <td style="padding: 10px 14px; text-align: center; border-right: 1px solid var(--bg-card-border);">${stBadge}</td>
+                    <td style="padding: 10px 14px; color: var(--text-muted); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.remarks || '-')}</td>
+                    <td style="padding: 10px 14px; text-align: center;">
+                        <div style="display: flex; gap: 4px; justify-content: center;">
+                            <button type="button" class="btn btn-sm btn-outline" onclick="app.openVendorContactModal('${v.id}')" title="수정" style="padding: 4px 7px;">
+                                <i data-lucide="edit-3" style="width: 13px; height: 13px;"></i>
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline" onclick="app.deleteVendorContact('${v.id}')" title="삭제" style="padding: 4px 8px; color: #ef4444;">
-                                <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="app.deleteVendorContact('${v.id}')" title="삭제" style="padding: 4px 7px; color: #ef4444;">
+                                <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
                             </button>
                         </div>
                     </td>
@@ -25219,7 +25429,189 @@ renderTodayTasksRoleBased(todayStr) {
 
         tbody.innerHTML = html;
         if (typeof lucide !== 'undefined') lucide.createIcons();
+        this._updateVendorSelectionBar();
     }
+
+    _onVendorRowCheck(checkbox) {
+        const row = checkbox.closest('tr');
+        if (row) row.style.background = checkbox.checked ? 'rgba(99,102,241,0.06)' : '';
+        this._updateVendorSelectionBar();
+    }
+
+    _updateVendorSelectionBar() {
+        const checked = document.querySelectorAll('#vendor-contacts-table-body .vendor-row-check:checked');
+        const total = document.querySelectorAll('#vendor-contacts-table-body .vendor-row-check');
+        const bar = document.getElementById('vendor-selection-bar');
+        const countEl = document.getElementById('vendor-selected-count');
+        const labelEl = document.getElementById('vendor-export-btn-label');
+        const allCheck = document.getElementById('vendor-check-all');
+
+        const n = checked.length;
+        if (bar) bar.style.display = n > 0 ? 'flex' : 'none';
+        if (countEl) countEl.textContent = `${n}개 선택됨`;
+        if (labelEl) labelEl.textContent = n > 0 ? `선택 내보내기 (${n})` : '전체 내보내기';
+        if (allCheck) {
+            allCheck.checked = total.length > 0 && n === total.length;
+            allCheck.indeterminate = n > 0 && n < total.length;
+        }
+    }
+
+    toggleAllVendorContacts(checked) {
+        document.querySelectorAll('#vendor-contacts-table-body .vendor-row-check').forEach(cb => {
+            cb.checked = checked;
+            const row = cb.closest('tr');
+            if (row) row.style.background = checked ? 'rgba(99,102,241,0.06)' : '';
+        });
+        this._updateVendorSelectionBar();
+    }
+
+    clearVendorSelection() {
+        this.toggleAllVendorContacts(false);
+        const allCheck = document.getElementById('vendor-check-all');
+        if (allCheck) { allCheck.checked = false; allCheck.indeterminate = false; }
+    }
+
+    deleteSelectedVendorContacts() {
+        const ids = [...document.querySelectorAll('#vendor-contacts-table-body .vendor-row-check:checked')]
+            .map(cb => cb.dataset.id);
+        if (ids.length === 0) return;
+        if (!confirm(`선택한 ${ids.length}개의 협력업체 담당자 연락처를 삭제하시겠습니까?`)) return;
+        this.state.vendorContacts = (this.state.vendorContacts || []).filter(v => !ids.includes(v.id));
+        this.saveState();
+        this.renderVendorContactsView();
+        if (typeof this.showToast === 'function') this.showToast(`${ids.length}개의 연락처가 삭제되었습니다.`);
+    }
+
+    exportVendorContactsToExcel(selectedOnly = false) {
+        const vendors = Array.isArray(this.state.vendorContacts) ? this.state.vendorContacts : [];
+        let data = vendors;
+
+        if (selectedOnly) {
+            const ids = new Set(
+                [...document.querySelectorAll('#vendor-contacts-table-body .vendor-row-check:checked')]
+                    .map(cb => cb.dataset.id)
+            );
+            if (ids.size > 0) data = vendors.filter(v => ids.has(v.id));
+        }
+
+        if (data.length === 0) {
+            if (typeof this.showToast === 'function') this.showToast('내보낼 데이터가 없습니다.', 'warning');
+            return;
+        }
+
+        const statusLabel = { ACTIVE: '거래중', STANDBY: '대기', CLOSED: '계약종료' };
+        const rows = [
+            ['업체구분', '업체명', '담당자 성명', '부서/직급', '연락처', '이메일', '관련 프로젝트', '거래상태', '비고']
+        ];
+        data.forEach(v => {
+            const dept = v.department ? `${v.department}${v.position ? ' / ' + v.position : ''}` : (v.position || '');
+            const projName = v.projectName || (this.state.projects?.find(p => p.id === v.projectId)?.name) || '';
+            rows.push([
+                v.category || '협력사',
+                v.company || '',
+                v.name || '',
+                dept,
+                v.phone || '',
+                v.email || '',
+                projName,
+                statusLabel[v.status] || v.status || '',
+                v.remarks || ''
+            ]);
+        });
+
+        if (typeof XLSX !== 'undefined') {
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            ws['!cols'] = [90, 160, 100, 150, 130, 200, 150, 80, 200].map(w => ({ wch: Math.round(w / 7) }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '협력업체담당자');
+            XLSX.writeFile(wb, `협력업체담당자_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        } else {
+            let csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `협력업체담당자_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+        }
+    }
+
+    downloadVendorContactTemplate() {
+        const rows = [
+            ['업체구분', '업체명', '담당자 성명', '부서/직급', '연락처', '이메일', '거래상태(ACTIVE/STANDBY/CLOSED)', '비고'],
+            ['협력사', '(주)ABC솔루션', '이철수', '개발팀 / 팀장', '010-1111-2222', 'lee@abc.co.kr', 'ACTIVE', ''],
+            ['외주사', '테크파트너스', '박영희', '영업본부 / 이사', '010-3333-4444', 'park@techp.com', 'ACTIVE', '']
+        ];
+        if (typeof XLSX !== 'undefined') {
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            ws['!cols'] = [12, 20, 12, 18, 16, 28, 30, 24].map(w => ({ wch: w }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '양식');
+            XLSX.writeFile(wb, '협력업체담당자_업로드양식.xlsx');
+        }
+    }
+
+    uploadVendorContactsExcel(input) {
+        const file = input.files[0];
+        if (!file) return;
+        input.value = '';
+
+        const hint = document.getElementById('vendor-upload-template-hint');
+        if (hint) hint.style.display = 'block';
+
+        if (typeof XLSX === 'undefined') {
+            alert('엑셀 파싱 라이브러리가 로드되지 않았습니다. 잠시 후 다시 시도해주세요.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const wb = XLSX.read(e.target.result, { type: 'binary' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+                if (rows.length < 2) { alert('데이터가 없습니다.'); return; }
+
+                let added = 0, skipped = 0;
+                if (!Array.isArray(this.state.vendorContacts)) this.state.vendorContacts = [];
+
+                for (let i = 1; i < rows.length; i++) {
+                    const r = rows[i];
+                    const company = String(r[1] || '').trim();
+                    const name = String(r[2] || '').trim();
+                    if (!company || !name) { skipped++; continue; }
+
+                    const rawStatus = String(r[6] || 'ACTIVE').trim().toUpperCase();
+                    const status = ['ACTIVE', 'STANDBY', 'CLOSED'].includes(rawStatus) ? rawStatus : 'ACTIVE';
+
+                    this.state.vendorContacts.push({
+                        id: `vendor-${Date.now()}-${i}`,
+                        category: String(r[0] || '협력사').trim(),
+                        company,
+                        name,
+                        department: '',
+                        position: String(r[3] || '').trim(),
+                        phone: String(r[4] || '').trim(),
+                        email: String(r[5] || '').trim(),
+                        projectId: null,
+                        projectName: '',
+                        status,
+                        remarks: String(r[7] || '').trim()
+                    });
+                    added++;
+                }
+
+                this.saveState();
+                this.renderVendorContactsView();
+                const msg = `✅ ${added}건 업로드 완료${skipped > 0 ? ` (${skipped}건 건너뜀 — 업체명/담당자 필수)` : ''}`;
+                if (typeof this.showToast === 'function') this.showToast(msg);
+                else alert(msg);
+            } catch (err) {
+                console.error('[uploadVendorContactsExcel]', err);
+                alert('파일 파싱 중 오류가 발생했습니다. 양식을 확인해주세요.');
+            }
+        };
+        reader.readAsBinaryString(file);
+    }
+
 
     openVendorContactModal(id = null) {
         const modal = document.getElementById('modal-vendor-contact');
