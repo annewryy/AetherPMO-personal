@@ -214,9 +214,9 @@
                     <span>공문 관리</span>
                 </a>
 
-                <!-- 관리자 설정 (사이드바 최하단 위치, SYS_ADMIN 전용) -->
-                <div class="nav-item-wrapper collapsed" id="nav-wrapper-system-settings" style="display:none;">
-                    <a href="#backup" class="nav-item" data-view="backup" data-tooltip="관리자 설정" onclick="event.preventDefault(); window.app?.toggleNavAccordion?.(this);">
+                <!-- 관리자 설정 (SYS_ADMIN 전용) -->
+                <div class="nav-item-wrapper collapsed" id="nav-wrapper-system-settings">
+                    <a href="#backup" class="nav-item" data-view="backup" data-tooltip="관리자 설정" onclick="event.preventDefault(); window.app?.toggleNavAccordion?.(this); window.app?.switchView?.('backup');">
                         <i data-lucide="settings"></i>
                         <span>관리자 설정</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>

@@ -810,7 +810,7 @@ class AetherPMO {
         // 1. Sidebar menu visibility — 관리자 설정 (nav-wrapper-system-settings)
         const adminWrapper = document.getElementById('nav-wrapper-system-settings');
         if (adminWrapper) {
-            adminWrapper.style.display = (role === 'SYS_ADMIN') ? 'flex' : 'none';
+            adminWrapper.style.display = (role === 'SYS_ADMIN') ? '' : 'none';
         }
         const adminSection = document.getElementById('sidebar-admin-section');
         if (adminSection) {
@@ -8811,6 +8811,20 @@ renderTodayTasksRoleBased(todayStr) {
             if (subItem) subItem.classList.add('active');
             const resNav = document.querySelector('.nav-item[data-view="resources"]');
             if (resNav) resNav.classList.add('active');
+        } else if (typeof route === 'string' && (route === 'backup' || route === 'menu-settings' || route === 'user-mgmt' || route.startsWith('backup'))) {
+            const adminWrapper = document.getElementById('nav-wrapper-system-settings');
+            if (adminWrapper) adminWrapper.classList.remove('collapsed');
+
+            const adminNav = document.querySelector('.nav-item[data-view="backup"]');
+            if (adminNav) adminNav.classList.add('active');
+
+            if (route === 'menu-settings') {
+                const menuSubItem = document.querySelector('.submenu-item[data-subview="menu-settings"]');
+                if (menuSubItem) menuSubItem.classList.add('active');
+            } else {
+                const userSubItem = document.querySelector('.submenu-item[data-subview="user-mgmt"]');
+                if (userSubItem) userSubItem.classList.add('active');
+            }
         } else {
             const navItem = document.querySelector(`.nav-item[data-view="${route}"]`);
             if (navItem) navItem.classList.add('active');
