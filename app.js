@@ -31190,30 +31190,7 @@ renderTodayTasksRoleBased(todayStr) {
         if (window.lucide) lucide.createIcons();
     }
 
-    openResourceModal(resourceId = null) {
-        const modal = document.getElementById('modal-resource-edit');
-        if (!modal) return;
-
-        const title = document.getElementById('res-modal-title');
-        const idInput = document.getElementById('res-edit-id');
-        const nameInput = document.getElementById('res-edit-name');
-        const typeSelect = document.getElementById('res-edit-employment-type');
-        const deptInput = document.getElementById('res-edit-department');
-        const posInput = document.getElementById('res-edit-position');
-        const bankInput = document.getElementById('res-edit-bank-name');
-        const accInput = document.getElementById('res-edit-account-number');
-        const activeChk = document.getElementById('res-edit-is-active');
-
-        if (resourceId) {
-            const r = (this.state.resources || []).find(res => res.id === resourceId);
-            if (r) {
-                if (title) title.textContent = '참여인력 정보 수정';
-                if (idInput) idInput.value = r.id;
-                if (nameInput) nameInput.value = r.name || '';
-                if (typeSelect) typeSelect.value = r.employmentType || r.employment_type || 'INSOURCED_CONTRACTOR';
-                if (deptInput) deptInput.value = r.department || '';
-                if (posInput) posInput.value = r.position || '';
-                if (bankInput) bankInpu    renderResourcesTable() {
+    renderResourcesTable() {
         const tbody = document.getElementById('resources-table-body');
         if (!tbody) return;
 
