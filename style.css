@@ -8584,6 +8584,25 @@ body.dark-mode .badge-status-cancelled {
     font-family: 'Malgun Gothic', '맑은 고딕', AppleSDGothicNeo-Regular, sans-serif;
     font-size: 13px;
     line-height: 1.6;
+    overflow-x: hidden;
+}
+
+.a4-doc-container table {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
+    table-layout: auto !important;
+}
+
+.a4-doc-container table colgroup col {
+    width: auto !important;
+}
+
+.a4-doc-container td, .a4-doc-container th {
+    word-break: break-all !important;
+    box-sizing: border-box !important;
 }
 
 /* ── A4 Print & Browser PDF Styling ────────────────────────────────────── */

@@ -31729,49 +31729,49 @@ renderTodayTasksRoleBased(todayStr) {
 <p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:10pt;line-height:1.2;font-family:돋움체;color:rgb(0, 0, 0);"><span style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;font-weight:700;font-family:'맑은 고딕';">2. 지급 요청 사유 : </span><span style="font-family:'맑은 고딕';">상기 사업 수행에 투입된 자사화 인력 및 프로젝트계약직의 ${year}년 ${monthNum}월분 급여 지급을 요청합니다.</span><span style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:굴림;"><br /><br /></span></p>
 <p style="margin:0px 0px 5px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:10pt;line-height:1.2;font-family:돋움체;color:rgb(0, 0, 0);"><span style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;font-weight:700;font-family:'맑은 고딕';">3. 지급 요청 내역 :&nbsp;</span><span style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:'맑은 고딕';">&nbsp;&nbsp;</span></p>
 <p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:10pt;line-height:1.2;font-family:돋움체;color:rgb(0, 0, 0);"><span style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;font-weight:700;font-family:'맑은 고딕';">&nbsp; &nbsp;3.1. 자사화 인력 (${insourcedList.length}명)</span><span style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:굴림;"><br /></span></p>
-<table border="0" cellpadding="0" cellspacing="0" mapping_key="" style="margin:0px auto 0px 20px;padding:0px;border-collapse:collapse;border-spacing:0px;font-size:12px;word-break:normal;table-layout:fixed;color:rgb(0, 0, 0);font-family:맑은고딕;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);background-color:rgb(255, 255, 255);width:662px;overflow-wrap:break-word;">
+<table border="0" cellpadding="0" cellspacing="0" mapping_key="" style="margin:10px 0px;padding:0px;border-collapse:collapse;border-spacing:0px;font-size:12px;word-break:normal;table-layout:fixed;color:rgb(0, 0, 0);font-family:맑은고딕;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);background-color:rgb(255, 255, 255);width:100%;max-width:100%;box-sizing:border-box;overflow-wrap:break-word;">
 	<colgroup style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);">
-	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:35px;" />
-	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:72px;" />
-	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:93px;" />
-	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:94px;" />
-	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:143px;" />
-	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:123px;" />
-	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:101px;" />
+	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:5%;" />
+	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:12%;" />
+	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:14%;" />
+	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:14%;" />
+	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:23%;" />
+	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:18%;" />
+	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:14%;" />
 	</colgroup>
 	<tbody style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);">
 		<tr style="border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);height:22px;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;">
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-weight:700;font-family:굴림, monospace;text-align:center;border:1px solid rgb(0, 0, 0);background:rgb(242, 242, 242);height:21.5px;width:34px;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-weight:700;font-family:굴림, monospace;text-align:center;border:1px solid rgb(0, 0, 0);background:rgb(242, 242, 242);height:21.5px;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:10pt;line-height:1.2;font-family:굴림, monospace;color:rgb(0, 0, 0);"><span style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:'맑은 고딕';font-size:9pt;">No.</span></p>
 			</td>
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-weight:700;font-family:굴림, monospace;text-align:center;border-width:1px 1px 1px medium;border-style:solid solid solid none;border-color:rgb(0, 0, 0) rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background:rgb(242, 242, 242);width:71px;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:21.5px;">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-weight:700;font-family:굴림, monospace;text-align:center;border-width:1px 1px 1px medium;border-style:solid solid solid none;border-color:rgb(0, 0, 0) rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background:rgb(242, 242, 242);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:21.5px;">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:10pt;line-height:1.2;font-family:굴림, monospace;color:rgb(0, 0, 0);"><span style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:'맑은 고딕';font-size:9pt;">성명</span></p>
 			</td>
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-weight:700;font-family:굴림, monospace;text-align:center;border-width:1px 1px 1px medium;border-style:solid solid solid none;border-color:rgb(0, 0, 0) rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background:rgb(242, 242, 242);width:92px;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:21.5px;">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-weight:700;font-family:굴림, monospace;text-align:center;border-width:1px 1px 1px medium;border-style:solid solid solid none;border-color:rgb(0, 0, 0) rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background:rgb(242, 242, 242);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:21.5px;">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:10pt;line-height:1.2;font-family:굴림, monospace;color:rgb(0, 0, 0);"><span style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:'맑은 고딕';font-size:9pt;">입사일</span></p>
 			</td>
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-weight:700;font-family:굴림, monospace;text-align:center;border-width:1px 1px 1px medium;border-style:solid solid solid none;border-color:rgb(0, 0, 0) rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background:rgb(242, 242, 242);width:93px;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:21.5px;">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-weight:700;font-family:굴림, monospace;text-align:center;border-width:1px 1px 1px medium;border-style:solid solid solid none;border-color:rgb(0, 0, 0) rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background:rgb(242, 242, 242);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:21.5px;">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:10pt;line-height:1.2;font-family:굴림, monospace;color:rgb(0, 0, 0);"><span style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:'맑은 고딕';font-size:9pt;">계약만료일</span></p>
 			</td>
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-weight:700;font-family:굴림, monospace;text-align:center;border-width:1px 1px 1px medium;border-style:solid solid solid none;border-color:rgb(0, 0, 0) rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background:rgb(242, 242, 242);width:142px;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:21.5px;">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-weight:700;font-family:굴림, monospace;text-align:center;border-width:1px 1px 1px medium;border-style:solid solid solid none;border-color:rgb(0, 0, 0) rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background:rgb(242, 242, 242);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:21.5px;">
 				<p style="margin:0px;line-height:1.2;color:rgb(0, 0, 0);font-family:굴림, monospace;font-size:10pt;font-weight:700;"><span style="font-family:'맑은 고딕';font-size:9pt;">당월 수행기간</span></p>
 			</td>
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-weight:700;font-family:굴림, monospace;text-align:center;border-width:1px 1px 1px medium;border-style:solid solid solid none;border-color:rgb(0, 0, 0) rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background:rgb(242, 242, 242);width:122px;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:21.5px;">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-weight:700;font-family:굴림, monospace;text-align:center;border-width:1px 1px 1px medium;border-style:solid solid solid none;border-color:rgb(0, 0, 0) rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background:rgb(242, 242, 242);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:21.5px;">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:10pt;line-height:1.2;font-family:굴림, monospace;color:rgb(0, 0, 0);"><span style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:'맑은 고딕';font-size:9pt;">월지급총액(원)</span></p>
 			</td>
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-weight:700;font-family:굴림, monospace;text-align:center;border-width:1px 1px 1px medium;border-style:solid solid solid none;border-color:rgb(0, 0, 0) rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background:rgb(242, 242, 242);width:100px;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:21.5px;">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-weight:700;font-family:굴림, monospace;text-align:center;border-width:1px 1px 1px medium;border-style:solid solid solid none;border-color:rgb(0, 0, 0) rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background:rgb(242, 242, 242);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:21.5px;">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:10pt;line-height:1.2;font-family:굴림, monospace;color:rgb(0, 0, 0);"><span style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:'맑은 고딕';font-size:9pt;">비고</span></p>
 			</td>
 		</tr>
 		${insourcedTableHtml}
 		<tr style="border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);height:19px;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;">
-			<td colspan="5" style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:9pt;font-weight:700;font-family:굴림, monospace;text-align:center;border:1px solid rgb(0, 0, 0);background:rgb(242, 242, 242);height:18px;width:436px;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;">
+			<td colspan="5" style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:9pt;font-weight:700;font-family:굴림, monospace;text-align:center;border:1px solid rgb(0, 0, 0);background:rgb(242, 242, 242);height:18px;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:9pt;line-height:1.2;font-family:굴림, monospace;color:rgb(0, 0, 0);"><span style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:'맑은 고딕';font-size:9pt;">계</span></p>
 			</td>
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:9pt;font-weight:700;font-family:굴림, monospace;text-align:right;border-width:medium 1px 1px medium;border-style:none solid solid none;border-color:currentcolor rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background-image:initial;background-position:initial;background-size:initial;background-repeat:initial;background-attachment:initial;background-origin:initial;background-clip:initial;width:122px;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:18px;">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:9pt;font-weight:700;font-family:굴림, monospace;text-align:right;border-width:medium 1px 1px medium;border-style:none solid solid none;border-color:currentcolor rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background-image:initial;background-position:initial;background-size:initial;background-repeat:initial;background-attachment:initial;background-origin:initial;background-clip:initial;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:18px;">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:9pt;line-height:1.2;font-family:굴림, monospace;color:rgb(0, 0, 0);"><span style="font-family:'맑은 고딕';font-size:9pt;">${insourcedSum.toLocaleString()}&nbsp;</span></p>
 			</td>
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:'맑은 고딕', monospace;color:rgb(36, 42, 48);font-size:9pt;text-align:center;border-width:medium 1px 1px medium;border-style:none solid solid none;border-color:currentcolor rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background-image:initial;background-position:initial;background-size:initial;background-repeat:initial;background-attachment:initial;background-origin:initial;background-clip:initial;width:100px;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:18px;">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:'맑은 고딕', monospace;color:rgb(36, 42, 48);font-size:9pt;text-align:center;border-width:medium 1px 1px medium;border-style:none solid solid none;border-color:currentcolor rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background-image:initial;background-position:initial;background-size:initial;background-repeat:initial;background-attachment:initial;background-origin:initial;background-clip:initial;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:18px;">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:9pt;line-height:1.2;font-family:'맑은 고딕', monospace;color:rgb(36, 42, 48);"><span style="font-family:'맑은 고딕';font-size:9pt;"></span></p>
 			</td>
 		</tr>
@@ -31779,49 +31779,49 @@ renderTodayTasksRoleBased(todayStr) {
 </table>
 <p style="margin:0px;font-size:10pt;line-height:1.2;font-family:돋움체;color:rgb(0, 0, 0);"><span style="font-family:'맑은 고딕';"></span></p>
 <p style="margin:0px;font-size:10pt;line-height:1.2;font-family:돋움체;color:rgb(0, 0, 0);"><b><span style="font-family:'맑은 고딕';">&nbsp; &nbsp;3.2. 프로젝트 계약직 (${contractorList.length}명)</span></b><br /></p>
-<table border="0" cellpadding="0" cellspacing="0" id="isPasted" mapping_key="" style="margin:0px auto 0px 20px;padding:0px;border-collapse:collapse;border-spacing:0px;font-size:14px;word-break:normal;table-layout:fixed;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;border-width:medium;border-style:none;border-color:currentcolor;border-image:initial;empty-cells:show;color:rgb(36, 42, 48);font-family:Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';background-color:rgb(255, 255, 255);width:660px;overflow-wrap:break-word;">
+<table border="0" cellpadding="0" cellspacing="0" id="isPasted" mapping_key="" style="margin:10px 0px;padding:0px;border-collapse:collapse;border-spacing:0px;font-size:14px;word-break:normal;table-layout:fixed;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;border-width:medium;border-style:none;border-color:currentcolor;border-image:initial;empty-cells:show;color:rgb(36, 42, 48);font-family:Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';background-color:rgb(255, 255, 255);width:100%;max-width:100%;box-sizing:border-box;overflow-wrap:break-word;">
 	<colgroup style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);">
-	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:33px;" />
-	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:72px;" />
-	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:93px;" />
-	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:94px;" />
-	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:145px;" />
-	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:122px;" />
-	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:100px;" />
+	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:5%;" />
+	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:12%;" />
+	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:14%;" />
+	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:14%;" />
+	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:23%;" />
+	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:18%;" />
+	<col style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);width:14%;" />
 	</colgroup>
 	<tbody style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;">
 		<tr style="border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;height:23px;">
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);width:32px;height:22px;background-color:rgb(242, 242, 242);">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);height:22px;background-color:rgb(242, 242, 242);">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:'맑은 고딕';font-size:9pt;text-align:center;line-height:1.2;color:rgb(0, 0, 0);"><b style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);">No.</b></p>
 			</td>
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);width:71px;height:22px;background-color:rgb(242, 242, 242);">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);height:22px;background-color:rgb(242, 242, 242);">
 				<p style="margin:0px;text-align:center;line-height:1.2;font-size:9pt;font-family:돋움체;color:rgb(0, 0, 0);"><span style="font-family:굴림;"><b><span style="font-family:'맑은 고딕';">성명</span></b></span></p>
 			</td>
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);width:92px;height:22px;background-color:rgb(242, 242, 242);">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);height:22px;background-color:rgb(242, 242, 242);">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:'맑은 고딕';font-size:9pt;text-align:center;line-height:1.2;color:rgb(0, 0, 0);"><b style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);">입사일</b></p>
 			</td>
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);width:93px;height:22px;background-color:rgb(242, 242, 242);">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);height:22px;background-color:rgb(242, 242, 242);">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:'맑은 고딕';font-size:9pt;text-align:center;line-height:1.2;color:rgb(0, 0, 0);"><b style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);">계약만료일</b></p>
 			</td>
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-weight:700;font-family:굴림, monospace;text-align:center;border-width:1px 1px 1px medium;border-style:solid solid solid none;border-color:rgb(0, 0, 0) rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background:rgb(242, 242, 242);width:144px;scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:22px;">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-weight:700;font-family:굴림, monospace;text-align:center;border-width:1px 1px 1px medium;border-style:solid solid solid none;border-color:rgb(0, 0, 0) rgb(0, 0, 0) rgb(0, 0, 0) currentcolor;background:rgb(242, 242, 242);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border-image:initial;height:22px;">
 				<p style="margin:0px;line-height:1.2;font-size:10pt;font-family:굴림, monospace;color:rgb(0, 0, 0);"><span style="font-family:'맑은 고딕';font-size:9pt;">당월 수행기간</span></p>
 			</td>
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);width:121px;height:22px;background-color:rgb(242, 242, 242);">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);height:22px;background-color:rgb(242, 242, 242);">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:'맑은 고딕';font-size:9pt;text-align:center;line-height:1.2;color:rgb(0, 0, 0);"><b style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);">월지급총액(원)</b></p>
 			</td>
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);width:99px;height:22px;background-color:rgb(242, 242, 242);">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);height:22px;background-color:rgb(242, 242, 242);">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:'맑은 고딕';font-size:9pt;text-align:center;line-height:1.2;color:rgb(0, 0, 0);"><b style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);">비고</b></p>
 			</td>
 		</tr>
 		${contractorTableHtml}
 		<tr style="border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;height:23px;">
-			<td colspan="5" style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);width:436px;height:22px;background-color:rgb(242, 242, 242);">
+			<td colspan="5" style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);height:22px;background-color:rgb(242, 242, 242);">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:9pt;text-align:center;line-height:1.2;font-family:돋움체;color:rgb(0, 0, 0);"><span style="font-family:굴림;"><b><span style="font-family:'맑은 고딕';">계</span></b></span></p>
 			</td>
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);width:121px;text-align:right;height:22px;">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);text-align:right;height:22px;">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-size:9pt;line-height:1.2;font-family:돋움체;color:rgb(0, 0, 0);"><span style="font-family:굴림;"><b><span style="font-family:'맑은 고딕';">${contractorSum.toLocaleString()}&nbsp;</span></b></span></p>
 			</td>
-			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);width:99px;height:22px;">
+			<td style="margin:0px;padding:0px;border-collapse:collapse;border-spacing:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);scrollbar-color:rgb(219, 219, 219) rgb(237, 237, 237);scrollbar-width:thin;box-sizing:border-box;border:1px solid rgb(0, 0, 0);height:22px;">
 				<p style="margin:0px;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);font-family:'맑은 고딕';font-size:9pt;line-height:1.2;color:rgb(0, 0, 0);"><span style="-webkit-tap-highlight-color:rgba(0, 0, 0, 0);"></span></p>
 			</td>
 		</tr>
@@ -31846,6 +31846,15 @@ renderTodayTasksRoleBased(todayStr) {
         if (!approval) return;
 
         this.currentApprovalDetail = approval;
+
+        let snapshot = approval.htmlSnapshot || this.buildSalaryApprovalHtml(approval);
+        snapshot = snapshot.replaceAll('width:662px', 'width:100%')
+                           .replaceAll('width:660px', 'width:100%')
+                           .replaceAll('width: 662px', 'width: 100%')
+                           .replaceAll('width: 660px', 'width: 100%')
+                           .replaceAll('margin:0px auto 0px 20px', 'margin:10px 0px')
+                           .replaceAll('margin: 0px auto 0px 20px', 'margin: 10px 0px');
+        approval.htmlSnapshot = snapshot;
 
         if (!approval.htmlSnapshot) {
             approval.htmlSnapshot = this.buildSalaryApprovalHtml(approval);
