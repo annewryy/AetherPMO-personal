@@ -24900,7 +24900,7 @@ renderTodayTasksRoleBased(todayStr) {
         if (statEmailEl) statEmailEl.textContent = `${emailCount}명`;
         if (statProjEl) statProjEl.textContent = `${linkedProjects.size}건`;
 
-        // 2. Populate Company Select
+        // 2. Populate Company Select (현재 선택값 보존)
         const compSelect = document.getElementById('cust-filter-company');
         if (compSelect) {
             const curVal = compSelect.value || 'all';
@@ -24910,9 +24910,12 @@ renderTodayTasksRoleBased(todayStr) {
                 opts += `<option value="${this.escapeHtml(comp)}" ${comp === curVal ? 'selected' : ''}>${this.escapeHtml(comp)}</option>`;
             });
             compSelect.innerHTML = opts;
+            // innerHTML 재설정 후 value 명시 복원
+            if (curVal !== 'all' && companies.includes(curVal)) compSelect.value = curVal;
+            else compSelect.value = 'all';
         }
 
-        // 3. Populate Project Select
+        // 3. Populate Project Select (현재 선택값 보존)
         const projSelect = document.getElementById('cust-filter-project');
         if (projSelect) {
             const curVal = projSelect.value || 'all';
@@ -24921,24 +24924,31 @@ renderTodayTasksRoleBased(todayStr) {
                 opts += `<option value="${p.id}" ${p.id === curVal ? 'selected' : ''}>${this.escapeHtml(p.name)}</option>`;
             });
             projSelect.innerHTML = opts;
+            // innerHTML 재설정 후 value 명시 복원
+            const validIds = projects.map(p => p.id);
+            if (curVal !== 'all' && validIds.includes(curVal)) projSelect.value = curVal;
+            else projSelect.value = 'all';
         }
 
         this.renderCustomerContactsTable();
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
+
     renderCustomerContactsTable() {
         const tbody = document.getElementById('customer-contacts-table-body');
         if (!tbody) return;
 
         const contacts = Array.isArray(this.state.customerContacts) ? this.state.customerContacts : [];
-        const companyFilter = document.getElementById('cust-filter-company')?.value || 'all';
-        const projFilter = document.getElementById('cust-filter-project')?.value || 'all';
+        const companyFilter = document.getElementById('cust-filter-company')?.value?.trim() || 'all';
+        const projFilter = document.getElementById('cust-filter-project')?.value?.trim() || 'all';
         const keyword = (document.getElementById('cust-search-input')?.value || '').toLowerCase().trim();
 
+        console.log('[renderCustomerContactsTable] contacts:', contacts.length, 'companyFilter:', companyFilter, 'projFilter:', projFilter, 'keyword:', keyword);
+
         let filtered = contacts.filter(c => {
-            if (companyFilter !== 'all' && c.company !== companyFilter) return false;
-            if (projFilter !== 'all' && c.projectId !== projFilter) return false;
+            if (companyFilter && companyFilter !== 'all' && c.company !== companyFilter) return false;
+            if (projFilter && projFilter !== 'all' && c.projectId !== projFilter) return false;
             if (keyword) {
                 const matchComp = (c.company || '').toLowerCase().includes(keyword);
                 const matchName = (c.name || '').toLowerCase().includes(keyword);
@@ -24951,6 +24961,9 @@ renderTodayTasksRoleBased(todayStr) {
             }
             return true;
         });
+
+        console.log('[renderCustomerContactsTable] filtered count:', filtered.length);
+
 
         // 현재 선택 상태 보존
         const prevSelected = new Set(
@@ -25341,13 +25354,15 @@ renderTodayTasksRoleBased(todayStr) {
         if (!tbody) return;
 
         const vendors = Array.isArray(this.state.vendorContacts) ? this.state.vendorContacts : [];
-        const catFilter = document.getElementById('vendor-filter-category')?.value || 'all';
-        const statusFilter = document.getElementById('vendor-filter-status')?.value || 'all';
+        const catFilter = document.getElementById('vendor-filter-category')?.value?.trim() || 'all';
+        const statusFilter = document.getElementById('vendor-filter-status')?.value?.trim() || 'all';
         const keyword = (document.getElementById('vendor-search-input')?.value || '').toLowerCase().trim();
 
+        console.log('[renderVendorContactsTable] vendors:', vendors.length, 'catFilter:', catFilter, 'statusFilter:', statusFilter);
+
         let filtered = vendors.filter(v => {
-            if (catFilter !== 'all' && v.category !== catFilter) return false;
-            if (statusFilter !== 'all' && (v.status || 'ACTIVE') !== statusFilter) return false;
+            if (catFilter && catFilter !== 'all' && v.category !== catFilter) return false;
+            if (statusFilter && statusFilter !== 'all' && (v.status || 'ACTIVE') !== statusFilter) return false;
             if (keyword) {
                 const matchCat = (v.category || '').toLowerCase().includes(keyword);
                 const matchComp = (v.company || '').toLowerCase().includes(keyword);
@@ -25360,6 +25375,9 @@ renderTodayTasksRoleBased(todayStr) {
             }
             return true;
         });
+
+        console.log('[renderVendorContactsTable] filtered count:', filtered.length);
+
 
         // 현재 선택 상태 보존
         const prevSelected = new Set(
