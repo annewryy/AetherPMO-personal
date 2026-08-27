@@ -32247,16 +32247,16 @@ renderTodayTasksRoleBased(todayStr) {
 
             html += `
                 <tr style="border-bottom: 1px solid var(--bg-card-border); transition: background 0.15s; font-size: 13.5px;">
-                    <td style="padding: 12px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(org)}</td>
-                    <td style="padding: 12px 14px; text-align: center; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(pos)}</td>
-                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center;">
+                    <td style="padding: 12px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border); white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(org)}">${this.escapeHtml(org)}</td>
+                    <td style="padding: 12px 14px; text-align: center; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(pos)}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; white-space: nowrap;">
                         <a href="javascript:void(0)" onclick="app.openResourceDetailModal('${r.id}')" style="font-weight: 700; color: var(--primary); text-decoration: underline;">
                             ${this.escapeHtml(r.name || '미상')}
                         </a>
                     </td>
-                    <td style="padding: 12px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(phone)}</td>
-                    <td style="padding: 12px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(email)}</td>
-                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border);">${projBadgesHtml}</td>
+                    <td style="padding: 12px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(phone)}</td>
+                    <td style="padding: 12px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border); max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(email)}">${this.escapeHtml(email)}</td>
+                    <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); max-width: 240px; word-break: break-word;">${projBadgesHtml}</td>
                     <td style="padding: 12px 14px; text-align: center;">
                         <div style="display: flex; gap: 4px; justify-content: center;">
                             <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceDetailModal('${r.id}')" title="상세보기">
