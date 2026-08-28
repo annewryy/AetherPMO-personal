@@ -162,19 +162,19 @@
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
                     </a>
                     <div class="nav-submenu">
-                        <a href="#resources/members" class="submenu-item" data-subview="resources-members" onclick="event.preventDefault(); window.app.switchView('resources/members');">
+                        <a href="#resources/members" class="submenu-item" data-subview="resources-members" data-resource-tab="members" onclick="event.preventDefault(); window.app.switchResourceSubTab('members');">
                             <i data-lucide="user-check"></i>
                             <span>참여인력 목록</span>
                         </a>
-                        <a href="#resources/proposal" class="submenu-item" data-subview="resources-proposal" onclick="event.preventDefault(); window.app.switchView('resources/proposal');">
+                        <a href="#resources/proposal" class="submenu-item" data-subview="resources-proposal" data-resource-tab="proposals" onclick="event.preventDefault(); window.app.switchResourceSubTab('proposals');">
                             <i data-lucide="user-plus"></i>
                             <span>제안인력 관리</span>
                         </a>
-                        <a href="#resources/customers" class="submenu-item" data-subview="resources-customers" onclick="event.preventDefault(); window.app.switchView('resources/customers');">
+                        <a href="#resources/customers" class="submenu-item" data-subview="resources-customers" data-resource-tab="customers" onclick="event.preventDefault(); window.app.switchResourceSubTab('customers');">
                             <i data-lucide="id-card"></i>
                             <span>고객사 담당자</span>
                         </a>
-                        <a href="#resources/vendors" class="submenu-item" data-subview="resources-vendors" onclick="event.preventDefault(); window.app.switchView('resources/vendors');">
+                        <a href="#resources/vendors" class="submenu-item" data-subview="resources-vendors" data-resource-tab="vendors" onclick="event.preventDefault(); window.app.switchResourceSubTab('vendors');">
                             <i data-lucide="building-2"></i>
                             <span>협력업체 담당자</span>
                         </a>
@@ -2283,16 +2283,16 @@
 
                     <!-- Sub-Tabs Navigation -->
                     <div class="sub-tabs-container" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 12px; flex-wrap: wrap;">
-                        <button type="button" class="btn btn-sm btn-outline active" id="res-subtab-members" onclick="app.switchResourceSubTab('members')">
+                        <button type="button" class="btn btn-sm btn-outline active" id="res-subtab-members" data-resource-tab="members" onclick="app.switchResourceSubTab('members')">
                             <i data-lucide="user-check" style="width: 14px; height: 14px; margin-right: 4px;"></i> 참여인력 목록
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline" id="res-subtab-proposal" onclick="app.switchResourceSubTab('proposal')">
+                        <button type="button" class="btn btn-sm btn-outline" id="res-subtab-proposal" data-resource-tab="proposals" onclick="app.switchResourceSubTab('proposals')">
                             <i data-lucide="user-plus" style="width: 14px; height: 14px; margin-right: 4px;"></i> 제안인력 관리
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline" id="res-subtab-customers" onclick="app.switchResourceSubTab('customers')">
+                        <button type="button" class="btn btn-sm btn-outline" id="res-subtab-customers" data-resource-tab="customers" onclick="app.switchResourceSubTab('customers')">
                             <i data-lucide="id-card" style="width: 14px; height: 14px; margin-right: 4px;"></i> 고객사 담당자
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline" id="res-subtab-vendors" onclick="app.switchResourceSubTab('vendors')">
+                        <button type="button" class="btn btn-sm btn-outline" id="res-subtab-vendors" data-resource-tab="vendors" onclick="app.switchResourceSubTab('vendors')">
                             <i data-lucide="building-2" style="width: 14px; height: 14px; margin-right: 4px;"></i> 협력업체 담당자
                         </button>
                     </div>
@@ -2443,6 +2443,100 @@
                         </table>
                     </div>
                     </div><!-- /#res-panel-members -->
+
+                    <!-- PANEL 1.5: PROPOSAL RESOURCES (제안인력 관리 패널) -->
+                    <div id="res-panel-proposals" id="res-panel-proposal" class="resource-sub-panel" style="display: none;">
+                        <!-- Proposal Summary Banner & KPI Cards -->
+                        <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                            <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">총 제안 등록 인력</span>
+                                    <i data-lucide="user-plus" style="width: 18px; height: 18px; color: #6366F1;"></i>
+                                </div>
+                                <div class="stat-card-value" id="proposal-stat-total" style="font-size: 24px; font-weight: 800; color: var(--text-main); margin-top: 8px;">0명</div>
+                            </div>
+                            <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">제안 PM / PL 인력</span>
+                                    <i data-lucide="award" style="width: 18px; height: 18px; color: #10B981;"></i>
+                                </div>
+                                <div class="stat-card-value" id="proposal-stat-pm" style="font-size: 24px; font-weight: 800; color: #10B981; margin-top: 8px;">0명</div>
+                            </div>
+                            <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">오케스트로 (OKE)</span>
+                                    <i data-lucide="building" style="width: 18px; height: 18px; color: #4F46E5;"></i>
+                                </div>
+                                <div class="stat-card-value" id="proposal-stat-oke" style="font-size: 24px; font-weight: 800; color: #4F46E5; margin-top: 8px;">0명</div>
+                            </div>
+                            <div class="card stat-card" style="padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">오케스트로 클라우드 (OKC)</span>
+                                    <i data-lucide="cloud" style="width: 18px; height: 18px; color: #06B6D4;"></i>
+                                </div>
+                                <div class="stat-card-value" id="proposal-stat-okc" style="font-size: 24px; font-weight: 800; color: #06B6D4; margin-top: 8px;">0명</div>
+                            </div>
+                        </div>
+
+                        <!-- Proposal Control & Filter Bar -->
+                        <div class="card" style="margin-bottom: 24px; padding: 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+                                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; flex: 1;">
+                                    <div style="min-width: 180px;">
+                                        <label for="proposal-filter-dept" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">소속 본부</label>
+                                        <select id="proposal-filter-dept" onchange="app.renderResourcesTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                            <option value="all">전체 본부</option>
+                                            <option value="클라우드사업수행1본부">클라우드사업수행1본부</option>
+                                            <option value="클라우드사업수행2본부">클라우드사업수행2본부</option>
+                                            <option value="custom">직접입력</option>
+                                        </select>
+                                    </div>
+                                    <div style="min-width: 160px;">
+                                        <label for="proposal-filter-legal" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">법인 구분</label>
+                                        <select id="proposal-filter-legal" onchange="app.renderResourcesTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                            <option value="all">전체 법인</option>
+                                            <option value="OKE">오케스트로 (OKE)</option>
+                                            <option value="OKC">오케스트로 클라우드 (OKC)</option>
+                                        </select>
+                                    </div>
+                                    <div style="flex: 1; min-width: 200px;">
+                                        <label for="proposal-search-input" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">통합 검색</label>
+                                        <div class="search-input-wrapper" style="position: relative;">
+                                            <i data-lucide="search" style="position: absolute; left: 12px; top: 11px; width: 16px; height: 16px; color: var(--text-muted);"></i>
+                                            <input type="text" id="proposal-search-input" onkeyup="app.renderResourcesTable()" placeholder="성명, 소속, 팀, 파트, 이메일 검색..." style="width: 100%; height: 38px; padding-left: 36px; padding-right: 12px; border-radius: 8px; border: 1px solid var(--bg-card-border); background: var(--bg-input); color: var(--text-main);" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <button type="button" class="btn btn-primary" onclick="app.openResourceModal()" style="display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 16px; font-weight: 700;">
+                                        <i data-lucide="user-plus" style="width: 16px; height: 16px;"></i>
+                                        신규 제안인력 등록
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Proposal Resource Grid Table -->
+                        <div class="card" style="padding: 0; overflow-x: auto; border: 1px solid var(--bg-card-border); border-radius: 12px; background: var(--bg-card);">
+                            <table class="excel-grid-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px;">
+                                <thead>
+                                    <tr style="background: var(--bg-hover-item); border-bottom: 2px solid var(--bg-card-border);">
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 60px; border-right: 1px solid var(--bg-card-border); text-align: center;">No.</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 90px; border-right: 1px solid var(--bg-card-border); text-align: center;">법인 구분</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 170px; border-right: 1px solid var(--bg-card-border); text-align: left;">소속 본부</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 140px; border-right: 1px solid var(--bg-card-border); text-align: left;">팀</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 130px; border-right: 1px solid var(--bg-card-border); text-align: left;">파트</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 100px; border-right: 1px solid var(--bg-card-border); text-align: center;">성명</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 170px; border-right: 1px solid var(--bg-card-border); text-align: left;">이메일</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 220px; border-right: 1px solid var(--bg-card-border); text-align: left;">비고 (투입프로젝트)</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 95px; text-align: center;">관리</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="proposal-resources-table-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div><!-- /#res-panel-proposals -->
 
                     <!-- PANEL 2: CUSTOMER CONTACTS (고객 연락처) -->
                     <div id="res-panel-customers" style="display: none;">
@@ -6186,7 +6280,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v105_proposal_menu_fix_20260828"></script>
+    <script src="app.js?v=v106_proposals_panel_fix_20260828"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->

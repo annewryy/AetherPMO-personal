@@ -24863,53 +24863,75 @@ renderTodayTasksRoleBased(todayStr) {
     }
 
     switchResourceSubTab(subtab = 'members') {
-        this.activeResourceSubTab = subtab;
+        console.log('[switchResourceSubTab]', subtab);
+        const normTab = (subtab === 'proposals' || subtab === 'proposal') ? 'proposal' : subtab;
+        this.activeResourceSubTab = normTab;
 
-        const membersPanel = document.getElementById('res-panel-members');
-        const custPanel = document.getElementById('res-panel-customers');
-        const vendorPanel = document.getElementById('res-panel-vendors');
+        const panelMap = {
+            members: 'res-panel-members',
+            proposals: 'res-panel-proposals',
+            proposal: 'res-panel-proposals',
+            customers: 'res-panel-customers',
+            vendors: 'res-panel-vendors'
+        };
 
-        const titleEl = document.getElementById('resources-view-title');
-        const subtitleEl = document.getElementById('resources-view-subtitle');
+        // 1. Ensure view-resources is active
+        const mainView = document.getElementById('view-resources');
+        if (mainView && !mainView.classList.contains('active')) {
+            document.querySelectorAll('.content-view').forEach(v => v.classList.remove('active'));
+            mainView.classList.add('active');
+        }
 
-        // Update Sub-tabs UI Active State
-        ['members', 'proposal', 'customers', 'vendors'].forEach(st => {
-            const btn = document.getElementById(`res-subtab-${st}`);
-            if (btn) {
-                if (st === subtab) btn.classList.add('active');
-                else btn.classList.remove('active');
+        // 2. Subtabs button & Sidebar Active Class
+        document.querySelectorAll('.sub-tabs-container button, [data-resource-tab], .submenu-item[data-subview^="resources-"]').forEach(btn => {
+            const tabAttr = btn.getAttribute('data-resource-tab') || btn.getAttribute('data-subview')?.replace('resources-', '') || btn.id?.replace('res-subtab-', '');
+            if (tabAttr === subtab || tabAttr === normTab || (normTab === 'proposal' && (tabAttr === 'proposals' || tabAttr === 'proposal'))) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
             }
         });
 
-        [membersPanel, custPanel, vendorPanel].forEach(p => {
+        // 3. Hide all resource sub panels
+        const allPanels = document.querySelectorAll('#res-panel-members, #res-panel-proposals, #res-panel-proposal, #res-panel-customers, #res-panel-vendors');
+        allPanels.forEach(p => {
             if (p) p.style.display = 'none';
         });
 
-        if (subtab === 'customers') {
-            if (custPanel) custPanel.style.display = 'block';
+        // 4. Display target panel
+        const targetPanelId = panelMap[subtab] || panelMap[normTab] || 'res-panel-members';
+        const activePanel = document.getElementById(targetPanelId);
+        if (activePanel) {
+            activePanel.style.display = 'block';
+        }
+
+        // 5. Update view titles & Sidebar route
+        const titleEl = document.getElementById('resources-view-title');
+        const subtitleEl = document.getElementById('resources-view-subtitle');
+
+        if (normTab === 'customers') {
             if (titleEl) titleEl.textContent = '고객사 담당자 관리';
             if (subtitleEl) subtitleEl.textContent = '프로젝트 발주처 및 주요 고객사 실무/관리 담당자 연락처를 통합 관리합니다.';
             this.setActiveSidebarMenu('resources/customers');
             this.renderCustomerContactsView();
-        } else if (subtab === 'vendors') {
-            if (vendorPanel) vendorPanel.style.display = 'block';
+        } else if (normTab === 'vendors') {
             if (titleEl) titleEl.textContent = '협력업체 담당자 관리';
             if (subtitleEl) subtitleEl.textContent = '협력사, 외주사, 컨소시엄 구성원 및 분야별 파트너 업체 연락처를 통합 관리합니다.';
             this.setActiveSidebarMenu('resources/vendors');
             this.renderVendorContactsView();
-        } else if (subtab === 'proposal') {
-            if (membersPanel) membersPanel.style.display = 'block';
+        } else if (normTab === 'proposal') {
             if (titleEl) titleEl.textContent = '제안인력 관리';
             if (subtitleEl) subtitleEl.textContent = '제안 및 입찰 단계 투입 제안인력 현황과 소속 본부/법인구분(OKE/OKC)을 통합 관리합니다.';
             this.setActiveSidebarMenu('resources/proposal');
             this.renderResourcesView();
         } else {
-            if (membersPanel) membersPanel.style.display = 'block';
             if (titleEl) titleEl.textContent = '참여인력 목록';
             if (subtitleEl) subtitleEl.textContent = '프로젝트 단계별 투입 및 계약직·외주 인력 현황과 소속 본부/법인구분(OKE/OKC)을 통합 관리합니다.';
             this.setActiveSidebarMenu('resources/members');
             this.renderResourcesView();
         }
+
+        if (window.lucide) lucide.createIcons();
     }
 
     renderCustomerContactsView() {
@@ -31196,7 +31218,8 @@ renderTodayTasksRoleBased(todayStr) {
 
     renderResourcesTable() {
         const tbody = document.getElementById('resources-table-body');
-        if (!tbody) return;
+        const proposalTbody = document.getElementById('proposal-resources-table-body');
+        if (!tbody && !proposalTbody) return;
 
         const resources = Array.isArray(this.state.resources) ? this.state.resources : [];
         const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
@@ -31413,7 +31436,8 @@ renderTodayTasksRoleBased(todayStr) {
             }
         });
 
-        tbody.innerHTML = html;
+        if (tbody) tbody.innerHTML = html;
+        if (proposalTbody) proposalTbody.innerHTML = html;
     }
 
     fetchMonthlySalaryTargets() {
