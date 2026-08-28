@@ -4984,11 +4984,12 @@ class AetherPMO {
             this.renderDashboard();
             this.renderPersonalizedDashboard();
         } else if (viewName === 'resources' || (typeof viewName === 'string' && viewName.startsWith('resources/'))) {
-            const parts = viewName.split('/');
-            let sub = 'members';
-            if (parts[1] === 'customers') sub = 'customers';
-            else if (parts[1] === 'vendors') sub = 'vendors';
-            else if (parts[1] === 'proposal') sub = 'proposal';
+            const parts = typeof viewName === 'string' ? viewName.split('/') : [];
+            let sub = parts[1] || this.activeResourceSubTab || 'members';
+            if (sub === 'proposals' || sub === 'proposal') sub = 'proposal';
+            else if (sub === 'customers') sub = 'customers';
+            else if (sub === 'vendors') sub = 'vendors';
+            else if (sub === 'members') sub = 'members';
             this.switchResourceSubTab(sub);
         } else if (viewName === 'salaries') {
             this.switchSalarySubTab('target');
@@ -24863,9 +24864,10 @@ renderTodayTasksRoleBased(todayStr) {
     }
 
     switchResourceSubTab(subtab = 'members') {
-        console.log('[switchResourceSubTab]', subtab);
+        console.trace('[Resource tab changed]', subtab);
         const normTab = (subtab === 'proposals' || subtab === 'proposal') ? 'proposal' : subtab;
         this.activeResourceSubTab = normTab;
+        if (this.state) this.state.activeResourceSubTab = normTab;
 
         const panelMap = {
             members: 'res-panel-members',

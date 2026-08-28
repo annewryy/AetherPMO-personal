@@ -2283,16 +2283,16 @@
 
                     <!-- Sub-Tabs Navigation -->
                     <div class="sub-tabs-container" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 12px; flex-wrap: wrap;">
-                        <button type="button" class="btn btn-sm btn-outline active" id="res-subtab-members" data-resource-tab="members" onclick="app.switchResourceSubTab('members')">
+                        <button type="button" class="btn btn-sm btn-outline active" id="res-subtab-members" data-resource-tab="members" onclick="event.preventDefault(); event.stopPropagation(); app.switchResourceSubTab('members')">
                             <i data-lucide="user-check" style="width: 14px; height: 14px; margin-right: 4px;"></i> 참여인력 목록
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline" id="res-subtab-proposal" data-resource-tab="proposals" onclick="app.switchResourceSubTab('proposals')">
+                        <button type="button" class="btn btn-sm btn-outline" id="res-subtab-proposal" data-resource-tab="proposals" onclick="event.preventDefault(); event.stopPropagation(); app.switchResourceSubTab('proposals')">
                             <i data-lucide="user-plus" style="width: 14px; height: 14px; margin-right: 4px;"></i> 제안인력 관리
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline" id="res-subtab-customers" data-resource-tab="customers" onclick="app.switchResourceSubTab('customers')">
+                        <button type="button" class="btn btn-sm btn-outline" id="res-subtab-customers" data-resource-tab="customers" onclick="event.preventDefault(); event.stopPropagation(); app.switchResourceSubTab('customers')">
                             <i data-lucide="id-card" style="width: 14px; height: 14px; margin-right: 4px;"></i> 고객사 담당자
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline" id="res-subtab-vendors" data-resource-tab="vendors" onclick="app.switchResourceSubTab('vendors')">
+                        <button type="button" class="btn btn-sm btn-outline" id="res-subtab-vendors" data-resource-tab="vendors" onclick="event.preventDefault(); event.stopPropagation(); app.switchResourceSubTab('vendors')">
                             <i data-lucide="building-2" style="width: 14px; height: 14px; margin-right: 4px;"></i> 협력업체 담당자
                         </button>
                     </div>
@@ -6280,7 +6280,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v106_proposals_panel_fix_20260828"></script>
+    <script src="app.js?v=v107_fix_resource_tab_revert_20260828"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
