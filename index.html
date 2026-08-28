@@ -162,23 +162,19 @@
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
                     </a>
                     <div class="nav-submenu">
-                        <a href="#resources/members" class="submenu-item" data-subview="resources-members"
-                           onclick="event.preventDefault(); event.stopPropagation(); window.app?.switchView?.('resources/members');">
+                        <a href="#resources/members" class="submenu-item" data-subview="resources-members" onclick="event.preventDefault(); window.app.switchView('resources/members');">
                             <i data-lucide="user-check"></i>
                             <span>참여인력 목록</span>
                         </a>
-                        <a href="#resources/proposal" class="submenu-item" data-subview="resources-proposal"
-                           onclick="event.preventDefault(); event.stopPropagation(); window.app?.switchView?.('resources/proposal');">
+                        <a href="#resources/proposal" class="submenu-item" data-subview="resources-proposal" onclick="event.preventDefault(); window.app.switchView('resources/proposal');">
                             <i data-lucide="user-plus"></i>
                             <span>제안인력 관리</span>
                         </a>
-                        <a href="#resources/customers" class="submenu-item" data-subview="resources-customers"
-                           onclick="event.preventDefault(); event.stopPropagation(); window.app?.switchView?.('resources/customers');">
+                        <a href="#resources/customers" class="submenu-item" data-subview="resources-customers" onclick="event.preventDefault(); window.app.switchView('resources/customers');">
                             <i data-lucide="id-card"></i>
                             <span>고객사 담당자</span>
                         </a>
-                        <a href="#resources/vendors" class="submenu-item" data-subview="resources-vendors"
-                           onclick="event.preventDefault(); event.stopPropagation(); window.app?.switchView?.('resources/vendors');">
+                        <a href="#resources/vendors" class="submenu-item" data-subview="resources-vendors" onclick="event.preventDefault(); window.app.switchView('resources/vendors');">
                             <i data-lucide="building-2"></i>
                             <span>협력업체 담당자</span>
                         </a>
@@ -6190,7 +6186,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v104_proposal_columns_layout_20260827_03"></script>
+    <script src="app.js?v=v105_proposal_menu_fix_20260828"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->

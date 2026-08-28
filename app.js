@@ -8807,11 +8807,15 @@ renderTodayTasksRoleBased(todayStr) {
             let subview = 'resources-members';
             if (sub === 'customers') subview = 'resources-customers';
             else if (sub === 'vendors') subview = 'resources-vendors';
+            else if (sub === 'proposal') subview = 'resources-proposal';
 
             const subItem = document.querySelector(`.submenu-item[data-subview="${subview}"]`);
             if (subItem) subItem.classList.add('active');
             const resNav = document.querySelector('.nav-item[data-view="resources"]');
             if (resNav) resNav.classList.add('active');
+
+            const resWrapper = document.getElementById('nav-wrapper-resources') || resNav?.closest('.nav-item-wrapper');
+            if (resWrapper) resWrapper.classList.remove('collapsed');
         } else if (typeof route === 'string' && (route === 'backup' || route === 'menu-settings' || route === 'user-mgmt' || route.startsWith('backup'))) {
             const adminWrapper = document.getElementById('nav-wrapper-system-settings');
             if (adminWrapper) adminWrapper.classList.remove('collapsed');
