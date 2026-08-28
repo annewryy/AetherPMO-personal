@@ -24863,8 +24863,27 @@ renderTodayTasksRoleBased(todayStr) {
         ];
     }
 
+    syncProposalResources() {
+        if (!Array.isArray(this.state.resources)) {
+            this.state.resources = [];
+        }
+        const defaultProposals = this.getDefaultProposalResources();
+        const existingIds = new Set(this.state.resources.map(r => r.id));
+        let added = false;
+        defaultProposals.forEach(p => {
+            if (!existingIds.has(p.id)) {
+                this.state.resources.push(p);
+                added = true;
+            }
+        });
+        if (added && typeof this.saveState === 'function') {
+            this.saveState();
+        }
+    }
+
     switchResourceSubTab(subtab = 'members') {
         console.trace('[Resource tab changed]', subtab);
+        this.syncProposalResources();
         const normTab = (subtab === 'proposals' || subtab === 'proposal') ? 'proposal' : subtab;
         this.activeResourceSubTab = normTab;
         if (this.state) this.state.activeResourceSubTab = normTab;
@@ -29410,8 +29429,96 @@ renderTodayTasksRoleBased(todayStr) {
         return mapping[type] || type || '미지정';
     }
 
+    getDefaultProposalResources() {
+        const rawList = [
+            { no: 1, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업1팀', part: '클라우드사업1팀', name: '이노선', remark: 'BD', email: 'ns.lee@okestrocloud.com' },
+            { no: 2, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업1팀', part: '클라우드사업관리파트', name: '고상만', remark: 'PMO', email: 'sm.go@okestrocloud.com' },
+            { no: 3, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업1팀', part: '클라우드사업관리파트', name: '오영일', remark: 'Developer', email: 'yi.oh@okestrocloud.com' },
+            { no: 4, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업1팀', part: '클라우드사업관리파트', name: '지병경', remark: 'PMO', email: 'bk.ji@okestrocloud.com' },
+            { no: 5, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업1팀', part: '긴급신고운영파트', name: '김태환', remark: 'PM', email: 'th.kim@okestrocloud.com' },
+            { no: 6, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업1팀', part: '긴급신고운영파트', name: '박재욱', remark: 'OE', email: 'jw.park@okestrocloud.com' },
+            { no: 7, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업1팀', part: '긴급신고운영파트', name: '임지원', remark: 'OE', email: 'jw.lim@okestrocloud.com' },
+            { no: 8, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업1팀', part: '긴급신고운영파트', name: '장화정', remark: 'OE', email: 'hj.jang@okestrocloud.com' },
+            { no: 9, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '클라우드사업2팀', name: '김대환', remark: 'BD', email: 'dh.kim@okestrocloud.com' },
+            { no: 10, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '솔루션사업관리파트', name: '오병구', remark: 'PM', email: 'bg.oh@okestrocloud.com' },
+            { no: 11, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '솔루션사업관리파트', name: '송인빈', remark: 'QA', email: 'ib.song@okestrocloud.com' },
+            { no: 12, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '솔루션사업관리파트', name: '안유경', remark: 'PMO', email: 'yk.an@okestrocloud.com' },
+            { no: 13, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '클라우드인프라파트', name: '김준식', remark: 'IE', email: 'js.kim@okestrocloud.com' },
+            { no: 14, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '클라우드인프라파트', name: '이창현', remark: 'IE', email: 'ch.lee@okestrocloud.com' },
+            { no: 15, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '클라우드인프라파트', name: '김광민', remark: 'IE', email: 'km.kim@okestrocloud.com' },
+            { no: 16, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '클라우드인프라파트', name: '김민수', remark: 'IE', email: 'ms.kim@okestrocloud.com' },
+            { no: 17, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '클라우드인프라파트', name: '어윤정', remark: 'IE', email: 'yj.eo@okestrocloud.com' },
+            { no: 18, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '클라우드인프라파트', name: '정남훈', remark: 'IE', email: 'nh.jung@okestrocloud.com' },
+            { no: 19, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '대구센터운영파트', name: '배영재', remark: 'OE', email: 'yj.bae@okestrocloud.com' },
+            { no: 20, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '대구센터운영파트', name: '김대호', remark: 'OE', email: 'dh.kim2@okestrocloud.com' },
+            { no: 21, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '대구센터운영파트', name: '최준영', remark: 'OE', email: 'jy.choi@okestrocloud.com' },
+            { no: 22, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '대구센터운영파트', name: '최현수2', remark: 'OE', email: 'hs.choi2@okestrocloud.com' },
+            { no: 23, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드아키텍트팀', part: '클라우드아키텍트팀', name: '김대영', remark: 'BD', email: 'dy.kim@okestrocloud.com' },
+            { no: 24, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드아키텍트팀', part: '클라우드아키텍트팀', name: '정성욱', remark: 'TA', email: 'sw.jung@okestrocloud.com' },
+            { no: 25, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드아키텍트팀', part: '클라우드아키텍트팀', name: '임지홍', remark: 'BD', email: 'jh.lim@okestrocloud.com' },
+            { no: 26, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드아키텍트팀', part: '클라우드아키텍트팀', name: '서현호', remark: 'TA', email: 'hh.seo@okestrocloud.com' },
+            { no: 27, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드아키텍트팀', part: '클라우드아키텍트팀', name: '이정필', remark: 'TA', email: 'jp.lee@okestrocloud.com' },
+            { no: 28, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드아키텍트팀', part: '클라우드아키텍트팀', name: '박동국', remark: 'TA', email: 'dg.park@okestrocloud.com' },
+            { no: 29, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드아키텍트팀', part: '클라우드아키텍트팀', name: '유인식', remark: 'DBA', email: 'is.yoo@okestrocloud.com' },
+            { no: 30, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드광주기술팀', part: '클라우드광주기술팀', name: '이현준2', remark: 'PM', email: 'hj.lee2@okestrocloud.com' },
+            { no: 31, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드광주기술팀', part: '클라우드지원파트', name: '김동욱', remark: '운영', email: 'du.kim@okestrocloud.com' },
+            { no: 32, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드광주기술팀', part: '클라우드지원파트', name: '강진석', remark: 'OE', email: 'js.kang@okestrocloud.com' },
+            { no: 33, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드광주기술팀', part: '클라우드지원파트', name: '정태연', remark: 'OE', email: 'ty.jung@okestrocloud.com' },
+            { no: 34, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드광주기술팀', part: '클라우드지원파트', name: '김도형2', remark: 'OE', email: 'dh.kim3@okestrocloud.com' },
+            { no: 35, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드광주기술팀', part: '광주센터운영파트', name: '이동화2', remark: 'OE', email: 'dh.lee2@okestrocloud.com' },
+            { no: 36, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '이동원', remark: 'OE', email: 'dw.lee@okestrocloud.com' },
+            { no: 37, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '권선영', remark: 'OE', email: 'sy.kwon@okestrocloud.com' },
+            { no: 38, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '강수지', remark: 'OE', email: 'sj.kang@okestrocloud.com' },
+            { no: 39, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '김지예', remark: 'OE', email: 'jy.kim@okestrocloud.com' },
+            { no: 40, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '남권우', remark: 'OE', email: 'kw.nam@okestrocloud.com' },
+            { no: 41, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '노재명', remark: 'OE', email: 'jm.roh@okestrocloud.com' },
+            { no: 42, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '이상헌', remark: 'OE', email: 'sh.lee@okestrocloud.com' },
+            { no: 43, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '채종진', remark: 'OE', email: 'jj.chae@okestrocloud.com' },
+            { no: 44, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '김철현', remark: 'OE', email: 'ch.kim@okestrocloud.com' },
+            { no: 45, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '백성일', remark: 'OE', email: 'si.baek@okestrocloud.com' },
+            { no: 46, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '최윤성', remark: 'OE', email: 'ys.choi@okestrocloud.com' },
+            { no: 47, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: '클라우드플랫폼개발팀', name: '이은경', remark: 'Developer', email: 'ek.lee@okestrocloud.com' },
+            { no: 48, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: 'IaaS플랫폼개발파트', name: '김용휘', remark: 'Developer', email: 'yh.kim@okestrocloud.com' },
+            { no: 49, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: 'IaaS플랫폼개발파트', name: '강민지', remark: 'Developer', email: 'mj.kang@okestrocloud.com' },
+            { no: 50, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: 'IaaS플랫폼개발파트', name: '박영선', remark: 'Developer', email: 'ys.park@okestrocloud.com' },
+            { no: 51, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: 'IaaS플랫폼개발파트', name: '박너울', remark: 'Developer', email: 'nu.park@okestrocloud.com' },
+            { no: 52, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: 'PaaS플랫폼개발파트', name: '이진우', remark: 'Developer', email: 'jw.lee@okestrocloud.com' },
+            { no: 53, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: 'PaaS플랫폼개발파트', name: '양기영', remark: 'Developer', email: 'ky.yang@okestrocloud.com' },
+            { no: 54, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: 'PaaS플랫폼개발파트', name: '송진원', remark: 'Developer', email: 'jw.song@okestrocloud.com' },
+            { no: 55, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: 'PaaS플랫폼개발파트', name: '박희준', remark: 'Developer', email: 'hj.park@okestrocloud.com' },
+            { no: 56, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'IaaS서비스개발파트', name: '임대환', remark: 'Developer', email: 'dh.lim2@okestrocloud.com' },
+            { no: 57, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'IaaS서비스개발파트', name: '마승일', remark: 'Developer', email: 'si.ma@okestrocloud.com' },
+            { no: 58, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'IaaS서비스개발파트', name: '정보광', remark: 'Developer', email: 'bg.jung@okestrocloud.com' },
+            { no: 59, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'IaaS서비스개발파트', name: '최지호', remark: 'Developer', email: 'jh.choi@okestrocloud.com' },
+            { no: 60, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'IaaS서비스개발파트', name: '김연지', remark: 'Developer', email: 'yj.kim2@okestrocloud.com' },
+            { no: 61, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'PaaS플랫폼개발파트', name: '곽지호', remark: 'Developer', email: 'jh.kwak@okestrocloud.com' },
+            { no: 62, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'PaaS플랫폼개발파트', name: '김홍희', remark: 'Developer', email: 'hh.kim@okestrocloud.com' },
+            { no: 63, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'PaaS플랫폼개발파트', name: '정주희', remark: 'Developer', email: 'jh.jung@okestrocloud.com' },
+            { no: 64, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'PaaS플랫폼개발파트', name: '조준범', remark: 'Developer', email: 'jb.cho@okestrocloud.com' }
+        ];
+
+        return rawList.map(item => ({
+            id: `proposal-res-${item.no}`,
+            name: item.name,
+            employmentType: 'regular',
+            department: item.dept,
+            legalEntity: '오케스트로 클라우드',
+            position: item.team,
+            team: item.team,
+            part: item.part,
+            roleName: item.remark,
+            remarks: item.remark,
+            phone: '010-1234-5678',
+            email: item.email,
+            isActive: true,
+            isProposal: true
+        }));
+    }
+
     getDefaultResources() {
+        const proposalData = this.getDefaultProposalResources();
         return [
+            ...proposalData,
             {
                 id: 'res-1',
                 name: '안유경',
@@ -31440,6 +31547,34 @@ renderTodayTasksRoleBased(todayStr) {
 
         if (tbody) tbody.innerHTML = html;
         if (proposalTbody) proposalTbody.innerHTML = html;
+
+        // Update Proposal KPI stat cards
+        const propStatTotal = document.getElementById('proposal-stat-total');
+        const propStatPm = document.getElementById('proposal-stat-pm');
+        const propStatOke = document.getElementById('proposal-stat-oke');
+        const propStatOkc = document.getElementById('proposal-stat-okc');
+
+        if (propStatTotal) {
+            const proposalResources = resources.filter(r => r.isProposal || r.id?.startsWith('proposal-res-'));
+            const totalCount = proposalResources.length;
+            const pmCount = proposalResources.filter(r => {
+                const role = String(r.roleName || r.remarks || '').toUpperCase();
+                return role.includes('PM') || role.includes('PL') || role.includes('BD');
+            }).length;
+            const okeCount = proposalResources.filter(r => {
+                const legal = String(r.legalEntity || r.legal_entity || '');
+                return legal.includes('오케스트로') && !legal.includes('클라우드');
+            }).length;
+            const okcCount = proposalResources.filter(r => {
+                const legal = String(r.legalEntity || r.legal_entity || 'OKC');
+                return legal.includes('클라우드') || legal.toUpperCase().includes('OKC');
+            }).length;
+
+            propStatTotal.textContent = `${totalCount}명`;
+            if (propStatPm) propStatPm.textContent = `${pmCount}명`;
+            if (propStatOke) propStatOke.textContent = `${okeCount}명`;
+            if (propStatOkc) propStatOkc.textContent = `${okcCount}명`;
+        }
     }
 
     fetchMonthlySalaryTargets() {
