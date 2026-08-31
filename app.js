@@ -31526,6 +31526,50 @@ renderTodayTasksRoleBased(todayStr) {
                 return true;
             });
 
+            // ── CUSTOM TEAM SORTING ORDER REQUESTED BY USER ───────────────────────────
+            const proposalTeamOrder = [
+                '클라우드사업1팀',
+                '클라우드사업2팀',
+                '클라우드아키텍트팀',
+                '클라우드광주기술팀',
+                '통합운영환경팀',
+                '클라우드플랫폼개발팀',
+                '클라우드서비스개발팀'
+            ];
+
+            const getProposalTeamSortIndex = (teamName) => {
+                if (!teamName) return 999;
+                const t = String(teamName).replace(/\s+/g, '').toLowerCase();
+                const idx = proposalTeamOrder.findIndex(target => {
+                    const normTarget = target.replace(/\s+/g, '').toLowerCase();
+                    return t.includes(normTarget) || normTarget.includes(t);
+                });
+                return idx !== -1 ? idx : 999;
+            };
+
+            filteredProposals.sort((a, b) => {
+                const teamA = String(a.team || a.position || '').trim();
+                const teamB = String(b.team || b.position || '').trim();
+
+                const idxA = getProposalTeamSortIndex(teamA);
+                const idxB = getProposalTeamSortIndex(teamB);
+
+                if (idxA !== idxB) {
+                    return idxA - idxB;
+                }
+
+                // If same team, secondary sort by part, then by name
+                const partA = String(a.part || '').trim();
+                const partB = String(b.part || '').trim();
+                if (partA !== partB) {
+                    return partA.localeCompare(partB, 'ko');
+                }
+
+                const nameA = String(a.name || '').trim();
+                const nameB = String(b.name || '').trim();
+                return nameA.localeCompare(nameB, 'ko');
+            });
+
             if (filteredProposals.length === 0) {
                 proposalTbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 40px; color: var(--text-muted); font-weight: 600;">조건에 해당하는 제안 인력이 없습니다.</td></tr>`;
             } else {
