@@ -8841,6 +8841,73 @@ body.dark-mode #modal-salary-approval-detail h3,
     color: #ffffff !important;
 }
 
+/* Salary Target Edit Modal Dark Mode Styling */
+body.dark-theme #modal-salary-target-edit .modal-content,
+body.dark-mode #modal-salary-target-edit .modal-content,
+[data-theme="dark"] #modal-salary-target-edit .modal-content {
+    background: #0f172a !important;
+    color: #f8fafc !important;
+    border: 1px solid #334155 !important;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.6) !important;
+}
+
+body.dark-theme #modal-salary-target-edit .modal-header,
+body.dark-theme #modal-salary-target-edit .modal-footer,
+body.dark-mode #modal-salary-target-edit .modal-header,
+body.dark-mode #modal-salary-target-edit .modal-footer,
+[data-theme="dark"] #modal-salary-target-edit .modal-header,
+[data-theme="dark"] #modal-salary-target-edit .modal-footer {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    color: #ffffff !important;
+}
+
+body.dark-theme #modal-salary-target-edit .modal-header h3,
+body.dark-mode #modal-salary-target-edit .modal-header h3,
+[data-theme="dark"] #modal-salary-target-edit .modal-header h3 {
+    color: #ffffff !important;
+}
+
+body.dark-theme #modal-salary-target-edit .modal-body,
+body.dark-mode #modal-salary-target-edit .modal-body,
+[data-theme="dark"] #modal-salary-target-edit .modal-body {
+    background: #0f172a !important;
+    color: #f8fafc !important;
+}
+
+body.dark-theme #modal-salary-target-edit label,
+body.dark-mode #modal-salary-target-edit label,
+[data-theme="dark"] #modal-salary-target-edit label {
+    color: #cbd5e1 !important;
+}
+
+body.dark-theme #modal-salary-target-edit input[type="text"],
+body.dark-theme #modal-salary-target-edit input[type="number"],
+body.dark-mode #modal-salary-target-edit input[type="text"],
+body.dark-mode #modal-salary-target-edit input[type="number"],
+[data-theme="dark"] #modal-salary-target-edit input[type="text"],
+[data-theme="dark"] #modal-salary-target-edit input[type="number"] {
+    background: #1e293b !important;
+    color: #ffffff !important;
+    border: 1px solid #334155 !important;
+}
+
+body.dark-theme #modal-salary-target-edit input[readonly],
+body.dark-mode #modal-salary-target-edit input[readonly],
+[data-theme="dark"] #modal-salary-target-edit input[readonly] {
+    background: #162032 !important;
+    color: #94a3b8 !important;
+    border: 1px solid #273549 !important;
+}
+
+body.dark-theme #modal-salary-target-edit input:focus,
+body.dark-mode #modal-salary-target-edit input:focus,
+[data-theme="dark"] #modal-salary-target-edit input:focus {
+    border-color: #6366f1 !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.35) !important;
+}
+
 body.dark-theme #btn-sal-modal-view-doc,
 body.dark-theme #btn-sal-modal-view-items,
 body.dark-theme #btn-sal-modal-view-html,
