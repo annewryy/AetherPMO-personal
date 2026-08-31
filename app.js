@@ -32905,6 +32905,13 @@ renderTodayTasksRoleBased(todayStr) {
         const deptPosEl = document.getElementById('res-detail-dept-pos');
         if (deptPosEl) deptPosEl.textContent = `${r.department || '-'} / ${r.position || '-'}`;
 
+        const isProposal = (r.isProposal === true || r.category === 'proposal' || String(r.id || '').startsWith('proposal-res-') || this.activeResourceSubTab === 'proposal');
+
+        const salaryContainer = document.getElementById('res-detail-salary-container');
+        if (salaryContainer) {
+            salaryContainer.style.display = isProposal ? 'none' : 'block';
+        }
+
         const salaryEl = document.getElementById('res-detail-salary');
         if (salaryEl) salaryEl.textContent = `${(r.baseSalary || r.monthlySalary || 0).toLocaleString()}원 (세전월지급액)`;
 
@@ -33362,10 +33369,22 @@ renderTodayTasksRoleBased(todayStr) {
         const statusSelect = document.getElementById('res-edit-status');
         const memoInput = document.getElementById('res-edit-memo');
 
+        const r = resourceId ? (this.state.resources || []).find(res => res.id === resourceId) : null;
+        const isProposal = r ? (r.isProposal === true || r.category === 'proposal' || String(r.id || '').startsWith('proposal-res-')) : (this.activeResourceSubTab === 'proposal');
+
+        const salaryContainer = document.getElementById('res-edit-salary-container');
+        const datesSalaryRow = document.getElementById('res-edit-dates-salary-row');
+
+        if (salaryContainer) {
+            salaryContainer.style.display = isProposal ? 'none' : 'block';
+        }
+        if (datesSalaryRow) {
+            datesSalaryRow.style.gridTemplateColumns = isProposal ? '1fr 1fr' : '1fr 1fr 1fr';
+        }
+
         if (resourceId) {
-            const r = (this.state.resources || []).find(res => res.id === resourceId);
             if (r) {
-                if (title) title.textContent = this.activeResourceSubTab === 'proposal' ? '제안인력 정보 수정' : '참여인력 정보 수정';
+                if (title) title.textContent = isProposal ? '제안인력 정보 수정' : '참여인력 정보 수정';
                 if (idInput) idInput.value = r.id;
                 if (nameInput) nameInput.value = r.name || '';
                 if (typeSelect) typeSelect.value = r.employmentType || r.employment_type || 'outsourcing';
@@ -33383,7 +33402,7 @@ renderTodayTasksRoleBased(todayStr) {
                 if (memoInput) memoInput.value = r.memo || r.notes || '';
             }
         } else {
-            if (title) title.textContent = this.activeResourceSubTab === 'proposal' ? '신규 제안인력 등록' : '신규 인력 등록';
+            if (title) title.textContent = isProposal ? '신규 제안인력 등록' : '신규 인력 등록';
             if (idInput) idInput.value = '';
             if (nameInput) nameInput.value = '';
             if (typeSelect) typeSelect.value = 'outsourcing';

@@ -31,7 +31,7 @@
     <link rel="icon" href="favicon.png" type="image/png">
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="style.css?v=v116_proposal_position_role_columns_and_import_fix_20260831">
+    <link rel="stylesheet" href="style.css?v=v117_hide_salary_in_proposal_modals_20260831">
 </head>
 <body class="dark-theme">
         <!-- Login Section -->
@@ -6300,7 +6300,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v116_proposal_position_role_columns_and_import_fix_20260831"></script>
+    <script src="app.js?v=v117_hide_salary_in_proposal_modals_20260831"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
@@ -6554,7 +6554,7 @@
                         </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px;" id="res-edit-dates-salary-row">
                         <div>
                             <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">계약 시작일</label>
                             <input type="date" id="res-edit-start-date" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);" />
@@ -6563,7 +6563,7 @@
                             <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">계약 종료일</label>
                             <input type="date" id="res-edit-end-date" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);" />
                         </div>
-                        <div>
+                        <div id="res-edit-salary-container">
                             <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">월 계약금액 (원)</label>
                             <input type="number" id="res-edit-base-salary" placeholder="4500000" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary); text-align: right; font-weight: 600;" />
                         </div>
@@ -6616,7 +6616,7 @@
                 <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
                     <div><span style="color:var(--text-muted); font-size:12px;">성명/구분:</span> <strong id="res-detail-name-type">-</strong></div>
                     <div><span style="color:var(--text-muted); font-size:12px;">소속부서/직급:</span> <strong id="res-detail-dept-pos">-</strong></div>
-                    <div><span style="color:var(--text-muted); font-size:12px;">세전 월지급액:</span> <strong id="res-detail-salary" style="color:#6366F1;">-</strong></div>
+                    <div id="res-detail-salary-container"><span style="color:var(--text-muted); font-size:12px;">세전 월지급액:</span> <strong id="res-detail-salary" style="color:#6366F1;">-</strong></div>
                     <div><span style="color:var(--text-muted); font-size:12px;">총 투입률:</span> <strong id="res-detail-total-ratio">-</strong></div>
                 </div>
 
