@@ -12679,3 +12679,233 @@ html.dark #modal-task .btn-outline:hover {
     opacity: 1;
     transform: translateY(-50%) translateX(2px);
 }
+
+/* ============================================================================
+   WORKFORCE / PROPOSAL RESOURCE EDIT MODAL DARK THEME STYLES
+   Target: 신규 제안인력 등록 및 인력 정보 수정 모달 (#modal-resource-edit)
+   ============================================================================ */
+
+body.dark-theme #modal-resource-edit .modal-content,
+body.dark-mode #modal-resource-edit .modal-content,
+[data-theme="dark"] #modal-resource-edit .modal-content,
+:root[data-theme="dark"] #modal-resource-edit .modal-content {
+    background: #151b2c !important;
+    background-color: #151b2c !important;
+    color: #cbd5e1 !important;
+    border: 1px solid #2a3449 !important;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45) !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+body.dark-theme #modal-resource-edit .modal-header,
+body.dark-mode #modal-resource-edit .modal-header,
+[data-theme="dark"] #modal-resource-edit .modal-header,
+:root[data-theme="dark"] #modal-resource-edit .modal-header {
+    background: #171e31 !important;
+    background-color: #171e31 !important;
+    border-bottom: 1px solid #2a3449 !important;
+    padding: 16px 24px !important;
+    margin: 0 !important;
+}
+
+body.dark-theme #modal-resource-edit .modal-body,
+body.dark-mode #modal-resource-edit .modal-body,
+[data-theme="dark"] #modal-resource-edit .modal-body,
+:root[data-theme="dark"] #modal-resource-edit .modal-body {
+    background: #151b2c !important;
+    background-color: #151b2c !important;
+    padding: 20px 24px !important;
+    margin: 0 !important;
+}
+
+body.dark-theme #modal-resource-edit .modal-footer,
+body.dark-mode #modal-resource-edit .modal-footer,
+[data-theme="dark"] #modal-resource-edit .modal-footer,
+:root[data-theme="dark"] #modal-resource-edit .modal-footer {
+    background: #171e31 !important;
+    background-color: #171e31 !important;
+    border-top: 1px solid #2a3449 !important;
+    padding: 14px 24px !important;
+    margin: 0 !important;
+}
+
+body.dark-theme #modal-resource-edit h2,
+body.dark-theme #modal-resource-edit h3,
+body.dark-theme #modal-resource-edit .modal-title,
+body.dark-theme #modal-resource-edit #res-modal-title,
+body.dark-mode #modal-resource-edit h2,
+body.dark-mode #modal-resource-edit h3,
+body.dark-mode #modal-resource-edit .modal-title,
+body.dark-mode #modal-resource-edit #res-modal-title,
+[data-theme="dark"] #modal-resource-edit h2,
+[data-theme="dark"] #modal-resource-edit h3,
+[data-theme="dark"] #modal-resource-edit .modal-title,
+[data-theme="dark"] #modal-resource-edit #res-modal-title,
+:root[data-theme="dark"] #modal-resource-edit h2,
+:root[data-theme="dark"] #modal-resource-edit h3,
+:root[data-theme="dark"] #modal-resource-edit .modal-title,
+:root[data-theme="dark"] #modal-resource-edit #res-modal-title {
+    color: #f1f5f9 !important;
+}
+
+body.dark-theme #modal-resource-edit label,
+body.dark-mode #modal-resource-edit label,
+[data-theme="dark"] #modal-resource-edit label,
+:root[data-theme="dark"] #modal-resource-edit label {
+    color: #cbd5e1 !important;
+}
+
+body.dark-theme #modal-resource-edit input,
+body.dark-theme #modal-resource-edit select,
+body.dark-theme #modal-resource-edit textarea,
+body.dark-mode #modal-resource-edit input,
+body.dark-mode #modal-resource-edit select,
+body.dark-mode #modal-resource-edit textarea,
+[data-theme="dark"] #modal-resource-edit input,
+[data-theme="dark"] #modal-resource-edit select,
+[data-theme="dark"] #modal-resource-edit textarea,
+:root[data-theme="dark"] #modal-resource-edit input,
+:root[data-theme="dark"] #modal-resource-edit select,
+:root[data-theme="dark"] #modal-resource-edit textarea {
+    background: #0f172a !important;
+    background-color: #0f172a !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #334155 !important;
+}
+
+body.dark-theme #modal-resource-edit select option,
+body.dark-mode #modal-resource-edit select option,
+[data-theme="dark"] #modal-resource-edit select option,
+:root[data-theme="dark"] #modal-resource-edit select option {
+    background: #0f172a !important;
+    background-color: #0f172a !important;
+    color: #e2e8f0 !important;
+}
+
+body.dark-theme #modal-resource-edit input:focus,
+body.dark-theme #modal-resource-edit select:focus,
+body.dark-theme #modal-resource-edit textarea:focus,
+body.dark-mode #modal-resource-edit input:focus,
+body.dark-mode #modal-resource-edit select:focus,
+body.dark-mode #modal-resource-edit textarea:focus,
+[data-theme="dark"] #modal-resource-edit input:focus,
+[data-theme="dark"] #modal-resource-edit select:focus,
+[data-theme="dark"] #modal-resource-edit textarea:focus,
+:root[data-theme="dark"] #modal-resource-edit input:focus,
+:root[data-theme="dark"] #modal-resource-edit select:focus,
+:root[data-theme="dark"] #modal-resource-edit textarea:focus {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18) !important;
+    outline: none !important;
+}
+
+body.dark-theme #modal-resource-edit input::placeholder,
+body.dark-theme #modal-resource-edit textarea::placeholder,
+body.dark-mode #modal-resource-edit input::placeholder,
+body.dark-mode #modal-resource-edit textarea::placeholder,
+[data-theme="dark"] #modal-resource-edit input::placeholder,
+[data-theme="dark"] #modal-resource-edit textarea::placeholder,
+:root[data-theme="dark"] #modal-resource-edit input::placeholder,
+:root[data-theme="dark"] #modal-resource-edit textarea::placeholder {
+    color: #64748b !important;
+}
+
+body.dark-theme #modal-resource-edit input[type="date"],
+body.dark-mode #modal-resource-edit input[type="date"],
+[data-theme="dark"] #modal-resource-edit input[type="date"],
+:root[data-theme="dark"] #modal-resource-edit input[type="date"] {
+    color-scheme: dark !important;
+}
+
+body.dark-theme #modal-resource-edit input[type="date"]::-webkit-calendar-picker-indicator,
+body.dark-mode #modal-resource-edit input[type="date"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] #modal-resource-edit input[type="date"]::-webkit-calendar-picker-indicator,
+:root[data-theme="dark"] #modal-resource-edit input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8) brightness(1.2) !important;
+    cursor: pointer !important;
+}
+
+body.dark-theme #modal-resource-edit .close-btn,
+body.dark-theme #modal-resource-edit .modal-close-btn,
+body.dark-mode #modal-resource-edit .close-btn,
+body.dark-mode #modal-resource-edit .modal-close-btn,
+[data-theme="dark"] #modal-resource-edit .close-btn,
+[data-theme="dark"] #modal-resource-edit .modal-close-btn,
+:root[data-theme="dark"] #modal-resource-edit .close-btn,
+:root[data-theme="dark"] #modal-resource-edit .modal-close-btn {
+    color: #94a3b8 !important;
+    background: transparent !important;
+    transition: color 0.15s ease !important;
+}
+
+body.dark-theme #modal-resource-edit .close-btn:hover,
+body.dark-theme #modal-resource-edit .modal-close-btn:hover,
+body.dark-mode #modal-resource-edit .close-btn:hover,
+body.dark-mode #modal-resource-edit .modal-close-btn:hover,
+[data-theme="dark"] #modal-resource-edit .close-btn:hover,
+[data-theme="dark"] #modal-resource-edit .modal-close-btn:hover,
+:root[data-theme="dark"] #modal-resource-edit .close-btn:hover,
+:root[data-theme="dark"] #modal-resource-edit .modal-close-btn:hover {
+    color: #e2e8f0 !important;
+}
+
+body.dark-theme #modal-resource-edit .btn-outline,
+body.dark-theme #modal-resource-edit .modal-footer .btn-outline,
+body.dark-mode #modal-resource-edit .btn-outline,
+body.dark-mode #modal-resource-edit .modal-footer .btn-outline,
+[data-theme="dark"] #modal-resource-edit .btn-outline,
+[data-theme="dark"] #modal-resource-edit .modal-footer .btn-outline,
+:root[data-theme="dark"] #modal-resource-edit .btn-outline,
+:root[data-theme="dark"] #modal-resource-edit .modal-footer .btn-outline {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: #94a3b8 !important;
+    border: 1px solid #334155 !important;
+    transition: all 0.15s ease !important;
+}
+
+body.dark-theme #modal-resource-edit .btn-outline:hover,
+body.dark-theme #modal-resource-edit .modal-footer .btn-outline:hover,
+body.dark-mode #modal-resource-edit .btn-outline:hover,
+body.dark-mode #modal-resource-edit .modal-footer .btn-outline:hover,
+[data-theme="dark"] #modal-resource-edit .btn-outline:hover,
+[data-theme="dark"] #modal-resource-edit .modal-footer .btn-outline:hover,
+:root[data-theme="dark"] #modal-resource-edit .btn-outline:hover,
+:root[data-theme="dark"] #modal-resource-edit .modal-footer .btn-outline:hover {
+    background: #273248 !important;
+    background-color: #273248 !important;
+    color: #f1f5f9 !important;
+    border-color: #475569 !important;
+}
+
+body.dark-theme #modal-resource-edit .btn-primary,
+body.dark-theme #modal-resource-edit .modal-footer .btn-primary,
+body.dark-mode #modal-resource-edit .btn-primary,
+body.dark-mode #modal-resource-edit .modal-footer .btn-primary,
+[data-theme="dark"] #modal-resource-edit .btn-primary,
+[data-theme="dark"] #modal-resource-edit .modal-footer .btn-primary,
+:root[data-theme="dark"] #modal-resource-edit .btn-primary,
+:root[data-theme="dark"] #modal-resource-edit .modal-footer .btn-primary {
+    background: #6366f1 !important;
+    background-color: #6366f1 !important;
+    color: #ffffff !important;
+    border: 1px solid #4f46e5 !important;
+    font-weight: 700 !important;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.25) !important;
+    transition: all 0.15s ease !important;
+}
+
+body.dark-theme #modal-resource-edit .btn-primary:hover,
+body.dark-theme #modal-resource-edit .modal-footer .btn-primary:hover,
+body.dark-mode #modal-resource-edit .btn-primary:hover,
+body.dark-mode #modal-resource-edit .modal-footer .btn-primary:hover,
+[data-theme="dark"] #modal-resource-edit .btn-primary:hover,
+[data-theme="dark"] #modal-resource-edit .modal-footer .btn-primary:hover,
+:root[data-theme="dark"] #modal-resource-edit .btn-primary:hover,
+:root[data-theme="dark"] #modal-resource-edit .modal-footer .btn-primary:hover {
+    background: #4f46e5 !important;
+    background-color: #4f46e5 !important;
+    border-color: #4338ca !important;
+    color: #ffffff !important;
+}
