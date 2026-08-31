@@ -1013,7 +1013,9 @@ class AetherPMO {
         const confirmPwInput = document.getElementById('signup-password-confirm');
         const nameInput = document.getElementById('signup-name');
         const phoneInput = document.getElementById('signup-phone');
-        const companyInput = document.getElementById('signup-company');
+        const companySelect = document.getElementById('signup-company-select');
+        const companyCustomWrapper = document.getElementById('signup-company-custom-wrapper');
+        const companyCustomInput = document.getElementById('signup-company-custom');
         const positionInput = document.getElementById('signup-position');
         const roleSelect = document.getElementById('signup-role');
         const agreeCheckbox = document.getElementById('signup-agree');
@@ -1024,7 +1026,9 @@ class AetherPMO {
         if (confirmPwInput) confirmPwInput.value = '';
         if (nameInput) nameInput.value = '';
         if (phoneInput) phoneInput.value = '';
-        if (companyInput) companyInput.value = '';
+        if (companySelect) companySelect.value = '오케스트로(주)';
+        if (companyCustomWrapper) companyCustomWrapper.style.display = 'none';
+        if (companyCustomInput) companyCustomInput.value = '';
         if (positionInput) positionInput.value = '';
         if (roleSelect) roleSelect.value = 'WORKER';
         if (agreeCheckbox) agreeCheckbox.checked = false;
@@ -1041,6 +1045,21 @@ class AetherPMO {
     closeSignupModal() {
         const modal = document.getElementById('modal-signup');
         if (modal) modal.style.display = 'none';
+    }
+
+    handleSignupCompanyChange(val) {
+        const customWrapper = document.getElementById('signup-company-custom-wrapper');
+        const customInput = document.getElementById('signup-company-custom');
+        if (!customWrapper) return;
+
+        if (val === 'CUSTOM') {
+            customWrapper.style.display = 'block';
+            if (customInput) customInput.focus();
+            if (window.lucide) window.lucide.createIcons();
+        } else {
+            customWrapper.style.display = 'none';
+            if (customInput) customInput.value = '';
+        }
     }
 
     checkSignupEmailDuplicate() {
@@ -1088,7 +1107,8 @@ class AetherPMO {
         const confirmPwInput = document.getElementById('signup-password-confirm');
         const nameInput = document.getElementById('signup-name');
         const phoneInput = document.getElementById('signup-phone');
-        const companyInput = document.getElementById('signup-company');
+        const companySelect = document.getElementById('signup-company-select');
+        const companyCustomInput = document.getElementById('signup-company-custom');
         const positionInput = document.getElementById('signup-position');
         const roleSelect = document.getElementById('signup-role');
         const agreeCheckbox = document.getElementById('signup-agree');
@@ -1100,7 +1120,21 @@ class AetherPMO {
         const confirmPw = confirmPwInput?.value || '';
         const name = nameInput.value.trim();
         const phone = phoneInput?.value.trim() || '';
-        const company = companyInput?.value.trim() || '(주)오케스트로';
+
+        let company = '오케스트로(주)';
+        if (companySelect) {
+            if (companySelect.value === 'CUSTOM') {
+                company = (companyCustomInput?.value || '').trim();
+                if (!company) {
+                    alert('소속 회사명을 직접 입력해 주세요.');
+                    if (companyCustomInput) companyCustomInput.focus();
+                    return;
+                }
+            } else {
+                company = companySelect.value;
+            }
+        }
+
         const position = positionInput?.value.trim() || '담당자';
         const role = roleSelect?.value || 'WORKER';
 
