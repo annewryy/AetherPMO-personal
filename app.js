@@ -1854,6 +1854,9 @@ class AetherPMO {
             }
         }
 
+        this.excludedSalaryTargets = (this.state && this.state.excludedSalaryTargets) || {};
+        this.modifiedSalaryTargets = (this.state && this.state.modifiedSalaryTargets) || {};
+
         this.mergeStandardTemplateSeeds();
         this.updateProjectsOverdueStatus();
         this.applyTheme(this.state.theme);
@@ -32990,6 +32993,9 @@ renderTodayTasksRoleBased(todayStr) {
         const projectMembers = Array.isArray(this.state.projectMembers) ? this.state.projectMembers : [];
         const projects = Array.isArray(this.state.projects) ? this.state.projects : [];
 
+        this.excludedSalaryTargets = this.excludedSalaryTargets || {};
+        this.modifiedSalaryTargets = this.modifiedSalaryTargets || {};
+
         const monthStart = `${monthVal}-01`;
         const monthEnd = sched.lastDayStr;
 
@@ -33000,6 +33006,10 @@ renderTodayTasksRoleBased(todayStr) {
             const isContractor = empType === 'project_contract' || empType === 'contract';
 
             if (!isInsourced && !isContractor) return;
+
+            // Exclusion check for the month
+            const targetKey = `${monthVal}_${r.id}`;
+            if (this.excludedSalaryTargets[targetKey]) return;
 
             const assignedMembers = projectMembers.filter(pm =>
                 (pm.resourceId && pm.resourceId === r.id) ||
@@ -33037,17 +33047,20 @@ renderTodayTasksRoleBased(todayStr) {
                 if (!matchName && !matchDept) return;
             }
 
-            const baseSalary = r.baseSalary || r.monthlySalary || 4500000;
-            const mealAllowance = r.mealAllowance || 200000;
-            const otherAllowance = r.carAllowance || r.otherAllowance || 100000;
-            const adjustmentAmount = r.adjustmentAmount || 0;
+            const custom = this.modifiedSalaryTargets[targetKey] || {};
+            const baseSalary = custom.baseSalary !== undefined ? custom.baseSalary : (r.baseSalary || r.monthlySalary || 4500000);
+            const mealAllowance = custom.mealAllowance !== undefined ? custom.mealAllowance : (r.mealAllowance || 200000);
+            const otherAllowance = custom.otherAllowance !== undefined ? custom.otherAllowance : (r.carAllowance || r.otherAllowance || 100000);
+            const adjustmentAmount = custom.adjustmentAmount !== undefined ? custom.adjustmentAmount : (r.adjustmentAmount || 0);
+            const customProject = custom.projectName || projName;
+            const customDept = custom.department || (r.department || 'SI사업본부');
 
             targets.push({
                 resourceId: r.id,
                 memberName: r.name,
                 employmentType: isInsourced ? '자사화' : '프로젝트 계약직',
-                department: r.department || 'SI사업본부',
-                projectName: projName,
+                department: customDept,
+                projectName: customProject,
                 baseSalary,
                 mealAllowance,
                 otherAllowance,
@@ -33079,8 +33092,10 @@ renderTodayTasksRoleBased(todayStr) {
         const totEl = document.getElementById('target-kpi-total');
         if (totEl) totEl.textContent = `${sumTotal.toLocaleString()}원`;
 
+        this.updateSalaryTargetSelectedCount();
+
         if (targets.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:40px; color:var(--text-muted);">귀속년월(${monthVal}) 기준 급여 지급 대상자(자사화·프로젝트 계약직)가 없습니다.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="14" style="text-align:center; padding:40px; color:var(--text-muted);">귀속년월(${monthVal}) 기준 급여 지급 대상자(자사화·프로젝트 계약직)가 없습니다.</td></tr>`;
             return;
         }
 
@@ -33096,7 +33111,7 @@ renderTodayTasksRoleBased(todayStr) {
             html += `
                 <tr style="border-bottom: 1px solid var(--bg-card-border);">
                     <td style="padding: 10px; text-align: center; border-right: 1px solid var(--bg-card-border);">
-                        <input type="checkbox" class="chk-salary-target-item" data-idx="${idx}" ${t.selected ? 'checked' : ''} onchange="app.currentSalaryTargets[${idx}].selected = this.checked;" style="width: 15px; height: 15px; cursor: pointer;" />
+                        <input type="checkbox" class="chk-salary-target-item" data-idx="${idx}" ${t.selected !== false ? 'checked' : ''} onchange="app.onSalaryTargetItemCheck(${idx}, this.checked)" style="width: 15px; height: 15px; cursor: pointer;" />
                     </td>
                     <td style="padding: 10px 12px; text-align: center; border-right: 1px solid var(--bg-card-border); font-weight: 600;">${monthVal}</td>
                     <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); font-weight: 600;">${t.projectName}</td>
@@ -33111,13 +33126,211 @@ renderTodayTasksRoleBased(todayStr) {
                     </td>
                     <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: right; font-weight: 800; color: #6366F1;" id="target-total-${idx}">${t.totalPayment.toLocaleString()}원</td>
                     <td style="padding: 10px 12px; border-right: 1px solid var(--bg-card-border); text-align: center; font-size: 12px; font-weight: 700; color: var(--text-muted);">${sched.lastDayStr}</td>
-                    <td style="padding: 10px 12px; text-align: center;">${midMonthBadge}</td>
+                    <td style="padding: 10px 12px; text-align: center; border-right: 1px solid var(--bg-card-border);">${midMonthBadge}</td>
+                    <td style="padding: 8px 12px; text-align: center; white-space: nowrap;">
+                        <div style="display: inline-flex; gap: 6px; align-items: center; justify-content: center;">
+                            <button type="button" class="btn btn-xs btn-outline" onclick="app.openSalaryTargetEditModal(${idx})" title="급여 및 수당 정보 수정" style="color: #6366F1; border-color: rgba(99,102,241,0.4); padding: 4px 8px; font-size: 11.5px;">
+                                <i data-lucide="edit-3" style="width: 12px; height: 12px;"></i> 수정
+                            </button>
+                            <button type="button" class="btn btn-xs btn-outline-danger" onclick="app.deleteSingleSalaryTarget(${idx})" title="지급 대상에서 제외/삭제" style="padding: 4px 8px; font-size: 11.5px; background-color: #2a1215; border: 1px solid #7f1d1d; color: #ffffff;">
+                                <i data-lucide="trash-2" style="width: 12px; height: 12px; color: #f87171;"></i> 삭제
+                            </button>
+                        </div>
+                    </td>
                 </tr>
             `;
         });
 
         tbody.innerHTML = html;
         if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    onSalaryTargetItemCheck(idx, checked) {
+        if (this.currentSalaryTargets && this.currentSalaryTargets[idx]) {
+            this.currentSalaryTargets[idx].selected = checked;
+        }
+        this.updateSalaryTargetSelectedCount();
+    }
+
+    updateSalaryTargetSelectedCount() {
+        const targets = this.currentSalaryTargets || [];
+        const selected = targets.filter(t => t.selected !== false);
+        const countEl = document.getElementById('salary-target-selected-count');
+        if (countEl) countEl.textContent = selected.length;
+
+        const allChk = document.getElementById('salary-target-select-all');
+        if (allChk) {
+            allChk.checked = targets.length > 0 && selected.length === targets.length;
+        }
+    }
+
+    toggleSalaryTargetSelectAll(checked) {
+        if (!this.currentSalaryTargets) return;
+        this.currentSalaryTargets.forEach(t => t.selected = checked);
+        document.querySelectorAll('.chk-salary-target-item').forEach(chk => chk.checked = checked);
+        this.updateSalaryTargetSelectedCount();
+    }
+
+    deleteSelectedSalaryTargets() {
+        const monthVal = document.getElementById('salary-target-month')?.value || new Date().toISOString().slice(0, 7);
+        const targets = this.currentSalaryTargets || [];
+        const selected = targets.filter(t => t.selected !== false);
+
+        if (selected.length === 0) {
+            this.showToast('삭제(제외)할 대상 인원을 선택해주세요.', 'warning');
+            return;
+        }
+
+        if (!confirm(`선택한 ${selected.length}명의 인원을 ${monthVal}월 급여 지급 대상에서 삭제(제외)하시겠습니까?`)) {
+            return;
+        }
+
+        this.excludedSalaryTargets = this.excludedSalaryTargets || {};
+        selected.forEach(t => {
+            this.excludedSalaryTargets[`${monthVal}_${t.resourceId}`] = true;
+        });
+        if (this.state) {
+            this.state.excludedSalaryTargets = this.excludedSalaryTargets;
+        }
+
+        if (typeof this.saveState === 'function') {
+            this.saveState('salary_targets_delete_selected', { month: monthVal, count: selected.length });
+        }
+
+        this.renderSalaryTargetsTable();
+        this.showToast(`${selected.length}명의 인원이 급여 지급 대상에서 성공적으로 삭제되었습니다.`, 'success');
+    }
+
+    deleteSingleSalaryTarget(idx) {
+        const monthVal = document.getElementById('salary-target-month')?.value || new Date().toISOString().slice(0, 7);
+        const target = this.currentSalaryTargets ? this.currentSalaryTargets[idx] : null;
+        if (!target) return;
+
+        if (!confirm(`'${target.memberName}' 인원을 ${monthVal}월 급여 지급 대상에서 삭제(제외)하시겠습니까?`)) {
+            return;
+        }
+
+        this.excludedSalaryTargets = this.excludedSalaryTargets || {};
+        this.excludedSalaryTargets[`${monthVal}_${target.resourceId}`] = true;
+        if (this.state) {
+            this.state.excludedSalaryTargets = this.excludedSalaryTargets;
+        }
+
+        if (typeof this.saveState === 'function') {
+            this.saveState('salary_target_delete_single', { month: monthVal, resourceId: target.resourceId });
+        }
+
+        this.renderSalaryTargetsTable();
+        this.showToast(`'${target.memberName}' 인원이 급여 지급 대상에서 삭제되었습니다.`, 'success');
+    }
+
+    openSalaryTargetEditModal(idx) {
+        const target = this.currentSalaryTargets ? this.currentSalaryTargets[idx] : null;
+        if (!target) return;
+
+        const modal = document.getElementById('modal-salary-target-edit');
+        if (!modal) return;
+
+        const idxInput = document.getElementById('sal-target-edit-idx');
+        const resIdInput = document.getElementById('sal-target-edit-resource-id');
+        const nameInput = document.getElementById('sal-target-edit-name');
+        const typeInput = document.getElementById('sal-target-edit-type');
+        const projInput = document.getElementById('sal-target-edit-project');
+        const deptInput = document.getElementById('sal-target-edit-dept');
+        const baseInput = document.getElementById('sal-target-edit-base');
+        const mealInput = document.getElementById('sal-target-edit-meal');
+        const allowInput = document.getElementById('sal-target-edit-allowance');
+        const adjInput = document.getElementById('sal-target-edit-adjustment');
+
+        if (idxInput) idxInput.value = idx;
+        if (resIdInput) resIdInput.value = target.resourceId;
+        if (nameInput) nameInput.value = target.memberName;
+        if (typeInput) typeInput.value = target.employmentType;
+        if (projInput) projInput.value = target.projectName;
+        if (deptInput) deptInput.value = target.department;
+        if (baseInput) baseInput.value = target.baseSalary;
+        if (mealInput) mealInput.value = target.mealAllowance;
+        if (allowInput) allowInput.value = target.otherAllowance;
+        if (adjInput) adjInput.value = target.adjustmentAmount;
+
+        this.recalcSalaryTargetModalTotal();
+        modal.style.display = 'flex';
+        if (window.lucide) lucide.createIcons();
+    }
+
+    recalcSalaryTargetModalTotal() {
+        const base = parseInt(document.getElementById('sal-target-edit-base')?.value, 10) || 0;
+        const meal = parseInt(document.getElementById('sal-target-edit-meal')?.value, 10) || 0;
+        const allow = parseInt(document.getElementById('sal-target-edit-allowance')?.value, 10) || 0;
+        const adj = parseInt(document.getElementById('sal-target-edit-adjustment')?.value, 10) || 0;
+        const total = base + meal + allow + adj;
+
+        const previewEl = document.getElementById('sal-target-edit-total-preview');
+        if (previewEl) {
+            previewEl.textContent = `${total.toLocaleString()}원`;
+        }
+    }
+
+    closeSalaryTargetEditModal() {
+        const modal = document.getElementById('modal-salary-target-edit');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async saveSalaryTargetEdit() {
+        const idx = parseInt(document.getElementById('sal-target-edit-idx')?.value, 10);
+        const resourceId = document.getElementById('sal-target-edit-resource-id')?.value;
+        const target = this.currentSalaryTargets ? this.currentSalaryTargets[idx] : null;
+
+        if (!target) {
+            this.showToast('수정할 대상 데이터가 올바르지 않습니다.', 'error');
+            return;
+        }
+
+        const monthVal = document.getElementById('salary-target-month')?.value || new Date().toISOString().slice(0, 7);
+        const project = document.getElementById('sal-target-edit-project')?.value?.trim() || target.projectName;
+        const dept = document.getElementById('sal-target-edit-dept')?.value?.trim() || target.department;
+        const base = parseInt(document.getElementById('sal-target-edit-base')?.value, 10) || 0;
+        const meal = parseInt(document.getElementById('sal-target-edit-meal')?.value, 10) || 0;
+        const allow = parseInt(document.getElementById('sal-target-edit-allowance')?.value, 10) || 0;
+        const adj = parseInt(document.getElementById('sal-target-edit-adjustment')?.value, 10) || 0;
+
+        const targetKey = `${monthVal}_${resourceId}`;
+        this.modifiedSalaryTargets = this.modifiedSalaryTargets || {};
+        this.modifiedSalaryTargets[targetKey] = {
+            projectName: project,
+            department: dept,
+            baseSalary: base,
+            mealAllowance: meal,
+            otherAllowance: allow,
+            adjustmentAmount: adj
+        };
+
+        if (this.state) {
+            this.state.modifiedSalaryTargets = this.modifiedSalaryTargets;
+        }
+
+        // Also persist to base resource profile if resource exists
+        const res = (this.state.resources || []).find(r => r.id === resourceId);
+        if (res) {
+            res.baseSalary = base;
+            res.monthlySalary = base;
+            res.mealAllowance = meal;
+            res.carAllowance = allow;
+            res.otherAllowance = allow;
+            res.adjustmentAmount = adj;
+        }
+
+        if (typeof this.saveState === 'function') {
+            await this.saveState('salary_target_edit_save', {
+                month: monthVal,
+                resourceId,
+                modifications: this.modifiedSalaryTargets[targetKey]
+            });
+        }
+
+        this.closeSalaryTargetEditModal();
+        this.renderSalaryTargetsTable();
+        this.showToast(`'${target.memberName}' 인원의 급여 정보가 성공적으로 저장되었습니다.`, 'success');
     }
 
     updateTargetAdjustment(idx, val) {
@@ -33127,6 +33340,14 @@ renderTodayTasksRoleBased(todayStr) {
         target.adjustmentAmount = numVal;
         target.totalPayment = target.baseSalary + target.mealAllowance + target.otherAllowance + numVal;
 
+        const monthVal = document.getElementById('salary-target-month')?.value || new Date().toISOString().slice(0, 7);
+        const targetKey = `${monthVal}_${target.resourceId}`;
+        this.modifiedSalaryTargets = this.modifiedSalaryTargets || {};
+        this.modifiedSalaryTargets[targetKey] = {
+            ...(this.modifiedSalaryTargets[targetKey] || {}),
+            adjustmentAmount: numVal
+        };
+
         const cell = document.getElementById(`target-total-${idx}`);
         if (cell) cell.textContent = `${target.totalPayment.toLocaleString()}원`;
 
@@ -33134,12 +33355,6 @@ renderTodayTasksRoleBased(todayStr) {
         this.currentSalaryTargets.forEach(t => sumTotal += t.totalPayment);
         const totEl = document.getElementById('target-kpi-total');
         if (totEl) totEl.textContent = `${sumTotal.toLocaleString()}원`;
-    }
-
-    toggleSalaryTargetSelectAll(checked) {
-        if (!this.currentSalaryTargets) return;
-        this.currentSalaryTargets.forEach(t => t.selected = checked);
-        document.querySelectorAll('.chk-salary-target-item').forEach(chk => chk.checked = checked);
     }
 
     async createSalaryPaymentApproval() {
