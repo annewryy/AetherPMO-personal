@@ -9072,10 +9072,17 @@ body.dark-mode .badge-status-cancelled {
     font-size: 14px !important;
     font-weight: 700 !important;
     cursor: pointer !important;
-    color: var(--text-secondary, #475569) !important;
-    background: #ffffff !important;
-    border: 1px solid var(--border-color, #cbd5e1) !important;
+    color: var(--text-muted, #94a3b8) !important;
+    background: var(--bg-card, #1e293b) !important;
+    border: 1px solid var(--bg-card-border, #334155) !important;
     transition: all 0.2s ease-in-out !important;
+}
+
+.salary-tab-btn:hover,
+.salary-subtab:hover {
+    background: var(--bg-hover-item, #334155) !important;
+    color: var(--text-main, #ffffff) !important;
+    border-color: var(--border-color, #475569) !important;
 }
 
 .salary-tab-btn svg,
@@ -9084,21 +9091,30 @@ body.dark-mode .badge-status-cancelled {
 .salary-subtab svg,
 .salary-subtab i,
 .salary-subtab .icon {
-    color: var(--text-secondary, #475569) !important;
+    color: var(--text-muted, #94a3b8) !important;
     stroke: currentColor !important;
     fill: none !important;
     width: 16px !important;
     height: 16px !important;
 }
 
+.salary-tab-btn:hover svg,
+.salary-tab-btn:hover i,
+.salary-tab-btn:hover .icon,
+.salary-subtab:hover svg,
+.salary-subtab:hover i,
+.salary-subtab:hover .icon {
+    color: #ffffff !important;
+}
+
 .salary-tab-btn.active,
 .salary-tab-btn.is-active,
 .salary-subtab.active,
 .salary-subtab.is-active {
-    background: var(--primary-color, #4f46e5) !important;
+    background: var(--primary, #6366f1) !important;
     color: #ffffff !important;
-    border-color: var(--primary-color, #4f46e5) !important;
-    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25) !important;
+    border-color: var(--primary, #6366f1) !important;
+    box-shadow: 0 3px 10px rgba(99, 102, 241, 0.35) !important;
 }
 
 .salary-tab-btn.active svg,
@@ -9116,6 +9132,54 @@ body.dark-mode .badge-status-cancelled {
     color: #ffffff !important;
     stroke: currentColor !important;
     fill: none !important;
+}
+
+/* Specific Dark Mode Enhancements for Monthly Salary Subtabs */
+body.dark-theme .salary-tab-btn,
+body.dark-theme .salary-subtab,
+body.dark-mode .salary-tab-btn,
+body.dark-mode .salary-subtab,
+[data-theme="dark"] .salary-tab-btn,
+[data-theme="dark"] .salary-subtab {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    color: #ffffff !important;
+}
+
+body.dark-theme .salary-tab-btn svg,
+body.dark-theme .salary-tab-btn i,
+body.dark-theme .salary-subtab svg,
+body.dark-theme .salary-subtab i,
+body.dark-mode .salary-tab-btn svg,
+body.dark-mode .salary-tab-btn i,
+[data-theme="dark"] .salary-tab-btn svg,
+[data-theme="dark"] .salary-tab-btn i {
+    color: #cbd5e1 !important;
+}
+
+body.dark-theme .salary-tab-btn:hover,
+body.dark-theme .salary-subtab:hover,
+body.dark-mode .salary-tab-btn:hover,
+body.dark-mode .salary-subtab:hover,
+[data-theme="dark"] .salary-tab-btn:hover,
+[data-theme="dark"] .salary-subtab:hover {
+    background: #334155 !important;
+    border-color: #64748b !important;
+    color: #ffffff !important;
+}
+
+body.dark-theme .salary-tab-btn.active,
+body.dark-theme .salary-tab-btn.is-active,
+body.dark-theme .salary-subtab.active,
+body.dark-theme .salary-subtab.is-active,
+body.dark-mode .salary-tab-btn.active,
+body.dark-mode .salary-tab-btn.is-active,
+[data-theme="dark"] .salary-tab-btn.active,
+[data-theme="dark"] .salary-tab-btn.is-active {
+    background: #4f46e5 !important;
+    border-color: #6366f1 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.45) !important;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
