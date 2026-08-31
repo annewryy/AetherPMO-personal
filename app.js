@@ -31527,7 +31527,7 @@ renderTodayTasksRoleBased(todayStr) {
             });
 
             if (filteredProposals.length === 0) {
-                proposalTbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 40px; color: var(--text-muted); font-weight: 600;">조건에 해당하는 제안 인력이 없습니다.</td></tr>`;
+                proposalTbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 40px; color: var(--text-muted); font-weight: 600;">조건에 해당하는 제안 인력이 없습니다.</td></tr>`;
             } else {
                 let propHtml = '';
                 filteredProposals.forEach((r, idx) => {
@@ -31545,6 +31545,9 @@ renderTodayTasksRoleBased(todayStr) {
 
                     propHtml += `
                         <tr style="border-bottom: 1px solid var(--bg-card-border); transition: background 0.15s; font-size: 13.5px;">
+                            <td style="padding: 12px 8px; text-align: center; border-right: 1px solid var(--bg-card-border);">
+                                <input type="checkbox" class="proposal-row-checkbox" value="${r.id}" onchange="app.updateProposalSelectedCount()" style="cursor: pointer; width: 16px; height: 16px;">
+                            </td>
                             <td style="padding: 12px 14px; text-align: center; font-weight: 700; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${idx + 1}</td>
                             <td style="padding: 12px 14px; text-align: center; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${legalBadgeHtml}</td>
                             <td style="padding: 12px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border); white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(org)}">${this.escapeHtml(org)}</td>
@@ -31575,6 +31578,8 @@ renderTodayTasksRoleBased(todayStr) {
                 });
                 proposalTbody.innerHTML = propHtml;
             }
+
+            this.updateProposalSelectedCount();
 
             // Update Proposal KPI Stat Cards
             const propStatTotal = document.getElementById('proposal-stat-total');
@@ -33563,6 +33568,72 @@ renderTodayTasksRoleBased(todayStr) {
             console.error('[downloadProposalResourceTemplate Error]', err);
             this.showToast('양식 다운로드 중 오류가 발생했습니다.', 'error');
         }
+    }
+
+    // ── PROPOSAL BULK SELECTION & DELETION ───────────────────────────────────────
+    toggleAllProposalCheckboxes(checked) {
+        const checkboxes = document.querySelectorAll('.proposal-row-checkbox');
+        checkboxes.forEach(cb => {
+            cb.checked = checked;
+        });
+        this.updateProposalSelectedCount();
+    }
+
+    updateProposalSelectedCount() {
+        const checked = document.querySelectorAll('.proposal-row-checkbox:checked');
+        const all = document.querySelectorAll('.proposal-row-checkbox');
+        const countEl = document.getElementById('proposal-selected-count');
+        if (countEl) countEl.textContent = checked.length;
+
+        const checkAll = document.getElementById('proposal-check-all');
+        if (checkAll) {
+            checkAll.checked = all.length > 0 && checked.length === all.length;
+            checkAll.indeterminate = checked.length > 0 && checked.length < all.length;
+        }
+    }
+
+    async deleteSelectedProposalResources() {
+        const checked = Array.from(document.querySelectorAll('.proposal-row-checkbox:checked'));
+        if (checked.length === 0) {
+            this.showToast('삭제할 제안인력을 먼저 체크박스로 선택해주세요.', 'warning');
+            return;
+        }
+
+        const count = checked.length;
+        if (!confirm(`선택한 ${count}명의 제안인력을 제안 목록에서 삭제하시겠습니까?`)) {
+            return;
+        }
+
+        const idsToDelete = new Set(checked.map(cb => cb.value));
+        this.state.resources = (this.state.resources || []).filter(r => !idsToDelete.has(r.id));
+
+        await this.saveState('proposal_resources_bulk_delete', { count, ids: Array.from(idsToDelete) });
+
+        this.renderResourcesTable();
+        this.updateProposalSelectedCount();
+        this.showToast(`선택한 ${count}명의 제안인력이 성공적으로 삭제되었습니다.`, 'success');
+    }
+
+    async deleteAllProposalResources() {
+        const proposalResources = (this.state.resources || []).filter(r => r.isProposal === true || r.category === 'proposal' || String(r.id || '').startsWith('proposal-res-'));
+        if (proposalResources.length === 0) {
+            this.showToast('삭제할 제안인력 데이터가 없습니다.', 'info');
+            return;
+        }
+
+        const count = proposalResources.length;
+        if (!confirm(`등록된 전체 제안인력 ${count}명을 모두 일괄 삭제하시겠습니까?\n\n※ 참여인력 목록 및 수행 프로젝트 데이터는 영향받지 않습니다.`)) {
+            return;
+        }
+
+        // Remove all proposal resources
+        this.state.resources = (this.state.resources || []).filter(r => !(r.isProposal === true || r.category === 'proposal' || String(r.id || '').startsWith('proposal-res-')));
+
+        await this.saveState('proposal_resources_all_delete', { count, timestamp: new Date().toISOString() });
+
+        this.renderResourcesTable();
+        this.updateProposalSelectedCount();
+        this.showToast(`전체 ${count}명의 제안인력이 삭제되었습니다.`, 'success');
     }
 
     async handleProposalCsvUpload(event) {

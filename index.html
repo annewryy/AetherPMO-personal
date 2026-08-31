@@ -31,7 +31,7 @@
     <link rel="icon" href="favicon.png" type="image/png">
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="style.css?v=v113_strict_separation_participating_vs_proposal_20260831">
+    <link rel="stylesheet" href="style.css?v=v114_proposal_bulk_checkbox_and_delete_20260831">
 </head>
 <body class="dark-theme">
         <!-- Login Section -->
@@ -2508,6 +2508,14 @@
                                     </div>
                                 </div>
                                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                    <button type="button" class="btn btn-outline-danger" onclick="app.deleteSelectedProposalResources()" style="display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; font-weight: 600;" title="체크된 제안인력을 일괄 삭제합니다">
+                                        <i data-lucide="trash-2" style="width: 15px; height: 15px;"></i>
+                                        선택 삭제 (<span id="proposal-selected-count">0</span>)
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger" onclick="app.deleteAllProposalResources()" style="display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; font-weight: 600;" title="모든 제안인력 데이터를 일괄 삭제합니다">
+                                        <i data-lucide="trash" style="width: 15px; height: 15px;"></i>
+                                        전체 삭제
+                                    </button>
                                     <button type="button" class="btn btn-outline" onclick="app.downloadProposalResourceTemplate()" style="display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; font-weight: 600;" title="제안인력 등록용 표준 CSV 양식을 다운로드합니다">
                                         <i data-lucide="download" style="width: 15px; height: 15px;"></i>
                                         양식 다운로드
@@ -2530,7 +2538,8 @@
                             <table class="excel-grid-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px;">
                                 <thead>
                                     <tr style="background: var(--bg-hover-item); border-bottom: 2px solid var(--bg-card-border);">
-                                        <th style="padding: 12px 14px; font-weight: 700; width: 60px; border-right: 1px solid var(--bg-card-border); text-align: center;">No.</th>
+                                        <th style="padding: 12px 8px; width: 44px; text-align: center; border-right: 1px solid var(--bg-card-border);"><input type="checkbox" id="proposal-check-all" onchange="app.toggleAllProposalCheckboxes(this.checked)" title="전체 선택" style="cursor: pointer; width: 16px; height: 16px;"></th>
+                                        <th style="padding: 12px 14px; font-weight: 700; width: 55px; border-right: 1px solid var(--bg-card-border); text-align: center;">No.</th>
                                         <th style="padding: 12px 14px; font-weight: 700; width: 90px; border-right: 1px solid var(--bg-card-border); text-align: center;">법인 구분</th>
                                         <th style="padding: 12px 14px; font-weight: 700; width: 170px; border-right: 1px solid var(--bg-card-border); text-align: left;">소속 본부</th>
                                         <th style="padding: 12px 14px; font-weight: 700; width: 140px; border-right: 1px solid var(--bg-card-border); text-align: left;">팀</th>
@@ -6289,7 +6298,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v113_strict_separation_participating_vs_proposal_20260831"></script>
+    <script src="app.js?v=v114_proposal_bulk_checkbox_and_delete_20260831"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
