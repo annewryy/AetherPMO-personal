@@ -8671,52 +8671,150 @@ body.dark-mode .badge-status-cancelled {
 
 /* ── Dark Theme Overrides for A4 Document & Salary Approval Detail Modal ────────────── */
 body.dark-theme .a4-doc-container,
+body.dark-theme .salary-template-a4-preview,
 body.dark-mode .a4-doc-container,
-[data-theme="dark"] .a4-doc-container {
-    background: #181e2b !important;
+body.dark-mode .salary-template-a4-preview,
+[data-theme="dark"] .a4-doc-container,
+[data-theme="dark"] .salary-template-a4-preview {
+    background: #131b2e !important;
+    background-color: #131b2e !important;
     color: #f1f5f9 !important;
     border: 1px solid #334155 !important;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45) !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5) !important;
 }
 
+body.dark-theme .a4-doc-container *,
+body.dark-theme .salary-template-a4-preview *,
+body.dark-mode .a4-doc-container *,
+body.dark-mode .salary-template-a4-preview *,
+[data-theme="dark"] .a4-doc-container *,
+[data-theme="dark"] .salary-template-a4-preview * {
+    border-color: #334155 !important;
+}
+
+/* Tables inside A4 Preview */
 body.dark-theme .a4-doc-container table,
+body.dark-theme .salary-template-a4-preview table,
 body.dark-mode .a4-doc-container table,
-[data-theme="dark"] .a4-doc-container table {
+body.dark-mode .salary-template-a4-preview table,
+[data-theme="dark"] .a4-doc-container table,
+[data-theme="dark"] .salary-template-a4-preview table {
+    background: #181e2b !important;
+    background-color: #181e2b !important;
     border-color: #334155 !important;
     color: #f1f5f9 !important;
 }
 
+/* Table Header Cells (th) */
 body.dark-theme .a4-doc-container th,
+body.dark-theme .salary-template-a4-preview th,
 body.dark-mode .a4-doc-container th,
-[data-theme="dark"] .a4-doc-container th {
-    background-color: #242f42 !important;
+body.dark-mode .salary-template-a4-preview th,
+[data-theme="dark"] .a4-doc-container th,
+[data-theme="dark"] .salary-template-a4-preview th {
+    background: #1e293b !important;
+    background-color: #1e293b !important;
     color: #ffffff !important;
+    border: 1px solid #334155 !important;
     border-color: #334155 !important;
 }
 
+/* Table Data Cells (td) */
 body.dark-theme .a4-doc-container td,
+body.dark-theme .salary-template-a4-preview td,
 body.dark-mode .a4-doc-container td,
-[data-theme="dark"] .a4-doc-container td {
-    border-color: #334155 !important;
+body.dark-mode .salary-template-a4-preview td,
+[data-theme="dark"] .a4-doc-container td,
+[data-theme="dark"] .salary-template-a4-preview td {
+    background: #131b2e !important;
+    background-color: #131b2e !important;
     color: #e2e8f0 !important;
+    border: 1px solid #334155 !important;
+    border-color: #334155 !important;
 }
 
+/* Specific Header / Summary / Shaded Cells Inside Table */
+body.dark-theme .a4-doc-container tr:first-child td,
+body.dark-theme .a4-doc-container td[style*="242, 242, 242"],
+body.dark-theme .a4-doc-container td[style*="#f4f4f4"],
+body.dark-theme .a4-doc-container td[style*="#eef2ff"],
+body.dark-theme .a4-doc-container th[style*="background"],
+body.dark-theme .salary-template-a4-preview td[style*="242, 242, 242"],
+body.dark-theme .salary-template-a4-preview td[style*="#f4f4f4"],
+body.dark-theme .salary-template-a4-preview td[style*="#eef2ff"],
+body.dark-mode .a4-doc-container td[style*="242, 242, 242"],
+body.dark-mode .a4-doc-container td[style*="#f4f4f4"],
+body.dark-mode .a4-doc-container td[style*="#eef2ff"],
+body.dark-mode .salary-template-a4-preview td[style*="242, 242, 242"],
+body.dark-mode .salary-template-a4-preview td[style*="#f4f4f4"],
+body.dark-mode .salary-template-a4-preview td[style*="#eef2ff"],
+[data-theme="dark"] .a4-doc-container td[style*="242, 242, 242"],
+[data-theme="dark"] .a4-doc-container td[style*="#f4f4f4"],
+[data-theme="dark"] .a4-doc-container td[style*="#eef2ff"],
+[data-theme="dark"] .salary-template-a4-preview td[style*="242, 242, 242"],
+[data-theme="dark"] .salary-template-a4-preview td[style*="#f4f4f4"],
+[data-theme="dark"] .salary-template-a4-preview td[style*="#eef2ff"] {
+    background: #1e293b !important;
+    background-color: #1e293b !important;
+    color: #ffffff !important;
+    font-weight: 700;
+}
+
+/* Force all text elements inside A4 preview to render in light color */
 body.dark-theme .a4-doc-container p,
 body.dark-theme .a4-doc-container span,
 body.dark-theme .a4-doc-container div,
 body.dark-theme .a4-doc-container strong,
 body.dark-theme .a4-doc-container b,
+body.dark-theme .a4-doc-container h1,
+body.dark-theme .a4-doc-container h2,
+body.dark-theme .a4-doc-container h3,
+body.dark-theme .a4-doc-container h4,
+body.dark-theme .salary-template-a4-preview p,
+body.dark-theme .salary-template-a4-preview span,
+body.dark-theme .salary-template-a4-preview div,
+body.dark-theme .salary-template-a4-preview strong,
+body.dark-theme .salary-template-a4-preview b,
+body.dark-theme .salary-template-a4-preview h1,
+body.dark-theme .salary-template-a4-preview h2,
+body.dark-theme .salary-template-a4-preview h3,
 body.dark-mode .a4-doc-container p,
 body.dark-mode .a4-doc-container span,
 body.dark-mode .a4-doc-container div,
 body.dark-mode .a4-doc-container strong,
 body.dark-mode .a4-doc-container b,
+body.dark-mode .a4-doc-container h1,
+body.dark-mode .a4-doc-container h2,
+body.dark-mode .a4-doc-container h3,
+body.dark-mode .salary-template-a4-preview p,
+body.dark-mode .salary-template-a4-preview span,
+body.dark-mode .salary-template-a4-preview div,
+body.dark-mode .salary-template-a4-preview strong,
+body.dark-mode .salary-template-a4-preview b,
 [data-theme="dark"] .a4-doc-container p,
 [data-theme="dark"] .a4-doc-container span,
 [data-theme="dark"] .a4-doc-container div,
 [data-theme="dark"] .a4-doc-container strong,
-[data-theme="dark"] .a4-doc-container b {
-    color: inherit !important;
+[data-theme="dark"] .a4-doc-container b,
+[data-theme="dark"] .a4-doc-container h1,
+[data-theme="dark"] .a4-doc-container h2,
+[data-theme="dark"] .a4-doc-container h3,
+[data-theme="dark"] .salary-template-a4-preview p,
+[data-theme="dark"] .salary-template-a4-preview span,
+[data-theme="dark"] .salary-template-a4-preview div,
+[data-theme="dark"] .salary-template-a4-preview strong,
+[data-theme="dark"] .salary-template-a4-preview b {
+    color: #f1f5f9 !important;
+}
+
+body.dark-theme .a4-doc-container h2,
+body.dark-theme .salary-template-a4-preview h2,
+body.dark-mode .a4-doc-container h2,
+body.dark-mode .salary-template-a4-preview h2,
+[data-theme="dark"] .a4-doc-container h2,
+[data-theme="dark"] .salary-template-a4-preview h2 {
+    border-bottom-color: #475569 !important;
+    color: #ffffff !important;
 }
 
 /* Salary Approval Detail Modal Dark Mode Styling */
