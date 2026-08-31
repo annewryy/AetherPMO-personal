@@ -33572,6 +33572,248 @@ renderTodayTasksRoleBased(todayStr) {
         }
     }
 
+    // ── PROPOSAL RESOURCE CSV TEMPLATE & BULK IMPORT ───────────────────────────
+    downloadProposalResourceTemplate() {
+        console.log('[downloadProposalResourceTemplate] Generating standard CSV template for proposal resources...');
+        try {
+            const headers = [
+                '법인구분',
+                '소속본부',
+                '팀명',
+                '파트명',
+                '성명',
+                '인력구분',
+                '직급_역할',
+                '연락처',
+                '이메일',
+                '계약시작일',
+                '계약종료일',
+                '월계약금액',
+                '재직상태',
+                '비고'
+            ];
+
+            const sampleRows = [
+                [
+                    '오케스트로 클라우드',
+                    '클라우드사업수행2본부',
+                    '클라우드사업1팀',
+                    '클라우드사업1팀',
+                    '홍길동',
+                    '정규직',
+                    'PM',
+                    '010-1234-5678',
+                    'gildong.hong@okestro.com',
+                    '2026-03-01',
+                    '2026-12-31',
+                    '5000000',
+                    '재직',
+                    '제안 PM 핵심인력'
+                ],
+                [
+                    '오케스트로',
+                    '클라우드사업수행1본부',
+                    '클라우드컨설팅팀',
+                    '아키텍처파트',
+                    '김철수',
+                    '자사화',
+                    'Developer',
+                    '010-9876-5432',
+                    'cs.kim@okestro.com',
+                    '2026-03-01',
+                    '2026-12-31',
+                    '4500000',
+                    '재직',
+                    '클라우드 아키텍처 및 개발'
+                ]
+            ];
+
+            const allRows = [headers, ...sampleRows];
+            const csvContent = "\ufeff" + allRows.map(row => row.map(col => `"${String(col).replace(/"/g, '""')}"`).join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `제안인력_등록양식_표준.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            this.showToast('제안인력 등록 표준 CSV 양식이 다운로드되었습니다.', 'success');
+        } catch (err) {
+            console.error('[downloadProposalResourceTemplate Error]', err);
+            this.showToast('양식 다운로드 중 오류가 발생했습니다.', 'error');
+        }
+    }
+
+    async handleProposalCsvUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // Reset input field so the same file can be uploaded again if needed
+        event.target.value = '';
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const arrayBuffer = e.target.result;
+                const text = this.smartDecode(arrayBuffer);
+                const csvLines = this.parseCsv(text);
+
+                if (!csvLines || csvLines.length < 2) {
+                    alert('가져올 데이터가 없는 빈 CSV 파일입니다.');
+                    return;
+                }
+
+                // 1. Map and validate header columns
+                const headers = csvLines[0].map(h => (h || '').trim().toLowerCase().replace(/[\s_\-\/]/g, ''));
+
+                const legalIdx = headers.findIndex(h => h.includes('법인'));
+                const deptIdx = headers.findIndex(h => h.includes('소속') || h.includes('본부') || h.includes('부서') || h.includes('dept'));
+                const teamIdx = headers.findIndex(h => h.includes('팀'));
+                const partIdx = headers.findIndex(h => h.includes('파트'));
+                const nameIdx = headers.findIndex(h => h.includes('성명') || h.includes('이름') || h === 'name');
+                const empTypeIdx = headers.findIndex(h => h.includes('인력구분') || h.includes('고용구분') || h === '구분' || h.includes('type'));
+                const roleIdx = headers.findIndex(h => h.includes('직급') || h.includes('역할') || h.includes('role') || h.includes('position'));
+                const phoneIdx = headers.findIndex(h => h.includes('연락처') || h.includes('휴대폰') || h.includes('전화') || h.includes('phone'));
+                const emailIdx = headers.findIndex(h => h.includes('이메일') || h.includes('email') || h.includes('mail'));
+                const startIdx = headers.findIndex(h => h.includes('시작') || h.includes('start'));
+                const endIdx = headers.findIndex(h => h.includes('종료') || h.includes('end'));
+                const salaryIdx = headers.findIndex(h => h.includes('급여') || h.includes('금액') || h.includes('salary'));
+                const statusIdx = headers.findIndex(h => h.includes('재직') || h.includes('상태') || h.includes('status'));
+                const memoIdx = headers.findIndex(h => h.includes('비고') || h.includes('메모') || h.includes('특이') || h.includes('remarks'));
+
+                // Strict format check: '성명' column is mandatory
+                if (nameIdx === -1) {
+                    alert('정해진 CSV 양식이 아니거나 [성명] 컬럼을 찾을 수 없습니다.\n\n\'양식 다운로드\' 버튼으로 표준 CSV 서식을 다운로드하여 컬럼에 맞게 작성 후 업로드해주세요.');
+                    return;
+                }
+
+                this.state.resources = Array.isArray(this.state.resources) ? this.state.resources : [];
+                let importedCount = 0;
+                let updatedCount = 0;
+
+                for (let i = 1; i < csvLines.length; i++) {
+                    const row = csvLines[i];
+                    if (!row || row.length === 0) continue;
+
+                    const name = (nameIdx !== -1 && row[nameIdx]) ? row[nameIdx].trim() : '';
+                    if (!name) continue; // skip blank rows
+
+                    // Legal Entity normalization
+                    let legal = (legalIdx !== -1 && row[legalIdx]) ? row[legalIdx].trim() : '오케스트로 클라우드';
+                    if (legal.toUpperCase().includes('OKC') || legal.includes('클라우드')) {
+                        legal = '오케스트로 클라우드';
+                    } else if (legal.toUpperCase().includes('OKE') || legal.includes('오케스트로')) {
+                        legal = '오케스트로';
+                    }
+
+                    // Department normalization
+                    let dept = (deptIdx !== -1 && row[deptIdx]) ? row[deptIdx].trim() : '클라우드사업수행2본부';
+                    if (!dept) dept = '클라우드사업수행2본부';
+
+                    // Team & Part
+                    const team = (teamIdx !== -1 && row[teamIdx]) ? row[teamIdx].trim() : '클라우드사업1팀';
+                    const part = (partIdx !== -1 && row[partIdx]) ? row[partIdx].trim() : team;
+
+                    // Employment Type
+                    let empType = (empTypeIdx !== -1 && row[empTypeIdx]) ? row[empTypeIdx].trim() : 'regular';
+                    if (empType.includes('자사화') || empType.includes('outsourc')) empType = 'outsourcing';
+                    else if (empType.includes('계약') || empType.includes('contract')) empType = 'project_contract';
+                    else if (empType.includes('외주') || empType.includes('턴키') || empType.includes('turnkey')) empType = 'turnkey';
+                    else empType = 'regular';
+
+                    // Position / Role
+                    const position = (roleIdx !== -1 && row[roleIdx]) ? row[roleIdx].trim() : '책임 / PL';
+
+                    // Phone & Email
+                    const phone = (phoneIdx !== -1 && row[phoneIdx]) ? row[phoneIdx].trim() : '010-1234-5678';
+                    const email = (emailIdx !== -1 && row[emailIdx]) ? row[emailIdx].trim() : `${name.toLowerCase()}@okestro.com`;
+
+                    // Start Date & End Date
+                    const startDate = (startIdx !== -1 && row[startIdx]) ? row[startIdx].trim() : '2026-03-01';
+                    const endDate = (endIdx !== -1 && row[endIdx]) ? row[endIdx].trim() : '2026-12-31';
+
+                    // Base Salary
+                    let salary = 4500000;
+                    if (salaryIdx !== -1 && row[salaryIdx]) {
+                        const parsedSal = parseInt(String(row[salaryIdx]).replace(/[^0-9]/g, ''), 10);
+                        if (!isNaN(parsedSal) && parsedSal > 0) salary = parsedSal;
+                    }
+
+                    // Status
+                    let status = 'ACTIVE';
+                    if (statusIdx !== -1 && row[statusIdx]) {
+                        const stStr = row[statusIdx].trim().toUpperCase();
+                        if (stStr.includes('대기') || stStr === 'STANDBY') status = 'STANDBY';
+                        else if (stStr.includes('종료') || stStr.includes('퇴사') || stStr === 'OFFBOARDED' || stStr === 'INACTIVE') status = 'OFFBOARDED';
+                        else status = 'ACTIVE';
+                    }
+
+                    // Memo / Remarks
+                    const memo = (memoIdx !== -1 && row[memoIdx]) ? row[memoIdx].trim() : '';
+
+                    // Check if already exists in state.resources by name and email or ID
+                    const existingIdx = this.state.resources.findIndex(r => 
+                        (r.isProposal || r.id?.startsWith('proposal-res-')) && 
+                        r.name === name && 
+                        (r.email === email || !email)
+                    );
+
+                    const record = {
+                        id: existingIdx !== -1 ? this.state.resources[existingIdx].id : `proposal-res-csv-${Date.now()}-${i}`,
+                        name: name,
+                        employmentType: empType,
+                        department: dept,
+                        legalEntity: legal,
+                        team: team,
+                        part: part,
+                        position: position,
+                        roleName: position,
+                        phone: phone,
+                        email: email,
+                        startDate: startDate,
+                        endDate: endDate,
+                        baseSalary: salary,
+                        status: status,
+                        remarks: memo || position,
+                        memo: memo,
+                        isActive: status === 'ACTIVE' || status === 'STANDBY',
+                        isProposal: true,
+                        category: 'proposal',
+                        importedAt: new Date().toISOString()
+                    };
+
+                    if (existingIdx !== -1) {
+                        this.state.resources[existingIdx] = { ...this.state.resources[existingIdx], ...record };
+                        updatedCount++;
+                    } else {
+                        this.state.resources.push(record);
+                        importedCount++;
+                    }
+                }
+
+                if (importedCount === 0 && updatedCount === 0) {
+                    alert('유효한 제안인력 데이터가 없거나 파일이 비어있습니다.');
+                    return;
+                }
+
+                // Persist state to Supabase / LocalStorage
+                if (typeof this.saveState === 'function') {
+                    await this.saveState('proposal_resources_bulk_import', { imported: importedCount, updated: updatedCount });
+                }
+
+                this.renderResourcesView();
+                this.showToast(`CSV 데이터 반입 완료: 신규 ${importedCount}명, 갱신 ${updatedCount}명`, 'success');
+            } catch (err) {
+                console.error('[handleProposalCsvUpload Error]', err);
+                alert('CSV 파일 파싱 중 오류가 발생했습니다. 표준 서식 형식을 확인해주세요.\n\n오류 내용: ' + err.message);
+            }
+        };
+
+        reader.readAsArrayBuffer(file);
+    }
+
     exportSalaryHistoryToExcel() {
         console.log('[exportSalaryHistoryToExcel] Generating monthly salary history CSV/Excel export...');
         try {

@@ -31,7 +31,7 @@
     <link rel="icon" href="favicon.png" type="image/png">
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="style.css?v=v110_proposal_modal_dark_20260831">
+    <link rel="stylesheet" href="style.css?v=v111_proposal_csv_import_20260831">
 </head>
 <body class="dark-theme">
         <!-- Login Section -->
@@ -2507,7 +2507,16 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div>
+                                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                    <button type="button" class="btn btn-outline" onclick="app.downloadProposalResourceTemplate()" style="display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; font-weight: 600;" title="제안인력 등록용 표준 CSV 양식을 다운로드합니다">
+                                        <i data-lucide="download" style="width: 15px; height: 15px;"></i>
+                                        양식 다운로드
+                                    </button>
+                                    <input type="file" id="proposal-csv-file-input" accept=".csv" style="display:none;" onchange="app.handleProposalCsvUpload(event)">
+                                    <button type="button" class="btn btn-outline" onclick="document.getElementById('proposal-csv-file-input').click()" style="display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; font-weight: 600;" title="표준 CSV 파일을 업로드하여 제안인력을 일괄 등록합니다">
+                                        <i data-lucide="upload" style="width: 15px; height: 15px;"></i>
+                                        Import data from CSV
+                                    </button>
                                     <button type="button" class="btn btn-primary" onclick="app.openResourceModal()" style="display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 16px; font-weight: 700;">
                                         <i data-lucide="user-plus" style="width: 16px; height: 16px;"></i>
                                         신규 제안인력 등록
@@ -6280,7 +6289,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v110_proposal_modal_dark_20260831"></script>
+    <script src="app.js?v=v111_proposal_csv_import_20260831"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
