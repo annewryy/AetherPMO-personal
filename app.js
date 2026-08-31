@@ -27788,71 +27788,92 @@ renderTodayTasksRoleBased(todayStr) {
             { id: 'gt-sw-exec-5', templateKey: 'OPERATION_EXECUTION_DB_DESIGN', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: 'DB설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_DB설계서.hwpx', fileSize: '520 KB' },
             { id: 'gt-sw-exec-6', templateKey: 'OPERATION_EXECUTION_INTERFACE_DESIGN', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '인터페이스설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_인터페이스설계서.hwpx', fileSize: '380 KB' },
             { id: 'gt-sw-exec-7', templateKey: 'OPERATION_EXECUTION_PROGRAM_DESIGN', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '프로그램설계서', stage: 'execution', category: 'Architecture Design', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_프로그램설계서.hwpx', fileSize: '410 KB' },
-            { id: 'gt-sw-exec-8', templateKey: 'OPERATION_EXECUTION_UNIT_TEST_RESULT', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '단위시험결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', author: '시스템�            { no: 1, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업1팀', part: '클라우드사업1팀', name: '이노선', remark: 'BD', email: 'ns.lee@okestro.com' },
-            { no: 2, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업1팀', part: '클라우드사업관리파트', name: '고상만', remark: 'PMO', email: 'sm.ko@okestro.com' },
-            { no: 3, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업1팀', part: '클라우드사업관리파트', name: '오영일', remark: 'Developer', email: 'yi.oh@okestro.com' },
-            { no: 4, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업1팀', part: '클라우드사업관리파트', name: '지병경', remark: 'PMO', email: 'bk.ji@okestro.com' },
-            { no: 5, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업1팀', part: '긴급신고운영파트', name: '김태환', remark: 'PM', email: 'hwanyan.k@daum.net' },
-            { no: 6, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업1팀', part: '긴급신고운영파트', name: '박재욱', remark: 'OE', email: 'ju.park@okestro.com' },
-            { no: 7, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업1팀', part: '긴급신고운영파트', name: '임지원', remark: 'OE', email: 'jw.lim@okestro.com' },
-            { no: 8, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업1팀', part: '긴급신고운영파트', name: '장화정', remark: 'OE', email: 'hj.jang@okestro.com' },
-            { no: 9, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '클라우드사업2팀', name: '김대환', remark: 'BD', email: 'dh.kim11@okestro.com' },
-            { no: 10, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '솔루션사업관리파트', name: '오병구', remark: 'PM', email: 'bk.oh@okestro.com' },
-            { no: 11, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '솔루션사업관리파트', name: '송인빈', remark: 'QA', email: 'ib.song@okestro.com' },
-            { no: 12, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '솔루션사업관리파트', name: '안유경', remark: 'PMO', email: 'yk.an@okestro.com' },
-            { no: 13, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '클라우드인프라파트', name: '김준식', remark: 'IE', email: 'js.kim@okestro.com' },
-            { no: 14, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '클라우드인프라파트', name: '이창현', remark: 'IE', email: 'ch.lee2@okestro.com' },
-            { no: 15, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '클라우드인프라파트', name: '김광민', remark: 'IE', email: 'gm.kim@okestro.com' },
-            { no: 16, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '클라우드인프라파트', name: '김민수', remark: 'IE', email: 'rlaalstn3760@naver.com' },
-            { no: 17, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '클라우드인프라파트', name: '어윤정', remark: 'IE', email: 'yj.eo@okestro.com' },
-            { no: 18, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '클라우드인프라파트', name: '정남훈', remark: 'IE', email: 'jnh9575@naver.com' },
-            { no: 19, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '대구센터운영파트', name: '배영재', remark: 'OE', email: 'jjaebae1004@gmail.com' },
-            { no: 20, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '대구센터운영파트', name: '김대호', remark: 'OE', email: 'dh.kim2@okestro.com' },
-            { no: 21, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '대구센터운영파트', name: '최준영', remark: 'OE', email: 'ye0ng1203@kakao.com' },
-            { no: 22, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드사업2팀', part: '대구센터운영파트', name: '최현수2', remark: 'OE', email: 'dys05058@naver.com' },
-            { no: 23, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드아키텍트팀', part: '클라우드아키텍트팀', name: '김대영', remark: 'BD', email: 'dy.kim@okestro.com' },
-            { no: 24, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드아키텍트팀', part: '클라우드아키텍트팀', name: '정성욱', remark: 'TA', email: 'so.jung@okestro.com' },
-            { no: 25, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드아키텍트팀', part: '클라우드아키텍트팀', name: '임지홍', remark: 'BD', email: 'jh.lim@okestro.com' },
-            { no: 26, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드아키텍트팀', part: '클라우드아키텍트팀', name: '서현호', remark: 'TA', email: 'hh.seo@okestro.com' },
-            { no: 27, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드아키텍트팀', part: '클라우드아키텍트팀', name: '이정필', remark: 'TA', email: 'jp.lee@okestro.com' },
-            { no: 28, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드아키텍트팀', part: '클라우드아키텍트팀', name: '박동국', remark: 'TA', email: 'dg.park@okestro.com' },
-            { no: 29, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드아키텍트팀', part: '클라우드아키텍트팀', name: '유인식', remark: 'DBA', email: 'is.yu@okestro.com' },
-            { no: 30, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드광주기술팀', part: '클라우드광주기술팀', name: '이현준2', remark: 'PM', email: 'hj.lee4@okestro.com' },
-            { no: 31, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드광주기술팀', part: '클라우드지원파트', name: '김동욱', remark: '운영', email: 'dw.kim3@okestro.com' },
-            { no: 32, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드광주기술팀', part: '클라우드지원파트', name: '강진석', remark: 'OE', email: 'feeltong999@gmail.com' },
-            { no: 33, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드광주기술팀', part: '클라우드지원파트', name: '정태연', remark: 'OE', email: 'wjdxodus6224@gmail.com' },
-            { no: 34, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드광주기술팀', part: '클라우드지원파트', name: '김도형2', remark: 'OE', email: 'dh.kim3@okestro.com' },
-            { no: 35, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드광주기술팀', part: '광주센터운영파트', name: '이동화2', remark: 'OE', email: 'lee@dong-hwa.kr' },
-            { no: 36, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '이동원', remark: 'OE', email: 'dw.lee@okestro.com' },
-            { no: 37, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '권선영', remark: 'OE', email: 'sy.kwon@okestro.com' },
-            { no: 38, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '강수지', remark: 'OE', email: 'sj.kang@okestro.com' },
-            { no: 39, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '김지예', remark: 'OE', email: 'jy.kim7@okestro.com' },
-            { no: 40, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '남권우', remark: 'OE', email: 'kw.nam2@okestro.com' },
-            { no: 41, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '노재명', remark: 'OE', email: 'jm.noh@okestro.com' },
-            { no: 42, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '이상헌', remark: 'OE', email: 'sh.lee@okestro.com' },
-            { no: 43, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '채종진', remark: 'OE', email: 'jj.chae@okestro.com' },
-            { no: 44, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '김철현', remark: 'OE', email: 'ch.kim3@okestro.com' },
-            { no: 45, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '백성일', remark: 'OE', email: 'si.baek@okestro.com' },
-            { no: 46, legal: 'OKC', dept: '클라우드사업수행2본부', team: '통합운영환경팀', part: '통합운영환경팀', name: '최윤성', remark: 'OE', email: 'ys.choi3@okestro.com' },
-            { no: 47, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: '클라우드플랫폼개발팀', name: '이은경', remark: 'Developer', email: 'ek.lee@okestro.com' },
-            { no: 48, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: 'IaaS플랫폼개발파트', name: '김용휘', remark: 'Developer', email: 'yh.kim2@okestro.com' },
-            { no: 49, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: 'IaaS플랫폼개발파트', name: '강민지', remark: 'Developer', email: 'mj.kang2@okestro.com' },
-            { no: 50, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: 'IaaS플랫폼개발파트', name: '박영선', remark: 'Developer', email: 'ys.park@okestro.com' },
-            { no: 51, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: 'IaaS플랫폼개발파트', name: '박너울', remark: 'Developer', email: 'nu.park@okestro.com' },
-            { no: 52, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: 'PaaS플랫폼개발파트', name: '이진우', remark: 'Developer', email: 'jw.lee3@okestro.com' },
-            { no: 53, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: 'PaaS플랫폼개발파트', name: '양기영', remark: 'Developer', email: 'gy.yang@okestro.com' },
-            { no: 54, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: 'PaaS플랫폼개발파트', name: '송진원', remark: 'Developer', email: 'jw.song@okestro.com' },
-            { no: 55, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드플랫폼개발팀', part: 'PaaS플랫폼개발파트', name: '박희준', remark: 'Developer', email: 'hj.park2@okestro.com' },
-            { no: 56, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'IaaS서비스개발파트', name: '임대환', remark: 'Developer', email: 'dh.lim@okestro.com' },
-            { no: 57, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'IaaS서비스개발파트', name: '마승일', remark: 'Developer', email: 'si.ma@okestro.com' },
-            { no: 58, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'IaaS서비스개발파트', name: '정보광', remark: 'Developer', email: 'bk.jeong@okestro.com' },
-            { no: 59, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'IaaS서비스개발파트', name: '최지호', remark: 'Developer', email: 'jh.choi2@okestro.com' },
-            { no: 60, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'IaaS서비스개발파트', name: '김연지', remark: 'Developer', email: 'yj.kim5@okestro.com' },
-            { no: 61, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'PaaS플랫폼개발파트', name: '곽지호', remark: 'Developer', email: 'jh.kwak2@okestro.com' },
-            { no: 62, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'PaaS플랫폼개발파트', name: '김홍희', remark: 'Developer', email: 'hh.kim@okestro.com' },
-            { no: 63, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'PaaS플랫폼개발파트', name: '정주희', remark: 'Developer', email: 'jh.jeong@okestro.com' },
-            { no: 64, legal: 'OKC', dept: '클라우드사업수행2본부', team: '클라우드서비스개발팀', part: 'PaaS플랫폼개발파트', name: '조준범', remark: 'Developer', email: 'jb.cho@okestro.com' }
-        ];        WORKER:     { label: '수행담당자',     scope: '참여 프로젝트', menu: '기본 관리 메뉴', data: '등록/수정 (삭제 제외)' },
+            { id: 'gt-sw-exec-8', templateKey: 'OPERATION_EXECUTION_UNIT_TEST_RESULT', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '단위시험결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_단위시험결과서.hwpx', fileSize: '290 KB' },
+            { id: 'gt-sw-exec-9', templateKey: 'OPERATION_EXECUTION_INTEGRATION_TEST_PLAN', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '통합시험계획서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_통합시험계획서.hwpx', fileSize: '320 KB' },
+            { id: 'gt-sw-exec-10', templateKey: 'OPERATION_EXECUTION_INTEGRATION_TEST_RESULT', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '통합시험결과서', stage: 'execution', category: 'Test Plan', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_통합시험결과서.hwpx', fileSize: '350 KB' },
+            { id: 'gt-sw-exec-11', templateKey: 'OPERATION_EXECUTION_CONFIG_LOG', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '형상관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_형상관리대장.hwpx', fileSize: '160 KB' },
+            { id: 'gt-sw-exec-12', templateKey: 'OPERATION_EXECUTION_CHANGE_LOG', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '변경관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_변경관리대장.hwpx', fileSize: '150 KB' },
+            { id: 'gt-sw-exec-13', templateKey: 'OPERATION_EXECUTION_RISK_LOG', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '리스크관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_리스크관리대장.hwpx', fileSize: '145 KB' },
+            { id: 'gt-sw-exec-14', templateKey: 'OPERATION_EXECUTION_ISSUE_LOG', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '이슈관리대장', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_이슈관리대장.hwpx', fileSize: '140 KB' },
+            { id: 'gt-sw-exec-15', templateKey: 'OPERATION_EXECUTION_MINUTES', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '회의록', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_회의록.hwpx', fileSize: '95 KB' },
+            { id: 'gt-sw-exec-16', templateKey: 'OPERATION_EXECUTION_WEEKLY_REPORT', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '주간업무보고서', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_주간업무보고서.hwpx', fileSize: '130 KB' },
+            { id: 'gt-sw-exec-17', templateKey: 'OPERATION_EXECUTION_MONTHLY_REPORT', businessType: 'SW_SEPARATE', lifecycleStage: 'EXECUTION', projectType: 'sw-separate', name: '월간업무보고서', stage: 'execution', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_월간업무보고서.hwpx', fileSize: '210 KB' },
+            { id: 'gt-sw-clos-1', templateKey: 'OPERATION_CLOSING_COMPLETION_REPORT', businessType: 'SW_SEPARATE', lifecycleStage: 'CLOSING', projectType: 'sw-separate', name: '완료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_완료보고서.hwpx', fileSize: '580 KB' },
+            { id: 'gt-sw-clos-2', templateKey: 'OPERATION_CLOSING_INSPECTION_CONFIRM', businessType: 'SW_SEPARATE', lifecycleStage: 'CLOSING', projectType: 'sw-separate', name: '검수확인서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_검수확인서.hwpx', fileSize: '120 KB' },
+            { id: 'gt-sw-clos-3', templateKey: 'OPERATION_CLOSING_HANDOVER_DOC', businessType: 'SW_SEPARATE', lifecycleStage: 'CLOSING', projectType: 'sw-separate', name: '운영인계서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_운영인계서.hwpx', fileSize: '340 KB' },
+            { id: 'gt-sw-clos-4', templateKey: 'OPERATION_CLOSING_ARTIFACT_HANDOVER', businessType: 'SW_SEPARATE', lifecycleStage: 'CLOSING', projectType: 'sw-separate', name: '산출물인계서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_산출물인계서.hwpx', fileSize: '190 KB' },
+            { id: 'gt-sw-clos-5', templateKey: 'OPERATION_CLOSING_TRAINING_REPORT', businessType: 'SW_SEPARATE', lifecycleStage: 'CLOSING', projectType: 'sw-separate', name: '교육결과보고서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_교육결과보고서.hwpx', fileSize: '260 KB' },
+            { id: 'gt-sw-clos-6', templateKey: 'OPERATION_CLOSING_PROJECT_FINAL_REPORT', businessType: 'SW_SEPARATE', lifecycleStage: 'CLOSING', projectType: 'sw-separate', name: '프로젝트종료보고서', stage: 'closing', category: 'Final Report', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_프로젝트종료보고서.hwpx', fileSize: '1.4 MB' },
+            { id: 'gt-sw-clos-7', templateKey: 'OPERATION_CLOSING_CSAT_SURVEY', businessType: 'SW_SEPARATE', lifecycleStage: 'CLOSING', projectType: 'sw-separate', name: '고객만족도조사서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_고객만족도조사서.hwpx', fileSize: '110 KB' },
+            { id: 'gt-sw-clos-8', templateKey: 'OPERATION_CLOSING_RETROSPECTIVE_REPORT', businessType: 'SW_SEPARATE', lifecycleStage: 'CLOSING', projectType: 'sw-separate', name: '프로젝트회고보고서', stage: 'closing', category: 'Etc', version: 'v1.0.0', author: '시스템관리자', modifiedDate: '2026-06-04', fileName: '(양식)NIRS_SW분리발주_프로젝트회고보고서.hwpx', fileSize: '220 KB' }
+        ];
+    }
+
+
+    // ============================================================
+    //  MY ACCOUNT CENTER
+    // ============================================================
+
+    /**
+     * Renders the My Account Center view by populating all dynamic fields
+     * from the currently logged-in user. Called when the view is switched.
+     */
+    renderMyAccountCenter() {
+        if (!this.currentUser) return;
+        const u = this.currentUser;
+
+        // --- Left nav role card ---
+        const navAvatar = document.getElementById('account-nav-avatar');
+        const navName = document.getElementById('account-nav-name');
+        const navBadge = document.getElementById('account-nav-role-badge');
+        if (navAvatar) {
+            navAvatar.textContent = u.initials || this.getInitials(u.name);
+            navAvatar.style.background = u.profileColor || this.getRoleColor(u.role);
+            if (u.profileImage) {
+                navAvatar.style.backgroundImage = `url(${u.profileImage})`;
+                navAvatar.style.backgroundSize = 'cover';
+                navAvatar.textContent = '';
+            }
+        }
+        if (navName) navName.textContent = u.name || '--';
+        if (navBadge) {
+            navBadge.textContent = this.translateRoleLabel(u.role);
+            navBadge.style.background = this.getRoleBadgeBg(u.role);
+            navBadge.style.color = this.getRoleBadgeColor(u.role);
+        }
+
+        // --- Big profile card (내 정보 tab) ---
+        const bigAvatar = document.getElementById('account-big-avatar');
+        if (bigAvatar) {
+            bigAvatar.textContent = u.initials || this.getInitials(u.name);
+            bigAvatar.style.background = u.profileColor || this.getRoleColor(u.role);
+            if (u.profileImage) {
+                bigAvatar.style.backgroundImage = `url(${u.profileImage})`;
+                bigAvatar.style.backgroundSize = 'cover';
+                bigAvatar.textContent = '';
+            }
+        }
+        const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '--'; };
+        setText('account-big-name', u.name);
+        setText('account-big-role', this.translateRoleLabel(u.role));
+        setText('account-big-email', u.email);
+
+        // --- Basic info fields ---
+        setText('af-name', u.name);
+        setText('af-email', u.email);
+        setText('af-empno', u.empNo || '미등록');
+        setText('af-phone', u.phone || '미등록');
+        setText('af-company', u.company || '미등록');
+        setText('af-division', u.division || '미등록');
+        setText('af-position', u.position || '미등록');
+        setText('af-title', u.title || '미등록');
+
+        // --- Role & permission fields ---
+        const roleMap = {
+            SYS_ADMIN:  { label: '시스템 관리자', scope: '전체 시스템', menu: '전체 메뉴', data: '전체 CRUD' },
+            EXEC_ADMIN: { label: '총괄 관리자',   scope: '전체 프로젝트 조회', menu: '전체 메뉴 (조회 중심)', data: '조회 + 코멘트 입력' },
+            PM:         { label: 'PM',            scope: '담당 프로젝트', menu: '공문관리 포함 대부분', data: '담당 프로젝트 등록/수정, 타 PM 조회' },
+            WORKER:     { label: '수행담당자',     scope: '참여 프로젝트', menu: '기본 관리 메뉴', data: '등록/수정 (삭제 제외)' },
             VIEWER:     { label: '조회자',         scope: '전체 조회 전용', menu: '조회 메뉴', data: '읽기 전용' }
         };
         const ri = roleMap[u.role] || roleMap['VIEWER'];
