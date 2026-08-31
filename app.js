@@ -33586,10 +33586,6 @@ renderTodayTasksRoleBased(todayStr) {
                 '직급_역할',
                 '연락처',
                 '이메일',
-                '계약시작일',
-                '계약종료일',
-                '월계약금액',
-                '재직상태',
                 '비고'
             ];
 
@@ -33604,10 +33600,6 @@ renderTodayTasksRoleBased(todayStr) {
                     'PM',
                     '010-1234-5678',
                     'gildong.hong@okestro.com',
-                    '2026-03-01',
-                    '2026-12-31',
-                    '5000000',
-                    '재직',
                     '제안 PM 핵심인력'
                 ],
                 [
@@ -33620,10 +33612,6 @@ renderTodayTasksRoleBased(todayStr) {
                     'Developer',
                     '010-9876-5432',
                     'cs.kim@okestro.com',
-                    '2026-03-01',
-                    '2026-12-31',
-                    '4500000',
-                    '재직',
                     '클라우드 아키텍처 및 개발'
                 ]
             ];
