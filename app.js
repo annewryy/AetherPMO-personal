@@ -31571,15 +31571,17 @@ renderTodayTasksRoleBased(todayStr) {
             });
 
             if (filteredProposals.length === 0) {
-                proposalTbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 40px; color: var(--text-muted); font-weight: 600;">조건에 해당하는 제안 인력이 없습니다.</td></tr>`;
+                proposalTbody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 40px; color: var(--text-muted); font-weight: 600;">조건에 해당하는 제안 인력이 없습니다.</td></tr>`;
             } else {
                 let propHtml = '';
                 filteredProposals.forEach((r, idx) => {
                     const org = r.department || '클라우드사업수행2본부';
-                    const team = r.team || '클라우드사업1팀';
+                    const team = r.team || r.department || '클라우드사업1팀';
                     const part = r.part || team;
+                    const position = r.position || r.grade || '책임';
+                    const role = r.roleName || r.role || 'Developer';
                     const email = r.email || `${(r.name || 'user').toLowerCase()}@okestro.com`;
-                    const remarks = r.remarks || r.memo || r.roleName || '제안 등록';
+                    const remarks = r.remarks || r.memo || '제안 등록';
 
                     const legalEntityStr = String(r.legalEntity || r.legal_entity || '오케스트로 클라우드');
                     const isOKC = legalEntityStr.includes('클라우드') || legalEntityStr.toUpperCase().includes('OKC');
@@ -31592,19 +31594,23 @@ renderTodayTasksRoleBased(todayStr) {
                             <td style="padding: 12px 8px; text-align: center; border-right: 1px solid var(--bg-card-border);">
                                 <input type="checkbox" class="proposal-row-checkbox" value="${r.id}" onchange="app.updateProposalSelectedCount()" style="cursor: pointer; width: 16px; height: 16px;">
                             </td>
-                            <td style="padding: 12px 14px; text-align: center; font-weight: 700; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${idx + 1}</td>
-                            <td style="padding: 12px 14px; text-align: center; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${legalBadgeHtml}</td>
-                            <td style="padding: 12px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border); white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(org)}">${this.escapeHtml(org)}</td>
-                            <td style="padding: 12px 14px; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(team)}</td>
-                            <td style="padding: 12px 14px; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(part)}</td>
-                            <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; white-space: nowrap;">
+                            <td style="padding: 12px 10px; text-align: center; font-weight: 700; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${idx + 1}</td>
+                            <td style="padding: 12px 12px; text-align: center; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${legalBadgeHtml}</td>
+                            <td style="padding: 12px 12px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border); white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(org)}">${this.escapeHtml(org)}</td>
+                            <td style="padding: 12px 12px; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(team)}</td>
+                            <td style="padding: 12px 12px; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(part)}</td>
+                            <td style="padding: 12px 12px; border-right: 1px solid var(--bg-card-border); text-align: center; white-space: nowrap;">
                                 <a href="javascript:void(0)" onclick="app.openResourceDetailModal('${r.id}')" style="font-weight: 700; color: var(--primary); text-decoration: underline;">
                                     ${this.escapeHtml(r.name || '미상')}
                                 </a>
                             </td>
-                            <td style="padding: 12px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border); max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(email)}">${this.escapeHtml(email)}</td>
-                            <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); max-width: 220px; word-break: break-word;">${this.escapeHtml(remarks)}</td>
-                            <td style="padding: 12px 14px; text-align: center;">
+                            <td style="padding: 12px 12px; text-align: center; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(position)}</td>
+                            <td style="padding: 12px 12px; text-align: center; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">
+                                <span class="badge badge-indigo" style="font-weight: 700; font-size: 12px;">${this.escapeHtml(role)}</span>
+                            </td>
+                            <td style="padding: 12px 12px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border); max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(email)}">${this.escapeHtml(email)}</td>
+                            <td style="padding: 12px 12px; border-right: 1px solid var(--bg-card-border); max-width: 200px; word-break: break-word;">${this.escapeHtml(remarks)}</td>
+                            <td style="padding: 12px 12px; text-align: center;">
                                 <div style="display: flex; gap: 4px; justify-content: center;">
                                     <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceDetailModal('${r.id}')" title="상세보기">
                                         <i data-lucide="eye" style="width: 12px; height: 12px;"></i>
@@ -33563,7 +33569,8 @@ renderTodayTasksRoleBased(todayStr) {
                 '파트명',
                 '성명',
                 '인력구분',
-                '직급_역할',
+                '직급',
+                '역할',
                 '연락처',
                 '이메일',
                 '비고'
@@ -33577,6 +33584,7 @@ renderTodayTasksRoleBased(todayStr) {
                     '클라우드사업1팀',
                     '홍길동',
                     '정규직',
+                    '부장',
                     'PM',
                     '010-1234-5678',
                     'gildong.hong@okestro.com',
@@ -33589,7 +33597,8 @@ renderTodayTasksRoleBased(todayStr) {
                     '아키텍처파트',
                     '김철수',
                     '자사화',
-                    'Developer',
+                    '책임',
+                    'TA',
                     '010-9876-5432',
                     'cs.kim@okestro.com',
                     '클라우드 아키텍처 및 개발'
@@ -33700,22 +33709,27 @@ renderTodayTasksRoleBased(todayStr) {
                 }
 
                 // 1. Map and validate header columns
-                const headers = csvLines[0].map(h => (h || '').trim().toLowerCase().replace(/[\s_\-\/]/g, ''));
+                const rawHeaders = csvLines[0].map(h => (h || '').trim());
+                const headers = rawHeaders.map(h => h.toLowerCase().replace(/[\s_\-\/\(\)\[\]]/g, ''));
 
-                const legalIdx = headers.findIndex(h => h.includes('법인'));
-                const deptIdx = headers.findIndex(h => h.includes('소속') || h.includes('본부') || h.includes('부서') || h.includes('dept'));
-                const teamIdx = headers.findIndex(h => h.includes('팀'));
-                const partIdx = headers.findIndex(h => h.includes('파트'));
-                const nameIdx = headers.findIndex(h => h.includes('성명') || h.includes('이름') || h === 'name');
-                const empTypeIdx = headers.findIndex(h => h.includes('인력구분') || h.includes('고용구분') || h === '구분' || h.includes('type'));
-                const roleIdx = headers.findIndex(h => h.includes('직급') || h.includes('역할') || h.includes('role') || h.includes('position'));
-                const phoneIdx = headers.findIndex(h => h.includes('연락처') || h.includes('휴대폰') || h.includes('전화') || h.includes('phone'));
-                const emailIdx = headers.findIndex(h => h.includes('이메일') || h.includes('email') || h.includes('mail'));
+                const legalIdx = headers.findIndex(h => h.includes('법인') || h.includes('회사') || h.includes('entity') || h.includes('company'));
+                const deptIdx = headers.findIndex(h => h.includes('본부') || (h.includes('소속') && !h.includes('팀') && !h.includes('파트')) || h.includes('부서') || h.includes('dept'));
+                const teamIdx = headers.findIndex(h => h === '팀' || h.includes('팀명') || (h.includes('팀') && !h.includes('파트') && !h.includes('법인')) || h.includes('team'));
+                const partIdx = headers.findIndex(h => h === '파트' || h.includes('파트명') || (h.includes('파트') && !h.includes('팀')) || h.includes('part') || h.includes('유닛'));
+                const nameIdx = headers.findIndex(h => h.includes('성명') || h.includes('이름') || h === 'name' || h.includes('인력명'));
+                const empTypeIdx = headers.findIndex(h => h.includes('인력구분') || h.includes('고용구분') || h.includes('인력형태') || h.includes('고용형태') || h === '구분' || h.includes('type'));
+
+                const posIdx = headers.findIndex(h => h === '직급' || (h.includes('직급') && !h.includes('역할')) || h === 'position' || h.includes('직위'));
+                const roleIdx = headers.findIndex(h => h === '역할' || (h.includes('역할') && !h.includes('직급')) || h.includes('role') || h.includes('직무') || h.includes('담당'));
+                const comboRoleIdx = headers.findIndex(h => h.includes('직급') && h.includes('역할'));
+
+                const phoneIdx = headers.findIndex(h => h.includes('연락처') || h.includes('휴대폰') || h.includes('전화') || h.includes('phone') || h.includes('mobile'));
+                const emailIdx = headers.findIndex(h => h.includes('이메일') || h.includes('email') || h.includes('mail') || h.includes('메일'));
                 const startIdx = headers.findIndex(h => h.includes('시작') || h.includes('start'));
                 const endIdx = headers.findIndex(h => h.includes('종료') || h.includes('end'));
                 const salaryIdx = headers.findIndex(h => h.includes('급여') || h.includes('금액') || h.includes('salary'));
                 const statusIdx = headers.findIndex(h => h.includes('재직') || h.includes('상태') || h.includes('status'));
-                const memoIdx = headers.findIndex(h => h.includes('비고') || h.includes('메모') || h.includes('특이') || h.includes('remarks'));
+                const memoIdx = headers.findIndex(h => h.includes('비고') || h.includes('메모') || h.includes('특이') || h.includes('투입') || h.includes('remarks') || h.includes('memo'));
 
                 // Strict format check: '성명' column is mandatory
                 if (nameIdx === -1) {
@@ -33747,8 +33761,34 @@ renderTodayTasksRoleBased(todayStr) {
                     if (!dept) dept = '클라우드사업수행2본부';
 
                     // Team & Part
-                    const team = (teamIdx !== -1 && row[teamIdx]) ? row[teamIdx].trim() : '클라우드사업1팀';
-                    const part = (partIdx !== -1 && row[partIdx]) ? row[partIdx].trim() : team;
+                    let team = (teamIdx !== -1 && row[teamIdx]) ? row[teamIdx].trim() : '';
+                    let part = (partIdx !== -1 && row[partIdx]) ? row[partIdx].trim() : '';
+
+                    // Position & Role
+                    let position = (posIdx !== -1 && row[posIdx]) ? row[posIdx].trim() : '';
+                    let roleName = (roleIdx !== -1 && row[roleIdx]) ? row[roleIdx].trim() : '';
+
+                    if (comboRoleIdx !== -1 && row[comboRoleIdx]) {
+                        const val = row[comboRoleIdx].trim();
+                        if (val.includes('/')) {
+                            const parts = val.split('/');
+                            if (!position) position = parts[0].trim();
+                            if (!roleName) roleName = parts[1].trim();
+                        } else if (val.includes('_')) {
+                            const parts = val.split('_');
+                            if (!position) position = parts[0].trim();
+                            if (!roleName) roleName = parts[1].trim();
+                        } else {
+                            if (!position) position = val;
+                            if (!roleName) roleName = val;
+                        }
+                    }
+
+                    if (!position) position = '책임';
+                    if (!roleName) roleName = 'Developer';
+                    if (!team && part) team = part;
+                    if (!team) team = '클라우드사업1팀';
+                    if (!part) part = team;
 
                     // Employment Type
                     let empType = (empTypeIdx !== -1 && row[empTypeIdx]) ? row[empTypeIdx].trim() : 'regular';
@@ -33756,9 +33796,6 @@ renderTodayTasksRoleBased(todayStr) {
                     else if (empType.includes('계약') || empType.includes('contract')) empType = 'project_contract';
                     else if (empType.includes('외주') || empType.includes('턴키') || empType.includes('turnkey')) empType = 'turnkey';
                     else empType = 'regular';
-
-                    // Position / Role
-                    const position = (roleIdx !== -1 && row[roleIdx]) ? row[roleIdx].trim() : '책임 / PL';
 
                     // Phone & Email
                     const phone = (phoneIdx !== -1 && row[phoneIdx]) ? row[phoneIdx].trim() : '010-1234-5678';
@@ -33803,14 +33840,15 @@ renderTodayTasksRoleBased(todayStr) {
                         team: team,
                         part: part,
                         position: position,
-                        roleName: position,
+                        roleName: roleName,
+                        role: roleName,
                         phone: phone,
                         email: email,
                         startDate: startDate,
                         endDate: endDate,
                         baseSalary: salary,
                         status: status,
-                        remarks: memo || position,
+                        remarks: memo || `${team} ${roleName}`,
                         memo: memo,
                         isActive: status === 'ACTIVE' || status === 'STANDBY',
                         isProposal: true,

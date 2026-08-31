@@ -31,7 +31,7 @@
     <link rel="icon" href="favicon.png" type="image/png">
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="style.css?v=v115_proposal_team_order_sorting_20260831">
+    <link rel="stylesheet" href="style.css?v=v116_proposal_position_role_columns_and_import_fix_20260831">
 </head>
 <body class="dark-theme">
         <!-- Login Section -->
@@ -2539,15 +2539,17 @@
                                 <thead>
                                     <tr style="background: var(--bg-hover-item); border-bottom: 2px solid var(--bg-card-border);">
                                         <th style="padding: 12px 8px; width: 44px; text-align: center; border-right: 1px solid var(--bg-card-border);"><input type="checkbox" id="proposal-check-all" onchange="app.toggleAllProposalCheckboxes(this.checked)" title="전체 선택" style="cursor: pointer; width: 16px; height: 16px;"></th>
-                                        <th style="padding: 12px 14px; font-weight: 700; width: 55px; border-right: 1px solid var(--bg-card-border); text-align: center;">No.</th>
-                                        <th style="padding: 12px 14px; font-weight: 700; width: 90px; border-right: 1px solid var(--bg-card-border); text-align: center;">법인 구분</th>
-                                        <th style="padding: 12px 14px; font-weight: 700; width: 170px; border-right: 1px solid var(--bg-card-border); text-align: left;">소속 본부</th>
-                                        <th style="padding: 12px 14px; font-weight: 700; width: 140px; border-right: 1px solid var(--bg-card-border); text-align: left;">팀</th>
-                                        <th style="padding: 12px 14px; font-weight: 700; width: 130px; border-right: 1px solid var(--bg-card-border); text-align: left;">파트</th>
-                                        <th style="padding: 12px 14px; font-weight: 700; width: 100px; border-right: 1px solid var(--bg-card-border); text-align: center;">성명</th>
-                                        <th style="padding: 12px 14px; font-weight: 700; width: 170px; border-right: 1px solid var(--bg-card-border); text-align: left;">이메일</th>
-                                        <th style="padding: 12px 14px; font-weight: 700; width: 220px; border-right: 1px solid var(--bg-card-border); text-align: left;">비고 (투입프로젝트)</th>
-                                        <th style="padding: 12px 14px; font-weight: 700; width: 95px; text-align: center;">관리</th>
+                                        <th style="padding: 12px 10px; font-weight: 700; width: 50px; border-right: 1px solid var(--bg-card-border); text-align: center;">No.</th>
+                                        <th style="padding: 12px 12px; font-weight: 700; width: 85px; border-right: 1px solid var(--bg-card-border); text-align: center;">법인 구분</th>
+                                        <th style="padding: 12px 12px; font-weight: 700; width: 160px; border-right: 1px solid var(--bg-card-border); text-align: left;">소속 본부</th>
+                                        <th style="padding: 12px 12px; font-weight: 700; width: 130px; border-right: 1px solid var(--bg-card-border); text-align: left;">팀</th>
+                                        <th style="padding: 12px 12px; font-weight: 700; width: 130px; border-right: 1px solid var(--bg-card-border); text-align: left;">파트</th>
+                                        <th style="padding: 12px 12px; font-weight: 700; width: 90px; border-right: 1px solid var(--bg-card-border); text-align: center;">성명</th>
+                                        <th style="padding: 12px 12px; font-weight: 700; width: 85px; border-right: 1px solid var(--bg-card-border); text-align: center;">직급</th>
+                                        <th style="padding: 12px 12px; font-weight: 700; width: 95px; border-right: 1px solid var(--bg-card-border); text-align: center;">역할</th>
+                                        <th style="padding: 12px 12px; font-weight: 700; width: 170px; border-right: 1px solid var(--bg-card-border); text-align: left;">이메일</th>
+                                        <th style="padding: 12px 12px; font-weight: 700; width: 200px; border-right: 1px solid var(--bg-card-border); text-align: left;">비고 (투입프로젝트)</th>
+                                        <th style="padding: 12px 12px; font-weight: 700; width: 95px; text-align: center;">관리</th>
                                     </tr>
                                 </thead>
                                 <tbody id="proposal-resources-table-body">
@@ -6298,7 +6300,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v115_proposal_team_order_sorting_20260831"></script>
+    <script src="app.js?v=v116_proposal_position_role_columns_and_import_fix_20260831"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
