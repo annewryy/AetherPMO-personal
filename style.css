@@ -8669,6 +8669,222 @@ body.dark-mode .badge-status-cancelled {
     box-sizing: border-box !important;
 }
 
+/* ── Dark Theme Overrides for A4 Document & Salary Approval Detail Modal ────────────── */
+body.dark-theme .a4-doc-container,
+body.dark-mode .a4-doc-container,
+[data-theme="dark"] .a4-doc-container {
+    background: #181e2b !important;
+    color: #f1f5f9 !important;
+    border: 1px solid #334155 !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+body.dark-theme .a4-doc-container table,
+body.dark-mode .a4-doc-container table,
+[data-theme="dark"] .a4-doc-container table {
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-theme .a4-doc-container th,
+body.dark-mode .a4-doc-container th,
+[data-theme="dark"] .a4-doc-container th {
+    background-color: #242f42 !important;
+    color: #ffffff !important;
+    border-color: #334155 !important;
+}
+
+body.dark-theme .a4-doc-container td,
+body.dark-mode .a4-doc-container td,
+[data-theme="dark"] .a4-doc-container td {
+    border-color: #334155 !important;
+    color: #e2e8f0 !important;
+}
+
+body.dark-theme .a4-doc-container p,
+body.dark-theme .a4-doc-container span,
+body.dark-theme .a4-doc-container div,
+body.dark-theme .a4-doc-container strong,
+body.dark-theme .a4-doc-container b,
+body.dark-mode .a4-doc-container p,
+body.dark-mode .a4-doc-container span,
+body.dark-mode .a4-doc-container div,
+body.dark-mode .a4-doc-container strong,
+body.dark-mode .a4-doc-container b,
+[data-theme="dark"] .a4-doc-container p,
+[data-theme="dark"] .a4-doc-container span,
+[data-theme="dark"] .a4-doc-container div,
+[data-theme="dark"] .a4-doc-container strong,
+[data-theme="dark"] .a4-doc-container b {
+    color: inherit !important;
+}
+
+/* Salary Approval Detail Modal Dark Mode Styling */
+body.dark-theme #modal-salary-approval-detail .modal-content,
+body.dark-mode #modal-salary-approval-detail .modal-content,
+[data-theme="dark"] #modal-salary-approval-detail .modal-content {
+    background: #0f172a !important;
+    color: #f8fafc !important;
+    border: 1px solid #334155 !important;
+}
+
+body.dark-theme #modal-salary-approval-detail .modal-header,
+body.dark-theme #modal-salary-approval-detail .modal-footer,
+body.dark-mode #modal-salary-approval-detail .modal-header,
+body.dark-mode #modal-salary-approval-detail .modal-footer,
+[data-theme="dark"] #modal-salary-approval-detail .modal-header,
+[data-theme="dark"] #modal-salary-approval-detail .modal-footer {
+    border-color: #334155 !important;
+}
+
+body.dark-theme #modal-salary-approval-detail h3,
+body.dark-mode #modal-salary-approval-detail h3,
+[data-theme="dark"] #modal-salary-approval-detail h3 {
+    color: #ffffff !important;
+}
+
+body.dark-theme #btn-sal-modal-view-doc,
+body.dark-theme #btn-sal-modal-view-items,
+body.dark-theme #btn-sal-modal-view-html,
+body.dark-mode #btn-sal-modal-view-doc,
+body.dark-mode #btn-sal-modal-view-items,
+body.dark-mode #btn-sal-modal-view-html,
+[data-theme="dark"] #btn-sal-modal-view-doc,
+[data-theme="dark"] #btn-sal-modal-view-items,
+[data-theme="dark"] #btn-sal-modal-view-html {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    color: #cbd5e1 !important;
+    font-weight: 700 !important;
+}
+
+body.dark-theme #btn-sal-modal-view-doc:hover,
+body.dark-theme #btn-sal-modal-view-items:hover,
+body.dark-theme #btn-sal-modal-view-html:hover,
+body.dark-mode #btn-sal-modal-view-doc:hover,
+body.dark-mode #btn-sal-modal-view-items:hover,
+body.dark-mode #btn-sal-modal-view-html:hover,
+[data-theme="dark"] #btn-sal-modal-view-doc:hover,
+[data-theme="dark"] #btn-sal-modal-view-items:hover,
+[data-theme="dark"] #btn-sal-modal-view-html:hover {
+    background: #334155 !important;
+    border-color: #64748b !important;
+    color: #ffffff !important;
+}
+
+body.dark-theme #btn-sal-modal-view-doc.active,
+body.dark-theme #btn-sal-modal-view-items.active,
+body.dark-theme #btn-sal-modal-view-html.active,
+body.dark-mode #btn-sal-modal-view-doc.active,
+body.dark-mode #btn-sal-modal-view-items.active,
+body.dark-mode #btn-sal-modal-view-html.active,
+[data-theme="dark"] #btn-sal-modal-view-doc.active,
+[data-theme="dark"] #btn-sal-modal-view-items.active,
+[data-theme="dark"] #btn-sal-modal-view-html.active {
+    background: #4f46e5 !important;
+    border-color: #6366f1 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 10px rgba(79, 70, 229, 0.45) !important;
+}
+
+body.dark-theme #sal-modal-pane-items table,
+body.dark-mode #sal-modal-pane-items table,
+[data-theme="dark"] #sal-modal-pane-items table {
+    color: #f1f5f9 !important;
+}
+
+body.dark-theme #sal-modal-pane-items thead tr,
+body.dark-mode #sal-modal-pane-items thead tr,
+[data-theme="dark"] #sal-modal-pane-items thead tr {
+    background: #1e293b !important;
+    border-bottom: 2px solid #334155 !important;
+}
+
+body.dark-theme #sal-modal-pane-items th,
+body.dark-mode #sal-modal-pane-items th,
+[data-theme="dark"] #sal-modal-pane-items th {
+    color: #f8fafc !important;
+    border-bottom: 1px solid #334155 !important;
+}
+
+body.dark-theme #sal-modal-pane-items td,
+body.dark-mode #sal-modal-pane-items td,
+[data-theme="dark"] #sal-modal-pane-items td {
+    border-bottom: 1px solid #334155 !important;
+    color: #e2e8f0 !important;
+}
+
+body.dark-theme #sal-modal-raw-html-input,
+body.dark-mode #sal-modal-raw-html-input,
+[data-theme="dark"] #sal-modal-raw-html-input {
+    background: #0b1120 !important;
+    color: #38bdf8 !important;
+    border: 1px solid #334155 !important;
+}
+
+/* Salary Template Modal Dark Mode Styles */
+body.dark-theme .salary-template-modal-content,
+body.dark-mode .salary-template-modal-content,
+[data-theme="dark"] .salary-template-modal-content {
+    background: #0f172a !important;
+    color: #f8fafc !important;
+    border: 1px solid #334155 !important;
+}
+
+body.dark-theme .salary-template-modal-header,
+body.dark-theme .salary-template-modal-footer,
+body.dark-mode .salary-template-modal-header,
+body.dark-mode .salary-template-modal-footer,
+[data-theme="dark"] .salary-template-modal-header,
+[data-theme="dark"] .salary-template-modal-footer {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    color: #ffffff !important;
+}
+
+body.dark-theme .salary-template-modal-header h2,
+body.dark-mode .salary-template-modal-header h2,
+[data-theme="dark"] .salary-template-modal-header h2 {
+    color: #ffffff !important;
+}
+
+body.dark-theme .salary-template-modal-body,
+body.dark-mode .salary-template-modal-body,
+[data-theme="dark"] .salary-template-modal-body {
+    background: #0f172a !important;
+}
+
+body.dark-theme .salary-template-modal label,
+body.dark-mode .salary-template-modal label,
+[data-theme="dark"] .salary-template-modal label {
+    color: #e2e8f0 !important;
+}
+
+body.dark-theme .salary-template-modal input[type="text"],
+body.dark-theme .salary-template-modal select,
+body.dark-mode .salary-template-modal input[type="text"],
+body.dark-mode .salary-template-modal select,
+[data-theme="dark"] .salary-template-modal input[type="text"],
+[data-theme="dark"] .salary-template-modal select {
+    background: #1e293b !important;
+    color: #ffffff !important;
+    border: 1px solid #334155 !important;
+}
+
+body.dark-theme #salary-template-html,
+body.dark-mode #salary-template-html,
+[data-theme="dark"] #salary-template-html {
+    background: #0b1120 !important;
+    color: #38bdf8 !important;
+    border: 1px solid #334155 !important;
+}
+
+body.dark-theme .salary-template-preview-title,
+body.dark-mode .salary-template-preview-title,
+[data-theme="dark"] .salary-template-preview-title {
+    color: #ffffff !important;
+}
+
 /* ── A4 Print & Browser PDF Styling ────────────────────────────────────── */
 @media print {
     body * {
