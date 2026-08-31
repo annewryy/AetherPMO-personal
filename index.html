@@ -31,11 +31,17 @@
     <link rel="icon" href="favicon.png" type="image/png">
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="style.css?v=v124_salary_target_edit_modal_dark_theme_20260831">
+    <link rel="stylesheet" href="style.css?v=v125_modern_login_signup_auth_20260831">
 </head>
 <body class="dark-theme">
         <!-- Login Section -->
     <div id="login-section" class="login-wrapper" style="display: none;">
+        <!-- Animated / Polished Ambient Background Elements -->
+        <div class="login-bg-grid"></div>
+        <div class="login-bg-glow login-bg-glow-1"></div>
+        <div class="login-bg-glow login-bg-glow-2"></div>
+        <div class="login-bg-glow login-bg-glow-3"></div>
+
         <div class="login-card">
             <div class="login-header">
                 <div class="logo-area" style="justify-content: center; margin-bottom: 8px;">
@@ -54,7 +60,7 @@
                     <label for="login-email">이메일</label>
                     <div class="input-wrapper">
                         <i data-lucide="mail" class="input-icon"></i>
-                        <input type="email" id="login-email" placeholder="email@aetherpmo.com" required>
+                        <input type="email" id="login-email" placeholder="email@aetherpmo.com" required autocomplete="username">
                     </div>
                 </div>
                 
@@ -62,32 +68,37 @@
                     <label for="login-password">비밀번호</label>
                     <div class="input-wrapper">
                         <i data-lucide="lock" class="input-icon"></i>
-                        <input type="password" id="login-password" placeholder="••••••••" required>
+                        <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
                     </div>
                 </div>
                 
+                <!-- 체크박스(아이디 저장, 자동 로그인) & 아이디/비밀번호 찾기 -->
                 <div class="form-options">
-                    <label class="remember-me-checkbox">
-                        <input type="checkbox" id="login-remember-me">
-                        <span>아이디 저장</span>
-                    </label>
-                    <a href="#" onclick="event.preventDefault(); alert('비밀번호 찾기 기능은 아직 지원되지 않습니다. 관리자에게 문의하십시오.');" class="forgot-link">비밀번호 찾기</a>
+                    <div class="checkbox-group">
+                        <label class="custom-checkbox-label">
+                            <input type="checkbox" id="login-remember-me">
+                            <span>아이디 저장</span>
+                        </label>
+                        <label class="custom-checkbox-label">
+                            <input type="checkbox" id="login-auto-login">
+                            <span>자동 로그인</span>
+                        </label>
+                    </div>
+                    <div class="auth-links">
+                        <a href="#" onclick="event.preventDefault(); app.openFindIdModal();" class="auth-sub-link">아이디 찾기</a>
+                        <span class="link-divider">|</span>
+                        <a href="#" onclick="event.preventDefault(); app.openFindPasswordModal();" class="auth-sub-link">비밀번호 찾기</a>
+                    </div>
                 </div>
                 
                 <button type="submit" class="btn btn-primary btn-block login-btn">
-                    로그인 <i data-lucide="arrow-right"></i>
+                    <span>로그인</span> <i data-lucide="arrow-right"></i>
                 </button>
             </form>
-            
-            <div class="login-footer">
-                <p>시연용 데모 계정 정보:</p>
-                <div class="test-accounts-info">
-                    <div><span>시스템 관리자:</span> admin@aetherpmo.com / admin1234</div>
-                    <div><span>총괄 관리자:</span> manager@aetherpmo.com / manager1234</div>
-                    <div><span>PM:</span> pm@aetherpmo.com / pm1234</div>
-                    <div><span>수행 담당자:</span> worker@aetherpmo.com / worker1234</div>
-                    <div><span>조회자:</span> viewer@aetherpmo.com / viewer1234</div>
-                </div>
+
+            <div class="signup-prompt">
+                <span>아직 계정이 없으신가요?</span>
+                <button type="button" class="btn-signup-link" onclick="app.openSignupModal()">회원가입</button>
             </div>
         </div>
     </div>
@@ -6305,7 +6316,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v124_salary_target_edit_modal_dark_theme_20260831"></script>
+    <script src="app.js?v=v125_modern_login_signup_auth_20260831"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
@@ -7394,6 +7405,236 @@
             <div class="modal-footer" style="padding: 14px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px; background: var(--bg-input);">
                 <button type="button" class="btn btn-outline" onclick="app.closeVendorContactModal()">취소</button>
                 <button type="submit" class="btn btn-primary">저장</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ==========================================================================
+     AUTH MODALS (Find ID, Find Password, Sign Up)
+     ========================================================================== -->
+
+<!-- 1. Find ID Modal -->
+<div class="modal-overlay" id="modal-find-id" style="display: none;">
+    <div class="modal-container auth-modal-container" style="max-width: 460px; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--bg-card-border); box-shadow: var(--shadow-lg), var(--shadow-glow); overflow: hidden; backdrop-filter: blur(16px);">
+        <div class="modal-header" style="padding: 20px 24px; border-bottom: 1px solid var(--bg-card-border); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02);">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(99, 102, 241, 0.15); display: flex; align-items: center; justify-content: center; color: var(--primary);">
+                    <i data-lucide="user-check" style="width: 18px; height: 18px;"></i>
+                </div>
+                <div>
+                    <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0;">아이디(이메일) 찾기</h3>
+                    <p style="font-size: 11px; color: var(--text-muted); margin: 2px 0 0 0;">가입 시 등록한 정보로 계정을 확인합니다.</p>
+                </div>
+            </div>
+            <button type="button" onclick="app.closeFindIdModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 6px;" aria-label="닫기">
+                <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+            </button>
+        </div>
+        <form id="form-find-id" onsubmit="event.preventDefault(); app.handleFindId();">
+            <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">성명 (이름) <span style="color: #ef4444;">*</span></label>
+                    <div class="input-wrapper" style="position: relative;">
+                        <i data-lucide="user" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-light);"></i>
+                        <input type="text" id="find-id-name" required placeholder="홍길동" style="width: 100%; height: 42px; padding: 0 14px 0 40px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; outline: none;">
+                    </div>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">연락처 (휴대폰) <span style="color: #ef4444;">*</span></label>
+                    <div class="input-wrapper" style="position: relative;">
+                        <i data-lucide="phone" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-light);"></i>
+                        <input type="text" id="find-id-phone" required placeholder="010-1234-5678" style="width: 100%; height: 42px; padding: 0 14px 0 40px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; outline: none;">
+                    </div>
+                </div>
+
+                <!-- 결과 표시 영역 -->
+                <div id="find-id-result" style="display: none; padding: 14px 16px; border-radius: 8px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); color: var(--text-main); font-size: 13px;">
+                    <div style="font-weight: 700; color: var(--primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                        <i data-lucide="check-circle" style="width: 16px; height: 16px;"></i> 조회 결과
+                    </div>
+                    <div id="find-id-result-text" style="line-height: 1.5; color: var(--text-main);"></div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--bg-card-border); display: flex; justify-content: flex-end; gap: 10px; background: rgba(0,0,0,0.1);">
+                <button type="button" class="btn btn-outline" onclick="app.closeFindIdModal()" style="padding: 8px 16px;">닫기</button>
+                <button type="submit" id="btn-find-id-submit" class="btn btn-primary" style="padding: 8px 20px; font-weight: 700;">아이디 찾기</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 2. Find Password Modal -->
+<div class="modal-overlay" id="modal-find-password" style="display: none;">
+    <div class="modal-container auth-modal-container" style="max-width: 480px; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--bg-card-border); box-shadow: var(--shadow-lg), var(--shadow-glow); overflow: hidden; backdrop-filter: blur(16px);">
+        <div class="modal-header" style="padding: 20px 24px; border-bottom: 1px solid var(--bg-card-border); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02);">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(245, 158, 11, 0.15); display: flex; align-items: center; justify-content: center; color: var(--warning);">
+                    <i data-lucide="key-round" style="width: 18px; height: 18px;"></i>
+                </div>
+                <div>
+                    <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0;">비밀번호 찾기 / 재설정</h3>
+                    <p style="font-size: 11px; color: var(--text-muted); margin: 2px 0 0 0;">가입된 계정 정보를 확인하여 비밀번호를 재설정합니다.</p>
+                </div>
+            </div>
+            <button type="button" onclick="app.closeFindPasswordModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 6px;" aria-label="닫기">
+                <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+            </button>
+        </div>
+        <form id="form-find-password" onsubmit="event.preventDefault(); app.handleFindPassword();">
+            <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">이메일 (아이디) <span style="color: #ef4444;">*</span></label>
+                    <div class="input-wrapper" style="position: relative;">
+                        <i data-lucide="mail" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-light);"></i>
+                        <input type="email" id="find-pw-email" required placeholder="user@aetherpmo.com" style="width: 100%; height: 42px; padding: 0 14px 0 40px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; outline: none;">
+                    </div>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">성명 (이름) <span style="color: #ef4444;">*</span></label>
+                    <div class="input-wrapper" style="position: relative;">
+                        <i data-lucide="user" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-light);"></i>
+                        <input type="text" id="find-pw-name" required placeholder="홍길동" style="width: 100%; height: 42px; padding: 0 14px 0 40px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; outline: none;">
+                    </div>
+                </div>
+
+                <!-- 2단계: 비밀번호 재설정 영역 -->
+                <div id="find-pw-reset-fields" style="display: none; flex-direction: column; gap: 14px; padding-top: 10px; border-top: 1px dashed var(--bg-card-border);">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--primary);">새 비밀번호 입력 <span style="color: #ef4444;">*</span></label>
+                        <div class="input-wrapper" style="position: relative;">
+                            <i data-lucide="lock" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-light);"></i>
+                            <input type="password" id="find-pw-new" placeholder="새로운 비밀번호 (6자 이상)" minlength="6" style="width: 100%; height: 42px; padding: 0 14px 0 40px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; outline: none;">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">새 비밀번호 확인 <span style="color: #ef4444;">*</span></label>
+                        <div class="input-wrapper" style="position: relative;">
+                            <i data-lucide="check" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-light);"></i>
+                            <input type="password" id="find-pw-confirm" placeholder="새로운 비밀번호 재입력" minlength="6" style="width: 100%; height: 42px; padding: 0 14px 0 40px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; outline: none;">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="find-pw-result" style="display: none; padding: 12px 16px; border-radius: 8px; font-size: 13px; line-height: 1.4;"></div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--bg-card-border); display: flex; justify-content: flex-end; gap: 10px; background: rgba(0,0,0,0.1);">
+                <button type="button" class="btn btn-outline" onclick="app.closeFindPasswordModal()" style="padding: 8px 16px;">닫기</button>
+                <button type="submit" id="btn-find-pw-submit" class="btn btn-primary" style="padding: 8px 20px; font-weight: 700;">본인 확인 및 재설정</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 3. Sign Up Modal -->
+<div class="modal-overlay" id="modal-signup" style="display: none;">
+    <div class="modal-container auth-modal-container" style="max-width: 540px; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--bg-card-border); box-shadow: var(--shadow-lg), var(--shadow-glow); overflow: hidden; backdrop-filter: blur(20px);">
+        <div class="modal-header" style="padding: 20px 24px; border-bottom: 1px solid var(--bg-card-border); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02);">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 34px; height: 34px; border-radius: 8px; background: rgba(99, 102, 241, 0.15); display: flex; align-items: center; justify-content: center; color: var(--primary);">
+                    <i data-lucide="user-plus" style="width: 20px; height: 20px;"></i>
+                </div>
+                <div>
+                    <h3 style="font-size: 17px; font-weight: 700; color: var(--text-main); margin: 0;">AetherPMO 계정 만들기</h3>
+                    <p style="font-size: 11px; color: var(--text-muted); margin: 2px 0 0 0;">사업관리 및 산출물 통합관리를 위한 계정을 생성합니다.</p>
+                </div>
+            </div>
+            <button type="button" onclick="app.closeSignupModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 6px;" aria-label="닫기">
+                <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+            </button>
+        </div>
+        <form id="form-signup" onsubmit="event.preventDefault(); app.handleSignup();">
+            <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px; max-height: 75vh; overflow-y: auto;">
+                <!-- 이메일 및 중복체크 -->
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">이메일 (아이디) <span style="color: #ef4444;">*</span></label>
+                    <div style="display: flex; gap: 8px;">
+                        <div class="input-wrapper" style="position: relative; flex: 1;">
+                            <i data-lucide="mail" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-light);"></i>
+                            <input type="email" id="signup-email" required placeholder="user@aetherpmo.com" autocomplete="username" style="width: 100%; height: 42px; padding: 0 14px 0 40px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; outline: none;">
+                        </div>
+                        <button type="button" class="btn btn-outline" onclick="app.checkSignupEmailDuplicate()" style="white-space: nowrap; padding: 0 14px; font-size: 12px; font-weight: 600;">중복 확인</button>
+                    </div>
+                    <div id="signup-email-feedback" style="font-size: 11px; margin-top: 4px; display: none;"></div>
+                </div>
+
+                <!-- 비밀번호 & 비밀번호 확인 -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">비밀번호 <span style="color: #ef4444;">*</span></label>
+                        <div class="input-wrapper" style="position: relative;">
+                            <i data-lucide="lock" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-light);"></i>
+                            <input type="password" id="signup-password" required minlength="6" placeholder="6자리 이상" autocomplete="new-password" style="width: 100%; height: 42px; padding: 0 14px 0 40px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; outline: none;">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">비밀번호 확인 <span style="color: #ef4444;">*</span></label>
+                        <div class="input-wrapper" style="position: relative;">
+                            <i data-lucide="check-check" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-light);"></i>
+                            <input type="password" id="signup-password-confirm" required minlength="6" placeholder="비밀번호 재입력" autocomplete="new-password" style="width: 100%; height: 42px; padding: 0 14px 0 40px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; outline: none;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 이름 & 연락처 -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">성명 (이름) <span style="color: #ef4444;">*</span></label>
+                        <div class="input-wrapper" style="position: relative;">
+                            <i data-lucide="user" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-light);"></i>
+                            <input type="text" id="signup-name" required placeholder="홍길동" style="width: 100%; height: 42px; padding: 0 14px 0 40px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; outline: none;">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">연락처 (휴대폰) <span style="color: #ef4444;">*</span></label>
+                        <div class="input-wrapper" style="position: relative;">
+                            <i data-lucide="phone" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-light);"></i>
+                            <input type="text" id="signup-phone" required placeholder="010-1234-5678" style="width: 100%; height: 42px; padding: 0 14px 0 40px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; outline: none;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 회사명 & 부서/직급 -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">소속 회사</label>
+                        <div class="input-wrapper" style="position: relative;">
+                            <i data-lucide="building" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-light);"></i>
+                            <input type="text" id="signup-company" placeholder="(주)오케스트로" style="width: 100%; height: 42px; padding: 0 14px 0 40px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; outline: none;">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">부서 및 직급</label>
+                        <div class="input-wrapper" style="position: relative;">
+                            <i data-lucide="briefcase" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-light);"></i>
+                            <input type="text" id="signup-position" placeholder="공공사업본부 / 수석" style="width: 100%; height: 42px; padding: 0 14px 0 40px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; outline: none;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 기본 역할 선택 -->
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">신청 권한 / 역할</label>
+                    <select id="signup-role" style="width: 100%; height: 42px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; font-weight: 600; outline: none;">
+                        <option value="WORKER">수행 담당자 (기본 역할 - 업무 수행 및 산출물 관리)</option>
+                        <option value="PM">프로젝트 관리자 (PM - 프로젝트 및 일정 총괄)</option>
+                        <option value="VIEWER">조회자 (뷰어 - 사업 현황 및 통계 모니터링)</option>
+                    </select>
+                </div>
+
+                <!-- 이용 동의 -->
+                <div style="padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid var(--bg-card-border);">
+                    <label class="custom-checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; color: var(--text-muted);">
+                        <input type="checkbox" id="signup-agree" required style="width: 16px; height: 16px; accent-color: var(--primary);">
+                        <span>[필수] AetherPMO 이용약관 및 개인정보 처리방침에 동의합니다.</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--bg-card-border); display: flex; justify-content: flex-end; gap: 10px; background: rgba(0,0,0,0.1);">
+                <button type="button" class="btn btn-outline" onclick="app.closeSignupModal()" style="padding: 8px 16px;">취소</button>
+                <button type="submit" id="btn-signup-submit" class="btn btn-primary" style="padding: 8px 24px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                    <i data-lucide="user-check" style="width: 16px; height: 16px;"></i> 회원가입 완료
+                </button>
             </div>
         </form>
     </div>

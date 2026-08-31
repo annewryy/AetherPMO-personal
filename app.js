@@ -461,6 +461,23 @@ class AetherPMO {
         const appSection = document.getElementById('app-section');
         const aiChatWidget = document.getElementById('ai-chat-widget');
 
+        // Restore Remember-Me & Auto-Login checkbox states & input values
+        const rememberedEmail = localStorage.getItem('aether_pmo_remember_email');
+        const autoLoginEnabled = localStorage.getItem('aether_pmo_auto_login') === 'true';
+        const emailInput = document.getElementById('login-email');
+        const rememberCheckbox = document.getElementById('login-remember-me');
+        const autoLoginCheckbox = document.getElementById('login-auto-login');
+
+        if (emailInput && rememberedEmail) {
+            emailInput.value = rememberedEmail;
+        }
+        if (rememberCheckbox) {
+            rememberCheckbox.checked = !!rememberedEmail;
+        }
+        if (autoLoginCheckbox) {
+            autoLoginCheckbox.checked = autoLoginEnabled;
+        }
+
         if (this.useSupabase) {
             try {
                 const { data: { session }, error: sessionErr } = await this.supabase.auth.getSession();
@@ -471,15 +488,6 @@ class AetherPMO {
                     if (loginSection) loginSection.style.display = 'flex';
                     if (appSection) appSection.style.display = 'none';
                     if (aiChatWidget) aiChatWidget.style.display = 'none';
-
-                    // Auto fill email if remembered
-                    const rememberedEmail = localStorage.getItem('aether_pmo_remember_email');
-                    const emailInput = document.getElementById('login-email');
-                    const rememberCheckbox = document.getElementById('login-remember-me');
-                    if (emailInput && rememberedEmail) {
-                        emailInput.value = rememberedEmail;
-                        if (rememberCheckbox) rememberCheckbox.checked = true;
-                    }
                     return false;
                 }
 
@@ -491,11 +499,7 @@ class AetherPMO {
                     .single();
 
                 if (profileErr || !profile) {
-                    console.warn('[Supabase Auth Profile Warning] public.profiles lookup failed or empty for UID ' + session.user.id + ':', {
-                        message: profileErr?.message || 'No profile record found in public.profiles table',
-                        code: profileErr?.code || 'PGRST116',
-                        details: profileErr?.details || 'Run supabase_personal_seed.sql in Supabase SQL Editor to populate public.profiles with UID 32e80e83-b2d9-4ed6-8896-14ef8285fdaf'
-                    });
+                    console.warn('[Supabase Auth Profile Warning] public.profiles lookup failed or empty for UID ' + session.user.id);
                     const role = session.user.user_metadata?.role || 'VIEWER';
                     const name = session.user.user_metadata?.name || session.user.email.split('@')[0];
                     this.currentUser = {
@@ -554,23 +558,23 @@ class AetherPMO {
             }
         }
 
-        localStorage.removeItem('aether_pmo_session');
-        const sessionStr = sessionStorage.getItem('aether_pmo_session');
+        // Local mode session retrieval
+        let sessionStr = sessionStorage.getItem('aether_pmo_session');
+        
+        // Auto-login fallback from localStorage if session is not in sessionStorage
+        if (!sessionStr && autoLoginEnabled) {
+            const autoSessionStr = localStorage.getItem('aether_pmo_auto_session');
+            if (autoSessionStr) {
+                sessionStr = autoSessionStr;
+                sessionStorage.setItem('aether_pmo_session', autoSessionStr);
+            }
+        }
 
         if (!sessionStr) {
             this.currentUser = null;
             if (loginSection) loginSection.style.display = 'flex';
             if (appSection) appSection.style.display = 'none';
             if (aiChatWidget) aiChatWidget.style.display = 'none';
-
-            // Auto fill email if remembered
-            const rememberedEmail = localStorage.getItem('aether_pmo_remember_email');
-            const emailInput = document.getElementById('login-email');
-            const rememberCheckbox = document.getElementById('login-remember-me');
-            if (emailInput && rememberedEmail) {
-                emailInput.value = rememberedEmail;
-                if (rememberCheckbox) rememberCheckbox.checked = true;
-            }
             return false;
         }
 
@@ -614,6 +618,7 @@ class AetherPMO {
         } catch (e) {
             console.error('Session parse failed', e);
             sessionStorage.removeItem('aether_pmo_session');
+            localStorage.removeItem('aether_pmo_auto_session');
             return false;
         }
     }
@@ -677,6 +682,7 @@ class AetherPMO {
         const emailInput = document.getElementById('login-email');
         const passwordInput = document.getElementById('login-password');
         const rememberCheckbox = document.getElementById('login-remember-me');
+        const autoLoginCheckbox = document.getElementById('login-auto-login');
 
         if (!emailInput || !passwordInput) return;
 
@@ -685,10 +691,10 @@ class AetherPMO {
 
         if (this.useSupabase) {
             try {
-                const loginBtn = document.querySelector('#login-section button');
-                const originalText = loginBtn ? loginBtn.textContent : '로그인';
+                const loginBtn = document.querySelector('#login-section button[type="submit"]');
+                const originalText = loginBtn ? loginBtn.innerHTML : '<span>로그인</span>';
                 if (loginBtn) {
-                    loginBtn.textContent = '로그인 중...';
+                    loginBtn.innerHTML = '<span>로그인 중...</span>';
                     loginBtn.disabled = true;
                 }
 
@@ -698,18 +704,12 @@ class AetherPMO {
                 });
 
                 if (loginBtn) {
-                    loginBtn.textContent = originalText;
+                    loginBtn.innerHTML = originalText;
                     loginBtn.disabled = false;
                 }
 
                 if (error) {
-                    console.error('[Supabase Auth Failure] Login failed for email:', email, {
-                        message: error.message,
-                        code: error.code || error.status || 'AUTH_ERROR',
-                        status: error.status || 'N/A',
-                        name: error.name,
-                        rawError: error
-                    });
+                    console.error('[Supabase Auth Failure] Login failed for email:', email, error);
                     alert('로그인 실패 [' + (error.code || error.status || 'AUTH_ERROR') + ']: ' + (error.message || '이메일 또는 비밀번호가 올바르지 않습니다.'));
                     passwordInput.value = '';
                     passwordInput.focus();
@@ -722,6 +722,12 @@ class AetherPMO {
                     localStorage.removeItem('aether_pmo_remember_email');
                 }
 
+                if (autoLoginCheckbox && autoLoginCheckbox.checked) {
+                    localStorage.setItem('aether_pmo_auto_login', 'true');
+                } else {
+                    localStorage.removeItem('aether_pmo_auto_login');
+                }
+
                 passwordInput.value = '';
 
                 await this.loadState();
@@ -732,13 +738,7 @@ class AetherPMO {
                 return;
 
             } catch (e) {
-                console.error('[Supabase Auth Exception] Exception during login execution:', {
-                    message: e.message || e,
-                    code: e.code || e.status || 'EXCEPTION',
-                    status: e.status || 'N/A',
-                    stack: e.stack,
-                    rawError: e
-                });
+                console.error('[Supabase Auth Exception]', e);
                 alert('로그인 중 오류가 발생했습니다: ' + (e.message || e));
                 return;
             }
@@ -756,11 +756,13 @@ class AetherPMO {
             return;
         }
 
-        sessionStorage.setItem('aether_pmo_session', JSON.stringify({
+        const sessionData = {
             email: matchedUser.email,
             role: matchedUser.role,
             name: matchedUser.name
-        }));
+        };
+
+        sessionStorage.setItem('aether_pmo_session', JSON.stringify(sessionData));
 
         if (rememberCheckbox && rememberCheckbox.checked) {
             localStorage.setItem('aether_pmo_remember_email', email);
@@ -768,8 +770,16 @@ class AetherPMO {
             localStorage.removeItem('aether_pmo_remember_email');
         }
 
+        if (autoLoginCheckbox && autoLoginCheckbox.checked) {
+            localStorage.setItem('aether_pmo_auto_login', 'true');
+            localStorage.setItem('aether_pmo_auto_session', JSON.stringify(sessionData));
+        } else {
+            localStorage.removeItem('aether_pmo_auto_login');
+            localStorage.removeItem('aether_pmo_auto_session');
+        }
+
         this.state.userRole = (matchedUser.role === 'SYS_ADMIN') ? 'Admin' : matchedUser.role;
-        this.saveState();
+        await this.saveState();
 
         passwordInput.value = '';
 
@@ -790,6 +800,8 @@ class AetherPMO {
             }
             localStorage.removeItem('aether_pmo_session');
             sessionStorage.removeItem('aether_pmo_session');
+            localStorage.removeItem('aether_pmo_auto_login');
+            localStorage.removeItem('aether_pmo_auto_session');
             this.currentUser = null;
             this.activeProjectId = null;
             this.activeProjectStageFilter = 'Active';
@@ -800,6 +812,375 @@ class AetherPMO {
             }
             await this.checkAuth();
             window.location.hash = '';
+        }
+    }
+
+    /* --- Auth Modals (Find ID, Find Password, Sign Up) Handlers --- */
+
+    openFindIdModal() {
+        const modal = document.getElementById('modal-find-id');
+        if (!modal) return;
+        const nameInput = document.getElementById('find-id-name');
+        const phoneInput = document.getElementById('find-id-phone');
+        const resultDiv = document.getElementById('find-id-result');
+        const resultText = document.getElementById('find-id-result-text');
+
+        if (nameInput) nameInput.value = '';
+        if (phoneInput) phoneInput.value = '';
+        if (resultDiv) resultDiv.style.display = 'none';
+        if (resultText) resultText.innerHTML = '';
+
+        modal.style.display = 'flex';
+        if (window.lucide) window.lucide.createIcons();
+        if (nameInput) nameInput.focus();
+    }
+
+    closeFindIdModal() {
+        const modal = document.getElementById('modal-find-id');
+        if (modal) modal.style.display = 'none';
+    }
+
+    handleFindId() {
+        const nameInput = document.getElementById('find-id-name');
+        const phoneInput = document.getElementById('find-id-phone');
+        const resultDiv = document.getElementById('find-id-result');
+        const resultText = document.getElementById('find-id-result-text');
+
+        if (!nameInput || !phoneInput || !resultDiv || !resultText) return;
+
+        const name = nameInput.value.trim();
+        const rawPhone = phoneInput.value.trim().replace(/[^0-9]/g, '');
+
+        if (!this.state.users) {
+            this.state.users = this.getDefaultUsers();
+        }
+
+        const matchedUsers = (this.state.users || []).filter(u => {
+            const uName = (u.name || '').trim();
+            const uPhone = (u.phone || '').replace(/[^0-9]/g, '');
+            return uName === name && (rawPhone === '' || uPhone === rawPhone);
+        });
+
+        if (matchedUsers.length === 0) {
+            resultDiv.style.display = 'block';
+            resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+            resultDiv.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+            resultText.innerHTML = `<span style="color: #ef4444; font-weight: 600;">일치하는 회원 정보를 찾을 수 없습니다.</span><br><span style="font-size: 11px; color: var(--text-muted);">성명과 휴대폰 번호를 다시 확인해 주세요.</span>`;
+            return;
+        }
+
+        resultDiv.style.display = 'block';
+        resultDiv.style.background = 'rgba(99, 102, 241, 0.1)';
+        resultDiv.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+        
+        let html = `<div style="display: flex; flex-direction: column; gap: 8px;">`;
+        matchedUsers.forEach(u => {
+            html += `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 6px;">
+                    <div>
+                        <div style="font-weight: 700; color: var(--text-main); font-size: 13.5px;">${u.email}</div>
+                        <div style="font-size: 11px; color: var(--text-muted);">${u.name} (${u.company || 'AetherPMO'} / ${this.translateRoleBadge(u.role)})</div>
+                    </div>
+                    <button type="button" class="btn btn-outline" style="font-size: 11px; padding: 4px 10px;" onclick="app.selectFoundEmail('${u.email}')">이 아이디 사용</button>
+                </div>
+            `;
+        });
+        html += `</div>`;
+        resultText.innerHTML = html;
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    selectFoundEmail(email) {
+        const emailInput = document.getElementById('login-email');
+        const passwordInput = document.getElementById('login-password');
+        if (emailInput) emailInput.value = email;
+        this.closeFindIdModal();
+        if (passwordInput) passwordInput.focus();
+    }
+
+    openFindPasswordModal() {
+        const modal = document.getElementById('modal-find-password');
+        if (!modal) return;
+
+        const emailInput = document.getElementById('find-pw-email');
+        const nameInput = document.getElementById('find-pw-name');
+        const resetFields = document.getElementById('find-pw-reset-fields');
+        const newPwInput = document.getElementById('find-pw-new');
+        const confirmPwInput = document.getElementById('find-pw-confirm');
+        const resultDiv = document.getElementById('find-pw-result');
+        const submitBtn = document.getElementById('btn-find-pw-submit');
+
+        if (emailInput) emailInput.value = '';
+        if (nameInput) nameInput.value = '';
+        if (newPwInput) newPwInput.value = '';
+        if (confirmPwInput) confirmPwInput.value = '';
+        if (resetFields) resetFields.style.display = 'none';
+        if (resultDiv) resultDiv.style.display = 'none';
+        if (submitBtn) submitBtn.textContent = '본인 확인 및 재설정';
+
+        modal.style.display = 'flex';
+        if (window.lucide) window.lucide.createIcons();
+        if (emailInput) emailInput.focus();
+    }
+
+    closeFindPasswordModal() {
+        const modal = document.getElementById('modal-find-password');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async handleFindPassword() {
+        const emailInput = document.getElementById('find-pw-email');
+        const nameInput = document.getElementById('find-pw-name');
+        const resetFields = document.getElementById('find-pw-reset-fields');
+        const newPwInput = document.getElementById('find-pw-new');
+        const confirmPwInput = document.getElementById('find-pw-confirm');
+        const resultDiv = document.getElementById('find-pw-result');
+        const submitBtn = document.getElementById('btn-find-pw-submit');
+
+        if (!emailInput || !nameInput || !resetFields || !resultDiv || !submitBtn) return;
+
+        const email = emailInput.value.trim();
+        const name = nameInput.value.trim();
+
+        if (!this.state.users) {
+            this.state.users = this.getDefaultUsers();
+        }
+
+        const matchedUser = (this.state.users || []).find(u => u.email === email && (u.name || '').trim() === name);
+
+        if (!matchedUser) {
+            resultDiv.style.display = 'block';
+            resultDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+            resultDiv.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+            resultDiv.style.color = '#ef4444';
+            resultDiv.innerHTML = `일치하는 계정 정보를 찾을 수 없습니다. 이메일과 성명을 확인해 주세요.`;
+            return;
+        }
+
+        // Phase 1: Show new password fields if not visible
+        if (resetFields.style.display === 'none') {
+            resultDiv.style.display = 'block';
+            resultDiv.style.background = 'rgba(16, 185, 129, 0.1)';
+            resultDiv.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+            resultDiv.style.color = '#10b981';
+            resultDiv.innerHTML = `계정 확인이 완료되었습니다. 아래에 새로운 비밀번호를 입력해 주세요.`;
+
+            resetFields.style.display = 'flex';
+            submitBtn.textContent = '비밀번호 변경 완료';
+            if (newPwInput) newPwInput.focus();
+            return;
+        }
+
+        // Phase 2: Execute password change
+        const newPw = (newPwInput?.value || '').trim();
+        const confirmPw = (confirmPwInput?.value || '').trim();
+
+        if (!newPw || newPw.length < 6) {
+            alert('비밀번호는 최소 6자 이상으로 설정해야 합니다.');
+            if (newPwInput) newPwInput.focus();
+            return;
+        }
+
+        if (newPw !== confirmPw) {
+            alert('새 비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+            if (confirmPwInput) confirmPwInput.focus();
+            return;
+        }
+
+        matchedUser.password = newPw;
+        await this.saveState();
+
+        alert('비밀번호가 성공적으로 변경되었습니다! 새로운 비밀번호로 로그인해 주세요.');
+        
+        const loginEmailInput = document.getElementById('login-email');
+        if (loginEmailInput) loginEmailInput.value = email;
+
+        this.closeFindPasswordModal();
+        const loginPasswordInput = document.getElementById('login-password');
+        if (loginPasswordInput) {
+            loginPasswordInput.value = '';
+            loginPasswordInput.focus();
+        }
+    }
+
+    openSignupModal() {
+        const modal = document.getElementById('modal-signup');
+        if (!modal) return;
+
+        // Reset form inputs
+        const emailInput = document.getElementById('signup-email');
+        const pwInput = document.getElementById('signup-password');
+        const confirmPwInput = document.getElementById('signup-password-confirm');
+        const nameInput = document.getElementById('signup-name');
+        const phoneInput = document.getElementById('signup-phone');
+        const companyInput = document.getElementById('signup-company');
+        const positionInput = document.getElementById('signup-position');
+        const roleSelect = document.getElementById('signup-role');
+        const agreeCheckbox = document.getElementById('signup-agree');
+        const feedback = document.getElementById('signup-email-feedback');
+
+        if (emailInput) emailInput.value = '';
+        if (pwInput) pwInput.value = '';
+        if (confirmPwInput) confirmPwInput.value = '';
+        if (nameInput) nameInput.value = '';
+        if (phoneInput) phoneInput.value = '';
+        if (companyInput) companyInput.value = '';
+        if (positionInput) positionInput.value = '';
+        if (roleSelect) roleSelect.value = 'WORKER';
+        if (agreeCheckbox) agreeCheckbox.checked = false;
+        if (feedback) {
+            feedback.style.display = 'none';
+            feedback.textContent = '';
+        }
+
+        modal.style.display = 'flex';
+        if (window.lucide) window.lucide.createIcons();
+        if (emailInput) emailInput.focus();
+    }
+
+    closeSignupModal() {
+        const modal = document.getElementById('modal-signup');
+        if (modal) modal.style.display = 'none';
+    }
+
+    checkSignupEmailDuplicate() {
+        const emailInput = document.getElementById('signup-email');
+        const feedback = document.getElementById('signup-email-feedback');
+        if (!emailInput || !feedback) return false;
+
+        const email = emailInput.value.trim();
+        if (!email) {
+            feedback.style.display = 'block';
+            feedback.style.color = '#ef4444';
+            feedback.textContent = '이메일 주소를 입력해 주세요.';
+            return false;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            feedback.style.display = 'block';
+            feedback.style.color = '#ef4444';
+            feedback.textContent = '유효한 이메일 형식이 아닙니다.';
+            return false;
+        }
+
+        if (!this.state.users) {
+            this.state.users = this.getDefaultUsers();
+        }
+
+        const exists = (this.state.users || []).some(u => u.email.toLowerCase() === email.toLowerCase());
+        if (exists) {
+            feedback.style.display = 'block';
+            feedback.style.color = '#ef4444';
+            feedback.textContent = '이미 사용 중인 이메일 계정입니다.';
+            return false;
+        } else {
+            feedback.style.display = 'block';
+            feedback.style.color = '#10b981';
+            feedback.textContent = '✓ 사용 가능한 이메일입니다.';
+            return true;
+        }
+    }
+
+    async handleSignup() {
+        const emailInput = document.getElementById('signup-email');
+        const pwInput = document.getElementById('signup-password');
+        const confirmPwInput = document.getElementById('signup-password-confirm');
+        const nameInput = document.getElementById('signup-name');
+        const phoneInput = document.getElementById('signup-phone');
+        const companyInput = document.getElementById('signup-company');
+        const positionInput = document.getElementById('signup-position');
+        const roleSelect = document.getElementById('signup-role');
+        const agreeCheckbox = document.getElementById('signup-agree');
+
+        if (!emailInput || !pwInput || !nameInput) return;
+
+        const email = emailInput.value.trim();
+        const password = pwInput.value;
+        const confirmPw = confirmPwInput?.value || '';
+        const name = nameInput.value.trim();
+        const phone = phoneInput?.value.trim() || '';
+        const company = companyInput?.value.trim() || '(주)오케스트로';
+        const position = positionInput?.value.trim() || '담당자';
+        const role = roleSelect?.value || 'WORKER';
+
+        if (!agreeCheckbox || !agreeCheckbox.checked) {
+            alert('이용약관 및 개인정보 처리방침 동의가 필요합니다.');
+            return;
+        }
+
+        if (!email || !name) {
+            alert('필수 입력 정보를 모두 기입해 주세요.');
+            return;
+        }
+
+        if (!password || password.length < 6) {
+            alert('비밀번호는 최소 6자 이상이어야 합니다.');
+            if (pwInput) pwInput.focus();
+            return;
+        }
+
+        if (password !== confirmPw) {
+            alert('비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+            if (confirmPwInput) confirmPwInput.focus();
+            return;
+        }
+
+        if (!this.state.users) {
+            this.state.users = this.getDefaultUsers();
+        }
+
+        const exists = this.state.users.some(u => u.email.toLowerCase() === email.toLowerCase());
+        if (exists) {
+            alert('이미 등록된 이메일 계정입니다. 다른 이메일을 사용해 주세요.');
+            if (emailInput) emailInput.focus();
+            return;
+        }
+
+        const initials = name.length > 2 ? name.substring(name.length - 2) : name;
+        const colors = ['#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899'];
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+        const newUser = {
+            id: (typeof this.generateUuid === 'function') ? this.generateUuid() : ('user-' + Date.now()),
+            email,
+            password,
+            name,
+            role,
+            company,
+            division: '사업수행팀',
+            position,
+            phone,
+            profileImage: '',
+            profileColor: randomColor,
+            initials: initials.toUpperCase(),
+            avatarType: 'default',
+            assignedProjectIds: [],
+            notifications: {
+                actionItem: true,
+                risk: true,
+                meeting: true,
+                officialDoc: true,
+                artifact: true,
+                projectOverdue: true
+            }
+        };
+
+        this.state.users.push(newUser);
+        await this.saveState();
+
+        alert(`회원가입이 완료되었습니다!\n환영합니다, ${name}님! 로그인해 주세요.`);
+
+        // Fill email in login form
+        const loginEmailInput = document.getElementById('login-email');
+        if (loginEmailInput) loginEmailInput.value = email;
+
+        this.closeSignupModal();
+
+        const loginPasswordInput = document.getElementById('login-password');
+        if (loginPasswordInput) {
+            loginPasswordInput.value = '';
+            loginPasswordInput.focus();
         }
     }
 

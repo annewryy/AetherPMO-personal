@@ -3695,56 +3695,146 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
     animation: highlightFlash 1s ease-out;
 }
 
-/* --- Login Page Styles --- */
+/* --- Login Page Styles & Ambient Atmosphere --- */
 .login-wrapper {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    background-color: var(--bg-app);
-    background-image: radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.05) 0%, transparent 40%);
-    padding: 20px;
+    background-color: #070b14;
+    padding: 24px;
     font-family: var(--font-ui);
+    overflow: hidden;
+    z-index: 1;
 }
 
+body.light-theme .login-wrapper {
+    background-color: #f1f5f9;
+}
+
+/* Background Grid Pattern */
+.login-bg-grid {
+    position: absolute;
+    inset: 0;
+    background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(circle at center, black 30%, transparent 80%);
+    -webkit-mask-image: radial-gradient(circle at center, black 30%, transparent 80%);
+    pointer-events: none;
+    z-index: 2;
+}
+
+body.light-theme .login-bg-grid {
+    background-image: 
+        linear-gradient(to right, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+}
+
+/* Ambient Glow Orbs */
+.login-bg-glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    pointer-events: none;
+    z-index: 2;
+    opacity: 0.7;
+    animation: floatGlow 16s ease-in-out infinite alternate;
+}
+
+.login-bg-glow-1 {
+    top: -10%;
+    left: 15%;
+    width: 520px;
+    height: 520px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.35) 0%, rgba(99, 102, 241, 0) 70%);
+}
+
+.login-bg-glow-2 {
+    bottom: -15%;
+    right: 15%;
+    width: 580px;
+    height: 580px;
+    background: radial-gradient(circle, rgba(6, 182, 212, 0.28) 0%, rgba(6, 182, 212, 0) 70%);
+    animation-delay: -5s;
+    animation-duration: 20s;
+}
+
+.login-bg-glow-3 {
+    top: 45%;
+    left: 48%;
+    transform: translate(-50%, -50%);
+    width: 420px;
+    height: 420px;
+    background: radial-gradient(circle, rgba(168, 85, 247, 0.2) 0%, rgba(168, 85, 247, 0) 70%);
+    animation-delay: -10s;
+    animation-duration: 18s;
+}
+
+@keyframes floatGlow {
+    0% {
+        transform: translate(0, 0) scale(1);
+    }
+    50% {
+        transform: translate(25px, -30px) scale(1.08);
+    }
+    100% {
+        transform: translate(-20px, 20px) scale(0.95);
+    }
+}
+
+/* Polished Glassmorphism Card */
 .login-card {
-    background-color: var(--bg-card);
-    border: 1px solid var(--bg-card-border);
-    border-radius: 16px;
-    padding: 40px;
+    position: relative;
+    z-index: 10;
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    padding: 44px 38px;
     width: 100%;
-    max-width: 440px;
-    box-shadow: var(--shadow-lg), var(--shadow-glow);
-    backdrop-filter: blur(10px);
-    transition: transform 0.3s ease;
+    max-width: 450px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.65), 
+                0 0 35px 0 rgba(99, 102, 241, 0.16),
+                inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+}
+
+body.light-theme .login-card {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.12),
+                0 0 25px 0 rgba(99, 102, 241, 0.08);
 }
 
 .login-header {
     text-align: center;
-    margin-bottom: 32px;
+    margin-bottom: 28px;
 }
 
 .login-subtitle {
-    font-size: 11px;
+    font-size: 11.5px;
     color: var(--text-muted);
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
     margin-top: 8px;
     line-height: 1.5;
 }
 
 .login-card .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 18px;
 }
 
 .login-card label {
     display: block;
-    font-size: 11px;
+    font-size: 11.5px;
     font-weight: 700;
     color: var(--text-muted);
-    margin-bottom: 8px;
-    letter-spacing: 0.5px;
+    margin-bottom: 7px;
+    letter-spacing: 0.3px;
 }
 
 .login-card .input-wrapper {
@@ -3764,113 +3854,180 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
 }
 
 .login-card input[type="email"],
-.login-card input[type="password"] {
+.login-card input[type="password"],
+.login-card input[type="text"] {
     width: 100%;
     background-color: var(--bg-input);
     border: 1px solid var(--bg-input-border);
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 12px 14px 12px 42px;
     color: var(--text-main);
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 500;
     outline: none;
-    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
 }
 
 .login-card input[type="email"]:focus,
-.login-card input[type="password"]:focus {
+.login-card input[type="password"]:focus,
+.login-card input[type="text"]:focus {
     border-color: var(--primary);
     box-shadow: 0 0 0 3px var(--primary-glow);
+    background-color: rgba(15, 23, 42, 0.95);
 }
 
-.login-card input[type="email"]:focus + .input-icon,
-.login-card input[type="password"]:focus + .input-icon {
+body.light-theme .login-card input:focus {
+    background-color: #ffffff;
+}
+
+.login-card input:focus + .input-icon,
+.login-card .input-wrapper:focus-within .input-icon {
     color: var(--primary);
 }
 
+/* Checkbox & Links Layout */
 .form-options {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+    margin-bottom: 22px;
     font-size: 12px;
 }
 
-.remember-me-checkbox {
+.checkbox-group {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
+}
+
+.custom-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     cursor: pointer;
     user-select: none;
-}
-
-.remember-me-checkbox input[type="checkbox"] {
-    width: 15px;
-    height: 15px;
-    cursor: pointer;
-}
-
-.remember-me-checkbox span {
-    color: var(--text-light);
-    font-weight: 600;
-}
-
-.forgot-link {
-    color: var(--primary);
-    font-weight: 700;
-    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
     transition: color var(--transition-fast);
 }
 
-.forgot-link:hover {
-    color: var(--primary-hover);
+.custom-checkbox-label:hover {
+    color: var(--text-main);
 }
 
+.custom-checkbox-label input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    border-radius: 4px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+.auth-links {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.auth-sub-link {
+    color: var(--text-light);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color var(--transition-fast);
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.auth-sub-link:hover {
+    color: var(--primary);
+    background: rgba(99, 102, 241, 0.08);
+}
+
+.link-divider {
+    color: var(--bg-card-border);
+    font-size: 11px;
+    user-select: none;
+}
+
+/* Login Button */
 .login-btn {
     width: 100%;
-    padding: 12px;
-    font-size: 13px;
+    padding: 13px;
+    font-size: 14px;
     font-weight: 700;
-    border-radius: 8px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
 }
 
-.login-footer {
-    margin-top: 32px;
+.login-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+.login-btn:active {
+    transform: translateY(0);
+}
+
+/* Sign Up Prompt */
+.signup-prompt {
+    margin-top: 24px;
+    padding-top: 18px;
     border-top: 1px solid var(--bg-card-border);
-    padding-top: 16px;
-    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 12.5px;
     color: var(--text-muted);
 }
 
-.login-footer p {
-    font-weight: 700;
-    margin-bottom: 6px;
-}
-
-.test-accounts-info {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    line-height: 1.4;
-}
-
-.test-accounts-info div {
-    background-color: var(--bg-hover-item);
-    padding: 4px 8px;
-    border-radius: 4px;
-    border: 1px solid var(--bg-card-border);
-}
-
-.test-accounts-info span {
-    font-weight: 700;
+.btn-signup-link {
+    background: none;
+    border: none;
     color: var(--primary);
-    margin-right: 4px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 12.5px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all var(--transition-fast);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-signup-link:hover {
+    color: var(--primary-hover);
+    background: rgba(99, 102, 241, 0.12);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+/* Auth Modal Specifics */
+.auth-modal-container {
+    animation: authModalFadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes authModalFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
 }
 
 /* --- User Menu Dropdown & Settings Tabbed Modal Styles --- */
