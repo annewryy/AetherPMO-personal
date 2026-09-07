@@ -9725,7 +9725,7 @@ renderTodayTasksRoleBased(todayStr) {
             const rawDeadline = p.proposalDeadline || p.proposal_deadline || p.proposalSubmissionDeadline || (p.endDate ? p.endDate + ' 17:00' : '');
             const deadlineDisplay = rawDeadline ? (rawDeadline.includes('T') ? rawDeadline.replace('T', ' ') : rawDeadline) : '마감일 미정';
             const rawPt = p.proposalPtDate || p.proposal_pt_date || p.ptDate || p.pt_date || '';
-            const ptDisplay = rawPt ? (rawPt.includes('T') ? rawPt.replace('T', ' ') : rawPt) : '2026-07-30 (예정)';
+            const ptDisplay = rawPt ? (rawPt.includes('T') ? rawPt.replace('T', ' ') : rawPt) : '일정 미정';
             container.innerHTML = `
                 <div style="display:flex; flex-direction:column; gap:12px;">
                     <div style="display:flex; justify-content:space-between; padding:12px; background:var(--bg-input); border-radius:8px;">
@@ -9739,15 +9739,120 @@ renderTodayTasksRoleBased(todayStr) {
                 </div>
             `;
         } else if (tabId === 'team') {
+            const projectMembers = (this.state.projectMembers || []).filter(m => m.projectId === p.id && m.isActive !== false);
+            const teamRows = [];
+
+            if (projectMembers.length > 0) {
+                projectMembers.forEach(m => {
+                    const name = m.name ? this.escapeHtml(m.name) : '미지정';
+                    const role = m.roleName || m.participationRole || m.role || '-';
+                    const roleBadge = role !== '-' ? `<span class="badge ${role.includes('PM') ? 'badge-primary' : 'badge-cat cat-etc'}">${this.escapeHtml(role)}</span>` : '-';
+                    const dept = m.department || m.division || m.team || m.company || '-';
+                    const task = m.assignedTask || m.taskDescription || m.duties || m.description || '-';
+                    teamRows.push(`
+                        <tr>
+                            <td class="font-bold">${name}</td>
+                            <td>${roleBadge}</td>
+                            <td>${this.escapeHtml(dept)}</td>
+                            <td>${this.escapeHtml(task)}</td>
+                        </tr>
+                    `);
+                });
+            } else {
+                const pm = p.pmName || p.pm || p.proposalPm || p.internalPm || '';
+                const sales = p.salesOwner || p.sales_owner || '';
+                const prop = p.proposalOwner || p.proposal_owner || '';
+                const bd = p.bdManager || p.bd_manager || '';
+                const pmo = p.pmoManager || p.pmo_manager || '';
+
+                if (pm) {
+                    teamRows.push(`
+                        <tr>
+                            <td class="font-bold">${this.escapeHtml(pm)}</td>
+                            <td><span class="badge badge-primary">입찰 PM</span></td>
+                            <td>${this.escapeHtml(p.department || p.division || p.company || '-')}</td>
+                            <td>입찰 총괄 및 제안 전략 수립</td>
+                        </tr>
+                    `);
+                }
+                if (sales) {
+                    teamRows.push(`
+                        <tr>
+                            <td class="font-bold">${this.escapeHtml(sales)}</td>
+                            <td><span class="badge-cat cat-etc">영업 담당</span></td>
+                            <td>${this.escapeHtml(p.salesDepartment || '-')}</td>
+                            <td>발주처 수주 영업 및 가격 제안</td>
+                        </tr>
+                    `);
+                }
+                if (prop) {
+                    teamRows.push(`
+                        <tr>
+                            <td class="font-bold">${this.escapeHtml(prop)}</td>
+                            <td><span class="badge-cat cat-etc">기술 PL</span></td>
+                            <td>${this.escapeHtml(p.proposalDepartment || '-')}</td>
+                            <td>RFP 기술요구사항 검토 및 Architecture 설계</td>
+                        </tr>
+                    `);
+                }
+                if (bd && bd !== pm && bd !== sales) {
+                    teamRows.push(`
+                        <tr>
+                            <td class="font-bold">${this.escapeHtml(bd)}</td>
+                            <td><span class="badge-cat cat-etc">사업개발</span></td>
+                            <td>-</td>
+                            <td>-</td>
+                        </tr>
+                    `);
+                }
+                if (pmo && pmo !== pm) {
+                    teamRows.push(`
+                        <tr>
+                            <td class="font-bold">${this.escapeHtml(pmo)}</td>
+                            <td><span class="badge-cat cat-etc">PMO 담당</span></td>
+                            <td>-</td>
+                            <td>-</td>
+                        </tr>
+                    `);
+                }
+                if (Array.isArray(p.members) && p.members.length > 0) {
+                    p.members.forEach(m => {
+                        const mName = typeof m === 'string' ? m : (m.name || '');
+                        if (mName && !teamRows.some(r => r.includes(mName))) {
+                            const mRole = typeof m === 'object' && (m.role || m.roleName) ? (m.role || m.roleName) : '-';
+                            const mDept = typeof m === 'object' && m.department ? m.department : '-';
+                            const mTask = typeof m === 'object' && m.task ? m.task : '-';
+                            teamRows.push(`
+                                <tr>
+                                    <td class="font-bold">${this.escapeHtml(mName)}</td>
+                                    <td>${mRole !== '-' ? `<span class="badge-cat cat-etc">${this.escapeHtml(mRole)}</span>` : '-'}</td>
+                                    <td>${this.escapeHtml(mDept)}</td>
+                                    <td>${this.escapeHtml(mTask)}</td>
+                                </tr>
+                            `);
+                        }
+                    });
+                }
+            }
+
+            if (teamRows.length === 0) {
+                teamRows.push(`
+                    <tr>
+                        <td class="font-bold text-muted">미지정</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                    </tr>
+                `);
+            }
+
             container.innerHTML = `
                 <table class="data-table">
                     <thead>
                         <tr><th>이름</th><th>역할</th><th>소속</th><th>입찰 담당 구체 내용</th></tr>
                     </thead>
                     <tbody>
-                        <tr><td class="font-bold">${this.escapeHtml(p.pmName || '안유경')}</td><td><span class="badge badge-primary">입찰 PM</span></td><td>AETHER PMO</td><td>입찰 총괄 및 제안 전략 수립</td></tr>
-                        <tr><td class="font-bold">김철수</td><td><span class="badge-cat cat-etc">영업 담당</span></td><td>사업개발본부</td><td>발주처 수주 영업 및 가격 제안</td></tr>
-                        <tr><td class="font-bold">이영희</td><td><span class="badge-cat cat-etc">기술 PL</span></td><td>클라우드기술팀</td><td>RFP 기술요구사항 검토 및 Architecture 설계</td></tr>
+                        ${teamRows.join('')}
                     </tbody>
                 </table>
             `;
