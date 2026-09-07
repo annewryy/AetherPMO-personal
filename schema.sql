@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
     name TEXT,
-    role TEXT DEFAULT 'VIEWER' CHECK (role IN ('SYS_ADMIN', 'EXEC_ADMIN', 'PM', 'WORKER', 'VIEWER')),
+    role TEXT NOT NULL DEFAULT 'viewer' CHECK (role IN ('admin', 'manager', 'pm', 'worker', 'viewer')),
+    account_status TEXT NOT NULL DEFAULT 'active' CHECK (account_status IN ('active', 'inactive', 'suspended')),
     company TEXT,
     division TEXT,
     position TEXT,
@@ -21,21 +22,35 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- Trigger function to automatically create a profile when a new user signs up via Auth
+-- Trigger function to automatically create a profile when a new user signs up via Auth (Forced 'viewer' role)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
 BEGIN
-    INSERT INTO public.profiles (id, email, name, role, profile_color)
+    INSERT INTO public.profiles (
+        id, email, name, role, account_status, company, division, position, phone, profile_color, avatar_type, created_at, updated_at
+    )
     VALUES (
-        new.id,
-        new.email,
-        COALESCE(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
-        COALESCE(new.raw_user_meta_data->>'role', 'VIEWER'),
-        '#8b5cf6'
+        NEW.id,
+        NEW.email,
+        COALESCE(NEW.raw_user_meta_data->>'name', pg_catalog.split_part(NEW.email, '@', 1)),
+        'viewer', -- Always default to viewer for security
+        'active',
+        COALESCE(NEW.raw_user_meta_data->>'company', '오케스트로(주)'),
+        COALESCE(NEW.raw_user_meta_data->>'division', '사업수행팀'),
+        COALESCE(NEW.raw_user_meta_data->>'position', '담당자'),
+        COALESCE(NEW.raw_user_meta_data->>'phone', ''),
+        '#8b5cf6',
+        'initials',
+        pg_catalog.now(),
+        pg_catalog.now()
     );
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- Drop trigger if exists and recreate
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;

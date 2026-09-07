@@ -109,9 +109,47 @@ VALUES
     ('PROJECTS',        '프로젝트',         'GROUP',  '#projects',  'view-projects',    'folder-kanban', 20, true, false),
     ('TAILORING',       '테일러링',         'SCREEN', '#tailoring', 'view-tailoring',   'sliders',       30, true, false),
     ('ARTIFACTS',       '표준 산출물 관리', 'SCREEN', '#artifacts', 'view-artifacts',   'file-check',    40, true, false),
-    ('RESOURCES',       '참여인력 관리',    'SCREEN', '#resources', 'view-resources',   'users',         50, true, false),
+    ('RESOURCES',       '참여인력 관리',    'GROUP',  '#resources/members', 'view-resources',   'users',         50, true, false),
     ('SALARIES',        '월급여 관리',      'SCREEN', '#salaries',  'view-salaries',    'banknote',      60, true, false),
+    ('BOARD',           '게시판',          'GROUP',  '#board/notices', 'view-board',       'message-square', 70, true, false),
     ('SYSTEM_SETTINGS', '시스템 설정',      'GROUP',  '#backup',    'view-backup',      'settings',      90, true, true)
+ON CONFLICT (menu_code) DO NOTHING;
+
+-- 참여인력 관리 서브메뉴
+INSERT INTO system_menus (menu_code, menu_name, menu_type, parent_id, route, view_id, icon, sort_order, is_active, is_system)
+SELECT 'RESOURCES_MEMBERS', '참여인력 목록', 'SCREEN', id, '#resources/members', 'view-resources', 'user-check', 51, true, false
+FROM system_menus WHERE menu_code = 'RESOURCES'
+ON CONFLICT (menu_code) DO NOTHING;
+
+INSERT INTO system_menus (menu_code, menu_name, menu_type, parent_id, route, view_id, icon, sort_order, is_active, is_system)
+SELECT 'RESOURCES_PROPOSALS', '제안인력 관리', 'SCREEN', id, '#resources/proposal', 'view-resources', 'user-plus', 52, true, false
+FROM system_menus WHERE menu_code = 'RESOURCES'
+ON CONFLICT (menu_code) DO NOTHING;
+
+INSERT INTO system_menus (menu_code, menu_name, menu_type, parent_id, route, view_id, icon, sort_order, is_active, is_system)
+SELECT 'RESOURCES_CUSTOMERS', '고객사 담당자', 'SCREEN', id, '#resources/customers', 'view-resources', 'id-card', 53, true, false
+FROM system_menus WHERE menu_code = 'RESOURCES'
+ON CONFLICT (menu_code) DO NOTHING;
+
+INSERT INTO system_menus (menu_code, menu_name, menu_type, parent_id, route, view_id, icon, sort_order, is_active, is_system)
+SELECT 'RESOURCES_VENDORS', '협력업체 담당자', 'SCREEN', id, '#resources/vendors', 'view-resources', 'building-2', 54, true, false
+FROM system_menus WHERE menu_code = 'RESOURCES'
+ON CONFLICT (menu_code) DO NOTHING;
+
+-- 게시판 서브메뉴
+INSERT INTO system_menus (menu_code, menu_name, menu_type, parent_id, route, view_id, icon, sort_order, is_active, is_system)
+SELECT 'BOARD_NOTICES', '공지사항', 'SCREEN', id, '#board/notices', 'view-board', 'megaphone', 71, true, false
+FROM system_menus WHERE menu_code = 'BOARD'
+ON CONFLICT (menu_code) DO NOTHING;
+
+INSERT INTO system_menus (menu_code, menu_name, menu_type, parent_id, route, view_id, icon, sort_order, is_active, is_system)
+SELECT 'BOARD_INQUIRIES', '문의사항', 'SCREEN', id, '#board/inquiries', 'view-board', 'help-circle', 72, true, false
+FROM system_menus WHERE menu_code = 'BOARD'
+ON CONFLICT (menu_code) DO NOTHING;
+
+INSERT INTO system_menus (menu_code, menu_name, menu_type, parent_id, route, view_id, icon, sort_order, is_active, is_system)
+SELECT 'BOARD_RESOURCES', '자료실', 'SCREEN', id, '#board/resources', 'view-board', 'folder-archive', 73, true, false
+FROM system_menus WHERE menu_code = 'BOARD'
 ON CONFLICT (menu_code) DO NOTHING;
 
 -- 프로젝트 서브메뉴

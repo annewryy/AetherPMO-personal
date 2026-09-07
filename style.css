@@ -13541,3 +13541,31 @@ body.dark-mode #modal-resource-edit .modal-footer .btn-primary:hover,
     border-color: #4338ca !important;
     color: #ffffff !important;
 }
+
+/* --- Viewer Restricted Nav Styling (Aria-Disabled & Padlock Indicator) --- */
+.sidebar-nav .nav-item[aria-disabled="true"],
+.sidebar-nav .submenu-item[aria-disabled="true"],
+.sidebar-nav .nav-item.nav-item-restricted,
+.sidebar-nav .submenu-item.nav-item-restricted {
+    opacity: 0.72;
+    cursor: pointer !important;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.sidebar-nav .nav-item[aria-disabled="true"]:hover,
+.sidebar-nav .submenu-item[aria-disabled="true"]:hover,
+.sidebar-nav .nav-item.nav-item-restricted:hover,
+.sidebar-nav .submenu-item.nav-item-restricted:hover {
+    opacity: 0.95;
+    background: rgba(239, 68, 68, 0.08) !important;
+}
+
+.sidebar-nav .nav-item[aria-disabled="true"]::after,
+.sidebar-nav .submenu-item[aria-disabled="true"]::after {
+    content: '🔒';
+    font-size: 10px;
+    margin-left: auto;
+    opacity: 0.6;
+    padding-left: 4px;
+}

@@ -132,7 +132,7 @@
                 </a>
                 
                 <div class="nav-item-wrapper collapsed" id="nav-wrapper-projects">
-                    <a href="#projects" class="nav-item" data-view="projects" data-tooltip="프로젝트" onclick="event.preventDefault(); window.app?.toggleNavAccordion?.(this);">
+                    <a href="#projects" class="nav-item" data-view="projects" data-tooltip="프로젝트" onclick="event.preventDefault(); event.stopPropagation(); window.app?.toggleNavAccordion?.(this);">
                         <i data-lucide="folder-kanban"></i>
                         <span>프로젝트</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
@@ -167,7 +167,7 @@
 
                 <!-- 인력 및 연락처 관리 그룹 -->
                 <div class="nav-item-wrapper collapsed" id="nav-wrapper-hr">
-                    <a href="#resources/members" class="nav-item" data-view="resources" data-tooltip="참여인력 관리" onclick="event.preventDefault(); window.app?.toggleNavAccordion?.(this);">
+                    <a href="#resources/members" class="nav-item" data-view="resources" data-tooltip="참여인력 관리" onclick="event.preventDefault(); event.stopPropagation(); window.app?.toggleNavAccordion?.(this);">
                         <i data-lucide="users"></i>
                         <span>참여인력 관리</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
@@ -200,7 +200,7 @@
 
                 <!-- 게시판 그룹 (월급여 관리 다음 위치) -->
                 <div class="nav-item-wrapper collapsed" id="nav-wrapper-board">
-                    <a href="#board" class="nav-item" data-view="board" data-tooltip="게시판" onclick="event.preventDefault(); window.app?.toggleNavAccordion?.(this);">
+                    <a href="#board" class="nav-item" data-view="board" data-tooltip="게시판" onclick="event.preventDefault(); event.stopPropagation(); window.app?.toggleNavAccordion?.(this);">
                         <i data-lucide="message-square"></i>
                         <span>게시판</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
@@ -218,6 +218,10 @@
                             <i data-lucide="folder-archive"></i>
                             <span>자료실</span>
                         </a>
+                        <a href="#board/requests" class="submenu-item" data-subview="board-requests">
+                            <i data-lucide="key-round"></i>
+                            <span>권한요청</span>
+                        </a>
                     </div>
                 </div>
 
@@ -226,21 +230,25 @@
                     <span>공문 관리</span>
                 </a>
 
-                <!-- 관리자 설정 (SYS_ADMIN 전용) -->
+                <!-- 관리자 설정 (admin 전용) -->
                 <div class="nav-item-wrapper collapsed" id="nav-wrapper-system-settings">
-                    <a href="#backup" class="nav-item" data-view="backup" data-tooltip="관리자 설정" onclick="event.preventDefault(); window.app?.toggleNavAccordion?.(this); window.app?.switchView?.('backup');">
+                    <a href="#admin/users" class="nav-item" data-view="user-management" data-tooltip="관리자 설정" onclick="event.preventDefault(); event.stopPropagation(); window.app?.toggleNavAccordion?.(this); window.app?.switchView?.('user-management');">
                         <i data-lucide="settings"></i>
                         <span>관리자 설정</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
                     </a>
                     <div class="nav-submenu">
-                        <a href="#backup" class="submenu-item" data-subview="user-mgmt"
-                           onclick="event.preventDefault();event.stopPropagation();window.app?.switchView?.('backup')">
-                            <i data-lucide="user-cog"></i><span>사용자 관리</span>
+                        <a href="#admin/users" class="submenu-item" data-subview="user-mgmt"
+                           onclick="event.preventDefault();event.stopPropagation();window.app?.switchView?.('user-management')">
+                            <i data-lucide="user-cog"></i><span>계정 및 권한 관리</span>
                         </a>
                         <a href="#menu-settings" class="submenu-item" id="nav-menu-settings-link" data-subview="menu-settings"
                            onclick="event.preventDefault();event.stopPropagation();window.app?.switchView?.('menu-settings')">
                             <i data-lucide="layout-list"></i><span>메뉴 설정</span>
+                        </a>
+                        <a href="#backup" class="submenu-item" id="nav-backup-link" data-subview="backup"
+                           onclick="event.preventDefault();event.stopPropagation();window.app?.switchView?.('backup')">
+                            <i data-lucide="database"></i><span>데이터 백업/복구</span>
                         </a>
                     </div>
                 </div>
@@ -2225,11 +2233,16 @@
                     <div class="view-header">
                         <div>
                             <h1>통합 게시판</h1>
-                            <p class="subtitle">공지사항, 문의사항, 자료실을 한곳에서 통합 관리하고 실시간으로 소통합니다.</p>
+                            <p class="subtitle">공지사항, 문의사항, 자료실 및 권한요청을 한곳에서 통합 관리하고 실시간으로 소통합니다.</p>
                         </div>
-                        <button class="btn btn-primary" onclick="app.openNewBoardPostModal()">
-                            <i data-lucide="plus"></i> 새 게시글 작성
-                        </button>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-outline" onclick="app.openPermissionRequestModal()" style="font-weight: 600;">
+                                <i data-lucide="key-round"></i> 권한 신청서 작성
+                            </button>
+                            <button class="btn btn-primary" onclick="app.openNewBoardPostModal()">
+                                <i data-lucide="plus"></i> 새 게시글 작성
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Category Tabs (Filter) -->
@@ -2239,6 +2252,7 @@
                             <button class="project-stage-tab" data-board-category="notice" onclick="app.setBoardCategoryFilter('notice')">공지사항</button>
                             <button class="project-stage-tab" data-board-category="inquiry" onclick="app.setBoardCategoryFilter('inquiry')">문의사항</button>
                             <button class="project-stage-tab" data-board-category="resource" onclick="app.setBoardCategoryFilter('resource')">자료실</button>
+                            <button class="project-stage-tab" data-board-category="request" onclick="app.setBoardCategoryFilter('request')">권한요청</button>
                         </div>
                     </div>
 
@@ -3164,39 +3178,107 @@
                     </div>
                 </section>
 
-                <!-- 8. BACKUP & SETTINGS VIEW -->
+                <!-- 8. USER MANAGEMENT VIEW (admin 전용) -->
+                <section id="view-user-management" class="content-view">
+                    <div class="view-header">
+                        <div>
+                            <h1>계정 및 권한 관리</h1>
+                            <p class="subtitle">시스템 관리자(admin) 전용 사용자 계정 목록, 5대 권한(admin, manager, pm, worker, viewer) 변경 및 권한 신청 심사를 관리합니다.</p>
+                        </div>
+                    </div>
+
+                    <!-- 권한 요청 심사 섹션 -->
+                    <div class="dashboard-card mb-4" id="card-admin-permission-requests" style="border-left: 4px solid var(--primary);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h3 style="margin: 0; font-size: 15px; display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="key-round" class="text-primary"></i> 
+                                <span>권한 변경 신청 심사 대기 목록</span>
+                                <span id="admin-perm-req-badge" class="badge badge-primary" style="font-size: 11px; padding: 2px 8px; border-radius: 10px;">0건</span>
+                            </h3>
+                            <button class="btn btn-xs btn-outline" onclick="app.loadPermissionRequests()">
+                                <i data-lucide="refresh-cw"></i> 새로고침
+                            </button>
+                        </div>
+                        <p class="card-desc" style="margin-bottom: 14px;">사용자가 권한요청 게시판 또는 신청서를 통해 제출한 권한 변경 요청 목록입니다. 승인 시 profiles 테이블의 권한이 즉시 동기화됩니다.</p>
+                        
+                        <div class="table-container">
+                            <table class="data-table g2b-data-table">
+                                <thead>
+                                    <tr>
+                                        <th>신청자</th>
+                                        <th>이메일</th>
+                                        <th>희망 권한</th>
+                                        <th>요청 사유</th>
+                                        <th>신청일시</th>
+                                        <th>상태</th>
+                                        <th class="text-center" style="width: 140px;">심사 처리</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-permission-requests-tbody">
+                                    <!-- Dynamic permission request rows populated in JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 전체 사용자 계정 및 권한 관리 테이블 -->
+                    <div class="dashboard-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                            <div>
+                                <h3 style="margin: 0; font-size: 15px; display: flex; align-items: center; gap: 8px;">
+                                    <i data-lucide="users" class="text-primary"></i> 
+                                    <span>전체 사용자 계정 및 권한 목록</span>
+                                </h3>
+                                <p class="card-desc" style="margin-top: 4px;">등록된 모든 계정의 프로필 정보, 가입일, 상태 및 권한을 조회하고 5대 권한 중 하나로 안전하게 변경합니다.</p>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <select id="user-mgmt-role-filter" onchange="app.renderUserManagementTable()" style="height: 36px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--bg-card-border); background: var(--bg-input); color: var(--text-main); font-size: 12.5px;">
+                                    <option value="all">전체 권한</option>
+                                    <option value="admin">시스템 관리자 (admin)</option>
+                                    <option value="manager">총괄관리자 (manager)</option>
+                                    <option value="pm">PM (pm)</option>
+                                    <option value="worker">수행담당자 (worker)</option>
+                                    <option value="viewer">조회자 (viewer)</option>
+                                </select>
+                                <div style="position: relative;">
+                                    <i data-lucide="search" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--text-light);"></i>
+                                    <input type="text" id="user-mgmt-search-input" placeholder="이름, 이메일, 소속 검색..." oninput="app.renderUserManagementTable()" style="height: 36px; padding: 0 12px 0 32px; border-radius: 6px; border: 1px solid var(--bg-card-border); background: var(--bg-input); color: var(--text-main); font-size: 12.5px; width: 200px;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="table-container">
+                            <table class="data-table g2b-data-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px; text-align: center;">아바타</th>
+                                        <th>성명 (이름)</th>
+                                        <th>이메일 계정</th>
+                                        <th>소속 / 부서</th>
+                                        <th>현재 권한</th>
+                                        <th>가입일</th>
+                                        <th class="text-center">상태</th>
+                                        <th class="text-center" style="width: 220px;">권한 변경</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="user-management-tbody">
+                                    <!-- Dynamic user rows populated in JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 9. BACKUP & SYSTEM SETTINGS VIEW -->
                 <section id="view-backup" class="content-view">
                     <div class="view-header">
                         <div>
-                            <h1>관리자 설정</h1>
-                            <p class="subtitle">시스템 관리자 및 사용자 계정, 프로필, 권한을 관리합니다.</p>
+                            <h1>데이터 백업 및 시스템 설정</h1>
+                            <p class="subtitle">시스템 데이터 백업, 복구 및 초기화 설정을 관리합니다.</p>
                         </div>
                     </div>
 
                     <div class="backup-grid">
-                        <!-- 사용자 및 프로필 관리 Card -->
-                        <div class="dashboard-card" style="grid-column: span 2;">
-                            <h3><i data-lucide="users" class="text-primary vertical-align-middle mr-2"></i> 사용자 및 프로필 관리</h3>
-                            <p class="card-desc">등록된 사용자 계정 및 권한을 관리하고, 각 사용자별 프로필 이미지와 아바타 설정을 변경할 수 있습니다. (로컬 스토리지에 저장됩니다)</p>
-                            
-                            <div class="table-container mt-3">
-                                <table class="data-table g2b-data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>아바타</th>
-                                            <th>이름</th>
-                                            <th>이메일</th>
-                                            <th>권한 등급</th>
-                                            <th class="text-center">프로필 색상</th>
-                                            <th class="text-center">작업</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="user-management-tbody">
-                                        <!-- Dynamic user rows populated in JS -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
                         <div class="dashboard-card">
                             <h3><i data-lucide="database" class="text-primary vertical-align-middle mr-2"></i> 데이터 백업 및 복구 (JSON)</h3>
                             <p class="card-desc">현재까지 등록된 프로젝트, 산출물, 체크리스트 및 로그 내역을 JSON 파일로 내보내거나 가져올 수 있습니다. 브라우저 저장소가 초기화되더라도 이 파일을 이용해 데이터를 완전히 복구할 수 있습니다.</p>
@@ -3502,14 +3584,7 @@
                                         <input type="text" id="pref-phone" placeholder="예: 010-1234-5678">
                                     </div>
 
-                                    <div class="form-actions mt-3">
-                                        <button type="button" class="btn btn-primary" onclick="app.saveAccountPreferences()">
-                                            <i data-lucide="save"></i> 저장하기
-                                        </button>
-                                        <button type="button" class="btn btn-outline" onclick="app.loadAccountPreferences()">
-                                            초기화
-                                        </button>
-                                    </div>
+
                                 </div>
                             </div>
 
@@ -3796,7 +3871,7 @@
                             <label for="new-bidding-status">
                                 입찰 진행단계 <span aria-hidden="true" class="text-danger">*</span>
                             </label>
-                            <select id="new-bidding-status" class="form-control">
+                            <select id="new-bidding-status" class="form-control" onchange="app.handleBidStatusChange(this.value)">
                                 <option value="">진행단계를 선택해주세요.</option>
                                 <option value="review" selected>참여 검토</option>
                                 <option value="proposal_prep">제안 준비</option>
@@ -3807,7 +3882,7 @@
                         </div>
                         <div class="form-group" id="project-bid-status-group" style="display: none;">
                             <label for="project-bid-status">입찰 제안 상태</label>
-                            <select id="project-bid-status">
+                            <select id="project-bid-status" onchange="app.handleBidStatusChange(this.value)">
                                 <option value="proposal_preparing" selected>제안 준비중</option>
                                 <option value="proposal_submitted">제안 제출</option>
                                 <option value="waiting_result">결과 대기</option>
@@ -3817,6 +3892,24 @@
                         </div>
                         <!-- 입찰단계 전용 필드 -->
                         <div id="project-bidding-fields" style="grid-column: span 2; display: none;">
+                            <!-- 제안 준비중 단계일 때 일정 설정 영역 -->
+                            <div id="project-bidding-prep-schedule" style="display: none; margin-bottom: 15px; padding: 12px 14px; background: var(--bg-hover-item); border: 1px solid var(--primary); border-radius: 8px;">
+                                <h4 style="margin: 0 0 10px 0; font-size: 13px; color: var(--primary); font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                                    <i data-lucide="calendar-clock" style="width: 15px; height: 15px;"></i>
+                                    제안 준비 일정 설정 (제안 준비중)
+                                </h4>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                    <div class="form-group">
+                                        <label for="project-proposal-deadline">제안제출 마감일시</label>
+                                        <input type="datetime-local" id="project-proposal-deadline">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="project-proposal-pt-date">제안발표 PT일정</label>
+                                        <input type="datetime-local" id="project-proposal-pt-date">
+                                    </div>
+                                </div>
+                            </div>
+
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px;">
                                 <div class="form-group">
                                     <label for="project-bid-number">공고번호(bidNumber)</label>
@@ -4580,12 +4673,6 @@
                 </div>
                 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline" onclick="app.closeGlobalTemplateModal()">취소</button>
-                    <button type="submit" class="btn btn-primary">저장하기</button>
-                </div>
-            </form>
-        </div>
-    </div>
                     <button type="button" class="btn btn-outline" onclick="app.closeGlobalTemplateModal()">취소</button>
                     <button type="submit" class="btn btn-primary">저장하기</button>
                 </div>
@@ -7620,21 +7707,11 @@
                     </div>
                 </div>
 
-                <!-- 기본 역할 선택 -->
-                <div>
-                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">신청 권한 / 역할</label>
-                    <select id="signup-role" style="width: 100%; height: 42px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; font-weight: 600; outline: none;">
-                        <option value="WORKER">수행 담당자 (기본 역할 - 업무 수행 및 산출물 관리)</option>
-                        <option value="PM">프로젝트 관리자 (PM - 프로젝트 및 일정 총괄)</option>
-                        <option value="VIEWER">조회자 (뷰어 - 사업 현황 및 통계 모니터링)</option>
-                    </select>
-                </div>
-
                 <!-- 이용 동의 -->
                 <div style="padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid var(--bg-card-border);">
                     <label class="custom-checkbox-label" style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; color: var(--text-muted);">
                         <input type="checkbox" id="signup-agree" required style="width: 16px; height: 16px; accent-color: var(--primary);">
-                        <span>[필수] AetherPMO 이용약관 및 개인정보 처리방침에 동의합니다.</span>
+                        <span>[필수] AetherPMO 이용약관 및 개인정보 처리방침에 동의합니다. (가입 시 기본 조회자(viewer) 권한이 부여됩니다.)</span>
                     </label>
                 </div>
             </div>
@@ -7642,6 +7719,129 @@
                 <button type="button" class="btn btn-outline" onclick="app.closeSignupModal()" style="padding: 8px 16px;">취소</button>
                 <button type="submit" id="btn-signup-submit" class="btn btn-primary" style="padding: 8px 24px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
                     <i data-lucide="user-check" style="width: 16px; height: 16px;"></i> 회원가입 완료
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 1. 접근 권한 안내 공통 모달 (#modal-access-denied) -->
+<!-- ========================================== -->
+<div class="modal-overlay" id="modal-access-denied" style="display: none; z-index: 100000;">
+    <div class="modal-container" style="max-width: 440px; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--bg-card-border); box-shadow: var(--shadow-lg), var(--shadow-glow); overflow: hidden; backdrop-filter: blur(20px);">
+        <div class="modal-header" style="padding: 20px 24px 16px; border-bottom: 1px solid var(--bg-card-border); display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(239, 68, 68, 0.15); display: flex; align-items: center; justify-content: center; color: #ef4444; flex-shrink: 0;">
+                    <i data-lucide="shield-alert" style="width: 22px; height: 22px;"></i>
+                </div>
+                <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0;">접근 권한이 없습니다</h3>
+            </div>
+            <button type="button" onclick="app.closeAccessDeniedModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px;" aria-label="닫기">
+                <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+            </button>
+        </div>
+        <div class="modal-body" style="padding: 22px 24px; font-size: 13.5px; color: var(--text-muted); line-height: 1.6;">
+            권한이 없습니다. 게시판을 통해 권한요청 양식을 작성해주세요.
+        </div>
+        <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--bg-card-border); display: flex; justify-content: flex-end; gap: 10px; background: rgba(0,0,0,0.05);">
+            <button type="button" class="btn btn-outline" onclick="app.closeAccessDeniedModal()" style="padding: 8px 18px; font-size: 13px;">확인</button>
+            <button type="button" class="btn btn-primary" onclick="app.navigateToPermissionRequestBoard()" style="padding: 8px 20px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                <i data-lucide="send" style="width: 14px; height: 14px;"></i> 권한 요청하기
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 2. 권한 변경 확인 모달 (#modal-change-role-confirm) -->
+<!-- ========================================== -->
+<div class="modal-overlay" id="modal-change-role-confirm" style="display: none; z-index: 100000;">
+    <div class="modal-container" style="max-width: 480px; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--bg-card-border); box-shadow: var(--shadow-lg), var(--shadow-glow); overflow: hidden; backdrop-filter: blur(20px);">
+        <div class="modal-header" style="padding: 20px 24px; border-bottom: 1px solid var(--bg-card-border); display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(99, 102, 241, 0.15); display: flex; align-items: center; justify-content: center; color: var(--primary);">
+                    <i data-lucide="shield-check" style="width: 22px; height: 22px;"></i>
+                </div>
+                <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0;">사용자 권한 변경 확인</h3>
+            </div>
+            <button type="button" onclick="app.closeRoleChangeConfirmModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px;" aria-label="닫기">
+                <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+            </button>
+        </div>
+        <div class="modal-body" style="padding: 24px; font-size: 13px; color: var(--text-muted);">
+            <p style="margin: 0 0 16px; font-size: 14px; color: var(--text-main); font-weight: 600;">
+                선택한 사용자의 시스템 접근 권한을 변경하시겠습니까?
+            </p>
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--bg-card-border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">대상 사용자:</span><strong id="confirm-role-user-name" style="color: var(--text-main);">--</strong></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">이메일:</span><span id="confirm-role-user-email" style="color: var(--text-main); font-family: monospace;">--</span></div>
+                <div style="display: flex; justify-content: space-between; align-items: center;"><span style="color: var(--text-muted);">현재 권한:</span><span id="confirm-role-current-badge" class="badge">--</span></div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px dashed var(--bg-card-border);"><span style="color: var(--text-muted); font-weight: 700;">변경할 권한:</span><span id="confirm-role-new-badge" class="badge" style="font-weight: 800;">--</span></div>
+            </div>
+            <p id="confirm-role-warning" style="margin: 14px 0 0 0; font-size: 11.5px; color: #f59e0b; display: flex; align-items: center; gap: 6px;">
+                <i data-lucide="alert-circle" style="width: 14px; height: 14px;"></i> 권한 변경 즉시 Supabase DB에 반영되며 사용자의 접근 범위가 변경됩니다.
+            </p>
+        </div>
+        <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--bg-card-border); display: flex; justify-content: flex-end; gap: 10px; background: rgba(0,0,0,0.05);">
+            <button type="button" class="btn btn-outline" onclick="app.closeRoleChangeConfirmModal()" style="padding: 8px 18px;">취소</button>
+            <button type="button" id="btn-confirm-role-execute" class="btn btn-primary" onclick="app.executeRoleChange()" style="padding: 8px 24px; font-weight: 700;">
+                변경 승인 및 적용
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 3. 권한요청 작성 모달 (#modal-permission-request) -->
+<!-- ========================================== -->
+<div class="modal-overlay" id="modal-permission-request" style="display: none; z-index: 100000;">
+    <div class="modal-container" style="max-width: 520px; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--bg-card-border); box-shadow: var(--shadow-lg), var(--shadow-glow); overflow: hidden; backdrop-filter: blur(20px);">
+        <div class="modal-header" style="padding: 20px 24px; border-bottom: 1px solid var(--bg-card-border); display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; color: #10b981;">
+                    <i data-lucide="key-round" style="width: 22px; height: 22px;"></i>
+                </div>
+                <div>
+                    <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0;">AetherPMO 권한 신청서 작성</h3>
+                    <p style="font-size: 11px; color: var(--text-muted); margin: 2px 0 0 0;">신청한 권한은 시스템 관리자(admin) 검토 후 반영됩니다.</p>
+                </div>
+            </div>
+            <button type="button" onclick="app.closePermissionRequestModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px;" aria-label="닫기">
+                <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+            </button>
+        </div>
+        <form id="form-permission-request" onsubmit="event.preventDefault(); app.submitPermissionRequest();">
+            <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">신청자 성명</label>
+                        <input type="text" id="perm-req-user-name" readonly style="width: 100%; height: 38px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-hover-item); color: var(--text-main); font-size: 13px;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">이메일 계정</label>
+                        <input type="text" id="perm-req-user-email" readonly style="width: 100%; height: 38px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-hover-item); color: var(--text-main); font-size: 13px;">
+                    </div>
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">희망 요청 권한 <span style="color: #ef4444;">*</span></label>
+                    <select id="perm-req-role-select" required style="width: 100%; height: 42px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; font-weight: 600; outline: none; cursor: pointer;">
+                        <option value="worker">수행담당자 (worker) - 프로젝트 참여 및 산출물/일정 업무 수행</option>
+                        <option value="pm">PM (pm) - 프로젝트 총괄 관리 및 일정/인력 배정</option>
+                        <option value="manager">총괄관리자 (manager) - 전사 사업 모니터링 및 총괄 리포트</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--text-muted);">요청 사유 및 참여 프로젝트 <span style="color: #ef4444;">*</span></label>
+                    <textarea id="perm-req-reason" rows="4" required placeholder="예: 차세대 공공 클라우드 전환 사업의 백엔드 개발 담당자로 배정되어 수행담당자(worker) 권한을 요청합니다." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--bg-input-border); background: var(--bg-input); color: var(--text-main); font-size: 13px; outline: none; resize: vertical;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--bg-card-border); display: flex; justify-content: flex-end; gap: 10px; background: rgba(0,0,0,0.05);">
+                <button type="button" class="btn btn-outline" onclick="app.closePermissionRequestModal()" style="padding: 8px 18px;">취소</button>
+                <button type="submit" id="btn-submit-perm-req" class="btn btn-primary" style="padding: 8px 24px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                    <i data-lucide="send" style="width: 15px; height: 15px;"></i> 권한 요청 제출
                 </button>
             </div>
         </form>

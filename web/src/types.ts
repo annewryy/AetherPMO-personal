@@ -40,6 +40,7 @@ export interface Project {
   vrbInfo: VrbInfo | null;
   // 0025 — 목록 카드 필드: 입찰(프로젝트 자체 컨소시엄 역할/지분·VRB 상태·제출마감), 수행(집계 카운트)
   proposalDeadline: string | null;
+  proposalPtDate?: string | null;
   consortiumRole: string | null;
   consortiumShare: number | null;
   vrbStatus: string | null;
@@ -85,6 +86,7 @@ export interface ProjectCreateInput {
   contractAmount?: number;
   announcementNo?: string;
   proposalDeadline?: string;          // yyyy-MM-dd
+  proposalPtDate?: string;            // yyyy-MM-dd HH:mm or ISO
   businessType?: string;
   description?: string;
   team?: string;
@@ -124,6 +126,7 @@ export interface ProjectUpdateInput {
   contractAmount?: number;
   announcementNo?: string;
   proposalDeadline?: string;          // yyyy-MM-dd
+  proposalPtDate?: string;            // yyyy-MM-dd HH:mm or ISO
   businessType?: string;
   description?: string;
   team?: string;

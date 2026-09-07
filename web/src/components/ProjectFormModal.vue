@@ -81,6 +81,18 @@ const contractAmount = ref<number | null>(p?.projectBudget ?? null);
 const stage = ref<'BIDDING' | 'EXECUTION' | 'COMPLETED' | ''>(p?.stage ?? '');
 const status = ref(normalizeStatus(p?.status));
 const bidStatus = ref(p?.bidStatus && BID_STATUSES.includes(p.bidStatus) ? p.bidStatus : '');
+
+function formatForDateTimeLocal(val: string | null | undefined): string {
+  if (!val) return '';
+  const s = String(val).trim();
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) return s.substring(0, 16);
+  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(s)) return s.replace(/\s+/, 'T').substring(0, 16);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return `${s}T17:00`;
+  return s;
+}
+
+const proposalDeadline = ref(p?.proposalDeadline ? formatForDateTimeLocal(p.proposalDeadline) : '');
+const proposalPtDate = ref((p as any)?.proposalPtDate ? formatForDateTimeLocal((p as any).proposalPtDate) : '');
 const plannedStartDate = ref(p?.startDate ? String(p.startDate).split('T')[0] : '');
 const plannedEndDate = ref(p?.endDate ? String(p.endDate).split('T')[0] : '');
 const announcementNo = ref(p?.announcementNo ?? '');
@@ -169,6 +181,8 @@ function buildCreate(): ProjectCreateInput {
   if (bidStatus.value) input.bidStatus = bidStatus.value;
   if (s(plannedStartDate.value)) input.plannedStartDate = s(plannedStartDate.value);
   if (s(plannedEndDate.value)) input.plannedEndDate = s(plannedEndDate.value);
+  if (s(proposalDeadline.value)) input.proposalDeadline = s(proposalDeadline.value);
+  if (s(proposalPtDate.value)) input.proposalPtDate = s(proposalPtDate.value);
   if (s(announcementNo.value)) input.announcementNo = s(announcementNo.value);
   if (s(salesOwner.value)) input.salesOwner = s(salesOwner.value);
   if (s(proposalOwner.value)) input.proposalOwner = s(proposalOwner.value);
@@ -208,6 +222,10 @@ function buildPatch(): ProjectUpdateInput {
   const origEnd = orig.endDate ? String(orig.endDate).split('T')[0] : '';
   if (t(plannedStartDate.value) !== origStart) patch.plannedStartDate = t(plannedStartDate.value);
   if (t(plannedEndDate.value) !== origEnd) patch.plannedEndDate = t(plannedEndDate.value);
+  const origDeadline = orig.proposalDeadline ? formatForDateTimeLocal(orig.proposalDeadline) : '';
+  const origPtDate = (orig as any).proposalPtDate ? formatForDateTimeLocal((orig as any).proposalPtDate) : '';
+  if (t(proposalDeadline.value) !== origDeadline) patch.proposalDeadline = t(proposalDeadline.value);
+  if (t(proposalPtDate.value) !== origPtDate) patch.proposalPtDate = t(proposalPtDate.value);
   if (t(announcementNo.value) !== (orig.announcementNo ?? '')) patch.announcementNo = t(announcementNo.value);
   if (t(salesOwner.value) !== (orig.salesOwner ?? '')) patch.salesOwner = t(salesOwner.value);
   if (t(proposalOwner.value) !== (orig.proposalOwner ?? '')) patch.proposalOwner = t(proposalOwner.value);
@@ -322,6 +340,17 @@ async function submit() {
         <option value="">{{ mode === 'create' ? '기본(제안준비중)' : '변경 안 함' }}</option>
         <option v-for="s in BID_STATUSES" :key="s" :value="s">{{ s }}</option>
       </select>
+
+      <div v-if="bidStatus === '제안준비중' || (!bidStatus && mode === 'create')" class="row2" style="margin-top: 8px;">
+        <div>
+          <label class="label">제안제출 마감일시</label>
+          <input v-model="proposalDeadline" class="input" type="datetime-local" :disabled="submitting" />
+        </div>
+        <div>
+          <label class="label">제안발표 PT일정</label>
+          <input v-model="proposalPtDate" class="input" type="datetime-local" :disabled="submitting" />
+        </div>
+      </div>
     </template>
 
     <div class="row2">

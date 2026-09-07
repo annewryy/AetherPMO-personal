@@ -9722,15 +9722,19 @@ renderTodayTasksRoleBased(todayStr) {
                 </div>
             `;
         } else if (tabId === 'schedule') {
+            const rawDeadline = p.proposalDeadline || p.proposal_deadline || p.proposalSubmissionDeadline || (p.endDate ? p.endDate + ' 17:00' : '');
+            const deadlineDisplay = rawDeadline ? (rawDeadline.includes('T') ? rawDeadline.replace('T', ' ') : rawDeadline) : '마감일 미정';
+            const rawPt = p.proposalPtDate || p.proposal_pt_date || p.ptDate || p.pt_date || '';
+            const ptDisplay = rawPt ? (rawPt.includes('T') ? rawPt.replace('T', ' ') : rawPt) : '2026-07-30 (예정)';
             container.innerHTML = `
                 <div style="display:flex; flex-direction:column; gap:12px;">
                     <div style="display:flex; justify-content:space-between; padding:12px; background:var(--bg-input); border-radius:8px;">
                         <span>📅 제안 제출 마감일시</span>
-                        <span class="font-bold text-danger">${p.endDate ? p.endDate + ' 17:00' : '마감일 미정'}</span>
+                        <span class="font-bold text-danger">${this.escapeHtml(deadlineDisplay)}</span>
                     </div>
                     <div style="display:flex; justify-content:space-between; padding:12px; background:var(--bg-input); border-radius:8px;">
                         <span>🎤 제안 발표(PT) 일정</span>
-                        <span class="font-bold text-primary">2026-07-30 (예정)</span>
+                        <span class="font-bold text-primary">${this.escapeHtml(ptDisplay)}</span>
                     </div>
                 </div>
             `;
@@ -20378,16 +20382,46 @@ renderTodayTasksRoleBased(todayStr) {
     }
 
 
+    formatForDateTimeLocal(val) {
+        if (!val) return '';
+        const s = String(val).trim();
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) {
+            return s.substring(0, 16);
+        }
+        if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(s)) {
+            return s.replace(/\s+/, 'T').substring(0, 16);
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+            return `${s}T17:00`;
+        }
+        return s;
+    }
+
+    handleBidStatusChange(value) {
+        const rawVal = value || document.getElementById('project-bid-status')?.value || document.getElementById('new-bidding-status')?.value || '';
+        const norm = this.normalizeBiddingStatus(rawVal);
+        const isPrep = (norm === 'proposal_prep' || rawVal === 'proposal_preparing' || rawVal === '제안 준비중' || rawVal === '제안준비중' || rawVal === 'proposal_prep');
+        
+        const scheduleSection = document.getElementById('project-bidding-prep-schedule');
+        if (scheduleSection) {
+            scheduleSection.style.display = isPrep ? 'block' : 'none';
+        }
+        if (typeof lucide !== 'undefined' && lucide.createIcons) {
+            try { lucide.createIcons(); } catch(e){}
+        }
+    }
+
     /* ==========================================================================
        CRUD OPERATIONS: PROJECTS
        ========================================================================== */
-        handleProjectStatusChange(status) {
+    handleProjectStatusChange(status) {
         const biddingGroup = document.getElementById('new-bidding-status-group');
         const biddingFields = document.getElementById('project-bidding-fields');
         const isBidding = status === 'Bidding' || this.activeProjectStageFilter === 'Bidding';
         
         if (biddingGroup) biddingGroup.style.display = isBidding ? 'block' : 'none';
         if (biddingFields) biddingFields.style.display = isBidding ? 'block' : 'none';
+        this.handleBidStatusChange();
     }
 
     openNewProjectModal() {
@@ -20470,7 +20504,10 @@ renderTodayTasksRoleBased(todayStr) {
         if (document.getElementById('new-bidding-status')) {
             document.getElementById('new-bidding-status').value = 'review';
         }
+        if (document.getElementById('project-proposal-deadline')) document.getElementById('project-proposal-deadline').value = '';
+        if (document.getElementById('project-proposal-pt-date')) document.getElementById('project-proposal-pt-date').value = '';
         this.handleProjectStatusChange(isBiddingMode ? 'Bidding' : 'In Progress');
+        this.handleBidStatusChange('proposal_prep');
 
         document.getElementById('project-modal').classList.add('open');
     }
@@ -20601,6 +20638,13 @@ renderTodayTasksRoleBased(todayStr) {
         this.setFieldValue('project-business-manager', project.businessManager);
         this.setFieldValue('project-contract-owner', project.contractOwner);
         this.setFieldValue('project-legal-owner', project.legalOwner);
+
+        // Populate proposal deadline & PT schedule
+        const rawDeadline = project.proposalDeadline || project.proposal_deadline || project.proposalSubmissionDeadline || (isBidding ? project.endDate : '') || '';
+        const rawPtDate = project.proposalPtDate || project.proposal_pt_date || project.ptDate || project.pt_date || '';
+        this.setFieldValue('project-proposal-deadline', this.formatForDateTimeLocal(rawDeadline));
+        this.setFieldValue('project-proposal-pt-date', this.formatForDateTimeLocal(rawPtDate));
+        this.handleBidStatusChange(this.normalizeBiddingStatus(project));
 
         // Populate WBS stage inputs
         const stageIds = ['initiation', 'analysis', 'design', 'bpr', 'isp', 'closing'];
@@ -21042,6 +21086,8 @@ renderTodayTasksRoleBased(todayStr) {
         const businessManager = document.getElementById('project-business-manager')?.value?.trim() || '';
         const contractOwner = document.getElementById('project-contract-owner')?.value?.trim() || '';
         const legalOwner = document.getElementById('project-legal-owner')?.value?.trim() || '';
+        const proposalDeadline = document.getElementById('project-proposal-deadline')?.value || '';
+        const proposalPtDate = document.getElementById('project-proposal-pt-date')?.value || '';
 
         if (!name || !manager || !customer) {
             alert('필수값(프로젝트명, 프로젝트 매니저, 발주기관)을 먼저 입력해주세요.');
@@ -21152,6 +21198,13 @@ renderTodayTasksRoleBased(todayStr) {
                     internalPm, internal_pm: internalPm,
                     pmoManager, pmo_manager: pmoManager,
                     proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
+                    proposalDeadline,
+                    proposal_deadline: proposalDeadline ? proposalDeadline.split('T')[0] : null,
+                    proposalSubmissionDeadline: proposalDeadline,
+                    proposalPtDate,
+                    proposal_pt_date: proposalPtDate ? proposalPtDate.split('T')[0] : null,
+                    ptDate: proposalPtDate,
+                    pt_date: proposalPtDate,
                     participationType, totalContractAmount, companyShareRate, companyContractAmount, primeContractorName,
                     originalProjectName, subcontractProjectName, subcontractPrimeContractor, subcontractClientName, originalContractAmount, originalProjectCode,
                     consortiumMembers
@@ -21230,6 +21283,13 @@ renderTodayTasksRoleBased(todayStr) {
                     internalPm, internal_pm: internalPm,
                     pmoManager, pmo_manager: pmoManager,
                     proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
+                    proposalDeadline,
+                    proposal_deadline: proposalDeadline ? proposalDeadline.split('T')[0] : null,
+                    proposalSubmissionDeadline: proposalDeadline,
+                    proposalPtDate,
+                    proposal_pt_date: proposalPtDate ? proposalPtDate.split('T')[0] : null,
+                    ptDate: proposalPtDate,
+                    pt_date: proposalPtDate,
                     consortiumMembers: [],
                     vrbInfo: {
                         status: '미상신', plannedDate: '', submittedDate: '', approvedDate: '', vrbNumber: '', memo: ''
