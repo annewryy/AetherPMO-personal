@@ -2460,7 +2460,14 @@ class AetherPMO {
                 bidNumber: p.bid_number || p.project_code,
                 customerName: p.customer_name || p.customer || '',
                 projectBudget: Number(p.project_budget || 0),
-                bizType: p.biz_type || p.business_type || p.businessType || '공공 SI',
+                bizType: p.business_type || p.biz_type || p.businessType || (
+                    p.name?.includes('상담') ? 'AI/기타' :
+                    p.name?.includes('IoT') ? '공공 SI' :
+                    p.name?.includes('클라우드') ? '유지관리' :
+                    p.name?.includes('플랫폼') ? '공공 SI' :
+                    p.name?.includes('빅데이터') ? 'ISP' :
+                    p.name?.includes('통합') ? '컨설팅' : '공공 SI'
+                ),
                 businessType: p.business_type || p.biz_type || p.businessType || (
                     p.name?.includes('상담') ? 'AI/기타' :
                     p.name?.includes('IoT') ? '공공 SI' :
@@ -2469,6 +2476,8 @@ class AetherPMO {
                     p.name?.includes('빅데이터') ? 'ISP' :
                     p.name?.includes('통합') ? '컨설팅' : '공공 SI'
                 ),
+                business_type: p.business_type || p.biz_type || p.businessType || '공공 SI',
+                biz_type: p.business_type || p.biz_type || p.businessType || '공공 SI',
                 riskLevel: p.risk_level || p.riskLevel || '보통',
                 contractDate: p.contract_date || p.contractDate || p.start_date,
                 relatedBiz: p.related_biz || p.relatedBiz || '',
@@ -20815,6 +20824,15 @@ renderTodayTasksRoleBased(todayStr) {
                 customInput.value = '';
             }
         }
+        const biddingSelect = document.getElementById('project-business-type');
+        const biddingCustom = document.getElementById('project-business-type-custom');
+        if (biddingSelect && biddingSelect.value !== value) {
+            biddingSelect.value = value;
+            if (biddingCustom) {
+                biddingCustom.style.display = (value === 'custom') ? 'block' : 'none';
+                if (value !== 'custom') biddingCustom.value = '';
+            }
+        }
     }
 
     // ── 연관사업 선택기 & 이력 관리 ─────────────────────────────────────
@@ -21013,6 +21031,15 @@ renderTodayTasksRoleBased(todayStr) {
                 customInput.value = '';
             }
         }
+        const bizSelect = document.getElementById('project-biz-type-select');
+        const bizCustom = document.getElementById('project-biz-type-custom');
+        if (bizSelect && bizSelect.value !== value) {
+            bizSelect.value = value;
+            if (bizCustom) {
+                bizCustom.style.display = (value === 'custom') ? 'block' : 'none';
+                if (value !== 'custom') bizCustom.value = '';
+            }
+        }
     }
 
     async saveProjectForm(e) {
@@ -21103,21 +21130,35 @@ renderTodayTasksRoleBased(todayStr) {
         // Retrieve new fields
         const projectCode = document.getElementById('project-code')?.value?.trim() || '';
 
+        const isBiddingActive = (document.getElementById('project-bidding-fields')?.style.display !== 'none') || (status === 'Bidding') || (this.activeProjectStageFilter === 'Bidding');
+
         const bizSelectVal = document.getElementById('project-biz-type-select')?.value || '';
         const bizCustomVal = document.getElementById('project-biz-type-custom')?.value?.trim() || '';
-        if (bizSelectVal === 'custom' && !bizCustomVal) {
-            alert('사업 유형을 직접 입력해주세요.');
-            if (saveBtn) saveBtn.disabled = false;
-            this.isSavingProject = false;
-            return;
-        }
         const rawBizType = (bizSelectVal === 'custom') ? bizCustomVal : bizSelectVal;
 
         const biddingSelectVal = document.getElementById('project-business-type')?.value || '';
         const biddingCustomVal = document.getElementById('project-business-type-custom')?.value?.trim() || '';
         const rawBiddingType = (biddingSelectVal === 'custom') ? biddingCustomVal : biddingSelectVal;
 
-        const finalBizType = rawBizType || rawBiddingType || '공공 SI';
+        if (isBiddingActive) {
+            if (biddingSelectVal === 'custom' && !biddingCustomVal) {
+                alert('사업 유형을 직접 입력해주세요.');
+                if (saveBtn) saveBtn.disabled = false;
+                this.isSavingProject = false;
+                return;
+            }
+        } else {
+            if (bizSelectVal === 'custom' && !bizCustomVal) {
+                alert('사업 유형을 직접 입력해주세요.');
+                if (saveBtn) saveBtn.disabled = false;
+                this.isSavingProject = false;
+                return;
+            }
+        }
+
+        const finalBizType = isBiddingActive
+            ? (rawBiddingType || rawBizType || '공공 SI')
+            : (rawBizType || rawBiddingType || '공공 SI');
         const businessType = finalBizType;
         const bizType = finalBizType;
         const contractDate = document.getElementById('project-contract-date')?.value || '';
