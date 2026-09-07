@@ -1547,14 +1547,14 @@ class AetherPMO {
                         break;
                     }
 
-                    const ALLOWED_BID_STATUSES = ['proposal_preparing', 'proposal_submitted', 'waiting_result', 'won', 'lost'];
+                    const ALLOWED_BID_STATUSES = ['review', 'proposal_prep', 'proposal_preparing', 'proposal_writing', 'proposal_submitted', 'waiting_result', 'won', 'lost'];
                     let cleanBidStatus = p.bid_status ?? p.bidding_status ?? p.biddingStatus ?? p.bidStatus ?? null;
                     if (cleanBidStatus) {
                         cleanBidStatus = String(cleanBidStatus).trim().toLowerCase();
                         if (cleanBidStatus === 'in progress' || cleanBidStatus === 'in_progress' || cleanBidStatus === 'execution') {
                             cleanBidStatus = (p.bid_result === 'WON' || p.bidResult === 'WON') ? 'won' : null;
                         } else if (!ALLOWED_BID_STATUSES.includes(cleanBidStatus)) {
-                            cleanBidStatus = null;
+                            cleanBidStatus = this.normalizeBiddingStatus(cleanBidStatus);
                         }
                     }
 
@@ -1597,12 +1597,17 @@ class AetherPMO {
                         subcontract_client_name: p.subcontractClientName || null,
                         original_contract_amount: p.originalContractAmount || null,
                         original_project_code: p.originalProjectCode || null,
-                        sales_owner: p.salesOwner,
-                        proposal_owner: p.proposalOwner,
-                        proposal_pm: p.proposalPm,
-                        business_manager: p.businessManager,
-                        contract_owner: p.contractOwner,
-                        legal_owner: p.legalOwner,
+                        sales_owner: p.salesOwner || p.sales_owner || null,
+                        bd_manager: p.bdManager || p.bd_manager || null,
+                        internal_pm: p.internalPm || p.internal_pm || null,
+                        pmo_manager: p.pmoManager || p.pmo_manager || null,
+                        proposal_owner: p.proposalOwner || p.proposal_owner || null,
+                        proposal_pm: p.proposalPm || p.proposal_pm || null,
+                        business_manager: p.businessManager || p.business_manager || null,
+                        contract_owner: p.contractOwner || p.contract_owner || null,
+                        legal_owner: p.legalOwner || p.legal_owner || null,
+                        proposal_deadline: p.proposalDeadline || p.proposal_deadline || null,
+                        proposal_pt_date: p.proposalPtDate || p.proposal_pt_date || null,
                         location: p.location || '',
                         main_features: p.mainFeatures || p.main_features || '',
                         risk_mitigation: p.riskAndMitigation || p.risk_mitigation || '',
@@ -2454,12 +2459,25 @@ class AetherPMO {
                 location: p.location || '정부서울청사',
                 remarks: p.remarks,
                 status: p.status,
+                project_status: p.status,
                 bidStatus: p.bid_status,
+                bid_status: p.bid_status,
+                bidding_status: p.bid_status,
+                is_bidding_project: Boolean(p.status === 'Bidding' || p.is_bidding_project || p.bid_status),
                 progress: Number(p.progress || 0),
                 resources: Number(p.resources || 0),
                 bidNumber: p.bid_number || p.project_code,
                 customerName: p.customer_name || p.customer || '',
-                projectBudget: Number(p.project_budget || 0),
+                customer: p.customer || p.customer_name || '',
+                projectBudget: Number(p.project_budget || p.budget || 0),
+                budget: Number(p.budget || p.project_budget || 0),
+                proposalDeadline: p.proposal_deadline || p.proposalDeadline || null,
+                proposal_deadline: p.proposal_deadline || p.proposalDeadline || null,
+                proposalPtDate: p.proposal_pt_date || p.proposalPtDate || null,
+                proposal_pt_date: p.proposal_pt_date || p.proposalPtDate || null,
+                bdManager: p.bd_manager || p.bdManager || '',
+                internalPm: p.internal_pm || p.internalPm || '',
+                pmoManager: p.pmo_manager || p.pmoManager || '',
                 bizType: p.business_type || p.biz_type || p.businessType || (
                     p.name?.includes('상담') ? 'AI/기타' :
                     p.name?.includes('IoT') ? '공공 SI' :
@@ -20529,11 +20547,13 @@ renderTodayTasksRoleBased(todayStr) {
        CRUD OPERATIONS: PROJECTS
        ========================================================================== */
     handleProjectStatusChange(status) {
-        const biddingGroup = document.getElementById('new-bidding-status-group');
-        const biddingFields = document.getElementById('project-bidding-fields');
         const isBidding = status === 'Bidding' || this.activeProjectStageFilter === 'Bidding';
+        const biddingGroup = document.getElementById('new-bidding-status-group');
+        const bidStatusGroup = document.getElementById('project-bid-status-group');
+        const biddingFields = document.getElementById('project-bidding-fields');
         
         if (biddingGroup) biddingGroup.style.display = isBidding ? 'block' : 'none';
+        if (bidStatusGroup) bidStatusGroup.style.display = isBidding ? 'block' : 'none';
         if (biddingFields) biddingFields.style.display = isBidding ? 'block' : 'none';
         this.handleBidStatusChange();
     }
@@ -20651,12 +20671,22 @@ renderTodayTasksRoleBased(todayStr) {
         }
 
         this.populateProjectManagerSelect(project.manager, project.managerId);
-        this.setFieldValue('project-customer', project.customer || project.customerName);
-        this.setFieldValue('project-budget', project.budget ? this.formatNumberWithCommas(project.budget) : '');
+        const custVal = project.customer || project.customerName || project.customer_name || '';
+        this.setFieldValue('project-customer', custVal);
+        this.setFieldValue('project-customer-name', custVal);
+
+        const budgetVal = project.projectBudget || project.project_budget || project.budget || 0;
+        this.setFieldValue('project-budget', budgetVal ? this.formatNumberWithCommas(budgetVal) : '');
+        this.setFieldValue('project-budget-bidding', budgetVal ? this.formatNumberWithCommas(budgetVal) : '');
+
         this.setFieldValue('project-start-date', project.startDate);
         this.setFieldValue('project-end-date', project.endDate);
         this.setFieldValue('project-inspection-date', project.inspectionDate);
-        this.setFieldValue('project-status', project.status === 'Completed' ? 'Completed' : 'In Progress');
+
+        const isBiddingProj = project.status === 'Bidding' || project.is_bidding_project || Boolean(project.isBiddingProject);
+        const targetStatusVal = isBiddingProj ? 'Bidding' : (project.status === 'Completed' ? 'Completed' : 'In Progress');
+        this.setFieldValue('project-status', targetStatusVal);
+        this.handleProjectStatusChange(targetStatusVal);
         this.setFieldValue('project-progress', project.progress ?? 0);
 
         const activeMemberCount = (this.state.projectMembers || []).filter(
@@ -20716,21 +20746,16 @@ renderTodayTasksRoleBased(todayStr) {
         this.setFieldValue('project-original-project-code', project.originalProjectCode || project.original_project_code);
 
         // Populate bid status & bidding fields
-        this.setFieldValue('project-bid-status', this.normalizeBiddingStatus(project));
+        const normBSt = this.normalizeBiddingStatus(project);
+        this.setFieldValue('project-bid-status', normBSt);
         const newBidStatusSelect = document.getElementById('new-bidding-status');
         if (newBidStatusSelect) {
-            newBidStatusSelect.value = this.normalizeBiddingStatus(project);
+            newBidStatusSelect.value = normBSt;
         }
-        const bidGroup = document.getElementById('project-bid-status-group');
-        if (bidGroup) bidGroup.style.display = (project.status === 'Bidding' || project.is_bidding_project) ? 'block' : 'none';
 
-        const isBidding = project.status === 'Bidding';
-        const biddingFields = document.getElementById('project-bidding-fields');
-        if (biddingFields) biddingFields.style.display = isBidding ? 'block' : 'none';
-
-        this.setFieldValue('project-bid-number', project.bidNumber);
-        this.setFieldValue('project-customer-name', project.customerName);
-        this.setFieldValue('project-budget-bidding', project.projectBudget ? this.formatNumberWithCommas(project.projectBudget) : '');
+        this.setFieldValue('project-bid-number', project.bidNumber || project.bid_number || '');
+        this.setFieldValue('project-customer-name', custVal);
+        this.setFieldValue('project-budget-bidding', budgetVal ? this.formatNumberWithCommas(budgetVal) : '');
 
         const biddingSelect = document.getElementById('project-business-type');
         const biddingCustom = document.getElementById('project-business-type-custom');
@@ -21109,12 +21134,20 @@ renderTodayTasksRoleBased(todayStr) {
                 managerId = matchedUser.id;
             }
         }
+        const status = document.getElementById('project-status')?.value || 'In Progress';
+        const isBiddingActive = status === 'Bidding' || (document.getElementById('project-bidding-fields')?.style.display !== 'none') || (this.activeProjectStageFilter === 'Bidding');
+
         const customer = document.getElementById('project-customer')?.value?.trim() || '';
+        const customerName = document.getElementById('project-customer-name')?.value?.trim() || '';
+        const finalCustomer = isBiddingActive ? (customerName || customer) : (customer || customerName);
+
         const budget = this.parseNumberFromCommas(document.getElementById('project-budget')?.value);
+        const projectBudget = this.parseNumberFromCommas(document.getElementById('project-budget-bidding')?.value);
+        const finalBudget = isBiddingActive ? (projectBudget || budget || 0) : (budget || projectBudget || 0);
+
         const startDate = document.getElementById('project-start-date')?.value || '';
         const endDate = document.getElementById('project-end-date')?.value || '';
         const inspectionDate = document.getElementById('project-inspection-date')?.value || '';
-        const status = document.getElementById('project-status')?.value || 'Execution';
         // 투입 인력 수: 저장 시에도 is_active 참여인력 수로 자동 계산 (수동 입력값 무시)
         const editingProjId = document.getElementById('project-id-field')?.value || '';
         const resources = editingProjId
@@ -21286,38 +21319,35 @@ renderTodayTasksRoleBased(todayStr) {
                 const oldManagerId = old.managerId;
 
                 const rawBidStatus = document.getElementById('project-bid-status')?.value || '';
-                let normBidStatus = rawBidStatus ? this.normalizeBiddingStatus(rawBidStatus) : '';
+                const rawNewBiddingStatus = document.getElementById('new-bidding-status')?.value || '';
+                const chosenBidStatus = (status === 'Bidding') ? (rawNewBiddingStatus || rawBidStatus || 'review') : (rawBidStatus || rawNewBiddingStatus);
+                let normBidStatus = chosenBidStatus ? this.normalizeBiddingStatus(chosenBidStatus) : '';
 
                 let targetStatus = status;
                 let targetBiddingStatus = normBidStatus;
                 let targetBidResult = old.bid_result || old.bidResult || '';
 
-                // 수행 중/종료 프로젝트인 경우 bid_status 덮어쓰기 방지 및 분리
-                const isExecutionStage = old.status === 'In Progress' || old.status === 'Execution' || old.status === 'Completed' || status === 'In Progress' || status === 'Execution' || status === 'Completed';
-
-                if (isExecutionStage) {
-                    const oldBid = this.normalizeBiddingStatus(old);
-                    if (oldBid === 'won' || old.bid_result === 'WON' || old.bidResult === 'WON') {
-                        targetBiddingStatus = 'won';
+                if (targetStatus === 'Bidding') {
+                    targetBiddingStatus = normBidStatus;
+                    if (normBidStatus === 'won') {
+                        targetStatus = 'In Progress';
                         targetBidResult = 'WON';
-                    } else if (oldBid === 'lost' || old.bid_result === 'LOST' || old.bidResult === 'LOST') {
-                        targetBiddingStatus = 'lost';
+                    } else if (normBidStatus === 'lost') {
+                        targetStatus = 'Bid Failed';
                         targetBidResult = 'LOST';
-                    } else {
-                        targetBiddingStatus = old.bid_status || old.bidding_status || null;
                     }
                 } else {
-                    if (normBidStatus === 'won' || targetStatus === 'In Progress') {
-                        if (old.is_bidding_project || old.status === 'Bidding') {
-                            targetStatus = 'In Progress';
+                    const isExecutionStage = targetStatus === 'In Progress' || targetStatus === 'Execution' || targetStatus === 'Completed';
+                    if (isExecutionStage) {
+                        const oldBid = this.normalizeBiddingStatus(old);
+                        if (oldBid === 'won' || old.bid_result === 'WON' || old.bidResult === 'WON') {
                             targetBiddingStatus = 'won';
                             targetBidResult = 'WON';
-                        }
-                    } else if (normBidStatus === 'lost' || targetStatus === 'Bid Failed') {
-                        if (old.is_bidding_project || old.status === 'Bidding') {
-                            targetStatus = 'Bid Failed';
+                        } else if (oldBid === 'lost' || old.bid_result === 'LOST' || old.bidResult === 'LOST') {
                             targetBiddingStatus = 'lost';
                             targetBidResult = 'LOST';
+                        } else {
+                            targetBiddingStatus = old.bid_status || old.bidding_status || null;
                         }
                     }
                 }
@@ -21328,35 +21358,53 @@ renderTodayTasksRoleBased(todayStr) {
                     status: targetStatus,
                     project_status: targetStatus,
                     bid_status: targetBiddingStatus || normBidStatus || null,
+                    bidding_status: targetBiddingStatus || normBidStatus || null,
+                    biddingStatus: targetBiddingStatus || normBidStatus || null,
+                    bidStatus: targetBiddingStatus || normBidStatus || null,
+                    bid_stage: targetBiddingStatus || normBidStatus || null,
                     bid_result: targetBidResult,
                     bidResult: targetBidResult,
-                    bidStatus: normBidStatus || null,
-                    is_bidding_project: Boolean(old.is_bidding_project || old.status === 'Bidding'),
-                    progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
+                    is_bidding_project: Boolean(targetStatus === 'Bidding' || old.is_bidding_project),
+                    progress: finalProgress, resources,
+                    customer: finalCustomer,
+                    customerName: finalCustomer,
+                    customer_name: finalCustomer,
+                    budget: finalBudget,
+                    projectBudget: finalBudget,
+                    project_budget: finalBudget,
+                    companyExpectedAmount: companyContractAmount || finalBudget,
+                    milestones, inspectionDate, remarks,
                     mainFeatures, main_features: mainFeatures,
                     riskAndMitigation, risk_mitigation: riskAndMitigation,
                     relatedProjects, related_projects: relatedProjects,
                     relatedProjectIds, related_project_ids: relatedProjectIds,
-                    projectCode, bizType: finalBizType, businessType: finalBizType, business_type: finalBizType, contractDate, location, relatedBiz, riskLevel, wbs,
-                    bidNumber, customerName, projectBudget,
+                    projectCode,
+                    bizType: finalBizType,
+                    businessType: finalBizType,
+                    business_type: finalBizType,
+                    biz_type: finalBizType,
+                    contractDate, location, relatedBiz, riskLevel, wbs,
+                    bidNumber,
                     salesOwner, sales_owner: salesOwner,
                     bdManager, bd_manager: bdManager,
                     internalPm, internal_pm: internalPm,
                     pmoManager, pmo_manager: pmoManager,
-                    proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
-                    proposalDeadline,
+                    proposalOwner, proposal_owner: proposalOwner,
+                    proposalPm, proposal_pm: proposalPm,
+                    businessManager, business_manager: businessManager,
+                    contractOwner, contract_owner: contractOwner,
+                    legalOwner, legal_owner: legalOwner,
+                    proposalDeadline: proposalDeadline || null,
                     proposal_deadline: proposalDeadline ? proposalDeadline.split('T')[0] : null,
-                    proposalSubmissionDeadline: proposalDeadline,
-                    proposalPtDate,
+                    proposalSubmissionDeadline: proposalDeadline || null,
+                    proposalPtDate: proposalPtDate || null,
                     proposal_pt_date: proposalPtDate ? proposalPtDate.split('T')[0] : null,
-                    ptDate: proposalPtDate,
-                    pt_date: proposalPtDate,
+                    ptDate: proposalPtDate || null,
+                    pt_date: proposalPtDate || null,
                     participationType, totalContractAmount, companyShareRate, companyContractAmount, primeContractorName,
                     originalProjectName, subcontractProjectName, subcontractPrimeContractor, subcontractClientName, originalContractAmount, originalProjectCode,
                     consortiumMembers
                 };
-                delete updatedProject.bidding_status;
-                delete updatedProject.biddingStatus;
                 savedProject = updatedProject;
 
                 // Supabase Sync
@@ -21406,7 +21454,24 @@ renderTodayTasksRoleBased(todayStr) {
 
                 const newProject = {
                     _isNew: true, // Supabase INSERT 분기용 플래그
-                    id: newId, name, desc, dept, manager, startDate, endDate, status: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? 'Bidding' : status, bidding_status: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? newBiddingStatus : (bidStatus || 'review'), biddingStatus: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? newBiddingStatus : (bidStatus || 'review'), bid_stage: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? newBiddingStatus : (bidStatus || 'review'), bidStatus: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? newBiddingStatus : (bidStatus || 'review'), progress: finalProgress, resources, customer, budget, milestones, inspectionDate, remarks,
+                    id: newId, name, desc, dept, manager, startDate, endDate,
+                    status: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? 'Bidding' : status,
+                    project_status: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? 'Bidding' : status,
+                    bidding_status: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? (normBidStatus || newBiddingStatus) : (normBidStatus || bidStatus || 'review'),
+                    biddingStatus: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? (normBidStatus || newBiddingStatus) : (normBidStatus || bidStatus || 'review'),
+                    bid_stage: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? (normBidStatus || newBiddingStatus) : (normBidStatus || bidStatus || 'review'),
+                    bidStatus: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? (normBidStatus || newBiddingStatus) : (normBidStatus || bidStatus || 'review'),
+                    bid_status: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? (normBidStatus || newBiddingStatus) : (normBidStatus || bidStatus || 'review'),
+                    is_bidding_project: Boolean(status === 'Bidding' || this.activeProjectStageFilter === 'Bidding'),
+                    progress: finalProgress, resources,
+                    customer: finalCustomer,
+                    customerName: finalCustomer,
+                    customer_name: finalCustomer,
+                    budget: finalBudget,
+                    projectBudget: finalBudget,
+                    project_budget: finalBudget,
+                    companyExpectedAmount: companyContractAmount || finalBudget,
+                    milestones, inspectionDate, remarks,
                     mainFeatures, main_features: mainFeatures,
                     riskAndMitigation, risk_mitigation: riskAndMitigation,
                     relatedProjects, related_projects: relatedProjects,
@@ -21415,6 +21480,7 @@ renderTodayTasksRoleBased(todayStr) {
                     bizType: finalBizType,
                     businessType: finalBizType,
                     business_type: finalBizType,
+                    biz_type: finalBizType,
                     contractDate: contractDate || startDate,
                     location: location || '정부서울청사',
                     relatedBiz: relatedBiz || '연계 구축 사업',
@@ -21423,19 +21489,23 @@ renderTodayTasksRoleBased(todayStr) {
                     resourcesList: defaultResourcesList,
                     managerId: managerId || (this.currentUser ? (this.currentUser.id || this.currentUser.email) : 'pm@aetherpmo.com'),
                     memberIds: [managerId || 'pm@aetherpmo.com', 'worker@aetherpmo.com'],
-                    bidNumber, customerName, projectBudget, businessType,
+                    bidNumber,
                     salesOwner, sales_owner: salesOwner,
                     bdManager, bd_manager: bdManager,
                     internalPm, internal_pm: internalPm,
                     pmoManager, pmo_manager: pmoManager,
-                    proposalOwner, proposalPm, businessManager, contractOwner, legalOwner,
-                    proposalDeadline,
+                    proposalOwner, proposal_owner: proposalOwner,
+                    proposalPm, proposal_pm: proposalPm,
+                    businessManager, business_manager: businessManager,
+                    contractOwner, contract_owner: contractOwner,
+                    legalOwner, legal_owner: legalOwner,
+                    proposalDeadline: proposalDeadline || null,
                     proposal_deadline: proposalDeadline ? proposalDeadline.split('T')[0] : null,
-                    proposalSubmissionDeadline: proposalDeadline,
-                    proposalPtDate,
+                    proposalSubmissionDeadline: proposalDeadline || null,
+                    proposalPtDate: proposalPtDate || null,
                     proposal_pt_date: proposalPtDate ? proposalPtDate.split('T')[0] : null,
-                    ptDate: proposalPtDate,
-                    pt_date: proposalPtDate,
+                    ptDate: proposalPtDate || null,
+                    pt_date: proposalPtDate || null,
                     consortiumMembers: [],
                     vrbInfo: {
                         status: '미상신', plannedDate: '', submittedDate: '', approvedDate: '', vrbNumber: '', memo: ''
