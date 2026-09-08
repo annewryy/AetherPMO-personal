@@ -21162,8 +21162,6 @@ renderTodayTasksRoleBased(todayStr) {
         // Retrieve new fields
         const projectCode = document.getElementById('project-code')?.value?.trim() || '';
 
-        const isBiddingActive = (document.getElementById('project-bidding-fields')?.style.display !== 'none') || (status === 'Bidding') || (this.activeProjectStageFilter === 'Bidding');
-
         const bizSelectVal = document.getElementById('project-biz-type-select')?.value || '';
         const bizCustomVal = document.getElementById('project-biz-type-custom')?.value?.trim() || '';
         const rawBizType = (bizSelectVal === 'custom') ? bizCustomVal : bizSelectVal;
