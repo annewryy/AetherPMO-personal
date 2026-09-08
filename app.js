@@ -21251,8 +21251,6 @@ renderTodayTasksRoleBased(todayStr) {
 
         // Bidding stage fields
         const bidNumber = document.getElementById('project-bid-number')?.value?.trim() || '';
-        const customerName = document.getElementById('project-customer-name')?.value?.trim() || '';
-        const projectBudget = this.parseNumberFromCommas(document.getElementById('project-budget-bidding')?.value);
         const salesOwner = document.getElementById('project-sales-owner')?.value?.trim() || '';
         const bdManager = document.getElementById('project-bd-manager')?.value?.trim() || '';
         const internalPm = document.getElementById('project-internal-pm')?.value?.trim() || '';
