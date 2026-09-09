@@ -4885,6 +4885,23 @@ class AetherPMO {
             globalSearchInput.addEventListener('input', (e) => {
                 this.handleGlobalSearch(e.target.value.trim());
             });
+            globalSearchInput.addEventListener('focus', () => this.handleGlobalSearch(globalSearchInput.value));
+            globalSearchInput.addEventListener('keydown', event => {
+                if (event.key === 'Escape') this.closeGlobalSearch();
+                if (event.key === 'ArrowDown' || event.key === 'Enter') {
+                    const first = document.querySelector('#global-search-results:not([hidden]) button');
+                    if (first) { event.preventDefault(); first.focus(); }
+                }
+            });
+            document.addEventListener('click', event => {
+                if (!event.target.closest('.header-search')) this.closeGlobalSearch();
+            });
+            document.getElementById('global-search-results')?.addEventListener('keydown', event => {
+                if (event.key === 'Escape') {
+                    globalSearchInput.focus();
+                    this.closeGlobalSearch();
+                }
+            });
         }
 
         // Project Filters
@@ -5522,31 +5539,58 @@ class AetherPMO {
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${hh}:${min}`;
     }
 
+    getGlobalSearchResults(query) {
+        const term = this.safeText(query).trim();
+        if (!term) return [];
+        const projects = this.getAccessibleProjects();
+        const projectIds = new Set(projects.map(p => String(p.id)));
+        const matches = values => values.some(value => this.safeText(value).includes(term));
+        return [
+            ...projects.filter(p => matches([p.name, p.projectCode, p.customer, p.manager]))
+                .map(p => ({ type: 'project', id: p.id, title: p.name, detail: p.manager || p.customer || '' })),
+            ...(this.state.artifacts || []).filter(a =>
+                projectIds.has(String(a.projectId || a.project_id)) && matches([a.name, a.author]))
+                .map(a => ({ type: 'artifact', id: a.id, title: a.name, detail: a.author || '' }))
+        ];
+    }
+
+    closeGlobalSearch() {
+        const panel = document.getElementById('global-search-results');
+        if (panel) panel.hidden = true;
+        document.getElementById('global-search')?.setAttribute('aria-expanded', 'false');
+    }
+
     handleGlobalSearch(query) {
-        if (!query) {
-            this.renderProjects();
-            this.renderArtifacts();
+        const panel = document.getElementById('global-search-results');
+        if (!panel) return;
+        panel.replaceChildren();
+        if (!query.trim()) {
+            this.closeGlobalSearch();
             return;
         }
-
-        const lowercaseQuery = this.safeText(query);
-        const activeNav = document.querySelector('.sidebar-nav .nav-item.active');
-        const currentView = activeNav ? activeNav.getAttribute('data-view') : 'dashboard';
-
-        if (currentView === 'projects') {
-            document.getElementById('project-search-input').value = query;
-            this.renderProjects();
-        } else if (currentView === 'artifacts') {
-            document.getElementById('artifact-search-input').value = query;
-            this.renderArtifacts();
-        } else if (currentView === 'dashboard') {
-            const filteredProjs = this.state.projects.filter(p =>
-                this.safeText(p.name).includes(lowercaseQuery) ||
-                this.safeText(p.manager).includes(lowercaseQuery) ||
-                this.safeText(p.customer).includes(lowercaseQuery)
-            );
-            this.renderDashboardProjectsTable(filteredProjs);
-        }
+        const results = this.getGlobalSearchResults(query);
+        const summary = document.createElement('p');
+        summary.className = 'global-search-summary';
+        summary.setAttribute('role', 'status');
+        summary.textContent = results.length ? `검색 결과 ${results.length}건` : '검색 결과가 없습니다.';
+        panel.appendChild(summary);
+        results.forEach(result => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'global-search-result';
+            button.textContent = `${result.type === 'project' ? '프로젝트' : '산출물'} · ${result.title || '제목 없음'}${result.detail ? ' — ' + result.detail : ''}`;
+            button.addEventListener('click', () => {
+                this.closeGlobalSearch();
+                if (result.type === 'project') {
+                    window.location.hash = `project-detail/${encodeURIComponent(result.id)}`;
+                } else {
+                    this.openArtifactDetailModal(result.id);
+                }
+            });
+            panel.appendChild(button);
+        });
+        panel.hidden = false;
+        document.getElementById('global-search')?.setAttribute('aria-expanded', 'true');
     }
 
     async updateNotifications() {
@@ -5839,7 +5883,7 @@ class AetherPMO {
 
         this.renderDashboardProgressChart();
         this.renderPortfolioStatCard();
-        this.updateDashboardKPIs(this.getDashboardProjectsByYear(this.activePortfolioYear));
+        this.updateDashboardKPIs();
         this.renderAdminActionCenter(todayStr);
         this.renderTodayTasksRoleBased(todayStr);
         this.renderExecBottomRow();
@@ -6931,7 +6975,7 @@ class AetherPMO {
         const yearStart = `${selectedYear}-01-01`;
         const yearEnd = `${selectedYear}-12-31`;
 
-        return (this.state.projects || []).filter(p => {
+        return this.getAccessibleProjects().filter(p => {
             const pStart = p.startDate || '1970-01-01';
             const pEnd = p.endDate || '9999-12-31';
             return (pStart <= yearEnd) && (pEnd >= yearStart);
@@ -6964,7 +7008,7 @@ class AetherPMO {
 
         // Re-render top KPI cards using year-filtered projects!
         const yearProjects = this.getDashboardProjectsByYear(year);
-        this.updateDashboardKPIs(yearProjects);
+        this.updateDashboardKPIs();
 
         // Re-render portfolio stat card inside DOM
         this.renderPortfolioStatCard();
@@ -7588,51 +7632,46 @@ class AetherPMO {
         }, 100);
     }
 
-    updateDashboardKPIs(yearProjects) {
-        const projs = yearProjects || this.state.projects || [];
-        const total = projs.length;
-
-        let activeCount = 0;
-        let biddingCount = 0;
-        let delayedCount = 0;
-        let todayDueCount = 0;
-
-        const todayStr = new Date().toISOString().substring(0, 10);
-
-        projs.forEach(p => {
-            const st = p.status || 'In Progress';
-            const bSt = (p.bidding_status || p.biddingStatus || p.bid_status || '').toLowerCase();
-
-            if (st === 'Completed' || st === 'Closed' || st === '종료' || bSt === 'lost' || st === 'Lost' || st === '실패') {
-                return;
-            }
-
-            if (st === 'Delay' || p.isOverdue) {
-                delayedCount++;
-            } else if (st === 'Bidding' || bSt === 'proposal_preparing' || bSt === 'proposal_submitted' || bSt === 'waiting_result') {
-                biddingCount++;
-            } else {
-                activeCount++;
-            }
-
-            if (p.endDate === todayStr && st !== 'Completed') {
-                todayDueCount++;
-            }
-        });
-
-        const setVal = (id, val) => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = val;
-        };
-
-        setVal('stat-total-projects', total);
-        setVal('stat-active-projects', activeCount);
-        setVal('stat-bidding-projects', biddingCount);
-        setVal('stat-delayed-projects', delayedCount);
-        setVal('stat-today-due-projects', todayDueCount);
+    matchesProjectStage(project, stage) {
+        const status = String(project.status || '').trim();
+        const completed = ['Completed', 'Closed', '종료', '완료'].includes(status);
+        const active = ['In Progress', 'On Hold', 'Delay', '수행중', '보류', '지연', 'Active'].includes(status);
+        if (stage === 'All') return true;
+        if (stage === 'Active') return active;
+        if (stage === 'Completed') return completed;
+        if (stage === 'Bidding' || stage === 'BiddingSummary') return this.isBiddingProject(project);
+        if (stage === 'Delayed') return active && (status === 'Delay' || status === '지연' || !!project.isOverdue);
+        if (stage === 'TodayDue') {
+            const today = new Date();
+            const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            return !completed && project.endDate === date;
+        }
+        return false;
     }
-    
-renderTodayTasksRoleBased(todayStr) {
+
+    openDashboardProjectList(stage) {
+        // KPI cards describe all accessible projects, independent of the portfolio chart year.
+        const inputs = ['project-search-input', 'adv-search-start-date', 'adv-search-end-date',
+            'adv-search-pm', 'adv-search-customer', 'adv-search-name', 'adv-search-code'];
+        inputs.forEach(id => { const input = document.getElementById(id); if (input) input.value = ''; });
+        const location = document.getElementById('adv-search-location');
+        if (location) location.value = 'all';
+        this.activeProjectStageFilter = stage;
+        this.switchView('projects');
+    }
+
+    updateDashboardKPIs() {
+        const projects = this.getAccessibleProjects();
+        const stages = { 'stat-total-projects': 'All', 'stat-active-projects': 'Active',
+            'stat-bidding-projects': 'Bidding', 'stat-delayed-projects': 'Delayed',
+            'stat-today-due-projects': 'TodayDue' };
+        Object.entries(stages).forEach(([id, stage]) => {
+            const element = document.getElementById(id);
+            if (element) element.textContent = projects.filter(p => this.matchesProjectStage(p, stage)).length;
+        });
+    }
+
+    renderTodayTasksRoleBased(todayStr) {
         const titleEl = document.getElementById('today-tasks-section-title');
         const roleTag = document.getElementById('today-tasks-role-tag');
         const role = this.currentUser?.role;
@@ -7976,37 +8015,6 @@ renderTodayTasksRoleBased(todayStr) {
         this.renderProjects();
     }
 
-    updateProjectStageCounts() {
-        const rawProjects = Array.isArray(this.state?.projects) ? this.state.projects : [];
-        const validProjects = rawProjects.filter(p => !p.deletedAt && !p.deleted_at);
-
-        const biddingCount = validProjects.filter(p => {
-            const lc = (p.lifecycle_status || p.lifecycleStatus || '').toUpperCase();
-            const s = (p.status || '').trim();
-            return lc === 'BIDDING' || s === 'Bidding' || p.is_bidding_project || p.isBiddingProject;
-        }).length;
-
-        const activeCount = validProjects.filter(p => {
-            const lc = (p.lifecycle_status || p.lifecycleStatus || '').toUpperCase();
-            const s = (p.status || '').trim();
-            return lc === 'EXECUTION' || ['In Progress', 'On Hold', 'Delay', '수행중', '보류', '지연', '진행중'].includes(s);
-        }).length;
-
-        const completedCount = validProjects.filter(p => {
-            const lc = (p.lifecycle_status || p.lifecycleStatus || '').toUpperCase();
-            const s = (p.status || '').trim();
-            return lc === 'COMPLETED' || ['Completed', '종료'].includes(s);
-        }).length;
-
-        const elBidding = document.getElementById('count-stage-bidding');
-        const elActive = document.getElementById('count-stage-active');
-        const elCompleted = document.getElementById('count-stage-completed');
-
-        if (elBidding) elBidding.textContent = biddingCount;
-        if (elActive) elActive.textContent = activeCount;
-        if (elCompleted) elCompleted.textContent = completedCount;
-    }
-
     toggleAdvancedSearch() {
         const panel = document.getElementById('advanced-search-panel');
         const chevron = document.getElementById('adv-search-chevron');
@@ -8300,17 +8308,7 @@ renderTodayTasksRoleBased(todayStr) {
 
             // 2. Filter Accessible Projects
             const filtered = accessibleProjects.filter(p => {
-                const pStatusClean = (p.status || '').trim();
-
-                let matchStage = false;
-                if (stage === 'Bidding') {
-                    matchStage = pStatusClean === 'Bidding' || p.is_bidding_project || p.isBiddingProject;
-                } else if (stage === 'Active') {
-                    matchStage = ['In Progress', 'On Hold', 'Delay', '수행중', '보류', '지연', 'Active'].includes(pStatusClean);
-                } else if (stage === 'Completed') {
-                    matchStage = ['Completed', '종료', '완료'].includes(pStatusClean);
-                }
-                if (!matchStage) return false;
+                if (!this.matchesProjectStage(p, stage)) return false;
 
                 if (fKeyword) {
                     const nameMatch = this.safeText(p.name).toLowerCase().includes(fKeyword);
@@ -16137,13 +16135,14 @@ renderTodayTasksRoleBased(todayStr) {
     }
 
     updateProjectStageCounts() {
-        const countBidding = this.state.projects.filter(p => p.status === 'Bidding').length;
-        const countActive = this.state.projects.filter(p => p.status === 'In Progress' || p.status === 'On Hold' || p.status === 'Delay' || p.status === 'Completed').length;
-        const countClosed = this.state.projects.filter(p => p.status === 'Completed').length;
+        const projects = this.getAccessibleProjects();
+        const countBidding = projects.filter(p => this.matchesProjectStage(p, 'Bidding')).length;
+        const countActive = projects.filter(p => this.matchesProjectStage(p, 'Active')).length;
+        const countClosed = projects.filter(p => this.matchesProjectStage(p, 'Completed')).length;
 
         const badgeBidding = document.getElementById('count-stage-bidding');
         const badgeActive = document.getElementById('count-stage-active');
-        const badgeClosed = document.getElementById('count-stage-closed');
+        const badgeClosed = document.getElementById('count-stage-completed');
 
         if (badgeBidding) badgeBidding.textContent = countBidding;
         if (badgeActive) badgeActive.textContent = countActive;
@@ -36565,19 +36564,19 @@ renderTodayTasksRoleBased(todayStr) {
         if (!p) return false;
         const st = (p.status || '').toLowerCase();
         const bSt = (p.bidding_status || p.biddingStatus || p.bid_status || '').toLowerCase();
-        return st === 'bidding' || bSt !== '' || p.isBidding === true || p.stage === 'bidding';
+        return st === 'bidding' || bSt !== '' || p.isBidding === true || p.is_bidding_project === true || p.isBiddingProject === true || p.stage === 'bidding';
     }
 
     getBiddingProjectsByYear(year) {
         const targetYear = parseInt(year || this.activeBiddingYear || new Date().getFullYear(), 10);
-        return (this.state.projects || []).filter(p => {
+        return this.getAccessibleProjects().filter(p => {
             if (!this.isBiddingProject(p)) return false;
             return this.getBiddingProjectYear(p) === targetYear;
         });
     }
 
     getFilteredBiddingProjects(year) {
-        let projects = (this.state.projects || []).filter(p => this.isBiddingProject(p));
+        let projects = this.getAccessibleProjects().filter(p => this.isBiddingProject(p));
 
         const fs = this.biddingFilterState;
         if (!fs) {
