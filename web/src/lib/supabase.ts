@@ -1,13 +1,14 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-
 // 공용 설정: 루트 supabase-config.js 가 window.SUPABASE_CONFIG 를 주입한다(동료 버전과 동일 소스).
 // window.API_BASE 는 백엔드(0003) 배포 시 주입 — dataClient가 이중 모드 분기에 사용.
 declare global {
   interface Window {
     SUPABASE_CONFIG?: { url: string; anonKey: string };
     API_BASE?: string;
+    supabase?: { createClient: (url: string, key: string) => any };
   }
 }
+
+export type SupabaseClient = any;
 
 let client: SupabaseClient | null = null;
 let warned = false;
@@ -48,6 +49,8 @@ export function getSupabase(): SupabaseClient | null {
     }
     return null;
   }
-  client = createClient(cfg.url, cfg.anonKey);
+  if (typeof window !== 'undefined' && window.supabase?.createClient) {
+    client = window.supabase.createClient(cfg.url, cfg.anonKey);
+  }
   return client;
 }
