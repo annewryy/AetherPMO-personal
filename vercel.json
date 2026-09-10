@@ -3,6 +3,7 @@
   "outputDirectory": ".",
   "rewrites": [
     { "source": "/api/g2b/bid", "destination": "/api/g2b?serviceType=bid" },
+    { "source": "/api/ai/chat", "destination": "/api/ai/chat" },
     { "source": "/api/g2b-prespec", "destination": "/api/g2b-prespec" },
     { "source": "/api/g2b/prespec", "destination": "/api/g2b-prespec" },
     { "source": "/api/g2b/preSpec", "destination": "/api/g2b-prespec" },

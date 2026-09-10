@@ -205,6 +205,7 @@ class AetherPMO {
         };
 
         this.g2bAnnouncementsMap = {};
+        this.aiChatHistory = []; // Ollama 로컬 LLM 세션 대화 이력 보관 (최대 10개)
 
         // Active context variables
         this._activeProjectId = null;
@@ -807,6 +808,7 @@ class AetherPMO {
             this.activeProjectStageFilter = 'Active';
             this.activeBiddingStatusFilter = 'all';
             this.activeDetailTab = 'overview';
+            this.aiChatHistory = []; // 로그아웃 시 AI 대화 이력 초기화
             if (this.state) {
                 this.state.userRole = 'PM';
             }
@@ -6687,6 +6689,30 @@ class AetherPMO {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Aether AI 어시스턴트 (Ollama 로컬 LLM 연동 및 챗봇 위젯)
+    // -----------------------------------------------------------------------
+
+    toggleAIChat() {
+        const panel = document.getElementById('ai-chat-panel');
+        if (!panel) return;
+        panel.classList.toggle('open');
+        if (panel.classList.contains('open')) {
+            const input = document.getElementById('ai-chat-input');
+            if (input) input.focus();
+            const msgs = document.getElementById('ai-chat-messages');
+            if (msgs) msgs.scrollTop = msgs.scrollHeight;
+        }
+    }
+
+    sendAIPreset(text) {
+        const inputEl = document.getElementById('ai-chat-input');
+        if (inputEl) {
+            inputEl.value = text;
+            this.sendAIMessage();
+        }
+    }
+
     sendPortalPreset(text) {
         const inputEl = document.getElementById('portal-chat-input');
         if (inputEl) {
@@ -6695,71 +6721,166 @@ class AetherPMO {
         }
     }
 
+    // AI API 공통 호출 및 대화 이력 관리 함수
+    async _callAIChatApi(userMessage, targetWidget = 'floating') {
+        const chatMsgsEl = targetWidget === 'portal'
+            ? document.getElementById('portal-chat-messages')
+            : document.getElementById('ai-chat-messages');
+
+        // 1. 사용자 말풍선 렌더링
+        if (targetWidget === 'portal') {
+            this.appendPortalChatBubble(userMessage, 'user');
+        } else {
+            this.appendAIChatBubble(userMessage, 'user');
+        }
+
+        // 2. 분석 중 타이핑 인디케이터 표시
+        const typingId = 'typing-' + Math.random().toString(36).substring(2, 9);
+        if (chatMsgsEl) {
+            const typingEl = document.createElement('div');
+            if (targetWidget === 'portal') {
+                typingEl.className = 'portal-chat-msg-row ai';
+                typingEl.id = typingId;
+                typingEl.innerHTML = `
+                    <div class="portal-chat-bubble" style="background:var(--bg-hover-item); border:1px solid var(--bg-card-border); color:var(--text-muted); font-style:italic; display:flex; align-items:center; gap:6px;">
+                        <span class="typing-dot" style="animation:pulse 1.2s infinite; font-size:10px;">●</span>
+                        <span>Aether AI (Ollama 로컬 LLM) 분석중...</span>
+                    </div>
+                `;
+            } else {
+                typingEl.className = 'ai-message bot';
+                typingEl.id = typingId;
+                typingEl.style.display = 'flex';
+                typingEl.style.alignItems = 'center';
+                typingEl.style.gap = '6px';
+                typingEl.style.fontStyle = 'italic';
+                typingEl.style.color = 'var(--text-muted)';
+                typingEl.innerHTML = `
+                    <span style="display:inline-block; animation:pulse 1.2s infinite; color:var(--primary); font-size:12px;">●</span>
+                    <span>Aether AI (Ollama 로컬 LLM) 분석중...</span>
+                `;
+            }
+            chatMsgsEl.appendChild(typingEl);
+            chatMsgsEl.scrollTop = chatMsgsEl.scrollHeight;
+        }
+
+        const removeTyping = () => {
+            const el = document.getElementById(typingId);
+            if (el) el.remove();
+        };
+
+        // 3. Supabase 세션 JWT 획득
+        let accessToken = null;
+        if (this.supabase && this.supabase.auth) {
+            try {
+                const { data: { session } } = await this.supabase.auth.getSession();
+                accessToken = session?.access_token;
+            } catch (e) {
+                console.warn('[AI Assistant] getSession error:', e);
+            }
+        }
+
+        if (!accessToken) {
+            removeTyping();
+            const errMsg = '⚠️ 인증 세션이 없습니다. 로그인 후 AI 어시스턴트를 이용해주세요.';
+            if (targetWidget === 'portal') {
+                this.appendPortalChatBubble(errMsg, 'ai');
+            } else {
+                this.appendAIChatBubble(errMsg, 'bot');
+            }
+            return;
+        }
+
+        // 4. 서버 API 호출
+        try {
+            const payload = {
+                message: userMessage,
+                history: this.aiChatHistory || [],
+                projectId: this._activeProjectId || undefined
+            };
+
+            const response = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json; charset=utf-8',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            removeTyping();
+
+            if (!response.ok) {
+                let errorDetail = `서버 응답 오류 (HTTP ${response.status})`;
+                try {
+                    const errData = await response.json();
+                    if (errData.error || errData.message) {
+                        errorDetail = errData.error || errData.message;
+                    }
+                } catch (e) {
+                    // non-JSON error
+                }
+                const errDisplay = `⚠️ **[오류 발생 - ${response.status}]**<br>${errorDetail}`;
+                if (targetWidget === 'portal') {
+                    this.appendPortalChatBubble(errDisplay, 'ai');
+                } else {
+                    this.appendAIChatBubble(errDisplay, 'bot');
+                }
+                return;
+            }
+
+            const data = await response.json();
+            const answer = data.answer || '답변을 생성할 수 없습니다.';
+            const sources = Array.isArray(data.sources) ? data.sources : [];
+
+            // 5. 대화 이력 메모리 누적 (최근 10개 유지)
+            if (!Array.isArray(this.aiChatHistory)) {
+                this.aiChatHistory = [];
+            }
+            this.aiChatHistory.push({ role: 'user', content: userMessage });
+            this.aiChatHistory.push({ role: 'assistant', content: answer });
+            if (this.aiChatHistory.length > 10) {
+                this.aiChatHistory = this.aiChatHistory.slice(-10);
+            }
+
+            // 6. 결과 렌더링 (안전한 Markdown + DOM 버튼 바로가기)
+            if (targetWidget === 'portal') {
+                this.appendPortalChatBubble(answer, 'ai', sources);
+            } else {
+                this.appendAIChatBubble(answer, 'bot', sources);
+            }
+
+        } catch (netErr) {
+            removeTyping();
+            console.error('[AI Assistant Network Error]:', netErr);
+            const netErrMsg = `⚠️ **[네트워크 오류]**<br>AI 백엔드 서버와 통신할 수 없습니다. (상세: ${netErr.message || netErr})`;
+            if (targetWidget === 'portal') {
+                this.appendPortalChatBubble(netErrMsg, 'ai');
+            } else {
+                this.appendAIChatBubble(netErrMsg, 'bot');
+            }
+        }
+    }
+
     async sendPortalChatMessage() {
         const inputEl = document.getElementById('portal-chat-input');
         if (!inputEl) return;
         const text = inputEl.value.trim();
         if (!text) return;
-
         inputEl.value = '';
-        this.appendPortalChatBubble(text, 'user');
-
-        const typingId = 'typing-' + Math.random().toString(36).substring(2, 9);
-        const chatMsgsEl = document.getElementById('portal-chat-messages');
-        if (chatMsgsEl) {
-            const typingEl = document.createElement('div');
-            typingEl.className = 'portal-chat-msg-row ai';
-            typingEl.id = typingId;
-            typingEl.innerHTML = `
-                <div class="portal-chat-bubble" style="background:var(--bg-hover-item); border:1px solid var(--bg-card-border); color:var(--text-muted); font-style:italic; display:flex; align-items:center; gap:6px;">
-                    <span class="typing-dot" style="animation:pulse 1.2s infinite; font-size:10px;">●</span>
-                    <span>Aether AI 분석중...</span>
-                </div>
-            `;
-            chatMsgsEl.appendChild(typingEl);
-            chatMsgsEl.scrollTop = chatMsgsEl.scrollHeight;
-        }
-
-        setTimeout(() => {
-            const typingIndicator = document.getElementById(typingId);
-            if (typingIndicator) typingIndicator.remove();
-
-            let reply = '';
-            const lowerText = text.toLowerCase();
-
-            const totalProjs = this.state.projects.length;
-            const activeProjs = this.state.projects.filter(p => p.status === 'In Progress' || p.status === 'Delay').length;
-            const delayedProjs = this.state.projects.filter(p => p.status === 'Delay').length;
-            const unresolvedRisks = (this.state.issues || []).filter(i => i.status === '발생' || i.status === '조치중').length;
-            const actionItemsLeft = (this.state.actionItems || []).filter(a => a.status !== '완료' && a.status !== 'Completed').length;
-
-            if (lowerText.includes('briefing') || lowerText.includes('브리핑') || lowerText.includes('안녕') || lowerText.includes('시작')) {
-                reply = `📊 **전체 프로젝트 현황 분석 리포트**<br><br>
-                현재 관리 중인 총 **${totalProjs}개**의 사업 중 활성화된 프로젝트는 **${activeProjs}개**이며, 이 중 **${delayedProjs}개**의 사업에서 병목에 따른 공식 지연이 감지되었습니다.<br><br>
-                미결 리스크는 **${unresolvedRisks}건**, 잔여 Action Item은 **${actionItemsLeft}건**입니다.<br><br>
-                특히 **[AI 기반 다국어 고객 상담 어시스턴트 개발]** 사업의 인프라 수급 지연(GPU 자원 경합) 영향으로 건강도가 **62점**으로 주의 단계입니다. AI 추천 조치를 활용하여 야간 배치 조정을 실행하는 것을 권장합니다.`;
-            } else if (lowerText.includes('risk') || lowerText.includes('리스크') || lowerText.includes('위험') || lowerText.includes('예측')) {
-                reply = `⚠️ **AI 기반 리스크 경보 및 예측 요약 (Rule-based 추정)**<br><br>
-                1. **다국어 상담 어시스턴트 개발**: GPU 연구 자원 경합에 의한 학습 스케줄 지연 확률 **85%** (High)<br>
-                2. **스마트홈 IoT 플랫폼 구축**: 칩셋 물류 지연 및 요구정의 양식 미지출로 인한 마일스톤 이탈 위험 **62%** (Warning)<br>
-                3. **기획재정부 연동망**: 망 분리 인프라 협의 지연에 따른 검수 일정 이탈 위험 **78%** (High)<br><br>
-                * 본 리스크 예측은 기재된 정보 기반의 Rule-based 추정치입니다.`;
-            } else if (lowerText.includes('action') || lowerText.includes('액션') || lowerText.includes('할 일') || lowerText.includes('일정')) {
-                reply = `📅 **Action Item 실태 요약**<br><br>
-                - 현재 총 미완료 Action Item은 **${actionItemsLeft}개**입니다.<br>
-                - 지연 및 마감 임박 상태인 주요 Action Item:<br>
-                  * "공급사 납기 재조정 회의" (담당: 안유경, 기한: 오늘)<br>
-                  * "GPU 자원 확보 부서 간 합의문 작성" (담당: 이영희, 기한: 2일 남음)<br><br>
-                각 담당자에게 알림이 발송되었으며, 필요시 PM 권한으로 추가 조치를 배정하세요.`;
-            } else {
-                reply = `Aether AI 어시스턴트입니다.<br><br>질문하신 "${text}"에 대해 프로젝트 데이터베이스를 분석 중입니다. 현재 활성화된 프로젝트 수는 **${totalProjs}개**, 미결 리스크는 **${unresolvedRisks}건**입니다. 구체적인 프로젝트 명칭이나 '리스크 예측', 'Daily Briefing' 등의 키워드로 질문하시면 상세한 데이터 기반 리포트를 제공해 드릴 수 있습니다.`;
-            }
-
-            this.appendPortalChatBubble(reply, 'ai');
-        }, 1200);
+        await this._callAIChatApi(text, 'portal');
     }
 
-    appendPortalChatBubble(content, sender) {
+    async sendAIMessage() {
+        const inputEl = document.getElementById('ai-chat-input');
+        if (!inputEl) return;
+        const text = inputEl.value.trim();
+        if (!text) return;
+        inputEl.value = '';
+        await this._callAIChatApi(text, 'floating');
+    }
+
+    appendPortalChatBubble(content, sender, sources = []) {
         const chatMsgsEl = document.getElementById('portal-chat-messages');
         if (!chatMsgsEl) return;
 
@@ -6772,43 +6893,104 @@ class AetherPMO {
 
         const bubble = document.createElement('div');
         bubble.className = 'portal-chat-bubble';
-        // 마크다운 렌더링: **bold**, __bold__, - list, * list, \n 처리
-        const rendered = this._renderMarkdown(content);
-        bubble.innerHTML = rendered;
+        bubble.innerHTML = this._renderMarkdown(content);
+
+        // 검증된 sources 기반 DOM 버튼 바로가기 안전 생성 (HTML/onclick 조립 금지)
+        if (Array.isArray(sources) && sources.length > 0) {
+            this._appendSourceButtons(bubble, sources);
+        }
 
         row.appendChild(bubble);
         chatMsgsEl.appendChild(row);
         chatMsgsEl.scrollTop = chatMsgsEl.scrollHeight;
     }
 
-    // 최소 마크다운 렌더러 (외부 라이브러리 없이)
+    appendAIChatBubble(content, sender, sources = []) {
+        const chatMsgsEl = document.getElementById('ai-chat-messages');
+        if (!chatMsgsEl) return;
+
+        const bubble = document.createElement('div');
+        bubble.className = `ai-message ${sender}`;
+        bubble.innerHTML = this._renderMarkdown(content);
+
+        // 검증된 sources 기반 DOM 버튼 바로가기 안전 생성 (HTML/onclick 조립 금지)
+        if (Array.isArray(sources) && sources.length > 0) {
+            this._appendSourceButtons(bubble, sources);
+        }
+
+        chatMsgsEl.appendChild(bubble);
+        chatMsgsEl.scrollTop = chatMsgsEl.scrollHeight;
+    }
+
+    // 서버가 검증한 sources 객체 배열을 안전한 DOM 버튼 엘리먼트로 부착 (XSS 방지)
+    _appendSourceButtons(containerEl, sources) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'ai-sources-container';
+        wrapper.style.cssText = 'margin-top:8px; padding-top:6px; border-top:1px dashed var(--bg-card-border); display:flex; flex-direction:column; gap:4px;';
+
+        const label = document.createElement('span');
+        label.style.cssText = 'font-size:10px; color:var(--text-muted); font-weight:600;';
+        label.textContent = '📌 관련 프로젝트/산출물 바로가기:';
+        wrapper.appendChild(label);
+
+        const btnGroup = document.createElement('div');
+        btnGroup.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px;';
+
+        for (const src of sources) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ai-preset-chip';
+            btn.style.cssText = 'font-size:11px; padding:3px 7px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; background:var(--bg-app); border:1px solid var(--bg-card-border); border-radius:6px;';
+            btn.textContent = `🔗 [${src.type === 'project' ? '사업' : '산출물'}] ${src.name}`;
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (src.type === 'project' && typeof this.openProjectDetail === 'function') {
+                    this.openProjectDetail(src.id);
+                }
+            });
+            btnGroup.appendChild(btn);
+        }
+
+        wrapper.appendChild(btnGroup);
+        containerEl.appendChild(wrapper);
+    }
+
+    // 최소 마크다운 렌더러 (XSS 방어: HTML 특수문자 선행 이스케이프)
     _renderMarkdown(text) {
         if (!text) return '';
         let html = String(text);
 
-        // <br> 태그를 임시로 개행 문자로 통일하여 줄 단위 정규식 일치율 확보
-        html = html.replace(/<br\s*\/?>/gi, '\n');
+        // 1. XSS 방어: 사용자/LLM 텍스트 내 HTML 태그 및 이벤트 속성 무력화
+        html = html
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
 
-        // **bold** 또는 __bold__
+        // 2. <br> 태그 처리
+        html = html.replace(/&lt;br\s*\/?&gt;/gi, '\n');
+
+        // 3. **bold** 또는 __bold__
         html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
         html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
 
-        // *italic* 또는 _italic_
+        // 4. *italic* 또는 _italic_
         html = html.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
         html = html.replace(/_([^_\n]+)_/g, '<em>$1</em>');
 
-        // 리스트 아이템: 줄 시작부분에 - 또는 * 가 있는 경우
+        // 5. 리스트 아이템: 줄 시작부분에 - 또는 * 가 있는 경우
         html = html.replace(/^\s*[\-\*]\s+(.+)$/gm, '<li style="margin:4px 0 4px 18px; list-style:disc;">$1</li>');
 
-        // 연속된 li 그룹들을 하나의 ul로 올바르게 묶기
+        // 6. 연속된 li 그룹들을 하나의 ul로 올바르게 묶기
         html = html.replace(/(<li[^>]*>.*?<\/li>\s*)+/gs, (match) => {
             return `<ul style="margin:8px 0; padding-left:0; list-style:none;">${match.replace(/\r?\n/g, '')}</ul>`;
         });
 
-        // 줄바꿈 → <br>
+        // 7. 줄바꿈 → <br>
         html = html.trim().replace(/\n/g, '<br>');
 
-        // 연속 <br> 방지 및 정리
+        // 8. 연속 <br> 방지 및 정리
         html = html.replace(/(<br>){3,}/g, '<br><br>');
         return html;
     }
