@@ -968,7 +968,17 @@ watch(() => route.query.meeting, applyMeetingQuery);
         </template>
 
         <template v-else-if="activeTab === 'artifacts'">
-          <div v-if="artifacts.length === 0" class="card-empty">등록된 산출물이 없습니다.</div>
+          <!-- Bug #4 수정: 빈 상태 메시지 개선 — 테일러링 미설정 상황 안내 + WBS 탭 이동 버튼 -->
+          <div v-if="artifacts.length === 0" class="empty-artifacts">
+            <div class="card-empty">등록된 산출물이 없습니다.</div>
+            <p class="empty-hint">
+              WBS/테일러링을 통해 산출물이 전개되어야 이 목록에 표시됩니다.
+              <template v-if="project && project.stage !== 'BIDDING'">
+                <br />테일러링이 미설정인 경우 <button class="btn-link" @click="selectTab('wbs')">WBS/일정 탭</button>에서 전개하거나,
+                개요 탭의 현황 요약 건수와 이 탭의 건수가 다르다면 탭을 다시 클릭해 보세요.
+              </template>
+            </p>
+          </div>
           <table v-else class="grid">
             <thead><tr><th>산출물명</th><th>분류</th><th>버전</th><th>작성자</th><th>마감일</th><th>제출일</th><th>상태</th></tr></thead>
             <tbody>
@@ -1213,6 +1223,9 @@ watch(() => route.query.meeting, applyMeetingQuery);
   font-size: 13px; font-weight: 600; cursor: pointer; padding: 0 4px; margin-left: 6px;
 }
 .btn-link.more { display: block; margin: 10px 0 0; padding: 0; }
+/* Bug #4: 산출물 탭 빈 상태 안내 */
+.empty-artifacts { padding: 4px 0; }
+.empty-hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; line-height: 1.6; }
 .chk-line { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; margin-bottom: 8px; }
 
 .remarks-box { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }

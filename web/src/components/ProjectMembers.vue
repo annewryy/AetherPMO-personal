@@ -37,6 +37,31 @@ function memberTypeLabel(t: string | null | undefined): string {
   return t ?? '—';
 }
 
+// Bug #6 수정: PM/PL 역할 정규화 집계.
+//   isProjectManager=true OR participationRole이 PM 관련 키워드 포함 → PM 카운트.
+//   participationRole이 PL 관련 키워드 포함 → PL 카운트.
+//   DB에 '제안PL', '제안PM', 'PM', 'PL', 'Project Lead' 등 자유 텍스트가 섞여 있어도 모두 반영.
+function normalizeRole(r: string | null | undefined): string {
+  const s = (r ?? '').trim();
+  if (!s) return '';
+  const u = s.toUpperCase();
+  if (u === 'PM' || u.includes('프로젝트 매니저') || u === '제안PM' || u === 'PROJECT MANAGER') return 'PM';
+  if (u === 'PL' || u.includes('제안PL') || u.includes('PROJECT LEAD') || u.includes('프로젝트 리드')) return 'PL';
+  return s;
+}
+const pmCount = computed(() =>
+  members.value.filter((m) =>
+    m.isProjectManager === true ||
+    normalizeRole(m.participationRole) === 'PM',
+  ).length,
+);
+const plCount = computed(() =>
+  members.value.filter((m) =>
+    !m.isProjectManager &&
+    normalizeRole(m.participationRole) === 'PL',
+  ).length,
+);
+
 function openCreate() { editing.value = null; showForm.value = true; }
 function openEdit(m: ProjectMemberDetail) { confirmDeleteId.value = null; editing.value = m; }
 function closeModal() { showForm.value = false; editing.value = null; }
@@ -102,6 +127,11 @@ watch(() => props.projectId, load, { immediate: true });
       <template v-else>
         <div class="list-head">
           <span class="count">총 <strong>{{ total.toLocaleString('ko-KR') }}</strong>명</span>
+          <!-- Bug #6: PM/PL 집계 배지 — 역할 정규화(제안PL·제안PM 등 자유 텍스트 포함) -->
+          <span class="role-summary">
+            <span class="role-badge pm" title="isProjectManager=true 또는 PM 역할">PM {{ pmCount }}명</span>
+            <span class="role-badge pl" title="PL 역할(제안PL 등 포함)">PL {{ plCount }}명</span>
+          </span>
           <PageSizeSelect :model-value="pageSize" @update:model-value="setPageSize" />
         </div>
         <table class="grid">
@@ -161,9 +191,16 @@ watch(() => props.projectId, load, { immediate: true });
 .gate-hint { font-size: 13px; color: var(--muted); }
 .card-empty { font-size: 14px; color: var(--muted); padding: 8px 0; }
 
-.list-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
-.count { font-size: 14px; color: var(--muted); }
+.list-head { display: flex; align-items: center; gap: 12px; margin: 0 0 10px; flex-wrap: wrap; }
+.count { font-size: 14px; color: var(--muted); margin-right: auto; }
 .count strong { color: var(--text); }
+/* Bug #6: PM/PL 집계 배지 */
+.role-summary { display: flex; gap: 6px; }
+.role-badge {
+  font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px;
+}
+.role-badge.pm { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); border: 1px solid var(--accent); }
+.role-badge.pl { background: color-mix(in srgb, #22d3ee 15%, transparent); color: #0e7490; border: 1px solid #22d3ee; }
 
 .grid { border-collapse: collapse; width: 100%; font-size: 14px; }
 .grid th, .grid td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }

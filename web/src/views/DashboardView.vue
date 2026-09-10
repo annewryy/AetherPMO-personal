@@ -81,7 +81,8 @@ const isRiskType = (t: string) => (t || '').includes('리스크') || (t || '').t
 
 // ---- KPI (0007 재정의 → 0038 개정: 전체 프로젝트 n/n, 유형별 미해결 n/총 N) ----
 const biddingTotal = computed(() => projects.value.filter((p) => p.stage === 'BIDDING').length);
-const execTotal = computed(() => projects.value.filter((p) => p.stage === 'EXECUTION').length);
+// Bug #3 수정: EXECUTION + COMPLETED 모두 "수행" 단계로 집계 (목록 화면 /projects/active와 동일 기준)
+const execTotal = computed(() => projects.value.filter((p) => p.stage === 'EXECUTION' || p.stage === 'COMPLETED').length);
 const signalByProject = computed(() => {
   const m = new Map<number, { expected: number | null; actual: number | null; delayPct: number | null }>();
   for (const s of signals.value?.signals ?? []) {
@@ -91,14 +92,17 @@ const signalByProject = computed(() => {
 });
 // 0039 재개정 — WBS 계산 지연신호(delayPct, 요약 표와 동일 기준) 우선.
 //   신호 미제공(폴백 모드·계산불가)일 때만 계약종료일 초과/수동 status='Delay'로 대체.
+// Bug #3 수정: 한글 '지연'(DB 직접 저장값)도 지연으로 인식하도록 보완.
 const isDelayedP = (p: Project) => {
   const sig = signalByProject.value.get(p.id);
   if (sig && sig.delayPct != null) return sig.delayPct > 0;
-  return p.status === 'Delay' ||
-    (!!p.endDate && p.endDate < todayStr && p.status !== 'Completed' && p.stage !== 'COMPLETED');
+  // 영문 'Delay' 또는 한글 '지연' 모두 지연 판정
+  return p.status === 'Delay' || p.status === '지연' ||
+    (!!p.endDate && p.endDate < todayStr && p.status !== 'Completed' && p.status !== '완료' && p.stage !== 'COMPLETED');
 };
 const delayedBidding = computed(() => projects.value.filter((p) => p.stage === 'BIDDING' && isDelayedP(p)).length);
-const delayedExecution = computed(() => projects.value.filter((p) => p.stage === 'EXECUTION' && isDelayedP(p)).length);
+// Bug #3 수정: delayedExecution도 EXECUTION + COMPLETED 포함
+const delayedExecution = computed(() => projects.value.filter((p) => (p.stage === 'EXECUTION' || p.stage === 'COMPLETED') && isDelayedP(p)).length);
 // 리스크/이슈 분리 카운트: 미해결 n / 총 N
 const riskAll = computed(() => issues.value.filter((i) => isRiskType(i.type)));
 const issueAll = computed(() => issues.value.filter((i) => !isRiskType(i.type)));
@@ -506,6 +510,18 @@ onMounted(async () => {
         </ul>
         </section>
       </div>
+      <!-- Bug #5: 게시판/공지 안내 — 홈에서 공지가 보이고 게시판 목록이 비어 있는 경우 안내.
+           공지는 현재 backend widgets.recent 또는 시드 데이터에서 제공되며,
+           통합 게시판 화면은 아직 이 앱에 구현되어 있지 않습니다(라우트 미등록).
+           ※ 홈에서 보이는 '최근 공지 N건'은 위젯 API 또는 샘플 시드 데이터로부터 제공됩니다. -->
+      <div v-if="!apiMode" class="notice-hint">
+        <span>📋</span>
+        <span>
+          <b>공지/게시판</b>: 현재 화면에 표시되는 공지는 <b>데모 샘플 데이터</b>입니다.
+          실제 공지·게시판 기능은 백엔드(API_BASE) 연결 후 제공됩니다.
+          통합 게시판 화면은 향후 별도 메뉴로 제공될 예정입니다.
+        </span>
+      </div>
       </template>
     </template>
 
@@ -804,4 +820,13 @@ onMounted(async () => {
 
 .grid th.sortable { cursor: pointer; user-select: none; }
 .grid th.sortable:hover { color: var(--text); }
+
+/* Bug #5: 공지/게시판 안내 */
+.notice-hint {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin-top: 12px; padding: 12px 16px; border-radius: 10px;
+  background: color-mix(in srgb, var(--yellow) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--yellow) 40%, transparent);
+  font-size: 13px; color: var(--text); line-height: 1.6;
+}
 </style>

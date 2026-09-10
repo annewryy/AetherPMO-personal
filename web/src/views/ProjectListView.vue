@@ -64,6 +64,25 @@ const STATUS_EN2KO: Record<string, string> = {
 
 const tabs = computed(() => (isBidding.value ? BID_TABS : EXEC_TABS));
 
+// Bug #2 수정: 탭별 건수 사전 계산 — 탭 버튼에 배지로 표시해 탭/목록 불일치 혼동 해소.
+//   ALL은 전체 건수, 나머지는 해당 status/bidStatus 기준.
+const tabCounts = computed(() => {
+  const result: Record<string, number> = {};
+  const list = projects.value;
+  if (isBidding.value) {
+    result['ALL'] = list.length;
+    for (const t of BID_TABS.filter((t) => t.key !== 'ALL')) {
+      result[t.key] = list.filter((p) => p.bidStatus === t.key).length;
+    }
+  } else {
+    result['ALL'] = list.length;
+    for (const t of EXEC_TABS.filter((t) => t.key !== 'ALL')) {
+      result[t.key] = list.filter((p) => p.status === t.key).length;
+    }
+  }
+  return result;
+});
+
 const LOCATIONS: readonly ProjectLocationFilter[] = ['서울', '대전', '대구', '광주', '기타'];
 
 // 번호류는 표기 구분자(하이픈·공백·언더바)를 빼고 비교한다 — 화면에 'OKC-26-0826'으로 보이는 걸
@@ -169,7 +188,16 @@ async function onProjectCreated(created: Project) {
   router.push(`/projects/${created.id}`);
 }
 
-onMounted(() => { void load(); });
+onMounted(() => {
+  // Bug #7b: 상단 통합 검색에서 ?q=키워드 로 이동한 경우 검색어를 자동 주입.
+  const qs = route.query.q;
+  if (typeof qs === 'string' && qs.trim()) {
+    query.value = qs.trim();
+    // URL에서 ?q= 파라미터를 제거(재방문 시 재노출 방지)
+    void router.replace({ path: route.path, query: {} });
+  }
+  void load();
+});
 </script>
 
 <template>
@@ -191,7 +219,7 @@ onMounted(() => { void load(); });
           class="tab"
           :class="{ on: statusFilter === t.key }"
           @click="statusFilter = t.key"
-        >{{ t.label }}</button>
+        >{{ t.label }}<span v-if="!loading && tabCounts[t.key] != null" class="tab-cnt">{{ tabCounts[t.key] }}</span></button>
       </div>
 
       <select v-model="locationFilter" class="select" aria-label="수행장소 필터">
@@ -386,6 +414,12 @@ onMounted(() => { void load(); });
 }
 .tab:hover { color: var(--text); }
 .tab.on { background: var(--accent); color: #fff; }
+.tab-cnt {
+  display: inline-block; margin-left: 5px; padding: 0 6px;
+  background: rgba(0,0,0,0.12); border-radius: 999px;
+  font-size: 11px; font-weight: 700; line-height: 18px; vertical-align: middle;
+}
+.tab.on .tab-cnt { background: rgba(255,255,255,0.25); }
 
 .select {
   background: var(--panel); border: 1px solid var(--border); border-radius: 8px;

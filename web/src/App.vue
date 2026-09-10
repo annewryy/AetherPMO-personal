@@ -3,8 +3,8 @@
 // 0012 C-3: 상단바에 dev "현재 사용자" 선택기(X-User-Id 소스) + 알림 벨을 둔다.
 // 0028: 유경님 UI 정합 — 로고(layers·AetherPMO·사업관리 플랫폼) + lucide 아이콘 + 인력관리 그룹(마스터/참여인력).
 // 데이터 접근은 각 화면이 dataClient로 수행한다.
-import { computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed, ref, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import {
   Layers, Home, FileSignature, PlayCircle, Search, FileCheck, FileSearch,
   Users, UserCog, Settings, Sun, Moon,
@@ -15,8 +15,15 @@ import CurrentUserSelector from './components/CurrentUserSelector.vue';
 import NotificationBell from './components/NotificationBell.vue';
 import UserMenu from './components/UserMenu.vue';
 import { isAuthenticated, currentUser } from './lib/auth';
+import { checkDemoMode } from './lib/supabase';
 
 const route = useRoute();
+const router = useRouter();
+
+// Bug #1: 데모 모드 배너 — API_BASE·Supabase 둘 다 미설정인 경우 상단에 경고 표시.
+//   onMounted에서 판정(window 객체 접근이 필요하므로 렌더 후 실행).
+const isDemoMode = ref(false);
+onMounted(() => { isDemoMode.value = checkDemoMode(); });
 
 // 0031 — 상단바 날짜(요구 0004 §3)
 const todayLabel = (() => {
@@ -47,6 +54,18 @@ const isExecList = computed(
 const isBidNotices = computed(() => route.path.startsWith('/bid-notices'));
 // 0034 — 로그인 페이지는 초기 화면(셸 없이 전체화면)
 const isLoginPage = computed(() => route.path === '/login');
+
+// Bug #7 — 상단 통합 검색: Enter 키 입력 시 수행/입찰 목록으로 이동
+const globalSearch = ref('');
+function onGlobalSearch(ev: KeyboardEvent) {
+  if (ev.key !== 'Enter') return;
+  const q = globalSearch.value.trim();
+  if (!q) return;
+  // 현재 입찰 목록 화면이면 입찰 목록으로, 그 외에는 수행 목록으로 이동
+  const target = route.path === '/projects/bidding' ? '/projects/bidding' : '/projects/active';
+  void router.push({ path: target, query: { q } });
+  globalSearch.value = '';
+}
 </script>
 
 <template>
@@ -97,11 +116,28 @@ const isLoginPage = computed(() => route.path === '/login');
     <div class="main-col">
       <header class="topbar">
         <span class="today">{{ todayLabel }}</span>
+        <!-- Bug #7 — 통합 검색: 사업명·사업번호 Enter 이동 -->
+        <div class="global-search-wrap">
+          <Search :size="14" class="search-icon" />
+          <input
+            v-model="globalSearch"
+            type="search"
+            class="global-search"
+            placeholder="사업명·사업번호 검색 (Enter)"
+            aria-label="통합 검색"
+            @keyup="onGlobalSearch"
+          />
+        </div>
         <CurrentUserSelector v-if="!isAuthenticated" />
         <NotificationBell />
         <UserMenu />
       </header>
       <main class="content">
+        <!-- Bug #1: 데모 모드 배너 — API_BASE·Supabase 미설정 시 표시 -->
+        <div v-if="isDemoMode" class="demo-banner" role="alert">
+          ⚠ 데모 모드 — 실제 데이터가 연결되지 않았습니다 (API_BASE·Supabase 미설정).
+          실제 운영 환경에서는 배포 설정을 확인하세요.
+        </div>
         <RouterView />
       </main>
     </div>
@@ -162,6 +198,29 @@ const isLoginPage = computed(() => route.path === '/login');
   padding: 10px 28px; border-bottom: 1px solid var(--border); background: var(--panel);
 }
 .today { font-size: 13px; color: var(--muted); margin-right: auto; }
+/* Bug #7 — 통합 검색 */
+.global-search-wrap {
+  position: relative; display: flex; align-items: center;
+}
+.search-icon {
+  position: absolute; left: 8px; color: var(--muted); pointer-events: none;
+}
+.global-search {
+  background: var(--panel-2, var(--panel)); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 13px;
+  padding: 6px 10px 6px 28px; width: 220px; outline: none;
+  transition: border-color 0.15s, width 0.2s;
+}
+.global-search:focus { border-color: var(--accent); width: 280px; }
+.global-search::placeholder { color: var(--muted); }
+/* Bug #1: 데모 모드 배너 */
+.demo-banner {
+  margin: -24px -32px 20px;  /* content padding 상쇄 후 full-width */
+  padding: 10px 32px;
+  background: #b45309; color: #fff;
+  font-size: 13px; font-weight: 600;
+  border-bottom: 1px solid #92400e;
+}
 /* 0039 — 본문 영역 폭 제한(max-width 1440px + 가운데 정렬) 제거.
    와이드 모니터에서 좌우에 큰 빈 여백이 생기고 표(WBS·간트·목록)가 불필요하게 눌렸다. */
 .content { flex: 1; min-width: 0; padding: 24px 32px; width: 100%; box-sizing: border-box; }
