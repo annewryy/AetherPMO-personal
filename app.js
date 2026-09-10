@@ -532,7 +532,10 @@ class AetherPMO {
 
                 if (loginSection) loginSection.style.display = 'none';
                 if (appSection) appSection.style.display = 'grid';
-                if (aiChatWidget) aiChatWidget.style.display = 'block';
+                if (aiChatWidget) {
+                    aiChatWidget.style.display = 'block';
+                    this.checkAIHealth();
+                }
 
                 // Update user info in sidebar & header
                 const profileName = document.getElementById('user-profile-name');
@@ -6693,11 +6696,52 @@ class AetherPMO {
     // Aether AI 어시스턴트 (Ollama 로컬 LLM 연동 및 챗봇 위젯)
     // -----------------------------------------------------------------------
 
+    async checkAIHealth() {
+        const badge = document.getElementById('ai-status-badge');
+        const indicator = document.getElementById('ai-status-indicator');
+
+        if (badge) {
+            badge.style.color = '#f59e0b';
+            badge.textContent = '● 연결 상태 확인 중...';
+        }
+        if (indicator) {
+            indicator.style.background = '#f59e0b';
+        }
+
+        try {
+            const res = await fetch('/api/ai/health', { method: 'GET' });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    if (badge) {
+                        badge.style.color = '#10b981';
+                        badge.textContent = `● 연결 가능 (${data.model || 'Ollama 로컬 LLM'})`;
+                    }
+                    if (indicator) {
+                        indicator.style.background = '#10b981';
+                    }
+                    return true;
+                }
+            }
+            throw new Error('Non-ok response');
+        } catch (e) {
+            if (badge) {
+                badge.style.color = '#ef4444';
+                badge.textContent = '● 연결 실패 (오프라인 / 게이트웨이 미연결)';
+            }
+            if (indicator) {
+                indicator.style.background = '#ef4444';
+            }
+            return false;
+        }
+    }
+
     toggleAIChat() {
         const panel = document.getElementById('ai-chat-panel');
         if (!panel) return;
         panel.classList.toggle('open');
         if (panel.classList.contains('open')) {
+            this.checkAIHealth();
             const input = document.getElementById('ai-chat-input');
             if (input) input.focus();
             const msgs = document.getElementById('ai-chat-messages');

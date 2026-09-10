@@ -193,13 +193,24 @@ async function getAccessibleProjects(userId, role, supabaseUrl, serviceKeyOrAnon
   return Array.isArray(projRes.body) ? projRes.body : [];
 }
 
-// 4. Ollama 호출
+// 4. Ollama / 추론 게이트웨이 호출
 async function callOllama(messages) {
   const baseUrl = process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434';
   const model = process.env.OLLAMA_MODEL || 'qwen2.5:1.5b';
   const timeoutMs = Number(process.env.OLLAMA_TIMEOUT_MS || 30000);
 
   const parsed = new URL(baseUrl);
+  const isLocalDirect = parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost';
+
+  // 배포 환경(외부 호스트/게이트웨이) 접속 시 Cloudflare Access Service Token 필수 검증
+  if (!isLocalDirect) {
+    if (!process.env.CF_ACCESS_CLIENT_ID || !process.env.CF_ACCESS_CLIENT_SECRET) {
+      const err = new Error('외부 게이트웨이 연결을 위한 Cloudflare Access Service Token(CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET)이 설정되지 않았습니다.');
+      err.statusCode = 500;
+      throw err;
+    }
+  }
+
   const postData = JSON.stringify({
     model,
     messages,
@@ -215,7 +226,7 @@ async function callOllama(messages) {
     'Content-Length': Buffer.byteLength(postData),
   };
 
-  // Cloudflare Tunnel Service Auth 헤더 지원
+  // Cloudflare Access Service Token 헤더 주입
   if (process.env.CF_ACCESS_CLIENT_ID && process.env.CF_ACCESS_CLIENT_SECRET) {
     headers['CF-Access-Client-Id'] = process.env.CF_ACCESS_CLIENT_ID;
     headers['CF-Access-Client-Secret'] = process.env.CF_ACCESS_CLIENT_SECRET;
@@ -327,6 +338,13 @@ module.exports = async (req, res) => {
     timeZone: 'Asia/Seoul'
   }).format(new Date());
 
+  // KST 기준 이번 주 월요일 계산
+  const now = new Date();
+  const kstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const day = kstDate.getUTCDay();
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  const currentWeekMonday = new Date(kstDate.getTime() - diffToMonday * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
   if (isDeliverableQuery) {
     intent = 'deliverables_status';
     const targetProj = requestedProjectId 
@@ -337,7 +355,7 @@ module.exports = async (req, res) => {
       sources.push({ id: targetProj.project_id, name: targetProj.name, type: 'project' });
       pmoContextData = {
         project: { id: targetProj.project_id, name: targetProj.name, status: targetProj.status },
-        notice: '필수 산출물 점검 기준 데이터입니다.'
+        notice: 'AetherPMO 테일러링 표준(규모별 필수/선택 산출물 기준) 점검 데이터입니다.'
       };
     }
   } else if (isWeeklyQuery) {
@@ -350,7 +368,8 @@ module.exports = async (req, res) => {
       sources.push({ id: targetProj.project_id, name: targetProj.name, type: 'project' });
       pmoContextData = {
         project: { id: targetProj.project_id, name: targetProj.name, progress: targetProj.progress, status: targetProj.status },
-        notice: '주간보고 작성을 위한 실적/계획 요약 데이터입니다.'
+        currentWeekMonday: currentWeekMonday,
+        notice: `KST 역법 기준 이번 주(월요일 ${currentWeekMonday} 시작) 주간보고 실적/계획 요약 데이터입니다.`
       };
     }
   } else if (isStatusQuery || accessibleProjects.length > 0) {

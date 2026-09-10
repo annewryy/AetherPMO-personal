@@ -6157,7 +6157,7 @@
         <!-- Floating Chat Bubble -->
         <button id="ai-chat-bubble" class="ai-chat-bubble" onclick="app.toggleAIChat()" title="AI 어시스턴트">
             <i data-lucide="bot" class="ai-bot-icon"></i>
-            <span class="ai-status-indicator"></span>
+            <span id="ai-status-indicator" class="ai-status-indicator" style="background:#f59e0b;"></span>
         </button>
         
         <!-- Chat Panel -->
@@ -6167,7 +6167,7 @@
                     <div class="ai-avatar-badge"><i data-lucide="bot" style="width:16px; height:16px;"></i></div>
                     <div>
                         <h4 style="margin:0; font-size:13px; font-weight:700;">Aether AI 어시스턴트</h4>
-                        <span style="font-size:10px; color:#10b981; font-weight:500;">● Online (Ollama 로컬 LLM)</span>
+                        <span id="ai-status-badge" style="font-size:10px; color:#f59e0b; font-weight:500;">● 연결 상태 확인 중...</span>
                     </div>
                 </div>
                 <button class="ai-chat-close" onclick="app.toggleAIChat()">&times;</button>
