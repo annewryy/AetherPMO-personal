@@ -83,14 +83,15 @@ async function getAccessibleProjects(db: Db, user: AuthenticatedUser): Promise<a
   if (isPrivileged) {
     const { rows } = await db.query(
       `SELECT project_id as id, project_code as code, 
-              COALESCE(name, project_name) as name, 
+              project_name as name, 
               status, 
-              COALESCE(stage, project_stage, 'EXECUTION') as stage, 
-              COALESCE(progress, progress_rate, 0) as progress, 
-              manager, customer, 
-              COALESCE(start_date, planned_start_date) as start_date, 
-              COALESCE(end_date, planned_end_date) as end_date, 
-              COALESCE(budget, contract_amount, 0) as budget
+              project_stage as stage, 
+              progress_rate as progress, 
+              pm_name as manager, 
+              customer_name as customer, 
+              planned_start_date as start_date, 
+              planned_end_date as end_date, 
+              contract_amount as budget
        FROM public.pms_project 
        WHERE status != 'CANCELLED'
        ORDER BY project_id ASC`
@@ -100,14 +101,15 @@ async function getAccessibleProjects(db: Db, user: AuthenticatedUser): Promise<a
 
   const { rows } = await db.query(
     `SELECT p.project_id as id, p.project_code as code, 
-            COALESCE(p.name, p.project_name) as name, 
+            p.project_name as name, 
             p.status, 
-            COALESCE(p.stage, p.project_stage, 'EXECUTION') as stage, 
-            COALESCE(p.progress, p.progress_rate, 0) as progress, 
-            p.manager, p.customer, 
-            COALESCE(p.start_date, p.planned_start_date) as start_date, 
-            COALESCE(p.end_date, p.planned_end_date) as end_date, 
-            COALESCE(p.budget, p.contract_amount, 0) as budget
+            p.project_stage as stage, 
+            p.progress_rate as progress, 
+            p.pm_name as manager, 
+            p.customer_name as customer, 
+            p.planned_start_date as start_date, 
+            p.planned_end_date as end_date, 
+            p.contract_amount as budget
      FROM public.pms_project p
      WHERE p.status != 'CANCELLED' AND p.project_id IN (
        SELECT pm.project_id FROM public.pms_project_member pm WHERE pm.user_uid = $1
@@ -123,9 +125,13 @@ async function verifyProjectAccess(db: Db, user: AuthenticatedUser, projectId: n
   const isPrivileged = user.role === 'ADMIN' || user.role === 'SYS_ADMIN' || user.role === 'PMO';
 
   const query = isPrivileged
-    ? `SELECT project_id as id, project_code as code, name, status, stage, progress, manager, customer, start_date, end_date
+    ? `SELECT project_id as id, project_code as code, project_name as name, status, project_stage as stage, 
+              progress_rate as progress, pm_name as manager, customer_name as customer, 
+              planned_start_date as start_date, planned_end_date as end_date
        FROM public.pms_project WHERE project_id = $1`
-    : `SELECT p.project_id as id, p.project_code as code, p.name, p.status, p.stage, p.progress, p.manager, p.customer, p.start_date, p.end_date
+    : `SELECT p.project_id as id, p.project_code as code, p.project_name as name, p.status, p.project_stage as stage, 
+              p.progress_rate as progress, p.pm_name as manager, p.customer_name as customer, 
+              p.planned_start_date as start_date, p.planned_end_date as end_date
        FROM public.pms_project p
        WHERE p.project_id = $1 AND p.project_id IN (
          SELECT pm.project_id FROM public.pms_project_member pm WHERE pm.user_uid = $2
@@ -169,30 +175,34 @@ async function collectProjectStatusData(db: Db, user: AuthenticatedUser, targetP
   const today = new Date().toISOString().split('T')[0];
   const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  const execution = projects.filter(p => p.stage === 'EXECUTION' || p.status === 'In Progress' || p.status === '진행중');
-  const completed = projects.filter(p => p.stage === 'COMPLETED' || p.status === 'Completed' || p.status === '완료');
-  const delayed = projects.filter(p => p.status === 'Delay' || p.status === '지연');
-  const endingSoon = projects.filter(p => p.end_date && p.end_date >= today && p.end_date <= in30Days && p.status !== 'Completed');
+  const execution = projects.filter(p => p.stage === 'EXECUTION' || p.status === '진행중' || p.status === 'IN_PROGRESS' || p.status === 'In Progress');
+  const completed = projects.filter(p => p.stage === 'COMPLETED' || p.status === '완료' || p.status === 'COMPLETED' || p.status === 'Completed');
+  const delayed = projects.filter(p => p.status === '지연' || p.status === 'Delay');
+  const endingSoon = projects.filter(p => p.end_date && p.end_date >= today && p.end_date <= in30Days && p.status !== '완료' && p.status !== 'COMPLETED');
+
+  const totalCount = projects.length;
+  const sampleProjects = projects.slice(0, 10).map(p => ({
+    id: p.id,
+    name: p.name,
+    status: p.status,
+    stage: p.stage,
+    progress: p.progress,
+    manager: p.manager || '미정',
+    customer: p.customer || '미정',
+    endDate: p.end_date || '미정'
+  }));
 
   return {
     type: 'overview',
     summary: {
-      total: projects.length,
+      total: totalCount,
       execution: execution.length,
       completed: completed.length,
       delayed: delayed.length,
       endingSoon: endingSoon.length,
+      displayNote: totalCount > 10 ? `전체 ${totalCount}개 프로젝트 중 상위 10건 목록을 대표로 제공합니다.` : `전체 ${totalCount}개 프로젝트 목록입니다.`
     },
-    sampleProjects: projects.slice(0, 10).map(p => ({
-      id: p.id,
-      name: p.name,
-      status: p.status,
-      stage: p.stage,
-      progress: p.progress,
-      manager: p.manager || '미정',
-      customer: p.customer || '미정',
-      endDate: p.end_date || '미정'
-    })),
+    sampleProjects,
     sources: projects.slice(0, 5).map(p => ({ id: p.id, name: p.name, type: 'project' as const }))
   };
 }
@@ -207,47 +217,109 @@ async function collectDeliverablesStatusData(db: Db, user: AuthenticatedUser, pr
 
   const project = await verifyProjectAccess(db, user, Number(projectId));
 
+  // 1) 표준 방법론 카탈로그에서 필수(is_optional = false) 기준 목록 조회 (출발점)
+  const { rows: requiredCatalogNodes } = await db.query(
+    `SELECT node_id, code, name, deliverable_category, sort_order
+     FROM public.pms_catalog_node
+     WHERE node_type = 'DELIVERABLE' AND is_optional = false
+     ORDER BY sort_order ASC, node_id ASC`
+  );
+
+  // 2) 해당 프로젝트의 등록된 산출물 목록 조회
   const { rows: deliverables } = await db.query(
-    `SELECT deliverable_id as id, name, category, status, 
-            COALESCE(is_tailored, false) as is_tailored, 
-            COALESCE(is_required, false) as is_required,
-            due_date, submitted_date
+    `SELECT deliverable_id as id, deliverable_name as name, deliverable_type as category, 
+            status, due_date, submitted_at, catalog_node_id
      FROM public.pms_deliverable
      WHERE project_id = $1
      ORDER BY deliverable_id ASC`,
     [project.id]
   );
 
-  // AetherPMO 테일러링 표준 규정:
-  // 프로젝트 규모 및 방법론 테일러링 기준에 따라 필수(Required/Mandatory)로 지정된 산출물 식별
-  const tailoredRequired = deliverables.filter(d => 
-    d.is_tailored === true || d.is_required === true || d.required === true || d.is_mandatory === true
+  // 3) 프로젝트 테일러링 예외(제외) 내역 조회
+  const { rows: tailoringRows } = await db.query(
+    `SELECT catalog_node_id, is_selected, exclude_reason
+     FROM public.pms_project_tailoring
+     WHERE project_id = $1`,
+    [project.id]
   );
-
-  if (tailoredRequired.length === 0) {
-    return {
-      project: { id: project.id, name: project.name },
-      hasTailoring: false,
-      message: '해당 프로젝트는 WBS/방법론 테일러링 필수 산출물 기준이 아직 전개되지 않았습니다.',
-      totalDeliverables: deliverables.length,
-      sources: [{ id: project.id, name: project.name, type: 'project' as const }]
-    };
+  const excludedMap = new Map<number, string>();
+  for (const t of tailoringRows) {
+    if (t.is_selected === false) {
+      excludedMap.set(Number(t.catalog_node_id), t.exclude_reason || '테일러링 제외');
+    }
   }
 
-  const submitted = tailoredRequired.filter(d => d.status === '승인' || d.status === '검토중' || d.status === 'Approved' || !!d.submitted_date);
-  const unsubmitted = tailoredRequired.filter(d => !d.submitted_date && d.status !== '승인' && d.status !== 'Approved');
+  // 4) 표준 템플릿 기준 목록과 프로젝트 등록 내역 비교 대조
+  const deliverableByNodeId = new Map<number, any>();
+  const deliverableByName = new Map<string, any>();
+  for (const d of deliverables) {
+    if (d.catalog_node_id) deliverableByNodeId.set(Number(d.catalog_node_id), d);
+    if (d.name) deliverableByName.set(d.name.trim(), d);
+  }
+
+  // 테일러링으로 제외되지 않은 필수 기준 산출물 목록
+  const activeRequiredStandards = requiredCatalogNodes.filter(
+    node => !excludedMap.has(Number(node.node_id))
+  );
+
+  const approvedList: any[] = [];
+  const underReviewList: any[] = [];
+  const draftList: any[] = [];
+  const unregisteredList: any[] = [];
+
+  for (const standard of activeRequiredStandards) {
+    const matched = deliverableByNodeId.get(Number(standard.node_id)) || deliverableByName.get(standard.name.trim());
+
+    if (!matched) {
+      unregisteredList.push({
+        name: standard.name,
+        code: standard.code,
+        category: standard.deliverable_category || '표준산출물',
+        statusDescription: '미등록 (산출물 레코드 미생성)',
+        dueDate: '미정'
+      });
+    } else if (matched.status === 'APPROVED' || matched.status === '완료' || matched.status === '승인') {
+      approvedList.push({
+        name: standard.name,
+        code: standard.code,
+        status: 'APPROVED',
+        statusDescription: '승인 완료',
+        submittedAt: matched.submitted_at || matched.due_date || '완료'
+      });
+    } else if (matched.status === 'SUBMITTED' || matched.status === 'UNDER_REVIEW' || matched.status === '검토중') {
+      underReviewList.push({
+        name: standard.name,
+        code: standard.code,
+        status: matched.status,
+        statusDescription: '제출 후 검토 중 (발주처/PMO 검토 단계)',
+        submittedAt: matched.submitted_at || '제출됨'
+      });
+    } else {
+      // DRAFT, REJECTED, 작성중 등 내부 작성 단계
+      draftList.push({
+        name: standard.name,
+        code: standard.code,
+        status: matched.status || 'DRAFT',
+        statusDescription: '작성 중 (내부 작성 및 보완 단계)',
+        dueDate: matched.due_date || '미정'
+      });
+    }
+  }
 
   return {
     project: { id: project.id, name: project.name },
-    hasTailoring: true,
-    totalRequired: tailoredRequired.length,
-    submittedCount: submitted.length,
-    unsubmittedCount: unsubmitted.length,
-    unsubmittedList: unsubmitted.map(d => ({
-      name: d.name,
-      category: d.category || '기타',
-      dueDate: d.due_date || '미정'
-    })),
+    standardBaselineSource: 'OPMS 표준 방법론 필수 산출물 카탈로그(프로젝트 테일러링 반영)',
+    totalRequiredStandards: activeRequiredStandards.length,
+    statusSummary: {
+      approvedCount: approvedList.length,
+      underReviewCount: underReviewList.length,
+      draftCount: draftList.length,
+      unregisteredCount: unregisteredList.length,
+    },
+    approvedList: approvedList.slice(0, 10),
+    underReviewList: underReviewList.slice(0, 10),
+    draftList: draftList.slice(0, 10),
+    unregisteredList: unregisteredList.slice(0, 10),
     sources: [{ id: project.id, name: project.name, type: 'project' as const }]
   };
 }
@@ -267,8 +339,8 @@ async function collectWeeklyReportData(db: Db, user: AuthenticatedUser, projectI
 
   const [tasksRes, issuesRes, delivRes, meetingsRes] = await Promise.all([
     db.query(
-      `SELECT task_id, name, progress, due_date, status 
-       FROM public.pms_task WHERE project_id = $1 ORDER BY sort_order ASC LIMIT 10`,
+      `SELECT task_id, task_name as name, progress_rate as progress, planned_end_date as due_date, status 
+       FROM public.pms_task WHERE project_id = $1 ORDER BY sort_order ASC, task_id ASC LIMIT 10`,
       [project.id]
     ),
     db.query(
@@ -277,14 +349,14 @@ async function collectWeeklyReportData(db: Db, user: AuthenticatedUser, projectI
       [project.id]
     ),
     db.query(
-      `SELECT deliverable_id, name, status, submitted_date 
-       FROM public.pms_deliverable WHERE project_id = $1 AND submitted_date >= $2 LIMIT 5`,
+      `SELECT deliverable_id, deliverable_name as name, status, submitted_at 
+       FROM public.pms_deliverable WHERE project_id = $1 AND submitted_at >= $2 LIMIT 5`,
       [project.id, currentWeekMonday]
     ),
     db.query(
       `SELECT meeting_id, title, meet_date 
        FROM public.pms_meeting_minutes WHERE project_id = $1 AND meet_date >= $2 LIMIT 3`,
-      [project.id, sevenDaysAgo]
+      [project.id, currentWeekMonday]
     ),
   ]);
 
@@ -295,7 +367,7 @@ async function collectWeeklyReportData(db: Db, user: AuthenticatedUser, projectI
       progress: project.progress,
       status: project.status,
     },
-    reportingPeriod: `${sevenDaysAgo} ~ ${new Date().toISOString().split('T')[0]}`,
+    reportingPeriod: `${currentWeekMonday} ~ ${currentWeekSunday}`,
     tasks: tasksRes.rows,
     issues: issuesRes.rows,
     recentDeliverables: delivRes.rows,

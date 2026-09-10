@@ -154,7 +154,7 @@ class GatewayHandler(http.server.BaseHTTPRequestHandler):
                 data=post_data,
                 headers={'Content-Type': 'application/json'}
             )
-            with urllib.request.urlopen(proxy_req, timeout=60) as resp:
+            with urllib.request.urlopen(proxy_req, timeout=120) as resp:
                 resp_data = resp.read()
                 self.send_response(resp.status)
                 self.send_header('Content-Type', 'application/json; charset=utf-8')

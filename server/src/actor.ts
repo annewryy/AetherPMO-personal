@@ -66,15 +66,6 @@ export async function resolveAuthenticatedActor(req: FastifyRequest): Promise<Au
     }
   }
 
-  // 로컬 단독 개발 및 테스트 환경 (SUPABASE_URL 미설정 시):
-  // 테스트용 표준 Bearer test-user-<uuid> 형태만 제한적으로 허용하고 임의 헤더는 차단
-  if (token.startsWith('test-user-')) {
-    const rawId = token.replace('test-user-', '');
-    if (UUID_RE.test(rawId)) {
-      return { userId: rawId, email: 'test@aetherpms.local', role: 'PMO' };
-    }
-  }
-
   throw new HttpError(401, '인증 설정이 올바르지 않거나 유효하지 않은 토큰입니다.');
 }
 

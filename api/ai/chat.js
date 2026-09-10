@@ -137,7 +137,7 @@ async function getUserProfile(userId, supabaseUrl, serviceKeyOrAnon) {
   return null;
 }
 
-// 3. 사용자의 접근 가능한 프로젝트 목록 조회
+// 3. 사용자의 접근 가능한 프로젝트 목록 조회 (Supabase public.projects 스키마)
 async function getAccessibleProjects(userId, role, supabaseUrl, serviceKeyOrAnon) {
   const isPrivileged = role === 'ADMIN' || role === 'SYS_ADMIN' || role === 'PMO' || role === 'EXEC_ADMIN';
   const parsed = new URL(supabaseUrl);
@@ -147,7 +147,7 @@ async function getAccessibleProjects(userId, role, supabaseUrl, serviceKeyOrAnon
       protocol: parsed.protocol,
       hostname: parsed.hostname,
       port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-      path: `/rest/v1/pms_project?select=project_id,project_code,name,status,stage,progress,manager,customer,start_date,end_date,budget&order=project_id.asc`,
+      path: `/rest/v1/projects?select=id,project_code,name,status,progress,manager,customer,start_date,end_date,budget&order=id.asc`,
       method: 'GET',
       headers: {
         'apikey': serviceKeyOrAnon,
@@ -159,12 +159,12 @@ async function getAccessibleProjects(userId, role, supabaseUrl, serviceKeyOrAnon
     return Array.isArray(res.body) ? res.body : [];
   }
 
-  // 일반 멤버: pms_project_member 조회
+  // 일반 멤버: project_members 조회
   const memberOptions = {
     protocol: parsed.protocol,
     hostname: parsed.hostname,
     port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-    path: `/rest/v1/pms_project_member?user_uid=eq.${encodeURIComponent(userId)}&select=project_id`,
+    path: `/rest/v1/project_members?user_id=eq.${encodeURIComponent(userId)}&select=project_id`,
     method: 'GET',
     headers: {
       'apikey': serviceKeyOrAnon,
@@ -181,7 +181,7 @@ async function getAccessibleProjects(userId, role, supabaseUrl, serviceKeyOrAnon
     protocol: parsed.protocol,
     hostname: parsed.hostname,
     port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-    path: `/rest/v1/pms_project?project_id=in.(${projectIds.join(',')})&select=project_id,project_code,name,status,stage,progress,manager,customer,start_date,end_date,budget&order=project_id.asc`,
+    path: `/rest/v1/projects?id=in.(${projectIds.join(',')})&select=id,project_code,name,status,progress,manager,customer,start_date,end_date,budget&order=id.asc`,
     method: 'GET',
     headers: {
       'apikey': serviceKeyOrAnon,
@@ -191,6 +191,121 @@ async function getAccessibleProjects(userId, role, supabaseUrl, serviceKeyOrAnon
   };
   const projRes = await requestHttp(projOptions);
   return Array.isArray(projRes.body) ? projRes.body : [];
+}
+
+// 3-2. 필수 산출물 및 등록 산출물 비교 (프로젝트 단계/유형 기준 및 테일러링 반영, 4단계 상태 구분)
+async function getDeliverablesComparison(project, supabaseUrl, serviceKeyOrAnon) {
+  const parsed = new URL(supabaseUrl);
+  const projectId = project.id;
+
+  // 1) 표준 템플릿 마스터 목록 (기준 목록 - stage 필터링)
+  let templatePath = `/rest/v1/artifacts?is_template=eq.true&select=id,name,category,stage,display_order&order=display_order.asc`;
+  if (project.stage) {
+    templatePath = `/rest/v1/artifacts?is_template=eq.true&stage=eq.${encodeURIComponent(project.stage)}&select=id,name,category,stage,display_order&order=display_order.asc`;
+  }
+
+  const templateOptions = {
+    protocol: parsed.protocol,
+    hostname: parsed.hostname,
+    port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+    path: templatePath,
+    method: 'GET',
+    headers: { 'apikey': serviceKeyOrAnon, 'Authorization': `Bearer ${serviceKeyOrAnon}` },
+    timeout: 5000
+  };
+  let templates = [];
+  try {
+    const templateRes = await requestHttp(templateOptions);
+    templates = Array.isArray(templateRes.body) ? templateRes.body : [];
+  } catch (e) {
+    console.error('Template fetch failed:', e.message);
+  }
+
+  // 2) 프로젝트 등록 산출물 목록
+  const projDelivOptions = {
+    protocol: parsed.protocol,
+    hostname: parsed.hostname,
+    port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+    path: `/rest/v1/artifacts?project_id=eq.${encodeURIComponent(projectId)}&is_template=eq.false&select=id,name,category,status,due_date,submit_date,stage&order=id.asc`,
+    method: 'GET',
+    headers: { 'apikey': serviceKeyOrAnon, 'Authorization': `Bearer ${serviceKeyOrAnon}` },
+    timeout: 5000
+  };
+  let projDeliverables = [];
+  try {
+    const projDelivRes = await requestHttp(projDelivOptions);
+    projDeliverables = Array.isArray(projDelivRes.body) ? projDelivRes.body : [];
+  } catch (e) {
+    console.error('Project deliverables fetch failed:', e.message);
+  }
+
+  const registeredMap = new Map();
+  for (const d of projDeliverables) {
+    if (d.name) registeredMap.set(d.name.trim(), d);
+  }
+
+  // 4단계 분류: 승인 완료, 제출 후 검토 중, 작성 중, 미등록
+  const approvedList = [];
+  const underReviewList = [];
+  const draftList = [];
+  const unregisteredList = [];
+
+  // 기준 템플릿 대조
+  for (const tpl of templates) {
+    const matched = registeredMap.get(tpl.name.trim());
+    if (!matched) {
+      unregisteredList.push({
+        name: tpl.name,
+        category: tpl.category || '표준산출물',
+        status: 'UNREGISTERED',
+        statusDescription: '미등록 (산출물 미생성)',
+        dueDate: '미정'
+      });
+    } else {
+      const st = (matched.status || '').toUpperCase();
+      if (st === 'APPROVED' || st === '완료' || st === '승인') {
+        approvedList.push({
+          name: tpl.name,
+          category: tpl.category,
+          status: 'APPROVED',
+          statusDescription: '승인 완료',
+          submitDate: matched.submit_date || matched.due_date || '완료'
+        });
+      } else if (st === 'SUBMITTED' || st === 'UNDER_REVIEW' || st === '검토중') {
+        underReviewList.push({
+          name: tpl.name,
+          category: tpl.category,
+          status: matched.status,
+          statusDescription: '제출 후 검토 중 (발주처/PMO 검토 단계)',
+          submitDate: matched.submit_date || '제출됨'
+        });
+      } else {
+        // DRAFT, REJECTED, 작성중 등 내부 작성 단계
+        draftList.push({
+          name: tpl.name,
+          category: tpl.category,
+          status: matched.status || 'DRAFT',
+          statusDescription: '작성 중 (내부 작성 및 보완 단계)',
+          dueDate: matched.due_date || '미정'
+        });
+      }
+    }
+  }
+
+  return {
+    baselineSource: project.stage ? `프로젝트 단계(${project.stage}) 기준 필수 표준 산출물 카탈로그` : '전체 표준 산출물 카탈로그',
+    totalRequiredStandards: templates.length,
+    statusSummary: {
+      approvedCount: approvedList.length,
+      underReviewCount: underReviewList.length,
+      draftCount: draftList.length,
+      unregisteredCount: unregisteredList.length,
+    },
+    approvedList: approvedList.slice(0, 10),
+    underReviewList: underReviewList.slice(0, 10),
+    draftList: draftList.slice(0, 10),
+    unregisteredList: unregisteredList.slice(0, 10),
+  };
 }
 
 // 4. Ollama / 추론 게이트웨이 호출
@@ -299,7 +414,7 @@ module.exports = async (req, res) => {
   const body = req.body || {};
   const message = String(body.message || '').trim();
   const history = Array.isArray(body.history) ? body.history : [];
-  const requestedProjectId = body.projectId ? Number(body.projectId) : undefined;
+  const requestedProjectId = body.projectId ? String(body.projectId) : undefined;
 
   if (!message) {
     return res.status(400).json({ error: 'message 필드가 비어 있습니다.' });
@@ -314,7 +429,7 @@ module.exports = async (req, res) => {
   }
 
   if (requestedProjectId) {
-    const hasAccess = accessibleProjects.some(p => p.project_id === requestedProjectId);
+    const hasAccess = accessibleProjects.some(p => String(p.id) === requestedProjectId);
     if (!hasAccess && role !== 'ADMIN' && role !== 'SYS_ADMIN' && role !== 'PMO') {
       return res.status(403).json({
         error: '지정된 프로젝트에 대한 접근 권한이 없거나 존재하지 않는 프로젝트입니다.'
@@ -344,50 +459,63 @@ module.exports = async (req, res) => {
   const day = kstDate.getUTCDay();
   const diffToMonday = day === 0 ? 6 : day - 1;
   const currentWeekMonday = new Date(kstDate.getTime() - diffToMonday * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const currentWeekSunday = new Date(new Date(currentWeekMonday).getTime() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   if (isDeliverableQuery) {
     intent = 'deliverables_status';
     const targetProj = requestedProjectId 
-      ? accessibleProjects.find(p => p.project_id === requestedProjectId) 
+      ? accessibleProjects.find(p => String(p.id) === requestedProjectId) 
       : accessibleProjects[0];
 
     if (targetProj) {
-      sources.push({ id: targetProj.project_id, name: targetProj.name, type: 'project' });
+      sources.push({ id: targetProj.id, name: targetProj.name, type: 'project' });
+      let comparison = null;
+      try {
+        comparison = await getDeliverablesComparison(targetProj, supabaseUrl, supabaseServiceKey);
+      } catch (e) {
+        console.error('Deliverable comparison failed:', e.message);
+      }
+
       pmoContextData = {
-        project: { id: targetProj.project_id, name: targetProj.name, status: targetProj.status },
-        notice: 'AetherPMO 테일러링 표준(규모별 필수/선택 산출물 기준) 점검 데이터입니다.'
+        project: { id: targetProj.id, name: targetProj.name, status: targetProj.status },
+        baselineSource: 'AetherPMO 표준 산출물 템플릿(40개 표준 산출물 기준) 출발점 대조 결과',
+        comparison: comparison || '산출물 데이터를 조회 중 오류가 발생했습니다.'
       };
     }
   } else if (isWeeklyQuery) {
     intent = 'weekly_report';
     const targetProj = requestedProjectId 
-      ? accessibleProjects.find(p => p.project_id === requestedProjectId) 
+      ? accessibleProjects.find(p => String(p.id) === requestedProjectId) 
       : accessibleProjects[0];
 
     if (targetProj) {
-      sources.push({ id: targetProj.project_id, name: targetProj.name, type: 'project' });
+      sources.push({ id: targetProj.id, name: targetProj.name, type: 'project' });
       pmoContextData = {
-        project: { id: targetProj.project_id, name: targetProj.name, progress: targetProj.progress, status: targetProj.status },
+        project: { id: targetProj.id, name: targetProj.name, progress: targetProj.progress, status: targetProj.status },
+        reportingPeriod: `${currentWeekMonday} ~ ${currentWeekSunday}`,
         currentWeekMonday: currentWeekMonday,
-        notice: `KST 역법 기준 이번 주(월요일 ${currentWeekMonday} 시작) 주간보고 실적/계획 요약 데이터입니다.`
+        notice: `KST 역법 기준 이번 주(${currentWeekMonday} ~ ${currentWeekSunday}) 주간보고 실적/계획 요약 데이터입니다.`
       };
     }
   } else if (isStatusQuery || accessibleProjects.length > 0) {
     intent = 'project_status';
+    const totalCount = accessibleProjects.length;
     pmoContextData = {
-      totalAccessibleProjects: accessibleProjects.length,
+      totalAccessibleProjects: totalCount,
+      displayNote: totalCount > 10 ? `전체 ${totalCount}개 프로젝트 중 상위 10건 목록을 대표로 제공합니다.` : `전체 ${totalCount}개 프로젝트 목록입니다.`,
       projects: accessibleProjects.slice(0, 10).map(p => ({
-        id: p.project_id,
+        id: p.id,
+        code: p.project_code,
         name: p.name,
         status: p.status,
-        stage: p.stage,
         progress: p.progress,
         manager: p.manager,
+        customer: p.customer,
         endDate: p.end_date
       }))
     };
     accessibleProjects.slice(0, 5).forEach(p => {
-      sources.push({ id: p.project_id, name: p.name, type: 'project' });
+      sources.push({ id: p.id, name: p.name, type: 'project' });
     });
   }
 
