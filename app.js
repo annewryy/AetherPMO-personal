@@ -18831,6 +18831,25 @@ renderTodayTasksRoleBased(todayStr) {
         const container = document.getElementById('detail-overview-consortium-fields');
         if (!container) return;
 
+        // 🔗 VRB 링크 버튼 상태 갱신
+        const vrbBtn = document.getElementById('consortium-vrb-link-btn');
+        const vrbUrl = project.vrbUrl || (project.vrbInfo && project.vrbInfo.url) || '';
+        const vrbTitle = project.vrbLinkTitle || 'VRB 심의 링크';
+
+        if (vrbBtn) {
+            if (vrbUrl) {
+                vrbBtn.classList.remove('btn-outline');
+                vrbBtn.classList.add('btn-primary');
+                vrbBtn.innerHTML = `<i data-lucide="external-link" style="width:12px; height:12px; margin-right:4px;"></i>VRB 링크`;
+                vrbBtn.title = `등록된 VRB 링크: ${vrbUrl}`;
+            } else {
+                vrbBtn.classList.remove('btn-primary');
+                vrbBtn.classList.add('btn-outline');
+                vrbBtn.innerHTML = `<i data-lucide="link" style="width:12px; height:12px; margin-right:4px;"></i>VRB 링크`;
+                vrbBtn.title = `VRB 심의 URL 등록 및 바로가기`;
+            }
+        }
+
         const list = this.getInitialConsortiumData(project);
         if (!project.consortium) {
             project.consortium = list;
@@ -18996,9 +19015,32 @@ renderTodayTasksRoleBased(todayStr) {
                     컨소시엄 구성 목록에 '오케스트로' 지분이 등록되어 있지 않습니다.
                 </div>
             `;
+        let vrbBannerHtml = '';
+        if (vrbUrl) {
+            vrbBannerHtml = `
+                <div style="margin-bottom:14px; padding:10px 14px; background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.22); border-radius:10px; display:flex; justify-content:space-between; align-items:center; font-size:12.5px;">
+                    <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                        <span style="display:inline-flex; align-items:center; gap:5px; font-weight:800; color:var(--primary); flex-shrink:0;">
+                            <i data-lucide="link-2" style="width:14px; height:14px;"></i>VRB 링크:
+                        </span>
+                        <a href="${vrbUrl}" target="_blank" rel="noopener noreferrer" style="color:var(--text-main); font-weight:600; text-decoration:underline; text-underline-offset:3px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${vrbUrl}">
+                            ${vrbTitle ? `${vrbTitle} (${vrbUrl})` : vrbUrl}
+                        </a>
+                    </div>
+                    <div style="display:flex; gap:6px; flex-shrink:0; margin-left:10px;">
+                        <a href="${vrbUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-xs btn-primary" style="text-decoration:none; padding:3px 10px; font-size:11.5px; display:inline-flex; align-items:center; gap:4px;">
+                            <i data-lucide="arrow-up-right" style="width:12px; height:12px;"></i>새 창 열기
+                        </a>
+                        <button type="button" class="btn btn-xs btn-outline" onclick="app.openVrbLinkModal()" style="padding:3px 10px; font-size:11.5px;">
+                            URL 수정
+                        </button>
+                    </div>
+                </div>
+            `;
         }
 
         container.innerHTML = `
+            ${vrbBannerHtml}
             <div style="display:grid; grid-template-columns: 1fr 390px; gap:20px; align-items:start;">
                 <!-- 좌측: 비주얼 바 & 테이블 & 이력 -->
                 <div style="display:flex; flex-direction:column; gap:12px; min-width:0;">
@@ -19474,6 +19516,100 @@ renderTodayTasksRoleBased(todayStr) {
         this.openConsortiumHistoryModal();
         this.renderProjectDetailOverview(project);
         this.showToast('지분율 변경 이력이 삭제되었습니다.', 'info');
+    }
+
+    /* ==========================================================================
+       VRB LINK MANAGEMENT METHODS (컨소시엄 구성 및 지분율관리 카드 연동)
+       ========================================================================== */
+    openVrbLinkModal() {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project) return;
+
+        const modal = document.getElementById('vrb-link-modal');
+        if (!modal) return;
+
+        const urlInput = document.getElementById('vrb-link-url');
+        const titleInput = document.getElementById('vrb-link-title');
+        const previewArea = document.getElementById('vrb-link-preview-area');
+        const previewText = document.getElementById('vrb-link-preview-text');
+        const openBtn = document.getElementById('vrb-link-open-btn');
+        const deleteBtn = document.getElementById('vrb-link-delete-btn');
+
+        const currentUrl = project.vrbUrl || (project.vrbInfo && project.vrbInfo.url) || '';
+        const currentTitle = project.vrbLinkTitle || '';
+
+        if (urlInput) urlInput.value = currentUrl;
+        if (titleInput) titleInput.value = currentTitle;
+
+        if (currentUrl) {
+            if (previewArea) previewArea.style.display = 'block';
+            if (previewText) previewText.textContent = currentTitle ? `${currentTitle} (${currentUrl})` : currentUrl;
+            if (openBtn) openBtn.href = currentUrl;
+            if (deleteBtn) deleteBtn.style.display = 'inline-block';
+        } else {
+            if (previewArea) previewArea.style.display = 'none';
+            if (deleteBtn) deleteBtn.style.display = 'none';
+        }
+
+        modal.classList.add('open');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    closeVrbLinkModal() {
+        const modal = document.getElementById('vrb-link-modal');
+        if (modal) modal.classList.remove('open');
+    }
+
+    saveVrbLinkForm() {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project) return;
+
+        const urlInput = document.getElementById('vrb-link-url');
+        const titleInput = document.getElementById('vrb-link-title');
+        if (!urlInput) return;
+
+        let url = urlInput.value.trim();
+        if (!url) {
+            this.showToast('VRB 링크 URL을 입력해주세요.', 'warning');
+            return;
+        }
+
+        // http/https 누락 시 자동 보정
+        if (!/^https?:\/\//i.test(url)) {
+            url = 'https://' + url;
+        }
+
+        const title = titleInput ? titleInput.value.trim() : '';
+
+        project.vrbUrl = url;
+        project.vrbLinkTitle = title;
+        if (!project.vrbInfo) {
+            project.vrbInfo = { status: '미상신', vrbNumber: '', memo: '' };
+        }
+        project.vrbInfo.url = url;
+
+        this.saveState('project_upsert', project);
+        this.closeVrbLinkModal();
+        this.renderProjectDetailOverview(project);
+        this.showToast('VRB 링크가 성공적으로 저장되었습니다.', 'success');
+    }
+
+    deleteVrbLink() {
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        if (!project) return;
+
+        if (!confirm('등록된 VRB 링크를 삭제하시겠습니까?')) return;
+
+        delete project.vrbUrl;
+        delete project.vrbLinkTitle;
+        if (project.vrbInfo && project.vrbInfo.url) {
+            delete project.vrbInfo.url;
+        }
+
+        this.saveState('project_upsert', project);
+        this.closeVrbLinkModal();
+        this.renderProjectDetailOverview(project);
+        this.showToast('VRB 링크가 삭제되었습니다.', 'info');
     }
 
     copyProjectOverviewInfo() {
