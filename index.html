@@ -314,7 +314,8 @@
                     <span class="mobile-view-title" id="mobile-view-title">홈</span>
                     <div class="header-search">
                         <i data-lucide="search" class="search-icon"></i>
-                        <input type="text" id="global-search" placeholder="프로젝트, 산출물, 작성자 검색...">
+                        <input type="search" id="global-search" placeholder="프로젝트, 산출물, 작성자 검색..." aria-label="통합 검색" aria-controls="global-search-results" aria-expanded="false" autocomplete="off">
+                        <div id="global-search-results" aria-label="통합 검색 결과" hidden></div>
                     </div>
                 </div>
                 <div class="header-right">
@@ -608,15 +609,15 @@
                         
                         <!-- 1. 7 KPI Cards -->
                         <div class="stats-grid">
-                            <div class="stat-card" id="kpi-total-projects" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
+                            <div class="stat-card" id="kpi-total-projects" onclick="app.openDashboardProjectList('All')" style="cursor:pointer;">
                                 <div class="stat-card-header">
                                     <span class="stat-title">전체 프로젝트</span>
                                     <div class="stat-icon icon-bg-primary"><i data-lucide="folder"></i></div>
                                 </div>
                                 <div class="stat-value" id="stat-total-projects">0</div>
-                                <div class="stat-subtext">등록된 전체 프로젝트</div>
+                                <div class="stat-subtext">조회 가능한 전체 프로젝트 · 전체 연도</div>
                             </div>
-                            <div class="stat-card" id="kpi-active-projects" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
+                            <div class="stat-card" id="kpi-active-projects" onclick="app.openDashboardProjectList('Active')" style="cursor:pointer;">
                                 <div class="stat-card-header">
                                     <span class="stat-title">진행중</span>
                                     <div class="stat-icon icon-bg-info"><i data-lucide="play-circle"></i></div>
@@ -624,7 +625,7 @@
                                 <div class="stat-value text-info" id="stat-active-projects">0</div>
                                 <div class="stat-subtext">수행 및 보류 프로젝트</div>
                             </div>
-                            <div class="stat-card" id="kpi-bidding-projects" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
+                            <div class="stat-card" id="kpi-bidding-projects" onclick="app.openDashboardProjectList('BiddingSummary')" style="cursor:pointer;">
                                 <div class="stat-card-header">
                                     <span class="stat-title">입찰</span>
                                     <div class="stat-icon icon-bg-warning"><i data-lucide="file-text"></i></div>
@@ -632,7 +633,7 @@
                                 <div class="stat-value text-warning" id="stat-bidding-projects">0</div>
                                 <div class="stat-subtext">입찰/제안 단계 프로젝트</div>
                             </div>
-                            <div class="stat-card" id="kpi-delayed-projects" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
+                            <div class="stat-card" id="kpi-delayed-projects" onclick="app.openDashboardProjectList('Delayed')" style="cursor:pointer;">
                                 <div class="stat-card-header">
                                     <span class="stat-title">지연</span>
                                     <div class="stat-icon icon-bg-danger"><i data-lucide="alert-circle"></i></div>
@@ -640,7 +641,7 @@
                                 <div class="stat-value text-danger" id="stat-delayed-projects">0</div>
                                 <div class="stat-subtext">일정 초과 및 지연 프로젝트</div>
                             </div>
-                            <div class="stat-card" id="kpi-today-due-projects" onclick="window.location.hash = 'projects';" style="cursor:pointer;">
+                            <div class="stat-card" id="kpi-today-due-projects" onclick="app.openDashboardProjectList('TodayDue')" style="cursor:pointer;">
                                 <div class="stat-card-header">
                                     <span class="stat-title">오늘 마감</span>
                                     <div class="stat-icon icon-bg-danger"><i data-lucide="calendar"></i></div>
@@ -821,6 +822,10 @@
 
                     <!-- Restructured Project Category Tabs (Bidding / Active / Completed) -->
                     <div class="project-stage-tabs-container">
+                        <button class="project-stage-tab" data-stage="All" onclick="app.setProjectStageFilter('All')">전체</button>
+                        <button class="project-stage-tab" data-stage="BiddingSummary" onclick="app.setProjectStageFilter('BiddingSummary')">전체 입찰 목록</button>
+                        <button class="project-stage-tab" data-stage="Delayed" onclick="app.setProjectStageFilter('Delayed')">지연</button>
+                        <button class="project-stage-tab" data-stage="TodayDue" onclick="app.setProjectStageFilter('TodayDue')">오늘 마감</button>
                         <button class="project-stage-tab active" data-stage="Bidding" onclick="app.setProjectStageFilter('Bidding')">
                             <i data-lucide="file-signature"></i> 입찰 단계 <span class="stage-count-badge" id="count-stage-bidding">0</span>
                         </button>
@@ -1934,7 +1939,8 @@
                                 <!-- Table Container -->
                                 <div class="dashboard-card" style="padding:0; overflow:hidden;">
                                     <div class="table-container" style="max-height:680px; overflow:auto;">
-                                        <table class="data-table data-table-compact data-table-sticky" style="width:100%; border-collapse:collapse;">
+                                        <table id="standard-artifact-table" class="data-table data-table-compact data-table-sticky" style="width:100%; border-collapse:collapse;">
+                                            <colgroup><col style="width:36px"><col style="width:105px"><col style="width:320px"><col style="width:85px"><col style="width:160px"><col style="width:60px"><col style="width:90px"><col style="width:100px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:110px"><col style="width:90px"></colgroup>
                                             <thead>
                                                 <tr style="background:var(--bg-card-header); position:sticky; top:0; z-index:10;">
                                                     <th style="width:36px; position:sticky; left:0; z-index:11; background:var(--bg-card-header);" class="text-center">
