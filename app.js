@@ -19015,6 +19015,8 @@ renderTodayTasksRoleBased(todayStr) {
                     컨소시엄 구성 목록에 '오케스트로' 지분이 등록되어 있지 않습니다.
                 </div>
             `;
+        }
+
         let vrbBannerHtml = '';
         if (vrbUrl) {
             vrbBannerHtml = `
