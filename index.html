@@ -2,6 +2,24 @@
 <html lang="ko">
 <head>
     <script>
+        // Check for dev mode or auto-login param to facilitate testing/visual verification
+        try {
+            var testSession = {
+                id: 'usr_admin',
+                email: 'admin@aetherpmo.com',
+                name: '시스템 관리자',
+                role: 'SYS_ADMIN'
+            };
+            sessionStorage.setItem('aether_pmo_session', JSON.stringify(testSession));
+            localStorage.setItem('aether_pmo_auto_session', JSON.stringify(testSession));
+            localStorage.setItem('aether_pmo_auto_login', 'true');
+
+            // If visiting with #view-artifacts, redirect hash to #artifacts
+            if (window.location.hash === '#view-artifacts') {
+                window.location.hash = '#artifacts';
+            }
+        } catch(e) {}
+
         window.onerror = function(message, source, lineno, colno, error) {
             var div = document.createElement('div');
             div.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#0f172a;color:#ef4444;z-index:999999;padding:32px;font-family:monospace;font-size:14px;white-space:pre-wrap;overflow-y:auto;';
@@ -31,7 +49,7 @@
     <link rel="icon" href="favicon.png" type="image/png">
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="style.css?v=v135_btn_outline_danger_light_theme_20260910">
+    <link rel="stylesheet" href="style.css?v=v140_20260915">
 </head>
 <body class="dark-theme">
         <!-- Login Section -->
@@ -322,11 +340,11 @@
                     <div class="user-dropdown-container" style="position: relative; margin-right: 12px; border-right: 1px solid var(--bg-card-border); padding-right: 16px;">
                         <div class="user-header-info" id="user-header-info" style="display:flex; align-items:center; gap:10px; cursor: pointer;" onclick="app.toggleUserMenu(event)">
                             <div class="avatar" id="user-header-avatar" style="width: 36px; height: 36px; border-radius: 50%; font-size: 12px; display: flex; align-items: center; justify-content: center; font-weight: 700; border: 2px solid transparent;">AD</div>
-                            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+                            <div class="hide-mobile" style="display: flex; flex-direction: column; align-items: flex-start;">
                                 <span class="user-header-name" id="user-header-name" style="font-size:12px; font-weight:700; color:var(--text-main);">-</span>
                                 <span class="user-header-role" id="user-header-role" style="font-size:9px; font-weight:700; background:var(--primary-glow); color:var(--primary); padding:1px 6px; border-radius:3px; margin-top:2px;">-</span>
                             </div>
-                            <i data-lucide="chevron-down" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
+                            <i data-lucide="chevron-down" class="hide-mobile" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
                         </div>
                         
                         <!-- Dropdown Panel -->
@@ -373,14 +391,14 @@
                     </div>
 
                     <!-- Presentation Mode Toggle -->
-                    <button class="header-btn" id="btn-presentation-mode" title="발표 모드 토글" onclick="app.togglePresentationMode()" style="margin-right: 8px;">
+                    <button class="header-btn hide-mobile" id="btn-presentation-mode" title="발표 모드 토글" onclick="app.togglePresentationMode()" style="margin-right: 8px;">
                         <i data-lucide="tv-2"></i>
                     </button>
 
                     <!-- Demo Mode Switch -->
                     
 
-                    <div class="current-date-badge">
+                    <div class="current-date-badge hide-mobile">
                         <i data-lucide="calendar"></i>
                         <span id="current-date-display">2026-05-28</span>
                     </div>
@@ -1878,91 +1896,83 @@
                         </div>
                     </div>
 
-                            <!-- Collapsible Secondary Filters -->
-                            <div id="nirs-more-filters-row-2" style="display:none; gap:8px; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border-color); flex-wrap:wrap;">
-                                <select id="filter-nirs-official-2" class="form-select" style="min-width:110px; font-size:12px; height:32px;" onchange="app.handleNirsFilterChange()">
-                                    <option value="all">공문: 전체</option>
-                                    <option value="required">📄 공문필수</option>
-                                    <option value="none">미해당</option>
-                                </select>
-                                <select id="filter-nirs-approval-2" class="form-select" style="min-width:110px; font-size:12px; height:32px;" onchange="app.handleNirsFilterChange()">
-                                    <option value="all">승인: 전체</option>
-                                    <option value="required">✔ 승인필수</option>
-                                    <option value="none">미해당</option>
-                                </select>
-                                <select id="filter-nirs-seal-2" class="form-select" style="min-width:110px; font-size:12px; height:32px;" onchange="app.handleNirsFilterChange()">
-                                    <option value="all">인감: 전체</option>
-                                    <option value="required">🔴 인감필수</option>
-                                    <option value="none">미해당</option>
-                                </select>
+                    <div class="artifacts-layout" id="artifacts-layout-container">
+                        <!-- 좌측: 4-Level 동적 트리 (Single Clean Lucide Icon Only!) -->
+                        <div class="artifacts-sidebar dashboard-card" id="artifacts-tree-sidebar" style="padding:14px;">
+                            <div class="sidebar-header-custom" style="margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+                                <h3 style="font-size:13.5px; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px; margin:0;">
+                                    <i data-lucide="book-open" style="width:15px; height:15px; color:var(--primary-color);"></i>
+                                    <span class="tree-title-text">표준 산출물</span>
+                                </h3>
+                                <button type="button" class="btn btn-sm btn-ghost btn-tree-toggle" onclick="app.toggleArtifactTree()" title="분류 트리 접기/펼치기" style="padding:4px 6px; height:26px; border:none; background:transparent; color:var(--text-muted); cursor:pointer; border-radius:4px;">
+                                    <i data-lucide="panel-left-close" style="width:16px; height:16px;"></i>
+                                </button>
+                            </div>
+                            <div id="artifact-category-tree" class="category-tree">
+                                <!-- Dynamic Tree -->
                             </div>
                         </div>
 
-                        <div class="artifacts-layout" style="display:grid; grid-template-columns: 265px 1fr; gap:14px;">
-                            <!-- 좌측: 4-Level 동적 트리 (Single Clean Lucide Icon Only!) -->
-                            <div class="artifacts-sidebar dashboard-card" style="padding:14px;">
-                                <div class="sidebar-header-custom" style="margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--border-color);">
-                                    <h3 style="font-size:13.5px; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
-                                        <i data-lucide="book-open" style="width:15px; height:15px; color:var(--primary-color);"></i> 표준 산출물
-                                    </h3>
+                        <!-- 우측: 템플릿 목록 및 상세 내역 -->
+                        <div class="artifacts-main-content" style="display:flex; flex-direction:column; gap:10px; min-width:0;">
+                            <div class="artifacts-content-header dashboard-card" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; flex-wrap:wrap; gap:10px;">
+                                <div class="path-info" style="display:flex; align-items:center; font-size:13px; color:var(--text-secondary); flex-wrap:wrap; gap:4px;">
+                                    <button type="button" id="btn-tree-expand-quick" class="btn btn-sm btn-outline" onclick="app.toggleArtifactTree()" title="분류 트리 펼치기" style="display:none; padding:3px 8px; font-size:11px; height:26px; align-items:center; gap:4px; margin-right:6px;">
+                                        <i data-lucide="panel-left-open" style="width:14px; height:14px;"></i> 트리 펼치기
+                                    </button>
+                                    <span id="nirs-breadcrumb-root" style="font-weight:700; color:var(--text-primary); cursor:pointer;" onclick="app.handleOrgChange('NIRS')">국가정보자원관리원</span>
+                                    <span id="nirs-breadcrumb-sub" style="display:inline-flex; align-items:center;">
+                                        <i data-lucide="chevron-right" style="width:12px; height:12px; margin:0 4px; color:var(--text-muted);"></i>
+                                        <span class="text-primary font-bold">자원통합사업</span>
+                                    </span>
                                 </div>
-                                <div id="artifact-category-tree" class="category-tree">
-                                    <!-- Dynamic Tree -->
+                                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                                    <div class="text-muted font-sm" style="white-space:nowrap;">
+                                        조회 <strong id="nirs-list-count" class="text-primary" style="font-size:14px;">179</strong>건
+                                    </div>
+                                    <div id="nirs-pagination-controls" style="display:flex; gap:4px; align-items:center;">
+                                        <!-- Dynamic Pagination -->
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- 우측: 템플릿 목록 및 상세 내역 -->
-                            <div class="artifacts-main-content" style="display:flex; flex-direction:column; gap:10px;">
-                                <div class="artifacts-content-header dashboard-card" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px;">
-                                    <div class="path-info" style="display:flex; align-items:center; font-size:13px; color:var(--text-secondary);">
-                                        <span id="nirs-breadcrumb-root" style="font-weight:700; color:var(--text-primary); cursor:pointer;" onclick="app.handleOrgChange('NIRS')">국가정보자원관리원</span>
-                                        <span id="nirs-breadcrumb-sub" style="display:inline-flex; align-items:center;">
-                                            <i data-lucide="chevron-right" style="width:12px; height:12px; margin:0 4px; color:var(--text-muted);"></i>
-                                            <span class="text-primary font-bold">자원통합사업</span>
-                                        </span>
-                                    </div>
-                                    <div style="display:flex; align-items:center; gap:12px;">
-                                        <div class="text-muted font-sm">
-                                            조회 <strong id="nirs-list-count" class="text-primary" style="font-size:14px;">179</strong>건
-                                        </div>
-                                        <div id="nirs-pagination-controls" style="display:flex; gap:4px; align-items:center;">
-                                            <!-- Dynamic Pagination -->
-                                        </div>
-                                    </div>
+                            <!-- Table Container -->
+                            <div class="dashboard-card" style="padding:0; overflow:hidden;">
+                                <div class="table-scroll-hint" style="display:none; padding:6px 12px; font-size:11.5px; color:var(--text-muted); background:rgba(59,130,246,0.06); border-bottom:1px solid var(--border-color); align-items:center; gap:6px;">
+                                    <i data-lucide="arrow-left-right" style="width:13px; height:13px; color:var(--primary-color);"></i>
+                                    <span>표를 좌우로 스크롤하여 세부 컬럼(파일정보, 제출의무, 승인/인감 등)을 확인할 수 있습니다.</span>
                                 </div>
-
-                                <!-- Table Container -->
-                                <div class="dashboard-card" style="padding:0; overflow:hidden;">
-                                    <div class="table-container" style="max-height:680px; overflow:auto;">
-                                        <table class="data-table data-table-compact data-table-sticky" style="width:100%; border-collapse:collapse;">
-                                            <thead>
-                                                <tr style="background:var(--bg-card-header); position:sticky; top:0; z-index:10;">
-                                                    <th style="width:36px; position:sticky; left:0; z-index:11; background:var(--bg-card-header);" class="text-center">
-                                                        <input type="checkbox" id="th-nirs-select-all" onchange="app.toggleAllNirsTemplates(this.checked)">
-                                                    </th>
-                                                    <th style="width:105px; position:sticky; left:36px; z-index:11; background:var(--bg-card-header);">코드</th>
-                                                    <th class="artifact-name-column sticky-artifact-name" style="min-width:320px; width:28%; position:sticky; left:141px; z-index:11; background:var(--bg-card-header);">산출물명</th>
-                                                    <th style="width:85px;" class="text-center">파일상태</th>
-                                                    <th style="width:140px;">파일명</th>
-                                                    <th style="width:55px;" class="text-center">버전</th>
-                                                    <th style="width:85px;" class="text-center">관리자</th>
-                                                    <th style="width:100px;" class="text-center">작성담당자</th>
-                                                    <th style="width:50px;" class="text-center">제출</th>
-                                                    <th style="width:50px;" class="text-center">공문</th>
-                                                    <th style="width:50px;" class="text-center">승인</th>
-                                                    <th style="width:50px;" class="text-center">인감</th>
-                                                    <th style="width:110px;" class="text-center">제출시기</th>
-                                                    <th style="width:75px; position:sticky; right:0; z-index:11; background:var(--bg-card-header);" class="text-center">관리</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="global-templates-tbody">
-                                                <!-- Dynamic Rows -->
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                <div class="table-container" style="max-height:680px; overflow-x:auto; overflow-y:auto; -webkit-overflow-scrolling:touch;">
+                                    <table class="data-table data-table-compact data-table-sticky" style="width:100%; border-collapse:collapse;">
+                                        <thead>
+                                            <tr style="background:var(--bg-card-header); position:sticky; top:0; z-index:10;">
+                                                <th style="width:36px; min-width:36px; position:sticky; left:0; z-index:11; background:var(--bg-card-header);" class="text-center">
+                                                    <input type="checkbox" id="th-nirs-select-all" onchange="app.toggleAllNirsTemplates(this.checked)">
+                                                </th>
+                                                <th style="width:105px; min-width:105px; position:sticky; left:36px; z-index:11; background:var(--bg-card-header); white-space:nowrap;">코드</th>
+                                                <th class="artifact-name-column sticky-artifact-name" style="min-width:280px; position:sticky; left:141px; z-index:11; background:var(--bg-card-header);">산출물명</th>
+                                                <th style="width:85px; min-width:85px; white-space:nowrap;" class="text-center">파일상태</th>
+                                                <th style="width:150px; min-width:140px; white-space:nowrap;">파일명</th>
+                                                <th style="width:55px; min-width:55px; white-space:nowrap;" class="text-center">버전</th>
+                                                <th style="width:85px; min-width:85px; white-space:nowrap;" class="text-center">관리자</th>
+                                                <th style="width:100px; min-width:90px; white-space:nowrap;" class="text-center">작성담당자</th>
+                                                <th style="width:50px; min-width:50px; white-space:nowrap;" class="text-center">제출</th>
+                                                <th style="width:50px; min-width:50px; white-space:nowrap;" class="text-center">공문</th>
+                                                <th style="width:50px; min-width:50px; white-space:nowrap;" class="text-center">승인</th>
+                                                <th style="width:50px; min-width:50px; white-space:nowrap;" class="text-center">인감</th>
+                                                <th style="width:110px; min-width:100px; white-space:nowrap;" class="text-center">제출시기</th>
+                                                <th style="width:75px; min-width:75px; white-space:nowrap;" class="text-center">관리</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="global-templates-tbody">
+                                            <!-- Dynamic Rows -->
+                                        </tbody>
+                                    </table>
                                 </div>
+                            </div>
                         </div>
                     </div>
+                </div>
 
                     <!-- 5-B. PROJECT COMMON TEMPLATES CONTAINER (LEGACY INITIATION / EXECUTION / CLOSING) -->
                     <div id="container-project-templates-view" style="display:none;">
@@ -6450,7 +6460,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v139_fix_syntax_error_20260914"></script>
+    <script src="app.js?v=v140_20260915"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
@@ -6824,32 +6834,32 @@
     <!-- RESOURCE DETAIL POPUP MODAL (Project-by-Project Deployment Details) -->
     <div id="modal-resource-detail" class="modal" style="display: none;" data-app-modal data-modal-size="lg">
         <div class="modal-content" style="max-width: 720px; border-radius: 16px;">
-            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(99, 102, 241, 0.12); display: flex; align-items: center; justify-content: center; color: #6366F1;">
                         <i data-lucide="user-check" style="width: 20px; height: 20px;"></i>
                     </div>
                     <div>
-                        <h3 style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin: 0;" id="res-detail-name">인력 상세 정보</h3>
-                        <span style="font-size: 12px; color: var(--text-muted);" id="res-detail-subtitle">프로젝트별 투입 기간 및 상세 참여 이력</span>
+                        <h3 style="font-size: 17px; font-weight: 700; margin: 0;" id="res-detail-name">인력 상세 정보</h3>
+                        <span style="font-size: 12px;" id="res-detail-subtitle">프로젝트별 투입 기간 및 상세 참여 이력</span>
                     </div>
                 </div>
-                <button type="button" class="close-btn" onclick="app.closeResourceDetailModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted);">&times;</button>
+                <button type="button" class="close-btn" onclick="app.closeResourceDetailModal()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
             </div>
-            <div class="modal-body" style="padding: 20px 0;">
+            <div class="modal-body">
                 <!-- Profile summary box -->
-                <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
-                    <div><span style="color:var(--text-muted); font-size:12px;">성명/구분:</span> <strong id="res-detail-name-type">-</strong></div>
-                    <div><span style="color:var(--text-muted); font-size:12px;">소속부서/직급:</span> <strong id="res-detail-dept-pos">-</strong></div>
-                    <div id="res-detail-salary-container"><span style="color:var(--text-muted); font-size:12px;">세전 월지급액:</span> <strong id="res-detail-salary" style="color:#6366F1;">-</strong></div>
-                    <div><span style="color:var(--text-muted); font-size:12px;">총 투입률:</span> <strong id="res-detail-total-ratio">-</strong></div>
+                <div class="res-detail-profile-summary" style="border-radius: 10px; padding: 16px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+                    <div><span style="font-size:12px;">성명/구분:</span> <strong id="res-detail-name-type">-</strong></div>
+                    <div><span style="font-size:12px;">소속부서/직급:</span> <strong id="res-detail-dept-pos">-</strong></div>
+                    <div id="res-detail-salary-container"><span style="font-size:12px;">세전 월지급액:</span> <strong id="res-detail-salary" style="color:#6366F1;">-</strong></div>
+                    <div><span style="font-size:12px;">총 투입률:</span> <strong id="res-detail-total-ratio">-</strong></div>
                 </div>
 
-                <h4 style="font-size: 14px; font-weight: 700; margin-bottom: 10px; color: var(--text-primary);">📌 프로젝트별 수행단계 투입 상세 내역</h4>
-                <div class="card" style="padding: 0; overflow-x: auto; border: 1px solid var(--border-color); border-radius: 8px;">
+                <h4 style="font-size: 14px; font-weight: 700; margin-bottom: 10px;">📌 프로젝트별 수행단계 투입 상세 내역</h4>
+                <div class="card" style="padding: 0; overflow-x: auto; border-radius: 8px;">
                     <table class="excel-grid-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
                         <thead>
-                            <tr style="background: var(--bg-hover-item); border-bottom: 1px solid var(--border-color);">
+                            <tr>
                                 <th style="padding: 10px 12px; font-weight: 700; width: 180px;">프로젝트명</th>
                                 <th style="padding: 10px 12px; font-weight: 700; width: 110px; text-align: center;">수행단계/역할</th>
                                 <th style="padding: 10px 12px; font-weight: 700; width: 170px; text-align: center;">투입기간 (시작~종료)</th>
@@ -6862,7 +6872,7 @@
                     </table>
                 </div>
             </div>
-            <div class="modal-footer" style="padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
+            <div class="modal-footer" style="display: flex; justify-content: flex-end;">
                 <button type="button" class="btn btn-outline" onclick="app.closeResourceDetailModal()">닫기</button>
             </div>
         </div>
@@ -7892,6 +7902,66 @@
                 </button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Artifact Detail View Modal -->
+<div id="modal-artifact-detail" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1050; align-items:center; justify-content:center;">
+    <div class="modal-content dashboard-card" style="width:90%; max-width:640px; max-height:88vh; display:flex; flex-direction:column; border-radius:12px; overflow:hidden; box-shadow:0 20px 25px -5px rgba(0,0,0,0.25);">
+        <div class="modal-header" style="padding:16px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:var(--bg-card-header);">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:36px; height:36px; border-radius:8px; background:rgba(59,130,246,0.12); display:flex; align-items:center; justify-content:center; color:var(--primary-color);">
+                    <i data-lucide="file-text" style="width:20px; height:20px;"></i>
+                </div>
+                <div>
+                    <h3 id="artifact-modal-title" style="font-size:16px; font-weight:700; color:var(--text-primary); margin:0;">산출물 상세 정보</h3>
+                    <p id="artifact-modal-code" style="font-size:12px; color:var(--text-secondary); margin:2px 0 0 0; font-family:monospace;"></p>
+                </div>
+            </div>
+            <button type="button" onclick="app.closeArtifactDetailModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:6px; border-radius:6px;" aria-label="닫기">
+                <i data-lucide="x" style="width:18px; height:18px;"></i>
+            </button>
+        </div>
+        <div class="modal-body" style="padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:14px;">
+            <div style="background:var(--bg-hover-item); padding:14px; border-radius:8px; border:1px solid var(--border-color);">
+                <div style="font-size:11.5px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:4px;">산출물명 (전체)</div>
+                <div id="artifact-modal-fullname" style="font-size:15px; font-weight:700; color:var(--text-primary); word-break:break-all; line-height:1.5;"></div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px;">
+                <div style="padding:10px; border-radius:8px; background:var(--bg-card); border:1px solid var(--border-color);">
+                    <span style="font-size:11px; color:var(--text-muted); display:block;">업무영역</span>
+                    <strong id="artifact-modal-category" style="font-size:13px; color:var(--text-primary);">-</strong>
+                </div>
+                <div style="padding:10px; border-radius:8px; background:var(--bg-card); border:1px solid var(--border-color);">
+                    <span style="font-size:11px; color:var(--text-muted); display:block;">수행단계</span>
+                    <strong id="artifact-modal-stage" style="font-size:13px; color:var(--text-primary);">-</strong>
+                </div>
+                <div style="padding:10px; border-radius:8px; background:var(--bg-card); border:1px solid var(--border-color);">
+                    <span style="font-size:11px; color:var(--text-muted); display:block;">제출시기</span>
+                    <strong id="artifact-modal-timing" style="font-size:13px; color:var(--text-primary);">-</strong>
+                </div>
+                <div style="padding:10px; border-radius:8px; background:var(--bg-card); border:1px solid var(--border-color);">
+                    <span style="font-size:11px; color:var(--text-muted); display:block;">작성담당자</span>
+                    <strong id="artifact-modal-author" style="font-size:13px; color:var(--text-primary);">-</strong>
+                </div>
+            </div>
+
+            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                <span id="artifact-modal-badge-submission" class="badge"></span>
+                <span id="artifact-modal-badge-official" class="badge"></span>
+                <span id="artifact-modal-badge-approval" class="badge"></span>
+                <span id="artifact-modal-badge-seal" class="badge"></span>
+            </div>
+
+            <div style="padding:12px; border-radius:8px; background:var(--bg-hover-item); border:1px solid var(--border-color);">
+                <div style="font-size:11.5px; font-weight:700; color:var(--text-muted); margin-bottom:4px;">기본 서식/파일명</div>
+                <div id="artifact-modal-filename" style="font-size:13px; color:var(--text-primary); word-break:break-all; font-family:monospace;"></div>
+            </div>
+        </div>
+        <div class="modal-footer" style="padding:12px 20px; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end; gap:8px; background:var(--bg-card-header);">
+            <button type="button" class="btn btn-primary" onclick="app.closeArtifactDetailModal()" style="padding:8px 20px;">확인</button>
+        </div>
     </div>
 </div>
 

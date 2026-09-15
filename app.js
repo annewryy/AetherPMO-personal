@@ -16326,27 +16326,34 @@ renderTodayTasksRoleBased(todayStr) {
                     `;
                 }
 
+                const safeArtifactName = (item.artifactName || '').replace(/"/g, '&quot;');
+                const safeDesc = (item.description || '').replace(/"/g, '&quot;');
+
                 html += `
                     <tr class="${isChecked ? 'selected' : ''}">
-                        <td class="text-center" style="position:sticky; left:0; z-index:5;">
+                        <td class="text-center cell-nowrap" style="position:sticky; left:0; z-index:5;">
                             <input type="checkbox" class="chk-nirs-item" ${isChecked ? 'checked' : ''} onchange="app.toggleNirsTemplateSelect('${item.id}', this.checked)">
                         </td>
-                        <td style="position:sticky; left:36px; z-index:5; font-family:monospace; font-size:11.5px; font-weight:600; color:var(--dark-primary-soft, #8B5CF6);">${item.id}</td>
+                        <td class="cell-code cell-nowrap" style="position:sticky; left:36px; z-index:5; font-family:monospace; font-size:11.5px; font-weight:600; color:var(--dark-primary-soft, #8B5CF6);">${item.id}</td>
                         <td style="position:sticky; left:141px; z-index:5;" class="artifact-name-column sticky-artifact-name">
-                            <div style="font-size:13px; font-weight:600; color:var(--tbl-text-primary); line-height:1.4;">${item.artifactName}</div>
-                            <div style="font-size:11px; color:var(--tbl-text-muted); margin-top:3px; line-height:1.4;">${item.category} · ${item.stage} ${item.description ? ' | ' + item.description : ''}</div>
+                            <div class="artifact-name-primary" onclick="app.showArtifactDetailModal('${item.id}')" title="상세보기: ${safeArtifactName}">
+                                ${item.artifactName}
+                            </div>
+                            <div style="font-size:11px; color:var(--tbl-text-muted); margin-top:3px; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:320px;" title="${item.category} · ${item.stage}${item.description ? ' | ' + safeDesc : ''}">
+                                ${item.category} · ${item.stage} ${item.description ? ' | ' + item.description : ''}
+                            </div>
                         </td>
-                        <td class="text-center">${fileBadgeHtml}</td>
-                        <td>${fileInfoHtml}</td>
-                        <td class="text-center" style="font-size:11.5px; color:var(--tbl-text-muted);">${versionHtml}</td>
-                        <td class="text-center">${managerHtml}</td>
-                        <td class="text-center">${authorHtml}</td>
-                        <td class="text-center" style="white-space:nowrap;">${subBadge}</td>
-                        <td class="text-center" style="white-space:nowrap;">${offBadge}</td>
-                        <td class="text-center" style="white-space:nowrap;">${appBadge}</td>
-                        <td class="text-center" style="white-space:nowrap;">${sealBadge}</td>
-                        <td class="text-center" style="font-size:11.5px; color:var(--tbl-text-muted); white-space:nowrap;">${item.submissionTiming || '-'}</td>
-                        <td class="text-center" style="position:sticky; right:0; z-index:5;">
+                        <td class="text-center cell-status cell-nowrap">${fileBadgeHtml}</td>
+                        <td style="min-width:140px; max-width:180px;">${fileInfoHtml}</td>
+                        <td class="text-center cell-nowrap" style="font-size:11.5px; color:var(--tbl-text-muted);">${versionHtml}</td>
+                        <td class="text-center cell-author cell-nowrap">${managerHtml}</td>
+                        <td class="text-center cell-author cell-nowrap">${authorHtml}</td>
+                        <td class="text-center cell-flag cell-nowrap">${subBadge}</td>
+                        <td class="text-center cell-flag cell-nowrap">${offBadge}</td>
+                        <td class="text-center cell-flag cell-nowrap">${appBadge}</td>
+                        <td class="text-center cell-flag cell-nowrap">${sealBadge}</td>
+                        <td class="text-center cell-timing cell-nowrap" style="font-size:11.5px; color:var(--tbl-text-muted);">${item.submissionTiming || '-'}</td>
+                        <td class="text-center cell-actions cell-nowrap">
                             <div class="nirs-action-btn-group" style="display:flex; gap:4px; justify-content:center;">
                                 ${downloadBtn}
                                 ${uploadBtn}
@@ -16360,6 +16367,82 @@ renderTodayTasksRoleBased(todayStr) {
         tbody.innerHTML = html;
         this.updateNirsBulkDownloadBtnState();
         if (window.lucide) lucide.createIcons();
+    }
+
+    showArtifactDetailModal(artifactId) {
+        const item = (this.nirsTemplatesMaster || []).find(t => t.id === artifactId);
+        if (!item) return;
+
+        const filesList = this.getNirsUploadedFilesList();
+        const fileRec = filesList.find(f => f.templateId === item.id);
+
+        const modal = document.getElementById('modal-artifact-detail');
+        if (!modal) return;
+
+        document.getElementById('artifact-modal-title').textContent = item.artifactName || '산출물 상세 정보';
+        document.getElementById('artifact-modal-code').textContent = `코드: ${item.id} [${item.category || ''} > ${item.stage || ''}]`;
+        document.getElementById('artifact-modal-fullname').textContent = item.artifactName || '-';
+        document.getElementById('artifact-modal-category').textContent = item.category || '-';
+        document.getElementById('artifact-modal-stage').textContent = item.stage || '-';
+        document.getElementById('artifact-modal-timing').textContent = item.submissionTiming || '미지정';
+        document.getElementById('artifact-modal-author').textContent = `${item.authorRole || '미지정'} (승인/관리: ${item.managerRole || '미지정'})`;
+
+        const subEl = document.getElementById('artifact-modal-badge-submission');
+        const offEl = document.getElementById('artifact-modal-badge-official');
+        const appEl = document.getElementById('artifact-modal-badge-approval');
+        const sealEl = document.getElementById('artifact-modal-badge-seal');
+
+        if (subEl) {
+            subEl.className = item.requiresSubmission ? 'badge-filled-sub' : 'badge badge-subtle';
+            subEl.textContent = item.requiresSubmission ? '📥 발주처 제출 필수' : '제출 선택';
+        }
+        if (offEl) {
+            offEl.className = item.requiresOfficialLetter ? 'badge-filled-off' : 'badge badge-subtle';
+            offEl.textContent = item.requiresOfficialLetter ? '📄 공문 발신 필수' : '공문 미해당';
+        }
+        if (appEl) {
+            appEl.className = item.requiresClientApproval ? 'badge-filled-app' : 'badge badge-subtle';
+            appEl.textContent = item.requiresClientApproval ? '✔ 발주처 서면 승인 필수' : '승인 미해당';
+        }
+        if (sealEl) {
+            sealEl.className = item.requiresSeal ? 'badge-filled-seal' : 'badge badge-subtle';
+            sealEl.textContent = item.requiresSeal ? '🔴 직인/인감 날인 필수' : '인감 미해당';
+        }
+
+        const fnEl = document.getElementById('artifact-modal-filename');
+        if (fnEl) {
+            if (fileRec) {
+                const kb = fileRec.fileSize ? (fileRec.fileSize / 1024).toFixed(1) + ' KB' : '';
+                fnEl.innerHTML = `<span style="color:var(--success, #10b981);">🟢 등록완료</span> : ${fileRec.originalFileName} (v${fileRec.fileVersion || '1.0'}, ${kb})`;
+            } else {
+                fnEl.innerHTML = `<span style="color:var(--text-muted);">⚪ 표준 파일 미등록 (산출물 코드: ${item.id}_${item.artifactName})</span>`;
+            }
+        }
+
+        modal.style.display = 'flex';
+        if (window.lucide) lucide.createIcons();
+    }
+
+    closeArtifactDetailModal() {
+        const modal = document.getElementById('modal-artifact-detail');
+        if (modal) modal.style.display = 'none';
+    }
+
+    toggleArtifactTree() {
+        const layout = document.getElementById('artifacts-layout-container') || document.querySelector('.artifacts-layout');
+        if (!layout) return;
+
+        if (window.innerWidth <= 900) {
+            layout.classList.toggle('tree-mobile-open');
+        } else {
+            layout.classList.toggle('tree-collapsed');
+        }
+
+        const quickBtn = document.getElementById('btn-tree-expand-quick');
+        if (quickBtn) {
+            const isCollapsed = layout.classList.contains('tree-collapsed');
+            quickBtn.style.display = isCollapsed ? 'inline-flex' : 'none';
+        }
     }
 
     updateProjectStageCounts() {
@@ -29335,7 +29418,8 @@ renderTodayTasksRoleBased(todayStr) {
         const container = document.getElementById('app-section') || document.querySelector('.app-container');
 
         if (container) {
-            if (savedCollapsed === 'true') {
+            const isSmallScreen = window.innerWidth <= 1024 && window.innerWidth > 768;
+            if (savedCollapsed === 'true' || (savedCollapsed === null && isSmallScreen)) {
                 container.classList.add('sidebar-compact');
                 this.updateSidebarCollapseIcon(true);
                 this.setupCompactFlyouts();
@@ -29343,6 +29427,23 @@ renderTodayTasksRoleBased(todayStr) {
                 container.classList.remove('sidebar-compact');
                 this.updateSidebarCollapseIcon(false);
             }
+        }
+
+        // Auto-adapt sidebar on window resize
+        if (!this._sidebarResizeHandlerAttached) {
+            this._sidebarResizeHandlerAttached = true;
+            window.addEventListener('resize', () => {
+                const c = document.getElementById('app-section') || document.querySelector('.app-container');
+                if (!c) return;
+                // Auto collapse to compact mode on medium/split screens (769px to 1100px)
+                if (window.innerWidth <= 1100 && window.innerWidth > 768) {
+                    if (!c.classList.contains('sidebar-compact') && localStorage.getItem('pms_sidebar_user_expanded') !== 'true') {
+                        c.classList.add('sidebar-compact');
+                        this.updateSidebarCollapseIcon(true);
+                        this.setupCompactFlyouts();
+                    }
+                }
+            });
         }
 
         // Add keyboard shortcut '[' to toggle sidebar collapse
