@@ -19,6 +19,7 @@ web/dist/
 # Sensitive data and local settings
 .env
 .env.*
+!.env.example
 *.local
 credentials.json
 keys/

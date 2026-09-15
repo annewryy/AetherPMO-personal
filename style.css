@@ -2853,7 +2853,7 @@ body.dark-theme .cat-warning { background-color: rgba(245, 158, 11, 0.25);  colo
 /* ==========================================================================
    Responsive Design & Mobile Compatibility
    ========================================================================== */
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
     .app-container {
         grid-template-columns: 1fr;
     }
@@ -8039,9 +8039,6 @@ body.dark-theme .portal-copilot-task-item {
 .data-table-sticky th:nth-child(3), .data-table-sticky td:nth-child(3) {
     position: sticky; left: 129px; z-index: 5; background: var(--bg-card); box-shadow: 2px 0 5px rgba(0,0,0,0.05);
 }
-.data-table-sticky th:last-child, .data-table-sticky td:last-child {
-    position: sticky; right: 0; z-index: 5; background: var(--bg-card); box-shadow: -2px 0 5px rgba(0,0,0,0.05);
-}
 
 /* 5th Phase UI/UX Overhaul Density & Typography Styles */
 .organization-select { min-width: 180px; }
@@ -9837,10 +9834,22 @@ body.modal-open {
     margin: auto !important;
     transform: none !important;
     float: none !important;
-    background: #ffffff !important;
+    background: #ffffff;
     border-radius: 12px !important;
     overflow: hidden !important;
     box-sizing: border-box !important;
+}
+
+body.dark-theme .modal-dialog,
+body.dark-theme .modal-content,
+body.dark-mode .modal-dialog,
+body.dark-mode .modal-content,
+[data-theme="dark"] .modal-dialog,
+[data-theme="dark"] .modal-content,
+:root[data-theme="dark"] .modal-dialog,
+:root[data-theme="dark"] .modal-content {
+    background: #151b2c !important;
+    color: #f1f5f9;
 }
 
 #modal-salary-template-preview .modal-dialog,
@@ -13546,6 +13555,273 @@ body.dark-mode #modal-resource-edit .modal-footer .btn-primary:hover,
     color: #ffffff !important;
 }
 
+/* ==========================================================================
+   RESOURCE DETAIL MODAL (#modal-resource-detail) STYLING (DARK & LIGHT)
+   ========================================================================== */
+
+/* Base (Light Theme) Defaults */
+#modal-resource-detail .modal-content {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.15);
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+#modal-resource-detail .modal-header {
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 16px 24px !important;
+    margin: 0 !important;
+}
+
+#modal-resource-detail .modal-body {
+    background: #ffffff;
+    padding: 20px 24px !important;
+    margin: 0 !important;
+}
+
+#modal-resource-detail .modal-footer {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: 14px 24px !important;
+    margin: 0 !important;
+}
+
+#modal-resource-detail .res-detail-profile-summary {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+/* Dark Theme Overrides */
+body.dark-theme #modal-resource-detail .modal-content,
+body.dark-mode #modal-resource-detail .modal-content,
+[data-theme="dark"] #modal-resource-detail .modal-content,
+:root[data-theme="dark"] #modal-resource-detail .modal-content {
+    background: #151b2c !important;
+    background-color: #151b2c !important;
+    color: #cbd5e1 !important;
+    border: 1px solid #2a3449 !important;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5) !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+body.dark-theme #modal-resource-detail .modal-header,
+body.dark-mode #modal-resource-detail .modal-header,
+[data-theme="dark"] #modal-resource-detail .modal-header,
+:root[data-theme="dark"] #modal-resource-detail .modal-header {
+    background: #171e31 !important;
+    background-color: #171e31 !important;
+    border-bottom: 1px solid #2a3449 !important;
+    padding: 16px 24px !important;
+    margin: 0 !important;
+}
+
+body.dark-theme #modal-resource-detail .modal-body,
+body.dark-mode #modal-resource-detail .modal-body,
+[data-theme="dark"] #modal-resource-detail .modal-body,
+:root[data-theme="dark"] #modal-resource-detail .modal-body {
+    background: #151b2c !important;
+    background-color: #151b2c !important;
+    padding: 20px 24px !important;
+    margin: 0 !important;
+}
+
+body.dark-theme #modal-resource-detail .modal-footer,
+body.dark-mode #modal-resource-detail .modal-footer,
+[data-theme="dark"] #modal-resource-detail .modal-footer,
+:root[data-theme="dark"] #modal-resource-detail .modal-footer {
+    background: #171e31 !important;
+    background-color: #171e31 !important;
+    border-top: 1px solid #2a3449 !important;
+    padding: 14px 24px !important;
+    margin: 0 !important;
+}
+
+body.dark-theme #modal-resource-detail h2,
+body.dark-theme #modal-resource-detail h3,
+body.dark-theme #modal-resource-detail .modal-title,
+body.dark-theme #modal-resource-detail #res-detail-name,
+body.dark-mode #modal-resource-detail h2,
+body.dark-mode #modal-resource-detail h3,
+body.dark-mode #modal-resource-detail .modal-title,
+body.dark-mode #modal-resource-detail #res-detail-name,
+[data-theme="dark"] #modal-resource-detail h2,
+[data-theme="dark"] #modal-resource-detail h3,
+[data-theme="dark"] #modal-resource-detail .modal-title,
+[data-theme="dark"] #modal-resource-detail #res-detail-name,
+:root[data-theme="dark"] #modal-resource-detail h2,
+:root[data-theme="dark"] #modal-resource-detail h3,
+:root[data-theme="dark"] #modal-resource-detail .modal-title,
+:root[data-theme="dark"] #modal-resource-detail #res-detail-name {
+    color: #f1f5f9 !important;
+}
+
+body.dark-theme #modal-resource-detail #res-detail-subtitle,
+body.dark-mode #modal-resource-detail #res-detail-subtitle,
+[data-theme="dark"] #modal-resource-detail #res-detail-subtitle,
+:root[data-theme="dark"] #modal-resource-detail #res-detail-subtitle {
+    color: #94a3b8 !important;
+}
+
+body.dark-theme #modal-resource-detail .res-detail-profile-summary,
+body.dark-mode #modal-resource-detail .res-detail-profile-summary,
+[data-theme="dark"] #modal-resource-detail .res-detail-profile-summary,
+:root[data-theme="dark"] #modal-resource-detail .res-detail-profile-summary {
+    background: #101726 !important;
+    background-color: #101726 !important;
+    border: 1px solid #2a3449 !important;
+}
+
+body.dark-theme #modal-resource-detail .res-detail-profile-summary span,
+body.dark-mode #modal-resource-detail .res-detail-profile-summary span,
+[data-theme="dark"] #modal-resource-detail .res-detail-profile-summary span,
+:root[data-theme="dark"] #modal-resource-detail .res-detail-profile-summary span {
+    color: #94a3b8 !important;
+}
+
+body.dark-theme #modal-resource-detail .res-detail-profile-summary strong,
+body.dark-mode #modal-resource-detail .res-detail-profile-summary strong,
+[data-theme="dark"] #modal-resource-detail .res-detail-profile-summary strong,
+:root[data-theme="dark"] #modal-resource-detail .res-detail-profile-summary strong {
+    color: #f1f5f9 !important;
+}
+
+body.dark-theme #modal-resource-detail #res-detail-salary,
+body.dark-mode #modal-resource-detail #res-detail-salary,
+[data-theme="dark"] #modal-resource-detail #res-detail-salary,
+:root[data-theme="dark"] #modal-resource-detail #res-detail-salary {
+    color: #818cf8 !important;
+}
+
+body.dark-theme #modal-resource-detail h4,
+body.dark-mode #modal-resource-detail h4,
+[data-theme="dark"] #modal-resource-detail h4,
+:root[data-theme="dark"] #modal-resource-detail h4 {
+    color: #f1f5f9 !important;
+}
+
+body.dark-theme #modal-resource-detail .card,
+body.dark-mode #modal-resource-detail .card,
+[data-theme="dark"] #modal-resource-detail .card,
+:root[data-theme="dark"] #modal-resource-detail .card {
+    background: #101726 !important;
+    background-color: #101726 !important;
+    border: 1px solid #2a3449 !important;
+}
+
+body.dark-theme #modal-resource-detail .excel-grid-table,
+body.dark-mode #modal-resource-detail .excel-grid-table,
+[data-theme="dark"] #modal-resource-detail .excel-grid-table,
+:root[data-theme="dark"] #modal-resource-detail .excel-grid-table {
+    background: #101726 !important;
+    background-color: #101726 !important;
+    color: #cbd5e1 !important;
+}
+
+body.dark-theme #modal-resource-detail .excel-grid-table thead tr,
+body.dark-mode #modal-resource-detail .excel-grid-table thead tr,
+[data-theme="dark"] #modal-resource-detail .excel-grid-table thead tr,
+:root[data-theme="dark"] #modal-resource-detail .excel-grid-table thead tr {
+    background: #171e31 !important;
+    background-color: #171e31 !important;
+    border-bottom: 1px solid #2a3449 !important;
+}
+
+body.dark-theme #modal-resource-detail .excel-grid-table thead th,
+body.dark-mode #modal-resource-detail .excel-grid-table thead th,
+[data-theme="dark"] #modal-resource-detail .excel-grid-table thead th,
+:root[data-theme="dark"] #modal-resource-detail .excel-grid-table thead th {
+    background: #171e31 !important;
+    background-color: #171e31 !important;
+    color: #94a3b8 !important;
+    border-bottom: 1px solid #2a3449 !important;
+}
+
+body.dark-theme #modal-resource-detail .excel-grid-table tbody tr,
+body.dark-mode #modal-resource-detail .excel-grid-table tbody tr,
+[data-theme="dark"] #modal-resource-detail .excel-grid-table tbody tr,
+:root[data-theme="dark"] #modal-resource-detail .excel-grid-table tbody tr {
+    border-bottom: 1px solid #2a3449 !important;
+    background: transparent !important;
+}
+
+body.dark-theme #modal-resource-detail .excel-grid-table tbody tr:hover,
+body.dark-mode #modal-resource-detail .excel-grid-table tbody tr:hover,
+[data-theme="dark"] #modal-resource-detail .excel-grid-table tbody tr:hover,
+:root[data-theme="dark"] #modal-resource-detail .excel-grid-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.04) !important;
+}
+
+body.dark-theme #modal-resource-detail .excel-grid-table tbody td,
+body.dark-mode #modal-resource-detail .excel-grid-table tbody td,
+[data-theme="dark"] #modal-resource-detail .excel-grid-table tbody td,
+:root[data-theme="dark"] #modal-resource-detail .excel-grid-table tbody td {
+    color: #cbd5e1 !important;
+    border-bottom: 1px solid #2a3449 !important;
+}
+
+body.dark-theme #modal-resource-detail .excel-grid-table tbody td:first-child,
+body.dark-mode #modal-resource-detail .excel-grid-table tbody td:first-child,
+[data-theme="dark"] #modal-resource-detail .excel-grid-table tbody td:first-child,
+:root[data-theme="dark"] #modal-resource-detail .excel-grid-table tbody td:first-child {
+    color: #f1f5f9 !important;
+    font-weight: 700;
+}
+
+body.dark-theme #modal-resource-detail .excel-grid-table tbody td span[style*="var(--text-muted)"],
+body.dark-mode #modal-resource-detail .excel-grid-table tbody td span[style*="var(--text-muted)"],
+[data-theme="dark"] #modal-resource-detail .excel-grid-table tbody td span[style*="var(--text-muted)"],
+:root[data-theme="dark"] #modal-resource-detail .excel-grid-table tbody td span[style*="var(--text-muted)"] {
+    color: #94a3b8 !important;
+}
+
+body.dark-theme #modal-resource-detail .close-btn,
+body.dark-mode #modal-resource-detail .close-btn,
+[data-theme="dark"] #modal-resource-detail .close-btn,
+:root[data-theme="dark"] #modal-resource-detail .close-btn {
+    color: #94a3b8 !important;
+    background: transparent !important;
+    transition: color 0.15s ease !important;
+}
+
+body.dark-theme #modal-resource-detail .close-btn:hover,
+body.dark-mode #modal-resource-detail .close-btn:hover,
+[data-theme="dark"] #modal-resource-detail .close-btn:hover,
+:root[data-theme="dark"] #modal-resource-detail .close-btn:hover {
+    color: #f1f5f9 !important;
+}
+
+body.dark-theme #modal-resource-detail .btn-outline,
+body.dark-theme #modal-resource-detail .modal-footer .btn-outline,
+body.dark-mode #modal-resource-detail .btn-outline,
+body.dark-mode #modal-resource-detail .modal-footer .btn-outline,
+[data-theme="dark"] #modal-resource-detail .btn-outline,
+[data-theme="dark"] #modal-resource-detail .modal-footer .btn-outline,
+:root[data-theme="dark"] #modal-resource-detail .btn-outline,
+:root[data-theme="dark"] #modal-resource-detail .modal-footer .btn-outline {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: #cbd5e1 !important;
+    border: 1px solid #334155 !important;
+    transition: all 0.15s ease !important;
+}
+
+body.dark-theme #modal-resource-detail .btn-outline:hover,
+body.dark-theme #modal-resource-detail .modal-footer .btn-outline:hover,
+body.dark-mode #modal-resource-detail .btn-outline:hover,
+body.dark-mode #modal-resource-detail .modal-footer .btn-outline:hover,
+[data-theme="dark"] #modal-resource-detail .btn-outline:hover,
+[data-theme="dark"] #modal-resource-detail .modal-footer .btn-outline:hover,
+:root[data-theme="dark"] #modal-resource-detail .btn-outline:hover,
+:root[data-theme="dark"] #modal-resource-detail .modal-footer .btn-outline:hover {
+    background: #273248 !important;
+    background-color: #273248 !important;
+    color: #f1f5f9 !important;
+    border-color: #475569 !important;
+}
+
 /* --- Viewer Restricted Nav Styling (Aria-Disabled & Padlock Indicator) --- */
 .sidebar-nav .nav-item[aria-disabled="true"],
 .sidebar-nav .submenu-item[aria-disabled="true"],
@@ -13573,3 +13849,388 @@ body.dark-mode #modal-resource-edit .modal-footer .btn-primary:hover,
     opacity: 0.6;
     padding-left: 4px;
 }
+
+/* ==========================================================================
+   AetherPMO - Responsive Layout & Artifacts Table Enhancements
+   ========================================================================== */
+
+/* 1. Main Sidebar Collapsible / Compact Mode */
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px;
+}
+
+.sidebar-collapse-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+}
+
+.sidebar-collapse-btn:hover {
+    color: var(--text-main);
+    background: var(--bg-hover-item);
+}
+
+/* App container when sidebar is collapsed */
+.app-container.sidebar-collapsed {
+    grid-template-columns: 72px 1fr !important;
+}
+
+.sidebar.sidebar-collapsed {
+    width: 72px !important;
+    min-width: 72px !important;
+}
+
+.sidebar.sidebar-collapsed .logo-text,
+.sidebar.sidebar-collapsed .nav-item span,
+.sidebar.sidebar-collapsed .submenu-item span,
+.sidebar.sidebar-collapsed .submenu-toggle-icon,
+.sidebar.sidebar-collapsed .sidebar-footer .user-info,
+.sidebar.sidebar-collapsed .sidebar-footer .theme-label,
+.sidebar.sidebar-collapsed .sidebar-admin-section span,
+.sidebar.sidebar-collapsed .brand-sub,
+.sidebar.sidebar-collapsed .nav-item[aria-disabled="true"]::after,
+.sidebar.sidebar-collapsed .submenu-item[aria-disabled="true"]::after {
+    display: none !important;
+}
+
+.sidebar.sidebar-collapsed .sidebar-header {
+    padding: 18px 10px;
+    justify-content: center;
+}
+
+.sidebar.sidebar-collapsed .logo-area {
+    margin: 0;
+    justify-content: center;
+}
+
+.sidebar.sidebar-collapsed .sidebar-collapse-btn {
+    display: none;
+}
+
+.sidebar.sidebar-collapsed .nav-item {
+    justify-content: center;
+    padding: 12px 0 !important;
+    margin: 2px 8px;
+    position: relative;
+}
+
+.sidebar.sidebar-collapsed .nav-item i {
+    margin: 0 !important;
+    transform: none !important;
+}
+
+.sidebar.sidebar-collapsed .nav-submenu {
+    padding-left: 0 !important;
+}
+
+.sidebar.sidebar-collapsed .submenu-item {
+    justify-content: center;
+    padding: 9px 0 !important;
+}
+
+.sidebar.sidebar-collapsed .sidebar-footer {
+    padding: 12px 6px;
+    align-items: center;
+}
+
+.sidebar.sidebar-collapsed .theme-toggle-container {
+    padding: 6px 0;
+    justify-content: center;
+    width: 100%;
+}
+
+.sidebar.sidebar-collapsed .user-profile-badge {
+    padding: 4px;
+    justify-content: center;
+}
+
+/* 2. KPI Cards Responsive Grid: 4 cols (>1024) -> 2 cols (641-1024) -> 1 col (<=640) */
+#view-artifacts .nirs-summary-kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 14px !important;
+    margin-bottom: 16px !important;
+    width: 100% !important;
+}
+
+@media (max-width: 1024px) {
+    #view-artifacts .nirs-summary-kpi-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+@media (max-width: 640px) {
+    #view-artifacts .nirs-summary-kpi-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* 3. Artifacts View Layout (Tree + Main Content) */
+.artifacts-layout {
+    display: grid;
+    grid-template-columns: 265px minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+    width: 100%;
+}
+
+.artifacts-layout.tree-collapsed {
+    grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.artifacts-layout.tree-collapsed .artifacts-sidebar {
+    display: none !important;
+}
+
+@media (max-width: 900px) {
+    .artifacts-layout {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+    .artifacts-layout .artifacts-sidebar {
+        display: none;
+    }
+    .artifacts-layout.tree-mobile-open .artifacts-sidebar {
+        display: block !important;
+        margin-bottom: 14px;
+    }
+    #btn-tree-expand-quick {
+        display: inline-flex !important;
+    }
+}
+
+/* 4. Table Container & Data Table Responsiveness */
+#view-artifacts .table-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    position: relative !important;
+}
+
+#view-artifacts .data-table {
+    table-layout: auto !important;
+    min-width: 1120px !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+}
+
+/* Prevent unwanted vertical character breaking on fixed/structured cells */
+#view-artifacts .data-table th,
+#view-artifacts .data-table td.cell-nowrap,
+#view-artifacts .data-table td.cell-code,
+#view-artifacts .data-table td.cell-status,
+#view-artifacts .data-table td.cell-author,
+#view-artifacts .data-table td.cell-timing,
+#view-artifacts .data-table td.cell-actions,
+#view-artifacts .data-table td.cell-flag {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    text-align: center;
+}
+
+/* Artifact Name Column: min-width and 2-line clamping with ellipsis */
+#view-artifacts .data-table .artifact-name-column {
+    min-width: 260px !important;
+    max-width: 380px !important;
+    width: auto !important;
+    box-sizing: border-box !important;
+}
+
+#view-artifacts .artifact-name-primary {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    word-break: keep-all !important;
+    overflow-wrap: break-word !important;
+    line-height: 1.4 !important;
+    max-height: 2.8em !important;
+    cursor: pointer !important;
+    font-weight: 600 !important;
+    color: var(--text-primary) !important;
+    text-decoration: none !important;
+    transition: color 0.15s ease !important;
+}
+
+#view-artifacts .artifact-name-primary:hover {
+    color: var(--primary-color, #3b82f6) !important;
+    text-decoration: underline !important;
+}
+
+#view-artifacts .artifact-filename-sub {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 160px !important;
+    display: inline-block !important;
+    vertical-align: middle !important;
+}
+
+/* Sticky Column Backgrounds in Dark/Light themes */
+#view-artifacts .data-table th[style*="position:sticky"],
+#view-artifacts .data-table td[style*="position:sticky"] {
+    background-color: var(--bg-card) !important;
+}
+
+#view-artifacts .data-table thead tr th[style*="position:sticky"] {
+    background-color: var(--bg-card-header) !important;
+}
+
+body.light-theme #view-artifacts .data-table thead tr th[style*="position:sticky"] {
+    background-color: #f8fafc !important;
+}
+
+body.dark-theme #view-artifacts .data-table thead tr th[style*="position:sticky"] {
+    background-color: #1e293b !important;
+}
+
+body.light-theme #view-artifacts .data-table tbody tr td[style*="position:sticky"] {
+    background-color: #ffffff !important;
+}
+
+body.dark-theme #view-artifacts .data-table tbody tr td[style*="position:sticky"] {
+    background-color: #0f172a !important;
+}
+
+body.light-theme #view-artifacts .data-table tbody tr:hover td[style*="position:sticky"] {
+    background-color: #f1f5f9 !important;
+}
+
+body.dark-theme #view-artifacts .data-table tbody tr:hover td[style*="position:sticky"] {
+    background-color: #1e293b !important;
+}
+
+/* 5. Filter bar wrap & button spacing */
+#view-artifacts .artifacts-filter-bar {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#view-artifacts .artifacts-filter-bar select,
+#view-artifacts .artifacts-filter-bar input,
+#view-artifacts .artifacts-filter-bar button {
+    flex-shrink: 0;
+}
+
+/* 6. View Header & Actions Responsiveness */
+@media (max-width: 1024px) {
+    #view-artifacts .view-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 14px !important;
+    }
+    #view-artifacts .view-header .header-actions {
+        width: 100% !important;
+        justify-content: flex-start !important;
+    }
+}
+
+@media (max-width: 640px) {
+    #view-artifacts .view-header h1 {
+        font-size: 20px !important;
+        line-height: 1.3 !important;
+    }
+    #view-artifacts .view-header .subtitle {
+        font-size: 12px !important;
+    }
+    #view-artifacts .view-header .header-actions {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    #view-artifacts .view-header .header-actions > div,
+    #view-artifacts .view-header .header-actions > button,
+    #view-artifacts .view-header .header-actions select {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+}
+
+/* 7. Ensure mobile drawer button is displayed when sidebar is hidden */
+@media (max-width: 1024px) {
+    .mobile-drawer-toggle {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        color: var(--text-main);
+        padding: 6px;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+}
+
+/* 8. Table Custom Scrollbar & Sticky Left Shadow */
+#view-artifacts .table-container::-webkit-scrollbar {
+    height: 9px;
+    width: 9px;
+}
+#view-artifacts .table-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 4px;
+}
+#view-artifacts .table-container::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 4px;
+}
+#view-artifacts .table-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.7);
+}
+body.dark-theme #view-artifacts .table-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+}
+body.dark-theme #view-artifacts .table-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Distinct shadow separator on the 3rd sticky column (산출물명) */
+#view-artifacts .data-table th:nth-child(3),
+#view-artifacts .data-table td:nth-child(3) {
+    box-shadow: 3px 0 6px -2px rgba(0, 0, 0, 0.15) !important;
+}
+body.dark-theme #view-artifacts .data-table th:nth-child(3),
+body.dark-theme #view-artifacts .data-table td:nth-child(3) {
+    box-shadow: 3px 0 8px -2px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* 9. Mobile Header & View Header Compact Fixes (<= 480px) */
+@media (max-width: 480px) {
+    .main-header {
+        padding: 8px 12px !important;
+        gap: 8px !important;
+    }
+    .main-header .user-header-name,
+    .main-header .user-header-role,
+    .main-header .user-header-info i[data-lucide="chevron-down"] {
+        display: none !important;
+    }
+    .main-header .user-dropdown-container {
+        margin-right: 4px !important;
+        padding-right: 4px !important;
+        border-right: none !important;
+    }
+    .main-header .current-date-badge {
+        display: none !important;
+    }
+    #btn-presentation-mode {
+        display: none !important;
+    }
+    .table-scroll-hint {
+        display: flex !important;
+    }
+}
+
+
+

@@ -15,6 +15,7 @@ import { workflowAdminRoutes } from './routes/workflows-admin.js';
 import { workSurfaceRoutes } from './routes/work-surface.js';
 import { registerCommentRoutes } from './routes/comments-routes.js';
 import { mentionRoutes } from './routes/mentions-routes.js';
+import { aiChatRoutes } from './routes/ai-chat.js';
 
 // ---------------------------------------------------------------------------
 // CORS — env ALLOWED_ORIGINS(콤마 구분). `https://*.vercel.app` 와일드카드 지원.
@@ -49,7 +50,7 @@ export async function buildApp() {
       cb(null, isOriginAllowed(origin));
     },
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'X-User-Id'],
+    allowedHeaders: ['Content-Type', 'X-User-Id', 'Authorization'],
   });
 
   app.setErrorHandler((err, req, reply) => {
@@ -84,6 +85,7 @@ export async function buildApp() {
   await app.register(workSurfaceRoutes);
   await app.register(registerCommentRoutes);
   await app.register(mentionRoutes);
+  await app.register(aiChatRoutes);
 
   return app;
 }
