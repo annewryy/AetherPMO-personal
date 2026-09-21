@@ -21165,6 +21165,7 @@ renderTodayTasksRoleBased(todayStr) {
         this.setFieldValue('project-inspection-date', project.inspectionDate);
 
         const isBiddingProj = project.status === 'Bidding' || project.is_bidding_project || Boolean(project.isBiddingProject);
+        const isBidding = isBiddingProj;
         const targetStatusVal = isBiddingProj ? 'Bidding' : (project.status === 'Completed' ? 'Completed' : 'In Progress');
         this.setFieldValue('project-status', targetStatusVal);
         this.handleProjectStatusChange(targetStatusVal);
