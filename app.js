@@ -4701,13 +4701,48 @@ class AetherPMO {
     setupEventListeners() {
         // Global ESC key listener (closes topmost modal first, then mobile drawer)
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                const openModals = Array.from(document.querySelectorAll('.modal-overlay.open, .app-modal-overlay.is-open, .modal.open, .modal.is-open'));
+            if (e.key === 'Escape' || e.keyCode === 27) {
+                // 1. 메뉴 등록/수정 모달 (modal-menu-form) 열려 있으면 닫기
+                const menuFormModal = document.getElementById('modal-menu-form');
+                if (menuFormModal && (
+                    menuFormModal.style.display === 'flex' ||
+                    menuFormModal.style.display === 'block' ||
+                    menuFormModal.classList.contains('open') ||
+                    menuFormModal.classList.contains('is-open') ||
+                    (menuFormModal.offsetWidth > 0 && menuFormModal.offsetHeight > 0)
+                )) {
+                    this.closeMenuFormModal();
+                    return;
+                }
+
+                // 2. data-app-modal, modal-overlay 등 클래스로 열려 있는 모달 닫기
+                const openModals = Array.from(document.querySelectorAll('.modal-overlay.open, .app-modal-overlay.is-open, .modal.open, .modal.is-open, .modal-overlay.active, .modal.active'));
                 if (openModals.length > 0) {
                     const topModal = openModals[openModals.length - 1];
                     topModal.classList.remove('open', 'is-open', 'active');
+                    topModal.style.display = 'none';
+                    if (topModal.id === 'modal-menu-form') {
+                        this.closeMenuFormModal();
+                    } else if (typeof this.closeModal === 'function') {
+                        this.closeModal(topModal);
+                    }
                     return;
                 }
+
+                // 3. style.display(flex/block)로 열린 모달 닫기
+                const inlineModals = Array.from(document.querySelectorAll('.modal-overlay, .app-modal-overlay, .modal')).filter(m => {
+                    return m.style.display === 'flex' || m.style.display === 'block';
+                });
+                if (inlineModals.length > 0) {
+                    const topModal = inlineModals[inlineModals.length - 1];
+                    topModal.style.display = 'none';
+                    topModal.classList.remove('open', 'is-open', 'active');
+                    if (topModal.id === 'modal-menu-form') {
+                        this.closeMenuFormModal();
+                    }
+                    return;
+                }
+
                 const sidebar = document.querySelector('.sidebar');
                 if (sidebar && sidebar.classList.contains('mobile-open')) {
                     this.closeMobileDrawer();
@@ -36404,11 +36439,19 @@ renderTodayTasksRoleBased(todayStr) {
         }
 
         modal.style.display = 'flex';
+        modal.classList.add('open', 'is-open', 'active');
+        setTimeout(() => {
+            const firstInput = modal.querySelector('input:not([type="hidden"]), select, textarea');
+            if (firstInput) firstInput.focus();
+        }, 50);
     }
 
     closeMenuFormModal() {
         const modal = document.getElementById('modal-menu-form');
-        if (modal) modal.style.display = 'none';
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.remove('open', 'is-open', 'active');
+        }
     }
 
     async saveMenuForm() {

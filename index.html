@@ -49,7 +49,7 @@
     <link rel="icon" href="favicon.png" type="image/png">
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="style.css?v=v140_20260915">
+    <link rel="stylesheet" href="style.css?v=v141_20260921">
 </head>
 <body class="dark-theme">
         <!-- Login Section -->
@@ -6460,7 +6460,7 @@
     </div>
 
     <!-- Core App logic script -->
-    <script src="app.js?v=v140_20260915"></script>
+    <script src="app.js?v=v141_20260921"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
@@ -7113,8 +7113,8 @@
     <!-- ═══════════════════════════════════════════════════════
          MODAL: 메뉴 등록/수정
     ═══════════════════════════════════════════════════════ -->
-    <div id="modal-menu-form" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; align-items:center; justify-content:center;">
-        <div class="modal-dialog" style="background:var(--bg-card); border-radius:16px; width:min(580px,95vw); max-height:90vh; overflow-y:auto; box-shadow:var(--shadow-lg);">
+    <div id="modal-menu-form" class="modal-overlay" onclick="if(event.target === this) app.closeMenuFormModal()" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; align-items:center; justify-content:center;">
+        <div class="modal-dialog" onclick="event.stopPropagation()" style="background:var(--bg-card); border-radius:16px; width:min(580px,95vw); max-height:90vh; overflow-y:auto; box-shadow:var(--shadow-lg);">
             <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:18px 20px; border-bottom:1px solid var(--border-color);">
                 <h3 id="menu-form-title" style="font-size:16px; font-weight:700; margin:0;">메뉴 추가</h3>
                 <button type="button" onclick="app.closeMenuFormModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-muted);">&times;</button>
