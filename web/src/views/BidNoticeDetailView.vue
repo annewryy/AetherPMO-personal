@@ -7,13 +7,16 @@
 //  상단 "← 목록으로"(뒤로/목록), 우측 상단 "입찰 프로젝트 등록"(중앙 모달 3스텝 마법사).
 //  성공 시 마법사가 emit('created') → 모달 닫고 /projects 이동 + 안내.
 import { ref, computed, onMounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { dataClient } from '../lib/dataClient';
 import type { BidNoticeDetail, Project } from '../types';
 import BidProjectCreateWizard from '../components/BidProjectCreateWizard.vue';
 
 const props = defineProps<{ bidNtceNo: string }>();
 const router = useRouter();
+const route = useRoute();
+
+const bidNtceOrd = computed(() => (route.query.bidNtceOrd as string) || undefined);
 
 const apiMode = computed(() => !!window.API_BASE);
 
@@ -153,13 +156,64 @@ const specDocs = computed(() =>
 const origUrl = computed(() => detail.value?.noticeDetailUrl || detail.value?.url || detail.value?.noticeUrl || null);
 const stdDocUrl = computed(() => detail.value?.stdNoticeDocUrl || null);
 
+// 제안요청서 존재 여부 판별 (서버 응답 우선, 없을 시 첨부문서 중 documentType === 'RFP' 검사)
+const hasRfp = computed<boolean>(() => {
+  if (detail.value?.hasRfp !== undefined && detail.value?.hasRfp !== null) {
+    return Boolean(detail.value.hasRfp);
+  }
+  return specDocs.value.some((doc) => doc.documentType === 'RFP');
+});
+
+// 첨부문서 및 제안요청서 요약 텍스트
+const attachSummary = computed<string>(() => {
+  const count = specDocs.value.length + (stdDocUrl.value ? 1 : 0);
+  if (count === 0) {
+    return '제안요청서 없음';
+  }
+  const rfpText = hasRfp.value ? '제안요청서 포함' : '제안요청서 없음';
+  return `첨부문서 ${count}건 · ${rfpText}`;
+});
+
+function docTypeLabel(type?: string | null): string {
+  switch (type) {
+    case 'RFP':
+      return '제안요청서';
+    case 'TASK_ORDER':
+      return '과업지시서';
+    case 'SPECIFICATION':
+      return '규격서';
+    case 'NOTICE':
+      return '입찰공고';
+    case 'OTHER':
+      return '기타문서';
+    case 'UNKNOWN':
+    default:
+      return '미분류';
+  }
+}
+
+function docBadgeClass(type?: string | null): string {
+  switch (type) {
+    case 'RFP':
+      return 'badge-rfp';
+    case 'TASK_ORDER':
+      return 'badge-task';
+    case 'SPECIFICATION':
+      return 'badge-spec';
+    case 'NOTICE':
+      return 'badge-notice';
+    default:
+      return 'badge-other';
+  }
+}
+
 async function load() {
   if (!apiMode.value) return;
   loading.value = true;
   loadError.value = null;
   detail.value = null;
   try {
-    detail.value = await dataClient.bidNotices.detail(props.bidNtceNo);
+    detail.value = await dataClient.bidNotices.detail(props.bidNtceNo, bidNtceOrd.value);
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e);
   } finally {
@@ -183,7 +237,7 @@ function onCreated(project: Project) {
 }
 
 onMounted(load);
-watch(() => props.bidNtceNo, load);
+watch([() => props.bidNtceNo, bidNtceOrd], load);
 </script>
 
 <template>
@@ -213,6 +267,9 @@ watch(() => props.bidNtceNo, load);
           <span v-if="has(detail.announcementNo)" class="tag mono">{{ detail.announcementNo }}</span>
           <span v-if="has(detail.demandAgencyName ?? detail.customer)" class="tag">
             {{ detail.demandAgencyName ?? detail.customer }}
+          </span>
+          <span class="badge" :class="hasRfp ? 'rfp-yes' : 'rfp-no'">
+            {{ hasRfp ? '제안요청서 있음' : '제안요청서 없음' }}
           </span>
         </div>
       </header>
@@ -274,17 +331,35 @@ watch(() => props.bidNtceNo, load);
           </dl>
         </section>
 
-        <section v-if="specDocs.length || stdDocUrl" class="sec">
-          <h2 class="sec-title">규격서 첨부</h2>
-          <ul class="docs">
-            <li v-for="(doc, i) in specDocs" :key="i" class="doc">
-              <a v-if="has(doc.url)" :href="doc.url!" target="_blank" rel="noopener noreferrer" class="link">
-                {{ doc.fileName || '규격서 파일' }} ↗
-              </a>
-              <span v-else class="doc-name">{{ doc.fileName }}</span>
+        <section class="sec">
+          <div class="sec-head">
+            <h2 class="sec-title">첨부문서</h2>
+            <span class="summary-pill" :class="{ 'has-rfp': hasRfp }">
+              {{ attachSummary }}
+            </span>
+          </div>
+
+          <div v-if="!specDocs.length && !stdDocUrl" class="no-docs">
+            첨부문서가 없습니다. · <span class="no-rfp-text">제안요청서 없음</span>
+          </div>
+
+          <ul v-else class="docs">
+            <li v-for="(doc, i) in specDocs" :key="i" class="doc-row">
+              <div class="doc-main">
+                <a v-if="has(doc.url)" :href="doc.url!" target="_blank" rel="noopener noreferrer" class="link">
+                  {{ doc.fileName || '첨부 문서' }} ↗
+                </a>
+                <span v-else class="doc-name">{{ doc.fileName || '파일명 없음' }}</span>
+              </div>
+              <span class="doc-badge" :class="docBadgeClass(doc.documentType)">
+                {{ docTypeLabel(doc.documentType) }}
+              </span>
             </li>
-            <li v-if="stdDocUrl" class="doc">
-              <a :href="stdDocUrl" target="_blank" rel="noopener noreferrer" class="link">표준공고서 ↗</a>
+            <li v-if="stdDocUrl" class="doc-row">
+              <div class="doc-main">
+                <a :href="stdDocUrl" target="_blank" rel="noopener noreferrer" class="link">표준공고서 ↗</a>
+              </div>
+              <span class="doc-badge badge-notice">입찰공고</span>
             </li>
           </ul>
         </section>
@@ -326,6 +401,8 @@ watch(() => props.bidNtceNo, load);
   border: 1px solid var(--border); color: var(--muted); white-space: nowrap;
 }
 .badge.main { background: var(--accent); color: #fff; border-color: var(--accent); }
+.badge.rfp-yes { background: #16a34a; color: #fff; border-color: #16a34a; }
+.badge.rfp-no { background: var(--panel-2); color: var(--muted); border-color: var(--border); }
 .tag {
   font-size: 13px; padding: 2px 10px; border-radius: 999px;
   background: var(--panel-2); color: var(--muted); border: 1px solid var(--border);
@@ -336,21 +413,49 @@ watch(() => props.bidNtceNo, load);
   border: 1px solid var(--border); border-radius: 12px; background: var(--panel);
   padding: 16px 20px;
 }
+.sec-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.sec-head .sec-title { margin-bottom: 0; }
 .sec-title {
   font-size: 14px; font-weight: 700; color: var(--muted); margin: 0 0 14px;
   text-transform: none; letter-spacing: 0.01em;
 }
+.summary-pill {
+  font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
+  background: var(--panel-2); color: var(--muted); border: 1px solid var(--border);
+}
+.summary-pill.has-rfp {
+  background: rgba(22, 163, 74, 0.12); color: #16a34a; border-color: rgba(22, 163, 74, 0.35);
+}
+
+.no-docs { font-size: 14px; color: var(--muted); padding: 8px 0; }
+.no-rfp-text { color: var(--muted); font-weight: 600; }
+
 .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 32px; margin: 0; }
 .kv > div { min-width: 0; }
 .kv dt { color: var(--muted); font-size: 12px; margin-bottom: 3px; }
 .kv dd { margin: 0; font-size: 15px; color: var(--text); word-break: break-word; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13.5px; }
 
-.docs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.doc { font-size: 14px; }
-.doc-name { color: var(--text); }
-.link { color: var(--accent); text-decoration: none; font-weight: 600; }
+.docs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.doc-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.doc-row:last-child { border-bottom: none; }
+.doc-main { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.doc-name { color: var(--text); font-size: 14px; }
+.link { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 14px; word-break: break-all; }
 .link:hover { text-decoration: underline; }
+
+.doc-badge {
+  flex-shrink: 0; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 6px;
+  border: 1px solid transparent;
+}
+.doc-badge.badge-rfp { background: #2563eb; color: #fff; }
+.doc-badge.badge-task { background: #0284c7; color: #fff; }
+.doc-badge.badge-spec { background: #d97706; color: #fff; }
+.doc-badge.badge-notice { background: #475569; color: #fff; }
+.doc-badge.badge-other { background: var(--panel-2); color: var(--muted); border-color: var(--border); }
 
 .orig { margin: 20px 0 0; }
 

@@ -117,6 +117,11 @@ class BidNoticeDetailSourceTest {
         assertThat(d.specDocs()).hasSize(2);
         assertThat(d.specDocs().get(0).url()).isEqualTo("https://g2b/doc1");
         assertThat(d.specDocs().get(0).fileName()).isEqualTo("입찰공고문.hwpx");
+        assertThat(d.specDocs().get(0).documentType()).isEqualTo("NOTICE");
+        assertThat(d.specDocs().get(1).url()).isEqualTo("https://g2b/doc2");
+        assertThat(d.specDocs().get(1).fileName()).isEqualTo("과업내용서.hwpx");
+        assertThat(d.specDocs().get(1).documentType()).isEqualTo("TASK_ORDER");
+        assertThat(d.hasRfp()).isFalse();
         // 공동도급의무지역(1건).
         assertThat(d.jointContractDutyRegions()).containsExactly("서울특별시");
         // 분류.
@@ -161,6 +166,23 @@ class BidNoticeDetailSourceTest {
         BidNoticeDetail d = src.fetch("A1");
         assertThat(d.noticeOrder()).isEqualTo("001");
         assertThat(d.name()).isEqualTo("변경공고");
+        server.verify();
+    }
+
+    @Test
+    void fetch_specificOrder_picksExactOrder() {
+        String body = "{\"response\":{\"header\":{\"resultCode\":\"00\"},\"body\":{"
+                + "\"totalCount\":2,\"items\":["
+                + "{\"bidNtceNo\":\"A1\",\"bidNtceOrd\":\"000\",\"bidNtceNm\":\"원공고\",\"ntceSpecDocUrl1\":\"https://doc0\",\"ntceSpecFileNm1\":\"제안요청서.hwp\"},"
+                + "{\"bidNtceNo\":\"A1\",\"bidNtceOrd\":\"001\",\"bidNtceNm\":\"변경공고\",\"ntceSpecDocUrl1\":\"https://doc1\",\"ntceSpecFileNm1\":\"과업지시서.hwp\"}]}}}";
+        server.expect(requestTo(Matchers.containsString("getBidPblancListInfoServc")))
+                .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        // 차수 000 요청 시 원공고 및 제안요청서(hasRfp=true) 선택 확인
+        BidNoticeDetail d = src.fetch("A1", "000");
+        assertThat(d.noticeOrder()).isEqualTo("000");
+        assertThat(d.name()).isEqualTo("원공고");
+        assertThat(d.hasRfp()).isTrue();
         server.verify();
     }
 }

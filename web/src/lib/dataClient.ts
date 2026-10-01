@@ -909,7 +909,11 @@ export const dataClient = {
     async search(filters: BidNoticeFilters = {}): Promise<BidNoticeResult> {
       if (!apiBase()) return { notices: [], totalCount: 0 };
       const qs = new URLSearchParams();
-      if (filters.agency && filters.agency.trim()) qs.set('agency', filters.agency.trim());
+      if (filters.agencies && filters.agencies.length > 0) {
+        qs.set('agencies', filters.agencies.join(','));
+      } else if (filters.agency && filters.agency.trim()) {
+        qs.set('agency', filters.agency.trim());
+      }
       if (filters.noticeType) qs.set('noticeType', filters.noticeType);
       if (filters.keyword && filters.keyword.trim()) qs.set('keyword', filters.keyword.trim());
       if (filters.bgngDt && filters.bgngDt.trim()) qs.set('bgngDt', filters.bgngDt.trim());
@@ -923,11 +927,12 @@ export const dataClient = {
     //   inqryDiv=2 풀필드 — 상세 페이지·생성 마법사 프리필용. 값 없는 필드는 백엔드가 null.
     //   없으면 404 {message}, 외부 연동 오류면 502 {message} — apiGet이 그대로 던진다.
     //   API_BASE 전용(레거시엔 나라장터 연동 없음).
-    async detail(bidNtceNo: string): Promise<BidNoticeDetail> {
+    async detail(bidNtceNo: string, bidNtceOrd?: string): Promise<BidNoticeDetail> {
       if (!apiBase()) {
         throw new Error('[dataClient] 공고 상세는 백엔드(API_BASE) 연결 후에만 조회할 수 있습니다.');
       }
-      return apiGet<BidNoticeDetail>(`/api/bid-notices/${encodeURIComponent(bidNtceNo)}`);
+      const query = bidNtceOrd ? `?bidNtceOrd=${encodeURIComponent(bidNtceOrd)}` : '';
+      return apiGet<BidNoticeDetail>(`/api/bid-notices/${encodeURIComponent(bidNtceNo)}${query}`);
     },
   },
 

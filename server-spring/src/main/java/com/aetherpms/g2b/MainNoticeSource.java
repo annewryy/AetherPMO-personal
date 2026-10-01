@@ -24,7 +24,7 @@ import org.springframework.web.client.RestClient;
 public class MainNoticeSource implements G2bNoticeSource {
 
     private static final int PAGE_SIZE = 100;
-    private static final int MAX_PAGES = 3;
+    private static final int SAFETY_MAX_PAGES = 100; // 무한루프 방지를 위한 안전 상한 (최대 10,000건)
 
     private final RestClient client;
     private final G2bProperties props;
@@ -51,7 +51,9 @@ public class MainNoticeSource implements G2bNoticeSource {
 
         List<BidNotice> out = new ArrayList<>();
         int sourceTotal = 0; // 나라장터가 보고한 전체 건수(1페이지 응답 기준).
-        for (int page = 1; page <= MAX_PAGES; page++) {
+        int targetMaxPages = SAFETY_MAX_PAGES;
+
+        for (int page = 1; page <= targetMaxPages; page++) {
             MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
             params.add("serviceKey", props.getServiceKey());
             params.add("numOfRows", String.valueOf(PAGE_SIZE));
@@ -69,7 +71,7 @@ public class MainNoticeSource implements G2bNoticeSource {
 
             String body = client.get()
                     .uri(uriBuilder -> uriBuilder
-                            .path(props.getNoticePath())
+                            .path(props.getNoticeSearchPath())
                             .queryParams(params)
                             .build())
                     .retrieve()
@@ -79,27 +81,35 @@ public class MainNoticeSource implements G2bNoticeSource {
             if (xmlErr != null) {
                 throw new G2bException("나라장터 본공고 조회 실패 - " + xmlErr);
             }
-            if (page == 1) sourceTotal = G2bResponseParser.totalCount(body);
+            if (page == 1) {
+                sourceTotal = G2bResponseParser.totalCount(body);
+                if (sourceTotal > 0) {
+                    int calcPages = (int) Math.ceil((double) sourceTotal / PAGE_SIZE);
+                    targetMaxPages = Math.min(SAFETY_MAX_PAGES, Math.max(1, calcPages));
+                }
+            }
             List<Map<String, Object>> items = G2bResponseParser.extractItems(body);
             if (items.isEmpty()) break;
             for (Map<String, Object> it : items) out.add(map(it));
-            if (items.size() < PAGE_SIZE) break; // 마지막 페이지.
+            if (items.size() < PAGE_SIZE || (sourceTotal > 0 && out.size() >= sourceTotal)) break; // 마지막 페이지 또는 전체 수집 완료.
         }
-        // totalCount를 못 읽었으면(구 응답/파싱실패) 수집분을 전체로 간주 — 잘림 표시가 뜨지 않게.
+        // totalCount를 못 읽었으면(구 응답/파싱실패) 수집분을 전체로 간주.
         return new NoticeFetch(out, Math.max(sourceTotal, out.size()));
     }
 
-    /** 레거시 필드 매핑 그대로. */
+    /** 레거시 필드 매핑 그대로 + 차수(bidNtceOrd) 및 수요기관코드(dminsttCd) 보존. */
     private BidNotice map(Map<String, Object> it) {
         return new BidNotice(
                 str(it.get("bidNtceNo"), "-"),
+                str(it.get("bidNtceOrd"), "00"),
                 BidNoticeQuery.TYPE_MAIN,
                 str(it.get("bidNtceNm"), "-"),
                 str(it.get("dminsttNm"), "-"),
                 date10(it.get("bidNtceDt")),
                 date10(it.get("bidClseDt")),
                 num(it.get("asignBdgtAmt"), it.get("presmptPrce")),
-                str(it.get("bidNtceDtlUrl"), "#"));
+                str(it.get("bidNtceDtlUrl"), "#"),
+                str(it.get("dminsttCd"), null));
     }
 
     private static String str(Object o, String dflt) {

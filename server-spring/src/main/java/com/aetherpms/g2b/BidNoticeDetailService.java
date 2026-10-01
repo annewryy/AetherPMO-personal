@@ -29,6 +29,11 @@ public class BidNoticeDetailService {
 
     /** bidNtceNo 상세 조회. 키없음→G2bException, 0건→BidNoticeNotFoundException. */
     public BidNoticeDetail getDetail(String bidNtceNo) {
+        return getDetail(bidNtceNo, null);
+    }
+
+    /** bidNtceNo 및 차수(targetOrd) 상세 조회. 키없음→G2bException, 0건→BidNoticeNotFoundException. */
+    public BidNoticeDetail getDetail(String bidNtceNo, String targetOrd) {
         if (bidNtceNo == null || bidNtceNo.isBlank()) {
             throw new BidNoticeNotFoundException("입찰공고번호(bidNtceNo)가 필요합니다.");
         }
@@ -37,16 +42,18 @@ public class BidNoticeDetailService {
                 "나라장터 인증키(G2B_SERVICE_KEY)가 설정되지 않아 공고 상세를 조회할 수 없습니다.");
         }
         String key = bidNtceNo.trim();
+        String ord = (targetOrd != null && !targetOrd.isBlank()) ? targetOrd.trim() : null;
+        String cacheKey = ord != null ? key + ":" + ord : key;
 
-        BidNoticeDetail cached = getCached(key);
+        BidNoticeDetail cached = getCached(cacheKey);
         if (cached != null) return cached;
 
-        BidNoticeDetail detail = source.fetch(key);
+        BidNoticeDetail detail = source.fetch(key, ord);
         if (detail == null) {
             throw new BidNoticeNotFoundException(
                 "입찰공고번호 '" + key + "'에 해당하는 공고를 찾을 수 없습니다.");
         }
-        putCached(key, detail);
+        putCached(cacheKey, detail);
         return detail;
     }
 

@@ -17,8 +17,14 @@ public class G2bProperties {
     /** OpenAPI 베이스 URL. 레거시(api/g2b.js)와 동일 호스트. */
     private String baseUrl = "https://apis.data.go.kr/1230000";
 
-    /** 본공고 오퍼레이션 경로 — 레거시 오라클. */
-    private String noticePath = "/ad/BidPublicInfoService/getBidPblancListInfoServc";
+    /** 본공고 검색 오퍼레이션 경로 — 검색 파라미터(dminsttNm, bidNtceNm)를 공식 지원하는 PPSSrch */
+    private String noticeSearchPath = "/ad/BidPublicInfoService/getBidPblancListInfoServcPPSSrch";
+
+    /** 본공고 단건 상세조회 오퍼레이션 경로 — inqryDiv=2, bidNtceNo 단건 조회 */
+    private String noticeDetailPath = "/ad/BidPublicInfoService/getBidPblancListInfoServc";
+
+    /** 레거시 호환용 noticePath (기본값은 noticeSearchPath와 동일하게 PPSSrch 매핑) */
+    private String noticePath = "/ad/BidPublicInfoService/getBidPblancListInfoServcPPSSrch";
 
     /** 사전규격 오퍼레이션 경로 — 나라장터 사전규격정보서비스(용역). */
     private String preSpecPath = "/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoServcPPSSrch";
@@ -38,7 +44,13 @@ public class G2bProperties {
     public String getBaseUrl() { return baseUrl; }
     public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
 
-    public String getNoticePath() { return noticePath; }
+    public String getNoticeSearchPath() { return noticeSearchPath; }
+    public void setNoticeSearchPath(String noticeSearchPath) { this.noticeSearchPath = noticeSearchPath; }
+
+    public String getNoticeDetailPath() { return noticeDetailPath; }
+    public void setNoticeDetailPath(String noticeDetailPath) { this.noticeDetailPath = noticeDetailPath; }
+
+    public String getNoticePath() { return noticePath != null ? noticePath : noticeSearchPath; }
     public void setNoticePath(String noticePath) { this.noticePath = noticePath; }
 
     public String getPreSpecPath() { return preSpecPath; }

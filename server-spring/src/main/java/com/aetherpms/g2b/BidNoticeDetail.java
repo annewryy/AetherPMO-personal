@@ -94,13 +94,29 @@ public record BidNoticeDetail(
 ) {
 
     /** 공고규격서 첨부 항목 (URL + 파일명 쌍). */
-    public record SpecDoc(String url, String fileName) {
+    public record SpecDoc(String url, String fileName, String documentType) {
+        public SpecDoc(String url, String fileName) {
+            this(url, fileName, BidDocumentClassifier.classify(fileName).name());
+        }
+
         public Map<String, Object> toDto() {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("url", url);
             m.put("fileName", fileName);
+            m.put("documentType", documentType != null ? documentType : BidDocumentClassifier.classify(fileName).name());
             return m;
         }
+    }
+
+    /**
+     * 첨부파일(specDocs) 중 documentType이 'RFP'인 문서가 1건 이상 존재하는지 여부.
+     * URL 존재만으로 판단하지 않고 실제 제안요청서 문서가 존재할 때만 true.
+     */
+    public boolean hasRfp() {
+        if (specDocs == null || specDocs.isEmpty()) {
+            return false;
+        }
+        return specDocs.stream().anyMatch(doc -> "RFP".equalsIgnoreCase(doc.documentType()));
     }
 
     /** 응답 직렬화용 camelCase DTO. null 값도 명시적으로 노출(프론트 스키마 안정). */
@@ -168,6 +184,7 @@ public record BidNoticeDetail(
         m.put("pubProcurementClassNo", pubProcurementClassNo);
         m.put("pubProcurementClassName", pubProcurementClassName);
 
+        m.put("hasRfp", hasRfp());
         List<Map<String, Object>> docs = specDocs == null ? List.of()
                 : specDocs.stream().map(SpecDoc::toDto).toList();
         m.put("specDocs", docs);

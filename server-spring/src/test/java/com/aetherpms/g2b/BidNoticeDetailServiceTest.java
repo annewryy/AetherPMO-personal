@@ -79,6 +79,7 @@ class BidNoticeDetailServiceTest {
                 .containsEntry("announcementNo", "A1")
                 .containsEntry("noticeType", "main")
                 .containsEntry("contractMethodName", "제한경쟁")
+                .containsEntry("hasRfp", false)
                 .containsKey("specDocs");
     }
 

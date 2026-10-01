@@ -39,8 +39,11 @@ spring:
 g2b:
   service-key: ${G2B_SERVICE_KEY:}
   base-url: ${G2B_BASE_URL:https://apis.data.go.kr/1230000}
-  # 본공고: 레거시와 동일 (BidPublicInfoService/getBidPblancListInfoServc).
-  notice-path: ${G2B_NOTICE_PATH:/ad/BidPublicInfoService/getBidPblancListInfoServc}
+  # 본공고 검색: 검색 파라미터(dminsttNm, bidNtceNm)를 공식 지원하는 PPSSrch 오퍼레이션
+  notice-search-path: ${G2B_NOTICE_SEARCH_PATH:/ad/BidPublicInfoService/getBidPblancListInfoServcPPSSrch}
+  # 본공고 상세: inqryDiv=2 입찰공고번호 단건조회 오퍼레이션
+  notice-detail-path: ${G2B_NOTICE_DETAIL_PATH:/ad/BidPublicInfoService/getBidPblancListInfoServc}
+  notice-path: ${G2B_NOTICE_PATH:/ad/BidPublicInfoService/getBidPblancListInfoServcPPSSrch}
   # 사전규격: 나라장터 사전규격정보서비스(HrcspSsstndrdInfoService) 용역 오퍼레이션.
   #   조사 근거는 아래 코드 주석 참조. 필드/오퍼레이션 최종검증 전이라 pre-spec-enabled 기본 false.
   pre-spec-path: ${G2B_PRE_SPEC_PATH:/ao/HrcspSsstndrdInfoService/getPublicPrcureThngInfoServcPPSSrch}

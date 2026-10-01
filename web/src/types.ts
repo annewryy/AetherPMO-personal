@@ -1137,9 +1137,11 @@ export type BidNoticeType = 'all' | 'main' | 'pre_spec';
 //   publishDate/endDate는 yyyy-MM-dd 또는 "-", budget은 숫자(0 가능), url은 상세 링크.
 export interface BidNotice {
   announcementNo: string;
+  noticeOrder?: string | null;       // 차수 (bidNtceOrd, 예: '00', '01')
   noticeType: 'main' | 'pre_spec';   // Badge용
   name: string;
   customer: string;                  // 기관(수요기관)
+  customerCode?: string | null;      // 수요기관코드
   publishDate: string;               // 공고일
   endDate: string;                   // 마감일
   budget: number;                    // 예산(원)
@@ -1148,11 +1150,12 @@ export interface BidNotice {
 
 // GET /api/bid-notices 서버측 필터(전부 쿼리스트링). 기간은 선택(없으면 백엔드 최근 30일).
 export interface BidNoticeFilters {
-  agency?: string;        // 기관명(드롭다운 선택 또는 직접입력)
+  agency?: string;        // 단일 기관명(직접입력 등)
+  agencies?: string[];    // 다중 관심기관 목록 (OR 검색)
   noticeType?: BidNoticeType;
   keyword?: string;
-  bgngDt?: string;        // YYYYMMDDHHMM (선택)
-  endDt?: string;         // YYYYMMDDHHMM (선택)
+  bgngDt?: string;        // YYYYMMDD (선택)
+  endDt?: string;         // YYYYMMDD (선택)
   page?: number;          // 1-base
   numOfRows?: number;     // 페이지 크기
 }
@@ -1168,11 +1171,15 @@ export interface BidNoticeResult {
   truncated?: boolean;
 }
 
+// 공고 첨부문서 판별 유형
+export type BidDocumentType = 'RFP' | 'TASK_ORDER' | 'SPECIFICATION' | 'NOTICE' | 'OTHER' | 'UNKNOWN';
+
 // 공고규격서 첨부 1건 (BidNoticeDetail.specDocs[] 항목).
-//   url: 나라장터 규격서 URL(원문 링크), fileName: 파일명(둘 다 null 가능).
+//   url: 나라장터 규격서 URL(원문 링크), fileName: 파일명, documentType: 문서유형 판별값.
 export interface SpecDoc {
   url: string | null;
   fileName: string | null;
+  documentType?: BidDocumentType | string;
 }
 
 // 나라장터 공고 단건 리치 상세 (GET /api/bid-notices/{bidNtceNo} — 배치14 / 0017 §A).
@@ -1250,7 +1257,8 @@ export interface BidNoticeDetail {
   pubProcurementClassNo: string | null;
   pubProcurementClassName: string | null;
 
-  // --- 첨부/원문 URL ---
+  // --- 첨부/원문 URL 및 판별 정보 ---
+  hasRfp?: boolean | null;
   specDocs: SpecDoc[] | null;
   stdNoticeDocUrl: string | null;
   noticeDetailUrl: string | null;

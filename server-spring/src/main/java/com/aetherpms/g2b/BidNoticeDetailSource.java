@@ -27,8 +27,13 @@ public class BidNoticeDetailSource {
         this.props = props;
     }
 
-    /** bidNtceNo로 단건 상세 조회. 결과 없으면 null. 외부 오류는 G2bException. */
+    /** bidNtceNo로 단건 상세 조회. 기본적으로 최신 차수 선택. 결과 없으면 null. */
     public BidNoticeDetail fetch(String bidNtceNo) {
+        return fetch(bidNtceNo, null);
+    }
+
+    /** bidNtceNo와 특정 차수(targetOrd)로 단건 상세 조회. 일치하는 차수가 있으면 선택, 없으면 최신 차수. */
+    public BidNoticeDetail fetch(String bidNtceNo, String targetOrd) {
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.add("serviceKey", props.getServiceKey());
         params.add("numOfRows", "10");
@@ -39,7 +44,7 @@ public class BidNoticeDetailSource {
 
         String body = client.get()
                 .uri(uriBuilder -> uriBuilder
-                        .path(props.getNoticePath())
+                        .path(props.getNoticeDetailPath())
                         .queryParams(params)
                         .build())
                 .retrieve()
@@ -52,10 +57,23 @@ public class BidNoticeDetailSource {
         List<Map<String, Object>> items = G2bResponseParser.extractItems(body);
         if (items.isEmpty()) return null;
 
-        // 동일 공고번호에 차수(bidNtceOrd)가 여러 건일 수 있음 → 최신(가장 큰 차수) 선택.
-        Map<String, Object> it = items.get(0);
-        for (Map<String, Object> cand : items) {
-            if (ord(cand) > ord(it)) it = cand;
+        Map<String, Object> it = null;
+        if (targetOrd != null && !targetOrd.isBlank()) {
+            String cleanTarget = targetOrd.trim();
+            for (Map<String, Object> cand : items) {
+                String o = str(cand.get("bidNtceOrd"));
+                if (o != null && (o.equals(cleanTarget) || o.endsWith(cleanTarget) || cleanTarget.endsWith(o))) {
+                    it = cand;
+                    break;
+                }
+            }
+        }
+        if (it == null) {
+            // 차수가 주어지지 않았거나 일치 차수가 없으면 최신(가장 큰 차수) 선택.
+            it = items.get(0);
+            for (Map<String, Object> cand : items) {
+                if (ord(cand) > ord(it)) it = cand;
+            }
         }
         return map(it);
     }
@@ -149,14 +167,15 @@ public class BidNoticeDetailSource {
         return out;
     }
 
-    /** 공고규격서URL1..10 + 파일명1..10 → URL 있는 항목만 쌍으로. */
+    /** 공고규격서URL1..10 + 파일명1..10 → URL 또는 파일명 있는 항목을 문서유형 판별하여 매핑. */
     private static List<BidNoticeDetail.SpecDoc> specDocs(Map<String, Object> it) {
         List<BidNoticeDetail.SpecDoc> out = new ArrayList<>();
         for (int i = 1; i <= 10; i++) {
             String url = str(it.get("ntceSpecDocUrl" + i));
             String name = str(it.get("ntceSpecFileNm" + i));
             if (url == null && name == null) continue;
-            out.add(new BidNoticeDetail.SpecDoc(url, name));
+            String docType = BidDocumentClassifier.classify(name).name();
+            out.add(new BidNoticeDetail.SpecDoc(url, name, docType));
         }
         return out;
     }

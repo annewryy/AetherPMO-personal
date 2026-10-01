@@ -25,8 +25,10 @@ public class BidNoticeDetailController {
     }
 
     @GetMapping("/api/bid-notices/{bidNtceNo}")
-    public Map<String, Object> detail(@PathVariable("bidNtceNo") String bidNtceNo) {
-        return detailService.getDetail(bidNtceNo).toDto();
+    public Map<String, Object> detail(
+            @PathVariable("bidNtceNo") String bidNtceNo,
+            @org.springframework.web.bind.annotation.RequestParam(name = "bidNtceOrd", required = false) String bidNtceOrd) {
+        return detailService.getDetail(bidNtceNo, bidNtceOrd).toDto();
     }
 
     /** 해당 공고 없음 → 404 {"message"}. */
