@@ -5503,6 +5503,8 @@ class AetherPMO {
             this.renderMenuSettings();
         } else if (viewName === 'my-account') {
             this.renderMyAccountCenter();
+        } else if (viewName === 'projects-g2b') {
+            this.initG2BSearchView();
         } else if (viewName === 'project-detail') {
             const projId = params || this.activeProjectId || (window.location.hash.includes('/') ? window.location.hash.split('/')[1] : null) || (this.state.projects && this.state.projects[0] ? this.state.projects[0].id : null);
             if (projId) {
@@ -10481,49 +10483,29 @@ renderTodayTasksRoleBased(todayStr) {
             isBiddingPanel
         });
 
-        // 날짜 필터가 없는 입찰단계 우측 검색 호출 등을 고려해 날짜가 비어있을 시 기본 30일 설정
+        // 날짜 필터가 없는 입찰단계 우측 검색 호출 등을 고려해 날짜가 비어있을 시 기본 KST 1개월 전 ~ 오늘 설정
         if (!bgngDt || !endDt) {
-            const today = new Date();
-            const past = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-            const formatDate = (d) => {
-                const yyyy = d.getFullYear();
-                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                const dd = String(d.getDate()).padStart(2, '0');
-                return `${yyyy}-${mm}-${dd}`;
-            };
-            bgngDt = formatDate(past);
-            endDt = formatDate(today);
+            const todayKst = this.getKSTToday();
+            const oneMonthAgoKst = this.getKSTOneMonthAgo(todayKst);
+            bgngDt = bgngDt || oneMonthAgoKst;
+            endDt = endDt || todayKst;
         }
 
         const tbody = isBiddingPanel
             ? document.getElementById('g2b-announcements-tbody')
             : document.getElementById('g2b-view-announcements-tbody');
 
-        if (tbody) {
-            const colspan = isBiddingPanel ? 7 : 9;
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="${colspan}" class="text-center py-8">
-                        <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
-                            <span class="loading spinner-loading" style="border: 3px solid var(--bg-hover-item); border-top: 3px solid var(--primary); border-radius: 50%; width: 24px; height: 24px; display: inline-block; animation: spin 1s linear infinite;"></span>
-                            <span style="font-size: 13px; color: var(--text-muted);">나라장터 실시간 공고를 검색하는 중입니다...</span>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }
-
-        // 6개월 조회기간 가드 검증 (대메뉴 검색 시에만 검증)
+        // 조회기간 유효성 검증 (시작일 > 종료일 및 최대 6개월 가드, 대메뉴 검색 시 검증)
         if (!isBiddingPanel && bgngDt && endDt) {
             const cleanBgn = bgngDt.replace(/-/g, '').trim();
             const cleanEnd = endDt.replace(/-/g, '').trim();
 
-            const sYear = parseInt(cleanBgn.substring(0, 4));
-            const sMonth = parseInt(cleanBgn.substring(4, 6)) - 1;
-            const sDay = parseInt(cleanBgn.substring(6, 8));
-            const eYear = parseInt(cleanEnd.substring(0, 4));
-            const eMonth = parseInt(cleanEnd.substring(4, 6)) - 1;
-            const eDay = parseInt(cleanEnd.substring(6, 8));
+            const sYear = parseInt(cleanBgn.substring(0, 4), 10);
+            const sMonth = parseInt(cleanBgn.substring(4, 6), 10) - 1;
+            const sDay = parseInt(cleanBgn.substring(6, 8), 10);
+            const eYear = parseInt(cleanEnd.substring(0, 4), 10);
+            const eMonth = parseInt(cleanEnd.substring(4, 6), 10) - 1;
+            const eDay = parseInt(cleanEnd.substring(6, 8), 10);
 
             const startDate = new Date(sYear, sMonth, sDay);
             const endDate = new Date(eYear, eMonth, eDay);
@@ -10531,17 +10513,17 @@ renderTodayTasksRoleBased(todayStr) {
             const diffTime = endDate.getTime() - startDate.getTime();
             const diffDays = diffTime / (1000 * 60 * 60 * 24);
 
-            if (diffDays > 186) {
-                alert('나라장터 공고 검색은 응답 지연 방지를 위해 최대 6개월 이내 기간만 조회할 수 있습니다.');
+            if (diffDays < 0) {
+                alert('마감 시작일은 마감 종료일보다 이전이어야 합니다.');
                 if (tbody) {
                     tbody.innerHTML = `
                         <tr>
                             <td colspan="9" class="text-center text-error py-12" style="color: var(--danger); padding: 40px 16px;">
                                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
                                     <i data-lucide="alert-circle" style="width: 32px; height: 32px; color: var(--danger);"></i>
-                                    <span style="font-weight: 600; font-size: 15px; color: var(--text-main);">조회기간 범위 초과</span>
+                                    <span style="font-weight: 600; font-size: 15px; color: var(--text-main);">시작일/종료일 순서 오류</span>
                                     <span style="font-size: 13px; color: var(--text-muted); max-width: 450px; line-height: 1.6;">
-                                        나라장터 공고 검색은 응답 지연 방지를 위해 최대 6개월 이내 기간만 조회할 수 있습니다. 조회기간을 변경해 주세요.
+                                        마감 시작일은 마감 종료일보다 이전이어야 합니다. 조회기간을 올바르게 선택해 주세요.
                                     </span>
                                 </div>
                             </td>
@@ -10555,6 +10537,45 @@ renderTodayTasksRoleBased(todayStr) {
                 this.renderG2BPagination(0, 1);
                 return;
             }
+
+            if (diffDays > 186) {
+                alert('응답 지연 방지를 위해 조회기간은 최대 6개월까지 선택할 수 있습니다.');
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="9" class="text-center text-error py-12" style="color: var(--danger); padding: 40px 16px;">
+                                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
+                                    <i data-lucide="alert-circle" style="width: 32px; height: 32px; color: var(--danger);"></i>
+                                    <span style="font-weight: 600; font-size: 15px; color: var(--text-main);">조회기간 범위 초과</span>
+                                    <span style="font-size: 13px; color: var(--text-muted); max-width: 450px; line-height: 1.6;">
+                                        응답 지연 방지를 위해 조회기간은 최대 6개월까지 선택할 수 있습니다. 조회기간을 변경해 주세요.
+                                    </span>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    if (window.lucide) window.lucide.createIcons();
+                }
+                this.g2bLoading = false;
+                this.state.g2bOriginalItems = [];
+                this.state.g2bFilteredItems = [];
+                this.renderG2BPagination(0, 1);
+                return;
+            }
+        }
+
+        if (tbody) {
+            const colspan = isBiddingPanel ? 7 : 9;
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="${colspan}" class="text-center py-8">
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                            <span class="loading spinner-loading" style="border: 3px solid var(--bg-hover-item); border-top: 3px solid var(--primary); border-radius: 50%; width: 24px; height: 24px; display: inline-block; animation: spin 1s linear infinite;"></span>
+                            <span style="font-size: 13px; color: var(--text-muted);">나라장터 실시간 공고를 검색하는 중입니다...</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
         }
 
         try {
@@ -11475,7 +11496,74 @@ renderTodayTasksRoleBased(todayStr) {
         }, 250);
     }
 
-    // 로컬 필터 초기화
+    /**
+     * 한국 표준시(KST: Asia/Seoul, UTC+9) 기준의 오늘 날짜를 YYYY-MM-DD 형식으로 반환.
+     * toISOString()의 UTC 기준 변환으로 인해 밤~아침 시간대에 하루 전 날짜가 나오는 문제를 방지.
+     */
+    getKSTToday() {
+        const now = new Date();
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Seoul',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).format(now);
+    }
+
+    /**
+     * KST 기준 날짜로부터 달력 기준 1개월 전 날짜를 YYYY-MM-DD 형식으로 반환.
+     * 전월에 동일한 일자가 없는 경우 전월 말일로 클램핑 (예: 10월 1일 -> 9월 1일, 3월 31일 -> 2월 28일/29일).
+     * @param {string} [baseKstDateStr] - 기준 YYYY-MM-DD 문자열 (생략 시 KST 오늘)
+     */
+    getKSTOneMonthAgo(baseKstDateStr) {
+        const base = baseKstDateStr || this.getKSTToday();
+        const parts = base.split('-').map(Number);
+        const year = parts[0];
+        const month = parts[1]; // 1 ~ 12
+        const day = parts[2];   // 1 ~ 31
+
+        let prevYear = year;
+        let prevMonth = month - 1;
+        if (prevMonth === 0) {
+            prevYear -= 1;
+            prevMonth = 12;
+        }
+
+        // 전월의 마지막 날짜(말일) 계산
+        const lastDayOfPrevMonth = new Date(prevYear, prevMonth, 0).getDate();
+        const targetDay = Math.min(day, lastDayOfPrevMonth);
+
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${prevYear}-${pad(prevMonth)}-${pad(targetDay)}`;
+    }
+
+    // 상단 검색조건 초기화: 날짜를 기본값(1개월 전~오늘)으로 복원 후 자동 재조회
+    resetG2BFilters() {
+        const todayKst = this.getKSTToday();
+        const oneMonthAgoKst = this.getKSTOneMonthAgo(todayKst);
+
+        const startDateInput = document.getElementById('g2b-filter-start-date');
+        const endDateInput = document.getElementById('g2b-filter-end-date');
+        if (startDateInput) {
+            startDateInput.value = oneMonthAgoKst;
+        }
+        if (endDateInput) {
+            endDateInput.value = todayKst;
+            endDateInput.min = oneMonthAgoKst;
+        }
+
+        // 다른 검색조건(공고유형, 공고명, 수요기관)에는 영향을 주지 않음
+
+        // 결과 내 검색어 초기화
+        const searchInput = document.getElementById('g2b-local-search-input');
+        if (searchInput) searchInput.value = '';
+        this.state.g2bSearchKeyword = '';
+
+        // 기본 날짜 조건으로 재검색
+        this.fetchG2BAnnouncements(1);
+    }
+
+    // 로컬 결과 내 검색 및 정렬 초기화
     resetG2BLocalFilter() {
         const searchInput = document.getElementById('g2b-local-search-input');
         const sortSelect = document.getElementById('g2b-local-sort');
@@ -11484,6 +11572,21 @@ renderTodayTasksRoleBased(todayStr) {
         if (sortSelect) sortSelect.value = 'endDateAsc';
 
         this.state.g2bSearchKeyword = '';
+
+        // 날짜 필드가 비어있다면 기본값으로 복원 (빈 값 방지)
+        const startDateInput = document.getElementById('g2b-filter-start-date');
+        const endDateInput = document.getElementById('g2b-filter-end-date');
+        const todayKst = this.getKSTToday();
+        const oneMonthAgoKst = this.getKSTOneMonthAgo(todayKst);
+
+        if (startDateInput && !startDateInput.value) {
+            startDateInput.value = oneMonthAgoKst;
+        }
+        if (endDateInput && !endDateInput.value) {
+            endDateInput.value = todayKst;
+            endDateInput.min = oneMonthAgoKst;
+        }
+
         this.handleG2BLocalFilter(true);
     }
 
@@ -11493,27 +11596,44 @@ renderTodayTasksRoleBased(todayStr) {
         this.renderG2BViewAnnouncements();
     }
 
-    initG2BSearchView() {
+    // 나라장터 공고조회 화면 최초 진입 및 초기 설정
+    initG2BSearchView(force = false) {
         const startDateInput = document.getElementById('g2b-filter-start-date');
         const endDateInput = document.getElementById('g2b-filter-end-date');
 
-        const formatDate = (d) => {
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            return `${yyyy}-${mm}-${dd}`;
-        };
+        const todayKst = this.getKSTToday();
+        const oneMonthAgoKst = this.getKSTOneMonthAgo(todayKst);
 
-        const today = new Date();
-        const plus30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+        // 최초 진입이거나 force=true일 때 기본값 설정
+        // 사용자가 날짜를 직접 변경한 뒤 유지 중인 경우(기존 값이 있고 force가 false)는 덮어쓰지 않음
+        if (startDateInput && (!startDateInput.value || force)) {
+            startDateInput.value = oneMonthAgoKst;
+        }
+        if (endDateInput && (!endDateInput.value || force)) {
+            endDateInput.value = todayKst;
+            if (startDateInput && startDateInput.value) {
+                endDateInput.min = startDateInput.value;
+            }
+        }
 
-        if (startDateInput) startDateInput.value = formatDate(today);
-        if (endDateInput) endDateInput.value = formatDate(plus30Days);
+        if (startDateInput && endDateInput && !startDateInput._dateGuardBound) {
+            startDateInput._dateGuardBound = true;
+            startDateInput.addEventListener('change', () => {
+                if (startDateInput.value) {
+                    endDateInput.min = startDateInput.value;
+                }
+            });
+        }
 
         const sortSelect = document.getElementById('g2b-local-sort');
-        if (sortSelect) sortSelect.value = 'endDateAsc';
+        if (sortSelect && !sortSelect.value) {
+            sortSelect.value = 'endDateAsc';
+        }
 
-        this.fetchG2BAnnouncements(1);
+        // 최초 진입 시 아직 조회 결과가 없다면 기본 날짜 조건으로 자동 조회 실행
+        if (!this.state.g2bOriginalItems || this.state.g2bOriginalItems.length === 0) {
+            this.fetchG2BAnnouncements(1);
+        }
     }
 
     focusBiddingPanel(panelName) {

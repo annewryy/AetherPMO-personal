@@ -170,6 +170,23 @@ async function runSearch() {
   if (!apiMode.value) return;
   if (isFavoriteEmpty.value) return;
 
+  // 날짜 유효성 검증
+  if (bgngDt.value && endDt.value) {
+    if (bgngDt.value > endDt.value) {
+      alert('시작일은 종료일보다 이전이어야 합니다.');
+      return;
+    }
+    const [sy, sm, sd] = bgngDt.value.split('-').map(Number);
+    const [ey, em, ed] = endDt.value.split('-').map(Number);
+    const startDate = new Date(sy, sm - 1, sd);
+    const endDate = new Date(ey, em - 1, ed);
+    const diffDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+    if (diffDays > 186) {
+      alert('응답 지연 방지를 위해 조회기간은 최대 6개월까지 선택할 수 있습니다.');
+      return;
+    }
+  }
+
   const currentSeq = ++searchSeq;
   loading.value = true;
   loadError.value = null;
