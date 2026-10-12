@@ -4,7 +4,8 @@
   "description": "AetherPMO Project & Artifact Management System with Monthly Effort Automation",
   "private": true,
   "scripts": {
-    "test": "node test-effort-features.js"
+    "test": "node test-effort-features.js",
+    "test:integration": "node test-effort-integration.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
@@ -12,6 +13,6 @@
     "xlsx": "^0.18.5"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   }
 }

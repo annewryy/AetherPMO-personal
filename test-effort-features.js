@@ -7,6 +7,8 @@
 // - Excel/CSV 파싱 & NEEDS_REVIEW 전환 검증
 // ==========================================================================
 
+process.env.NODE_ENV = 'test';
+
 const assert = require('assert');
 const {
     generateEffortToken,
@@ -295,7 +297,49 @@ async function runTests() {
     }, resParseNoAuth);
     assert.strictEqual(resParseNoAuth.get().statusCode, 401);
 
-    console.log('✅ Test 5 Passed: 무인증 401 차단, Fail-Closed 503 거부, Mock 플래그 통제, 관리자 허용 통과');
+    // 5-9. confirm API 인증 및 권한 검증
+    const resConfirmNoAuth = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: {},
+        query: { action: 'confirm' },
+        body: { requestId: 'req-1', isConfirm: true }
+    }, resConfirmNoAuth);
+    assert.strictEqual(resConfirmNoAuth.get().statusCode, 401, 'confirm 무인증 401 검증 실패');
+
+    const resConfirmUser = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_USER_TOKEN' },
+        query: { action: 'confirm' },
+        body: { requestId: 'req-1', isConfirm: true }
+    }, resConfirmUser);
+    assert.strictEqual(resConfirmUser.get().statusCode, 403, 'confirm 일반사용자 403 차단 검증 실패');
+
+    const resConfirmAdmin = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_ADMIN_TOKEN' },
+        query: { action: 'confirm' },
+        body: { requestId: 'req-1', isConfirm: true }
+    }, resConfirmAdmin);
+    assert.strictEqual(resConfirmAdmin.get().statusCode, 200, 'confirm 관리자 200 통과 검증 실패');
+    assert.strictEqual(resConfirmAdmin.get().responseData.status, 'CONFIRMED');
+
+    // 5-10. 운영 환경(production)에서의 Fail-Closed 보안 검증 (TEST_ADMIN_TOKEN 거부)
+    process.env.NODE_ENV = 'production';
+    const resProdTestToken = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_ADMIN_TOKEN' },
+        query: { action: 'confirm' },
+        body: { requestId: 'req-1', isConfirm: true }
+    }, resProdTestToken);
+    assert(resProdTestToken.get().statusCode === 401 || resProdTestToken.get().statusCode === 503,
+        `운영 환경에서 TEST_ADMIN_TOKEN이 거부되지 않음: ${resProdTestToken.get().statusCode}`);
+    process.env.NODE_ENV = 'test';
+
+    console.log('✅ Test 5 Passed: 무인증 401 차단, Fail-Closed 503 거부, confirm 권한 통제, 운영 환경 테스트토큰 차단 검증 완료');
 
     console.log('\n================================================================');
     console.log('🎉 ALL COMPREHENSIVE TESTS PASSED WITH 100% SUCCESS!');

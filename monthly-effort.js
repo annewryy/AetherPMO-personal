@@ -102,6 +102,18 @@
             return `EFF-${ymClean}-${codeClean}-${rand}`;
         },
 
+        // UUID 생성기 (오프라인 모드 전용, DB 모드에서는 gen_random_uuid 사용)
+        generateUUID() {
+            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                return crypto.randomUUID();
+            }
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        },
+
         // 권한 체크 헬퍼
         canManageEffort() {
             const role = (this.currentUser?.role || '').toLowerCase();
@@ -145,6 +157,17 @@
         },
 
         async loadMonthlyEffortData() {
+            // 서버 상태 및 Mock 플래그 조회
+            try {
+                const stRes = await fetch('/api/effort?action=status');
+                if (stRes.ok) {
+                    const stData = await stRes.json();
+                    this.serverMailConfig = stData.mailConfig || {};
+                }
+            } catch (stErr) {
+                console.warn('[MonthlyEffort] Status API fetch warning:', stErr);
+            }
+
             if (this.useSupabase && this.supabase) {
                 try {
                     const [
@@ -163,6 +186,8 @@
                         this.supabase.from('monthly_effort_audit_logs').select('*').order('created_at', { ascending: false }).limit(100)
                     ]);
 
+                    if (errCycles) console.warn('[MonthlyEffort] Cycles fetch error:', errCycles.message);
+                    if (errRequests) console.warn('[MonthlyEffort] Requests fetch error:', errRequests.message);
                     if (!errCycles && dbCycles) this.state.monthlyEffortCycles = dbCycles;
                     if (!errRequests && dbRequests) this.state.monthlyEffortRequests = dbRequests;
                     if (!errEntries && dbEntries) this.state.monthlyEffortEntries = dbEntries;
@@ -172,11 +197,11 @@
                 } catch (e) {
                     console.warn('[MonthlyEffort] Supabase fetch failed, fallback to local:', e);
                 }
-            }
-
-            // 샘플 데이터가 전혀 없는 경우 기본 전월 사이클 1건 자동 시드
-            if (this.state.monthlyEffortCycles.length === 0) {
-                this.seedInitialEffortData();
+            } else {
+                // 오프라인/로컬스토리지 전용 환경에서만 초기 샘플 데이터 시딩
+                if (this.state.monthlyEffortCycles.length === 0) {
+                    this.seedInitialEffortData();
+                }
             }
         },
 
@@ -188,7 +213,7 @@
                 p.status !== 'Completed' && p.status !== '종료'
             );
 
-            const cycleId = 'cycle-' + defMonth;
+            const cycleId = this.generateUUID();
             const cycle = {
                 id: cycleId,
                 year_month: defMonth,
@@ -208,7 +233,7 @@
                 const hasPm = pmInfo.name && pmInfo.email;
 
                 this.state.monthlyEffortRequests.push({
-                    id: 'req-' + defMonth + '-' + (p.project_code || p.id),
+                    id: this.generateUUID(),
                     cycle_id: cycleId,
                     year_month: defMonth,
                     project_id: p.id,
@@ -654,69 +679,130 @@
                 p.status !== 'Completed' && p.status !== '종료'
             );
 
-            const cycleId = 'cycle-' + ym + '-' + Date.now();
-            const newCycle = {
-                id: cycleId,
-                year_month: ym,
-                deadline_date: deadline,
-                status: 'open',
-                total_projects: activeProjects.length,
-                submitted_projects: 0,
-                confirmed_projects: 0,
-                notes: '정기 투입공수 조사',
-                created_by: this.currentUser?.id || null,
-                created_at: new Date().toISOString()
-            };
-
-            const newRequests = activeProjects.map(p => {
-                const pmInfo = this.resolveProjectPm(p);
-                const hasPm = pmInfo.name && pmInfo.email;
-                const token = this.generateEffortToken(ym, p.project_code || p.id);
-
-                return {
-                    id: 'req-' + ym + '-' + (p.project_code || p.id),
-                    cycle_id: cycleId,
+            // DB 모드
+            if (this.useSupabase && this.supabase) {
+                const cyclePayload = {
                     year_month: ym,
-                    project_id: p.id,
-                    project_code: p.project_code || p.id,
-                    project_name: p.project_name || p.name,
-                    pm_id: pmInfo.id || null,
-                    pm_name: pmInfo.name || null,
-                    pm_email: pmInfo.email || null,
-                    request_token: token,
-                    status: hasPm ? 'UNSENT' : 'NO_PM_INFO',
-                    first_sent_at: null,
-                    last_sent_at: null,
-                    send_count: 0,
-                    submission_method: null,
-                    submitted_at: null,
-                    confirmed_at: null,
-                    confirmed_by: null,
-                    total_effort_mm: 0,
-                    total_headcount: 0,
+                    deadline_date: deadline,
+                    status: 'open',
+                    total_projects: activeProjects.length,
+                    submitted_projects: 0,
+                    confirmed_projects: 0,
+                    notes: '정기 투입공수 조사',
+                    created_by: this.currentUser?.id || null
+                };
+
+                const { data: createdCycle, error: cycleErr } = await this.supabase
+                    .from('monthly_effort_cycles')
+                    .insert(cyclePayload)
+                    .select()
+                    .single();
+
+                if (cycleErr || !createdCycle) {
+                    console.error('[MonthlyEffort] Cycle DB insert failed:', cycleErr);
+                    this.showToast(`조사 Cycle 생성 실패: ${cycleErr?.message || 'DB 오류'}`, 'error');
+                    return;
+                }
+
+                const requestsPayload = activeProjects.map(p => {
+                    const pmInfo = this.resolveProjectPm(p);
+                    const hasPm = pmInfo.name && pmInfo.email;
+                    const token = this.generateEffortToken(ym, p.project_code || p.id);
+
+                    return {
+                        cycle_id: createdCycle.id,
+                        year_month: ym,
+                        project_id: p.id,
+                        project_code: p.project_code || p.id,
+                        project_name: p.project_name || p.name,
+                        pm_id: pmInfo.id || null,
+                        pm_name: pmInfo.name || null,
+                        pm_email: pmInfo.email || null,
+                        request_token: token,
+                        status: hasPm ? 'UNSENT' : 'NO_PM_INFO',
+                        send_count: 0,
+                        total_effort_mm: 0,
+                        total_headcount: 0
+                    };
+                });
+
+                let createdRequests = [];
+                if (requestsPayload.length > 0) {
+                    const { data: reqsData, error: reqsErr } = await this.supabase
+                        .from('monthly_effort_requests')
+                        .insert(requestsPayload)
+                        .select();
+
+                    if (reqsErr) {
+                        console.error('[MonthlyEffort] Requests DB insert failed:', reqsErr);
+                        // 롤백: 생성된 사이클 삭제
+                        await this.supabase.from('monthly_effort_cycles').delete().eq('id', createdCycle.id);
+                        this.showToast(`조사 Request 생성 실패: ${reqsErr.message}`, 'error');
+                        return;
+                    }
+                    createdRequests = reqsData || [];
+                }
+
+                this.state.monthlyEffortCycles.unshift(createdCycle);
+                this.state.monthlyEffortRequests.push(...createdRequests);
+
+                // 감사 로그 기록
+                if (createdRequests[0]) {
+                    await this.logEffortAudit({
+                        requestId: createdRequests[0].id,
+                        action: 'CREATE',
+                        details: `${ym}월 조사 사이클 및 ${activeProjects.length}개 대상 프로젝트 요청 생성 완료`
+                    });
+                }
+            } else {
+                // LocalStorage Mock 전용 모드
+                const cycleId = this.generateUUID();
+                const newCycle = {
+                    id: cycleId,
+                    year_month: ym,
+                    deadline_date: deadline,
+                    status: 'open',
+                    total_projects: activeProjects.length,
+                    submitted_projects: 0,
+                    confirmed_projects: 0,
+                    notes: '정기 투입공수 조사',
+                    created_by: this.currentUser?.id || null,
                     created_at: new Date().toISOString()
                 };
-            });
 
-            this.state.monthlyEffortCycles.unshift(newCycle);
-            this.state.monthlyEffortRequests.push(...newRequests);
+                const newRequests = activeProjects.map(p => {
+                    const pmInfo = this.resolveProjectPm(p);
+                    const hasPm = pmInfo.name && pmInfo.email;
+                    const token = this.generateEffortToken(ym, p.project_code || p.id);
 
-            // Supabase Sync
-            if (this.useSupabase && this.supabase) {
-                try {
-                    await this.supabase.from('monthly_effort_cycles').insert(newCycle);
-                    await this.supabase.from('monthly_effort_requests').insert(newRequests);
-                } catch (e) {
-                    console.warn('[MonthlyEffort] Supabase cycle insert error:', e);
-                }
+                    return {
+                        id: this.generateUUID(),
+                        cycle_id: cycleId,
+                        year_month: ym,
+                        project_id: p.id,
+                        project_code: p.project_code || p.id,
+                        project_name: p.project_name || p.name,
+                        pm_id: pmInfo.id || null,
+                        pm_name: pmInfo.name || null,
+                        pm_email: pmInfo.email || null,
+                        request_token: token,
+                        status: hasPm ? 'UNSENT' : 'NO_PM_INFO',
+                        send_count: 0,
+                        total_effort_mm: 0,
+                        total_headcount: 0,
+                        created_at: new Date().toISOString()
+                    };
+                });
+
+                this.state.monthlyEffortCycles.unshift(newCycle);
+                this.state.monthlyEffortRequests.push(...newRequests);
+
+                this.logEffortAudit({
+                    requestId: newRequests[0]?.id || cycleId,
+                    action: 'CREATE',
+                    details: `${ym}월 조사 사이클 신규 생성 (총 ${activeProjects.length}개 프로젝트)`
+                });
             }
-
-            // 감사 로그 기록
-            this.logEffortAudit({
-                requestId: newRequests[0]?.id || 'cycle-create',
-                action: 'CREATE',
-                details: `${ym}월 조사 사이클 신규 생성 (총 ${activeProjects.length}개 프로젝트)`
-            });
 
             this.persistEffortState();
             this.currentEffortMonth = ym;
@@ -866,7 +952,7 @@
                         successCount++;
 
                         const logEntry = {
-                            id: 'log-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                            id: this.generateUUID(),
                             request_id: r.id,
                             log_type: this.mailSendIsResend ? 'SEND_REMINDER' : 'SEND_INITIAL',
                             recipient_email: r.pm_email,
@@ -890,7 +976,7 @@
                         failedCount++;
 
                         const logErrEntry = {
-                            id: 'log-err-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                            id: this.generateUUID(),
                             request_id: r.id,
                             log_type: 'ERROR',
                             recipient_email: r.pm_email,
@@ -962,7 +1048,16 @@
         // 7. 이메일 회신 자동수집 & 파싱 동기화 (Sync Inbox)
         // ─────────────────────────────────────────────────────────────────
         async syncEffortInbox() {
-            this.showToast('메일 수신함에서 PM 회신 메일 동기화 및 엑셀 수집을 진행합니다...', 'info');
+            if (!this.canManageEffort()) {
+                this.showToast('수신함 동기화는 사업관리자/관리자 전용 기능입니다.', 'warning');
+                return;
+            }
+
+            const btn = document.getElementById('btn-effort-sync-inbox');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader" class="spin" style="width:14px;height:14px;"></i> 수신 확인 중...`;
+            }
 
             try {
                 const authHeaders = await this.getAuthHeaders();
@@ -972,36 +1067,52 @@
                 });
                 const data = await res.json();
                 console.log('[MonthlyEffort] Sync inbox response:', data);
-            } catch (e) {
-                console.log('[MonthlyEffort] Server sync response simulated');
-            }
 
-            // 시뮬레이션 및 테스트 지원:
-            // 아직 회신하지 않은 SENT 상태 건이 있다면 시뮬레이션 샘플 제출 처리 기능 안내
-            const ym = this.currentEffortMonth;
-            const sentReqs = (this.state.monthlyEffortRequests || []).filter(r =>
-                r.year_month === ym && r.status === 'SENT' && !r.submitted_at
-            );
+                await this.loadMonthlyEffortData();
 
-            if (sentReqs.length > 0) {
-                const confirmSim = confirm(
-                    `[이메일 자동수집 시뮬레이션]\n\n현재 발송완료 건 중 [${sentReqs[0].project_name}]의 PM이 엑셀을 첨부하여 회신한 것으로 가정하고 자동 수집·파싱 테스트를 진행하시겠습니까?`
-                );
-                if (confirmSim) {
-                    this.simulateInboundEmailReply(sentReqs[0]);
-                    return;
+                // 모의 회신 시뮬레이션: 오직 개발환경에서 명시적(EFFORT_MAIL_MOCK_ENABLED=true)일 때만 허용
+                const isMockEnabled = !!this.serverMailConfig?.mockEnabled;
+                if (isMockEnabled) {
+                    const ym = this.currentEffortMonth;
+                    const sentReqs = (this.state.monthlyEffortRequests || []).filter(r =>
+                        r.year_month === ym && r.status === 'SENT' && !r.submitted_at
+                    );
+
+                    if (sentReqs.length > 0) {
+                        const confirmSim = confirm(
+                            `[개발환경 테스트 안내 - EFFORT_MAIL_MOCK_ENABLED=true]\n\n현재 발송완료 건 중 [${sentReqs[0].project_name}]의 PM 모의 회신 메일 수집 테스트를 실행하시겠습니까?`
+                        );
+                        if (confirmSim) {
+                            await this.simulateInboundEmailReply(sentReqs[0]);
+                            return;
+                        }
+                    }
                 }
-            }
 
-            this.showToast('이메일 수신함 조회가 완료되었습니다.', 'success');
-            this.renderMonthlyEffortView();
+                this.showToast('이메일 수신함 조회가 완료되었습니다. (신규 자동 수집 건 없음)', 'info');
+            } catch (e) {
+                console.warn('[MonthlyEffort] Sync inbox error:', e);
+                this.showToast('수신함 동기화 처리 실패: ' + e.message, 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<i data-lucide="inbox" style="width:14px;height:14px;"></i> 수신함 동기화`;
+                }
+                this.renderMonthlyEffortView();
+            }
         },
 
-        simulateInboundEmailReply(request) {
+        async simulateInboundEmailReply(request) {
+            // 운영환경 차단: 서버에서 mockEnabled가 활성화되지 않았으면 실행 금지
+            if (!this.serverMailConfig?.mockEnabled) {
+                this.showToast('운영 환경에서는 모의 수신 시뮬레이션이 비활성화되어 있습니다.', 'warning');
+                return;
+            }
+
             const nowIso = new Date().toISOString();
             const fileName = `${request.project_code}_${request.year_month}_투입공수.xlsx`;
-            const mockMsgId = `msg-${request.request_token}@mail.local`;
-            const mockFileHash = 'hash-' + request.request_token;
+            const mockMsgId = `<mock-reply-${request.request_token}@mail.local>`;
+            const mockFileHash = 'mockhash-' + request.request_token;
 
             // 중복 수신 방지 (Idempotency Check)
             const isDup = (this.state.monthlyEffortSubmissions || []).some(s =>
@@ -1021,16 +1132,15 @@
             ];
 
             const totalMm = sampleEntries.reduce((sum, e) => sum + e.effortMm, 0);
+            const subId = this.generateUUID();
 
-            // 1. submission 등록
-            const subId = 'sub-' + Date.now();
             this.state.monthlyEffortSubmissions.push({
                 id: subId,
                 request_id: request.id,
                 year_month: request.year_month,
                 project_id: request.project_id,
                 file_name: fileName,
-                file_path: `monthly-effort-files/${request.year_month}/${fileName}`,
+                file_path: `monthly-effort-files/${request.year_month}/${request.project_id || request.project_code}/${request.id}/${fileName}`,
                 file_size: 45200,
                 file_type: 'xlsx',
                 submission_method: 'EMAIL_AUTO',
@@ -1047,7 +1157,7 @@
             this.state.monthlyEffortEntries = this.state.monthlyEffortEntries.filter(e => e.request_id !== request.id);
             sampleEntries.forEach((se, idx) => {
                 this.state.monthlyEffortEntries.push({
-                    id: 'ent-' + Date.now() + '-' + idx,
+                    id: this.generateUUID(),
                     request_id: request.id,
                     submission_id: subId,
                     year_month: request.year_month,
@@ -1073,7 +1183,7 @@
 
             // 4. 로그 등록
             this.state.monthlyEffortLogs.unshift({
-                id: 'log-in-' + Date.now(),
+                id: this.generateUUID(),
                 request_id: request.id,
                 log_type: 'RECEIVE_INBOUND',
                 sender_email: request.pm_email,
@@ -1403,35 +1513,103 @@
             const { headcount, totalEffortMm } = this.calculateEffortTotals();
             const nowIso = new Date().toISOString();
 
-            // 엔트리 동기화
-            this.state.monthlyEffortEntries = this.state.monthlyEffortEntries.filter(e => e.request_id !== req.id);
-            const dbEntries = this.tempEffortEntries.map((ent, idx) => ({
-                id: 'ent-' + Date.now() + '-' + idx,
-                request_id: req.id,
-                year_month: req.year_month,
-                project_id: req.project_id,
-                member_name: ent.member_name || ent.memberName,
-                organization: ent.organization || '자사',
-                role_name: ent.role_name || ent.roleName || '수행원',
-                period_str: ent.period_str || ent.periodStr,
-                work_days: ent.work_days ?? ent.workDays ?? 0,
-                effort_mm: ent.effort_mm ?? ent.effortMm ?? 0,
-                remarks: ent.remarks || '',
-                order_no: idx + 1,
-                created_at: nowIso,
-                updated_at: nowIso
-            }));
-            this.state.monthlyEffortEntries.push(...dbEntries);
+            if (this.useSupabase && this.supabase) {
+                try {
+                    // 1. 기존 엔트리 삭제 및 오류 확인
+                    const { error: delErr } = await this.supabase
+                        .from('monthly_effort_entries')
+                        .delete()
+                        .eq('request_id', req.id);
+                    if (delErr) throw delErr;
 
-            // 요청 정보 업데이트
-            req.total_headcount = headcount;
-            req.total_effort_mm = totalEffortMm;
-            req.submission_method = req.submission_method || 'DIRECT_INPUT';
-            if (isSubmit) {
-                req.status = 'SUBMITTED';
-                req.submitted_at = nowIso;
+                    // 2. 새 엔트리 INSERT (id 생략하여 DB DEFAULT gen_random_uuid() 사용)
+                    const dbPayloadEntries = this.tempEffortEntries.map((ent, idx) => ({
+                        request_id: req.id,
+                        year_month: req.year_month,
+                        project_id: req.project_id,
+                        member_name: ent.member_name || ent.memberName,
+                        organization: ent.organization || '자사',
+                        role_name: ent.role_name || ent.roleName || '수행원',
+                        period_str: ent.period_str || ent.periodStr,
+                        work_days: ent.work_days ?? ent.workDays ?? 0,
+                        effort_mm: ent.effort_mm ?? ent.effortMm ?? 0,
+                        remarks: ent.remarks || '',
+                        order_no: idx + 1
+                    }));
+
+                    let insertedEntries = [];
+                    if (dbPayloadEntries.length > 0) {
+                        const { data: insData, error: insErr } = await this.supabase
+                            .from('monthly_effort_entries')
+                            .insert(dbPayloadEntries)
+                            .select();
+                        if (insErr) throw insErr;
+                        insertedEntries = insData || [];
+                    }
+
+                    // 3. Request 상태 및 합계 업데이트 및 오류 확인
+                    const nextStatus = isSubmit ? 'SUBMITTED' : req.status;
+                    const nextSubmittedAt = isSubmit ? nowIso : req.submitted_at;
+                    const nextMethod = req.submission_method || 'DIRECT_INPUT';
+
+                    const { error: reqUpdErr } = await this.supabase
+                        .from('monthly_effort_requests')
+                        .update({
+                            total_headcount: headcount,
+                            total_effort_mm: totalEffortMm,
+                            submission_method: nextMethod,
+                            status: nextStatus,
+                            submitted_at: nextSubmittedAt,
+                            updated_at: nowIso
+                        })
+                        .eq('id', req.id);
+                    if (reqUpdErr) throw reqUpdErr;
+
+                    // 성공 시 로컬 캐시 갱신
+                    this.state.monthlyEffortEntries = (this.state.monthlyEffortEntries || []).filter(e => e.request_id !== req.id);
+                    this.state.monthlyEffortEntries.push(...insertedEntries);
+
+                    req.total_headcount = headcount;
+                    req.total_effort_mm = totalEffortMm;
+                    req.submission_method = nextMethod;
+                    req.status = nextStatus;
+                    req.submitted_at = nextSubmittedAt;
+                    req.updated_at = nowIso;
+                } catch (dbErr) {
+                    console.error('[MonthlyEffort] Supabase save error:', dbErr);
+                    alert(`투입공수 저장 중 데이터베이스 오류가 발생했습니다: ${dbErr.message || JSON.stringify(dbErr)}`);
+                    return; // DB 오류 시 절대 성공 Toast 표시 금지
+                }
+            } else {
+                // LocalStorage / Mock 모드
+                this.state.monthlyEffortEntries = (this.state.monthlyEffortEntries || []).filter(e => e.request_id !== req.id);
+                const mockEntries = this.tempEffortEntries.map((ent, idx) => ({
+                    id: this.generateUUID(),
+                    request_id: req.id,
+                    year_month: req.year_month,
+                    project_id: req.project_id,
+                    member_name: ent.member_name || ent.memberName,
+                    organization: ent.organization || '자사',
+                    role_name: ent.role_name || ent.roleName || '수행원',
+                    period_str: ent.period_str || ent.periodStr,
+                    work_days: ent.work_days ?? ent.workDays ?? 0,
+                    effort_mm: ent.effort_mm ?? ent.effortMm ?? 0,
+                    remarks: ent.remarks || '',
+                    order_no: idx + 1,
+                    created_at: nowIso,
+                    updated_at: nowIso
+                }));
+                this.state.monthlyEffortEntries.push(...mockEntries);
+
+                req.total_headcount = headcount;
+                req.total_effort_mm = totalEffortMm;
+                req.submission_method = req.submission_method || 'DIRECT_INPUT';
+                if (isSubmit) {
+                    req.status = 'SUBMITTED';
+                    req.submitted_at = nowIso;
+                }
+                req.updated_at = nowIso;
             }
-            req.updated_at = nowIso;
 
             // 감사 로그 기록
             this.logEffortAudit({
@@ -1442,24 +1620,6 @@
                     : `투입공수 임시저장 (${headcount}명, ${totalEffortMm} M/M)`
             });
 
-            // Supabase Sync
-            if (this.useSupabase && this.supabase) {
-                try {
-                    await this.supabase.from('monthly_effort_entries').delete().eq('request_id', req.id);
-                    await this.supabase.from('monthly_effort_entries').insert(dbEntries);
-                    await this.supabase.from('monthly_effort_requests').update({
-                        total_headcount: headcount,
-                        total_effort_mm: totalEffortMm,
-                        submission_method: req.submission_method,
-                        status: req.status,
-                        submitted_at: req.submitted_at,
-                        updated_at: nowIso
-                    }).eq('id', req.id);
-                } catch (e) {
-                    console.warn('[MonthlyEffort] Supabase save error:', e);
-                }
-            }
-
             this.persistEffortState();
             this.closeEffortDetailModal();
             this.renderMonthlyEffortView();
@@ -1467,6 +1627,7 @@
         },
 
         // 확정 승인 / 확정 취소
+        // 확정 승인 / 확정 취소 (서버 API /api/effort?action=confirm 통합 호출)
         async confirmEffortRequest(requestId, isConfirm = true) {
             if (!this.canManageEffort()) {
                 this.showToast('확정/취소 권한이 없습니다. (관리자/사업관리자 전용)', 'warning');
@@ -1476,45 +1637,44 @@
             const req = (this.state.monthlyEffortRequests || []).find(r => r.id === requestId);
             if (!req) return;
 
-            const nowIso = new Date().toISOString();
             const actionText = isConfirm ? '확정' : '확정 취소';
             if (!confirm(`[${req.project_name}]의 ${req.year_month}월 투입공수를 ${actionText}하시겠습니까?`)) {
                 return;
             }
 
-            if (isConfirm) {
-                req.status = 'CONFIRMED';
-                req.confirmed_at = nowIso;
-                req.confirmed_by = this.currentUser?.id || null;
-            } else {
-                req.status = 'SUBMITTED';
-                req.confirmed_at = null;
-                req.confirmed_by = null;
-            }
-            req.updated_at = nowIso;
+            const token = await this.getEffortAuthToken();
+            try {
+                const response = await fetch('/api/effort?action=confirm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({ requestId, isConfirm })
+                });
 
-            this.logEffortAudit({
-                requestId: req.id,
-                action: isConfirm ? 'CONFIRM' : 'UNCONFIRM',
-                details: `${actionText} 처리 완료 (담당자: ${this.currentUser?.name || '관리자'})`
-            });
-
-            if (this.useSupabase && this.supabase) {
-                try {
-                    await this.supabase.from('monthly_effort_requests').update({
-                        status: req.status,
-                        confirmed_at: req.confirmed_at,
-                        confirmed_by: req.confirmed_by,
-                        updated_at: nowIso
-                    }).eq('id', req.id);
-                } catch (e) {
-                    console.warn('[MonthlyEffort] Supabase confirm update error:', e);
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || `${actionText} 처리에 실패했습니다.`);
                 }
-            }
 
-            this.persistEffortState();
-            this.renderMonthlyEffortView();
-            this.showToast(`${actionText}되었습니다.`, 'success');
+                if (this.useSupabase) {
+                    await this.loadMonthlyEffortData();
+                } else {
+                    const nowIso = new Date().toISOString();
+                    req.status = isConfirm ? 'CONFIRMED' : 'SUBMITTED';
+                    req.confirmed_at = isConfirm ? nowIso : null;
+                    req.confirmed_by = isConfirm ? (this.currentUser?.id || 'admin') : null;
+                    req.updated_at = nowIso;
+                    this.persistEffortState();
+                }
+
+                this.renderMonthlyEffortView();
+                this.showToast(`${actionText}되었습니다.`, 'success');
+            } catch (err) {
+                console.error('[MonthlyEffort] Confirm API error:', err);
+                alert(`확정 처리 중 오류가 발생했습니다: ${err.message}`);
+            }
         },
 
         async confirmCurrentEffort(isConfirm = true) {
@@ -1524,7 +1684,7 @@
             }
         },
 
-        // 선택 프로젝트 일괄 확정
+        // 선택 프로젝트 일괄 확정 (서버 API /api/effort?action=confirm 통합 호출)
         async batchConfirmSelectedEfforts() {
             if (!this.canManageEffort()) {
                 this.showToast('일괄 확정은 사업관리자/관리자 전용 기능입니다.', 'warning');
@@ -1550,32 +1710,42 @@
                 return;
             }
 
-            const nowIso = new Date().toISOString();
-            for (const req of targetReqs) {
-                req.status = 'CONFIRMED';
-                req.confirmed_at = nowIso;
-                req.confirmed_by = this.currentUser?.id || null;
-                req.updated_at = nowIso;
-
-                this.logEffortAudit({
-                    requestId: req.id,
-                    action: 'CONFIRM',
-                    details: `일괄 확정 승인 (담당자: ${this.currentUser?.name || '관리자'})`
+            const token = await this.getEffortAuthToken();
+            try {
+                const targetIds = targetReqs.map(r => r.id);
+                const response = await fetch('/api/effort?action=confirm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({ requestIds: targetIds, isConfirm: true })
                 });
 
-                if (this.useSupabase && this.supabase) {
-                    await this.supabase.from('monthly_effort_requests').update({
-                        status: 'CONFIRMED',
-                        confirmed_at: nowIso,
-                        confirmed_by: req.confirmed_by,
-                        updated_at: nowIso
-                    }).eq('id', req.id);
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || '일괄 확정 처리에 실패했습니다.');
                 }
-            }
 
-            this.persistEffortState();
-            this.renderMonthlyEffortView();
-            this.showToast(`${targetReqs.length}개 프로젝트가 일괄 확정되었습니다.`, 'success');
+                if (this.useSupabase) {
+                    await this.loadMonthlyEffortData();
+                } else {
+                    const nowIso = new Date().toISOString();
+                    for (const req of targetReqs) {
+                        req.status = 'CONFIRMED';
+                        req.confirmed_at = nowIso;
+                        req.confirmed_by = this.currentUser?.id || 'admin';
+                        req.updated_at = nowIso;
+                    }
+                    this.persistEffortState();
+                }
+
+                this.renderMonthlyEffortView();
+                this.showToast(`${targetReqs.length}개 프로젝트가 일괄 확정되었습니다.`, 'success');
+            } catch (err) {
+                console.error('[MonthlyEffort] Batch confirm API error:', err);
+                alert(`일괄 확정 처리 중 오류가 발생했습니다: ${err.message}`);
+            }
         },
 
         // ─────────────────────────────────────────────────────────────────
@@ -1583,7 +1753,7 @@
         // ─────────────────────────────────────────────────────────────────
         logEffortAudit({ requestId, action, details }) {
             const auditEntry = {
-                id: 'aud-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                id: this.generateUUID(),
                 request_id: requestId,
                 action,
                 changed_by: this.currentUser?.id || null,
@@ -1595,7 +1765,22 @@
             this.state.monthlyEffortAuditLogs.unshift(auditEntry);
 
             if (this.useSupabase && this.supabase) {
-                this.supabase.from('monthly_effort_audit_logs').insert(auditEntry).then();
+                const { id, ...dbPayload } = auditEntry;
+                this.supabase
+                    .from('monthly_effort_audit_logs')
+                    .insert(dbPayload)
+                    .select()
+                    .single()
+                    .then(({ data, error }) => {
+                        if (error) {
+                            console.warn('[MonthlyEffort] Audit log insert error:', error);
+                        } else if (data) {
+                            auditEntry.id = data.id;
+                        }
+                    })
+                    .catch(err => {
+                        console.warn('[MonthlyEffort] Audit log insert exception:', err);
+                    });
             }
         },
 
@@ -1833,9 +2018,10 @@
             if (!req) return;
 
             const nowIso = new Date().toISOString();
-            const subId = 'sub-' + Date.now();
             const safeName = (fileName || 'effort.xlsx').replace(/[^a-zA-Z0-9._\-]/g, '_');
             const storagePath = `${req.year_month}/${req.project_id || req.project_code}/${req.id}/${Date.now()}_${safeName}`;
+
+            let createdSubmission = null;
 
             // 실제 Supabase Storage 업로드 ('monthly-effort-files' 버킷)
             if (this.useSupabase && this.supabase) {
@@ -1857,12 +2043,80 @@
                         alert(`Supabase Storage 파일 업로드 실패: ${uploadErr.message}\n업로드가 취소되었습니다.`);
                         return; // 업로드 실패 시 Submission을 성공 처리하지 않음
                     }
+
+                    // submissions 등록 (스토리지 업로드 성공 후에만 DB에 저장, id 생략하여 DB gen_random_uuid() 활용)
+                    const submissionPayload = {
+                        request_id: req.id,
+                        year_month: req.year_month,
+                        project_id: req.project_id,
+                        file_name: fileName,
+                        file_path: storagePath,
+                        file_size: fileSize,
+                        file_type: 'xlsx',
+                        submission_method: 'DIRECT_UPLOAD',
+                        received_at: nowIso,
+                        parse_status: parsed.isValid ? 'SUCCESS' : 'WARNING',
+                        parse_error_message: parsed.errors.join('\n'),
+                        parsed_row_count: parsed.entries.length
+                    };
+
+                    const { data: subData, error: sErr } = await this.supabase
+                        .from('monthly_effort_submissions')
+                        .insert(submissionPayload)
+                        .select()
+                        .single();
+
+                    if (sErr) {
+                        console.error('[MonthlyEffort] DB submission insert error:', sErr);
+                        alert(`제출 이력 DB 저장 실패: ${sErr.message}`);
+                        return;
+                    }
+                    createdSubmission = subData;
+
+                    // 상태 업데이트
+                    const nextStatus = parsed.isValid ? 'SUBMITTED' : 'NEEDS_REVIEW';
+                    const { error: reqErr } = await this.supabase
+                        .from('monthly_effort_requests')
+                        .update({
+                            status: nextStatus,
+                            submission_method: 'DIRECT_UPLOAD',
+                            submitted_at: nowIso,
+                            review_notes: parsed.errors.length > 0 ? parsed.errors.join('\n') : null,
+                            updated_at: nowIso
+                        })
+                        .eq('id', req.id);
+
+                    if (reqErr) {
+                        console.error('[MonthlyEffort] DB request status update error:', reqErr);
+                        alert(`조사 요청 상태 갱신 실패: ${reqErr.message}`);
+                        return;
+                    }
                 } catch (upEx) {
                     console.error('[MonthlyEffort] Storage upload exception:', upEx);
                     alert(`파일 업로드 중 네트워크/스토리지 오류가 발생했습니다: ${upEx.message}`);
                     return;
                 }
+            } else {
+                // Mock / LocalStorage 모드
+                createdSubmission = {
+                    id: this.generateUUID(),
+                    request_id: req.id,
+                    year_month: req.year_month,
+                    project_id: req.project_id,
+                    file_name: fileName,
+                    file_path: storagePath,
+                    file_size: fileSize,
+                    file_type: 'xlsx',
+                    submission_method: 'DIRECT_UPLOAD',
+                    received_at: nowIso,
+                    parse_status: parsed.isValid ? 'SUCCESS' : 'WARNING',
+                    parse_error_message: parsed.errors.join('\n'),
+                    parsed_row_count: parsed.entries.length
+                };
             }
+
+            this.state.monthlyEffortSubmissions = this.state.monthlyEffortSubmissions || [];
+            this.state.monthlyEffortSubmissions.push(createdSubmission);
 
             // 상세 모달 entries에 덮어쓰기
             this.tempEffortEntries = parsed.entries.map(e => ({
@@ -1875,37 +2129,17 @@
                 remarks: e.remarks
             }));
 
-            // submissions 등록 (스토리지 업로드 성공 후에만 DB에 저장)
-            const submissionRecord = {
-                id: subId,
-                request_id: req.id,
-                year_month: req.year_month,
-                project_id: req.project_id,
-                file_name: fileName,
-                file_path: storagePath,
-                file_size: fileSize,
-                file_type: 'xlsx',
-                submission_method: 'DIRECT_UPLOAD',
-                received_at: nowIso,
-                parse_status: parsed.isValid ? 'SUCCESS' : 'WARNING',
-                parse_error_message: parsed.errors.join('\n'),
-                parsed_row_count: parsed.entries.length
-            };
-            this.state.monthlyEffortSubmissions.push(submissionRecord);
-
-            if (this.useSupabase && this.supabase) {
-                try {
-                    await this.supabase.from('monthly_effort_submissions').insert(submissionRecord);
-                } catch (sErr) {
-                    console.warn('[MonthlyEffort] DB submission insert warning:', sErr);
-                }
-            }
-
             // 상태 업데이트: 오류가 있으면 NEEDS_REVIEW, 정상이면 SUBMITTED
             req.status = parsed.isValid ? 'SUBMITTED' : 'NEEDS_REVIEW';
             req.submission_method = 'DIRECT_UPLOAD';
             req.submitted_at = nowIso;
             req.review_notes = parsed.errors.length > 0 ? parsed.errors.join('\n') : null;
+
+            this.logEffortAudit({
+                requestId: req.id,
+                action: 'DIRECT_SUBMIT',
+                details: `Excel 파일 직접 업로드 완료 (${fileName}, ${parsed.entries.length}명, ${parsed.totalEffortMm} M/M)`
+            });
 
             // 원본 파일 표시 갱신
             const fileBox = document.getElementById('effort-modal-file-info-box');

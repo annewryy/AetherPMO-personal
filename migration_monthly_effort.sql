@@ -108,6 +108,11 @@ CREATE TABLE IF NOT EXISTS public.monthly_effort_email_logs (
     subject TEXT,
     body_snippet TEXT,
     token TEXT,
+    provider TEXT,              -- 메일 제공자 (SMTP, GOOGLE_WORKSPACE, MS_GRAPH, MOCK 등)
+    provider_message_id TEXT,   -- 제공자 반환 Message-ID
+    message_id TEXT,            -- 이메일 표준 Message-ID 헤더
+    in_reply_to TEXT,           -- 회신 원본 메일 식별 헤더 (In-Reply-To)
+    references_header TEXT,     -- 메일 스레드 참조 헤더 (References)
     status TEXT NOT NULL DEFAULT 'SUCCESS' CHECK (status IN ('SUCCESS', 'FAILED', 'PENDING')),
     error_message TEXT,
     attachments_info JSONB DEFAULT '[]'::jsonb,
@@ -119,8 +124,8 @@ CREATE TABLE IF NOT EXISTS public.monthly_effort_audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     request_id UUID REFERENCES public.monthly_effort_requests(id) ON DELETE CASCADE NOT NULL,
     action TEXT NOT NULL CHECK (action IN (
-        'CREATE', 'SEND_MAIL', 'RESEND_MAIL', 'DIRECT_SUBMIT',
-        'EXCEL_UPLOAD', 'UPDATE_ENTRY', 'CONFIRM', 'UNCONFIRM'
+        'CREATE', 'SEND_MAIL', 'SEND_MAIL_FAILED', 'RESEND_MAIL', 'DIRECT_SUBMIT',
+        'EXCEL_UPLOAD', 'UPDATE_ENTRY', 'CONFIRM', 'UNCONFIRM', 'EMAIL_AUTO_RECEIVE', 'INBOX_SYNC'
     )),
     changed_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     changed_by_name TEXT,
@@ -427,7 +432,29 @@ CREATE POLICY "monthly_effort_files_insert" ON storage.objects
         AND EXISTS (
             SELECT 1 FROM public.profiles pr
             WHERE pr.id = auth.uid()
-            AND pr.role IN ('admin', 'manager', 'pm', 'worker', 'SYS_ADMIN', 'EXEC_ADMIN')
+            AND (
+                pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+                OR (
+                    pr.role = 'pm'
+                    AND EXISTS (
+                        SELECT 1 FROM public.monthly_effort_requests req
+                        WHERE (
+                            req.id::text = (storage.foldername(name))[3]
+                            OR req.project_id::text = (storage.foldername(name))[2]
+                        )
+                        AND req.status != 'CONFIRMED'
+                        AND (
+                            req.pm_id = auth.uid()
+                            OR req.pm_email = pr.email
+                            OR EXISTS (
+                                SELECT 1 FROM public.projects p
+                                WHERE p.id = req.project_id
+                                AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                            )
+                        )
+                    )
+                )
+            )
         )
     );
 
@@ -455,6 +482,21 @@ CREATE TRIGGER tr_monthly_effort_entries_updated_at
     BEFORE UPDATE ON public.monthly_effort_entries
     FOR EACH ROW EXECUTE FUNCTION public.fn_update_monthly_effort_timestamp();
 
--- 11. 권한 부여
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated, anon;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+-- 11. 권한 부여 (신규 월투입공수 6개 테이블에만 한정 부여, anon 전체 schema 권한 부여 제거)
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+    public.monthly_effort_cycles,
+    public.monthly_effort_requests,
+    public.monthly_effort_submissions,
+    public.monthly_effort_entries,
+    public.monthly_effort_email_logs,
+    public.monthly_effort_audit_logs
+TO authenticated;
+
+GRANT ALL ON
+    public.monthly_effort_cycles,
+    public.monthly_effort_requests,
+    public.monthly_effort_submissions,
+    public.monthly_effort_entries,
+    public.monthly_effort_email_logs,
+    public.monthly_effort_audit_logs
+TO service_role;
