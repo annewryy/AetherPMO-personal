@@ -2068,7 +2068,11 @@
 
                     if (sErr) {
                         console.error('[MonthlyEffort] DB submission insert error:', sErr);
-                        alert(`제출 이력 DB 저장 실패: ${sErr.message}`);
+                        // Storage Cleanup (고아 파일 방지)
+                        await this.supabase.storage.from('monthly-effort-files').remove([storagePath]).catch(cErr => {
+                            console.error('[MonthlyEffort] Storage cleanup failed:', cErr);
+                        });
+                        alert(`제출 이력 DB 저장 실패 (스토리지 롤백 완료): ${sErr.message}`);
                         return;
                     }
                     createdSubmission = subData;
@@ -2088,7 +2092,14 @@
 
                     if (reqErr) {
                         console.error('[MonthlyEffort] DB request status update error:', reqErr);
-                        alert(`조사 요청 상태 갱신 실패: ${reqErr.message}`);
+                        // Submission 및 Storage Cleanup (일관성 유지)
+                        if (createdSubmission && createdSubmission.id) {
+                            await this.supabase.from('monthly_effort_submissions').delete().eq('id', createdSubmission.id).catch(() => {});
+                        }
+                        await this.supabase.storage.from('monthly-effort-files').remove([storagePath]).catch(cErr => {
+                            console.error('[MonthlyEffort] Storage cleanup failed:', cErr);
+                        });
+                        alert(`조사 요청 상태 갱신 실패 (제출 및 스토리지 롤백 완료): ${reqErr.message}`);
                         return;
                     }
                 } catch (upEx) {
@@ -2137,7 +2148,7 @@
 
             this.logEffortAudit({
                 requestId: req.id,
-                action: 'DIRECT_SUBMIT',
+                action: 'EXCEL_UPLOAD',
                 details: `Excel 파일 직접 업로드 완료 (${fileName}, ${parsed.entries.length}명, ${parsed.totalEffortMm} M/M)`
             });
 

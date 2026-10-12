@@ -54,10 +54,21 @@ function parseEffortData(input, options = {}) {
         if (!XLSX) {
             throw new Error('서버 환경에 xlsx 파싱 엔진이 설치되어 있지 않습니다. 프론트엔드 파싱 또는 xlsx 패키지를 확인하세요.');
         }
-        const workbook = XLSX.read(input, { type: 'buffer' });
-        const sheetName = options.sheetName || workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+        try {
+            const workbook = XLSX.read(input, { type: 'buffer' });
+            const sheetName = options.sheetName || workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+        } catch (readErr) {
+            return {
+                isValid: false,
+                status: 'NEEDS_REVIEW',
+                errors: [`Excel 파일 파싱 오류: ${readErr.message}`],
+                entries: [],
+                totalHeadcount: 0,
+                totalEffortMm: 0
+            };
+        }
     } else if (typeof input === 'string') {
         // CSV 문자열 처리
         if (XLSX) {

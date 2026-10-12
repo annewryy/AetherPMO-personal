@@ -438,10 +438,9 @@ CREATE POLICY "monthly_effort_files_insert" ON storage.objects
                     pr.role = 'pm'
                     AND EXISTS (
                         SELECT 1 FROM public.monthly_effort_requests req
-                        WHERE (
-                            req.id::text = (storage.foldername(name))[3]
-                            OR req.project_id::text = (storage.foldername(name))[2]
-                        )
+                        WHERE req.id::text = (storage.foldername(name))[3]
+                        AND req.project_id::text = (storage.foldername(name))[2]
+                        AND req.year_month = (storage.foldername(name))[1]
                         AND req.status != 'CONFIRMED'
                         AND (
                             req.pm_id = auth.uid()
@@ -482,7 +481,255 @@ CREATE TRIGGER tr_monthly_effort_entries_updated_at
     BEFORE UPDATE ON public.monthly_effort_entries
     FOR EACH ROW EXECUTE FUNCTION public.fn_update_monthly_effort_timestamp();
 
--- 11. 권한 부여 (신규 월투입공수 6개 테이블에만 한정 부여, anon 전체 schema 권한 부여 제거)
+-- 11. 트랜잭션 RPC 함수 (Webhook 수신 원자적 처리 & 확정 원자적 처리)
+CREATE OR REPLACE FUNCTION public.process_monthly_effort_email_submission(
+    p_request_id UUID,
+    p_file_name TEXT,
+    p_file_path TEXT,
+    p_file_size BIGINT,
+    p_file_hash TEXT,
+    p_source_email_id TEXT,
+    p_source_email_from TEXT,
+    p_source_email_subject TEXT,
+    p_in_reply_to TEXT,
+    p_references_header TEXT,
+    p_parse_status TEXT,
+    p_parse_error_message TEXT,
+    p_parsed_row_count INT,
+    p_total_headcount INT,
+    p_total_effort_mm NUMERIC,
+    p_entries JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_req RECORD;
+    v_sub_id UUID;
+    v_entry JSONB;
+    v_now TIMESTAMP WITH TIME ZONE := NOW();
+    v_new_status TEXT;
+BEGIN
+    -- 1. 대상 Request 확인 및 락
+    SELECT * INTO v_req FROM public.monthly_effort_requests WHERE id = p_request_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Target request with id % not found', p_request_id;
+    END IF;
+
+    -- 2. Submission INSERT
+    INSERT INTO public.monthly_effort_submissions (
+        request_id,
+        year_month,
+        project_id,
+        file_name,
+        file_path,
+        file_size,
+        file_type,
+        file_hash,
+        submission_method,
+        source_email_id,
+        source_email_from,
+        source_email_subject,
+        received_at,
+        parse_status,
+        parse_error_message,
+        parsed_row_count
+    ) VALUES (
+        v_req.id,
+        v_req.year_month,
+        v_req.project_id,
+        p_file_name,
+        p_file_path,
+        p_file_size,
+        'xlsx',
+        p_file_hash,
+        'EMAIL_AUTO',
+        p_source_email_id,
+        p_source_email_from,
+        p_source_email_subject,
+        v_now,
+        p_parse_status,
+        p_parse_error_message,
+        p_parsed_row_count
+    ) RETURNING id INTO v_sub_id;
+
+    -- 3. 기존 entries 삭제 후 신규 entries 등록
+    DELETE FROM public.monthly_effort_entries WHERE request_id = v_req.id;
+
+    IF p_entries IS NOT NULL AND jsonb_array_length(p_entries) > 0 THEN
+        FOR v_entry IN SELECT * FROM jsonb_array_elements(p_entries)
+        LOOP
+            INSERT INTO public.monthly_effort_entries (
+                request_id,
+                submission_id,
+                year_month,
+                project_id,
+                member_name,
+                organization,
+                role_name,
+                period_str,
+                work_days,
+                effort_mm,
+                remarks,
+                order_no
+            ) VALUES (
+                v_req.id,
+                v_sub_id,
+                v_req.year_month,
+                v_req.project_id,
+                COALESCE(v_entry->>'member_name', v_entry->>'memberName', '미입력'),
+                COALESCE(v_entry->>'organization', '자사'),
+                COALESCE(v_entry->>'role_name', v_entry->>'roleName', '수행원'),
+                COALESCE(v_entry->>'period_str', v_entry->>'periodStr', ''),
+                COALESCE((v_entry->>'work_days')::INT, (v_entry->>'workDays')::INT, 0),
+                COALESCE((v_entry->>'effort_mm')::NUMERIC, (v_entry->>'effortMm')::NUMERIC, 0),
+                COALESCE(v_entry->>'remarks', ''),
+                COALESCE((v_entry->>'order_no')::INT, 1)
+            );
+        END LOOP;
+    END IF;
+
+    -- 4. Request 상태 업데이트
+    IF p_parse_status = 'SUCCESS' THEN
+        v_new_status := 'SUBMITTED';
+    ELSE
+        v_new_status := 'NEEDS_REVIEW';
+    END IF;
+
+    UPDATE public.monthly_effort_requests
+    SET
+        status = v_new_status,
+        submission_method = 'EMAIL_AUTO',
+        submitted_at = v_now,
+        total_headcount = p_total_headcount,
+        total_effort_mm = p_total_effort_mm,
+        review_notes = p_parse_error_message,
+        updated_at = v_now
+    WHERE id = v_req.id;
+
+    -- 5. Email Log 기록
+    INSERT INTO public.monthly_effort_email_logs (
+        request_id,
+        cycle_id,
+        log_type,
+        recipient_email,
+        sender_email,
+        subject,
+        token,
+        provider,
+        provider_message_id,
+        message_id,
+        in_reply_to,
+        references_header,
+        status,
+        created_at
+    ) VALUES (
+        v_req.id,
+        v_req.cycle_id,
+        'RECEIVE_INBOUND',
+        v_req.pm_email,
+        p_source_email_from,
+        p_source_email_subject,
+        v_req.request_token,
+        'INBOUND_WEBHOOK',
+        p_source_email_id,
+        p_source_email_id,
+        p_in_reply_to,
+        p_references_header,
+        'SUCCESS',
+        v_now
+    );
+
+    -- 6. Audit Log 기록
+    INSERT INTO public.monthly_effort_audit_logs (
+        request_id,
+        action,
+        changed_by,
+        changed_by_name,
+        details,
+        created_at
+    ) VALUES (
+        v_req.id,
+        'EMAIL_AUTO_RECEIVE',
+        NULL,
+        '이메일 자동수집 서비스',
+        format('이메일 회신 자동수집 및 파싱 완료 (%s, %s명, %s M/M)', p_file_name, p_parsed_row_count, p_total_effort_mm),
+        v_now
+    );
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'submission_id', v_sub_id,
+        'status', v_new_status,
+        'total_headcount', p_total_headcount,
+        'total_effort_mm', p_total_effort_mm
+    );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.confirm_monthly_effort_requests(
+    p_request_ids UUID[],
+    p_is_confirm BOOLEAN,
+    p_user_id UUID,
+    p_user_name TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_now TIMESTAMP WITH TIME ZONE := NOW();
+    v_new_status TEXT := CASE WHEN p_is_confirm THEN 'CONFIRMED' ELSE 'SUBMITTED' END;
+    v_action TEXT := CASE WHEN p_is_confirm THEN 'CONFIRM' ELSE 'UNCONFIRM' END;
+    v_req_id UUID;
+    v_count INT := 0;
+BEGIN
+    IF p_request_ids IS NULL OR array_length(p_request_ids, 1) = 0 THEN
+        RAISE EXCEPTION 'Request IDs array cannot be empty';
+    END IF;
+
+    -- 1. Requests 업데이트
+    UPDATE public.monthly_effort_requests
+    SET
+        status = v_new_status,
+        confirmed_at = CASE WHEN p_is_confirm THEN v_now ELSE NULL END,
+        confirmed_by = CASE WHEN p_is_confirm THEN p_user_id ELSE NULL END,
+        updated_at = v_now
+    WHERE id = ANY(p_request_ids);
+
+    GET DIAGNOSTICS v_count = ROW_COUNT;
+
+    -- 2. 감사 로그 INSERT
+    FOREACH v_req_id IN ARRAY p_request_ids
+    LOOP
+        INSERT INTO public.monthly_effort_audit_logs (
+            request_id,
+            action,
+            changed_by,
+            changed_by_name,
+            details,
+            created_at
+        ) VALUES (
+            v_req_id,
+            v_action,
+            p_user_id,
+            COALESCE(p_user_name, '관리자'),
+            CASE WHEN p_is_confirm THEN '투입공수 조사 확정 승인' ELSE '투입공수 확정 취소' END,
+            v_now
+        );
+    END LOOP;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'updated_count', v_count,
+        'status', v_new_status,
+        'confirmed_at', CASE WHEN p_is_confirm THEN v_now ELSE NULL END
+    );
+END;
+$$;
+
+-- 12. 권한 부여 (신규 월투입공수 6개 테이블 및 RPC 함수에만 한정 부여, anon 전체 schema 권한 부여 제거)
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     public.monthly_effort_cycles,
     public.monthly_effort_requests,
@@ -500,3 +747,7 @@ GRANT ALL ON
     public.monthly_effort_email_logs,
     public.monthly_effort_audit_logs
 TO service_role;
+
+GRANT EXECUTE ON FUNCTION public.process_monthly_effort_email_submission TO service_role;
+GRANT EXECUTE ON FUNCTION public.confirm_monthly_effort_requests TO authenticated, service_role;
+

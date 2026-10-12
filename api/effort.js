@@ -27,11 +27,16 @@ try {
 }
 
 /**
- * Service Role Supabase 클라이언트 생성 (서버 전용)
+ * Service Role Supabase 클라이언트 생성 (서버 전용, Fail-Closed)
+ * - SUPABASE_ANON_KEY를 대체값으로 절대 사용하지 않음
+ * - SUPABASE_URL과 SUPABASE_SERVICE_ROLE_KEY가 모두 유효할 때만 클라이언트 반환
  */
 function getServiceSupabaseClient() {
+    if (process.env.NODE_ENV === 'test' && global.__mockSupabaseClient) {
+        return global.__mockSupabaseClient;
+    }
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !serviceRoleKey || !createClient) {
         return null;
     }
@@ -398,27 +403,33 @@ module.exports = async function handler(req, res) {
                 } = req.body || {};
 
                 const supabase = getServiceSupabaseClient();
-
-                // 1. 서버 Supabase DB에서 실제 Request 및 Email Logs 조회
-                let existingRequests = req.body.existingRequests || [];
-                let sentEmailLogs = req.body.sentEmailLogs || [];
-                let existingSubmissions = req.body.existingSubmissions || [];
-
-                if (supabase) {
-                    try {
-                        const { data: dbReqs } = await supabase
-                            .from('monthly_effort_requests')
-                            .select('id, cycle_id, year_month, project_id, project_code, project_name, pm_name, pm_email, request_token, status');
-                        if (dbReqs && dbReqs.length > 0) existingRequests = dbReqs;
-
-                        const { data: dbLogs } = await supabase
-                            .from('monthly_effort_email_logs')
-                            .select('id, request_id, message_id, token, recipient_email');
-                        if (dbLogs && dbLogs.length > 0) sentEmailLogs = dbLogs;
-                    } catch (dbErr) {
-                        console.warn('[Webhook] Supabase query warning:', dbErr.message);
-                    }
+                if (!supabase) {
+                    return res.status(503).json({
+                        success: false,
+                        error: '서버 환경 설정 오류: SUPABASE_URL 또는 SUPABASE_SERVICE_ROLE_KEY가 설정되지 않아 웹훅을 처리할 수 없습니다. (Fail-Closed)'
+                    });
                 }
+
+                // 1. 서버 Supabase DB에서 실제 Request 및 Email Logs 직접 조회 (외부 fallback 금지)
+                const { data: dbReqs, error: reqErr } = await supabase
+                    .from('monthly_effort_requests')
+                    .select('id, cycle_id, year_month, project_id, project_code, project_name, pm_name, pm_email, request_token, status');
+
+                if (reqErr) {
+                    console.error('[Webhook] DB query error (monthly_effort_requests):', reqErr);
+                    return res.status(500).json({ success: false, error: 'DB 요청 데이터 조회 실패: ' + reqErr.message });
+                }
+                const existingRequests = dbReqs || [];
+
+                const { data: dbLogs, error: logErr } = await supabase
+                    .from('monthly_effort_email_logs')
+                    .select('id, request_id, message_id, token, recipient_email');
+
+                if (logErr) {
+                    console.error('[Webhook] DB query error (monthly_effort_email_logs):', logErr);
+                    return res.status(500).json({ success: false, error: 'DB 발송로그 데이터 조회 실패: ' + logErr.message });
+                }
+                const sentEmailLogs = dbLogs || [];
 
                 // 2. 다중 보조 매칭 로직 실행 (토큰, In-Reply-To, 발신자, 코드, 대상월 종합)
                 const matchResult = matchInboundEmailToRequest({
@@ -434,18 +445,16 @@ module.exports = async function handler(req, res) {
 
                 if (!matchResult.matched) {
                     // 매칭 실패 시 수신 로그 기록 (검토 필요)
-                    if (supabase) {
-                        await supabase.from('monthly_effort_email_logs').insert({
-                            log_type: 'RECEIVE_INBOUND',
-                            sender_email: from,
-                            subject,
-                            message_id: messageId,
-                            in_reply_to: inReplyTo,
-                            references_header: references,
-                            status: 'FAILED',
-                            error_message: '매칭 실패: ' + matchResult.reason
-                        }).catch(() => {});
-                    }
+                    await supabase.from('monthly_effort_email_logs').insert({
+                        log_type: 'RECEIVE_INBOUND',
+                        sender_email: from,
+                        subject,
+                        message_id: messageId,
+                        in_reply_to: inReplyTo,
+                        references_header: references,
+                        status: 'FAILED',
+                        error_message: '매칭 실패: ' + matchResult.reason
+                    }).catch(() => {});
 
                     return res.status(200).json({
                         success: true,
@@ -466,12 +475,10 @@ module.exports = async function handler(req, res) {
                 });
 
                 if (excelAttachments.length === 0) {
-                    if (supabase) {
-                        await supabase.from('monthly_effort_requests').update({
-                            status: 'NEEDS_REVIEW',
-                            review_notes: '회신 메일에 투입공수 Excel/CSV 첨부파일이 누락되었습니다.'
-                        }).eq('id', targetRequest.id).catch(() => {});
-                    }
+                    await supabase.from('monthly_effort_requests').update({
+                        status: 'NEEDS_REVIEW',
+                        review_notes: '회신 메일에 투입공수 Excel/CSV 첨부파일이 누락되었습니다.'
+                    }).eq('id', targetRequest.id).catch(() => {});
 
                     return res.status(200).json({
                         success: true,
@@ -488,16 +495,24 @@ module.exports = async function handler(req, res) {
                 const fileBuffer = targetAttachment.content
                     ? (Buffer.isBuffer(targetAttachment.content) ? targetAttachment.content : Buffer.from(targetAttachment.content, 'base64'))
                     : null;
-                const fileHash = fileBuffer ? calculateAttachmentFingerprint(fileBuffer) : null;
 
-                // 기존 Submissions DB 조회하여 Idempotency 검증
-                if (supabase && targetRequest.id) {
-                    const { data: dbSubs } = await supabase
-                        .from('monthly_effort_submissions')
-                        .select('id, request_id, file_hash, source_email_id')
-                        .eq('request_id', targetRequest.id);
-                    if (dbSubs) existingSubmissions = dbSubs;
+                if (!fileBuffer || fileBuffer.length === 0) {
+                    return res.status(400).json({ success: false, error: '첨부파일 데이터가 비어있습니다.' });
                 }
+
+                const fileHash = calculateAttachmentFingerprint(fileBuffer);
+
+                // 기존 Submissions DB 직접 조회하여 Idempotency 검증
+                const { data: dbSubs, error: subQueryErr } = await supabase
+                    .from('monthly_effort_submissions')
+                    .select('id, request_id, file_hash, source_email_id')
+                    .eq('request_id', targetRequest.id);
+
+                if (subQueryErr) {
+                    console.error('[Webhook] DB query error (monthly_effort_submissions):', subQueryErr);
+                    return res.status(500).json({ success: false, error: 'DB 제출이력 조회 실패: ' + subQueryErr.message });
+                }
+                const existingSubmissions = dbSubs || [];
 
                 const idempotencyCheck = checkSubmissionIdempotency(existingSubmissions, {
                     messageId,
@@ -519,113 +534,71 @@ module.exports = async function handler(req, res) {
                 }
 
                 // 5. Excel 파싱 실행
-                let parseResult = null;
-                if (fileBuffer) {
-                    parseResult = parseEffortData(fileBuffer);
-                }
-
-                const nowIso = new Date().toISOString();
+                const parseResult = parseEffortData(fileBuffer);
                 const safeName = (targetAttachment.filename || 'effort.xlsx').replace(/[^a-zA-Z0-9._\-]/g, '_');
                 const storagePath = `${targetRequest.year_month}/${targetRequest.project_id || targetRequest.project_code}/${targetRequest.id}/${Date.now()}_${safeName}`;
 
-                // 6. Supabase Storage 실파일 업로드 및 원자적 DB 저장
-                let savedSubmission = null;
-                if (supabase && fileBuffer) {
-                    try {
-                        // Storage 업로드
-                        const { error: uploadErr } = await supabase.storage
-                            .from('monthly-effort-files')
-                            .upload(storagePath, fileBuffer, {
-                                contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                upsert: true
-                            });
+                // 6. Supabase Storage 실파일 업로드 (실패 시 즉시 500 중단, DB 작업 절대 미진행)
+                const { error: uploadErr } = await supabase.storage
+                    .from('monthly-effort-files')
+                    .upload(storagePath, fileBuffer, {
+                        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        upsert: true
+                    });
 
-                        if (uploadErr) {
-                            console.error('[Webhook] Storage upload error:', uploadErr);
-                        }
+                if (uploadErr) {
+                    console.error('[Webhook] Storage upload failed:', uploadErr);
+                    return res.status(500).json({
+                        success: false,
+                        error: 'Supabase Storage 파일 업로드 실패: ' + uploadErr.message
+                    });
+                }
 
-                        // Submissions INSERT
-                        const { data: subData, error: subErr } = await supabase
-                            .from('monthly_effort_submissions')
-                            .insert({
-                                request_id: targetRequest.id,
-                                year_month: targetRequest.year_month,
-                                project_id: targetRequest.project_id,
-                                file_name: targetAttachment.filename || targetAttachment.name,
-                                file_path: storagePath,
-                                file_size: fileBuffer.length,
-                                file_type: 'xlsx',
-                                file_hash: fileHash,
-                                submission_method: 'EMAIL_AUTO',
-                                source_email_id: messageId,
-                                source_email_from: from,
-                                source_email_subject: subject,
-                                received_at: nowIso,
-                                parse_status: parseResult?.isValid ? 'SUCCESS' : 'WARNING',
-                                parse_error_message: parseResult?.errors?.join('\n') || null,
-                                parsed_row_count: parseResult?.entries?.length || 0
-                            })
-                            .select()
-                            .single();
+                // 7. DB 트랜잭션 RPC 함수 호출 (실패 시 업로드된 Storage Object 즉시 cleanup)
+                const rpcPayload = {
+                    p_request_id: targetRequest.id,
+                    p_file_name: targetAttachment.filename || targetAttachment.name,
+                    p_file_path: storagePath,
+                    p_file_size: fileBuffer.length,
+                    p_file_hash: fileHash,
+                    p_source_email_id: messageId,
+                    p_source_email_from: from,
+                    p_source_email_subject: subject,
+                    p_in_reply_to: inReplyTo,
+                    p_references_header: references,
+                    p_parse_status: parseResult?.isValid ? 'SUCCESS' : 'WARNING',
+                    p_parse_error_message: parseResult?.errors?.length > 0 ? parseResult.errors.join('\n') : null,
+                    p_parsed_row_count: parseResult?.entries?.length || 0,
+                    p_total_headcount: parseResult?.totalHeadcount || 0,
+                    p_total_effort_mm: parseResult?.totalEffortMm || 0,
+                    p_entries: (parseResult?.entries || []).map((e, idx) => ({
+                        member_name: e.memberName,
+                        organization: e.organization || '자사',
+                        role_name: e.roleName || '수행원',
+                        period_str: e.periodStr || '',
+                        work_days: e.workDays || 0,
+                        effort_mm: e.effortMm || 0,
+                        remarks: e.remarks || '',
+                        order_no: idx + 1
+                    }))
+                };
 
-                        if (!subErr && subData) {
-                            savedSubmission = subData;
+                const { data: rpcResult, error: rpcErr } = await supabase.rpc(
+                    'process_monthly_effort_email_submission',
+                    rpcPayload
+                );
 
-                            // 기존 Entries 삭제 후 신규 Entries INSERT
-                            await supabase.from('monthly_effort_entries').delete().eq('request_id', targetRequest.id);
-                            if (parseResult?.entries && parseResult.entries.length > 0) {
-                                const dbEntries = parseResult.entries.map((e, idx) => ({
-                                    request_id: targetRequest.id,
-                                    submission_id: subData.id,
-                                    year_month: targetRequest.year_month,
-                                    project_id: targetRequest.project_id,
-                                    member_name: e.memberName,
-                                    organization: e.organization || '자사',
-                                    role_name: e.roleName || '수행원',
-                                    period_str: e.periodStr || '',
-                                    work_days: e.workDays || 0,
-                                    effort_mm: e.effortMm || 0,
-                                    remarks: e.remarks || '',
-                                    order_no: idx + 1
-                                }));
-                                await supabase.from('monthly_effort_entries').insert(dbEntries);
-                            }
+                if (rpcErr) {
+                    console.error('[Webhook] DB RPC Transaction failed. Rolling back Storage file:', rpcErr);
+                    // 스토리지 파일 롤백(삭제)
+                    await supabase.storage.from('monthly-effort-files').remove([storagePath]).catch(cleanErr => {
+                        console.error('[Webhook] Storage cleanup error:', cleanErr);
+                    });
 
-                            // Request 상태 업데이트
-                            const newStatus = parseResult?.isValid ? 'SUBMITTED' : 'NEEDS_REVIEW';
-                            await supabase.from('monthly_effort_requests').update({
-                                status: newStatus,
-                                submission_method: 'EMAIL_AUTO',
-                                submitted_at: nowIso,
-                                total_headcount: parseResult?.totalHeadcount || 0,
-                                total_effort_mm: parseResult?.totalEffortMm || 0,
-                                review_notes: parseResult?.errors?.length > 0 ? parseResult.errors.join('\n') : null
-                            }).eq('id', targetRequest.id);
-
-                            // Email Log 및 Audit Log 기록
-                            await supabase.from('monthly_effort_email_logs').insert({
-                                request_id: targetRequest.id,
-                                cycle_id: targetRequest.cycle_id || null,
-                                log_type: 'RECEIVE_INBOUND',
-                                recipient_email: targetRequest.pm_email,
-                                sender_email: from,
-                                subject,
-                                token: targetRequest.request_token,
-                                message_id: messageId,
-                                in_reply_to: inReplyTo,
-                                references_header: references,
-                                status: 'SUCCESS'
-                            });
-
-                            await supabase.from('monthly_effort_audit_logs').insert({
-                                request_id: targetRequest.id,
-                                action: 'EMAIL_AUTO_RECEIVE',
-                                details: `이메일 회신 자동 수집 완료 (${targetAttachment.filename}, 총 ${parseResult?.totalEffortMm || 0} M/M)`
-                            });
-                        }
-                    } catch (dbSaveErr) {
-                        console.error('[Webhook] DB atomic save exception:', dbSaveErr);
-                    }
+                    return res.status(500).json({
+                        success: false,
+                        error: 'DB 트랜잭션 실행 실패 (스토리지 롤백 완료): ' + rpcErr.message
+                    });
                 }
 
                 return res.status(200).json({
@@ -634,16 +607,16 @@ module.exports = async function handler(req, res) {
                     matchType: matchResult.matchType,
                     matchReason: matchResult.reason,
                     requestId: targetRequest.id,
-                    submissionId: savedSubmission?.id || null,
+                    submissionId: rpcResult?.submission_id || null,
                     projectCode: targetRequest.project_code,
                     yearMonth: targetRequest.year_month,
                     fileName: targetAttachment.filename || targetAttachment.name,
-                    fileSize: targetAttachment.size || (fileBuffer ? fileBuffer.length : 0),
+                    fileSize: fileBuffer.length,
                     fileHash,
                     storagePath,
                     messageId,
                     parseResult,
-                    status: (parseResult && parseResult.isValid) ? 'SUBMITTED' : 'NEEDS_REVIEW'
+                    status: parseResult?.isValid ? 'SUBMITTED' : 'NEEDS_REVIEW'
                 });
             }
 
@@ -687,41 +660,40 @@ module.exports = async function handler(req, res) {
                 }
 
                 const supabase = getServiceSupabaseClient();
-                const nowIso = new Date().toISOString();
-                const newStatus = isConfirm ? 'CONFIRMED' : 'SUBMITTED';
+                if (!supabase) {
+                    return res.status(503).json({
+                        success: false,
+                        error: '서버 환경 설정 오류: SUPABASE_URL 또는 SUPABASE_SERVICE_ROLE_KEY가 설정되지 않아 확정 처리를 실행할 수 없습니다. (Fail-Closed)'
+                    });
+                }
 
-                if (supabase) {
-                    // DB Requests 업데이트
-                    const { error: updErr } = await supabase
-                        .from('monthly_effort_requests')
-                        .update({
-                            status: newStatus,
-                            confirmed_at: isConfirm ? nowIso : null,
-                            confirmed_by: isConfirm ? auth.user.id : null
-                        })
-                        .in('id', ids);
+                // DB 확정 상태 변경 및 감사 로그 기록을 하나의 PostgreSQL 트랜잭션 RPC로 원자적 실행
+                const rpcPayload = {
+                    p_request_ids: ids,
+                    p_is_confirm: Boolean(isConfirm),
+                    p_user_id: auth.user.id,
+                    p_user_name: auth.profile?.name || auth.user.email || 'Admin'
+                };
 
-                    if (updErr) {
-                        return res.status(500).json({ error: 'DB 확정 상태 변경 실패: ' + updErr.message });
-                    }
+                const { data: rpcResult, error: rpcErr } = await supabase.rpc(
+                    'confirm_monthly_effort_requests',
+                    rpcPayload
+                );
 
-                    // 감사 로그 DB INSERT
-                    const auditRecords = ids.map(id => ({
-                        request_id: id,
-                        action: isConfirm ? 'CONFIRM' : 'UNCONFIRM',
-                        changed_by: auth.user.id,
-                        changed_by_name: auth.profile?.name || auth.user.email || 'Admin',
-                        details: isConfirm ? '투입공수 조사 확정 승인' : '투입공수 확정 취소'
-                    }));
-                    await supabase.from('monthly_effort_audit_logs').insert(auditRecords).catch(() => {});
+                if (rpcErr) {
+                    console.error('[Confirm] RPC Transaction error:', rpcErr);
+                    return res.status(500).json({
+                        success: false,
+                        error: 'DB 확정 트랜잭션 처리 실패: ' + rpcErr.message
+                    });
                 }
 
                 return res.status(200).json({
                     success: true,
-                    updatedCount: ids.length,
-                    status: newStatus,
+                    updatedCount: rpcResult?.updated_count || ids.length,
+                    status: isConfirm ? 'CONFIRMED' : 'SUBMITTED',
                     confirmedBy: auth.user.id,
-                    confirmedAt: isConfirm ? nowIso : null
+                    confirmedAt: rpcResult?.confirmed_at || null
                 });
             }
 

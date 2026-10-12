@@ -253,7 +253,75 @@ async function runTests() {
     }, resBadWebhook);
     assert.strictEqual(resBadWebhook.get().statusCode, 401);
 
-    // 5-6. inbound-webhook 유효한 Secret -> 200 처리
+    // 5-6a. inbound-webhook Service Role Client 미설정 시 Fail-Closed 503 거부
+    delete global.__mockSupabaseClient;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const resWebhookNoServiceClient = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { 'x-webhook-secret': 'TEST_SECRET_KEY_123' },
+        query: { action: 'inbound-webhook' },
+        body: {
+            from: 'pm1@company.com',
+            subject: `RE: [AetherPMO][2026-09][OP-26-0826][EFFORT-${token}] 회신`,
+            attachments: [{ filename: 'OP-26-0826_공수.xlsx', size: 1024, content: 'U0tJUA==' }]
+        }
+    }, resWebhookNoServiceClient);
+    assert.strictEqual(resWebhookNoServiceClient.get().statusCode, 503, 'Service Role Client 미설정 503 거부 검증 실패');
+
+    // 5-6b. inbound-webhook Mock Service Client 주입 후 정상 트랜잭션 RPC 처리 검증
+    let storageUploaded = false;
+    let storageCleanedUp = false;
+    let rpcExecuted = false;
+
+    global.__mockSupabaseClient = {
+        from: (table) => {
+            if (table === 'monthly_effort_requests') {
+                return {
+                    select: () => Promise.resolve({ data: mockRequests, error: null }),
+                    update: () => ({ eq: () => Promise.resolve({ error: null }) })
+                };
+            }
+            if (table === 'monthly_effort_email_logs') {
+                return {
+                    select: () => Promise.resolve({ data: mockEmailLogs, error: null }),
+                    insert: () => Promise.resolve({ error: null })
+                };
+            }
+            if (table === 'monthly_effort_submissions') {
+                return {
+                    select: () => ({ eq: () => Promise.resolve({ data: [], error: null }) })
+                };
+            }
+            return {
+                select: () => Promise.resolve({ data: [], error: null }),
+                insert: () => Promise.resolve({ error: null })
+            };
+        },
+        storage: {
+            from: (bucket) => ({
+                upload: () => {
+                    storageUploaded = true;
+                    return Promise.resolve({ error: null });
+                },
+                remove: () => {
+                    storageCleanedUp = true;
+                    return Promise.resolve({ error: null });
+                }
+            })
+        },
+        rpc: (fn, params) => {
+            rpcExecuted = true;
+            if (fn === 'process_monthly_effort_email_submission') {
+                return Promise.resolve({ data: { success: true, submission_id: 'sub-test-uuid' }, error: null });
+            }
+            if (fn === 'confirm_monthly_effort_requests') {
+                return Promise.resolve({ data: { success: true, updated_count: 1, confirmed_at: new Date().toISOString() }, error: null });
+            }
+            return Promise.resolve({ data: { success: true }, error: null });
+        }
+    };
+
     const resGoodWebhook = createMockRes();
     await effortApiHandler({
         method: 'POST',
@@ -262,12 +330,62 @@ async function runTests() {
         body: {
             from: 'pm1@company.com',
             subject: `RE: [AetherPMO][2026-09][OP-26-0826][EFFORT-${token}] 회신`,
-            existingRequests: mockRequests,
-            attachments: [{ filename: 'OP-26-0826_공수.xlsx', size: 1024, content: '' }]
+            attachments: [{ filename: 'OP-26-0826_공수.xlsx', size: 1024, content: 'UEsDBBQAAAAIA...' }]
         }
     }, resGoodWebhook);
     assert.strictEqual(resGoodWebhook.get().statusCode, 200);
     assert.strictEqual(resGoodWebhook.get().responseData.matched, true);
+    assert(storageUploaded, '스토리지 업로드가 호출되어야 함');
+    assert(rpcExecuted, '트랜잭션 RPC가 호출되어야 함');
+
+    // 5-6c. inbound-webhook 스토리지 업로드 실패 시 즉시 500 중단 및 DB 작업 배제 검증
+    global.__mockSupabaseClient.storage.from = () => ({
+        upload: () => Promise.resolve({ error: { message: 'Storage quota exceeded' } })
+    });
+    let dbRpcCalledOnStorageFail = false;
+    global.__mockSupabaseClient.rpc = () => {
+        dbRpcCalledOnStorageFail = true;
+        return Promise.resolve({ data: {}, error: null });
+    };
+
+    const resUploadFailWebhook = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { 'x-webhook-secret': 'TEST_SECRET_KEY_123' },
+        query: { action: 'inbound-webhook' },
+        body: {
+            from: 'pm1@company.com',
+            subject: `RE: [AetherPMO][2026-09][OP-26-0826][EFFORT-${token}] 회신`,
+            attachments: [{ filename: 'OP-26-0826_공수.xlsx', size: 1024, content: 'UEsDBBQAAAAIA...' }]
+        }
+    }, resUploadFailWebhook);
+    assert.strictEqual(resUploadFailWebhook.get().statusCode, 500, '스토리지 실패 시 500 반환 실패');
+    assert(!dbRpcCalledOnStorageFail, '스토리지 업로드 실패 시 DB RPC가 호출되어서는 안 됨');
+
+    // 5-6d. inbound-webhook DB RPC 트랜잭션 실패 시 스토리지 Cleanup(remove) 호출 검증
+    storageCleanedUp = false;
+    global.__mockSupabaseClient.storage.from = () => ({
+        upload: () => Promise.resolve({ error: null }),
+        remove: () => {
+            storageCleanedUp = true;
+            return Promise.resolve({ error: null });
+        }
+    });
+    global.__mockSupabaseClient.rpc = () => Promise.resolve({ data: null, error: { message: 'FK violation' } });
+
+    const resRpcFailWebhook = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { 'x-webhook-secret': 'TEST_SECRET_KEY_123' },
+        query: { action: 'inbound-webhook' },
+        body: {
+            from: 'pm1@company.com',
+            subject: `RE: [AetherPMO][2026-09][OP-26-0826][EFFORT-${token}] 회신`,
+            attachments: [{ filename: 'OP-26-0826_공수.xlsx', size: 1024, content: 'UEsDBBQAAAAIA...' }]
+        }
+    }, resRpcFailWebhook);
+    assert.strictEqual(resRpcFailWebhook.get().statusCode, 500, 'RPC 실패 시 500 반환 실패');
+    assert(storageCleanedUp, 'DB 트랜잭션 실패 시 방금 업로드된 스토리지 파일이 cleanup(remove)되어야 함');
 
     // 5-7. generate-token 무인증 -> 401 차단, 인증 -> 200 통과
     const resGenTokenNoAuth = createMockRes();
@@ -316,6 +434,30 @@ async function runTests() {
     }, resConfirmUser);
     assert.strictEqual(resConfirmUser.get().statusCode, 403, 'confirm 일반사용자 403 차단 검증 실패');
 
+    // 5-9b. confirm API Service Role Client 미설정 시 Fail-Closed 503 거부 검증
+    delete global.__mockSupabaseClient;
+    const resConfirmNoClient = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_ADMIN_TOKEN' },
+        query: { action: 'confirm' },
+        body: { requestId: 'req-1', isConfirm: true }
+    }, resConfirmNoClient);
+    assert.strictEqual(resConfirmNoClient.get().statusCode, 503, 'confirm Service Client 부재 시 503 거부 검증 실패');
+
+    // 5-9c. confirm API Mock Service Client 주입 후 정상 트랜잭션 RPC 호출 검증
+    global.__mockSupabaseClient = {
+        rpc: (fn, params) => {
+            if (fn === 'confirm_monthly_effort_requests') {
+                return Promise.resolve({
+                    data: { success: true, updated_count: 1, status: 'CONFIRMED', confirmed_at: new Date().toISOString() },
+                    error: null
+                });
+            }
+            return Promise.resolve({ data: {}, error: null });
+        }
+    };
+
     const resConfirmAdmin = createMockRes();
     await effortApiHandler({
         method: 'POST',
@@ -338,8 +480,9 @@ async function runTests() {
     assert(resProdTestToken.get().statusCode === 401 || resProdTestToken.get().statusCode === 503,
         `운영 환경에서 TEST_ADMIN_TOKEN이 거부되지 않음: ${resProdTestToken.get().statusCode}`);
     process.env.NODE_ENV = 'test';
+    delete global.__mockSupabaseClient;
 
-    console.log('✅ Test 5 Passed: 무인증 401 차단, Fail-Closed 503 거부, confirm 권한 통제, 운영 환경 테스트토큰 차단 검증 완료');
+    console.log('✅ Test 5 Passed: 무인증 401 차단, Fail-Closed 503 거부, 스토리지 실패 500 중단, 트랜잭션 실패 스토리지 롤백, confirm RPC 통제 검증 완료');
 
     console.log('\n================================================================');
     console.log('🎉 ALL COMPREHENSIVE TESTS PASSED WITH 100% SUCCESS!');
