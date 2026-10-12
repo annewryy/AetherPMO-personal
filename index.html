@@ -209,11 +209,22 @@
                         </a>
                     </div>
                 </div>
-                <div class="nav-item-wrapper" id="nav-wrapper-salaries">
-                    <a href="#salaries" class="nav-item" data-view="salaries" data-tooltip="월급여 관리" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('salaries');">
+                <div class="nav-item-wrapper collapsed" id="nav-wrapper-salaries">
+                    <a href="#salaries" class="nav-item" data-view="salaries" data-tooltip="월급여 관리" onclick="event.preventDefault(); event.stopPropagation(); window.app?.toggleNavAccordion?.(this);">
                         <i data-lucide="banknote"></i>
                         <span>월급여 관리</span>
+                        <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
                     </a>
+                    <div class="nav-submenu">
+                        <a href="#salaries" class="submenu-item" data-subview="salaries" onclick="event.preventDefault(); window.app.switchView('salaries');">
+                            <i data-lucide="calculator"></i>
+                            <span>월급여 정산</span>
+                        </a>
+                        <a href="#salaries/effort" class="submenu-item" data-subview="monthly-effort" onclick="event.preventDefault(); window.app.switchView('monthly-effort');">
+                            <i data-lucide="clock-alert"></i>
+                            <span>월투입공수 관리</span>
+                        </a>
+                    </div>
                 </div>
 
                 <!-- 게시판 그룹 (월급여 관리 다음 위치) -->
@@ -3184,6 +3195,258 @@
                                 <tbody id="salaries-table-body">
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 7.5.4. MONTHLY EFFORT MANAGEMENT VIEW (월투입공수 관리) -->
+                <section id="view-monthly-effort" class="content-view" style="display: none;">
+                    <div class="view-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                                <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: var(--text-main);">월투입공수 관리</h1>
+                                <span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #818cf8; font-weight: 700; font-size: 12px; padding: 4px 10px; border-radius: 6px;">정기 조사 및 자동 수집</span>
+                            </div>
+                            <p class="subtitle" style="margin: 0; color: var(--text-muted); font-size: 13.5px;">매월 10일까지 수행하는 전월 프로젝트별 인력 투입공수 조사를 생성하고, 이메일 자동 회신/파싱 및 직접 입력을 통해 취합을 자동화합니다.</p>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 6px; background: var(--bg-card); padding: 4px 10px; border-radius: 8px; border: 1px solid var(--bg-card-border);">
+                                <label for="effort-filter-month" style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">조사 대상월:</label>
+                                <select id="effort-filter-month" onchange="app.onEffortMonthChanged()" style="height: 32px; border-radius: 6px; border: 1px solid var(--bg-card-border); padding: 0 10px; background: var(--bg-input); color: var(--text-main); font-weight: 700; font-size: 13px;">
+                                </select>
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="app.openCreateEffortCycleModal()" style="height: 38px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; font-weight: 600;" title="해당 월의 신규 투입공수 조사 사이클을 생성합니다">
+                                <i data-lucide="plus-circle" style="width: 16px; height: 16px;"></i>
+                                <span>조사 생성</span>
+                            </button>
+                            <button type="button" class="btn btn-outline" onclick="app.openSendEffortMailModal(false)" style="height: 38px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; font-weight: 600; background: var(--bg-card);" title="대상 프로젝트 PM에게 조사 이메일을 발송합니다">
+                                <i data-lucide="send" style="width: 16px; height: 16px; color: #3b82f6;"></i>
+                                <span>조사 메일 발송</span>
+                            </button>
+                            <button type="button" class="btn btn-outline" onclick="app.openSendEffortMailModal(true)" style="height: 38px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; font-weight: 600; background: var(--bg-card);" title="아직 회신하지 않은 PM에게 재발송합니다">
+                                <i data-lucide="refresh-cw" style="width: 16px; height: 16px; color: #f59e0b;"></i>
+                                <span>미회신 재발송</span>
+                            </button>
+                            <button type="button" class="btn btn-outline" onclick="app.syncEffortInbox()" style="height: 38px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; font-weight: 600; background: var(--bg-card);" title="수신함에서 PM 회신 메일 및 엑셀 첨부파일을 자동 동기화합니다">
+                                <i data-lucide="inbox" style="width: 16px; height: 16px; color: #10b981;"></i>
+                                <span>회신 메일 수집</span>
+                            </button>
+                            <button type="button" class="btn btn-outline" onclick="app.downloadEffortTemplate()" style="height: 38px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; font-weight: 600; background: var(--bg-card);" title="투입공수 표준 엑셀 양식을 다운로드합니다">
+                                <i data-lucide="file-spreadsheet" style="width: 16px; height: 16px; color: #10b981;"></i>
+                                <span>양식 다운로드</span>
+                            </button>
+                            <button type="button" class="btn btn-outline" onclick="app.downloadEffortSummaryExcel()" style="height: 38px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; font-weight: 600; background: var(--bg-card);" title="현재 월 전체 투입공수 현황을 엑셀로 다운로드합니다">
+                                <i data-lucide="download" style="width: 16px; height: 16px;"></i>
+                                <span>현황 엑셀 다운로드</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 안내 배너: 기한 및 프로세스 -->
+                    <div class="card" style="margin-bottom: 20px; padding: 14px 20px; border-radius: 12px; background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(59, 130, 246, 0.05)); border: 1px solid rgba(99, 102, 241, 0.2);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(99, 102, 241, 0.15); display: flex; align-items: center; justify-content: center; color: #6366F1;">
+                                    <i data-lucide="calendar-clock" style="width: 20px; height: 20px;"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size: 14px; font-weight: 700; color: var(--text-main);" id="effort-cycle-banner-text">
+                                        📌 조사 안내: 매월 10일까지 전월 프로젝트별 인력 투입공수 회신 (당월 10일 마감)
+                                    </div>
+                                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                                        ※ 메일 회신 시 제목의 <code style="color:#818cf8; font-weight:700;">[EFFORT-고유토큰]</code>을 유지하면 첨부 Excel이 자동 수집·파싱되어 시스템에 반영됩니다. PM 직접 로그인 작성도 지원합니다.
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="effort-cycle-deadline-badge" style="font-size: 12.5px; font-weight: 700; color: #ef4444; background: rgba(239, 68, 68, 0.1); padding: 4px 12px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.2);">
+                                회신기한: <span id="effort-deadline-display">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 요약 통계 카드 6종 -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 24px;">
+                        <div class="card" style="padding: 16px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; color: var(--text-muted); font-size: 12px; font-weight: 600; margin-bottom: 8px;">
+                                <span>전체 프로젝트</span>
+                                <i data-lucide="briefcase" style="width: 16px; height: 16px;"></i>
+                            </div>
+                            <div style="font-size: 24px; font-weight: 800; color: var(--text-main);" id="effort-kpi-total">0</div>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">조사 대상 전체</div>
+                        </div>
+
+                        <div class="card" style="padding: 16px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; color: #3b82f6; font-size: 12px; font-weight: 600; margin-bottom: 8px;">
+                                <span>발송 완료</span>
+                                <i data-lucide="send" style="width: 16px; height: 16px;"></i>
+                            </div>
+                            <div style="font-size: 24px; font-weight: 800; color: #3b82f6;" id="effort-kpi-sent">0</div>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">조사 메일 발송 건수</div>
+                        </div>
+
+                        <div class="card" style="padding: 16px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; color: #f59e0b; font-size: 12px; font-weight: 600; margin-bottom: 8px;">
+                                <span>미회신</span>
+                                <i data-lucide="clock" style="width: 16px; height: 16px;"></i>
+                            </div>
+                            <div style="font-size: 24px; font-weight: 800; color: #f59e0b;" id="effort-kpi-unresponded">0</div>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">재발송 대상 프로젝트</div>
+                        </div>
+
+                        <div class="card" style="padding: 16px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; color: #06b6d4; font-size: 12px; font-weight: 600; margin-bottom: 8px;">
+                                <span>회신 수신</span>
+                                <i data-lucide="mail-check" style="width: 16px; height: 16px;"></i>
+                            </div>
+                            <div style="font-size: 24px; font-weight: 800; color: #06b6d4;" id="effort-kpi-received">0</div>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">메일/직접 제출 접수</div>
+                        </div>
+
+                        <div class="card" style="padding: 16px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; color: #ef4444; font-size: 12px; font-weight: 600; margin-bottom: 8px;">
+                                <span>검토 필요</span>
+                                <i data-lucide="alert-triangle" style="width: 16px; height: 16px;"></i>
+                            </div>
+                            <div style="font-size: 24px; font-weight: 800; color: #ef4444;" id="effort-kpi-needs-review">0</div>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">양식오류·필수값 누락</div>
+                        </div>
+
+                        <div class="card" style="padding: 16px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; color: #10b981; font-size: 12px; font-weight: 600; margin-bottom: 8px;">
+                                <span>확정 완료</span>
+                                <i data-lucide="check-circle-2" style="width: 16px; height: 16px;"></i>
+                            </div>
+                            <div style="font-size: 24px; font-weight: 800; color: #10b981;" id="effort-kpi-confirmed">0</div>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">사업관리 확정 마감</div>
+                        </div>
+                    </div>
+
+                    <!-- 탭 네비게이션: 월별 조사 현황 / 프로젝트별 누적 이력 / 이메일 송수신 이력 -->
+                    <div style="display: flex; border-bottom: 1px solid var(--bg-card-border); margin-bottom: 20px; gap: 8px;">
+                        <button type="button" class="effort-tab-btn active" id="effort-tab-btn-requests" onclick="app.switchEffortTab('requests')" style="padding: 10px 18px; border: none; background: transparent; font-size: 14px; font-weight: 700; color: var(--text-main); border-bottom: 2px solid #6366f1; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                            <i data-lucide="list-checks" style="width: 16px; height: 16px;"></i>
+                            <span>월별 조사 현황</span>
+                        </button>
+                        <button type="button" class="effort-tab-btn" id="effort-tab-btn-history" onclick="app.switchEffortTab('history')" style="padding: 10px 18px; border: none; background: transparent; font-size: 14px; font-weight: 600; color: var(--text-muted); border-bottom: 2px solid transparent; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                            <i data-lucide="history" style="width: 16px; height: 16px;"></i>
+                            <span>프로젝트별 누적 이력</span>
+                        </button>
+                        <button type="button" class="effort-tab-btn" id="effort-tab-btn-logs" onclick="app.switchEffortTab('logs')" style="padding: 10px 18px; border: none; background: transparent; font-size: 14px; font-weight: 600; color: var(--text-muted); border-bottom: 2px solid transparent; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                            <i data-lucide="mail" style="width: 16px; height: 16px;"></i>
+                            <span>이메일 및 감사 로그</span>
+                        </button>
+                    </div>
+
+                    <!-- 탭 1: 월별 조사 현황 컨텐츠 -->
+                    <div id="effort-tab-content-requests">
+                        <!-- 검색 및 상태 필터 바 -->
+                        <div class="card" style="margin-bottom: 16px; padding: 14px 18px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <label for="effort-status-filter" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">상태 필터:</label>
+                                    <select id="effort-status-filter" onchange="app.renderEffortRequestsTable()" style="height: 36px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 10px; background: var(--bg-input); color: var(--text-main); font-weight: 600; font-size: 13px;">
+                                        <option value="all">전체 상태</option>
+                                        <option value="UNSENT">미발송</option>
+                                        <option value="SENT">발송완료</option>
+                                        <option value="RECEIVED">회신수신</option>
+                                        <option value="NEEDS_REVIEW">검토필요</option>
+                                        <option value="SUBMITTED">제출완료</option>
+                                        <option value="CONFIRMED">확정완료</option>
+                                        <option value="NO_PM_INFO">담당자 정보 없음</option>
+                                    </select>
+                                </div>
+                                <div style="flex: 1; min-width: 220px; position: relative;">
+                                    <i data-lucide="search" style="position: absolute; left: 12px; top: 10px; width: 16px; height: 16px; color: var(--text-muted);"></i>
+                                    <input type="text" id="effort-search-input" placeholder="프로젝트명, 코드, 담당 PM으로 검색..." oninput="app.renderEffortRequestsTable()" style="width: 100%; height: 36px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px 0 36px; background: var(--bg-input); color: var(--text-main); font-weight: 500; font-size: 13px;">
+                                </div>
+                                <div style="display: flex; gap: 8px; margin-left: auto;">
+                                    <button type="button" class="btn btn-outline" onclick="app.batchConfirmSelectedEfforts()" id="btn-batch-confirm" style="height: 36px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; font-weight: 600; font-size: 12.5px;" title="선택한 프로젝트의 제출 투입공수를 일괄 확정합니다 (관리자 전용)">
+                                        <i data-lucide="check-check" style="width: 15px; height: 15px; color: #10b981;"></i>
+                                        <span>선택 일괄 확정</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 조사 목록 테이블 -->
+                        <div class="card" style="border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border); overflow: hidden;">
+                            <div style="overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+                                    <thead>
+                                        <tr style="background: var(--bg-table-header, rgba(255,255,255,0.02)); border-bottom: 1px solid var(--bg-card-border); color: var(--text-muted); font-size: 12px;">
+                                            <th style="padding: 12px 14px; width: 40px; text-align: center;">
+                                                <input type="checkbox" id="effort-check-all" onchange="app.toggleEffortCheckAll(this.checked)" style="cursor: pointer;">
+                                            </th>
+                                            <th style="padding: 12px 14px; font-weight: 700; width: 110px;">프로젝트 코드</th>
+                                            <th style="padding: 12px 14px; font-weight: 700;">프로젝트명</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; width: 90px; text-align: center;">담당 PM</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; width: 170px;">PM 이메일</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; width: 90px; text-align: center;">대상월</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; width: 95px; text-align: center;">최초 발송</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; width: 95px; text-align: center;">최종 발송</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; width: 95px; text-align: center;">회신일</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; width: 90px; text-align: center;">제출방식</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; width: 120px; text-align: center;">파일</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; width: 90px; text-align: right;">공수(M/M)</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; width: 95px; text-align: center;">상태</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; width: 140px; text-align: center;">관리</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="effort-requests-table-body">
+                                        <!-- Javascript 동적 렌더링 -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 탭 2: 프로젝트별 누적 이력 컨텐츠 -->
+                    <div id="effort-tab-content-history" style="display: none;">
+                        <div class="card" style="margin-bottom: 20px; padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+                                <label for="effort-history-project-select" style="font-size: 13px; font-weight: 700; color: var(--text-main);">프로젝트 선택:</label>
+                                <select id="effort-history-project-select" onchange="app.renderEffortHistoryView()" style="min-width: 320px; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600; font-size: 13px;">
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- 프로젝트별 누적 통계 카드 & 이력 테이블 -->
+                        <div id="effort-history-detail-container">
+                            <!-- Javascript 동적 렌더링 -->
+                        </div>
+                    </div>
+
+                    <!-- 탭 3: 이메일 송수신 및 감사 로그 컨텐츠 -->
+                    <div id="effort-tab-content-logs" style="display: none;">
+                        <div class="card" style="margin-bottom: 20px; padding: 16px 20px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 13px; font-weight: 700; color: var(--text-main);">이메일 송수신 이력 및 자동 식별 로그</span>
+                                    <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 11px;">[EFFORT-고유토큰] 추적</span>
+                                </div>
+                                <button type="button" class="btn btn-outline" onclick="app.loadEffortLogs()" style="height: 32px; font-size: 12px; padding: 0 10px;">
+                                    <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> 새로고침
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card" style="border-radius: 12px; background: var(--bg-card); border: 1px solid var(--bg-card-border); overflow: hidden;">
+                            <div style="overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+                                    <thead>
+                                        <tr style="background: var(--bg-table-header, rgba(255,255,255,0.02)); border-bottom: 1px solid var(--bg-card-border); color: var(--text-muted); font-size: 12px;">
+                                            <th style="padding: 10px 14px; font-weight: 700; width: 140px;">일시</th>
+                                            <th style="padding: 10px 14px; font-weight: 700; width: 100px; text-align: center;">구분</th>
+                                            <th style="padding: 10px 14px; font-weight: 700; width: 180px;">수신/발신자</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">제목 / 내용 요약</th>
+                                            <th style="padding: 10px 14px; font-weight: 700; width: 160px; font-family: monospace;">식별 토큰</th>
+                                            <th style="padding: 10px 14px; font-weight: 700; width: 80px; text-align: center;">상태</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="effort-logs-table-body">
+                                        <!-- Javascript 동적 렌더링 -->
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -6464,6 +6727,7 @@
 
     <!-- Core App logic script -->
     <script src="app.js?v=v142_20260921"></script>
+    <script src="monthly-effort.js"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->
@@ -7967,6 +8231,332 @@
         </div>
     </div>
 </div>
+
+<!-- ======================================================================= -->
+<!-- MODAL: 월투입공수 상세 & 인력별 직접입력 (modal-monthly-effort-detail)      -->
+<!-- ======================================================================= -->
+<div id="modal-monthly-effort-detail" class="modal" style="display: none;" data-app-modal data-modal-size="lg">
+    <div class="modal-content" style="max-width: 1050px; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-card); border-radius: 14px; border: 1px solid var(--bg-card-border); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);">
+        <!-- 헤더 -->
+        <div class="modal-header" style="padding: 18px 24px; border-bottom: 1px solid var(--bg-card-border); display: flex; justify-content: space-between; align-items: center; background: var(--bg-card);">
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <h3 style="font-size: 18px; font-weight: 800; color: var(--text-main); margin: 0;" id="effort-modal-project-title">프로젝트 투입공수 상세</h3>
+                <span id="effort-modal-status-badge" class="badge" style="font-size: 12px; font-weight: 700; padding: 4px 10px;">상태</span>
+                <span id="effort-modal-lock-badge" class="badge" style="display: none; background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 11px;">🔒 확정됨 (수정 제한)</span>
+            </div>
+            <button type="button" class="close-btn" onclick="app.closeEffortDetailModal()" style="background: none; border: none; font-size: 24px; color: var(--text-muted); cursor: pointer;">&times;</button>
+        </div>
+
+        <!-- 본문 -->
+        <div class="modal-body" style="padding: 20px 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px;">
+            <!-- 프로젝트 요약 인포 박스 -->
+            <div style="background: var(--bg-input, rgba(255,255,255,0.03)); border: 1px solid var(--bg-card-border); border-radius: 10px; padding: 14px 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; font-size: 13px;">
+                <div><span style="color: var(--text-muted); font-size: 12px; display: block;">프로젝트 코드</span><strong id="effort-modal-code" style="font-family: monospace; color: var(--text-main);">-</strong></div>
+                <div><span style="color: var(--text-muted); font-size: 12px; display: block;">담당 PM (이메일)</span><strong id="effort-modal-pm" style="color: var(--text-main);">-</strong></div>
+                <div><span style="color: var(--text-muted); font-size: 12px; display: block;">조사 대상월 / 제출기한</span><strong id="effort-modal-period" style="color: var(--text-main);">-</strong></div>
+                <div><span style="color: var(--text-muted); font-size: 12px; display: block;">총 투입공수 (M/M)</span><strong id="effort-modal-total-mm" style="color: #818cf8; font-size: 16px;">0.00 M/M</strong></div>
+                <div><span style="color: var(--text-muted); font-size: 12px; display: block;">식별 토큰</span><strong id="effort-modal-token" style="font-family: monospace; font-size: 11px; color: var(--text-muted); word-break: break-all;">-</strong></div>
+            </div>
+
+            <!-- 검토 필요(NEEDS_REVIEW) 오류 경고 박스 -->
+            <div id="effort-modal-review-warning" style="display: none; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 12px 16px; color: #ef4444; font-size: 13px;">
+                <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 4px;">
+                    <i data-lucide="alert-triangle" style="width: 16px; height: 16px;"></i>
+                    <span>검토 필요 (파싱 또는 검증 오류 발생)</span>
+                </div>
+                <div id="effort-modal-review-notes" style="font-size: 12px; white-space: pre-wrap; color: var(--text-main);"></div>
+            </div>
+
+            <!-- 탭 전환: 인력별 투입공수 / 변경 및 확정 이력 -->
+            <div style="display: flex; border-bottom: 1px solid var(--bg-card-border); gap: 12px;">
+                <button type="button" class="btn" id="effort-modal-tab-entries-btn" onclick="app.switchEffortModalSubTab('entries')" style="background: none; border: none; font-size: 13.5px; font-weight: 700; color: #818cf8; border-bottom: 2px solid #818cf8; padding: 8px 12px; cursor: pointer;">
+                    인력별 투입공수 등록 (<span id="effort-modal-entries-count">0</span>명)
+                </button>
+                <button type="button" class="btn" id="effort-modal-tab-audit-btn" onclick="app.switchEffortModalSubTab('audit')" style="background: none; border: none; font-size: 13.5px; font-weight: 600; color: var(--text-muted); border-bottom: 2px solid transparent; padding: 8px 12px; cursor: pointer;">
+                    확정 및 변경 이력
+                </button>
+            </div>
+
+            <!-- 서브탭 1: 인력별 투입공수 목록 및 입력 -->
+            <div id="effort-modal-subtab-entries" style="display: flex; flex-direction: column; gap: 14px;">
+                <!-- 엑셀 파일 업로드 & 행 추가 툴바 -->
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;" id="effort-modal-entries-toolbar">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button type="button" class="btn btn-outline" onclick="app.addEffortEntryRow()" style="height: 34px; font-size: 12.5px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px;">
+                            <i data-lucide="plus" style="width: 15px; height: 15px;"></i>
+                            <span>인력 행 추가</span>
+                        </button>
+                        <button type="button" class="btn btn-outline" onclick="document.getElementById('effort-excel-file-input').click()" style="height: 34px; font-size: 12.5px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px;">
+                            <i data-lucide="upload" style="width: 15px; height: 15px; color: #10b981;"></i>
+                            <span>Excel 파일 업로드 (.xlsx/.csv)</span>
+                        </button>
+                        <input type="file" id="effort-excel-file-input" accept=".xlsx, .xls, .csv" style="display: none;" onchange="app.handleEffortExcelFileUpload(event)">
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 12px; font-size: 13px;">
+                        <span style="color: var(--text-muted);">총 참여인원: <strong id="effort-calc-headcount" style="color: var(--text-main);">0명</strong></span>
+                        <span style="color: var(--text-muted);">총 투입공수: <strong id="effort-calc-total-mm" style="color: #818cf8; font-weight: 700;">0.00 M/M</strong></span>
+                    </div>
+                </div>
+
+                <!-- 인력별 투입공수 입력 테이블 -->
+                <div style="border: 1px solid var(--bg-card-border); border-radius: 10px; overflow: hidden; background: var(--bg-card);">
+                    <div style="max-height: 360px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 12.5px;" id="effort-modal-entries-table">
+                            <thead>
+                                <tr style="background: var(--bg-table-header, rgba(255,255,255,0.02)); border-bottom: 1px solid var(--bg-card-border); color: var(--text-muted); font-size: 11.5px; position: sticky; top: 0; z-index: 2;">
+                                    <th style="padding: 10px 10px; width: 45px; text-align: center;">No</th>
+                                    <th style="padding: 10px 12px; width: 110px;">성명 <span style="color:#ef4444;">*</span></th>
+                                    <th style="padding: 10px 12px; width: 120px;">소속</th>
+                                    <th style="padding: 10px 12px; width: 100px;">역할</th>
+                                    <th style="padding: 10px 12px; width: 150px;">투입기간</th>
+                                    <th style="padding: 10px 12px; width: 85px; text-align: right;">근무일수</th>
+                                    <th style="padding: 10px 12px; width: 95px; text-align: right;">투입공수(M/M) <span style="color:#ef4444;">*</span></th>
+                                    <th style="padding: 10px 12px;">비고</th>
+                                    <th style="padding: 10px 10px; width: 50px; text-align: center;" class="effort-action-col">삭제</th>
+                                </tr>
+                            </thead>
+                            <tbody id="effort-modal-entries-tbody">
+                                <!-- Javascript 동적 렌더링 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 원본 파일 정보 (있는 경우) -->
+                <div id="effort-modal-file-info-box" style="display: none; background: rgba(255,255,255,0.02); border: 1px dashed var(--bg-card-border); border-radius: 8px; padding: 10px 14px; font-size: 12px; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="file-spreadsheet" style="width: 16px; height: 16px; color: #10b981;"></i>
+                        <span style="color: var(--text-muted);">제출된 원본 파일:</span>
+                        <strong id="effort-modal-attached-filename" style="color: var(--text-main);">-</strong>
+                        <span id="effort-modal-attached-meta" style="color: var(--text-muted); font-size: 11px;"></span>
+                    </div>
+                    <button type="button" class="btn btn-outline" id="effort-modal-download-file-btn" onclick="app.downloadCurrentEffortSubmissionFile()" style="height: 28px; padding: 0 10px; font-size: 11.5px;">
+                        <i data-lucide="download" style="width: 13px; height: 13px;"></i> 원본 다운로드
+                    </button>
+                </div>
+            </div>
+
+            <!-- 서브탭 2: 변경 및 확정 이력 -->
+            <div id="effort-modal-subtab-audit" style="display: none; flex-direction: column; gap: 14px;">
+                <div style="background: var(--bg-input, rgba(255,255,255,0.02)); border: 1px solid var(--bg-card-border); border-radius: 8px; padding: 12px 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; font-size: 12.5px;">
+                    <div><span style="color: var(--text-muted); font-size: 11.5px; display: block;">최초 발송일</span><strong id="effort-audit-first-sent">-</strong></div>
+                    <div><span style="color: var(--text-muted); font-size: 11.5px; display: block;">최종 발송일</span><strong id="effort-audit-last-sent">-</strong></div>
+                    <div><span style="color: var(--text-muted); font-size: 11.5px; display: block;">회신/제출일시</span><strong id="effort-audit-submitted-at">-</strong></div>
+                    <div><span style="color: var(--text-muted); font-size: 11.5px; display: block;">확정자 / 확정일시</span><strong id="effort-audit-confirmed-info">-</strong></div>
+                </div>
+
+                <div style="border: 1px solid var(--bg-card-border); border-radius: 8px; overflow: hidden;">
+                    <div style="padding: 10px 14px; background: var(--bg-table-header); font-weight: 700; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--bg-card-border);">
+                        수정 및 변경 이력 로그
+                    </div>
+                    <div style="max-height: 220px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--bg-card-border); color: var(--text-muted); font-size: 11px;">
+                                    <th style="padding: 8px 12px; width: 140px;">일시</th>
+                                    <th style="padding: 8px 12px; width: 100px;">구분</th>
+                                    <th style="padding: 8px 12px; width: 120px;">작업자</th>
+                                    <th style="padding: 8px 12px;">상세 변경 내용</th>
+                                </tr>
+                            </thead>
+                            <tbody id="effort-modal-audit-tbody">
+                                <!-- Javascript 동적 렌더링 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 푸터 액션 버튼들 -->
+        <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--bg-card-border); display: flex; justify-content: space-between; align-items: center; background: var(--bg-card);">
+            <div>
+                <button type="button" class="btn btn-outline" onclick="app.closeEffortDetailModal()">닫기</button>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <button type="button" class="btn btn-outline" id="btn-effort-save-temp" onclick="app.saveEffortEntries(false)" style="display: inline-flex; align-items: center; gap: 6px;">
+                    <i data-lucide="save" style="width: 15px; height: 15px;"></i>
+                    <span>임시저장</span>
+                </button>
+                <button type="button" class="btn btn-primary" id="btn-effort-submit" onclick="app.saveEffortEntries(true)" style="display: inline-flex; align-items: center; gap: 6px;">
+                    <i data-lucide="check" style="width: 15px; height: 15px;"></i>
+                    <span>제출완료</span>
+                </button>
+                <button type="button" class="btn btn-success" id="btn-effort-confirm" onclick="app.confirmCurrentEffort(true)" style="display: none; background: #10b981; color: #fff; border: none; padding: 0 16px; height: 38px; border-radius: 8px; font-weight: 700; align-items: center; gap: 6px;">
+                    <i data-lucide="shield-check" style="width: 16px; height: 16px;"></i>
+                    <span>확정 승인</span>
+                </button>
+                <button type="button" class="btn btn-outline-danger" id="btn-effort-unconfirm" onclick="app.confirmCurrentEffort(false)" style="display: none; height: 38px; font-weight: 600; align-items: center; gap: 6px;">
+                    <i data-lucide="unlock" style="width: 15px; height: 15px;"></i>
+                    <span>확정 취소 (수정 허용)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ======================================================================= -->
+<!-- MODAL: 신규 투입공수 조사 사이클 생성 (modal-monthly-effort-create)       -->
+<!-- ======================================================================= -->
+<div id="modal-monthly-effort-create" class="modal" style="display: none;" data-app-modal>
+    <div class="modal-content" style="max-width: 780px; max-height: 90vh; display: flex; flex-direction: column; background: var(--bg-card); border-radius: 14px; border: 1px solid var(--bg-card-border); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);">
+        <div class="modal-header" style="padding: 18px 24px; border-bottom: 1px solid var(--bg-card-border); display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i data-lucide="calendar-plus" style="width: 20px; height: 20px; color: #6366f1;"></i>
+                <h3 style="font-size: 18px; font-weight: 800; color: var(--text-main); margin: 0;">월별 투입공수 조사 사이클 생성</h3>
+            </div>
+            <button type="button" class="close-btn" onclick="app.closeCreateEffortCycleModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 20px 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 18px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+                    <label for="effort-create-month" style="font-size: 13px; font-weight: 700; color: var(--text-main);">조사 대상월 <span style="color:#ef4444;">*</span></label>
+                    <input type="month" id="effort-create-month" onchange="app.onEffortCreateMonthChanged()" style="height: 40px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                    <span style="font-size: 11.5px; color: var(--text-muted);">기본값: 전월 (예: 현재 10월인 경우 9월 귀속)</span>
+                </div>
+                <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+                    <label for="effort-create-deadline" style="font-size: 13px; font-weight: 700; color: var(--text-main);">회신 기한 <span style="color:#ef4444;">*</span></label>
+                    <input type="date" id="effort-create-deadline" style="height: 40px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                    <span style="font-size: 11.5px; color: var(--text-muted);">기본값: 당월 10일 (예: 2026-10-10)</span>
+                </div>
+            </div>
+
+            <!-- 대상 프로젝트 자동 검색 요약 -->
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 13px; font-weight: 700; color: var(--text-main);">연계 대상 프로젝트 미리보기</span>
+                    <span id="effort-create-projects-count" style="font-size: 12px; color: var(--text-muted);">총 0개 프로젝트 감지</span>
+                </div>
+                <div style="max-height: 240px; overflow-y: auto; border: 1px solid var(--bg-card-border); border-radius: 8px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                        <thead>
+                            <tr style="background: var(--bg-table-header); border-bottom: 1px solid var(--bg-card-border); color: var(--text-muted); position: sticky; top: 0;">
+                                <th style="padding: 8px 10px; width: 110px;">코드</th>
+                                <th style="padding: 8px 10px;">프로젝트명</th>
+                                <th style="padding: 8px 10px; width: 90px; text-align: center;">담당 PM</th>
+                                <th style="padding: 8px 10px; width: 150px;">PM 이메일</th>
+                                <th style="padding: 8px 10px; width: 100px; text-align: center;">상태</th>
+                            </tr>
+                        </thead>
+                        <tbody id="effort-create-projects-preview-tbody">
+                            <!-- Javascript 동적 렌더링 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div style="background: rgba(99, 102, 241, 0.08); border-radius: 8px; padding: 12px; font-size: 12px; color: var(--text-muted);">
+                💡 <strong>안내:</strong> 동일한 대상월의 조사는 중복 생성되지 않습니다. 생성 시 각 프로젝트별로 이메일 회신 자동 추적을 위한 고유 토큰이 자동 발급됩니다.
+            </div>
+        </div>
+        <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--bg-card-border); display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" class="btn btn-outline" onclick="app.closeCreateEffortCycleModal()">취소</button>
+            <button type="button" class="btn btn-primary" onclick="app.executeCreateEffortCycle()" style="font-weight: 700;">조사 사이클 생성</button>
+        </div>
+    </div>
+</div>
+
+<!-- ======================================================================= -->
+<!-- MODAL: 투입공수 조사 이메일 발송 / 재발송 (modal-monthly-effort-mail)     -->
+<!-- ======================================================================= -->
+<div id="modal-monthly-effort-mail" class="modal" style="display: none;" data-app-modal>
+    <div class="modal-content" style="max-width: 720px; max-height: 90vh; display: flex; flex-direction: column; background: var(--bg-card); border-radius: 14px; border: 1px solid var(--bg-card-border); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);">
+        <div class="modal-header" style="padding: 18px 24px; border-bottom: 1px solid var(--bg-card-border); display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i data-lucide="send" style="width: 20px; height: 20px; color: #3b82f6;"></i>
+                <h3 style="font-size: 18px; font-weight: 800; color: var(--text-main); margin: 0;" id="effort-mail-modal-title">투입공수 조사 메일 발송</h3>
+            </div>
+            <button type="button" class="close-btn" onclick="app.closeSendEffortMailModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 20px 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px;">
+            <div id="effort-mail-modal-banner" style="background: rgba(59, 130, 246, 0.1); border-left: 4px solid #3b82f6; border-radius: 0 8px 8px 0; padding: 12px 16px; font-size: 13px; color: var(--text-main);">
+                <!-- Dynamic text -->
+            </div>
+
+            <!-- 발송 대상 목록 요약 -->
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 13px; font-weight: 700; color: var(--text-main);">발송 대상 프로젝트 및 수신자</span>
+                    <span id="effort-mail-target-count" style="font-size: 12px; color: var(--text-muted);">선택 0건</span>
+                </div>
+                <div style="max-height: 220px; overflow-y: auto; border: 1px solid var(--bg-card-border); border-radius: 8px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                        <thead>
+                            <tr style="background: var(--bg-table-header); border-bottom: 1px solid var(--bg-card-border); color: var(--text-muted); position: sticky; top: 0;">
+                                <th style="padding: 8px 10px; width: 100px;">프로젝트 코드</th>
+                                <th style="padding: 8px 10px;">프로젝트명</th>
+                                <th style="padding: 8px 10px; width: 90px; text-align: center;">담당 PM</th>
+                                <th style="padding: 8px 10px; width: 160px;">수신 이메일</th>
+                            </tr>
+                        </thead>
+                        <tbody id="effort-mail-target-tbody">
+                            <!-- Javascript 동적 렌더링 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 메일 제목 및 토큰 템플릿 안내 -->
+            <div style="background: var(--bg-input); border: 1px solid var(--bg-card-border); border-radius: 8px; padding: 12px 14px; font-size: 12px;">
+                <div style="color: var(--text-muted); font-size: 11.5px; margin-bottom: 4px;">메일 제목 템플릿 예시:</div>
+                <code style="font-family: monospace; color: #818cf8; word-break: break-all; display: block;" id="effort-mail-example-subject">
+                    [AetherPMO][2026-09][OP-26-0826][EFFORT-EFF-202609-OP260826-XXXX] 9월 투입공수 조사 - 프로젝트명
+                </code>
+            </div>
+        </div>
+        <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--bg-card-border); display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" class="btn btn-outline" onclick="app.closeSendEffortMailModal()">취소</button>
+            <button type="button" class="btn btn-primary" id="btn-effort-mail-send-exec" onclick="app.executeSendEffortEmails()" style="font-weight: 700;">발송 실행</button>
+        </div>
+    </div>
+</div>
+
+<!-- ======================================================================= -->
+<!-- MODAL: Excel 파일 업로드 미리보기 & 검증 (modal-monthly-effort-preview)  -->
+<!-- ======================================================================= -->
+<div id="modal-monthly-effort-preview" class="modal" style="display: none;" data-app-modal>
+    <div class="modal-content" style="max-width: 900px; max-height: 90vh; display: flex; flex-direction: column; background: var(--bg-card); border-radius: 14px; border: 1px solid var(--bg-card-border); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);">
+        <div class="modal-header" style="padding: 18px 24px; border-bottom: 1px solid var(--bg-card-border); display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i data-lucide="file-check" style="width: 20px; height: 20px; color: #10b981;"></i>
+                <h3 style="font-size: 18px; font-weight: 800; color: var(--text-main); margin: 0;">Excel 파싱 결과 미리보기 & 검증</h3>
+            </div>
+            <button type="button" class="close-btn" onclick="app.closeEffortPreviewModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 20px 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px;">
+            <div id="effort-preview-summary-box" style="background: var(--bg-input); border: 1px solid var(--bg-card-border); border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 13px;">
+                <!-- Dynamic summary -->
+            </div>
+
+            <!-- 파싱 데이터 테이블 미리보기 -->
+            <div style="max-height: 360px; overflow-y: auto; border: 1px solid var(--bg-card-border); border-radius: 8px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left;">
+                    <thead>
+                        <tr style="background: var(--bg-table-header); border-bottom: 1px solid var(--bg-card-border); color: var(--text-muted); position: sticky; top: 0; z-index: 2;">
+                            <th style="padding: 8px 10px; width: 45px; text-align: center;">No</th>
+                            <th style="padding: 8px 10px; width: 100px;">성명</th>
+                            <th style="padding: 8px 10px; width: 120px;">소속</th>
+                            <th style="padding: 8px 10px; width: 90px;">역할</th>
+                            <th style="padding: 8px 10px; width: 140px;">투입기간</th>
+                            <th style="padding: 8px 10px; width: 80px; text-align: right;">근무일수</th>
+                            <th style="padding: 8px 10px; width: 90px; text-align: right;">공수(M/M)</th>
+                            <th style="padding: 8px 10px;">비고</th>
+                        </tr>
+                    </thead>
+                    <tbody id="effort-preview-tbody">
+                        <!-- Javascript 동적 렌더링 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--bg-card-border); display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" class="btn btn-outline" onclick="app.closeEffortPreviewModal()">취소</button>
+            <button type="button" class="btn btn-primary" onclick="app.applyParsedEffortData()" style="font-weight: 700;">현재 프로젝트에 데이터 반영</button>
+        </div>
+    </div>
+</div>
+
 
 </body>
 </html>

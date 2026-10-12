@@ -2,6 +2,7 @@
   "buildCommand": "node build-config.js && npm --prefix web install && npm --prefix web run build",
   "outputDirectory": ".",
   "rewrites": [
+    { "source": "/api/effort", "destination": "/api/effort" },
     { "source": "/api/g2b/bid", "destination": "/api/g2b?serviceType=bid" },
     { "source": "/api/ai/chat", "destination": "/api/ai/chat" },
     { "source": "/api/ai/health", "destination": "/api/ai/health" },
