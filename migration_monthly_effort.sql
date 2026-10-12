@@ -924,6 +924,124 @@ BEGIN
 END;
 $$;
 
+-- 수기 직접입력 원자적 트랜잭션 함수 (Entries 일괄 갱신 + Requests total/status 갱신 + Audit Log)
+CREATE OR REPLACE FUNCTION public.process_monthly_effort_direct_input(
+    p_request_id UUID,
+    p_is_submit BOOLEAN,
+    p_entries JSONB,
+    p_total_headcount INT,
+    p_total_effort_mm NUMERIC,
+    p_user_id UUID,
+    p_user_name TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+    v_req RECORD;
+    v_entry JSONB;
+    v_now TIMESTAMP WITH TIME ZONE := NOW();
+    v_next_status TEXT;
+    v_next_submitted_at TIMESTAMP WITH TIME ZONE;
+    v_action TEXT;
+BEGIN
+    -- 1. 대상 Request 확인 및 행 레벨 락 (동시성 제어)
+    SELECT * INTO v_req FROM public.monthly_effort_requests WHERE id = p_request_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Target request with id % not found', p_request_id;
+    END IF;
+
+    -- 확정 상태인 경우 수정/제출 절대 불가
+    IF v_req.status = 'CONFIRMED' THEN
+        RAISE EXCEPTION 'Cannot modify or submit confirmed request % (%)', v_req.id, v_req.project_code;
+    END IF;
+
+    -- 2. 기존 entries 삭제 후 신규 entries 일괄 등록
+    DELETE FROM public.monthly_effort_entries WHERE request_id = v_req.id;
+
+    IF p_entries IS NOT NULL AND jsonb_array_length(p_entries) > 0 THEN
+        FOR v_entry IN SELECT * FROM jsonb_array_elements(p_entries)
+        LOOP
+            INSERT INTO public.monthly_effort_entries (
+                request_id,
+                submission_id,
+                year_month,
+                project_id,
+                member_name,
+                organization,
+                role_name,
+                period_str,
+                work_days,
+                effort_mm,
+                remarks,
+                order_no
+            ) VALUES (
+                v_req.id,
+                NULL,
+                v_req.year_month,
+                v_req.project_id,
+                COALESCE(v_entry->>'member_name', v_entry->>'memberName', '미입력'),
+                COALESCE(v_entry->>'organization', '자사'),
+                COALESCE(v_entry->>'role_name', v_entry->>'roleName', '수행원'),
+                COALESCE(v_entry->>'period_str', v_entry->>'periodStr', ''),
+                COALESCE((v_entry->>'work_days')::INT, (v_entry->>'workDays')::INT, 0),
+                COALESCE((v_entry->>'effort_mm')::NUMERIC, (v_entry->>'effortMm')::NUMERIC, 0),
+                COALESCE(v_entry->>'remarks', ''),
+                COALESCE((v_entry->>'order_no')::INT, 1)
+            );
+        END LOOP;
+    END IF;
+
+    -- 3. Request 상태 및 인원/공수 총합 갱신
+    IF p_is_submit THEN
+        v_next_status := 'SUBMITTED';
+        v_next_submitted_at := v_now;
+        v_action := 'DIRECT_SUBMIT';
+    ELSE
+        v_next_status := v_req.status;
+        v_next_submitted_at := v_req.submitted_at;
+        v_action := 'UPDATE_ENTRY';
+    END IF;
+
+    UPDATE public.monthly_effort_requests
+    SET
+        status = v_next_status,
+        submission_method = 'DIRECT_INPUT',
+        submitted_at = v_next_submitted_at,
+        total_headcount = p_total_headcount,
+        total_effort_mm = p_total_effort_mm,
+        updated_at = v_now
+    WHERE id = v_req.id;
+
+    -- 4. Audit Log 기록
+    INSERT INTO public.monthly_effort_audit_logs (
+        request_id,
+        action,
+        changed_by,
+        changed_by_name,
+        details,
+        created_at
+    ) VALUES (
+        v_req.id,
+        v_action,
+        p_user_id,
+        COALESCE(p_user_name, '사용자'),
+        format('수기 투입공수 %s 완료 (%s명, %s M/M)', CASE WHEN p_is_submit THEN '제출' ELSE '임시저장' END, p_total_headcount, p_total_effort_mm),
+        v_now
+    );
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'status', v_next_status,
+        'total_headcount', p_total_headcount,
+        'total_effort_mm', p_total_effort_mm,
+        'submitted_at', v_next_submitted_at
+    );
+END;
+$$;
+
 -- 12. 권한 부여 (신규 월투입공수 6개 테이블 및 RPC 함수에만 한정 부여, anon 전체 schema 권한 부여 제거)
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     public.monthly_effort_cycles,
@@ -943,7 +1061,7 @@ GRANT ALL ON
     public.monthly_effort_audit_logs
 TO service_role;
 
--- RPC 함수 권한 설정 (최소 권한 원칙)
+-- RPC 함수 권한 설정 (최소 권한 원칙 - 모든 트랜잭션 RPC는 Service Role 전용)
 -- 1) process_monthly_effort_email_submission: Service Role 전용
 REVOKE ALL ON FUNCTION public.process_monthly_effort_email_submission(UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, INT, INT, NUMERIC, JSONB) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.process_monthly_effort_email_submission(UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, INT, INT, NUMERIC, JSONB) TO service_role;
@@ -955,4 +1073,8 @@ GRANT EXECUTE ON FUNCTION public.confirm_monthly_effort_requests(UUID[], BOOLEAN
 -- 3) process_monthly_effort_direct_submission: Service Role 전용 (일반 사용자 직접 호출 절대 차단, Serverless API /api/effort?action=direct-submit 통해서만 실행)
 REVOKE ALL ON FUNCTION public.process_monthly_effort_direct_submission(UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, INT, INT, NUMERIC, JSONB, UUID, TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.process_monthly_effort_direct_submission(UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, INT, INT, NUMERIC, JSONB, UUID, TEXT) TO service_role;
+
+-- 4) process_monthly_effort_direct_input: Service Role 전용 (일반 사용자 직접 호출 절대 차단, Serverless API /api/effort?action=direct-input 통해서만 실행)
+REVOKE ALL ON FUNCTION public.process_monthly_effort_direct_input(UUID, BOOLEAN, JSONB, INT, NUMERIC, UUID, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.process_monthly_effort_direct_input(UUID, BOOLEAN, JSONB, INT, NUMERIC, UUID, TEXT) TO service_role;
 

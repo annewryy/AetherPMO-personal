@@ -1515,15 +1515,29 @@
 
             if (this.useSupabase && this.supabase) {
                 try {
-                    // 1. 기존 엔트리 삭제 및 오류 확인
-                    const { error: delErr } = await this.supabase
-                        .from('monthly_effort_entries')
-                        .delete()
-                        .eq('request_id', req.id);
-                    if (delErr) throw delErr;
+                    const authToken = await this.getEffortAuthToken();
+                    const response = await fetch('/api/effort?action=direct-input', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+                        },
+                        body: JSON.stringify({
+                            requestId: req.id,
+                            isSubmit: Boolean(isSubmit),
+                            entries: this.tempEffortEntries
+                        })
+                    });
 
-                    // 2. 새 엔트리 INSERT (id 생략하여 DB DEFAULT gen_random_uuid() 사용)
-                    const dbPayloadEntries = this.tempEffortEntries.map((ent, idx) => ({
+                    const result = await response.json();
+                    if (!response.ok || !result.success) {
+                        throw new Error(result.error || '수기 투입공수 저장에 실패했습니다.');
+                    }
+
+                    // 성공 시 로컬 캐시 갱신
+                    this.state.monthlyEffortEntries = (this.state.monthlyEffortEntries || []).filter(e => e.request_id !== req.id);
+                    this.state.monthlyEffortEntries.push(...this.tempEffortEntries.map((ent, idx) => ({
+                        id: this.generateUUID(),
                         request_id: req.id,
                         year_month: req.year_month,
                         project_id: req.project_id,
@@ -1535,50 +1549,18 @@
                         effort_mm: ent.effort_mm ?? ent.effortMm ?? 0,
                         remarks: ent.remarks || '',
                         order_no: idx + 1
-                    }));
+                    })));
 
-                    let insertedEntries = [];
-                    if (dbPayloadEntries.length > 0) {
-                        const { data: insData, error: insErr } = await this.supabase
-                            .from('monthly_effort_entries')
-                            .insert(dbPayloadEntries)
-                            .select();
-                        if (insErr) throw insErr;
-                        insertedEntries = insData || [];
-                    }
-
-                    // 3. Request 상태 및 합계 업데이트 및 오류 확인
-                    const nextStatus = isSubmit ? 'SUBMITTED' : req.status;
-                    const nextSubmittedAt = isSubmit ? nowIso : req.submitted_at;
-                    const nextMethod = req.submission_method || 'DIRECT_INPUT';
-
-                    const { error: reqUpdErr } = await this.supabase
-                        .from('monthly_effort_requests')
-                        .update({
-                            total_headcount: headcount,
-                            total_effort_mm: totalEffortMm,
-                            submission_method: nextMethod,
-                            status: nextStatus,
-                            submitted_at: nextSubmittedAt,
-                            updated_at: nowIso
-                        })
-                        .eq('id', req.id);
-                    if (reqUpdErr) throw reqUpdErr;
-
-                    // 성공 시 로컬 캐시 갱신
-                    this.state.monthlyEffortEntries = (this.state.monthlyEffortEntries || []).filter(e => e.request_id !== req.id);
-                    this.state.monthlyEffortEntries.push(...insertedEntries);
-
-                    req.total_headcount = headcount;
-                    req.total_effort_mm = totalEffortMm;
-                    req.submission_method = nextMethod;
-                    req.status = nextStatus;
-                    req.submitted_at = nextSubmittedAt;
+                    req.total_headcount = result.totalHeadcount ?? headcount;
+                    req.total_effort_mm = result.totalEffortMm ?? totalEffortMm;
+                    req.submission_method = 'DIRECT_INPUT';
+                    req.status = result.status;
+                    req.submitted_at = result.submittedAt ?? (isSubmit ? nowIso : req.submitted_at);
                     req.updated_at = nowIso;
-                } catch (dbErr) {
-                    console.error('[MonthlyEffort] Supabase save error:', dbErr);
-                    alert(`투입공수 저장 중 데이터베이스 오류가 발생했습니다: ${dbErr.message || JSON.stringify(dbErr)}`);
-                    return; // DB 오류 시 절대 성공 Toast 표시 금지
+                } catch (err) {
+                    console.error('[MonthlyEffort] Direct input save error:', err);
+                    alert(`투입공수 저장 중 오류가 발생했습니다: ${err.message}`);
+                    return; // 오류 시 절대 성공 Toast 표시 금지
                 }
             } else {
                 // LocalStorage / Mock 모드
@@ -1612,13 +1594,28 @@
             }
 
             // 감사 로그 기록
-            this.logEffortAudit({
-                requestId: req.id,
-                action: isSubmit ? 'DIRECT_SUBMIT' : 'UPDATE_ENTRY',
-                details: isSubmit
-                    ? `투입공수 제출 완료 (${headcount}명, ${totalEffortMm} M/M)`
-                    : `투입공수 임시저장 (${headcount}명, ${totalEffortMm} M/M)`
-            });
+            if (!this.useSupabase) {
+                this.logEffortAudit({
+                    requestId: req.id,
+                    action: isSubmit ? 'DIRECT_SUBMIT' : 'UPDATE_ENTRY',
+                    details: isSubmit
+                        ? `투입공수 제출 완료 (${headcount}명, ${totalEffortMm} M/M)`
+                        : `투입공수 임시저장 (${headcount}명, ${totalEffortMm} M/M)`
+                });
+            } else {
+                this.state.monthlyEffortAuditLogs = this.state.monthlyEffortAuditLogs || [];
+                this.state.monthlyEffortAuditLogs.unshift({
+                    id: this.generateUUID(),
+                    request_id: req.id,
+                    action: isSubmit ? 'DIRECT_SUBMIT' : 'UPDATE_ENTRY',
+                    changed_by: this.currentUser?.id || null,
+                    changed_by_name: this.currentUser?.name || this.currentUser?.email || '사용자',
+                    details: isSubmit
+                        ? `투입공수 제출 완료 (${headcount}명, ${totalEffortMm} M/M)`
+                        : `투입공수 임시저장 (${headcount}명, ${totalEffortMm} M/M)`,
+                    created_at: nowIso
+                });
+            }
 
             this.persistEffortState();
             this.closeEffortDetailModal();

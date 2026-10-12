@@ -533,6 +533,7 @@ async function runTests() {
         id: 'req-pm-1',
         project_id: 'proj-1',
         project_code: 'OP-26-0826',
+        year_month: '2026-09',
         pm_id: '22222222-2222-2222-2222-222222222222',
         pm_email: 'pm@company.com',
         status: 'UNSENT'
@@ -542,6 +543,7 @@ async function runTests() {
         id: 'req-conf-1',
         project_id: 'proj-1',
         project_code: 'OP-26-0826',
+        year_month: '2026-09',
         pm_id: '22222222-2222-2222-2222-222222222222',
         pm_email: 'pm@company.com',
         status: 'CONFIRMED'
@@ -568,8 +570,8 @@ async function runTests() {
                         success: true,
                         submission_id: 'sub-direct-1',
                         status: 'SUBMITTED',
-                        total_headcount: 1,
-                        total_effort_mm: 1.0,
+                        total_headcount: params.p_total_headcount || 1,
+                        total_effort_mm: params.p_total_effort_mm || 1.0,
                         submitted_at: new Date().toISOString()
                     },
                     error: null
@@ -650,8 +652,254 @@ async function runTests() {
     assert.strictEqual(resDirConfirmed.get().statusCode, 400, 'CONFIRMED request direct-submit must be rejected with 400');
     assert(resDirConfirmed.get().responseData.error.includes('이미 확정'));
 
+    // 6-7. direct-submit effort_mm = -1 -> 400 거부
+    const resDirNegativeMm = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_PM_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: {
+            requestId: 'req-pm-1',
+            fileName: 'test.xlsx',
+            storagePath: '2026-09/proj-1/req-pm-1/test.xlsx',
+            entries: [{ member_name: '홍길동', effort_mm: -1.0, work_days: 20 }]
+        }
+    }, resDirNegativeMm);
+    assert.strictEqual(resDirNegativeMm.get().statusCode, 400, 'effort_mm < 0 must return 400');
+    assert(resDirNegativeMm.get().responseData.error.includes('0.0 이상 5.0 이하'));
+
+    // 6-8. direct-submit effort_mm = 6.0 (> 5.0) -> 400 거부
+    const resDirExcessMm = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_PM_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: {
+            requestId: 'req-pm-1',
+            fileName: 'test.xlsx',
+            storagePath: '2026-09/proj-1/req-pm-1/test.xlsx',
+            entries: [{ member_name: '홍길동', effort_mm: 6.0, work_days: 20 }]
+        }
+    }, resDirExcessMm);
+    assert.strictEqual(resDirExcessMm.get().statusCode, 400, 'effort_mm > 5.0 must return 400');
+    assert(resDirExcessMm.get().responseData.error.includes('0.0 이상 5.0 이하'));
+
+    // 6-9. direct-submit member_name 누락 -> 400 거부
+    const resDirMissingName = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_PM_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: {
+            requestId: 'req-pm-1',
+            fileName: 'test.xlsx',
+            storagePath: '2026-09/proj-1/req-pm-1/test.xlsx',
+            entries: [{ member_name: '', effort_mm: 1.0, work_days: 20 }]
+        }
+    }, resDirMissingName);
+    assert.strictEqual(resDirMissingName.get().statusCode, 400, 'missing member_name must return 400');
+    assert(resDirMissingName.get().responseData.error.includes('성명(member_name)은 필수'));
+
+    // 6-10. direct-submit 클라이언트 조작 totalEffortMm / totalHeadcount 무시 및 서버 재계산값 적용 검증
+    directRpcCapturedPayload = null;
+    const resDirManipulated = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_PM_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: {
+            requestId: 'req-pm-1',
+            fileName: 'test.xlsx',
+            storagePath: '2026-09/proj-1/req-pm-1/test.xlsx',
+            totalHeadcount: 999,      // 클라이언트 악의적 조작
+            totalEffortMm: 8888.88,    // 클라이언트 악의적 조작
+            entries: [
+                { member_name: '김철수', effort_mm: 1.25, work_days: 20 },
+                { member_name: '이영희', effort_mm: 0.75, work_days: 15 }
+            ]
+        }
+    }, resDirManipulated);
+    assert.strictEqual(resDirManipulated.get().statusCode, 200);
+    assert.strictEqual(directRpcCapturedPayload.p_total_headcount, 2, '클라이언트 조작 totalHeadcount(999) 대신 서버 재계산 인원수(2)가 사용되어야 함');
+    assert.strictEqual(directRpcCapturedPayload.p_total_effort_mm, 2.0, '클라이언트 조작 totalEffortMm(8888.88) 대신 서버 재계산 공수(2.0)가 사용되어야 함');
+    assert.strictEqual(directRpcCapturedPayload.p_parsed_row_count, 2, '서버 재계산 행수(2)가 전달되어야 함');
+
+    // 6-11. direct-submit 타 프로젝트/잘못된 storagePath 차단 -> 400
+    const resDirBadStorage = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_PM_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: {
+            requestId: 'req-pm-1',
+            fileName: 'test.xlsx',
+            storagePath: '2026-09/hacker-project-id/hacker-req-id/test.xlsx', // 타 프로젝트/요청 경로 시도
+            entries: [{ member_name: '김철수', effort_mm: 1.0, work_days: 20 }]
+        }
+    }, resDirBadStorage);
+    assert.strictEqual(resDirBadStorage.get().statusCode, 400, 'mismatched storagePath must return 400');
+    assert(resDirBadStorage.get().responseData.error.includes('Invalid storage path'));
+
     delete global.__mockSupabaseClient;
-    console.log('✅ Test 6 Passed: Direct-submit 권한 통제 (anonymous 401, worker 403, 타 PM 403, 담당 PM 200, Admin 200, CONFIRMED 거부, 사용자 위조 방지) 검증 완료');
+    console.log('✅ Test 6 Passed: Direct-submit 권한 통제 및 서버 데이터 검증 (anonymous 401, worker 403, 타 PM 403, 담당 PM 200, Admin 200, CONFIRMED 거부, 사용자 위조 차단, effort_mm 범위 검증, 성명 필수 검증, 클라이언트 조작 공수 무시/서버 재계산 강제, storagePath 격리) 검증 완료');
+
+    // ─────────────────────────────────────────────────────────────────
+    // TEST 7: Direct Input (수기 직접입력) 트랜잭션 RPC 통제 & 권한 검증
+    // ─────────────────────────────────────────────────────────────────
+    console.log('\n--- [Test 7] Direct Input Transaction RPC & Permission Control ---');
+
+    let directInputCapturedPayload = null;
+    let mockRpcError = null;
+
+    global.__mockSupabaseClient = {
+        from: (table) => ({
+            select: () => ({
+                eq: (col, val) => ({
+                    single: () => {
+                        if (val === 'req-conf-1') return Promise.resolve({ data: mockConfirmedReq, error: null });
+                        if (val === 'req-pm-1') return Promise.resolve({ data: mockTargetReq, error: null });
+                        return Promise.resolve({ data: null, error: { message: 'Not found' } });
+                    }
+                })
+            })
+        }),
+        rpc: (fn, params) => {
+            if (fn === 'process_monthly_effort_direct_input') {
+                if (mockRpcError) {
+                    return Promise.resolve({ data: null, error: mockRpcError });
+                }
+                directInputCapturedPayload = params;
+                return Promise.resolve({
+                    data: {
+                        success: true,
+                        status: params.p_is_submit ? 'SUBMITTED' : 'WRITING',
+                        total_headcount: params.p_total_headcount,
+                        total_effort_mm: params.p_total_effort_mm,
+                        submitted_at: params.p_is_submit ? new Date().toISOString() : null
+                    },
+                    error: null
+                });
+            }
+            return Promise.resolve({ data: {}, error: null });
+        }
+    };
+
+    // 7-1. anonymous -> direct-input 401 차단
+    const resInpAnon = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: {},
+        query: { action: 'direct-input' },
+        body: { requestId: 'req-pm-1' }
+    }, resInpAnon);
+    assert.strictEqual(resInpAnon.get().statusCode, 401, 'anonymous direct-input must return 401');
+
+    // 7-2. worker -> direct-input 403 차단
+    const resInpWorker = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_WORKER_TOKEN' },
+        query: { action: 'direct-input' },
+        body: { requestId: 'req-pm-1' }
+    }, resInpWorker);
+    assert.strictEqual(resInpWorker.get().statusCode, 403, 'worker direct-input must return 403');
+
+    // 7-3. other PM -> direct-input 403 차단
+    const resInpOtherPm = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_OTHER_PM_TOKEN' },
+        query: { action: 'direct-input' },
+        body: { requestId: 'req-pm-1' }
+    }, resInpOtherPm);
+    assert.strictEqual(resInpOtherPm.get().statusCode, 403, 'other PM direct-input must return 403');
+
+    // 7-4. CONFIRMED request -> direct-input 400 거부
+    const resInpConf = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_ADMIN_TOKEN' },
+        query: { action: 'direct-input' },
+        body: { requestId: 'req-conf-1' }
+    }, resInpConf);
+    assert.strictEqual(resInpConf.get().statusCode, 400, 'CONFIRMED request direct-input must return 400');
+    assert(resInpConf.get().responseData.error.includes('이미 확정'));
+
+    // 7-5. entry 유효성 검증 실패 (effort_mm > 5.0) -> 400 거부
+    const resInpBadEntry = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_PM_TOKEN' },
+        query: { action: 'direct-input' },
+        body: {
+            requestId: 'req-pm-1',
+            entries: [{ member_name: '박수석', effort_mm: 5.5, work_days: 20 }]
+        }
+    }, resInpBadEntry);
+    assert.strictEqual(resInpBadEntry.get().statusCode, 400, 'entry effort_mm > 5.0 must return 400');
+
+    // 7-6. PM 본인 프로젝트 direct-input 성공 및 서버 재계산/원자적 RPC 호출 검증
+    directInputCapturedPayload = null;
+    const resInpPm = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_PM_TOKEN' },
+        query: { action: 'direct-input' },
+        body: {
+            requestId: 'req-pm-1',
+            isSubmit: true,
+            totalHeadcount: 100, // 조작 시도
+            totalEffortMm: 999.0, // 조작 시도
+            entries: [
+                { member_name: '박수석', organization: '오케스트로', role_name: 'PL', work_days: 22, effort_mm: 1.0, remarks: '정상 투입' },
+                { member_name: '최책임', organization: '오케스트로', role_name: '개발', work_days: 11, effort_mm: 0.5, remarks: '부분 투입' }
+            ]
+        }
+    }, resInpPm);
+    assert.strictEqual(resInpPm.get().statusCode, 200, 'PM direct-input for own project must return 200');
+    assert.strictEqual(resInpPm.get().responseData.status, 'SUBMITTED');
+    assert.strictEqual(directInputCapturedPayload.p_request_id, 'req-pm-1');
+    assert.strictEqual(directInputCapturedPayload.p_is_submit, true);
+    assert.strictEqual(directInputCapturedPayload.p_total_headcount, 2, '서버 재계산 총인원수(2) 반영');
+    assert.strictEqual(directInputCapturedPayload.p_total_effort_mm, 1.5, '서버 재계산 총공수(1.5 M/M) 반영');
+    assert.strictEqual(directInputCapturedPayload.p_user_id, '22222222-2222-2222-2222-222222222222', 'JWT 인증 PM user_id 전달');
+    assert.strictEqual(directInputCapturedPayload.p_user_name, '담당 PM', 'JWT 인증 PM 이름 전달');
+
+    // 7-7. Admin direct-input (임시저장 isSubmit=false) 성공
+    directInputCapturedPayload = null;
+    const resInpAdmin = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_ADMIN_TOKEN' },
+        query: { action: 'direct-input' },
+        body: {
+            requestId: 'req-pm-1',
+            isSubmit: false,
+            entries: [{ member_name: '관리자지정', effort_mm: 1.0, work_days: 20 }]
+        }
+    }, resInpAdmin);
+    assert.strictEqual(resInpAdmin.get().statusCode, 200, 'Admin direct-input must return 200');
+    assert.strictEqual(resInpAdmin.get().responseData.status, 'WRITING');
+    assert.strictEqual(directInputCapturedPayload.p_is_submit, false);
+
+    // 7-8. RPC 실행 오류 발생 시 500 반환 (원자적 롤백)
+    mockRpcError = { message: 'PostgreSQL transaction constraint violation in process_monthly_effort_direct_input' };
+    const resInpError = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_ADMIN_TOKEN' },
+        query: { action: 'direct-input' },
+        body: {
+            requestId: 'req-pm-1',
+            isSubmit: true,
+            entries: [{ member_name: '관리자', effort_mm: 1.0, work_days: 20 }]
+        }
+    }, resInpError);
+    assert.strictEqual(resInpError.get().statusCode, 500, 'RPC failure must return 500');
+    assert(resInpError.get().responseData.error.includes('PostgreSQL transaction constraint violation'));
+
+    delete global.__mockSupabaseClient;
+    console.log('✅ Test 7 Passed: Direct-input 트랜잭션 RPC 통제 (anonymous 401, worker 403, 타 PM 403, CONFIRMED 거부, 유효성 400, PM/Admin 200, 서버 재계산 무결성, RPC 실패 500 원자적 롤백) 검증 완료');
 
     console.log('\n================================================================');
     console.log('🎉 ALL COMPREHENSIVE TESTS PASSED WITH 100% SUCCESS!');

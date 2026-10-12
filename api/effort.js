@@ -753,7 +753,7 @@ module.exports = async function handler(req, res) {
             }
 
             // ─────────────────────────────────────────────────────────────
-            // 7. 엑셀 직접 업로드 제출 API (권한 검증 후 Service Role RPC 실행)
+            // 7. 엑셀 직접 업로드 제출 API (스토리지 경로/데이터 서버 검증 후 Service Role RPC 실행)
             // ─────────────────────────────────────────────────────────────
             case 'direct-submit': {
                 if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -769,9 +769,6 @@ module.exports = async function handler(req, res) {
                     fileHash,
                     parseStatus,
                     parseErrorMessage,
-                    parsedRowCount,
-                    totalHeadcount,
-                    totalEffortMm,
                     entries
                 } = req.body || {};
 
@@ -790,7 +787,7 @@ module.exports = async function handler(req, res) {
                 // 1. 대상 Request 및 관련 Project DB 조회 (권한 검증용)
                 const { data: targetReq, error: reqQueryErr } = await supabase
                     .from('monthly_effort_requests')
-                    .select('id, project_id, project_code, pm_id, pm_email, status')
+                    .select('id, year_month, project_id, project_code, pm_id, pm_email, status')
                     .eq('id', requestId)
                     .single();
 
@@ -803,11 +800,8 @@ module.exports = async function handler(req, res) {
                     return res.status(400).json({ error: '이미 확정 완료된 투입공수 요청은 수정하거나 엑셀을 업로드할 수 없습니다.' });
                 }
 
-                // 3. 권한 검증:
-                // 관리자: admin, manager, sys_admin, exec_admin -> 전체 가능
-                // PM: targetReq.pm_id === auth.user.id || targetReq.pm_email === auth.user.email || targetReq.pm_email === auth.profile?.email || projects.manager_id === auth.user.id
+                // 3. 권한 검증: 관리자 또는 해당 프로젝트 담당 PM만 허용
                 let hasPermission = auth.isAdmin;
-
                 if (!hasPermission) {
                     const userEmail = (auth.user.email || auth.profile?.email || '').toLowerCase();
                     const pmEmail = (targetReq.pm_email || '').toLowerCase();
@@ -817,7 +811,6 @@ module.exports = async function handler(req, res) {
                     } else if (pmEmail && pmEmail === userEmail) {
                         hasPermission = true;
                     } else if (targetReq.project_id) {
-                        // projects 테이블의 manager_id 확인
                         const { data: projData } = await supabase
                             .from('projects')
                             .select('manager_id')
@@ -834,22 +827,68 @@ module.exports = async function handler(req, res) {
                     return res.status(403).json({ error: '해당 프로젝트의 투입공수를 수정 또는 업로드할 권한이 없습니다.' });
                 }
 
-                // 4. p_user_id, p_user_name은 절대 클라이언트 입력을 신뢰하지 않고 서버가 검증한 auth 데이터만 사용!
+                // 4. Storage 파일 경로 서버 엄격 검증: 전달된 경우 반드시 {targetReq.year_month}/{targetReq.project_id}/{targetReq.id}/ prefix여야 함
+                const expectedPrefix = `${targetReq.year_month}/${targetReq.project_id}/${targetReq.id}/`;
+                if (storagePath) {
+                    if (typeof storagePath !== 'string' || !storagePath.startsWith(expectedPrefix)) {
+                        return res.status(400).json({
+                            error: `Invalid storage path '${storagePath}'. 대상 요청의 경로 규격(${expectedPrefix}...)과 일치해야 합니다.`
+                        });
+                    }
+                }
+
+                const entriesList = Array.isArray(entries) ? entries : [];
+
+                // 5. 서버 데이터 검증 (성명 필수, effort_mm 0~5.0, work_days 음수 금지)
+                for (let i = 0; i < entriesList.length; i++) {
+                    const ent = entriesList[i];
+                    const name = (ent.member_name || ent.memberName || '').trim();
+                    const effortRaw = ent.effort_mm ?? ent.effortMm;
+                    const effortMm = parseFloat(effortRaw);
+                    const workDays = parseFloat(ent.work_days ?? ent.workDays ?? 0);
+
+                    if (!name) {
+                        return res.status(400).json({ error: `${i + 1}번째 인력의 성명(member_name)은 필수입니다.` });
+                    }
+                    if (effortRaw === undefined || effortRaw === null || isNaN(effortMm) || effortMm < 0 || effortMm > 5.0) {
+                        return res.status(400).json({ error: `${i + 1}번째 인력(${name})의 투입공수(${effortRaw})가 유효하지 않습니다. (0.0 이상 5.0 이하 M/M 필요)` });
+                    }
+                    if (isNaN(workDays) || workDays < 0) {
+                        return res.status(400).json({ error: `${i + 1}번째 인력(${name})의 근무일수가 유효하지 않습니다. (음수 불가)` });
+                    }
+                }
+
+                // 6. 서버에서 인원수 및 총공수 직접 재계산 (클라이언트 전달값 절대 신뢰 금지)
+                const verifiedHeadcount = entriesList.length;
+                const calculatedEffortMm = Math.round(entriesList.reduce((sum, e) => sum + parseFloat(e.effort_mm ?? e.effortMm ?? 0), 0) * 100) / 100;
+                const parsedRowCount = entriesList.length;
+
+                const sanitizedEntries = entriesList.map((e, idx) => ({
+                    member_name: (e.member_name || e.memberName || '').trim(),
+                    organization: (e.organization || '자사').trim(),
+                    role_name: (e.role_name || e.roleName || '수행원').trim(),
+                    period_str: (e.period_str || e.periodStr || '').trim(),
+                    work_days: parseFloat(e.work_days ?? e.workDays ?? 0),
+                    effort_mm: Math.round(parseFloat(e.effort_mm ?? e.effortMm ?? 0) * 100) / 100,
+                    remarks: (e.remarks || '').trim(),
+                    order_no: idx + 1
+                }));
+
                 const verifiedUserId = auth.user.id;
                 const verifiedUserName = auth.profile?.name || auth.user.email || '사용자';
 
                 const rpcPayload = {
                     p_request_id: requestId,
                     p_file_name: fileName || 'effort.xlsx',
-                    p_file_path: storagePath || '',
+                    p_file_path: storagePath,
                     p_file_size: fileSize || 0,
                     p_file_hash: fileHash || null,
                     p_parse_status: parseStatus || 'SUCCESS',
                     p_parse_error_message: parseErrorMessage || null,
-                    p_parsed_row_count: parsedRowCount || (entries?.length || 0),
-                    p_total_headcount: totalHeadcount || (entries?.length || 0),
-                    p_total_effort_mm: totalEffortMm || 0,
-                    p_entries: entries || [],
+                    p_parsed_row_count: parsedRowCount,
+                    p_total_headcount: verifiedHeadcount,
+                    p_total_effort_mm: calculatedEffortMm,
+                    p_entries: sanitizedEntries,
                     p_user_id: verifiedUserId,
                     p_user_name: verifiedUserName
                 };
@@ -871,8 +910,147 @@ module.exports = async function handler(req, res) {
                     success: true,
                     submissionId: rpcResult?.submission_id,
                     status: rpcResult?.status || 'SUBMITTED',
-                    totalHeadcount: rpcResult?.total_headcount,
-                    totalEffortMm: rpcResult?.total_effort_mm,
+                    totalHeadcount: verifiedHeadcount,
+                    totalEffortMm: calculatedEffortMm,
+                    submittedAt: rpcResult?.submitted_at
+                });
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // 8. 수기 직접입력 저장/제출 API (권한 및 데이터 검증 후 Service Role RPC 실행)
+            // ─────────────────────────────────────────────────────────────
+            case 'direct-input': {
+                if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+
+                const auth = await authenticateUser(req);
+                if (!auth.authenticated) return res.status(auth.statusCode || 401).json({ error: auth.error });
+
+                const { requestId, isSubmit, entries } = req.body || {};
+                if (!requestId) {
+                    return res.status(400).json({ error: 'requestId가 누락되었습니다.' });
+                }
+
+                const supabase = getServiceSupabaseClient();
+                if (!supabase) {
+                    return res.status(503).json({
+                        success: false,
+                        error: '서버 환경 설정 오류: SUPABASE_URL 또는 SUPABASE_SERVICE_ROLE_KEY가 설정되지 않아 처리를 실행할 수 없습니다. (Fail-Closed)'
+                    });
+                }
+
+                // 1. 대상 Request 및 관련 Project DB 조회 (권한 검증용)
+                const { data: targetReq, error: reqQueryErr } = await supabase
+                    .from('monthly_effort_requests')
+                    .select('id, year_month, project_id, project_code, pm_id, pm_email, status')
+                    .eq('id', requestId)
+                    .single();
+
+                if (reqQueryErr || !targetReq) {
+                    return res.status(404).json({ error: '대상 투입공수 조사 요청을 찾을 수 없습니다.' });
+                }
+
+                // 2. 이미 CONFIRMED 상태인지 검증 (확정 건 수정/제출 차단)
+                if (targetReq.status === 'CONFIRMED') {
+                    return res.status(400).json({ error: '이미 확정 완료된 투입공수 요청은 수정하거나 제출할 수 없습니다.' });
+                }
+
+                // 3. 권한 검증:
+                let hasPermission = auth.isAdmin;
+                if (!hasPermission) {
+                    const userEmail = (auth.user.email || auth.profile?.email || '').toLowerCase();
+                    const pmEmail = (targetReq.pm_email || '').toLowerCase();
+
+                    if (targetReq.pm_id && targetReq.pm_id === auth.user.id) {
+                        hasPermission = true;
+                    } else if (pmEmail && pmEmail === userEmail) {
+                        hasPermission = true;
+                    } else if (targetReq.project_id) {
+                        const { data: projData } = await supabase
+                            .from('projects')
+                            .select('manager_id')
+                            .eq('id', targetReq.project_id)
+                            .single();
+
+                        if (projData && projData.manager_id === auth.user.id) {
+                            hasPermission = true;
+                        }
+                    }
+                }
+
+                if (!hasPermission) {
+                    return res.status(403).json({ error: '해당 프로젝트의 투입공수를 수정 또는 입력할 권한이 없습니다.' });
+                }
+
+                if (!Array.isArray(entries)) {
+                    return res.status(400).json({ error: '투입공수 엔트리 목록(entries)이 올바르지 않습니다.' });
+                }
+
+                // 4. 각 Entry 서버 유효성 검증
+                for (let i = 0; i < entries.length; i++) {
+                    const ent = entries[i];
+                    const name = (ent.member_name || ent.memberName || '').trim();
+                    const effortRaw = ent.effort_mm ?? ent.effortMm;
+                    const effortMm = parseFloat(effortRaw);
+                    const workDays = parseFloat(ent.work_days ?? ent.workDays ?? 0);
+
+                    if (!name) {
+                        return res.status(400).json({ error: `${i + 1}번째 인력의 성명(member_name)은 필수입니다.` });
+                    }
+                    if (effortRaw === undefined || effortRaw === null || isNaN(effortMm) || effortMm < 0 || effortMm > 5.0) {
+                        return res.status(400).json({ error: `${i + 1}번째 인력(${name})의 투입공수(${effortRaw})가 유효하지 않습니다. (0.0 이상 5.0 이하 M/M 필요)` });
+                    }
+                    if (isNaN(workDays) || workDays < 0) {
+                        return res.status(400).json({ error: `${i + 1}번째 인력(${name})의 근무일수가 유효하지 않습니다. (음수 불가)` });
+                    }
+                }
+
+                // 5. 서버에서 인원수 및 총공수 직접 재계산
+                const verifiedHeadcount = entries.length;
+                const calculatedEffortMm = Math.round(entries.reduce((sum, e) => sum + parseFloat(e.effort_mm ?? e.effortMm ?? 0), 0) * 100) / 100;
+
+                const sanitizedEntries = entries.map((e, idx) => ({
+                    member_name: (e.member_name || e.memberName || '').trim(),
+                    organization: (e.organization || '자사').trim(),
+                    role_name: (e.role_name || e.roleName || '수행원').trim(),
+                    period_str: (e.period_str || e.periodStr || '').trim(),
+                    work_days: parseFloat(e.work_days ?? e.workDays ?? 0),
+                    effort_mm: Math.round(parseFloat(e.effort_mm ?? e.effortMm ?? 0) * 100) / 100,
+                    remarks: (e.remarks || '').trim(),
+                    order_no: idx + 1
+                }));
+
+                const verifiedUserId = auth.user.id;
+                const verifiedUserName = auth.profile?.name || auth.user.email || '사용자';
+
+                // 6. 단일 PostgreSQL Transaction RPC 호출
+                const rpcPayload = {
+                    p_request_id: requestId,
+                    p_is_submit: Boolean(isSubmit),
+                    p_entries: sanitizedEntries,
+                    p_total_headcount: verifiedHeadcount,
+                    p_total_effort_mm: calculatedEffortMm,
+                    p_user_id: verifiedUserId,
+                    p_user_name: verifiedUserName
+                };
+
+                const { data: rpcResult, error: rpcErr } = await supabase.rpc(
+                    'process_monthly_effort_direct_input',
+                    rpcPayload
+                );
+
+                if (rpcErr) {
+                    console.error('[DirectInput] RPC Transaction error:', rpcErr);
+                    return res.status(500).json({
+                        success: false,
+                        error: '수기 입력 DB 트랜잭션 실행 실패: ' + rpcErr.message
+                    });
+                }
+
+                return res.status(200).json({
+                    success: true,
+                    status: rpcResult?.status || (isSubmit ? 'SUBMITTED' : targetReq.status),
+                    totalHeadcount: verifiedHeadcount,
+                    totalEffortMm: calculatedEffortMm,
                     submittedAt: rpcResult?.submitted_at
                 });
             }

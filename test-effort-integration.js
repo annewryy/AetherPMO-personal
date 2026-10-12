@@ -146,8 +146,9 @@ async function runAllTests() {
         assert(sqlContent.includes("CREATE OR REPLACE FUNCTION public.process_monthly_effort_email_submission"), 'process_monthly_effort_email_submission RPC must exist');
         assert(sqlContent.includes("CREATE OR REPLACE FUNCTION public.confirm_monthly_effort_requests"), 'confirm_monthly_effort_requests RPC must exist');
         assert(sqlContent.includes("CREATE OR REPLACE FUNCTION public.process_monthly_effort_direct_submission"), 'process_monthly_effort_direct_submission RPC must exist');
+        assert(sqlContent.includes("CREATE OR REPLACE FUNCTION public.process_monthly_effort_direct_input"), 'process_monthly_effort_direct_input RPC must exist');
 
-        // Scoped GRANT & REVOKE 보안 검증 (최소 권한 원칙 - 3대 트랜잭션 RPC 모두 service_role 전용)
+        // Scoped GRANT & REVOKE 보안 검증 (최소 권한 원칙 - 4대 트랜잭션 RPC 모두 service_role 전용)
         assert(!sqlContent.includes("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated, anon;"), 'Global anon schema grant must be removed');
         
         // 1) confirm RPC
@@ -165,11 +166,17 @@ async function runAllTests() {
         assert(!sqlContent.includes("GRANT EXECUTE ON FUNCTION public.process_monthly_effort_direct_submission(UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, INT, INT, NUMERIC, JSONB, UUID, TEXT) TO authenticated"), 'Direct submission RPC must NOT be granted to authenticated');
         assert(sqlContent.includes("GRANT EXECUTE ON FUNCTION public.process_monthly_effort_direct_submission(UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, INT, INT, NUMERIC, JSONB, UUID, TEXT) TO service_role;"), 'Direct submission RPC service_role grant must exist');
 
+        // 4) direct input RPC (일반 authenticated 사용자 직접 호출 차단 및 service_role 한정)
+        assert(sqlContent.includes("REVOKE ALL ON FUNCTION public.process_monthly_effort_direct_input(UUID, BOOLEAN, JSONB, INT, NUMERIC, UUID, TEXT) FROM PUBLIC, anon, authenticated;"), 'Direct input RPC must be revoked from authenticated');
+        assert(!sqlContent.includes("GRANT EXECUTE ON FUNCTION public.process_monthly_effort_direct_input TO authenticated"), 'Direct input RPC must NOT be granted to authenticated');
+        assert(!sqlContent.includes("GRANT EXECUTE ON FUNCTION public.process_monthly_effort_direct_input(UUID, BOOLEAN, JSONB, INT, NUMERIC, UUID, TEXT) TO authenticated"), 'Direct input RPC must NOT be granted to authenticated');
+        assert(sqlContent.includes("GRANT EXECUTE ON FUNCTION public.process_monthly_effort_direct_input(UUID, BOOLEAN, JSONB, INT, NUMERIC, UUID, TEXT) TO service_role;"), 'Direct input RPC service_role grant must exist');
+
         assert(sqlContent.includes("SET search_path = pg_catalog, public"), 'SECURITY DEFINER functions must set search_path');
 
-        logTest('tierA', 'SQL Static Analysis (Audit CHECK DDL, RLS 3중 세그먼트, 고유 인덱스, 3대 RPC service_role 전용 통제 일치 검증)', true, true, `(총 ${allowedActions.length}개 Action 일치: ${allowedActions.join(', ')})`);
+        logTest('tierA', 'SQL Static Analysis (Audit CHECK DDL, RLS 3중 세그먼트, 고유 인덱스, 4대 RPC service_role 전용 통제 일치 검증)', true, true, `(총 ${allowedActions.length}개 Action 일치: ${allowedActions.join(', ')})`);
     } catch (e) {
-        logTest('tierA', 'SQL Static Analysis (Audit CHECK DDL, RLS 3중 세그먼트, 고유 인덱스, 3대 RPC service_role 전용 통제 일치 검증)', true, false, e.message);
+        logTest('tierA', 'SQL Static Analysis (Audit CHECK DDL, RLS 3중 세그먼트, 고유 인덱스, 4대 RPC service_role 전용 통제 일치 검증)', true, false, e.message);
     }
 
     // ─────────────────────────────────────────────────────────────────
