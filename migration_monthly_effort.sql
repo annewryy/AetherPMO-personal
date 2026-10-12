@@ -78,6 +78,15 @@ CREATE TABLE IF NOT EXISTS public.monthly_effort_submissions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
 
+-- Idempotency 강화를 위한 부분 고유 인덱스 (동일 Message-ID 또는 동일 요청+파일해시 중복 차단)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_monthly_effort_submissions_source_email
+    ON public.monthly_effort_submissions (source_email_id)
+    WHERE source_email_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_monthly_effort_submissions_req_filehash
+    ON public.monthly_effort_submissions (request_id, file_hash)
+    WHERE file_hash IS NOT NULL;
+
 -- 4. monthly_effort_entries (인력별 실제 투입공수 내역)
 CREATE TABLE IF NOT EXISTS public.monthly_effort_entries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -481,7 +490,7 @@ CREATE TRIGGER tr_monthly_effort_entries_updated_at
     BEFORE UPDATE ON public.monthly_effort_entries
     FOR EACH ROW EXECUTE FUNCTION public.fn_update_monthly_effort_timestamp();
 
--- 11. 트랜잭션 RPC 함수 (Webhook 수신 원자적 처리 & 확정 원자적 처리)
+-- 11. 트랜잭션 RPC 함수 (Webhook 수신 원자적 처리, 확정 원자적 처리, 엑셀 직접 업로드 원자적 처리)
 CREATE OR REPLACE FUNCTION public.process_monthly_effort_email_submission(
     p_request_id UUID,
     p_file_name TEXT,
@@ -503,6 +512,7 @@ CREATE OR REPLACE FUNCTION public.process_monthly_effort_email_submission(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = pg_catalog, public
 AS $$
 DECLARE
     v_req RECORD;
@@ -665,9 +675,18 @@ BEGIN
         'total_headcount', p_total_headcount,
         'total_effort_mm', p_total_effort_mm
     );
+EXCEPTION
+    WHEN unique_violation THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'duplicate', true,
+            'error', 'DUPLICATE_SUBMISSION',
+            'message', '이미 처리된 이메일 또는 첨부파일입니다 (DB 고유 제약조건 위반 감지)'
+        );
 END;
 $$;
 
+-- 투입공수 확정 / 확정 취소 트랜잭션 함수
 CREATE OR REPLACE FUNCTION public.confirm_monthly_effort_requests(
     p_request_ids UUID[],
     p_is_confirm BOOLEAN,
@@ -677,6 +696,7 @@ CREATE OR REPLACE FUNCTION public.confirm_monthly_effort_requests(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = pg_catalog, public
 AS $$
 DECLARE
     v_now TIMESTAMP WITH TIME ZONE := NOW();
@@ -684,10 +704,27 @@ DECLARE
     v_action TEXT := CASE WHEN p_is_confirm THEN 'CONFIRM' ELSE 'UNCONFIRM' END;
     v_req_id UUID;
     v_count INT := 0;
+    v_rec RECORD;
 BEGIN
     IF p_request_ids IS NULL OR array_length(p_request_ids, 1) = 0 THEN
         RAISE EXCEPTION 'Request IDs array cannot be empty';
     END IF;
+
+    -- 상태 전이 검증 (Confirm은 SUBMITTED, RECEIVED 만 가능 / Unconfirm은 CONFIRMED 만 가능)
+    FOR v_rec IN SELECT id, status, project_code FROM public.monthly_effort_requests WHERE id = ANY(p_request_ids)
+    LOOP
+        IF p_is_confirm THEN
+            IF v_rec.status NOT IN ('SUBMITTED', 'RECEIVED') THEN
+                RAISE EXCEPTION 'Cannot confirm request % (%) in status %: only SUBMITTED or RECEIVED requests can be confirmed',
+                    v_rec.id, v_rec.project_code, v_rec.status;
+            END IF;
+        ELSE
+            IF v_rec.status != 'CONFIRMED' THEN
+                RAISE EXCEPTION 'Cannot unconfirm request % (%) in status %: only CONFIRMED requests can be unconfirmed',
+                    v_rec.id, v_rec.project_code, v_rec.status;
+            END IF;
+        END IF;
+    END LOOP;
 
     -- 1. Requests 업데이트
     UPDATE public.monthly_effort_requests
@@ -699,6 +736,10 @@ BEGIN
     WHERE id = ANY(p_request_ids);
 
     GET DIAGNOSTICS v_count = ROW_COUNT;
+
+    IF v_count = 0 THEN
+        RAISE EXCEPTION 'No matching requests found to update';
+    END IF;
 
     -- 2. 감사 로그 INSERT
     FOREACH v_req_id IN ARRAY p_request_ids
@@ -729,6 +770,160 @@ BEGIN
 END;
 $$;
 
+-- 엑셀 직접 업로드 원자적 트랜잭션 함수 (Submission + Entries + Requests totals + Audit Log)
+CREATE OR REPLACE FUNCTION public.process_monthly_effort_direct_submission(
+    p_request_id UUID,
+    p_file_name TEXT,
+    p_file_path TEXT,
+    p_file_size BIGINT,
+    p_file_hash TEXT,
+    p_parse_status TEXT,
+    p_parse_error_message TEXT,
+    p_parsed_row_count INT,
+    p_total_headcount INT,
+    p_total_effort_mm NUMERIC,
+    p_entries JSONB,
+    p_user_id UUID,
+    p_user_name TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+    v_req RECORD;
+    v_sub_id UUID;
+    v_entry JSONB;
+    v_now TIMESTAMP WITH TIME ZONE := NOW();
+    v_new_status TEXT;
+BEGIN
+    -- 1. 대상 Request 확인 및 락
+    SELECT * INTO v_req FROM public.monthly_effort_requests WHERE id = p_request_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Target request with id % not found', p_request_id;
+    END IF;
+
+    -- 확정 상태인 경우 수정/업로드 불가
+    IF v_req.status = 'CONFIRMED' THEN
+        RAISE EXCEPTION 'Cannot modify or upload to confirmed request % (%)', v_req.id, v_req.project_code;
+    END IF;
+
+    -- 2. Submission INSERT
+    INSERT INTO public.monthly_effort_submissions (
+        request_id,
+        year_month,
+        project_id,
+        file_name,
+        file_path,
+        file_size,
+        file_type,
+        file_hash,
+        submission_method,
+        received_at,
+        parse_status,
+        parse_error_message,
+        parsed_row_count,
+        created_by
+    ) VALUES (
+        v_req.id,
+        v_req.year_month,
+        v_req.project_id,
+        p_file_name,
+        p_file_path,
+        p_file_size,
+        'xlsx',
+        p_file_hash,
+        'DIRECT_UPLOAD',
+        v_now,
+        p_parse_status,
+        p_parse_error_message,
+        p_parsed_row_count,
+        p_user_id
+    ) RETURNING id INTO v_sub_id;
+
+    -- 3. 기존 entries 삭제 후 신규 entries 일괄 등록
+    DELETE FROM public.monthly_effort_entries WHERE request_id = v_req.id;
+
+    IF p_entries IS NOT NULL AND jsonb_array_length(p_entries) > 0 THEN
+        FOR v_entry IN SELECT * FROM jsonb_array_elements(p_entries)
+        LOOP
+            INSERT INTO public.monthly_effort_entries (
+                request_id,
+                submission_id,
+                year_month,
+                project_id,
+                member_name,
+                organization,
+                role_name,
+                period_str,
+                work_days,
+                effort_mm,
+                remarks,
+                order_no
+            ) VALUES (
+                v_req.id,
+                v_sub_id,
+                v_req.year_month,
+                v_req.project_id,
+                COALESCE(v_entry->>'member_name', v_entry->>'memberName', '미입력'),
+                COALESCE(v_entry->>'organization', '자사'),
+                COALESCE(v_entry->>'role_name', v_entry->>'roleName', '수행원'),
+                COALESCE(v_entry->>'period_str', v_entry->>'periodStr', ''),
+                COALESCE((v_entry->>'work_days')::INT, (v_entry->>'workDays')::INT, 0),
+                COALESCE((v_entry->>'effort_mm')::NUMERIC, (v_entry->>'effortMm')::NUMERIC, 0),
+                COALESCE(v_entry->>'remarks', ''),
+                COALESCE((v_entry->>'order_no')::INT, 1)
+            );
+        END LOOP;
+    END IF;
+
+    -- 4. Request 상태 및 인원/공수 총합 원자적 갱신
+    IF p_parse_status = 'SUCCESS' THEN
+        v_new_status := 'SUBMITTED';
+    ELSE
+        v_new_status := 'NEEDS_REVIEW';
+    END IF;
+
+    UPDATE public.monthly_effort_requests
+    SET
+        status = v_new_status,
+        submission_method = 'DIRECT_UPLOAD',
+        submitted_at = v_now,
+        total_headcount = p_total_headcount,
+        total_effort_mm = p_total_effort_mm,
+        review_notes = p_parse_error_message,
+        updated_at = v_now
+    WHERE id = v_req.id;
+
+    -- 5. Audit Log 기록
+    INSERT INTO public.monthly_effort_audit_logs (
+        request_id,
+        action,
+        changed_by,
+        changed_by_name,
+        details,
+        created_at
+    ) VALUES (
+        v_req.id,
+        'EXCEL_UPLOAD',
+        p_user_id,
+        COALESCE(p_user_name, '사용자'),
+        format('Excel 파일 직접 업로드 완료 (%s, %s명, %s M/M)', p_file_name, p_parsed_row_count, p_total_effort_mm),
+        v_now
+    );
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'submission_id', v_sub_id,
+        'status', v_new_status,
+        'total_headcount', p_total_headcount,
+        'total_effort_mm', p_total_effort_mm,
+        'submitted_at', v_now
+    );
+END;
+$$;
+
 -- 12. 권한 부여 (신규 월투입공수 6개 테이블 및 RPC 함수에만 한정 부여, anon 전체 schema 권한 부여 제거)
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     public.monthly_effort_cycles,
@@ -748,6 +943,16 @@ GRANT ALL ON
     public.monthly_effort_audit_logs
 TO service_role;
 
-GRANT EXECUTE ON FUNCTION public.process_monthly_effort_email_submission TO service_role;
-GRANT EXECUTE ON FUNCTION public.confirm_monthly_effort_requests TO authenticated, service_role;
+-- RPC 함수 권한 설정 (최소 권한 원칙)
+-- 1) process_monthly_effort_email_submission: Service Role 전용
+REVOKE ALL ON FUNCTION public.process_monthly_effort_email_submission(UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, INT, INT, NUMERIC, JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.process_monthly_effort_email_submission(UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, INT, INT, NUMERIC, JSONB) TO service_role;
+
+-- 2) confirm_monthly_effort_requests: Service Role 전용 (일반 사용자 직접 호출 절대 차단, Serverless API /api/effort?action=confirm 통해서만 실행)
+REVOKE ALL ON FUNCTION public.confirm_monthly_effort_requests(UUID[], BOOLEAN, UUID, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.confirm_monthly_effort_requests(UUID[], BOOLEAN, UUID, TEXT) TO service_role;
+
+-- 3) process_monthly_effort_direct_submission: 로그인 사용자 및 Service Role 허용
+REVOKE ALL ON FUNCTION public.process_monthly_effort_direct_submission(UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, INT, INT, NUMERIC, JSONB, UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.process_monthly_effort_direct_submission(UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, INT, INT, NUMERIC, JSONB, UUID, TEXT) TO authenticated, service_role;
 

@@ -2044,8 +2044,51 @@
                         return; // 업로드 실패 시 Submission을 성공 처리하지 않음
                     }
 
-                    // submissions 등록 (스토리지 업로드 성공 후에만 DB에 저장, id 생략하여 DB gen_random_uuid() 활용)
-                    const submissionPayload = {
+                    // submissions, entries, requests 상태/총합 및 감사로그를 단일 PostgreSQL 원자적 RPC로 즉시 영구 저장
+                    const entriesPayload = parsed.entries.map((e, idx) => ({
+                        member_name: e.memberName,
+                        organization: e.organization || '자사',
+                        role_name: e.roleName || '수행원',
+                        period_str: e.periodStr || '',
+                        work_days: e.workDays || 0,
+                        effort_mm: e.effortMm || 0,
+                        remarks: e.remarks || '',
+                        order_no: idx + 1
+                    }));
+
+                    const rpcPayload = {
+                        p_request_id: req.id,
+                        p_file_name: fileName,
+                        p_file_path: storagePath,
+                        p_file_size: fileSize,
+                        p_file_hash: null,
+                        p_parse_status: parsed.isValid ? 'SUCCESS' : 'WARNING',
+                        p_parse_error_message: parsed.errors.length > 0 ? parsed.errors.join('\n') : null,
+                        p_parsed_row_count: parsed.entries.length,
+                        p_total_headcount: parsed.totalHeadcount,
+                        p_total_effort_mm: parsed.totalEffortMm,
+                        p_entries: entriesPayload,
+                        p_user_id: this.currentUser?.id || null,
+                        p_user_name: this.currentUser?.name || this.currentUser?.email || '사용자'
+                    };
+
+                    const { data: rpcRes, error: rpcErr } = await this.supabase.rpc(
+                        'process_monthly_effort_direct_submission',
+                        rpcPayload
+                    );
+
+                    if (rpcErr) {
+                        console.error('[MonthlyEffort] Direct submission RPC failed. Rolling back Storage file:', rpcErr);
+                        // Storage Cleanup (고아 파일 방지)
+                        await this.supabase.storage.from('monthly-effort-files').remove([storagePath]).catch(cErr => {
+                            console.error('[MonthlyEffort] Storage cleanup failed:', cErr);
+                        });
+                        alert(`투입공수 직접 업로드 DB 트랜잭션 실패 (스토리지 롤백 완료): ${rpcErr.message}`);
+                        return;
+                    }
+
+                    createdSubmission = {
+                        id: rpcRes?.submission_id || this.generateUUID(),
                         request_id: req.id,
                         year_month: req.year_month,
                         project_id: req.project_id,
@@ -2059,49 +2102,6 @@
                         parse_error_message: parsed.errors.join('\n'),
                         parsed_row_count: parsed.entries.length
                     };
-
-                    const { data: subData, error: sErr } = await this.supabase
-                        .from('monthly_effort_submissions')
-                        .insert(submissionPayload)
-                        .select()
-                        .single();
-
-                    if (sErr) {
-                        console.error('[MonthlyEffort] DB submission insert error:', sErr);
-                        // Storage Cleanup (고아 파일 방지)
-                        await this.supabase.storage.from('monthly-effort-files').remove([storagePath]).catch(cErr => {
-                            console.error('[MonthlyEffort] Storage cleanup failed:', cErr);
-                        });
-                        alert(`제출 이력 DB 저장 실패 (스토리지 롤백 완료): ${sErr.message}`);
-                        return;
-                    }
-                    createdSubmission = subData;
-
-                    // 상태 업데이트
-                    const nextStatus = parsed.isValid ? 'SUBMITTED' : 'NEEDS_REVIEW';
-                    const { error: reqErr } = await this.supabase
-                        .from('monthly_effort_requests')
-                        .update({
-                            status: nextStatus,
-                            submission_method: 'DIRECT_UPLOAD',
-                            submitted_at: nowIso,
-                            review_notes: parsed.errors.length > 0 ? parsed.errors.join('\n') : null,
-                            updated_at: nowIso
-                        })
-                        .eq('id', req.id);
-
-                    if (reqErr) {
-                        console.error('[MonthlyEffort] DB request status update error:', reqErr);
-                        // Submission 및 Storage Cleanup (일관성 유지)
-                        if (createdSubmission && createdSubmission.id) {
-                            await this.supabase.from('monthly_effort_submissions').delete().eq('id', createdSubmission.id).catch(() => {});
-                        }
-                        await this.supabase.storage.from('monthly-effort-files').remove([storagePath]).catch(cErr => {
-                            console.error('[MonthlyEffort] Storage cleanup failed:', cErr);
-                        });
-                        alert(`조사 요청 상태 갱신 실패 (제출 및 스토리지 롤백 완료): ${reqErr.message}`);
-                        return;
-                    }
                 } catch (upEx) {
                     console.error('[MonthlyEffort] Storage upload exception:', upEx);
                     alert(`파일 업로드 중 네트워크/스토리지 오류가 발생했습니다: ${upEx.message}`);
@@ -2140,17 +2140,50 @@
                 remarks: e.remarks
             }));
 
-            // 상태 업데이트: 오류가 있으면 NEEDS_REVIEW, 정상이면 SUBMITTED
+            // 상태 및 총합 업데이트: 오류가 있으면 NEEDS_REVIEW, 정상이면 SUBMITTED
             req.status = parsed.isValid ? 'SUBMITTED' : 'NEEDS_REVIEW';
             req.submission_method = 'DIRECT_UPLOAD';
             req.submitted_at = nowIso;
+            req.total_headcount = parsed.totalHeadcount;
+            req.total_effort_mm = parsed.totalEffortMm;
             req.review_notes = parsed.errors.length > 0 ? parsed.errors.join('\n') : null;
 
-            this.logEffortAudit({
-                requestId: req.id,
-                action: 'EXCEL_UPLOAD',
-                details: `Excel 파일 직접 업로드 완료 (${fileName}, ${parsed.entries.length}명, ${parsed.totalEffortMm} M/M)`
-            });
+            // 로컬 캐시 엔트리 즉시 갱신
+            this.state.monthlyEffortEntries = (this.state.monthlyEffortEntries || []).filter(e => e.request_id !== req.id);
+            this.state.monthlyEffortEntries.push(...parsed.entries.map((e, idx) => ({
+                id: this.generateUUID(),
+                request_id: req.id,
+                submission_id: createdSubmission?.id || null,
+                year_month: req.year_month,
+                project_id: req.project_id,
+                member_name: e.memberName,
+                organization: e.organization || '자사',
+                role_name: e.roleName || '수행원',
+                period_str: e.periodStr || '',
+                work_days: e.workDays || 0,
+                effort_mm: e.effortMm || 0,
+                remarks: e.remarks || '',
+                order_no: idx + 1
+            })));
+
+            if (!this.useSupabase) {
+                this.logEffortAudit({
+                    requestId: req.id,
+                    action: 'EXCEL_UPLOAD',
+                    details: `Excel 파일 직접 업로드 완료 (${fileName}, ${parsed.entries.length}명, ${parsed.totalEffortMm} M/M)`
+                });
+            } else {
+                this.state.monthlyEffortAuditLogs = this.state.monthlyEffortAuditLogs || [];
+                this.state.monthlyEffortAuditLogs.unshift({
+                    id: this.generateUUID(),
+                    request_id: req.id,
+                    action: 'EXCEL_UPLOAD',
+                    changed_by: this.currentUser?.id || null,
+                    changed_by_name: this.currentUser?.name || this.currentUser?.email || '사용자',
+                    details: `Excel 파일 직접 업로드 완료 (${fileName}, ${parsed.entries.length}명, ${parsed.totalEffortMm} M/M)`,
+                    created_at: nowIso
+                });
+            }
 
             // 원본 파일 표시 갱신
             const fileBox = document.getElementById('effort-modal-file-info-box');

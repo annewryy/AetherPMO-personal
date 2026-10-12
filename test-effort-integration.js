@@ -140,17 +140,24 @@ async function runAllTests() {
         assert(sqlContent.includes("req.project_id::text = (storage.foldername(name))[2]"), 'RLS must match project_id in path segment 2');
         assert(sqlContent.includes("req.year_month = (storage.foldername(name))[1]"), 'RLS must match year_month in path segment 1');
 
-        // 트랜잭션 RPC 함수 정의 검증
+        // 트랜잭션 RPC 함수 및 고유 인덱스 정의 검증
+        assert(sqlContent.includes("CREATE UNIQUE INDEX IF NOT EXISTS uq_monthly_effort_submissions_source_email"), 'Partial unique index on source_email_id must exist');
+        assert(sqlContent.includes("CREATE UNIQUE INDEX IF NOT EXISTS uq_monthly_effort_submissions_req_filehash"), 'Partial unique index on (request_id, file_hash) must exist');
         assert(sqlContent.includes("CREATE OR REPLACE FUNCTION public.process_monthly_effort_email_submission"), 'process_monthly_effort_email_submission RPC must exist');
         assert(sqlContent.includes("CREATE OR REPLACE FUNCTION public.confirm_monthly_effort_requests"), 'confirm_monthly_effort_requests RPC must exist');
+        assert(sqlContent.includes("CREATE OR REPLACE FUNCTION public.process_monthly_effort_direct_submission"), 'process_monthly_effort_direct_submission RPC must exist');
 
-        // Scoped GRANT 검증 (anon schema grant 제거 확인)
+        // Scoped GRANT & REVOKE 보안 검증 (최소 권한 원칙)
         assert(!sqlContent.includes("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated, anon;"), 'Global anon schema grant must be removed');
-        assert(sqlContent.includes("GRANT EXECUTE ON FUNCTION public.process_monthly_effort_email_submission TO service_role;"), 'RPC service_role grant must exist');
+        assert(sqlContent.includes("REVOKE ALL ON FUNCTION public.confirm_monthly_effort_requests(UUID[], BOOLEAN, UUID, TEXT) FROM PUBLIC, anon, authenticated;"), 'confirm RPC must be revoked from authenticated');
+        assert(!sqlContent.includes("GRANT EXECUTE ON FUNCTION public.confirm_monthly_effort_requests TO authenticated"), 'confirm RPC must NOT be granted to authenticated');
+        assert(sqlContent.includes("GRANT EXECUTE ON FUNCTION public.confirm_monthly_effort_requests(UUID[], BOOLEAN, UUID, TEXT) TO service_role;"), 'confirm RPC service_role grant must exist');
+        assert(sqlContent.includes("GRANT EXECUTE ON FUNCTION public.process_monthly_effort_email_submission"), 'RPC service_role grant must exist');
+        assert(sqlContent.includes("SET search_path = pg_catalog, public"), 'SECURITY DEFINER functions must set search_path');
 
-        logTest('tierA', 'SQL Static Analysis (Audit CHECK DDL, RLS 3중 세그먼트, RPC 트랜잭션 함수 일치 검증)', true, true, `(총 ${allowedActions.length}개 Action 일치: ${allowedActions.join(', ')})`);
+        logTest('tierA', 'SQL Static Analysis (Audit CHECK DDL, RLS 3중 세그먼트, 고유 인덱스, RPC 권한 제어 일치 검증)', true, true, `(총 ${allowedActions.length}개 Action 일치: ${allowedActions.join(', ')})`);
     } catch (e) {
-        logTest('tierA', 'SQL Static Analysis (Audit CHECK DDL, RLS 3중 세그먼트, RPC 트랜잭션 함수 일치 검증)', true, false, e.message);
+        logTest('tierA', 'SQL Static Analysis (Audit CHECK DDL, RLS 3중 세그먼트, 고유 인덱스, RPC 권한 제어 일치 검증)', true, false, e.message);
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -179,7 +186,7 @@ async function runAllTests() {
         logTest('tierB', 'Fail-Closed: Node 엔진 >=20 & Service Role Key 사용자 Bearer 직접 사용 차단 (401)', true, false, e.message);
     }
 
-    // B-2. Fail-Closed: Service Role Client 부재 시 Webhook/Confirm 503 거부
+    // B-2. Fail-Closed: Service Role Client 부재 시 Webhook/Confirm/Send-emails 503 거부
     try {
         delete global.__mockSupabaseClient;
         delete process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -203,9 +210,18 @@ async function runAllTests() {
         }, resConf503);
         assert.strictEqual(resConf503.get().statusCode, 503, 'Confirm must return 503 when service client is missing');
 
-        logTest('tierB', 'Fail-Closed: Service Role 환경변수 부재 시 Webhook/Confirm 503 거부 검증', true, true, '(anon key fallback 완전 배제)');
+        const resSend503 = createMockRes();
+        await effortApiHandler({
+            method: 'POST',
+            headers: { authorization: 'Bearer TEST_ADMIN_TOKEN' },
+            query: { action: 'send-emails' },
+            body: { requests: [{ requestId: crypto.randomUUID(), pmEmail: 'pm@test.io' }] }
+        }, resSend503);
+        assert.strictEqual(resSend503.get().statusCode, 503, 'Send-emails must return 503 when service client is missing');
+
+        logTest('tierB', 'Fail-Closed: Service Role 환경변수 부재 시 Webhook/Confirm/Send-emails 503 거부 검증', true, true, '(anon key fallback 완전 배제)');
     } catch (e) {
-        logTest('tierB', 'Fail-Closed: Service Role 환경변수 부재 시 Webhook/Confirm 503 거부 검증', true, false, e.message);
+        logTest('tierB', 'Fail-Closed: Service Role 환경변수 부재 시 Webhook/Confirm/Send-emails 503 거부 검증', true, false, e.message);
     }
 
     function buildMockSupabase(overrides = {}) {

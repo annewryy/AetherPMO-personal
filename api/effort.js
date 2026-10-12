@@ -225,6 +225,11 @@ module.exports = async function handler(req, res) {
                 const results = [];
                 const nowIso = new Date().toISOString();
                 const supabase = getServiceSupabaseClient();
+                if (!supabase) {
+                    return res.status(503).json({
+                        error: '서버 환경 설정 오류: SUPABASE_URL 또는 SUPABASE_SERVICE_ROLE_KEY가 설정되지 않아 메일 발송 및 DB 이력 저장을 실행할 수 없습니다. (Fail-Closed)'
+                    });
+                }
 
                 for (const item of requests) {
                     const {
@@ -293,9 +298,9 @@ module.exports = async function handler(req, res) {
                         });
 
                         // Supabase DB에 이메일 로그 실제 저장 (Message-ID 반드시 포함)
-                        if (supabase && requestId) {
+                        if (requestId) {
                             try {
-                                await supabase.from('monthly_effort_email_logs').insert({
+                                const { error: logErr } = await supabase.from('monthly_effort_email_logs').insert({
                                     request_id: requestId,
                                     cycle_id: cycleId || null,
                                     log_type: isResend ? 'SEND_REMINDER' : 'SEND_INITIAL',
@@ -309,6 +314,11 @@ module.exports = async function handler(req, res) {
                                     status: sendSuccess ? 'SUCCESS' : 'FAILED',
                                     error_message: sendRes.error || null
                                 });
+
+                                if (logErr) {
+                                    console.error('[EffortAPI] DB Email Log Insert Error:', logErr);
+                                    results[results.length - 1].dbLogError = logErr.message;
+                                }
 
                                 // 발송 성공 시 DB Request 상태 갱신
                                 if (sendSuccess) {
@@ -329,7 +339,8 @@ module.exports = async function handler(req, res) {
                                     }).eq('id', requestId);
                                 }
                             } catch (dbLogErr) {
-                                console.warn('[EffortAPI] DB Email Log Insert Warning:', dbLogErr.message);
+                                console.error('[EffortAPI] DB Email Log Insert Exception:', dbLogErr.message);
+                                results[results.length - 1].dbLogError = dbLogErr.message;
                             }
                         }
                     } catch (err) {
@@ -598,6 +609,19 @@ module.exports = async function handler(req, res) {
                     return res.status(500).json({
                         success: false,
                         error: 'DB 트랜잭션 실행 실패 (스토리지 롤백 완료): ' + rpcErr.message
+                    });
+                }
+
+                if (rpcResult && rpcResult.duplicate) {
+                    console.log('[Webhook] Concurrent duplicate detected by DB constraint. Rolling back storage file.');
+                    await supabase.storage.from('monthly-effort-files').remove([storagePath]).catch(() => {});
+                    return res.status(200).json({
+                        success: true,
+                        idempotent: true,
+                        duplicate: true,
+                        matched: true,
+                        requestId: targetRequest.id,
+                        reason: rpcResult.message || 'Duplicate submission detected by unique constraint'
                     });
                 }
 

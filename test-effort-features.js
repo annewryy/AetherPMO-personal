@@ -184,7 +184,26 @@ async function runTests() {
     }, resNoAuth);
     assert.strictEqual(resNoAuth.get().statusCode, 401);
 
-    // 5-2. send-emails 메일 공급자 미설정 시 실패 처리 (운영 기본 모드)
+    // 5-2a. send-emails Service Role Client 부재 시 Fail-Closed 503 거부 검증
+    delete global.__mockSupabaseClient;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const resNoClientSend = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_ADMIN_TOKEN' },
+        query: { action: 'send-emails' },
+        body: { requests: [{ requestId: 'req-1', pmEmail: 'pm@company.com' }] }
+    }, resNoClientSend);
+    assert.strictEqual(resNoClientSend.get().statusCode, 503, 'send-emails Service Client 부재 시 503 반환 실패');
+
+    // 5-2b. send-emails Mock Service Client 주입 후 메일 공급자 미설정 시 실패 처리 (운영 기본 모드)
+    global.__mockSupabaseClient = {
+        from: () => ({
+            insert: () => Promise.resolve({ error: null }),
+            update: () => ({ eq: () => Promise.resolve({ error: null }) })
+        }),
+        rpc: () => Promise.resolve({ data: {}, error: null })
+    };
     delete process.env.EFFORT_MAIL_MOCK_ENABLED;
     const resNoProvider = createMockRes();
     await effortApiHandler({
@@ -467,6 +486,27 @@ async function runTests() {
     }, resConfirmAdmin);
     assert.strictEqual(resConfirmAdmin.get().statusCode, 200, 'confirm 관리자 200 통과 검증 실패');
     assert.strictEqual(resConfirmAdmin.get().responseData.status, 'CONFIRMED');
+
+    // 5-9d. confirm API 상태 전이 위반(RPC Exception) 시 500 반환 및 트랜잭션 차단 검증
+    global.__mockSupabaseClient.rpc = (fn, params) => {
+        if (fn === 'confirm_monthly_effort_requests') {
+            return Promise.resolve({
+                data: null,
+                error: { message: 'Cannot confirm request req-1 in status SENT: only SUBMITTED or RECEIVED requests can be confirmed' }
+            });
+        }
+        return Promise.resolve({ data: {}, error: null });
+    };
+
+    const resConfirmInvalidState = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_ADMIN_TOKEN' },
+        query: { action: 'confirm' },
+        body: { requestId: 'req-1', isConfirm: true }
+    }, resConfirmInvalidState);
+    assert.strictEqual(resConfirmInvalidState.get().statusCode, 500, '상태 전이 위반 시 500 반환 실패');
+    assert(resConfirmInvalidState.get().responseData.error.includes('only SUBMITTED or RECEIVED requests can be confirmed'));
 
     // 5-10. 운영 환경(production)에서의 Fail-Closed 보안 검증 (TEST_ADMIN_TOKEN 거부)
     process.env.NODE_ENV = 'production';
