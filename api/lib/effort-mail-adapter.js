@@ -372,23 +372,43 @@ async function sendEffortEmail({
     }
 
     if (process.env.GOOGLE_WORKSPACE_CLIENT_EMAIL && process.env.GOOGLE_WORKSPACE_PRIVATE_KEY) {
-        console.log(`[MailAdapter:GoogleWorkspace] Sending email to ${to} via Gmail API`);
+        console.log(`[MailAdapter:GoogleWorkspace] Sending email to ${to} via Gmail API (Adapter Stub)`);
+        return {
+            success: false,
+            provider: 'GOOGLE_WORKSPACE',
+            status: 'ADAPTER_STUB',
+            error: 'Google Workspace Gmail API 어댑터 스텁 상태입니다. 실제 REST 연동 설정이 필요합니다.'
+        };
     }
 
     if (process.env.MS_GRAPH_CLIENT_ID && process.env.MS_GRAPH_CLIENT_SECRET && process.env.MS_GRAPH_TENANT_ID) {
-        console.log(`[MailAdapter:MSGraph] Sending email to ${to} via MS Graph API`);
+        console.log(`[MailAdapter:MSGraph] Sending email to ${to} via MS Graph API (Adapter Stub)`);
+        return {
+            success: false,
+            provider: 'MS_GRAPH',
+            status: 'ADAPTER_STUB',
+            error: 'Microsoft Graph API 어댑터 스텁 상태입니다. 실제 REST 연동 설정이 필요합니다.'
+        };
     }
 
-    // Mock 시뮬레이터
-    const mockMessageId = `<mock-${Date.now()}-${crypto.randomBytes(4).toString('hex')}@aether-pms.local>`;
-    console.log(`[MailAdapter:MOCK] Simulated email sent to ${to} (Message-ID: ${mockMessageId})`);
+    // Mock 시뮬레이터 (운영 환경 기본 false, 명시적인 개발환경 EFFORT_MAIL_MOCK_ENABLED=true 시에만 동작)
+    if (process.env.EFFORT_MAIL_MOCK_ENABLED === 'true') {
+        const mockMessageId = `<mock-${Date.now()}-${crypto.randomBytes(4).toString('hex')}@aether-pms.local>`;
+        console.log(`[MailAdapter:MOCK] Simulated email sent to ${to} (Message-ID: ${mockMessageId})`);
+        return {
+            success: true,
+            provider: 'MOCK',
+            simulated: true,
+            messageId: mockMessageId,
+            recipient: to,
+            sentAt: new Date().toISOString()
+        };
+    }
+
     return {
-        success: true,
-        provider: 'MOCK',
-        simulated: true,
-        messageId: mockMessageId,
-        recipient: to,
-        sentAt: new Date().toISOString()
+        success: false,
+        provider: 'NONE',
+        error: '발송 가능한 메일 공급자(SMTP 등)가 서버에 설정되어 있지 않습니다. (개발/테스트 시 EFFORT_MAIL_MOCK_ENABLED=true 설정 필요)'
     };
 }
 
@@ -402,7 +422,8 @@ async function syncInboundEmails({
     if (process.env.GOOGLE_WORKSPACE_CLIENT_EMAIL && process.env.GOOGLE_WORKSPACE_PRIVATE_KEY) {
         return {
             provider: 'GOOGLE_WORKSPACE_GMAIL_API',
-            status: 'CONNECTED',
+            status: 'ADAPTER_STUB',
+            state: 'Adapter Stub / 실제 API 미구현',
             messages: []
         };
     }
@@ -410,7 +431,8 @@ async function syncInboundEmails({
     if (process.env.MS_GRAPH_CLIENT_ID && process.env.MS_GRAPH_CLIENT_SECRET) {
         return {
             provider: 'MICROSOFT_GRAPH_API',
-            status: 'CONNECTED',
+            status: 'ADAPTER_STUB',
+            state: 'Adapter Stub / 실제 API 미구현',
             messages: []
         };
     }
@@ -419,7 +441,7 @@ async function syncInboundEmails({
         provider: 'MOCK_MANUAL_SYNC',
         status: 'READY',
         messages: [],
-        note: '수동 Sync 가능 / 자동 스케줄(Vercel Cron) 미설정. 실제 수신 연동을 위해 GOOGLE_WORKSPACE_* 또는 MS_GRAPH_* 또는 Inbound Webhook 설정을 활성화하세요.'
+        note: '수동 Sync 가능 / 자동 스케줄(Vercel Cron) 미설정. 실제 수신 연동을 위해 Inbound Webhook 또는 Gmail/Graph API 설정을 활성화하세요.'
     };
 }
 

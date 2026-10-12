@@ -344,16 +344,81 @@ CREATE POLICY "logs_admin_all" ON public.monthly_effort_email_logs
 
 DROP POLICY IF EXISTS "audit_select" ON public.monthly_effort_audit_logs;
 CREATE POLICY "audit_select" ON public.monthly_effort_audit_logs
-    FOR SELECT TO authenticated USING (true);
+    FOR SELECT TO authenticated USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles pr
+            WHERE pr.id = auth.uid()
+            AND (
+                pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+                OR EXISTS (
+                    SELECT 1 FROM public.monthly_effort_requests req
+                    WHERE req.id = request_id
+                    AND (
+                        req.pm_id = auth.uid()
+                        OR req.pm_email = pr.email
+                        OR EXISTS (
+                            SELECT 1 FROM public.projects p
+                            WHERE p.id = req.project_id
+                            AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                        )
+                    )
+                )
+            )
+        )
+    );
 
 DROP POLICY IF EXISTS "audit_insert" ON public.monthly_effort_audit_logs;
 CREATE POLICY "audit_insert" ON public.monthly_effort_audit_logs
-    FOR INSERT TO authenticated WITH CHECK (true);
+    FOR INSERT TO authenticated WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.profiles pr
+            WHERE pr.id = auth.uid()
+            AND (
+                pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+                OR EXISTS (
+                    SELECT 1 FROM public.monthly_effort_requests req
+                    WHERE req.id = request_id
+                    AND (
+                        req.pm_id = auth.uid()
+                        OR req.pm_email = pr.email
+                        OR EXISTS (
+                            SELECT 1 FROM public.projects p
+                            WHERE p.id = req.project_id
+                            AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                        )
+                    )
+                )
+            )
+        )
+    );
 
 -- [Storage Policies for monthly-effort-files]
 DROP POLICY IF EXISTS "monthly_effort_files_select" ON storage.objects;
 CREATE POLICY "monthly_effort_files_select" ON storage.objects
-    FOR SELECT TO authenticated USING (bucket_id = 'monthly-effort-files');
+    FOR SELECT TO authenticated USING (
+        bucket_id = 'monthly-effort-files'
+        AND EXISTS (
+            SELECT 1 FROM public.profiles pr
+            WHERE pr.id = auth.uid()
+            AND (
+                pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+                OR EXISTS (
+                    SELECT 1 FROM public.monthly_effort_submissions sub
+                    JOIN public.monthly_effort_requests req ON req.id = sub.request_id
+                    WHERE sub.file_path = storage.objects.name
+                    AND (
+                        req.pm_id = auth.uid()
+                        OR req.pm_email = pr.email
+                        OR EXISTS (
+                            SELECT 1 FROM public.projects p
+                            WHERE p.id = req.project_id
+                            AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                        )
+                    )
+                )
+            )
+        )
+    );
 
 DROP POLICY IF EXISTS "monthly_effort_files_insert" ON storage.objects;
 CREATE POLICY "monthly_effort_files_insert" ON storage.objects

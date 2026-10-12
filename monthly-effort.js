@@ -826,7 +826,8 @@
             }));
 
             const nowIso = new Date().toISOString();
-            let sentCount = 0;
+            let successCount = 0;
+            let failedCount = 0;
 
             try {
                 // Serverless API 호출 (JWT 인증 토큰 포함)
@@ -840,38 +841,75 @@
                         systemUrl: window.location.origin
                     })
                 });
+
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.error || errData.message || `HTTP ${res.status} 오류`);
+                }
+
                 const resData = await res.json();
                 console.log('[MonthlyEffort] Send mail API response:', resData);
 
-                // 상태 업데이트
-                this.mailSendQueue.forEach(r => {
-                    r.status = 'SENT';
-                    r.send_count = (r.send_count || 0) + 1;
-                    if (!r.first_sent_at) r.first_sent_at = nowIso;
-                    r.last_sent_at = nowIso;
-                    sentCount++;
+                const resultsList = Array.isArray(resData.results) ? resData.results : [];
 
-                    // 이메일 로그 기록
-                    const logEntry = {
-                        id: 'log-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
-                        request_id: r.id,
-                        log_type: this.mailSendIsResend ? 'SEND_REMINDER' : 'SEND_INITIAL',
-                        recipient_email: r.pm_email,
-                        sender_email: 'pmo@aether-pms.io',
-                        subject: `[AetherPMO][${r.year_month}][${r.project_code}][EFFORT-${r.request_token}] ${parseInt(r.year_month.split('-')[1], 10)}월 투입공수 조사`,
-                        token: r.request_token,
-                        status: 'SUCCESS',
-                        created_at: nowIso
-                    };
-                    this.state.monthlyEffortLogs.unshift(logEntry);
+                // 개별 결과(results) 기준으로 각각 상태 업데이트
+                for (const r of this.mailSendQueue) {
+                    const resultItem = resultsList.find(item => item.requestId === r.id || item.projectCode === r.project_code);
 
-                    // 감사 로그
-                    this.logEffortAudit({
-                        requestId: r.id,
-                        action: this.mailSendIsResend ? 'RESEND_MAIL' : 'SEND_MAIL',
-                        details: `${r.pm_email} (${r.pm_name})로 조사 이메일 발송 완료`
-                    });
-                });
+                    if (resultItem && resultItem.success) {
+                        // 성공 건: SENT, send_count 증가, first_sent_at / last_sent_at 저장, 성공 email_log 저장
+                        r.status = 'SENT';
+                        r.send_count = (r.send_count || 0) + 1;
+                        if (!r.first_sent_at) r.first_sent_at = nowIso;
+                        r.last_sent_at = nowIso;
+                        r.error_message = null;
+                        successCount++;
+
+                        const logEntry = {
+                            id: 'log-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                            request_id: r.id,
+                            log_type: this.mailSendIsResend ? 'SEND_REMINDER' : 'SEND_INITIAL',
+                            recipient_email: r.pm_email,
+                            sender_email: 'pmo@aether-pms.io',
+                            subject: `[AetherPMO][${r.year_month}][${r.project_code}][EFFORT-${r.request_token}] ${parseInt(r.year_month.split('-')[1], 10)}월 투입공수 조사`,
+                            token: r.request_token,
+                            status: 'SUCCESS',
+                            created_at: nowIso
+                        };
+                        this.state.monthlyEffortLogs.unshift(logEntry);
+
+                        this.logEffortAudit({
+                            requestId: r.id,
+                            action: this.mailSendIsResend ? 'RESEND_MAIL' : 'SEND_MAIL',
+                            details: `${r.pm_email} (${r.pm_name})로 조사 이메일 발송 성공 (Provider: ${resultItem.provider || 'SMTP'})`
+                        });
+                    } else {
+                        // 실패 건: UNSENT 유지, send_count 증가 금지, error_message 저장, ERROR email_log 저장
+                        r.status = 'UNSENT';
+                        r.error_message = resultItem ? (resultItem.error || '메일 발송 실패') : '응답 결과 없음';
+                        failedCount++;
+
+                        const logErrEntry = {
+                            id: 'log-err-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                            request_id: r.id,
+                            log_type: 'ERROR',
+                            recipient_email: r.pm_email,
+                            sender_email: 'pmo@aether-pms.io',
+                            subject: `[발송실패] [AetherPMO][${r.year_month}][${r.project_code}] 조사 메일`,
+                            token: r.request_token,
+                            status: 'FAILED',
+                            error_message: r.error_message,
+                            created_at: nowIso
+                        };
+                        this.state.monthlyEffortLogs.unshift(logErrEntry);
+
+                        this.logEffortAudit({
+                            requestId: r.id,
+                            action: 'SEND_MAIL_FAILED',
+                            details: `${r.pm_email} 메일 발송 실패: ${r.error_message}`
+                        });
+                    }
+                }
 
                 // Supabase Sync
                 if (this.useSupabase && this.supabase) {
@@ -880,36 +918,24 @@
                             status: r.status,
                             send_count: r.send_count,
                             first_sent_at: r.first_sent_at,
-                            last_sent_at: r.last_sent_at
+                            last_sent_at: r.last_sent_at,
+                            error_message: r.error_message
                         }).eq('id', r.id);
                     }
                 }
 
                 this.persistEffortState();
-                this.showToast(`${sentCount}개 프로젝트에 투입공수 조사 메일이 발송되었습니다.`, 'success');
+                if (failedCount === 0) {
+                    this.showToast(`${successCount}개 프로젝트 메일이 성공적으로 발송되었습니다.`, 'success');
+                } else if (successCount > 0) {
+                    this.showToast(`메일 발송 부분 성공: 성공 ${successCount}건, 실패 ${failedCount}건`, 'warning');
+                } else {
+                    this.showToast(`메일 발송이 실패하였습니다. (실패 ${failedCount}건)`, 'error');
+                }
             } catch (err) {
-                console.warn('[MonthlyEffort] API call failed, fallback simulation:', err);
-                // 오프라인/시뮬레이션 발송 처리
-                this.mailSendQueue.forEach(r => {
-                    r.status = 'SENT';
-                    r.send_count = (r.send_count || 0) + 1;
-                    if (!r.first_sent_at) r.first_sent_at = nowIso;
-                    r.last_sent_at = nowIso;
-                    sentCount++;
-
-                    this.state.monthlyEffortLogs.unshift({
-                        id: 'log-sim-' + Date.now(),
-                        request_id: r.id,
-                        log_type: this.mailSendIsResend ? 'SEND_REMINDER' : 'SEND_INITIAL',
-                        recipient_email: r.pm_email,
-                        subject: `[AetherPMO][${r.year_month}][${r.project_code}][EFFORT-${r.request_token}] 조사 메일`,
-                        token: r.request_token,
-                        status: 'SUCCESS',
-                        created_at: nowIso
-                    });
-                });
-                this.persistEffortState();
-                this.showToast(`[시뮬레이션] ${sentCount}개 프로젝트 메일 발송이 처리되었습니다.`, 'info');
+                console.error('[MonthlyEffort] 메일 발송 실패 (API Error):', err);
+                // 운영 정책: API 오류 시 시뮬레이션 SENT 전환 금지 -> 발송 실패 표시
+                this.showToast(`메일 발송 API 오류: ${err.message}`, 'error');
             } finally {
                 if (btn) {
                     btn.disabled = false;
@@ -1800,11 +1826,43 @@
             this.parsedPreviewData = null;
         },
 
-        applyParsedEffortData() {
+        async applyParsedEffortData() {
             if (!this.parsedPreviewData) return;
-            const { fileName, fileSize, parsed } = this.parsedPreviewData;
+            const { file, fileName, fileSize, parsed } = this.parsedPreviewData;
             const req = (this.state.monthlyEffortRequests || []).find(r => r.id === this.activeEffortRequestId);
             if (!req) return;
+
+            const nowIso = new Date().toISOString();
+            const subId = 'sub-' + Date.now();
+            const safeName = (fileName || 'effort.xlsx').replace(/[^a-zA-Z0-9._\-]/g, '_');
+            const storagePath = `${req.year_month}/${req.project_id || req.project_code}/${req.id}/${Date.now()}_${safeName}`;
+
+            // 실제 Supabase Storage 업로드 ('monthly-effort-files' 버킷)
+            if (this.useSupabase && this.supabase) {
+                if (!file) {
+                    alert('업로드할 파일 객체가 누락되었습니다. 파일을 다시 선택해주세요.');
+                    return;
+                }
+
+                try {
+                    const { data: uploadData, error: uploadErr } = await this.supabase.storage
+                        .from('monthly-effort-files')
+                        .upload(storagePath, file, {
+                            cacheControl: '3600',
+                            upsert: true
+                        });
+
+                    if (uploadErr) {
+                        console.error('[MonthlyEffort] Supabase Storage upload failed:', uploadErr);
+                        alert(`Supabase Storage 파일 업로드 실패: ${uploadErr.message}\n업로드가 취소되었습니다.`);
+                        return; // 업로드 실패 시 Submission을 성공 처리하지 않음
+                    }
+                } catch (upEx) {
+                    console.error('[MonthlyEffort] Storage upload exception:', upEx);
+                    alert(`파일 업로드 중 네트워크/스토리지 오류가 발생했습니다: ${upEx.message}`);
+                    return;
+                }
+            }
 
             // 상세 모달 entries에 덮어쓰기
             this.tempEffortEntries = parsed.entries.map(e => ({
@@ -1817,16 +1875,14 @@
                 remarks: e.remarks
             }));
 
-            // submissions 등록
-            const subId = 'sub-' + Date.now();
-            const nowIso = new Date().toISOString();
-            this.state.monthlyEffortSubmissions.push({
+            // submissions 등록 (스토리지 업로드 성공 후에만 DB에 저장)
+            const submissionRecord = {
                 id: subId,
                 request_id: req.id,
                 year_month: req.year_month,
                 project_id: req.project_id,
                 file_name: fileName,
-                file_path: `monthly-effort-files/${req.year_month}/${fileName}`,
+                file_path: storagePath,
                 file_size: fileSize,
                 file_type: 'xlsx',
                 submission_method: 'DIRECT_UPLOAD',
@@ -1834,7 +1890,16 @@
                 parse_status: parsed.isValid ? 'SUCCESS' : 'WARNING',
                 parse_error_message: parsed.errors.join('\n'),
                 parsed_row_count: parsed.entries.length
-            });
+            };
+            this.state.monthlyEffortSubmissions.push(submissionRecord);
+
+            if (this.useSupabase && this.supabase) {
+                try {
+                    await this.supabase.from('monthly_effort_submissions').insert(submissionRecord);
+                } catch (sErr) {
+                    console.warn('[MonthlyEffort] DB submission insert warning:', sErr);
+                }
+            }
 
             // 상태 업데이트: 오류가 있으면 NEEDS_REVIEW, 정상이면 SUBMITTED
             req.status = parsed.isValid ? 'SUBMITTED' : 'NEEDS_REVIEW';
@@ -1868,7 +1933,7 @@
             this.calculateEffortTotals();
             this.closeEffortPreviewModal();
 
-            this.showToast(`Excel 파일이 반영되었습니다. (${parsed.entries.length}명, ${parsed.totalEffortMm} M/M)`, parsed.isValid ? 'success' : 'warning');
+            this.showToast(`Excel 파일이 스토리지에 업로드되고 반영되었습니다. (${parsed.entries.length}명, ${parsed.totalEffortMm} M/M)`, parsed.isValid ? 'success' : 'warning');
         },
 
         // ─────────────────────────────────────────────────────────────────
@@ -1960,11 +2025,52 @@
             XLSX.writeFile(wb, `AetherPMO_${ym}_투입공수_종합현황.xlsx`);
         },
 
-        downloadEffortFile(submissionId) {
+        async downloadEffortFile(submissionId) {
             const sub = (this.state.monthlyEffortSubmissions || []).find(s => s.id === submissionId);
-            if (!sub) return;
-            // 가상 다운로드 또는 Storage URL
-            alert(`[원본 파일 다운로드] ${sub.file_name} (${sub.file_path})`);
+            if (!sub) {
+                this.showToast('해당 제출 파일 정보를 찾을 수 없습니다.', 'warning');
+                return;
+            }
+
+            const req = (this.state.monthlyEffortRequests || []).find(r => r.id === sub.request_id);
+            if (!req) {
+                this.showToast('연결된 투입공수 조사 요청을 찾을 수 없습니다.', 'warning');
+                return;
+            }
+
+            // 권한 검증: PM은 본인 담당 프로젝트 파일만, admin/manager는 전체 파일 다운로드 가능
+            if (!this.canManageEffort() && !this.isProjectPmForEffort(req)) {
+                alert('파일 다운로드 권한이 없습니다. 본인 담당 프로젝트 파일만 다운로드할 수 있습니다.');
+                return;
+            }
+
+            if (this.useSupabase && this.supabase) {
+                try {
+                    // Storage 비공개 버킷(monthly-effort-files)에서 60초 유효 Signed URL 생성
+                    const { data, error } = await this.supabase.storage
+                        .from('monthly-effort-files')
+                        .createSignedUrl(sub.file_path, 60);
+
+                    if (error || !data?.signedUrl) {
+                        console.error('[MonthlyEffort] createSignedUrl failed:', error);
+                        alert(`Signed URL 발급 실패: ${error?.message || '스토리지에 파일이 존재하지 않습니다.'}`);
+                        return;
+                    }
+
+                    // 브라우저 직접 다운로드 실행
+                    const link = document.createElement('a');
+                    link.href = data.signedUrl;
+                    link.download = sub.file_name || 'monthly_effort.xlsx';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } catch (e) {
+                    console.error('[MonthlyEffort] File download error:', e);
+                    alert('파일 다운로드 중 오류가 발생했습니다: ' + e.message);
+                }
+            } else {
+                alert(`[로컬/개발 모드] 원본 파일: ${sub.file_name}\n경로: ${sub.file_path}`);
+            }
         },
 
         downloadCurrentEffortSubmissionFile() {

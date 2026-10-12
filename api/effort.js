@@ -266,12 +266,16 @@ module.exports = async function handler(req, res) {
             case 'inbound-webhook': {
                 if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
-                // 웹훅 비밀키 검증
+                // 웹훅 비밀키 검증 (Fail-Closed: 서버에 비밀키 미설정 시 503 거부, 불일치 시 401 차단)
+                if (!process.env.INBOUND_WEBHOOK_SECRET) {
+                    return res.status(503).json({
+                        error: '서버에 INBOUND_WEBHOOK_SECRET이 설정되지 않아 Inbound Webhook 수신이 비활성화되었습니다.'
+                    });
+                }
+
                 const secret = req.headers['x-webhook-secret'] || (req.headers.authorization && req.headers.authorization.replace('Bearer ', ''));
-                if (process.env.INBOUND_WEBHOOK_SECRET) {
-                    if (!secret || secret !== process.env.INBOUND_WEBHOOK_SECRET) {
-                        return res.status(401).json({ error: '유효하지 않은 Webhook Secret입니다.' });
-                    }
+                if (!secret || secret !== process.env.INBOUND_WEBHOOK_SECRET) {
+                    return res.status(401).json({ error: '유효하지 않은 Webhook Secret입니다.' });
                 }
 
                 const {
@@ -426,10 +430,13 @@ module.exports = async function handler(req, res) {
             }
 
             // ─────────────────────────────────────────────────────────────
-            // 7. 고유 토큰 생성 헬퍼
+            // 7. 고유 토큰 생성 헬퍼 (로그인 사용자 인증 필수)
             // ─────────────────────────────────────────────────────────────
             case 'generate-token': {
-                const { yearMonth, projectCode } = req.query;
+                const auth = await authenticateUser(req);
+                if (!auth.authenticated) return res.status(401).json({ error: auth.error });
+
+                const { yearMonth, projectCode } = req.query || {};
                 const token = generateEffortToken(yearMonth, projectCode);
                 return res.status(200).json({ success: true, token });
             }

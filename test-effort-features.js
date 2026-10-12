@@ -17,10 +17,10 @@ const {
     buildEffortMailSubject,
     buildEffortMailBody,
     sendEffortEmail
-} = require('./pms-app/api/lib/effort-mail-adapter');
+} = require('./api/lib/effort-mail-adapter');
 
-const { parseEffortData } = require('./pms-app/api/lib/effort-excel-parser');
-const effortApiHandler = require('./pms-app/api/effort');
+const { parseEffortData } = require('./api/lib/effort-excel-parser');
+const effortApiHandler = require('./api/effort');
 
 async function runTests() {
     console.log('================================================================');
@@ -182,7 +182,32 @@ async function runTests() {
     }, resNoAuth);
     assert.strictEqual(resNoAuth.get().statusCode, 401);
 
-    // 5-2. send-emails 관리자 인증 요청 -> 200 허용
+    // 5-2. send-emails 메일 공급자 미설정 시 실패 처리 (운영 기본 모드)
+    delete process.env.EFFORT_MAIL_MOCK_ENABLED;
+    const resNoProvider = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_ADMIN_TOKEN' },
+        query: { action: 'send-emails' },
+        body: {
+            requests: [{
+                requestId: 'req-1',
+                yearMonth: ym,
+                projectCode: projCode,
+                projectName: '테스트',
+                pmName: '지병정',
+                pmEmail: 'pm@company.com',
+                token
+            }]
+        }
+    }, resNoProvider);
+    assert.strictEqual(resNoProvider.get().statusCode, 200);
+    assert.strictEqual(resNoProvider.get().responseData.sentCount, 0);
+    assert.strictEqual(resNoProvider.get().responseData.failedCount, 1);
+    assert.strictEqual(resNoProvider.get().responseData.results[0].status, 'UNSENT');
+
+    // 5-3. send-emails Mock 명시 활성화 시 정상 발송 시뮬레이션
+    process.env.EFFORT_MAIL_MOCK_ENABLED = 'true';
     const resAdminAuth = createMockRes();
     await effortApiHandler({
         method: 'POST',
@@ -202,10 +227,21 @@ async function runTests() {
     }, resAdminAuth);
     assert.strictEqual(resAdminAuth.get().statusCode, 200);
     assert.strictEqual(resAdminAuth.get().responseData.sentCount, 1);
+    assert.strictEqual(resAdminAuth.get().responseData.results[0].status, 'SENT');
 
-    // 5-3. inbound-webhook Webhook Secret 검증
+    // 5-4. inbound-webhook Fail-Closed 검증 (비밀키 미설정 시 503 거부)
+    delete process.env.INBOUND_WEBHOOK_SECRET;
+    const resNoSecretConfigured = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { 'x-webhook-secret': 'ANY_SECRET' },
+        query: { action: 'inbound-webhook' },
+        body: {}
+    }, resNoSecretConfigured);
+    assert.strictEqual(resNoSecretConfigured.get().statusCode, 503, 'Fail-Closed 503 검증 실패');
+
+    // 5-5. inbound-webhook 비밀키 불일치 -> 401 차단
     process.env.INBOUND_WEBHOOK_SECRET = 'TEST_SECRET_KEY_123';
-    // 유효하지 않은 Secret -> 401
     const resBadWebhook = createMockRes();
     await effortApiHandler({
         method: 'POST',
@@ -215,7 +251,7 @@ async function runTests() {
     }, resBadWebhook);
     assert.strictEqual(resBadWebhook.get().statusCode, 401);
 
-    // 유효한 Secret -> 200 처리
+    // 5-6. inbound-webhook 유효한 Secret -> 200 처리
     const resGoodWebhook = createMockRes();
     await effortApiHandler({
         method: 'POST',
@@ -231,7 +267,35 @@ async function runTests() {
     assert.strictEqual(resGoodWebhook.get().statusCode, 200);
     assert.strictEqual(resGoodWebhook.get().responseData.matched, true);
 
-    console.log('✅ Test 5 Passed: 무인증 401 차단, 관리자 200 허용, Webhook Secret 검증 통과');
+    // 5-7. generate-token 무인증 -> 401 차단, 인증 -> 200 통과
+    const resGenTokenNoAuth = createMockRes();
+    await effortApiHandler({
+        method: 'GET',
+        headers: {},
+        query: { action: 'generate-token', yearMonth: ym, projectCode: projCode }
+    }, resGenTokenNoAuth);
+    assert.strictEqual(resGenTokenNoAuth.get().statusCode, 401);
+
+    const resGenTokenAuth = createMockRes();
+    await effortApiHandler({
+        method: 'GET',
+        headers: { authorization: 'Bearer TEST_ADMIN_TOKEN' },
+        query: { action: 'generate-token', yearMonth: ym, projectCode: projCode }
+    }, resGenTokenAuth);
+    assert.strictEqual(resGenTokenAuth.get().statusCode, 200);
+    assert(resGenTokenAuth.get().responseData.token.startsWith('EFF-202609-OP260826-'));
+
+    // 5-8. parse-excel 무인증 -> 401 차단
+    const resParseNoAuth = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: {},
+        query: { action: 'parse-excel' },
+        body: { fileData: 'AQID' }
+    }, resParseNoAuth);
+    assert.strictEqual(resParseNoAuth.get().statusCode, 401);
+
+    console.log('✅ Test 5 Passed: 무인증 401 차단, Fail-Closed 503 거부, Mock 플래그 통제, 관리자 허용 통과');
 
     console.log('\n================================================================');
     console.log('🎉 ALL COMPREHENSIVE TESTS PASSED WITH 100% SUCCESS!');
