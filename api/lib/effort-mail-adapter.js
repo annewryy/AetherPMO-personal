@@ -1,5 +1,5 @@
 // ==========================================================================
-// AetherPMO Monthly Effort Mail Adapter & Token Utility
+// AetherPMO Monthly Effort Mail Adapter, Matching & Idempotency Utility
 // Google Workspace / Microsoft 365 / Inbound Webhook / Mock 지원
 // ==========================================================================
 
@@ -17,26 +17,25 @@ function generateEffortToken(yearMonth, projectCode) {
 }
 
 /**
- * 이메일 제목에서 [EFFORT-고유토큰] 및 메타데이터 파싱
- * 예: "[AetherPMO][2026-09][OP-26-0826][EFFORT-EFF-202609-OP260826-A1B2C3D4] 9월 투입공수 조사"
+ * 이메일 제목 또는 본문에서 [EFFORT-고유토큰] 및 메타데이터 파싱
  */
 function parseEffortTokenFromSubject(subject) {
     if (!subject || typeof subject !== 'string') return null;
 
-    // 1. 고유 토큰 패턴 검색: [EFFORT-...] 또는 EFFORT-토큰
-    const tokenRegex = /\[EFFORT-([A-Za-z0-9\-_]+)\]|EFFORT-([A-Za-z0-9\-_]+)/i;
+    // 1. 고유 토큰 패턴 검색: [EFFORT-...] 또는 EFFORT-토큰 또는 EFF-YYYYMM-...
+    const tokenRegex = /\[EFFORT-([A-Za-z0-9\-_]+)\]|EFFORT-([A-Za-z0-9\-_]+)|(EFF-\d{6}-[A-Za-z0-9\-]+)/i;
     const tokenMatch = subject.match(tokenRegex);
-    const token = tokenMatch ? (tokenMatch[1] || tokenMatch[2]) : null;
+    const token = tokenMatch ? (tokenMatch[1] || tokenMatch[2] || tokenMatch[3]) : null;
 
     // 2. 대상월 검색 [YYYY-MM]
-    const ymRegex = /\[(20\d{2}-\d{2})\]/;
+    const ymRegex = /\[(20\d{2}-\d{2})\]|(20\d{2}-\d{2})/;
     const ymMatch = subject.match(ymRegex);
-    const yearMonth = ymMatch ? ymMatch[1] : null;
+    const yearMonth = ymMatch ? (ymMatch[1] || ymMatch[2]) : null;
 
     // 3. 프로젝트 코드 검색 (예: OP-26-0826)
-    const codeRegex = /\[([A-Za-z0-9]{2,4}-\d{2}-\d{3,5})\]/i;
+    const codeRegex = /\[([A-Za-z0-9]{2,4}-\d{2}-\d{3,5})\]|([A-Za-z0-9]{2,4}-\d{2}-\d{3,5})/i;
     const codeMatch = subject.match(codeRegex);
-    const projectCode = codeMatch ? codeMatch[1] : null;
+    const projectCode = codeMatch ? (codeMatch[1] || codeMatch[2]) : null;
 
     if (!token && !yearMonth && !projectCode) return null;
 
@@ -45,6 +44,180 @@ function parseEffortTokenFromSubject(subject) {
         yearMonth,
         projectCode,
         rawSubject: subject
+    };
+}
+
+/**
+ * [회신 다중 보조 매칭 로직]
+ * 토큰뿐만 아니라 In-Reply-To, References, 발신 PM 이메일, 프로젝트 코드, 대상월을 종합 검증
+ * 단일 요청에 100% 특정되지 않거나 충돌 발생 시 임의 연결하지 않고 NEEDS_REVIEW 처리
+ */
+function matchInboundEmailToRequest({
+    subject = '',
+    bodyText = '',
+    inReplyTo = null,
+    references = null,
+    messageId = null,
+    from = '',
+    existingRequests = [],
+    sentEmailLogs = []
+}) {
+    const fromClean = (from || '').toLowerCase().trim();
+
+    // ── 1차 매칭: 고유 토큰 (제목 또는 본문 검색) ──
+    const parsedSubject = parseEffortTokenFromSubject(subject);
+    let tokenCandidate = parsedSubject?.token;
+
+    if (!tokenCandidate && bodyText) {
+        const bodyParsed = parseEffortTokenFromSubject(bodyText);
+        tokenCandidate = bodyParsed?.token;
+    }
+
+    if (tokenCandidate) {
+        const matched = existingRequests.filter(r =>
+            r.request_token && r.request_token.toLowerCase() === tokenCandidate.toLowerCase()
+        );
+        if (matched.length === 1) {
+            return {
+                matched: true,
+                matchType: 'TOKEN',
+                confidence: 1.0,
+                request: matched[0],
+                token: tokenCandidate,
+                reason: `고유 식별 토큰(${tokenCandidate})과 정확히 일치`
+            };
+        } else if (matched.length > 1) {
+            return {
+                matched: false,
+                matchType: 'AMBIGUOUS_TOKEN',
+                confidence: 0,
+                candidateRequests: matched,
+                reason: `동일 토큰(${tokenCandidate})에 매칭되는 요청이 복수(${matched.length}건) 존재하여 검토가 필요합니다.`
+            };
+        }
+    }
+
+    // ── 2차 매칭: In-Reply-To / References 헤더 기반 발송 이력 역추적 ──
+    const replyHeaders = [inReplyTo, references].filter(Boolean);
+    if (replyHeaders.length > 0 && sentEmailLogs.length > 0) {
+        for (const rh of replyHeaders) {
+            const matchedLog = sentEmailLogs.find(log =>
+                (log.message_id && log.message_id.includes(rh)) ||
+                (rh && log.message_id && rh.includes(log.message_id)) ||
+                (log.token && rh.includes(log.token))
+            );
+            if (matchedLog && matchedLog.request_id) {
+                const req = existingRequests.find(r => r.id === matchedLog.request_id);
+                if (req) {
+                    return {
+                        matched: true,
+                        matchType: 'IN_REPLY_TO_HEADER',
+                        confidence: 0.95,
+                        request: req,
+                        token: req.request_token,
+                        reason: `발송 메일 헤더(In-Reply-To/References: ${rh}) 역추적 매칭 성공`
+                    };
+                }
+            }
+        }
+    }
+
+    // ── 3차 매칭: 발신 PM 이메일 + 프로젝트 코드 + 대상월 복합 매칭 ──
+    const ymCandidate = parsedSubject?.yearMonth;
+    const codeCandidate = parsedSubject?.projectCode;
+
+    if (fromClean && (codeCandidate || ymCandidate)) {
+        let candidates = existingRequests.filter(r => {
+            const reqEmail = (r.pm_email || '').toLowerCase().trim();
+            const emailMatch = reqEmail && (fromClean.includes(reqEmail) || reqEmail.includes(fromClean));
+            const codeMatch = codeCandidate ? (r.project_code && r.project_code.toUpperCase() === codeCandidate.toUpperCase()) : true;
+            const ymMatch = ymCandidate ? (r.year_month === ymCandidate) : true;
+            return emailMatch && codeMatch && ymMatch;
+        });
+
+        if (candidates.length === 1) {
+            return {
+                matched: true,
+                matchType: 'SENDER_PROJECT_COMPOSITE',
+                confidence: 0.85,
+                request: candidates[0],
+                token: candidates[0].request_token,
+                reason: `발신자 이메일(${fromClean}) 및 프로젝트 메타정보(${codeCandidate || '코드미지정'}/${ymCandidate || '월미지정'}) 복합 매칭 성공`
+            };
+        } else if (candidates.length > 1) {
+            return {
+                matched: false,
+                matchType: 'AMBIGUOUS_COMPOSITE',
+                confidence: 0,
+                candidateRequests: candidates,
+                reason: `발신자(${fromClean})에게 복수의 프로젝트/대상월 요청이 검색되어 특정할 수 없습니다. (검토 필요)`
+            };
+        }
+    }
+
+    // ── 매칭 실패 ──
+    return {
+        matched: false,
+        matchType: 'NOT_FOUND',
+        confidence: 0,
+        candidateRequests: [],
+        reason: '토큰, 메일 헤더, 발신자+프로젝트 매칭 정보가 일치하지 않아 프로젝트를 식별할 수 없습니다. (검토 필요)'
+    };
+}
+
+/**
+ * 첨부파일 고유 지문(Fingerprint) SHA-256 해시 계산
+ */
+function calculateAttachmentFingerprint(bufferOrBase64) {
+    if (!bufferOrBase64) return null;
+    const buffer = Buffer.isBuffer(bufferOrBase64)
+        ? bufferOrBase64
+        : Buffer.from(bufferOrBase64, 'base64');
+    return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
+/**
+ * [중복 방지 (Idempotency) 검증]
+ * 동일 이메일이 두 번 들어와도 Submission과 Entry가 중복 생성되지 않도록 차단
+ */
+function checkSubmissionIdempotency(existingSubmissions = [], {
+    messageId = null,
+    fileHash = null,
+    requestId = null,
+    fileName = null
+}) {
+    // 1. 동일 원본 메일 식별자(Message-ID) 중복 확인
+    if (messageId) {
+        const dupMessage = existingSubmissions.find(s =>
+            s.source_email_id && s.source_email_id === messageId
+        );
+        if (dupMessage) {
+            return {
+                isDuplicate: true,
+                duplicateType: 'DUPLICATE_MESSAGE_ID',
+                existingSubmission: dupMessage,
+                reason: `이미 처리된 동일 이메일 식별값(${messageId})입니다.`
+            };
+        }
+    }
+
+    // 2. 동일 요청(Request)에 동일 파일 지문(Hash) 중복 확인
+    if (fileHash && requestId) {
+        const dupHash = existingSubmissions.find(s =>
+            s.request_id === requestId && s.file_hash === fileHash
+        );
+        if (dupHash) {
+            return {
+                isDuplicate: true,
+                duplicateType: 'DUPLICATE_FILE_HASH',
+                existingSubmission: dupHash,
+                reason: `동일 요청에 이미 업로드/처리된 동일 파일(Hash: ${fileHash.slice(0, 10)}...)입니다.`
+            };
+        }
+    }
+
+    return {
+        isDuplicate: false
     };
 }
 
@@ -145,7 +318,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helv
 
 /**
  * 이메일 발송 어댑터 (통합)
- * 지원: SMTP, SendGrid, Google Gmail API, MS Graph API, Mock (시뮬레이션)
  */
 async function sendEffortEmail({
     to,
@@ -155,7 +327,6 @@ async function sendEffortEmail({
     projectCode,
     yearMonth
 }) {
-    // 1. SMTP 환경변수가 설정되어 있는 경우
     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
         try {
             const nodemailer = require('nodemailer');
@@ -169,17 +340,25 @@ async function sendEffortEmail({
                 }
             });
 
+            const generatedMessageId = `<effort-${Date.now()}-${crypto.randomBytes(4).toString('hex')}@${process.env.SMTP_HOST}>`;
+
             const info = await transporter.sendMail({
                 from: process.env.SMTP_FROM || `"AetherPMO 사업관리실" <${process.env.SMTP_USER}>`,
                 to,
                 subject,
-                html
+                html,
+                messageId: generatedMessageId,
+                headers: {
+                    'X-AetherPMO-Token': token,
+                    'X-AetherPMO-YearMonth': yearMonth,
+                    'X-AetherPMO-ProjectCode': projectCode
+                }
             });
 
             return {
                 success: true,
                 provider: 'SMTP',
-                messageId: info.messageId,
+                messageId: info.messageId || generatedMessageId,
                 recipient: to
             };
         } catch (err) {
@@ -192,69 +371,64 @@ async function sendEffortEmail({
         }
     }
 
-    // 2. Google Workspace Gmail API (Service Account or OAuth2)
     if (process.env.GOOGLE_WORKSPACE_CLIENT_EMAIL && process.env.GOOGLE_WORKSPACE_PRIVATE_KEY) {
-        // 실제 운영 연동용 어댑터 스텁
         console.log(`[MailAdapter:GoogleWorkspace] Sending email to ${to} via Gmail API`);
-        // 실제 API 연동 로직 (필요 시 googleapis 라이브러리 연동)
     }
 
-    // 3. Microsoft 365 Graph API
     if (process.env.MS_GRAPH_CLIENT_ID && process.env.MS_GRAPH_CLIENT_SECRET && process.env.MS_GRAPH_TENANT_ID) {
         console.log(`[MailAdapter:MSGraph] Sending email to ${to} via MS Graph API`);
-        // 실제 Graph API 연동 로직
     }
 
-    // 4. Mock / 시뮬레이션 모드 (Credentials 미설정 시 안전하게 성공 반환 및 로그 기록)
-    console.log(`[MailAdapter:MOCK] Simulated email sent to ${to} for token ${token}`);
+    // Mock 시뮬레이터
+    const mockMessageId = `<mock-${Date.now()}-${crypto.randomBytes(4).toString('hex')}@aether-pms.local>`;
+    console.log(`[MailAdapter:MOCK] Simulated email sent to ${to} (Message-ID: ${mockMessageId})`);
     return {
         success: true,
         provider: 'MOCK',
         simulated: true,
-        messageId: `mock-msg-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
+        messageId: mockMessageId,
         recipient: to,
         sentAt: new Date().toISOString()
     };
 }
 
 /**
- * 이메일 수신함 자동 수집 어댑터 (통합)
- * 지원: Google Workspace / Microsoft 365 / Mock 수집
+ * 이메일 수신함 수동 동기화 어댑터
  */
 async function syncInboundEmails({
     provider = 'auto',
     limit = 20
 } = {}) {
-    // 1. Google Workspace Gmail API Polling
     if (process.env.GOOGLE_WORKSPACE_CLIENT_EMAIL && process.env.GOOGLE_WORKSPACE_PRIVATE_KEY) {
-        console.log('[InboundAdapter:Gmail] Polling inbox messages with subject "[AetherPMO]"');
-        // Gmail API messages.list -> messages.get -> attachments
         return {
-            provider: 'GMAIL_API',
+            provider: 'GOOGLE_WORKSPACE_GMAIL_API',
+            status: 'CONNECTED',
             messages: []
         };
     }
 
-    // 2. Microsoft 365 Graph API Polling
     if (process.env.MS_GRAPH_CLIENT_ID && process.env.MS_GRAPH_CLIENT_SECRET) {
-        console.log('[InboundAdapter:MSGraph] Polling inbox messages with subject "[AetherPMO]"');
         return {
-            provider: 'MS_GRAPH',
+            provider: 'MICROSOFT_GRAPH_API',
+            status: 'CONNECTED',
             messages: []
         };
     }
 
-    // 3. Mock Adapter (테스트 및 개발 모드)
     return {
-        provider: 'MOCK',
+        provider: 'MOCK_MANUAL_SYNC',
+        status: 'READY',
         messages: [],
-        note: '실제 이메일 수신 연동을 위해 GOOGLE_WORKSPACE_* 또는 MS_GRAPH_* 또는 Webhook 환경변수를 설정해주세요.'
+        note: '수동 Sync 가능 / 자동 스케줄(Vercel Cron) 미설정. 실제 수신 연동을 위해 GOOGLE_WORKSPACE_* 또는 MS_GRAPH_* 또는 Inbound Webhook 설정을 활성화하세요.'
     };
 }
 
 module.exports = {
     generateEffortToken,
     parseEffortTokenFromSubject,
+    matchInboundEmailToRequest,
+    calculateAttachmentFingerprint,
+    checkSubmissionIdempotency,
     buildEffortMailSubject,
     buildEffortMailBody,
     sendEffortEmail,

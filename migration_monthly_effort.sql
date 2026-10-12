@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS public.monthly_effort_submissions (
     file_path TEXT NOT NULL, -- Supabase Storage 버킷: monthly-effort-files 내 경로
     file_size BIGINT DEFAULT 0,
     file_type TEXT,
+    file_hash TEXT, -- 첨부파일 SHA-256 지문 (중복 처리 방지용)
     submission_method TEXT NOT NULL CHECK (submission_method IN ('EMAIL_AUTO', 'DIRECT_UPLOAD', 'DIRECT_INPUT')),
     source_email_id TEXT, -- 원본 메일 식별자 (Message-ID 등)
     source_email_from TEXT,
@@ -227,9 +228,31 @@ CREATE POLICY "requests_pm_update" ON public.monthly_effort_requests
     );
 
 -- [monthly_effort_submissions & entries]
+-- 조회: 관리자는 전체, PM은 본인 담당 프로젝트만 조회 가능 (타 프로젝트 격리)
 DROP POLICY IF EXISTS "submissions_select" ON public.monthly_effort_submissions;
 CREATE POLICY "submissions_select" ON public.monthly_effort_submissions
-    FOR SELECT TO authenticated USING (true);
+    FOR SELECT TO authenticated USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles pr
+            WHERE pr.id = auth.uid()
+            AND (
+                pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+                OR EXISTS (
+                    SELECT 1 FROM public.monthly_effort_requests req
+                    WHERE req.id = request_id
+                    AND (
+                        req.pm_id = auth.uid()
+                        OR req.pm_email = pr.email
+                        OR EXISTS (
+                            SELECT 1 FROM public.projects p
+                            WHERE p.id = req.project_id
+                            AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                        )
+                    )
+                )
+            )
+        )
+    );
 
 DROP POLICY IF EXISTS "submissions_insert_update" ON public.monthly_effort_submissions;
 CREATE POLICY "submissions_insert_update" ON public.monthly_effort_submissions
@@ -243,7 +266,15 @@ CREATE POLICY "submissions_insert_update" ON public.monthly_effort_submissions
                     SELECT 1 FROM public.monthly_effort_requests req
                     WHERE req.id = request_id
                     AND req.status != 'CONFIRMED'
-                    AND (req.pm_id = auth.uid() OR req.pm_email = pr.email)
+                    AND (
+                        req.pm_id = auth.uid()
+                        OR req.pm_email = pr.email
+                        OR EXISTS (
+                            SELECT 1 FROM public.projects p
+                            WHERE p.id = req.project_id
+                            AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                        )
+                    )
                 )
             )
         )
@@ -251,7 +282,28 @@ CREATE POLICY "submissions_insert_update" ON public.monthly_effort_submissions
 
 DROP POLICY IF EXISTS "entries_select" ON public.monthly_effort_entries;
 CREATE POLICY "entries_select" ON public.monthly_effort_entries
-    FOR SELECT TO authenticated USING (true);
+    FOR SELECT TO authenticated USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles pr
+            WHERE pr.id = auth.uid()
+            AND (
+                pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+                OR EXISTS (
+                    SELECT 1 FROM public.monthly_effort_requests req
+                    WHERE req.id = request_id
+                    AND (
+                        req.pm_id = auth.uid()
+                        OR req.pm_email = pr.email
+                        OR EXISTS (
+                            SELECT 1 FROM public.projects p
+                            WHERE p.id = req.project_id
+                            AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                        )
+                    )
+                )
+            )
+        )
+    );
 
 DROP POLICY IF EXISTS "entries_admin_pm_modify" ON public.monthly_effort_entries;
 CREATE POLICY "entries_admin_pm_modify" ON public.monthly_effort_entries
@@ -265,7 +317,15 @@ CREATE POLICY "entries_admin_pm_modify" ON public.monthly_effort_entries
                     SELECT 1 FROM public.monthly_effort_requests req
                     WHERE req.id = request_id
                     AND req.status != 'CONFIRMED'
-                    AND (req.pm_id = auth.uid() OR req.pm_email = pr.email)
+                    AND (
+                        req.pm_id = auth.uid()
+                        OR req.pm_email = pr.email
+                        OR EXISTS (
+                            SELECT 1 FROM public.projects p
+                            WHERE p.id = req.project_id
+                            AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                        )
+                    )
                 )
             )
         )

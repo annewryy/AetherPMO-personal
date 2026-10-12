@@ -98,7 +98,7 @@ function parseEffortData(input, options = {}) {
         // 필수값 검증 2: 투입공수 (M/M)
         let effortMm = 0;
         if (effortMmRaw !== null && effortMmRaw !== undefined && effortMmRaw !== '') {
-            const parsed = parseFloat(String(effortMmRaw).replace(/[^0-9.]/g, ''));
+            const parsed = parseFloat(String(effortMmRaw).replace(/[^0-9.\-]/g, ''));
             if (isNaN(parsed) || parsed < 0 || parsed > 5.0) {
                 errors.push(`${rowNum}행: 투입공수(${effortMmRaw}) 값이 유효하지 않습니다. (0 ~ 5.0 범위 필요)`);
             } else {

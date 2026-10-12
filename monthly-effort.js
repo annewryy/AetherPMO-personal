@@ -54,6 +54,22 @@
             }
         },
 
+        // API 호출용 Supabase JWT 인증 헤더 생성
+        async getAuthHeaders() {
+            const headers = { 'Content-Type': 'application/json' };
+            if (this.supabase && this.supabase.auth) {
+                try {
+                    const { data } = await this.supabase.auth.getSession();
+                    if (data?.session?.access_token) {
+                        headers['Authorization'] = `Bearer ${data.session.access_token}`;
+                    }
+                } catch (e) {
+                    console.warn('[MonthlyEffort] Failed to get session token:', e);
+                }
+            }
+            return headers;
+        },
+
         // 기본 대상월 (항상 전월: 현재 2026-10 -> 2026-09)
         getDefaultEffortYearMonth() {
             const now = new Date();
@@ -813,10 +829,11 @@
             let sentCount = 0;
 
             try {
-                // Serverless API 호출
+                // Serverless API 호출 (JWT 인증 토큰 포함)
+                const authHeaders = await this.getAuthHeaders();
                 const res = await fetch('/api/effort?action=send-emails', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders,
                     body: JSON.stringify({
                         requests: requestsPayload,
                         isResend: this.mailSendIsResend,
@@ -922,9 +939,10 @@
             this.showToast('메일 수신함에서 PM 회신 메일 동기화 및 엑셀 수집을 진행합니다...', 'info');
 
             try {
+                const authHeaders = await this.getAuthHeaders();
                 const res = await fetch('/api/effort?action=sync-inbox', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: authHeaders
                 });
                 const data = await res.json();
                 console.log('[MonthlyEffort] Sync inbox response:', data);
@@ -956,6 +974,17 @@
         simulateInboundEmailReply(request) {
             const nowIso = new Date().toISOString();
             const fileName = `${request.project_code}_${request.year_month}_투입공수.xlsx`;
+            const mockMsgId = `msg-${request.request_token}@mail.local`;
+            const mockFileHash = 'hash-' + request.request_token;
+
+            // 중복 수신 방지 (Idempotency Check)
+            const isDup = (this.state.monthlyEffortSubmissions || []).some(s =>
+                s.source_email_id === mockMsgId || (s.request_id === request.id && s.file_hash === mockFileHash)
+            );
+            if (isDup) {
+                this.showToast(`[중복 수신 방지] 이미 동일한 이메일/파일이 수집·처리되어 중복 등록을 차단했습니다.`, 'warning');
+                return;
+            }
 
             // 기본 샘플 데이터 행 생성
             const sampleEntries = [
