@@ -65,31 +65,62 @@ async function authenticateUser(req) {
         };
     }
 
-    // 1. TEST_ADMIN_TOKEN 및 TEST_USER_TOKEN은 오직 NODE_ENV === 'test' 환경에서만 허용
-    if (process.env.NODE_ENV === 'test' && token === 'TEST_ADMIN_TOKEN') {
-        return {
-            authenticated: true,
-            user: { id: '00000000-0000-0000-0000-000000000000', email: 'test-admin@company.com' },
-            profile: { id: '00000000-0000-0000-0000-000000000000', name: '테스트 관리자', role: 'admin' },
-            role: 'admin',
-            isAdmin: true,
-            isPm: false
-        };
-    }
-
-    if (process.env.NODE_ENV === 'test' && token === 'TEST_USER_TOKEN') {
-        return {
-            authenticated: true,
-            user: { id: '11111111-1111-1111-1111-111111111111', email: 'test-user@company.com' },
-            profile: { id: '11111111-1111-1111-1111-111111111111', name: '일반 사용자', role: 'user' },
-            role: 'user',
-            isAdmin: false,
-            isPm: false
-        };
+    // 1. 테스트 토큰은 오직 NODE_ENV === 'test' 환경에서만 허용
+    if (process.env.NODE_ENV === 'test') {
+        if (token === 'TEST_ADMIN_TOKEN') {
+            return {
+                authenticated: true,
+                user: { id: '00000000-0000-0000-0000-000000000000', email: 'test-admin@company.com' },
+                profile: { id: '00000000-0000-0000-0000-000000000000', name: '테스트 관리자', role: 'admin' },
+                role: 'admin',
+                isAdmin: true,
+                isPm: false
+            };
+        }
+        if (token === 'TEST_USER_TOKEN') {
+            return {
+                authenticated: true,
+                user: { id: '11111111-1111-1111-1111-111111111111', email: 'test-user@company.com' },
+                profile: { id: '11111111-1111-1111-1111-111111111111', name: '일반 사용자', role: 'user' },
+                role: 'user',
+                isAdmin: false,
+                isPm: false
+            };
+        }
+        if (token === 'TEST_PM_TOKEN') {
+            return {
+                authenticated: true,
+                user: { id: '22222222-2222-2222-2222-222222222222', email: 'pm@company.com' },
+                profile: { id: '22222222-2222-2222-2222-222222222222', name: '담당 PM', role: 'pm' },
+                role: 'pm',
+                isAdmin: false,
+                isPm: true
+            };
+        }
+        if (token === 'TEST_OTHER_PM_TOKEN') {
+            return {
+                authenticated: true,
+                user: { id: '33333333-3333-3333-3333-333333333333', email: 'other-pm@company.com' },
+                profile: { id: '33333333-3333-3333-3333-333333333333', name: '타 프로젝트 PM', role: 'pm' },
+                role: 'pm',
+                isAdmin: false,
+                isPm: true
+            };
+        }
+        if (token === 'TEST_WORKER_TOKEN') {
+            return {
+                authenticated: true,
+                user: { id: '44444444-4444-4444-4444-444444444444', email: 'worker@company.com' },
+                profile: { id: '44444444-4444-4444-4444-444444444444', name: '수행원', role: 'worker' },
+                role: 'worker',
+                isAdmin: false,
+                isPm: false
+            };
+        }
     }
 
     // 2. 운영 및 비테스트 환경에서 테스트 토큰은 무조건 거부
-    if (token === 'TEST_ADMIN_TOKEN' || token === 'TEST_USER_TOKEN') {
+    if (token.startsWith('TEST_') && token.endsWith('_TOKEN')) {
         return {
             authenticated: false,
             statusCode: 401,
@@ -722,7 +753,132 @@ module.exports = async function handler(req, res) {
             }
 
             // ─────────────────────────────────────────────────────────────
-            // 7. 고유 토큰 생성 헬퍼 (로그인 사용자 인증 필수)
+            // 7. 엑셀 직접 업로드 제출 API (권한 검증 후 Service Role RPC 실행)
+            // ─────────────────────────────────────────────────────────────
+            case 'direct-submit': {
+                if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+
+                const auth = await authenticateUser(req);
+                if (!auth.authenticated) return res.status(auth.statusCode || 401).json({ error: auth.error });
+
+                const {
+                    requestId,
+                    fileName,
+                    storagePath,
+                    fileSize,
+                    fileHash,
+                    parseStatus,
+                    parseErrorMessage,
+                    parsedRowCount,
+                    totalHeadcount,
+                    totalEffortMm,
+                    entries
+                } = req.body || {};
+
+                if (!requestId) {
+                    return res.status(400).json({ error: 'requestId가 누락되었습니다.' });
+                }
+
+                const supabase = getServiceSupabaseClient();
+                if (!supabase) {
+                    return res.status(503).json({
+                        success: false,
+                        error: '서버 환경 설정 오류: SUPABASE_URL 또는 SUPABASE_SERVICE_ROLE_KEY가 설정되지 않아 처리를 실행할 수 없습니다. (Fail-Closed)'
+                    });
+                }
+
+                // 1. 대상 Request 및 관련 Project DB 조회 (권한 검증용)
+                const { data: targetReq, error: reqQueryErr } = await supabase
+                    .from('monthly_effort_requests')
+                    .select('id, project_id, project_code, pm_id, pm_email, status')
+                    .eq('id', requestId)
+                    .single();
+
+                if (reqQueryErr || !targetReq) {
+                    return res.status(404).json({ error: '대상 투입공수 조사 요청을 찾을 수 없습니다.' });
+                }
+
+                // 2. 이미 CONFIRMED 상태인지 검증 (확정 건 수정 차단)
+                if (targetReq.status === 'CONFIRMED') {
+                    return res.status(400).json({ error: '이미 확정 완료된 투입공수 요청은 수정하거나 엑셀을 업로드할 수 없습니다.' });
+                }
+
+                // 3. 권한 검증:
+                // 관리자: admin, manager, sys_admin, exec_admin -> 전체 가능
+                // PM: targetReq.pm_id === auth.user.id || targetReq.pm_email === auth.user.email || targetReq.pm_email === auth.profile?.email || projects.manager_id === auth.user.id
+                let hasPermission = auth.isAdmin;
+
+                if (!hasPermission) {
+                    const userEmail = (auth.user.email || auth.profile?.email || '').toLowerCase();
+                    const pmEmail = (targetReq.pm_email || '').toLowerCase();
+
+                    if (targetReq.pm_id && targetReq.pm_id === auth.user.id) {
+                        hasPermission = true;
+                    } else if (pmEmail && pmEmail === userEmail) {
+                        hasPermission = true;
+                    } else if (targetReq.project_id) {
+                        // projects 테이블의 manager_id 확인
+                        const { data: projData } = await supabase
+                            .from('projects')
+                            .select('manager_id')
+                            .eq('id', targetReq.project_id)
+                            .single();
+
+                        if (projData && projData.manager_id === auth.user.id) {
+                            hasPermission = true;
+                        }
+                    }
+                }
+
+                if (!hasPermission) {
+                    return res.status(403).json({ error: '해당 프로젝트의 투입공수를 수정 또는 업로드할 권한이 없습니다.' });
+                }
+
+                // 4. p_user_id, p_user_name은 절대 클라이언트 입력을 신뢰하지 않고 서버가 검증한 auth 데이터만 사용!
+                const verifiedUserId = auth.user.id;
+                const verifiedUserName = auth.profile?.name || auth.user.email || '사용자';
+
+                const rpcPayload = {
+                    p_request_id: requestId,
+                    p_file_name: fileName || 'effort.xlsx',
+                    p_file_path: storagePath || '',
+                    p_file_size: fileSize || 0,
+                    p_file_hash: fileHash || null,
+                    p_parse_status: parseStatus || 'SUCCESS',
+                    p_parse_error_message: parseErrorMessage || null,
+                    p_parsed_row_count: parsedRowCount || (entries?.length || 0),
+                    p_total_headcount: totalHeadcount || (entries?.length || 0),
+                    p_total_effort_mm: totalEffortMm || 0,
+                    p_entries: entries || [],
+                    p_user_id: verifiedUserId,
+                    p_user_name: verifiedUserName
+                };
+
+                const { data: rpcResult, error: rpcErr } = await supabase.rpc(
+                    'process_monthly_effort_direct_submission',
+                    rpcPayload
+                );
+
+                if (rpcErr) {
+                    console.error('[DirectSubmit] RPC Transaction error:', rpcErr);
+                    return res.status(500).json({
+                        success: false,
+                        error: 'DB 직접 업로드 트랜잭션 실행 실패: ' + rpcErr.message
+                    });
+                }
+
+                return res.status(200).json({
+                    success: true,
+                    submissionId: rpcResult?.submission_id,
+                    status: rpcResult?.status || 'SUBMITTED',
+                    totalHeadcount: rpcResult?.total_headcount,
+                    totalEffortMm: rpcResult?.total_effort_mm,
+                    submittedAt: rpcResult?.submitted_at
+                });
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // 8. 고유 토큰 생성 헬퍼 (로그인 사용자 인증 필수)
             // ─────────────────────────────────────────────────────────────
             case 'generate-token': {
                 const auth = await authenticateUser(req);

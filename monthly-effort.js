@@ -2056,39 +2056,42 @@
                         order_no: idx + 1
                     }));
 
-                    const rpcPayload = {
-                        p_request_id: req.id,
-                        p_file_name: fileName,
-                        p_file_path: storagePath,
-                        p_file_size: fileSize,
-                        p_file_hash: null,
-                        p_parse_status: parsed.isValid ? 'SUCCESS' : 'WARNING',
-                        p_parse_error_message: parsed.errors.length > 0 ? parsed.errors.join('\n') : null,
-                        p_parsed_row_count: parsed.entries.length,
-                        p_total_headcount: parsed.totalHeadcount,
-                        p_total_effort_mm: parsed.totalEffortMm,
-                        p_entries: entriesPayload,
-                        p_user_id: this.currentUser?.id || null,
-                        p_user_name: this.currentUser?.name || this.currentUser?.email || '사용자'
-                    };
+                    // 서버리스 API(/api/effort?action=direct-submit)를 통해 사용자 JWT 권한 검증 및 Service Role RPC 원자적 실행
+                    const authToken = await this.getEffortAuthToken();
+                    const directSubmitRes = await fetch('/api/effort?action=direct-submit', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+                        },
+                        body: JSON.stringify({
+                            requestId: req.id,
+                            fileName,
+                            storagePath,
+                            fileSize,
+                            fileHash: null,
+                            parseStatus: parsed.isValid ? 'SUCCESS' : 'WARNING',
+                            parseErrorMessage: parsed.errors.length > 0 ? parsed.errors.join('\n') : null,
+                            parsedRowCount: parsed.entries.length,
+                            totalHeadcount: parsed.totalHeadcount,
+                            totalEffortMm: parsed.totalEffortMm,
+                            entries: entriesPayload
+                        })
+                    });
 
-                    const { data: rpcRes, error: rpcErr } = await this.supabase.rpc(
-                        'process_monthly_effort_direct_submission',
-                        rpcPayload
-                    );
-
-                    if (rpcErr) {
-                        console.error('[MonthlyEffort] Direct submission RPC failed. Rolling back Storage file:', rpcErr);
+                    const submitData = await directSubmitRes.json();
+                    if (!directSubmitRes.ok || !submitData.success) {
+                        console.error('[MonthlyEffort] Direct submission API failed. Rolling back Storage file:', submitData.error);
                         // Storage Cleanup (고아 파일 방지)
                         await this.supabase.storage.from('monthly-effort-files').remove([storagePath]).catch(cErr => {
                             console.error('[MonthlyEffort] Storage cleanup failed:', cErr);
                         });
-                        alert(`투입공수 직접 업로드 DB 트랜잭션 실패 (스토리지 롤백 완료): ${rpcErr.message}`);
+                        alert(`투입공수 직접 업로드 실패 (스토리지 롤백 완료): ${submitData.error || '서버 처리 오류'}`);
                         return;
                     }
 
                     createdSubmission = {
-                        id: rpcRes?.submission_id || this.generateUUID(),
+                        id: submitData.submissionId || this.generateUUID(),
                         request_id: req.id,
                         year_month: req.year_month,
                         project_id: req.project_id,

@@ -952,7 +952,7 @@ GRANT EXECUTE ON FUNCTION public.process_monthly_effort_email_submission(UUID, T
 REVOKE ALL ON FUNCTION public.confirm_monthly_effort_requests(UUID[], BOOLEAN, UUID, TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.confirm_monthly_effort_requests(UUID[], BOOLEAN, UUID, TEXT) TO service_role;
 
--- 3) process_monthly_effort_direct_submission: 로그인 사용자 및 Service Role 허용
-REVOKE ALL ON FUNCTION public.process_monthly_effort_direct_submission(UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, INT, INT, NUMERIC, JSONB, UUID, TEXT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.process_monthly_effort_direct_submission(UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, INT, INT, NUMERIC, JSONB, UUID, TEXT) TO authenticated, service_role;
+-- 3) process_monthly_effort_direct_submission: Service Role 전용 (일반 사용자 직접 호출 절대 차단, Serverless API /api/effort?action=direct-submit 통해서만 실행)
+REVOKE ALL ON FUNCTION public.process_monthly_effort_direct_submission(UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, INT, INT, NUMERIC, JSONB, UUID, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.process_monthly_effort_direct_submission(UUID, TEXT, TEXT, BIGINT, TEXT, TEXT, TEXT, INT, INT, NUMERIC, JSONB, UUID, TEXT) TO service_role;
 

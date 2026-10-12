@@ -524,6 +524,135 @@ async function runTests() {
 
     console.log('✅ Test 5 Passed: 무인증 401 차단, Fail-Closed 503 거부, 스토리지 실패 500 중단, 트랜잭션 실패 스토리지 롤백, confirm RPC 통제 검증 완료');
 
+    // ─────────────────────────────────────────────────────────────────
+    // TEST 6: Direct Submission 권한 통제 및 위조 방지 검증
+    // ─────────────────────────────────────────────────────────────────
+    console.log('\n--- [Test 6] Direct Submission Permission & Security ---');
+
+    const mockTargetReq = {
+        id: 'req-pm-1',
+        project_id: 'proj-1',
+        project_code: 'OP-26-0826',
+        pm_id: '22222222-2222-2222-2222-222222222222',
+        pm_email: 'pm@company.com',
+        status: 'UNSENT'
+    };
+
+    const mockConfirmedReq = {
+        id: 'req-conf-1',
+        project_id: 'proj-1',
+        project_code: 'OP-26-0826',
+        pm_id: '22222222-2222-2222-2222-222222222222',
+        pm_email: 'pm@company.com',
+        status: 'CONFIRMED'
+    };
+
+    let directRpcCapturedPayload = null;
+    global.__mockSupabaseClient = {
+        from: (table) => ({
+            select: () => ({
+                eq: (col, val) => ({
+                    single: () => {
+                        if (val === 'req-conf-1') return Promise.resolve({ data: mockConfirmedReq, error: null });
+                        if (val === 'req-pm-1') return Promise.resolve({ data: mockTargetReq, error: null });
+                        return Promise.resolve({ data: null, error: { message: 'Not found' } });
+                    }
+                })
+            })
+        }),
+        rpc: (fn, params) => {
+            if (fn === 'process_monthly_effort_direct_submission') {
+                directRpcCapturedPayload = params;
+                return Promise.resolve({
+                    data: {
+                        success: true,
+                        submission_id: 'sub-direct-1',
+                        status: 'SUBMITTED',
+                        total_headcount: 1,
+                        total_effort_mm: 1.0,
+                        submitted_at: new Date().toISOString()
+                    },
+                    error: null
+                });
+            }
+            return Promise.resolve({ data: {}, error: null });
+        }
+    };
+
+    // 6-1. anonymous -> direct-submit 401 차단
+    const resDirAnon = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: {},
+        query: { action: 'direct-submit' },
+        body: { requestId: 'req-pm-1' }
+    }, resDirAnon);
+    assert.strictEqual(resDirAnon.get().statusCode, 401, 'anonymous direct-submit must return 401');
+
+    // 6-2. worker/viewer -> 타 프로젝트 direct-submit 403 차단
+    const resDirWorker = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_WORKER_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: { requestId: 'req-pm-1' }
+    }, resDirWorker);
+    assert.strictEqual(resDirWorker.get().statusCode, 403, 'worker direct-submit must return 403');
+
+    // 6-3. 타 PM -> 타 프로젝트 direct-submit 403 차단
+    const resDirOtherPm = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_OTHER_PM_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: { requestId: 'req-pm-1' }
+    }, resDirOtherPm);
+    assert.strictEqual(resDirOtherPm.get().statusCode, 403, 'other PM direct-submit must return 403');
+
+    // 6-4. PM -> 본인 담당 프로젝트 200 성공 및 p_user_id 위조 방지 검증
+    directRpcCapturedPayload = null;
+    const resDirPm = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_PM_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: {
+            requestId: 'req-pm-1',
+            fileName: 'pm_effort.xlsx',
+            storagePath: '2026-09/proj-1/req-pm-1/pm_effort.xlsx',
+            p_user_id: 'hacker-uuid-999999', // 클라이언트가 임의 위조 UUID 전송 시도
+            p_user_name: '위조된사용자'         // 클라이언트가 임의 위조 이름 전송 시도
+        }
+    }, resDirPm);
+    assert.strictEqual(resDirPm.get().statusCode, 200, 'PM direct-submit for own project must return 200');
+    assert.strictEqual(resDirPm.get().responseData.status, 'SUBMITTED');
+    assert.strictEqual(directRpcCapturedPayload.p_user_id, '22222222-2222-2222-2222-222222222222', '클라이언트 p_user_id 위조 시도는 무시되고 JWT 토큰의 user.id가 RPC에 전달되어야 함');
+    assert.strictEqual(directRpcCapturedPayload.p_user_name, '담당 PM', '클라이언트 p_user_name 위조 시도는 무시되고 서버 인증 profile.name이 RPC에 전달되어야 함');
+
+    // 6-5. admin/manager -> 전체 프로젝트 200 성공
+    const resDirAdmin = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_ADMIN_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: { requestId: 'req-pm-1', fileName: 'admin_upload.xlsx' }
+    }, resDirAdmin);
+    assert.strictEqual(resDirAdmin.get().statusCode, 200, 'admin direct-submit must return 200');
+
+    // 6-6. CONFIRMED request -> PM/관리자 일반 수정 거부 (400)
+    const resDirConfirmed = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_ADMIN_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: { requestId: 'req-conf-1' }
+    }, resDirConfirmed);
+    assert.strictEqual(resDirConfirmed.get().statusCode, 400, 'CONFIRMED request direct-submit must be rejected with 400');
+    assert(resDirConfirmed.get().responseData.error.includes('이미 확정'));
+
+    delete global.__mockSupabaseClient;
+    console.log('✅ Test 6 Passed: Direct-submit 권한 통제 (anonymous 401, worker 403, 타 PM 403, 담당 PM 200, Admin 200, CONFIRMED 거부, 사용자 위조 방지) 검증 완료');
+
     console.log('\n================================================================');
     console.log('🎉 ALL COMPREHENSIVE TESTS PASSED WITH 100% SUCCESS!');
     console.log('================================================================');
