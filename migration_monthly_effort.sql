@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS public.monthly_effort_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     cycle_id UUID REFERENCES public.monthly_effort_cycles(id) ON DELETE CASCADE,
     year_month TEXT NOT NULL, -- 대상월 (YYYY-MM)
-    project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
+    project_id TEXT NOT NULL, -- 운영 DB projects.id(varchar) 및 UUID 기반 환경 모두 문자열로 호환
     project_code TEXT NOT NULL,
     project_name TEXT NOT NULL,
     pm_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS public.monthly_effort_submissions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     request_id UUID REFERENCES public.monthly_effort_requests(id) ON DELETE CASCADE NOT NULL,
     year_month TEXT NOT NULL,
-    project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
+    project_id TEXT NOT NULL, -- 운영 DB projects.id(varchar) 및 UUID 기반 환경 모두 문자열로 호환
     file_name TEXT NOT NULL,
     file_path TEXT NOT NULL, -- Supabase Storage 버킷: monthly-effort-files 내 경로
     file_size BIGINT DEFAULT 0,
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS public.monthly_effort_entries (
     request_id UUID REFERENCES public.monthly_effort_requests(id) ON DELETE CASCADE NOT NULL,
     submission_id UUID REFERENCES public.monthly_effort_submissions(id) ON DELETE SET NULL,
     year_month TEXT NOT NULL,
-    project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
+    project_id TEXT NOT NULL, -- 운영 DB projects.id(varchar) 및 UUID 기반 환경 모두 문자열로 호환
     member_name TEXT NOT NULL, -- 성명
     organization TEXT,         -- 소속 (예: 오케스트로, 자사, 외주사 등)
     role_name TEXT,            -- 역할 (예: PM, TA, DEV 등)
@@ -186,7 +186,7 @@ CREATE POLICY "cycles_admin_all" ON public.monthly_effort_cycles
         EXISTS (
             SELECT 1 FROM public.profiles pr
             WHERE pr.id = auth.uid()
-            AND pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+            AND LOWER(pr.role) IN ('admin', 'manager', 'sys_admin', 'exec_admin')
         )
     );
 
@@ -199,13 +199,13 @@ CREATE POLICY "requests_select" ON public.monthly_effort_requests
             SELECT 1 FROM public.profiles pr
             WHERE pr.id = auth.uid()
             AND (
-                pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+                LOWER(pr.role) IN ('admin', 'manager', 'sys_admin', 'exec_admin')
                 OR pm_id = auth.uid()
                 OR pm_email = pr.email
                 OR EXISTS (
                     SELECT 1 FROM public.projects p
-                    WHERE p.id = project_id
-                    AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                    WHERE p.id::text = project_id::text
+                    AND (p.manager_id::text = auth.uid()::text OR COALESCE(to_jsonb(p)->>'pm_name', to_jsonb(p)->>'manager') = pr.name)
                 )
             )
         )
@@ -217,7 +217,7 @@ CREATE POLICY "requests_admin_all" ON public.monthly_effort_requests
         EXISTS (
             SELECT 1 FROM public.profiles pr
             WHERE pr.id = auth.uid()
-            AND pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+            AND LOWER(pr.role) IN ('admin', 'manager', 'sys_admin', 'exec_admin')
         )
     );
 
@@ -234,8 +234,8 @@ CREATE POLICY "requests_pm_update" ON public.monthly_effort_requests
                 OR pm_email = pr.email
                 OR EXISTS (
                     SELECT 1 FROM public.projects p
-                    WHERE p.id = project_id
-                    AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                    WHERE p.id::text = project_id::text
+                    AND (p.manager_id::text = auth.uid()::text OR COALESCE(to_jsonb(p)->>'pm_name', to_jsonb(p)->>'manager') = pr.name)
                 )
             )
         )
@@ -250,7 +250,7 @@ CREATE POLICY "submissions_select" ON public.monthly_effort_submissions
             SELECT 1 FROM public.profiles pr
             WHERE pr.id = auth.uid()
             AND (
-                pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+                LOWER(pr.role) IN ('admin', 'manager', 'sys_admin', 'exec_admin')
                 OR EXISTS (
                     SELECT 1 FROM public.monthly_effort_requests req
                     WHERE req.id = request_id
@@ -259,8 +259,8 @@ CREATE POLICY "submissions_select" ON public.monthly_effort_submissions
                         OR req.pm_email = pr.email
                         OR EXISTS (
                             SELECT 1 FROM public.projects p
-                            WHERE p.id = req.project_id
-                            AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                            WHERE p.id::text = req.project_id::text
+                            AND (p.manager_id::text = auth.uid()::text OR COALESCE(to_jsonb(p)->>'pm_name', to_jsonb(p)->>'manager') = pr.name)
                         )
                     )
                 )
@@ -275,7 +275,7 @@ CREATE POLICY "submissions_insert_update" ON public.monthly_effort_submissions
             SELECT 1 FROM public.profiles pr
             WHERE pr.id = auth.uid()
             AND (
-                pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+                LOWER(pr.role) IN ('admin', 'manager', 'sys_admin', 'exec_admin')
                 OR EXISTS (
                     SELECT 1 FROM public.monthly_effort_requests req
                     WHERE req.id = request_id
@@ -285,8 +285,8 @@ CREATE POLICY "submissions_insert_update" ON public.monthly_effort_submissions
                         OR req.pm_email = pr.email
                         OR EXISTS (
                             SELECT 1 FROM public.projects p
-                            WHERE p.id = req.project_id
-                            AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                            WHERE p.id::text = req.project_id::text
+                            AND (p.manager_id::text = auth.uid()::text OR COALESCE(to_jsonb(p)->>'pm_name', to_jsonb(p)->>'manager') = pr.name)
                         )
                     )
                 )
@@ -301,7 +301,7 @@ CREATE POLICY "entries_select" ON public.monthly_effort_entries
             SELECT 1 FROM public.profiles pr
             WHERE pr.id = auth.uid()
             AND (
-                pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+                LOWER(pr.role) IN ('admin', 'manager', 'sys_admin', 'exec_admin')
                 OR EXISTS (
                     SELECT 1 FROM public.monthly_effort_requests req
                     WHERE req.id = request_id
@@ -310,8 +310,8 @@ CREATE POLICY "entries_select" ON public.monthly_effort_entries
                         OR req.pm_email = pr.email
                         OR EXISTS (
                             SELECT 1 FROM public.projects p
-                            WHERE p.id = req.project_id
-                            AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                            WHERE p.id::text = req.project_id::text
+                            AND (p.manager_id::text = auth.uid()::text OR COALESCE(to_jsonb(p)->>'pm_name', to_jsonb(p)->>'manager') = pr.name)
                         )
                     )
                 )
@@ -326,7 +326,7 @@ CREATE POLICY "entries_admin_pm_modify" ON public.monthly_effort_entries
             SELECT 1 FROM public.profiles pr
             WHERE pr.id = auth.uid()
             AND (
-                pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+                LOWER(pr.role) IN ('admin', 'manager', 'sys_admin', 'exec_admin')
                 OR EXISTS (
                     SELECT 1 FROM public.monthly_effort_requests req
                     WHERE req.id = request_id
@@ -336,8 +336,8 @@ CREATE POLICY "entries_admin_pm_modify" ON public.monthly_effort_entries
                         OR req.pm_email = pr.email
                         OR EXISTS (
                             SELECT 1 FROM public.projects p
-                            WHERE p.id = req.project_id
-                            AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                            WHERE p.id::text = req.project_id::text
+                            AND (p.manager_id::text = auth.uid()::text OR COALESCE(to_jsonb(p)->>'pm_name', to_jsonb(p)->>'manager') = pr.name)
                         )
                     )
                 )
@@ -352,7 +352,7 @@ CREATE POLICY "logs_admin_all" ON public.monthly_effort_email_logs
         EXISTS (
             SELECT 1 FROM public.profiles pr
             WHERE pr.id = auth.uid()
-            AND pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+            AND LOWER(pr.role) IN ('admin', 'manager', 'sys_admin', 'exec_admin')
         )
     );
 
@@ -363,7 +363,7 @@ CREATE POLICY "audit_select" ON public.monthly_effort_audit_logs
             SELECT 1 FROM public.profiles pr
             WHERE pr.id = auth.uid()
             AND (
-                pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+                LOWER(pr.role) IN ('admin', 'manager', 'sys_admin', 'exec_admin')
                 OR EXISTS (
                     SELECT 1 FROM public.monthly_effort_requests req
                     WHERE req.id = request_id
@@ -372,8 +372,8 @@ CREATE POLICY "audit_select" ON public.monthly_effort_audit_logs
                         OR req.pm_email = pr.email
                         OR EXISTS (
                             SELECT 1 FROM public.projects p
-                            WHERE p.id = req.project_id
-                            AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                            WHERE p.id::text = req.project_id::text
+                            AND (p.manager_id::text = auth.uid()::text OR COALESCE(to_jsonb(p)->>'pm_name', to_jsonb(p)->>'manager') = pr.name)
                         )
                     )
                 )
@@ -388,7 +388,7 @@ CREATE POLICY "audit_insert" ON public.monthly_effort_audit_logs
             SELECT 1 FROM public.profiles pr
             WHERE pr.id = auth.uid()
             AND (
-                pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+                LOWER(pr.role) IN ('admin', 'manager', 'sys_admin', 'exec_admin')
                 OR EXISTS (
                     SELECT 1 FROM public.monthly_effort_requests req
                     WHERE req.id = request_id
@@ -397,8 +397,8 @@ CREATE POLICY "audit_insert" ON public.monthly_effort_audit_logs
                         OR req.pm_email = pr.email
                         OR EXISTS (
                             SELECT 1 FROM public.projects p
-                            WHERE p.id = req.project_id
-                            AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                            WHERE p.id::text = req.project_id::text
+                            AND (p.manager_id::text = auth.uid()::text OR COALESCE(to_jsonb(p)->>'pm_name', to_jsonb(p)->>'manager') = pr.name)
                         )
                     )
                 )
@@ -415,7 +415,7 @@ CREATE POLICY "monthly_effort_files_select" ON storage.objects
             SELECT 1 FROM public.profiles pr
             WHERE pr.id = auth.uid()
             AND (
-                pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+                LOWER(pr.role) IN ('admin', 'manager', 'sys_admin', 'exec_admin')
                 OR EXISTS (
                     SELECT 1 FROM public.monthly_effort_submissions sub
                     JOIN public.monthly_effort_requests req ON req.id = sub.request_id
@@ -425,8 +425,8 @@ CREATE POLICY "monthly_effort_files_select" ON storage.objects
                         OR req.pm_email = pr.email
                         OR EXISTS (
                             SELECT 1 FROM public.projects p
-                            WHERE p.id = req.project_id
-                            AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                            WHERE p.id::text = req.project_id::text
+                            AND (p.manager_id::text = auth.uid()::text OR COALESCE(to_jsonb(p)->>'pm_name', to_jsonb(p)->>'manager') = pr.name)
                         )
                     )
                 )
@@ -442,9 +442,9 @@ CREATE POLICY "monthly_effort_files_insert" ON storage.objects
             SELECT 1 FROM public.profiles pr
             WHERE pr.id = auth.uid()
             AND (
-                pr.role IN ('admin', 'manager', 'SYS_ADMIN', 'EXEC_ADMIN')
+                LOWER(pr.role) IN ('admin', 'manager', 'sys_admin', 'exec_admin')
                 OR (
-                    pr.role = 'pm'
+                    LOWER(pr.role) = 'pm'
                     AND EXISTS (
                         SELECT 1 FROM public.monthly_effort_requests req
                         WHERE req.id::text = (storage.foldername(name))[3]
@@ -456,8 +456,8 @@ CREATE POLICY "monthly_effort_files_insert" ON storage.objects
                             OR req.pm_email = pr.email
                             OR EXISTS (
                                 SELECT 1 FROM public.projects p
-                                WHERE p.id = req.project_id
-                                AND (p.manager_id = auth.uid() OR p.pm_name = pr.name)
+                                WHERE p.id::text = req.project_id::text
+                                AND (p.manager_id::text = auth.uid()::text OR COALESCE(to_jsonb(p)->>'pm_name', to_jsonb(p)->>'manager') = pr.name)
                             )
                         )
                     )
