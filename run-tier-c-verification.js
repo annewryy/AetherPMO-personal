@@ -199,22 +199,21 @@ async function runTierCVerification() {
             const user = created.user;
             cleanupContext.authUsers.push(user.id);
 
-            // AetherPMO profiles: account_status: 'active', role: 'admin' | 'pm'
+            // 운영 AetherPMO profiles 스키마: role='SYS_ADMIN' | 'PM' (account_status 컬럼 없음)
             const { error: profErr } = await serviceClient.from('profiles').upsert({
                 id: user.id,
                 email,
                 name,
-                role,
-                account_status: 'active'
+                role
             });
             if (profErr) throw new Error(`Profile upsert 실패 (${email}): ` + profErr.message);
 
             return { user, email };
         }
 
-        const adminObj = await createTestUser('test-admin', '테스트 관리자', 'admin');
-        const pmAObj = await createTestUser('test-pma', 'PM-A (프로젝트 A 담당)', 'pm');
-        const pmBObj = await createTestUser('test-pmb', 'PM-B (프로젝트 B 담당)', 'pm');
+        const adminObj = await createTestUser('test-admin', '테스트 관리자', 'SYS_ADMIN');
+        const pmAObj = await createTestUser('test-pma', 'PM-A (프로젝트 A 담당)', 'PM');
+        const pmBObj = await createTestUser('test-pmb', 'PM-B (프로젝트 B 담당)', 'PM');
 
         adminUser = adminObj.user;
         pmAUser = pmAObj.user;
@@ -260,8 +259,9 @@ async function runTierCVerification() {
         console.log('\n--- [Group A: Step 4] Test Projects & Requests Allocation ---');
         // Project A (PM-A 담당)
         const { data: pAData, error: pAErr } = await serviceClient.from('projects').insert({
+            id: `tierc-proj-a-${runSuffix}`,
             project_code: `OP-26-RLSA-${runSuffix}`,
-            project_name: `RLS 테스트 프로젝트 A (${runSuffix})`,
+            name: `RLS 테스트 프로젝트 A (${runSuffix})`,
             manager_id: pmAUser.id,
             status: 'In Progress'
         }).select().single();
@@ -271,8 +271,9 @@ async function runTierCVerification() {
 
         // Project B (PM-B 담당)
         const { data: pBData, error: pBErr } = await serviceClient.from('projects').insert({
+            id: `tierc-proj-b-${runSuffix}`,
             project_code: `OP-26-RLSB-${runSuffix}`,
-            project_name: `RLS 테스트 프로젝트 B (${runSuffix})`,
+            name: `RLS 테스트 프로젝트 B (${runSuffix})`,
             manager_id: pmBUser.id,
             status: 'In Progress'
         }).select().single();
@@ -287,7 +288,7 @@ async function runTierCVerification() {
             year_month: testYm,
             project_id: projA.id,
             project_code: projA.project_code,
-            project_name: projA.project_name,
+            project_name: projA.name,
             pm_id: pmAUser.id,
             pm_email: pmAObj.email,
             request_token: tokenA,
