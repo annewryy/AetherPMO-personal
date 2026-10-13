@@ -5256,6 +5256,15 @@ class AetherPMO {
             this.activeGlobalTemplateType  = type;
             this.activeGlobalTemplateStage = stage;
             await this.switchView('artifacts');
+        } else if (mainRoute === 'salaries') {
+            const sub = parts[1];
+            if (sub === 'effort' || sub === 'monthly-effort') {
+                await this.switchView('monthly-effort');
+            } else {
+                await this.switchView('salaries');
+            }
+        } else if (mainRoute === 'monthly-effort') {
+            await this.switchView('monthly-effort');
         } else {
             await this.switchView(mainRoute);
         }
@@ -9539,6 +9548,20 @@ renderTodayTasksRoleBased(todayStr) {
 
             const resWrapper = document.getElementById('nav-wrapper-resources') || resNav?.closest('.nav-item-wrapper');
             if (resWrapper) resWrapper.classList.remove('collapsed');
+        } else if (typeof route === 'string' && (route === 'salaries' || route.startsWith('salaries/') || route === 'monthly-effort')) {
+            const salariesWrapper = document.getElementById('nav-wrapper-salaries');
+            if (salariesWrapper) salariesWrapper.classList.remove('collapsed');
+
+            const salariesNav = document.querySelector('.nav-item[data-view="salaries"]');
+            if (salariesNav) salariesNav.classList.add('active');
+
+            if (route === 'salaries/effort' || route === 'monthly-effort') {
+                const effortSubmenu = document.querySelector('.submenu-item[data-subview="monthly-effort"]');
+                if (effortSubmenu) effortSubmenu.classList.add('active');
+            } else {
+                const salarySubmenu = document.querySelector('.submenu-item[data-subview="salaries"]');
+                if (salarySubmenu) salarySubmenu.classList.add('active');
+            }
         } else if (typeof route === 'string' && (route === 'backup' || route === 'menu-settings' || route === 'user-mgmt' || route.startsWith('backup'))) {
             const adminWrapper = document.getElementById('nav-wrapper-system-settings');
             if (adminWrapper) adminWrapper.classList.remove('collapsed');
