@@ -1,0 +1,18 @@
+{
+  "name": "aether-pms",
+  "version": "1.0.0",
+  "description": "AetherPMO Project & Artifact Management System with Monthly Effort Automation",
+  "private": true,
+  "scripts": {
+    "test": "node test-effort-features.js",
+    "test:integration": "node test-effort-integration.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "nodemailer": "^6.9.15",
+    "xlsx": "^0.18.5"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

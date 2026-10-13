@@ -1,0 +1,458 @@
+// ==========================================================================
+// AetherPMO Monthly Effort Mail Adapter, Matching & Idempotency Utility
+// Google Workspace / Microsoft 365 / Inbound Webhook / Mock 지원
+// ==========================================================================
+
+const crypto = require('crypto');
+
+/**
+ * 프로젝트 코드 및 대상월 기반 고유 토큰 생성
+ * 예: EFF-202609-OP260826-A1B2C3D4
+ */
+function generateEffortToken(yearMonth, projectCode) {
+    const ymClean = (yearMonth || '').replace(/[^0-9]/g, '');
+    const codeClean = (projectCode || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const randomHex = crypto.randomBytes(4).toString('hex').toUpperCase();
+    return `EFF-${ymClean}-${codeClean}-${randomHex}`;
+}
+
+/**
+ * 이메일 제목 또는 본문에서 [EFFORT-고유토큰] 및 메타데이터 파싱
+ */
+function parseEffortTokenFromSubject(subject) {
+    if (!subject || typeof subject !== 'string') return null;
+
+    // 1. 고유 토큰 패턴 검색: [EFFORT-...] 또는 EFFORT-토큰 또는 EFF-YYYYMM-...
+    const tokenRegex = /\[EFFORT-([A-Za-z0-9\-_]+)\]|EFFORT-([A-Za-z0-9\-_]+)|(EFF-\d{6}-[A-Za-z0-9\-]+)/i;
+    const tokenMatch = subject.match(tokenRegex);
+    const token = tokenMatch ? (tokenMatch[1] || tokenMatch[2] || tokenMatch[3]) : null;
+
+    // 2. 대상월 검색 [YYYY-MM]
+    const ymRegex = /\[(20\d{2}-\d{2})\]|(20\d{2}-\d{2})/;
+    const ymMatch = subject.match(ymRegex);
+    const yearMonth = ymMatch ? (ymMatch[1] || ymMatch[2]) : null;
+
+    // 3. 프로젝트 코드 검색 (예: OP-26-0826)
+    const codeRegex = /\[([A-Za-z0-9]{2,4}-\d{2}-\d{3,5})\]|([A-Za-z0-9]{2,4}-\d{2}-\d{3,5})/i;
+    const codeMatch = subject.match(codeRegex);
+    const projectCode = codeMatch ? (codeMatch[1] || codeMatch[2]) : null;
+
+    if (!token && !yearMonth && !projectCode) return null;
+
+    return {
+        token,
+        yearMonth,
+        projectCode,
+        rawSubject: subject
+    };
+}
+
+/**
+ * [회신 다중 보조 매칭 로직]
+ * 토큰뿐만 아니라 In-Reply-To, References, 발신 PM 이메일, 프로젝트 코드, 대상월을 종합 검증
+ * 단일 요청에 100% 특정되지 않거나 충돌 발생 시 임의 연결하지 않고 NEEDS_REVIEW 처리
+ */
+function matchInboundEmailToRequest({
+    subject = '',
+    bodyText = '',
+    inReplyTo = null,
+    references = null,
+    messageId = null,
+    from = '',
+    existingRequests = [],
+    sentEmailLogs = []
+}) {
+    const fromClean = (from || '').toLowerCase().trim();
+
+    // ── 1차 매칭: 고유 토큰 (제목 또는 본문 검색) ──
+    const parsedSubject = parseEffortTokenFromSubject(subject);
+    let tokenCandidate = parsedSubject?.token;
+
+    if (!tokenCandidate && bodyText) {
+        const bodyParsed = parseEffortTokenFromSubject(bodyText);
+        tokenCandidate = bodyParsed?.token;
+    }
+
+    if (tokenCandidate) {
+        const matched = existingRequests.filter(r =>
+            r.request_token && r.request_token.toLowerCase() === tokenCandidate.toLowerCase()
+        );
+        if (matched.length === 1) {
+            return {
+                matched: true,
+                matchType: 'TOKEN',
+                confidence: 1.0,
+                request: matched[0],
+                token: tokenCandidate,
+                reason: `고유 식별 토큰(${tokenCandidate})과 정확히 일치`
+            };
+        } else if (matched.length > 1) {
+            return {
+                matched: false,
+                matchType: 'AMBIGUOUS_TOKEN',
+                confidence: 0,
+                candidateRequests: matched,
+                reason: `동일 토큰(${tokenCandidate})에 매칭되는 요청이 복수(${matched.length}건) 존재하여 검토가 필요합니다.`
+            };
+        }
+    }
+
+    // ── 2차 매칭: In-Reply-To / References 헤더 기반 발송 이력 역추적 ──
+    const replyHeaders = [inReplyTo, references].filter(Boolean);
+    if (replyHeaders.length > 0 && sentEmailLogs.length > 0) {
+        for (const rh of replyHeaders) {
+            const matchedLog = sentEmailLogs.find(log =>
+                (log.message_id && log.message_id.includes(rh)) ||
+                (rh && log.message_id && rh.includes(log.message_id)) ||
+                (log.token && rh.includes(log.token))
+            );
+            if (matchedLog && matchedLog.request_id) {
+                const req = existingRequests.find(r => r.id === matchedLog.request_id);
+                if (req) {
+                    return {
+                        matched: true,
+                        matchType: 'IN_REPLY_TO_HEADER',
+                        confidence: 0.95,
+                        request: req,
+                        token: req.request_token,
+                        reason: `발송 메일 헤더(In-Reply-To/References: ${rh}) 역추적 매칭 성공`
+                    };
+                }
+            }
+        }
+    }
+
+    // ── 3차 매칭: 발신 PM 이메일 + 프로젝트 코드 + 대상월 복합 매칭 ──
+    const ymCandidate = parsedSubject?.yearMonth;
+    const codeCandidate = parsedSubject?.projectCode;
+
+    if (fromClean && (codeCandidate || ymCandidate)) {
+        let candidates = existingRequests.filter(r => {
+            const reqEmail = (r.pm_email || '').toLowerCase().trim();
+            const emailMatch = reqEmail && (fromClean.includes(reqEmail) || reqEmail.includes(fromClean));
+            const codeMatch = codeCandidate ? (r.project_code && r.project_code.toUpperCase() === codeCandidate.toUpperCase()) : true;
+            const ymMatch = ymCandidate ? (r.year_month === ymCandidate) : true;
+            return emailMatch && codeMatch && ymMatch;
+        });
+
+        if (candidates.length === 1) {
+            return {
+                matched: true,
+                matchType: 'SENDER_PROJECT_COMPOSITE',
+                confidence: 0.85,
+                request: candidates[0],
+                token: candidates[0].request_token,
+                reason: `발신자 이메일(${fromClean}) 및 프로젝트 메타정보(${codeCandidate || '코드미지정'}/${ymCandidate || '월미지정'}) 복합 매칭 성공`
+            };
+        } else if (candidates.length > 1) {
+            return {
+                matched: false,
+                matchType: 'AMBIGUOUS_COMPOSITE',
+                confidence: 0,
+                candidateRequests: candidates,
+                reason: `발신자(${fromClean})에게 복수의 프로젝트/대상월 요청이 검색되어 특정할 수 없습니다. (검토 필요)`
+            };
+        }
+    }
+
+    // ── 매칭 실패 ──
+    return {
+        matched: false,
+        matchType: 'NOT_FOUND',
+        confidence: 0,
+        candidateRequests: [],
+        reason: '토큰, 메일 헤더, 발신자+프로젝트 매칭 정보가 일치하지 않아 프로젝트를 식별할 수 없습니다. (검토 필요)'
+    };
+}
+
+/**
+ * 첨부파일 고유 지문(Fingerprint) SHA-256 해시 계산
+ */
+function calculateAttachmentFingerprint(bufferOrBase64) {
+    if (!bufferOrBase64) return null;
+    const buffer = Buffer.isBuffer(bufferOrBase64)
+        ? bufferOrBase64
+        : Buffer.from(bufferOrBase64, 'base64');
+    return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
+/**
+ * [중복 방지 (Idempotency) 검증]
+ * 동일 이메일이 두 번 들어와도 Submission과 Entry가 중복 생성되지 않도록 차단
+ */
+function checkSubmissionIdempotency(existingSubmissions = [], {
+    messageId = null,
+    fileHash = null,
+    requestId = null,
+    fileName = null
+}) {
+    // 1. 동일 원본 메일 식별자(Message-ID) 중복 확인
+    if (messageId) {
+        const dupMessage = existingSubmissions.find(s =>
+            s.source_email_id && s.source_email_id === messageId
+        );
+        if (dupMessage) {
+            return {
+                isDuplicate: true,
+                duplicateType: 'DUPLICATE_MESSAGE_ID',
+                existingSubmission: dupMessage,
+                reason: `이미 처리된 동일 이메일 식별값(${messageId})입니다.`
+            };
+        }
+    }
+
+    // 2. 동일 요청(Request)에 동일 파일 지문(Hash) 중복 확인
+    if (fileHash && requestId) {
+        const dupHash = existingSubmissions.find(s =>
+            s.request_id === requestId && s.file_hash === fileHash
+        );
+        if (dupHash) {
+            return {
+                isDuplicate: true,
+                duplicateType: 'DUPLICATE_FILE_HASH',
+                existingSubmission: dupHash,
+                reason: `동일 요청에 이미 업로드/처리된 동일 파일(Hash: ${fileHash.slice(0, 10)}...)입니다.`
+            };
+        }
+    }
+
+    return {
+        isDuplicate: false
+    };
+}
+
+/**
+ * 조사 이메일 제목 생성
+ */
+function buildEffortMailSubject({ yearMonth, projectCode, projectName, token, isResend = false }) {
+    const monthNum = parseInt(yearMonth.split('-')[1], 10);
+    const prefix = isResend ? '[재발송]' : '';
+    return `${prefix}[AetherPMO][${yearMonth}][${projectCode}][EFFORT-${token}] ${monthNum}월 투입공수 조사 - ${projectName}`;
+}
+
+/**
+ * 조사 이메일 HTML 본문 생성
+ */
+function buildEffortMailBody({
+    yearMonth,
+    projectCode,
+    projectName,
+    pmName,
+    deadlineDate,
+    token,
+    systemUrl = 'https://aether-pms.vercel.app'
+}) {
+    const monthNum = parseInt(yearMonth.split('-')[1], 10);
+    const directLink = `${systemUrl}/#salaries/effort?month=${encodeURIComponent(yearMonth)}&project=${encodeURIComponent(projectCode)}&token=${encodeURIComponent(token)}`;
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f8fafc; margin: 0; padding: 20px; }
+.container { max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+.header { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; padding: 28px 32px; }
+.header h1 { margin: 0 0 8px 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+.header p { margin: 0; font-size: 13px; opacity: 0.9; }
+.content { padding: 32px; }
+.badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #ede9fe; color: #5b21b6; margin-bottom: 12px; }
+.info-table { width: 100%; border-collapse: collapse; margin: 20px 0; background: #f8fafc; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
+.info-table th { width: 120px; text-align: left; padding: 10px 16px; font-size: 13px; font-weight: 600; color: #64748b; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; }
+.info-table td { padding: 10px 16px; font-size: 14px; font-weight: 500; color: #1e293b; border-bottom: 1px solid #e2e8f0; }
+.btn-primary { display: inline-block; background: #4f46e5; color: #ffffff !important; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; text-align: center; margin: 16px 0; }
+.guide-box { background: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 0 8px 8px 0; margin: 20px 0; font-size: 13px; color: #1e40af; }
+.guide-box ul { margin: 8px 0 0 0; padding-left: 20px; }
+.guide-box li { margin-bottom: 4px; }
+.footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 32px; font-size: 12px; color: #94a3b8; text-align: center; }
+.token-notice { font-size: 11px; color: #94a3b8; margin-top: 16px; word-break: break-all; }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <span class="badge" style="background: rgba(255,255,255,0.2); color: #fff;">AetherPMO 월투입공수 관리</span>
+        <h1>${monthNum}월 프로젝트 투입공수 조사 안내</h1>
+        <p>사업관리실에서 매월 10일까지 수행하는 전월 인력별 투입공수 정기 조사입니다.</p>
+    </div>
+    <div class="content">
+        <p>안녕하세요, <strong>${pmName || 'PM'}</strong>님.</p>
+        <p>귀하께서 담당하고 계신 아래 프로젝트의 <strong>${yearMonth}</strong> 귀속 인력별 투입공수를 기한 내에 제출하여 주시기 바랍니다.</p>
+
+        <table class="info-table">
+            <tr><th>대상월</th><td><strong>${yearMonth}</strong></td></tr>
+            <tr><th>프로젝트 코드</th><td>${projectCode}</td></tr>
+            <tr><th>프로젝트명</th><td>${projectName}</td></tr>
+            <tr><th>담당 PM</th><td>${pmName || '미지정'}</td></tr>
+            <tr><th>제출기한</th><td><strong style="color: #dc2626;">${deadlineDate} (엄수)</strong></td></tr>
+            <tr><th>고유식별 토큰</th><td><code>${token}</code></td></tr>
+        </table>
+
+        <div style="text-align: center; margin: 24px 0;">
+            <a href="${directLink}" class="btn-primary" target="_blank">AetherPMO에서 직접 작성 / 파일 제출하기 &rarr;</a>
+        </div>
+
+        <div class="guide-box">
+            <strong>📋 투입공수 회신 및 작성 방법 안내</strong>
+            <ul>
+                <li><strong>방법 1 (메일 간편 회신):</strong> 본 메일에 첨부된 투입공수 엑셀 양식을 작성하신 후, <u>본 메일에 그대로 [회신(Reply)]</u>하여 첨부해주시면 AetherPMO가 자동으로 수집 및 파싱합니다. (※ 메일 제목의 식별 토큰을 지우지 말아주세요.)</li>
+                <li><strong>방법 2 (AetherPMO 직접 입력):</strong> 위 버튼을 클릭하여 AetherPMO에 로그인 후 직접 인력별 공수를 등록하거나 Excel을 업로드할 수 있습니다.</li>
+                <li><strong>필수 기재 항목:</strong> 성명, 소속, 역할, 투입기간, 근무일수, 투입공수(M/M)</li>
+            </ul>
+        </div>
+
+        <p class="token-notice">
+            * 회신 식별코드: <code>${token}</code><br>
+            * 본 메일은 AetherPMO 사업관리 자동화 시스템에서 발송되었습니다.
+        </p>
+    </div>
+    <div class="footer">
+        &copy; ${new Date().getFullYear()} AetherPMO 사업관리실. All rights reserved.
+    </div>
+</div>
+</body>
+</html>
+`;
+}
+
+/**
+ * 이메일 발송 어댑터 (통합)
+ */
+async function sendEffortEmail({
+    to,
+    subject,
+    html,
+    token,
+    projectCode,
+    yearMonth
+}) {
+    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+        try {
+            const nodemailer = require('nodemailer');
+            const transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST,
+                port: Number(process.env.SMTP_PORT || 587),
+                secure: process.env.SMTP_SECURE === 'true',
+                auth: {
+                    user: process.env.SMTP_USER,
+                    pass: process.env.SMTP_PASS
+                }
+            });
+
+            const generatedMessageId = `<effort-${Date.now()}-${crypto.randomBytes(4).toString('hex')}@${process.env.SMTP_HOST}>`;
+
+            const info = await transporter.sendMail({
+                from: process.env.SMTP_FROM || `"AetherPMO 사업관리실" <${process.env.SMTP_USER}>`,
+                to,
+                subject,
+                html,
+                messageId: generatedMessageId,
+                headers: {
+                    'X-AetherPMO-Token': token,
+                    'X-AetherPMO-YearMonth': yearMonth,
+                    'X-AetherPMO-ProjectCode': projectCode
+                }
+            });
+
+            return {
+                success: true,
+                provider: 'SMTP',
+                messageId: info.messageId || generatedMessageId,
+                recipient: to
+            };
+        } catch (err) {
+            console.error('[MailAdapter:SMTP Error]', err);
+            return {
+                success: false,
+                provider: 'SMTP',
+                error: err.message
+            };
+        }
+    }
+
+    if (process.env.GOOGLE_WORKSPACE_CLIENT_EMAIL && process.env.GOOGLE_WORKSPACE_PRIVATE_KEY) {
+        console.log(`[MailAdapter:GoogleWorkspace] Sending email to ${to} via Gmail API (Adapter Stub)`);
+        return {
+            success: false,
+            provider: 'GOOGLE_WORKSPACE',
+            status: 'ADAPTER_STUB',
+            error: 'Google Workspace Gmail API 어댑터 스텁 상태입니다. 실제 REST 연동 설정이 필요합니다.'
+        };
+    }
+
+    if (process.env.MS_GRAPH_CLIENT_ID && process.env.MS_GRAPH_CLIENT_SECRET && process.env.MS_GRAPH_TENANT_ID) {
+        console.log(`[MailAdapter:MSGraph] Sending email to ${to} via MS Graph API (Adapter Stub)`);
+        return {
+            success: false,
+            provider: 'MS_GRAPH',
+            status: 'ADAPTER_STUB',
+            error: 'Microsoft Graph API 어댑터 스텁 상태입니다. 실제 REST 연동 설정이 필요합니다.'
+        };
+    }
+
+    // Mock 시뮬레이터 (운영 환경 기본 false, 명시적인 개발환경 EFFORT_MAIL_MOCK_ENABLED=true 시에만 동작)
+    if (process.env.EFFORT_MAIL_MOCK_ENABLED === 'true') {
+        const mockMessageId = `<mock-${Date.now()}-${crypto.randomBytes(4).toString('hex')}@aether-pms.local>`;
+        console.log(`[MailAdapter:MOCK] Simulated email sent to ${to} (Message-ID: ${mockMessageId})`);
+        return {
+            success: true,
+            provider: 'MOCK',
+            simulated: true,
+            messageId: mockMessageId,
+            recipient: to,
+            sentAt: new Date().toISOString()
+        };
+    }
+
+    return {
+        success: false,
+        provider: 'NONE',
+        error: '발송 가능한 메일 공급자(SMTP 등)가 서버에 설정되어 있지 않습니다. (개발/테스트 시 EFFORT_MAIL_MOCK_ENABLED=true 설정 필요)'
+    };
+}
+
+/**
+ * 이메일 수신함 수동 동기화 어댑터
+ */
+async function syncInboundEmails({
+    provider = 'auto',
+    limit = 20
+} = {}) {
+    if (process.env.GOOGLE_WORKSPACE_CLIENT_EMAIL && process.env.GOOGLE_WORKSPACE_PRIVATE_KEY) {
+        return {
+            provider: 'GOOGLE_WORKSPACE_GMAIL_API',
+            status: 'ADAPTER_STUB',
+            state: 'Adapter Stub / 실제 API 미구현',
+            messages: []
+        };
+    }
+
+    if (process.env.MS_GRAPH_CLIENT_ID && process.env.MS_GRAPH_CLIENT_SECRET) {
+        return {
+            provider: 'MICROSOFT_GRAPH_API',
+            status: 'ADAPTER_STUB',
+            state: 'Adapter Stub / 실제 API 미구현',
+            messages: []
+        };
+    }
+
+    return {
+        provider: 'MOCK_MANUAL_SYNC',
+        status: 'READY',
+        messages: [],
+        note: '수동 Sync 가능 / 자동 스케줄(Vercel Cron) 미설정. 실제 수신 연동을 위해 Inbound Webhook 또는 Gmail/Graph API 설정을 활성화하세요.'
+    };
+}
+
+module.exports = {
+    generateEffortToken,
+    parseEffortTokenFromSubject,
+    matchInboundEmailToRequest,
+    calculateAttachmentFingerprint,
+    checkSubmissionIdempotency,
+    buildEffortMailSubject,
+    buildEffortMailBody,
+    sendEffortEmail,
+    syncInboundEmails
+};

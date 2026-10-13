@@ -5336,6 +5336,8 @@ class AetherPMO {
             'artifacts': '표준 산출물',
             'resources': '참여인력',
             'salaries': '월급여',
+            'salaries/effort': '월투입공수',
+            'monthly-effort': '월투입공수',
             'board': '게시판',
             'board/notices': '공지사항',
             'board/inquiries': '문의사항',
@@ -5386,6 +5388,8 @@ class AetherPMO {
             'resources/vendors': 'view-resources',
             'resources': 'view-resources',
             'salaries': 'view-salaries',
+            'salaries/effort': 'view-monthly-effort',
+            'monthly-effort': 'view-monthly-effort',
             'backup': 'view-backup',
             'my-account': 'view-my-account',
             'issues': 'view-issues',
@@ -5486,6 +5490,8 @@ class AetherPMO {
             this.switchResourceSubTab(sub);
         } else if (viewName === 'salaries') {
             this.switchSalarySubTab('target');
+        } else if (viewName === 'monthly-effort' || viewName === 'salaries/effort') {
+            this.initMonthlyEffortView();
         } else if (viewName === 'projects') {
             this.renderProjects();
         } else if (viewName === 'artifacts') {
@@ -10650,6 +10656,32 @@ renderTodayTasksRoleBased(todayStr) {
                 }
             });
 
+            // ─────────────────────────────────────────────────────────────
+            // [수요기관 안전 필터]
+            // 본공고와 사전규격 결과를 mergedAnnouncements로 합친 후,
+            // dminsttNm 값이 있는 경우 최종적으로 한 번 더 수요기관 필터 적용
+            // ─────────────────────────────────────────────────────────────
+            if (dminsttNm && dminsttNm.trim()) {
+                const normTarget = dminsttNm.replace(/\s+/g, '').toLowerCase().normalize('NFC');
+                if (normTarget && normTarget !== 'all' && normTarget !== '전체' && normTarget !== '전체수요기관') {
+                    mergedAnnouncements = mergedAnnouncements.filter(ann => {
+                        const raw = ann.raw || {};
+                        const candidates = [
+                            raw.dminsttNm,
+                            raw.orderInsttNm,
+                            raw.rlDminsttNm,
+                            ann.customer,
+                            ann.organization,
+                            raw.ntceInsttNm
+                        ].filter(val => val && typeof val === 'string' && val.trim().length > 0);
+
+                        return candidates.some(cand =>
+                            cand.replace(/\s+/g, '').toLowerCase().normalize('NFC').includes(normTarget)
+                        );
+                    });
+                    totalCount = mergedAnnouncements.length;
+                }
+            }
 
             // 입찰마감일시 기준 정밀 필터링 및 오름차순(임박순) 정렬
             const startVal = document.getElementById('g2b-filter-start-date')?.value;
