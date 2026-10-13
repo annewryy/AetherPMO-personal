@@ -447,9 +447,9 @@ CREATE POLICY "monthly_effort_files_insert" ON storage.objects
                     LOWER(pr.role) = 'pm'
                     AND EXISTS (
                         SELECT 1 FROM public.monthly_effort_requests req
-                        WHERE req.id::text = (storage.foldername(name))[3]
-                        AND req.project_id::text = (storage.foldername(name))[2]
-                        AND req.year_month = (storage.foldername(name))[1]
+                        WHERE req.id::text = (storage.foldername(storage.objects.name))[3]
+                        AND req.project_id::text = (storage.foldername(storage.objects.name))[2]
+                        AND req.year_month = (storage.foldername(storage.objects.name))[1]
                         AND req.status != 'CONFIRMED'
                         AND (
                             req.pm_id = auth.uid()
