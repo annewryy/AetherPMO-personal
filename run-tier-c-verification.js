@@ -751,7 +751,9 @@ async function runTierCVerification() {
             record('groupB', 'API: CONFIRMED 상태 direct-submit 거부 (400)', true, '확정 건 업로드 차단 확인');
 
             // 8-1. CONFIRMED 상태에서 inbound-webhook 회신 수신 시 200 ignored 처리 및 불변 검증
-            if (process.env.INBOUND_WEBHOOK_SECRET) {
+            if (!process.env.INBOUND_WEBHOOK_SECRET) {
+                record('groupB', 'API: CONFIRMED 상태 inbound-webhook Preview 검증', false, '미실행 - INBOUND_WEBHOOK_SECRET 미설정', true);
+            } else {
                 const { data: dbReqBeforeHook } = await serviceClient.from('monthly_effort_requests').select('*').eq('id', reqA.id).single();
                 const { data: dbEntriesBeforeHook } = await serviceClient.from('monthly_effort_entries').select('*').eq('request_id', reqA.id);
 
@@ -766,17 +768,20 @@ async function runTierCVerification() {
                     }]
                 };
 
-                const resLateHook = await axios.post(`${EFFORT_PREVIEW_BASE_URL}/api/effort?action=inbound-webhook`, lateHookPayload, {
+                const hookRes = await fetch(`${PREVIEW_BASE_URL.replace(/\/$/, '')}/api/effort?action=inbound-webhook`, {
+                    method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'x-webhook-secret': process.env.INBOUND_WEBHOOK_SECRET
                     },
-                    validateStatus: () => true
+                    body: JSON.stringify(lateHookPayload)
                 });
 
-                assert.strictEqual(resLateHook.status, 200, 'CONFIRMED 상태 웹훅은 200 ignored 응답이어야 함: ' + JSON.stringify(resLateHook.data));
-                assert.strictEqual(resLateHook.data?.ignored, true, 'ignored=true 필드 확인');
-                assert.strictEqual(resLateHook.data?.reason, 'REQUEST_CONFIRMED', '사유 확인');
+                const hookData = await hookRes.json().catch(() => ({}));
+
+                assert.strictEqual(hookRes.status, 200, 'CONFIRMED 상태 웹훅은 200 ignored 응답이어야 함: ' + JSON.stringify(hookData));
+                assert.strictEqual(hookData?.ignored, true, 'ignored=true 필드 확인');
+                assert.strictEqual(hookData?.reason, 'REQUEST_CONFIRMED', '사유 확인');
 
                 // DB 불변 확인
                 const { data: dbReqAfterHook } = await serviceClient.from('monthly_effort_requests').select('*').eq('id', reqA.id).single();
