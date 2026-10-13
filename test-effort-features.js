@@ -622,6 +622,7 @@ async function runTests() {
             requestId: 'req-pm-1',
             fileName: 'pm_effort.xlsx',
             storagePath: '2026-09/proj-1/req-pm-1/pm_effort.xlsx',
+            fileSize: 1024,
             p_user_id: 'hacker-uuid-999999', // 클라이언트가 임의 위조 UUID 전송 시도
             p_user_name: '위조된사용자'         // 클라이언트가 임의 위조 이름 전송 시도
         }
@@ -637,7 +638,12 @@ async function runTests() {
         method: 'POST',
         headers: { authorization: 'Bearer TEST_ADMIN_TOKEN' },
         query: { action: 'direct-submit' },
-        body: { requestId: 'req-pm-1', fileName: 'admin_upload.xlsx' }
+        body: {
+            requestId: 'req-pm-1',
+            fileName: 'admin_upload.xlsx',
+            storagePath: '2026-09/proj-1/req-pm-1/admin_upload.xlsx',
+            fileSize: 2048
+        }
     }, resDirAdmin);
     assert.strictEqual(resDirAdmin.get().statusCode, 200, 'admin direct-submit must return 200');
 
@@ -662,6 +668,7 @@ async function runTests() {
             requestId: 'req-pm-1',
             fileName: 'test.xlsx',
             storagePath: '2026-09/proj-1/req-pm-1/test.xlsx',
+            fileSize: 1024,
             entries: [{ member_name: '홍길동', effort_mm: -1.0, work_days: 20 }]
         }
     }, resDirNegativeMm);
@@ -678,6 +685,7 @@ async function runTests() {
             requestId: 'req-pm-1',
             fileName: 'test.xlsx',
             storagePath: '2026-09/proj-1/req-pm-1/test.xlsx',
+            fileSize: 1024,
             entries: [{ member_name: '홍길동', effort_mm: 6.0, work_days: 20 }]
         }
     }, resDirExcessMm);
@@ -694,6 +702,7 @@ async function runTests() {
             requestId: 'req-pm-1',
             fileName: 'test.xlsx',
             storagePath: '2026-09/proj-1/req-pm-1/test.xlsx',
+            fileSize: 1024,
             entries: [{ member_name: '', effort_mm: 1.0, work_days: 20 }]
         }
     }, resDirMissingName);
@@ -711,6 +720,7 @@ async function runTests() {
             requestId: 'req-pm-1',
             fileName: 'test.xlsx',
             storagePath: '2026-09/proj-1/req-pm-1/test.xlsx',
+            fileSize: 1024,
             totalHeadcount: 999,      // 클라이언트 악의적 조작
             totalEffortMm: 8888.88,    // 클라이언트 악의적 조작
             entries: [
@@ -734,14 +744,77 @@ async function runTests() {
             requestId: 'req-pm-1',
             fileName: 'test.xlsx',
             storagePath: '2026-09/hacker-project-id/hacker-req-id/test.xlsx', // 타 프로젝트/요청 경로 시도
+            fileSize: 1024,
             entries: [{ member_name: '김철수', effort_mm: 1.0, work_days: 20 }]
         }
     }, resDirBadStorage);
     assert.strictEqual(resDirBadStorage.get().statusCode, 400, 'mismatched storagePath must return 400');
     assert(resDirBadStorage.get().responseData.error.includes('Invalid storage path'));
 
+    // 6-12. direct-submit storagePath 누락 차단 -> 400
+    const resDirNoStorage = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_PM_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: {
+            requestId: 'req-pm-1',
+            fileName: 'test.xlsx',
+            fileSize: 1024
+        }
+    }, resDirNoStorage);
+    assert.strictEqual(resDirNoStorage.get().statusCode, 400, 'missing storagePath must return 400');
+    assert(resDirNoStorage.get().responseData.error.includes('storagePath는 필수'));
+
+    // 6-13. direct-submit fileName 누락 차단 -> 400
+    const resDirNoFile = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_PM_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: {
+            requestId: 'req-pm-1',
+            storagePath: '2026-09/proj-1/req-pm-1/test.xlsx',
+            fileSize: 1024
+        }
+    }, resDirNoFile);
+    assert.strictEqual(resDirNoFile.get().statusCode, 400, 'missing fileName must return 400');
+    assert(resDirNoFile.get().responseData.error.includes('fileName은 필수'));
+
+    // 6-14. direct-submit fileSize <= 0 차단 -> 400
+    const resDirBadSize = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_PM_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: {
+            requestId: 'req-pm-1',
+            fileName: 'test.xlsx',
+            storagePath: '2026-09/proj-1/req-pm-1/test.xlsx',
+            fileSize: 0
+        }
+    }, resDirBadSize);
+    assert.strictEqual(resDirBadSize.get().statusCode, 400, 'fileSize <= 0 must return 400');
+    assert(resDirBadSize.get().responseData.error.includes('fileSize는 0보다 큰'));
+
+    // 6-15. direct-submit storagePath 파일명과 fileName 불일치 차단 -> 400
+    const resDirNameMismatch = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_PM_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: {
+            requestId: 'req-pm-1',
+            fileName: 'malicious.xlsx',
+            storagePath: '2026-09/proj-1/req-pm-1/pm_effort.xlsx',
+            fileSize: 1024
+        }
+    }, resDirNameMismatch);
+    assert.strictEqual(resDirNameMismatch.get().statusCode, 400, 'filename mismatch must return 400');
+    assert(resDirNameMismatch.get().responseData.error.includes('일치하지 않습니다'));
+
     delete global.__mockSupabaseClient;
-    console.log('✅ Test 6 Passed: Direct-submit 권한 통제 및 서버 데이터 검증 (anonymous 401, worker 403, 타 PM 403, 담당 PM 200, Admin 200, CONFIRMED 거부, 사용자 위조 차단, effort_mm 범위 검증, 성명 필수 검증, 클라이언트 조작 공수 무시/서버 재계산 강제, storagePath 격리) 검증 완료');
+    console.log('✅ Test 6 Passed: Direct-submit 권한 통제 및 서버 데이터 검증 (anonymous 401, worker 403, 타 PM 403, 담당 PM 200, Admin 200, CONFIRMED 거부, 사용자 위조 차단, effort_mm 범위 검증, 성명 필수 검증, 클라이언트 조작 공수 무시/서버 재계산 강제, storagePath 격리, 필수값 fileName/storagePath/fileSize 검증, 파일명 일치 검증) 검증 완료');
 
     // ─────────────────────────────────────────────────────────────────
     // TEST 7: Direct Input (수기 직접입력) 트랜잭션 RPC 통제 & 권한 검증

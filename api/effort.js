@@ -827,13 +827,59 @@ module.exports = async function handler(req, res) {
                     return res.status(403).json({ error: '해당 프로젝트의 투입공수를 수정 또는 업로드할 권한이 없습니다.' });
                 }
 
-                // 4. Storage 파일 경로 서버 엄격 검증: 전달된 경우 반드시 {targetReq.year_month}/{targetReq.project_id}/{targetReq.id}/ prefix여야 함
+                // 4. Direct Upload 필수값 및 Storage 파일 경로 서버 엄격 검증
+                if (!fileName || typeof fileName !== 'string' || !fileName.trim()) {
+                    return res.status(400).json({ error: 'fileName은 필수입니다.' });
+                }
+
+                if (!storagePath || typeof storagePath !== 'string' || !storagePath.trim()) {
+                    return res.status(400).json({ error: 'storagePath는 필수입니다.' });
+                }
+
+                const parsedFileSize = Number(fileSize);
+                if (fileSize === undefined || fileSize === null || isNaN(parsedFileSize) || parsedFileSize <= 0) {
+                    return res.status(400).json({ error: 'fileSize는 0보다 큰 숫자여야 합니다.' });
+                }
+
                 const expectedPrefix = `${targetReq.year_month}/${targetReq.project_id}/${targetReq.id}/`;
-                if (storagePath) {
-                    if (typeof storagePath !== 'string' || !storagePath.startsWith(expectedPrefix)) {
-                        return res.status(400).json({
-                            error: `Invalid storage path '${storagePath}'. 대상 요청의 경로 규격(${expectedPrefix}...)과 일치해야 합니다.`
-                        });
+                if (!storagePath.startsWith(expectedPrefix)) {
+                    return res.status(400).json({
+                        error: `Invalid storage path '${storagePath}'. 대상 요청의 경로 규격(${expectedPrefix}...)과 일치해야 합니다.`
+                    });
+                }
+
+                // storagePath의 마지막 filename과 fileName 일치 검증
+                const pathSegments = storagePath.split('/');
+                const pathFileName = pathSegments[pathSegments.length - 1];
+                const safeName = fileName.replace(/[^a-zA-Z0-9._\-]/g, '_');
+                const isNameMatch = (pathFileName === fileName) ||
+                                    (pathFileName === safeName) ||
+                                    (pathFileName.endsWith('_' + fileName)) ||
+                                    (pathFileName.endsWith('_' + safeName));
+                if (!isNameMatch) {
+                    return res.status(400).json({
+                        error: `storagePath의 파일명('${pathFileName}')이 fileName('${fileName}')과 일치하지 않습니다.`
+                    });
+                }
+
+                // Service Role Storage API로 해당 object 실존 여부 확인
+                if (supabase.storage && typeof supabase.storage.from === 'function') {
+                    try {
+                        const bucket = supabase.storage.from('monthly-effort-files');
+                        const folderPath = pathSegments.slice(0, -1).join('/');
+                        if (typeof bucket.list === 'function') {
+                            const { data: listedFiles, error: listErr } = await bucket.list(folderPath, { search: pathFileName });
+                            if (!listErr && Array.isArray(listedFiles)) {
+                                const found = listedFiles.some(f => f.name === pathFileName);
+                                if (!found && listedFiles.length > 0) {
+                                    return res.status(400).json({
+                                        error: `Storage에 파일이 존재하지 않습니다: '${storagePath}'`
+                                    });
+                                }
+                            }
+                        }
+                    } catch (storageCheckErr) {
+                        console.warn('[DirectSubmit] Storage object check warning:', storageCheckErr?.message);
                     }
                 }
 
