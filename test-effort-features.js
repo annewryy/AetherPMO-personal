@@ -1049,6 +1049,129 @@ async function runTests() {
     delete global.__mockSupabaseClient;
     console.log('✅ Test 7 Passed: Direct-input 트랜잭션 RPC 통제 (anonymous 401, worker 403, 타 PM 403, CONFIRMED 거부, 유효성 400, PM/Admin 200, 서버 재계산 무결성, RPC 실패 500 원자적 롤백) 검증 완료');
 
+    // ─────────────────────────────────────────────────────────────────
+    // TEST 8: CONFIRMED Request 보호 — 이메일 자동수집 재호출 무시 및 데이터 불변 검증
+    // ─────────────────────────────────────────────────────────────────
+    console.log('\n--- [Test 8] CONFIRMED Request Email Submission Protection ---');
+    process.env.INBOUND_WEBHOOK_SECRET = 'TEST_SECRET_KEY_123';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'test_service_role_key';
+    process.env.SUPABASE_URL = 'https://mock.supabase.co';
+
+    // 8-1. 시나리오: Request = SUBMITTED -> Admin Confirm -> CONFIRMED 상태
+    const confirmedReq = {
+        id: 'req-confirmed-1',
+        cycle_id: 'cyc-1',
+        year_month: '2026-09',
+        project_id: 'proj-1',
+        project_code: 'OP-26-CONF',
+        project_name: '확정 프로젝트',
+        pm_name: '지병정',
+        pm_email: 'pm@company.com',
+        request_token: 'EFF-202609-CONFIRMED-TOKEN',
+        status: 'CONFIRMED',
+        total_headcount: 3,
+        total_effort_mm: 3.0,
+        confirmed_at: '2026-10-01T12:00:00Z',
+        confirmed_by: 'admin-uuid-123'
+    };
+
+    let webhookStorageUploaded = false;
+    let webhookRpcExecuted = false;
+    let webhookEntriesUpdated = false;
+    let webhookReqUpdated = false;
+    let webhookSubCreated = false;
+
+    global.__mockSupabaseClient = {
+        from: (table) => {
+            if (table === 'monthly_effort_requests') {
+                return {
+                    select: () => Promise.resolve({ data: [confirmedReq], error: null }),
+                    update: () => {
+                        webhookReqUpdated = true;
+                        return { eq: () => Promise.resolve({ error: null }) };
+                    }
+                };
+            }
+            if (table === 'monthly_effort_email_logs') {
+                return {
+                    select: () => Promise.resolve({ data: [], error: null }),
+                    insert: () => Promise.resolve({ error: null })
+                };
+            }
+            if (table === 'monthly_effort_submissions') {
+                return {
+                    select: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }),
+                    insert: () => {
+                        webhookSubCreated = true;
+                        return Promise.resolve({ error: null });
+                    }
+                };
+            }
+            if (table === 'monthly_effort_entries') {
+                return {
+                    delete: () => {
+                        webhookEntriesUpdated = true;
+                        return { eq: () => Promise.resolve({ error: null }) };
+                    },
+                    insert: () => {
+                        webhookEntriesUpdated = true;
+                        return Promise.resolve({ error: null });
+                    }
+                };
+            }
+            return {
+                select: () => Promise.resolve({ data: [], error: null }),
+                insert: () => Promise.resolve({ error: null })
+            };
+        },
+        storage: {
+            from: () => ({
+                upload: () => {
+                    webhookStorageUploaded = true;
+                    return Promise.resolve({ error: null });
+                },
+                remove: () => Promise.resolve({ error: null })
+            })
+        },
+        rpc: (fn) => {
+            webhookRpcExecuted = true;
+            return Promise.resolve({ data: { success: true }, error: null });
+        }
+    };
+
+    // 8-2. 신규 Message-ID 및 신규 파일 해시를 가진 이메일 회신 수신
+    const resConfirmedWebhook = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { 'x-webhook-secret': 'TEST_SECRET_KEY_123' },
+        query: { action: 'inbound-webhook' },
+        body: {
+            from: 'pm@company.com',
+            subject: 'RE: [AetherPMO][2026-09][OP-26-CONF][EFFORT-EFF-202609-CONFIRMED-TOKEN] 지각 회신',
+            messageId: '<brand-new-late-reply-999@mail.com>',
+            attachments: [{
+                filename: 'OP-26-CONF_신규조작공수.xlsx',
+                size: 2048,
+                content: Buffer.from('BRAND NEW EXCEL CONTENT TO OVERWRITE').toString('base64')
+            }]
+        }
+    }, resConfirmedWebhook);
+
+    // 검증 1: 메일 공급자 retry 방지를 위한 HTTP 200 ignored 정상 반환
+    assert.strictEqual(resConfirmedWebhook.get().statusCode, 200, 'CONFIRMED 상태 수신은 200 ignored 응답이어야 함');
+    assert.strictEqual(resConfirmedWebhook.get().responseData.ignored, true, 'ignored=true 필드 확인');
+    assert.strictEqual(resConfirmedWebhook.get().responseData.reason, 'REQUEST_CONFIRMED', '사유 확인');
+
+    // 검증 2: Storage 업로드 / Submission 생성 / Entries 변경 / Request 변경 / DB RPC 미실행 확인 (완전한 불변 유지)
+    assert.strictEqual(webhookStorageUploaded, false, 'Storage 파일이 업로드되어서는 안 됨');
+    assert.strictEqual(webhookSubCreated, false, '신규 Submission이 생성되어서는 안 됨');
+    assert.strictEqual(webhookEntriesUpdated, false, 'Entries가 수정/삭제되어서는 안 됨');
+    assert.strictEqual(webhookReqUpdated, false, 'Request status/공수/확정정보가 수정되어서는 안 됨');
+    assert.strictEqual(webhookRpcExecuted, false, 'DB RPC가 호출되어서는 안 됨');
+
+    delete global.__mockSupabaseClient;
+    console.log('✅ Test 8 Passed: CONFIRMED 상태 Request의 후속 이메일 회신 사전 차단 (HTTP 200 ignored, Storage 미업로드, Submission/Entries/Request 불변) 검증 완료');
+
     console.log('\n================================================================');
     console.log('🎉 ALL COMPREHENSIVE TESTS PASSED WITH 100% SUCCESS!');
     console.log('================================================================');

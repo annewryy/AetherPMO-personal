@@ -527,6 +527,12 @@ BEGIN
         RAISE EXCEPTION 'Target request with id % not found', p_request_id;
     END IF;
 
+    -- 확정 상태인 경우 이메일 수신 처리 차단
+    IF v_req.status = 'CONFIRMED' THEN
+        RAISE EXCEPTION 'Cannot process email submission for confirmed request % (%)',
+            v_req.id, v_req.project_code;
+    END IF;
+
     -- 2. Submission INSERT
     INSERT INTO public.monthly_effort_submissions (
         request_id,

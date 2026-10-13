@@ -413,7 +413,7 @@ async function runTierCVerification() {
         assert(!confErr && confRes?.success && confRes?.status === 'CONFIRMED', 'confirm RPC 실패: ' + confErr?.message);
         record('groupA', 'confirm_monthly_effort_requests RPC (Confirm 승인)', true, 'CONFIRMED 전이 성공');
 
-        // 6-3. CONFIRMED 상태에서의 추가 수정/제출 원천 차단
+        // 6-3. CONFIRMED 상태에서의 추가 수정/제출 원천 차단 (direct_input RPC)
         const { data: blockedInput, error: blockedErr } = await serviceClient.rpc('process_monthly_effort_direct_input', {
             p_request_id: reqA.id,
             p_is_submit: true,
@@ -424,9 +424,43 @@ async function runTierCVerification() {
             p_user_name: 'PM-A'
         });
         assert(blockedErr || !blockedInput?.success, 'CONFIRMED 상태의 Request 수정이 차단되지 않았습니다');
-        record('groupA', 'CONFIRMED 상태에서 추가 수정/제출 원천 차단 검증', true, 'PostgreSQL EXCEPTION 정상 발생');
+        record('groupA', 'CONFIRMED 상태에서 추가 수정/제출 원천 차단 검증 (direct_input)', true, 'PostgreSQL EXCEPTION 정상 발생');
 
-        // 6-4. confirm_monthly_effort_requests Unconfirm (Service Role)
+        // 6-4. CONFIRMED 상태에서의 이메일 자동수집 RPC 직접 호출 원천 차단 및 트랜잭션 롤백 검증
+        const { data: beforeEmailEntries } = await serviceClient.from('monthly_effort_entries').select('*').eq('request_id', reqA.id);
+        const { data: beforeEmailReq } = await serviceClient.from('monthly_effort_requests').select('*').eq('id', reqA.id).single();
+
+        const { data: blockedEmailSub, error: blockedEmailErr } = await serviceClient.rpc('process_monthly_effort_email_submission', {
+            p_request_id: reqA.id,
+            p_file_name: 'late_reply_hacker.xlsx',
+            p_file_path: `${testYm}/${projA.id}/${reqA.id}/late_reply_hacker.xlsx`,
+            p_file_size: 999,
+            p_file_hash: crypto.createHash('sha256').update('late_reply_hacker').digest('hex'),
+            p_source_email_id: `<late-reply-${Date.now()}@mail.com>`,
+            p_source_email_from: 'late@pm.com',
+            p_source_email_subject: 'LATE REPLY OVERWRITE ATTEMPT',
+            p_in_reply_to: null,
+            p_references_header: null,
+            p_parse_status: 'SUCCESS',
+            p_parse_error_message: null,
+            p_parsed_row_count: 5,
+            p_total_headcount: 5,
+            p_total_effort_mm: 5.0,
+            p_entries: [{ member_name: '악의적변경자', effort_mm: 5.0, work_days: 20 }]
+        });
+        assert(blockedEmailErr || !blockedEmailSub?.success, 'CONFIRMED 상태에서 process_monthly_effort_email_submission RPC가 차단되지 않았습니다');
+        assert(blockedEmailErr?.message?.includes('Cannot process email submission for confirmed request'), '오류 메시지에 CONFIRMED 차단 문구가 포함되어야 함: ' + blockedEmailErr?.message);
+
+        // 롤백 확인: Entries 및 Request 수치/상태 불변
+        const { data: afterEmailEntries } = await serviceClient.from('monthly_effort_entries').select('*').eq('request_id', reqA.id);
+        const { data: afterEmailReq } = await serviceClient.from('monthly_effort_requests').select('*').eq('id', reqA.id).single();
+        assert.strictEqual(afterEmailReq.status, 'CONFIRMED', 'Request 상태가 CONFIRMED로 유지되어야 함');
+        assert.strictEqual(afterEmailReq.total_headcount, beforeEmailReq.total_headcount, '총 인원수가 변경되지 않아야 함');
+        assert.strictEqual(parseFloat(afterEmailReq.total_effort_mm), parseFloat(beforeEmailReq.total_effort_mm), '총 공수가 변경되지 않아야 함');
+        assert.strictEqual(afterEmailEntries.length, beforeEmailEntries.length, 'Entries 개수가 변경되지 않아야 함');
+        record('groupA', 'CONFIRMED 상태에서 이메일 자동수집 RPC 차단 및 DB 불변 검증', true, 'PostgreSQL EXCEPTION 발생 및 완전 롤백 확인');
+
+        // 6-5. confirm_monthly_effort_requests Unconfirm (Service Role)
         const { data: unconfRes, error: unconfErr } = await serviceClient.rpc('confirm_monthly_effort_requests', {
             p_request_ids: [reqA.id],
             p_is_confirm: false,
@@ -715,6 +749,44 @@ async function runTierCVerification() {
             });
             assert.strictEqual(resConfSubmitBlocked.status, 400, 'CONFIRMED 상태의 direct-submit이 거부되지 않았습니다');
             record('groupB', 'API: CONFIRMED 상태 direct-submit 거부 (400)', true, '확정 건 업로드 차단 확인');
+
+            // 8-1. CONFIRMED 상태에서 inbound-webhook 회신 수신 시 200 ignored 처리 및 불변 검증
+            if (process.env.INBOUND_WEBHOOK_SECRET) {
+                const { data: dbReqBeforeHook } = await serviceClient.from('monthly_effort_requests').select('*').eq('id', reqA.id).single();
+                const { data: dbEntriesBeforeHook } = await serviceClient.from('monthly_effort_entries').select('*').eq('request_id', reqA.id);
+
+                const lateHookPayload = {
+                    from: pmAObj.email,
+                    subject: `RE: [AetherPMO][${testYm}][${projA.project_code}][EFFORT-${tokenA}] 지각 회신 시도`,
+                    messageId: `<tierc-late-hook-${Date.now()}@aetherpmo.test>`,
+                    attachments: [{
+                        filename: 'late_hook.xlsx',
+                        size: 512,
+                        content: Buffer.from('TEST SPREADSHEET FOR LATE INBOUND HOOK').toString('base64')
+                    }]
+                };
+
+                const resLateHook = await axios.post(`${EFFORT_PREVIEW_BASE_URL}/api/effort?action=inbound-webhook`, lateHookPayload, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-webhook-secret': process.env.INBOUND_WEBHOOK_SECRET
+                    },
+                    validateStatus: () => true
+                });
+
+                assert.strictEqual(resLateHook.status, 200, 'CONFIRMED 상태 웹훅은 200 ignored 응답이어야 함: ' + JSON.stringify(resLateHook.data));
+                assert.strictEqual(resLateHook.data?.ignored, true, 'ignored=true 필드 확인');
+                assert.strictEqual(resLateHook.data?.reason, 'REQUEST_CONFIRMED', '사유 확인');
+
+                // DB 불변 확인
+                const { data: dbReqAfterHook } = await serviceClient.from('monthly_effort_requests').select('*').eq('id', reqA.id).single();
+                const { data: dbEntriesAfterHook } = await serviceClient.from('monthly_effort_entries').select('*').eq('request_id', reqA.id);
+                assert.strictEqual(dbReqAfterHook.status, 'CONFIRMED', 'Request 상태가 CONFIRMED로 유지되어야 함');
+                assert.strictEqual(dbReqAfterHook.total_headcount, dbReqBeforeHook.total_headcount, '총 인원수 불변');
+                assert.strictEqual(parseFloat(dbReqAfterHook.total_effort_mm), parseFloat(dbReqBeforeHook.total_effort_mm), '총 공수 불변');
+                assert.strictEqual(dbEntriesAfterHook.length, dbEntriesBeforeHook.length, 'Entries 개수 불변');
+                record('groupB', 'API: CONFIRMED 상태 inbound-webhook 200 ignored 및 DB 불변', true, '정상 200 ignored 처리 확인');
+            }
 
             // 9. Admin Unconfirm API 호출 -> 200 성공 (SUBMITTED 원복)
             const resUnconfApi = await callPreviewApi('confirm', adminToken, {

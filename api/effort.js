@@ -509,6 +509,31 @@ module.exports = async function handler(req, res) {
                 }
 
                 const targetRequest = matchResult.request;
+                if (!targetRequest) {
+                    return res.status(200).json({
+                        success: true,
+                        matched: false,
+                        status: 'NEEDS_REVIEW',
+                        reason: '매칭된 Request 객체가 유효하지 않습니다.'
+                    });
+                }
+
+                // 2-1. 이미 관리자에 의해 확정(CONFIRMED)된 건인 경우 수신 무시 처리 (Fail-Safe)
+                //      - 메일 Provider 재시도 방지를 위해 HTTP 200 응답
+                //      - Storage 업로드 안 함, Submission/Entries 변경 안 함, status/공수합계/확정정보 불변 유지
+                if (targetRequest.status === 'CONFIRMED') {
+                    console.log(`[Webhook] Request ${targetRequest.id} (${targetRequest.project_code}) is already CONFIRMED. Ignoring inbound email submission.`);
+                    return res.status(200).json({
+                        success: true,
+                        matched: true,
+                        ignored: true,
+                        reason: 'REQUEST_CONFIRMED',
+                        requestId: targetRequest.id,
+                        projectCode: targetRequest.project_code,
+                        status: 'CONFIRMED',
+                        message: '이미 투입공수가 확정(CONFIRMED)된 요청이므로 수신 처리를 무시합니다.'
+                    });
+                }
 
                 // 3. 첨부파일 유효성 검사 (Excel, CSV)
                 const excelAttachments = attachments.filter(att => {
