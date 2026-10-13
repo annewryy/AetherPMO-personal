@@ -152,7 +152,19 @@ async function authenticateUser(req) {
     }
 
     try {
-        const supabase = createClient(supabaseUrl, supabaseKey);
+        // JWT를 Supabase Data API 요청에도 전달해야 profiles RLS가 authenticated 사용자로 평가된다.
+        const supabase = createClient(supabaseUrl, supabaseKey, {
+            global: {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            },
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false
+            }
+        });
+
         const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
         if (authErr || !user) {
             return {
@@ -162,14 +174,25 @@ async function authenticateUser(req) {
             };
         }
 
-        // profiles 테이블에서 실제 역할 조회
-        const { data: profile } = await supabase
+        // profiles 테이블에서 실제 역할 조회 (JWT 전달 + Fail-Closed)
+        const { data: profile, error: profileErr } = await supabase
             .from('profiles')
             .select('id, email, name, role')
             .eq('id', user.id)
             .single();
 
-        const role = (profile?.role || 'viewer').toLowerCase();
+        if (profileErr || !profile) {
+            console.error('[EffortAPI Auth Fail-Closed] Profile lookup failed:', profileErr);
+            return {
+                authenticated: false,
+                statusCode: profileErr ? 500 : 403,
+                error: profileErr
+                    ? '사용자 권한 프로필 조회에 실패했습니다.'
+                    : '사용자 권한 프로필을 찾을 수 없습니다.'
+            };
+        }
+
+        const role = (profile.role || 'viewer').toLowerCase();
         const isAdmin = role === 'admin' || role === 'manager' || role === 'sys_admin' || role === 'exec_admin';
         const isPm = role === 'pm';
 
