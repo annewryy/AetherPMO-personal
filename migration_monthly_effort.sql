@@ -1054,6 +1054,10 @@ BEGIN
 END;
 $$;
 
+-- 운영 스키마 연동을 위한 최소 참조 권한
+-- 월투입공수 RLS 및 서버 JWT 인증에서 profiles/projects를 조회하므로 authenticated에 SELECT만 허용
+GRANT SELECT ON public.profiles, public.projects TO authenticated;
+
 -- 12. 권한 부여 (신규 월투입공수 6개 테이블 및 RPC 함수에만 한정 부여, anon 전체 schema 권한 부여 제거)
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     public.monthly_effort_cycles,
