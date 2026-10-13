@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS public.monthly_effort_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     cycle_id UUID REFERENCES public.monthly_effort_cycles(id) ON DELETE CASCADE,
     year_month TEXT NOT NULL, -- 대상월 (YYYY-MM)
-    project_id TEXT NOT NULL, -- 운영 DB projects.id(varchar) 및 UUID 기반 환경 모두 문자열로 호환
+    project_id VARCHAR(255) REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL, -- 운영 DB projects.id(varchar) 호환
     project_code TEXT NOT NULL,
     project_name TEXT NOT NULL,
     pm_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS public.monthly_effort_submissions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     request_id UUID REFERENCES public.monthly_effort_requests(id) ON DELETE CASCADE NOT NULL,
     year_month TEXT NOT NULL,
-    project_id TEXT NOT NULL, -- 운영 DB projects.id(varchar) 및 UUID 기반 환경 모두 문자열로 호환
+    project_id VARCHAR(255) REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL, -- 운영 DB projects.id(varchar) 호환
     file_name TEXT NOT NULL,
     file_path TEXT NOT NULL, -- Supabase Storage 버킷: monthly-effort-files 내 경로
     file_size BIGINT DEFAULT 0,
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS public.monthly_effort_entries (
     request_id UUID REFERENCES public.monthly_effort_requests(id) ON DELETE CASCADE NOT NULL,
     submission_id UUID REFERENCES public.monthly_effort_submissions(id) ON DELETE SET NULL,
     year_month TEXT NOT NULL,
-    project_id TEXT NOT NULL, -- 운영 DB projects.id(varchar) 및 UUID 기반 환경 모두 문자열로 호환
+    project_id VARCHAR(255) REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL, -- 운영 DB projects.id(varchar) 호환
     member_name TEXT NOT NULL, -- 성명
     organization TEXT,         -- 소속 (예: 오케스트로, 자사, 외주사 등)
     role_name TEXT,            -- 역할 (예: PM, TA, DEV 등)
