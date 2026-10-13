@@ -437,29 +437,95 @@ async function runTierCVerification() {
         record('groupA', 'confirm_monthly_effort_requests RPC (Unconfirm 취소)', true, 'SUBMITTED 원복 성공');
 
         // ─────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────
         // Step 7: SECURITY DEFINER RPC Authenticated 직접 호출 차단 검증
         // ─────────────────────────────────────────────────────────────
         console.log('\n--- [Group A: Step 7] SECURITY DEFINER Direct RPC Access Control ---');
+        // Migration에 정의된 전체 파라미터 시그니처를 정확히 전달하여 PostgREST 시그니처 불일치(PGRST202)가 아닌 42501(Permission Denied)를 엄격히 검증
         const rpcCheckList = [
-            { name: 'process_monthly_effort_email_submission', params: { p_request_id: reqA.id } },
-            { name: 'confirm_monthly_effort_requests', params: { p_request_ids: [reqA.id], p_is_confirm: true } },
-            { name: 'process_monthly_effort_direct_submission', params: { p_request_id: reqA.id } },
-            { name: 'process_monthly_effort_direct_input', params: { p_request_id: reqA.id, p_is_submit: true } }
+            {
+                name: 'process_monthly_effort_email_submission',
+                params: {
+                    p_request_id: reqA.id,
+                    p_file_name: 'test_sec.xlsx',
+                    p_file_path: '2099-01/p/r/test_sec.xlsx',
+                    p_file_size: 100,
+                    p_file_hash: 'dummyhash123',
+                    p_source_email_id: '<sec-test@mail.com>',
+                    p_source_email_from: 'attacker@mail.com',
+                    p_source_email_subject: 'SEC TEST',
+                    p_in_reply_to: null,
+                    p_references_header: null,
+                    p_parse_status: 'SUCCESS',
+                    p_parse_error_message: null,
+                    p_parsed_row_count: 1,
+                    p_total_headcount: 1,
+                    p_total_effort_mm: 1.0,
+                    p_entries: [{ member_name: '테스트', work_days: 20, effort_mm: 1.0 }]
+                }
+            },
+            {
+                name: 'confirm_monthly_effort_requests',
+                params: {
+                    p_request_ids: [reqA.id],
+                    p_is_confirm: true,
+                    p_user_id: pmAUser.id,
+                    p_user_name: 'PM-A'
+                }
+            },
+            {
+                name: 'process_monthly_effort_direct_submission',
+                params: {
+                    p_request_id: reqA.id,
+                    p_file_name: 'direct_sec.xlsx',
+                    p_file_path: '2099-01/p/r/direct_sec.xlsx',
+                    p_file_size: 100,
+                    p_file_hash: 'dummyhash456',
+                    p_parse_status: 'SUCCESS',
+                    p_parse_error_message: null,
+                    p_parsed_row_count: 1,
+                    p_total_headcount: 1,
+                    p_total_effort_mm: 1.0,
+                    p_entries: [{ member_name: '테스트', work_days: 20, effort_mm: 1.0 }],
+                    p_user_id: pmAUser.id,
+                    p_user_name: 'PM-A'
+                }
+            },
+            {
+                name: 'process_monthly_effort_direct_input',
+                params: {
+                    p_request_id: reqA.id,
+                    p_is_submit: true,
+                    p_entries: [{ member_name: '테스트', work_days: 20, effort_mm: 1.0 }],
+                    p_total_headcount: 1,
+                    p_total_effort_mm: 1.0,
+                    p_user_id: pmAUser.id,
+                    p_user_name: 'PM-A'
+                }
+            }
         ];
 
         for (const rpcItem of rpcCheckList) {
             try {
                 const { data, error } = await pmAClient.rpc(rpcItem.name, rpcItem.params);
-                if (error && (error.code === '42501' || error.message.toLowerCase().includes('permission denied'))) {
-                    record('groupA', `Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, true, `정상 차단 (${error.message})`);
+                if (error) {
+                    const isPermissionDenied = error.code === '42501' || 
+                        (error.message && error.message.toLowerCase().includes('permission denied for function'));
+                    if (isPermissionDenied) {
+                        record('groupA', `Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, true, `정상 42501 차단 (${error.message})`);
+                    } else {
+                        record('groupA', `Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, false, `42501이 아닌 다른 오류 코드 반환 (${error.code || 'NO_CODE'}: ${error.message})`);
+                    }
                 } else {
-                    record('groupA', `Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, false, `차단 실패! data=${JSON.stringify(data)}, error=${JSON.stringify(error)}`);
+                    record('groupA', `Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, false, `RPC 직접 호출이 차단되지 않고 성공함! (data: ${JSON.stringify(data)})`);
                 }
             } catch (rpcCallErr) {
-                if (rpcCallErr.message.toLowerCase().includes('permission denied') || rpcCallErr.code === '42501') {
-                    record('groupA', `Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, true, `정상 차단 (${rpcCallErr.message})`);
+                const isPermissionDenied = rpcCallErr.code === '42501' || 
+                    (rpcCallErr.message && rpcCallErr.message.toLowerCase().includes('permission denied for function'));
+                if (isPermissionDenied) {
+                    record('groupA', `Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, true, `정상 42501 차단 (${rpcCallErr.message})`);
                 } else {
-                    record('groupA', `Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, false, rpcCallErr.message);
+                    record('groupA', `Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, false, `42501이 아닌 예외 발생: ${rpcCallErr.message}`);
                 }
             }
         }
@@ -673,68 +739,141 @@ async function runTierCVerification() {
         if (cleanupContext.storagePaths.length > 0) {
             try {
                 const { error: stDelErr } = await serviceClient.storage.from('monthly-effort-files').remove(cleanupContext.storagePaths);
-                if (stDelErr) throw stDelErr;
-                console.log(`🧹 Storage 파일 ${cleanupContext.storagePaths.length}개 삭제 완료`);
+                if (stDelErr) {
+                    cleanupErrors.push('Storage: ' + stDelErr.message);
+                } else {
+                    console.log(`🧹 Storage 파일 ${cleanupContext.storagePaths.length}개 삭제 완료`);
+                }
             } catch (e) {
                 console.warn('⚠️ Storage cleanup error:', e.message);
-                cleanupErrors.push('Storage: ' + e.message);
+                cleanupErrors.push('Storage exception: ' + e.message);
             }
         }
 
         // 2. DB 종속 데이터 삭제 (Audit, Entries, Submissions, Requests)
         for (const rId of cleanupContext.requestIds) {
             try {
-                await serviceClient.from('monthly_effort_audit_logs').delete().eq('request_id', rId);
-                await serviceClient.from('monthly_effort_entries').delete().eq('request_id', rId);
-                await serviceClient.from('monthly_effort_submissions').delete().eq('request_id', rId);
-                await serviceClient.from('monthly_effort_requests').delete().eq('id', rId);
+                const { error: errAudit } = await serviceClient.from('monthly_effort_audit_logs').delete().eq('request_id', rId);
+                if (errAudit) cleanupErrors.push(`monthly_effort_audit_logs delete error (${rId}): ` + errAudit.message);
+
+                const { error: errEntries } = await serviceClient.from('monthly_effort_entries').delete().eq('request_id', rId);
+                if (errEntries) cleanupErrors.push(`monthly_effort_entries delete error (${rId}): ` + errEntries.message);
+
+                const { error: errSub } = await serviceClient.from('monthly_effort_submissions').delete().eq('request_id', rId);
+                if (errSub) cleanupErrors.push(`monthly_effort_submissions delete error (${rId}): ` + errSub.message);
+
+                const { error: errReq } = await serviceClient.from('monthly_effort_requests').delete().eq('id', rId);
+                if (errReq) cleanupErrors.push(`monthly_effort_requests delete error (${rId}): ` + errReq.message);
             } catch (e) {
                 console.warn(`⚠️ Request ${rId} cleanup error:`, e.message);
-                cleanupErrors.push(`Request ${rId}: ` + e.message);
+                cleanupErrors.push(`Request ${rId} exception: ` + e.message);
             }
         }
         if (cleanupContext.requestIds.length > 0) {
-            console.log(`🧹 Requests 및 관련 Submissions/Entries/AuditLogs 삭제 완료`);
+            console.log(`🧹 Requests 및 관련 Submissions/Entries/AuditLogs 삭제 처리 완료`);
         }
 
         // 3. Projects 삭제
         for (const pId of cleanupContext.projectIds) {
             try {
-                await serviceClient.from('projects').delete().eq('id', pId);
+                const { error: errProj } = await serviceClient.from('projects').delete().eq('id', pId);
+                if (errProj) cleanupErrors.push(`projects delete error (${pId}): ` + errProj.message);
             } catch (e) {
                 console.warn(`⚠️ Project ${pId} cleanup error:`, e.message);
-                cleanupErrors.push(`Project ${pId}: ` + e.message);
+                cleanupErrors.push(`Project ${pId} exception: ` + e.message);
             }
         }
         if (cleanupContext.projectIds.length > 0) {
-            console.log(`🧹 테스트 Projects ${cleanupContext.projectIds.length}개 삭제 완료`);
+            console.log(`🧹 테스트 Projects ${cleanupContext.projectIds.length}개 삭제 처리 완료`);
         }
 
         // 4. Cycle 삭제 (이번 실행에서 INSERT한 cycle만 삭제)
         for (const cId of cleanupContext.cycleIds) {
             try {
-                await serviceClient.from('monthly_effort_cycles').delete().eq('id', cId);
+                const { error: errCyc } = await serviceClient.from('monthly_effort_cycles').delete().eq('id', cId);
+                if (errCyc) cleanupErrors.push(`monthly_effort_cycles delete error (${cId}): ` + errCyc.message);
             } catch (e) {
                 console.warn(`⚠️ Cycle ${cId} cleanup error:`, e.message);
-                cleanupErrors.push(`Cycle ${cId}: ` + e.message);
+                cleanupErrors.push(`Cycle ${cId} exception: ` + e.message);
             }
         }
         if (cleanupContext.cycleIds.length > 0) {
-            console.log(`🧹 테스트 Cycles ${cleanupContext.cycleIds.length}개 삭제 완료`);
+            console.log(`🧹 테스트 Cycles ${cleanupContext.cycleIds.length}개 삭제 처리 완료`);
         }
 
         // 5. Profiles & Auth Users 삭제
         for (const uId of cleanupContext.authUsers) {
             try {
-                await serviceClient.from('profiles').delete().eq('id', uId);
-                await serviceClient.auth.admin.deleteUser(uId);
+                const { error: errProf } = await serviceClient.from('profiles').delete().eq('id', uId);
+                if (errProf) cleanupErrors.push(`profiles delete error (${uId}): ` + errProf.message);
+
+                const { error: authDeleteErr } = await serviceClient.auth.admin.deleteUser(uId);
+                if (authDeleteErr) cleanupErrors.push(`auth.admin.deleteUser error (${uId}): ` + authDeleteErr.message);
             } catch (e) {
                 console.warn(`⚠️ Auth User ${uId} cleanup error:`, e.message);
-                cleanupErrors.push(`AuthUser ${uId}: ` + e.message);
+                cleanupErrors.push(`AuthUser ${uId} exception: ` + e.message);
             }
         }
         if (cleanupContext.authUsers.length > 0) {
-            console.log(`🧹 테스트 Auth Users 및 Profiles ${cleanupContext.authUsers.length}개 삭제 완료`);
+            console.log(`🧹 테스트 Auth Users 및 Profiles ${cleanupContext.authUsers.length}개 삭제 처리 완료`);
+        }
+
+        // 6. Post-Cleanup Verification (Service Role을 통한 잔여 데이터 0건 철저 검증)
+        console.log('\n--- [Post-Cleanup Verification] ---');
+        let lingeringCount = 0;
+
+        if (cleanupContext.requestIds.length > 0) {
+            const { data: remReqs, error: remReqErr } = await serviceClient
+                .from('monthly_effort_requests')
+                .select('id')
+                .in('id', cleanupContext.requestIds);
+            if (remReqErr) {
+                cleanupErrors.push('Post-cleanup Request 검증 쿼리 실패: ' + remReqErr.message);
+            } else if (remReqs && remReqs.length > 0) {
+                cleanupErrors.push(`잔여 Request 검출 (${remReqs.length}건: ${remReqs.map(r => r.id).join(', ')})`);
+                lingeringCount += remReqs.length;
+            }
+        }
+
+        if (cleanupContext.projectIds.length > 0) {
+            const { data: remProjs, error: remProjErr } = await serviceClient
+                .from('projects')
+                .select('id')
+                .in('id', cleanupContext.projectIds);
+            if (remProjErr) {
+                cleanupErrors.push('Post-cleanup Projects 검증 쿼리 실패: ' + remProjErr.message);
+            } else if (remProjs && remProjs.length > 0) {
+                cleanupErrors.push(`잔여 Projects 검출 (${remProjs.length}건: ${remProjs.map(p => p.id).join(', ')})`);
+                lingeringCount += remProjs.length;
+            }
+        }
+
+        if (cleanupContext.cycleIds.length > 0) {
+            const { data: remCycs, error: remCycErr } = await serviceClient
+                .from('monthly_effort_cycles')
+                .select('id')
+                .in('id', cleanupContext.cycleIds);
+            if (remCycErr) {
+                cleanupErrors.push('Post-cleanup Cycles 검증 쿼리 실패: ' + remCycErr.message);
+            } else if (remCycs && remCycs.length > 0) {
+                cleanupErrors.push(`잔여 Cycles 검출 (${remCycs.length}건: ${remCycs.map(c => c.id).join(', ')})`);
+                lingeringCount += remCycs.length;
+            }
+        }
+
+        for (const uId of cleanupContext.authUsers) {
+            const { data: remUser, error: remUserErr } = await serviceClient.auth.admin.getUserById(uId);
+            // getUserById는 사용자가 없으면 error를 반환하거나 user가 null/undefined임
+            if (!remUserErr && remUser?.user) {
+                cleanupErrors.push(`잔여 Auth User 검출 (${uId})`);
+                lingeringCount += 1;
+            }
+        }
+
+        if (lingeringCount === 0 && cleanupErrors.length === 0) {
+            console.log('✅ Post-cleanup 검증 통과: 생성된 모든 테스트 리소스(DB, Auth, Storage)가 0건으로 완전히 정리되었습니다.');
+        } else {
+            console.error(`❌ Post-cleanup 검증 실패: 잔여 리소스 ${lingeringCount}건 감지 또는 정리 오류 발생`);
         }
 
         if (cleanupErrors.length > 0) {
@@ -758,14 +897,16 @@ async function runTierCVerification() {
         console.log(`[Group B: Vercel Preview API]     : 총 ${groupBTotal}개 중 ${groupBPassed}개 통과 (${Math.round((groupBPassed / groupBTotal) * 100)}%)`);
     }
 
-    if (cleanupErrors.length > 0) {
-        console.log(`[Resource Cleanup]                : FAILED (${cleanupErrors.length}개 리소스 정리 실패 경고)`);
+    const cleanupSuccess = cleanupErrors.length === 0;
+    if (!cleanupSuccess) {
+        console.log(`[Resource Cleanup]                : FAILED (${cleanupErrors.length}개 리소스 정리 실패 / 잔여 데이터 감지)`);
     } else {
         console.log(`[Resource Cleanup]                : SUCCESS (생성된 모든 테스트 리소스 100% 완전 정리)`);
     }
     console.log('================================================================\n');
 
-    if (results.groupA.some(r => !r.passed && !r.skipped) || results.groupB.some(r => !r.passed && !r.skipped)) {
+    // 테스트가 실패했거나, cleanup 중 하나라도 실패하여 잔여물이 남은 경우 반드시 exit code 1
+    if (results.groupA.some(r => !r.passed && !r.skipped) || results.groupB.some(r => !r.passed && !r.skipped) || !cleanupSuccess) {
         process.exit(1);
     }
 }
