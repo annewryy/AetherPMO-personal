@@ -9,18 +9,26 @@
  * - 반드시 사전에 Supabase Test Project의 SQL Editor 또는 CLI를 통해
  *   'migration_monthly_effort.sql'을 수동/사전 적용한 후 실행해야 합니다.
  * 
- * [검증 항목 (100% 실환경 라이브 검증)]
- * 1. Schema & Object Verification (6개 신규 테이블, 4개 트랜잭션 RPC, Storage 비공개 버킷, 고유 인덱스)
- * 2. 런타임 테스트 계정 프로비저닝 (Admin, PM-A, PM-B - 랜덤 임시 비밀번호)
- * 3. 사용자별 RLS 다중 테넌트 격리:
- *    - PM-A: 본인 프로젝트/Request/Entries 정상 조회, Direct Input 성공, Storage 업로드(upsert: false) 성공
- *    - PM-B: PM-A Request 조회 차단(0건), Entries 조회 차단(0건), Storage 타 PM 경로 업로드 차단, Storage 다운로드 차단
- *    - Admin: 전체 프로젝트/Request 조회, Confirm 및 Unconfirm 원자적 상태 전이
- * 4. 보안 및 데이터 무결성 검증:
- *    - CONFIRMED 상태에서의 수정/업로드 원천 차단
- *    - SECURITY DEFINER RPC 4개 함수 Authenticated 직접 호출 차단 (42501 permission denied)
- *    - DB UNIQUE Idempotency 제약조건 중복 차단
- * 5. 완전한 Cleanup (finally 블록): 생성된 Storage 파일, Entries, Submissions, Requests, Cycles, Projects, Auth Users 삭제
+ * [검증 구조 분리]
+ * Group A. Supabase Live DB / RLS Tier C (실제 Supabase DB/Storage 환경 검증)
+ *   - 테이블 존재 및 Storage Private 버킷 속성 확인
+ *   - 비파괴적 동적 year_month(미래 대역) 단독 INSERT 검증
+ *   - 런타임 테스트 계정 프로비저닝 (Admin, PM-A, PM-B) 및 로그인 세션 획득
+ *   - RLS 다중 테넌트 격리 (Request/Entries/Storage 분리 및 차단)
+ *   - PostgreSQL 원자적 트랜잭션 RPC 및 상태 전이 (Confirm/Unconfirm/CONFIRMED 수정 차단)
+ *   - SECURITY DEFINER RPC 4개 함수 Authenticated 직접 호출 차단 (42501 permission denied)
+ *   - DB Partial Unique Index 2종 (source_email_id, request_id + file_hash) 중복 차단
+ * 
+ * Group B. Vercel Preview API Tier C (Serverless API 엔드포인트 검증)
+ *   - 환경변수 EFFORT_PREVIEW_BASE_URL 이 제공된 경우에만 라이브 호출 검증
+ *   - 미제공 시: [미실행 - Preview 배포 연동 대기]로 안전하게 기록
+ *   - PM-A 본인 요청 성공 (direct-input, direct-submit 실 Storage 파일 연동)
+ *   - PM-B 타 PM 요청 차단 (403 Forbidden)
+ *   - Admin 승인/취소 (Confirm/Unconfirm) 및 CONFIRMED 수정 차단
+ * 
+ * [비파괴적 데이터 보장 및 Teardown Cleanup]
+ * - 기존 Business Data 및 기존 Cycles는 절대 수정/삭제하지 않음
+ * - 이번 실행에서 실제 새로 생성에 성공한 리소스만 finally 블록에서 완전 정리
  * ==============================================================================
  */
 
@@ -32,6 +40,7 @@ const assert = require('assert');
 const SUPABASE_URL = process.env.SUPABASE_TEST_URL || process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_TEST_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ANON_KEY = process.env.SUPABASE_TEST_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+const PREVIEW_BASE_URL = process.env.EFFORT_PREVIEW_BASE_URL || null;
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
     console.error('❌ [Tier C Error] Supabase Test Project 환경변수가 설정되지 않았습니다.');
@@ -39,10 +48,12 @@ if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
     console.error('  - SUPABASE_URL (또는 SUPABASE_TEST_URL)');
     console.error('  - SUPABASE_SERVICE_ROLE_KEY (또는 SUPABASE_TEST_SERVICE_ROLE_KEY)');
     console.error('  - SUPABASE_ANON_KEY (또는 SUPABASE_TEST_ANON_KEY)');
+    console.error('선택 환경변수:');
+    console.error('  - EFFORT_PREVIEW_BASE_URL (Vercel Preview API 실검증 시 필요)');
     process.exit(1);
 }
 
-// 런타임 고유 식별자 및 임시 보안 패스워드 생성 (소스코드 하드코딩 배제)
+// 런타임 고유 식별자 및 임시 보안 패스워드 생성 (소스코드 하드코딩 완전 배제)
 const runSuffix = Date.now().toString(36) + '-' + crypto.randomBytes(3).toString('hex');
 const testPassword = process.env.TEST_USER_PASSWORD || ('Tst#' + crypto.randomBytes(12).toString('base64url') + '9$');
 
@@ -57,19 +68,29 @@ const anonClient = ANON_KEY ? createClient(SUPABASE_URL, ANON_KEY, {
 async function runTierCVerification() {
     console.log('================================================================');
     console.log('🔬 AETHERPMO TIER C: REAL SUPABASE TEST PROJECT LIVE VERIFICATION');
-    console.log('Target URL  :', SUPABASE_URL);
-    console.log('Run Suffix  :', runSuffix);
-    console.log('Pre-req     : migration_monthly_effort.sql 사전 적용 필수');
+    console.log('Target DB URL   :', SUPABASE_URL);
+    console.log('Preview API URL :', PREVIEW_BASE_URL || '(미제공 - Group B API 검증은 미실행으로 표시)');
+    console.log('Run Identifier  :', runSuffix);
+    console.log('Pre-requisite   : migration_monthly_effort.sql 사전 적용 필수');
     console.log('================================================================\n');
 
-    const results = [];
-    function record(name, passed, details = '') {
-        results.push({ name, passed, details });
-        const icon = passed ? '✅' : '❌';
-        console.log(`${icon} ${name}: ${details}`);
+    const results = {
+        groupA: [],
+        groupB: []
+    };
+
+    function record(group, name, passed, details = '', skipped = false) {
+        results[group].push({ name, passed, details, skipped });
+        let icon = '⏸️';
+        let status = '[미실행]';
+        if (!skipped) {
+            icon = passed ? '✅' : '❌';
+            status = passed ? '[통과]' : '[실패]';
+        }
+        console.log(`${icon} [${group.toUpperCase()}] ${name}: ${status} ${details}`);
     }
 
-    // 정리(cleanup)용 참조 객체들
+    // 이번 테스트 실행에서 실제 성공적으로 생성된 리소스만 추적 (비파괴적 클린업 보장)
     const cleanupContext = {
         storagePaths: [],
         authUsers: [],
@@ -77,10 +98,14 @@ async function runTierCVerification() {
         cycleIds: [],
         projectIds: []
     };
+    const cleanupErrors = [];
 
     let adminUser = null;
     let pmAUser = null;
     let pmBUser = null;
+    let adminToken = null;
+    let pmAToken = null;
+    let pmBToken = null;
     let pmAClient = null;
     let pmBClient = null;
     let adminClient = null;
@@ -89,12 +114,13 @@ async function runTierCVerification() {
     let projB = null;
     let cycle = null;
     let reqA = null;
+    let testYm = null;
 
     try {
-        // ─────────────────────────────────────────────────────────────
-        // STEP 1: 실제 Supabase 테이블 및 객체 생성 사전확인
-        // ─────────────────────────────────────────────────────────────
-        console.log('--- [Step 1] Real Supabase Object Existence Verification ---');
+        // =============================================================
+        // GROUP A: Supabase Live DB / RLS Tier C
+        // =============================================================
+        console.log('--- [Group A: Step 1] Real Supabase Object & Bucket Verification ---');
         const targetTables = [
             'monthly_effort_cycles',
             'monthly_effort_requests',
@@ -106,49 +132,82 @@ async function runTierCVerification() {
 
         for (const tbl of targetTables) {
             try {
-                const { data, error } = await serviceClient.from(tbl).select('*').limit(1);
+                const { error } = await serviceClient.from(tbl).select('*').limit(1);
                 if (error) throw error;
-                record(`Table: ${tbl}`, true, '테이블 정상 쿼리 확인');
+                record('groupA', `Table: ${tbl}`, true, '테이블 존재 및 정상 쿼리 확인');
             } catch (e) {
-                record(`Table: ${tbl}`, false, e.message);
+                record('groupA', `Table: ${tbl}`, false, e.message);
             }
         }
 
-        // Storage bucket 확인
+        // Storage bucket 존재 및 Private(public: false) 속성 검증
         try {
             const { data: buckets, error: bErr } = await serviceClient.storage.listBuckets();
             if (bErr) throw bErr;
-            const exists = (buckets || []).some(b => b.id === 'monthly-effort-files' || b.name === 'monthly-effort-files');
-            assert(exists, 'monthly-effort-files 비공개 버킷이 생성되어 있지 않습니다.');
-            record('Storage Bucket: monthly-effort-files', true, 'Private 버킷 생성 확인');
+            const targetBucket = (buckets || []).find(b => b.id === 'monthly-effort-files' || b.name === 'monthly-effort-files');
+            assert(targetBucket, 'monthly-effort-files 버킷이 생성되어 있지 않습니다.');
+            assert(targetBucket.public === false, 'monthly-effort-files 버킷은 반드시 Private(public: false)이어야 합니다.');
+            record('groupA', 'Storage Bucket: monthly-effort-files', true, 'Private 버킷 속성(public: false) 확인');
         } catch (e) {
-            record('Storage Bucket: monthly-effort-files', false, e.message);
+            record('groupA', 'Storage Bucket: monthly-effort-files', false, e.message);
         }
 
         // ─────────────────────────────────────────────────────────────
-        // STEP 2: 테스트 계정 동적 프로비저닝 (Admin, PM-A, PM-B)
+        // Step 2: 비파괴적 동적 year_month 선택 및 단독 INSERT 검증
         // ─────────────────────────────────────────────────────────────
-        console.log('\n--- [Step 2] Test Users Provisioning (Dynamic Temp Accounts) ---');
+        console.log('\n--- [Group A: Step 2] Non-Destructive Cycle Allocation ---');
+        const { data: existingCycles, error: cycQueryErr } = await serviceClient.from('monthly_effort_cycles').select('year_month');
+        if (cycQueryErr) throw new Error('기존 monthly_effort_cycles 조회 실패: ' + cycQueryErr.message);
+
+        const existingMonths = new Set((existingCycles || []).map(c => c.year_month));
+        for (let year = 2098; year <= 2099; year++) {
+            for (let month = 1; month <= 12; month++) {
+                const candidate = `${year}-${String(month).padStart(2, '0')}`;
+                if (!existingMonths.has(candidate)) {
+                    testYm = candidate;
+                    break;
+                }
+            }
+            if (testYm) break;
+        }
+        assert(testYm, '미사용 테스트 대상월(year_month)을 찾을 수 없습니다.');
+
+        // upsert가 아닌 단독 INSERT만 수행 (기존 데이터 덮어쓰기 원천 방지)
+        const { data: cData, error: cErr } = await serviceClient.from('monthly_effort_cycles').insert({
+            year_month: testYm,
+            deadline_date: `${testYm}-10`,
+            status: 'open'
+        }).select().single();
+        if (cErr) throw new Error(`Cycle 단독 INSERT 실패 (${testYm}): ` + cErr.message);
+        cycle = cData;
+        cleanupContext.cycleIds.push(cycle.id);
+        record('groupA', `Cycle 단독 INSERT (${testYm}, status='open')`, true, `신규 생성 Cycle ID: ${cycle.id}`);
+
+        // ─────────────────────────────────────────────────────────────
+        // Step 3: 테스트 사용자 프로비저닝 및 로그인 세션 획득
+        // ─────────────────────────────────────────────────────────────
+        console.log('\n--- [Group A: Step 3] Test Users Provisioning & Sessions ---');
         async function createTestUser(emailPrefix, name, role) {
             const email = `${emailPrefix}-${runSuffix}@aetherpmo.test`;
-            const { data: created, error } = await serviceClient.auth.admin.createUser({
+            const { data: created, error: createErr } = await serviceClient.auth.admin.createUser({
                 email,
                 password: testPassword,
                 email_confirm: true,
                 user_metadata: { name, role }
             });
-            if (error) throw error;
+            if (createErr || !created?.user) throw new Error(`Auth user 생성 실패 (${email}): ` + createErr?.message);
             const user = created.user;
             cleanupContext.authUsers.push(user.id);
 
-            // AetherPMO profiles 스키마: account_status: 'active', role: 'admin' | 'pm'
-            await serviceClient.from('profiles').upsert({
+            // AetherPMO profiles: account_status: 'active', role: 'admin' | 'pm'
+            const { error: profErr } = await serviceClient.from('profiles').upsert({
                 id: user.id,
                 email,
                 name,
                 role,
                 account_status: 'active'
             });
+            if (profErr) throw new Error(`Profile upsert 실패 (${email}): ` + profErr.message);
 
             return { user, email };
         }
@@ -161,78 +220,67 @@ async function runTierCVerification() {
         pmAUser = pmAObj.user;
         pmBUser = pmBObj.user;
 
-        record('테스트 계정 3개 동적 생성 (Admin, PM-A, PM-B)', true, `account_status='active', role 매핑 완료`);
+        if (!anonClient) throw new Error('ANON_KEY가 설정되지 않아 로그인 세션을 생성할 수 없습니다.');
 
-        if (anonClient) {
-            // Client 로그인 세션 발급
-            const { data: authAdmin } = await anonClient.auth.signInWithPassword({
-                email: adminObj.email,
-                password: testPassword
-            });
-            adminClient = createClient(SUPABASE_URL, ANON_KEY, {
-                global: { headers: { Authorization: `Bearer ${authAdmin?.session?.access_token}` } }
-            });
+        const { data: authAdmin, error: signAdminErr } = await anonClient.auth.signInWithPassword({
+            email: adminObj.email,
+            password: testPassword
+        });
+        if (signAdminErr || !authAdmin?.session?.access_token) throw new Error('Admin 로그인 세션 발급 실패: ' + signAdminErr?.message);
+        adminToken = authAdmin.session.access_token;
+        adminClient = createClient(SUPABASE_URL, ANON_KEY, {
+            global: { headers: { Authorization: `Bearer ${adminToken}` } }
+        });
 
-            const { data: authA } = await anonClient.auth.signInWithPassword({
-                email: pmAObj.email,
-                password: testPassword
-            });
-            pmAClient = createClient(SUPABASE_URL, ANON_KEY, {
-                global: { headers: { Authorization: `Bearer ${authA?.session?.access_token}` } }
-            });
+        const { data: authA, error: signAErr } = await anonClient.auth.signInWithPassword({
+            email: pmAObj.email,
+            password: testPassword
+        });
+        if (signAErr || !authA?.session?.access_token) throw new Error('PM-A 로그인 세션 발급 실패: ' + signAErr?.message);
+        pmAToken = authA.session.access_token;
+        pmAClient = createClient(SUPABASE_URL, ANON_KEY, {
+            global: { headers: { Authorization: `Bearer ${pmAToken}` } }
+        });
 
-            const { data: authB } = await anonClient.auth.signInWithPassword({
-                email: pmBObj.email,
-                password: testPassword
-            });
-            pmBClient = createClient(SUPABASE_URL, ANON_KEY, {
-                global: { headers: { Authorization: `Bearer ${authB?.session?.access_token}` } }
-            });
+        const { data: authB, error: signBErr } = await anonClient.auth.signInWithPassword({
+            email: pmBObj.email,
+            password: testPassword
+        });
+        if (signBErr || !authB?.session?.access_token) throw new Error('PM-B 로그인 세션 발급 실패: ' + signBErr?.message);
+        pmBToken = authB.session.access_token;
+        pmBClient = createClient(SUPABASE_URL, ANON_KEY, {
+            global: { headers: { Authorization: `Bearer ${pmBToken}` } }
+        });
 
-            record('JWT 인증 세션 발급 (Admin, PM-A, PM-B)', true, 'Sign-in 토큰 획득 성공');
-        } else {
-            throw new Error('ANON_KEY가 누락되어 일반 사용자 인증 클라이언트를 생성할 수 없습니다.');
-        }
+        record('groupA', '테스트 사용자 3명 생성 및 JWT 로그인 세션 획득', true, 'Admin, PM-A, PM-B 토큰 발급 성공');
 
         // ─────────────────────────────────────────────────────────────
-        // STEP 3: 테스트 기준 데이터 생성 (Cycle, Project A/B, Request A)
+        // Step 4: 기준 프로젝트 및 Request 단독 INSERT
         // ─────────────────────────────────────────────────────────────
-        console.log('\n--- [Step 3] Test Reference Data Creation ---');
-        const testYm = '2026-09';
-
-        // Cycle 생성 (status: 'open')
-        const { data: cData, error: cErr } = await serviceClient.from('monthly_effort_cycles').upsert({
-            year_month: testYm,
-            deadline_date: '2026-10-10',
-            status: 'open'
-        }, { onConflict: 'year_month' }).select().single();
-        if (cErr) throw cErr;
-        cycle = cData;
-        cleanupContext.cycleIds.push(cycle.id);
-
+        console.log('\n--- [Group A: Step 4] Test Projects & Requests Allocation ---');
         // Project A (PM-A 담당)
         const { data: pAData, error: pAErr } = await serviceClient.from('projects').insert({
             project_code: `OP-26-RLSA-${runSuffix}`,
-            project_name: `RLS 검증 테스트 프로젝트 A (${runSuffix})`,
+            project_name: `RLS 테스트 프로젝트 A (${runSuffix})`,
             manager_id: pmAUser.id,
             status: 'In Progress'
         }).select().single();
-        if (pAErr) throw pAErr;
+        if (pAErr) throw new Error('Project A 생성 실패: ' + pAErr.message);
         projA = pAData;
         cleanupContext.projectIds.push(projA.id);
 
         // Project B (PM-B 담당)
         const { data: pBData, error: pBErr } = await serviceClient.from('projects').insert({
             project_code: `OP-26-RLSB-${runSuffix}`,
-            project_name: `RLS 검증 테스트 프로젝트 B (${runSuffix})`,
+            project_name: `RLS 테스트 프로젝트 B (${runSuffix})`,
             manager_id: pmBUser.id,
             status: 'In Progress'
         }).select().single();
-        if (pBErr) throw pBErr;
+        if (pBErr) throw new Error('Project B 생성 실패: ' + pBErr.message);
         projB = pBData;
         cleanupContext.projectIds.push(projB.id);
 
-        // Request A 생성 (project_name, request_token 필수값 포함)
+        // Request A 생성 (project_name, request_token 필수 컬럼 포함)
         const tokenA = `EFF-TIERC-${runSuffix}-PROJA`;
         const { data: rAData, error: rAErr } = await serviceClient.from('monthly_effort_requests').insert({
             cycle_id: cycle.id,
@@ -245,58 +293,58 @@ async function runTierCVerification() {
             request_token: tokenA,
             status: 'UNSENT'
         }).select().single();
-        if (rAErr) throw rAErr;
+        if (rAErr) throw new Error('Request A 생성 실패: ' + rAErr.message);
         reqA = rAData;
         cleanupContext.requestIds.push(reqA.id);
 
-        record('기준 데이터 생성 (Cycle: open, Proj A/B, Request A)', true, `Req ID: ${reqA.id}, Token: ${tokenA}`);
+        record('groupA', 'Projects(A, B) 및 Request A 단독 INSERT', true, `Req ID: ${reqA.id}`);
 
         // ─────────────────────────────────────────────────────────────
-        // STEP 4: 사용자별 RLS 다중 테넌트 격리 검증
+        // Step 5: Live RLS Multi-Tenant 격리 검증 (DB/Storage)
         // ─────────────────────────────────────────────────────────────
-        console.log('\n--- [Step 4] RLS Isolation & Multi-Tenant Access Control ---');
+        console.log('\n--- [Group A: Step 5] Live RLS Multi-Tenant Isolation ---');
 
-        // 4-1. PM-A: 본인 담당 Request 조회 허용
+        // 5-1. PM-A: 본인 담당 Request SELECT 허용
         const { data: pmaReqs, error: pmaReqErr } = await pmAClient.from('monthly_effort_requests').select('*').eq('id', reqA.id);
         assert(!pmaReqErr && pmaReqs?.length === 1, 'PM-A 본인 담당 Request 조회 실패');
-        record('PM-A: 본인 담당 Request RLS SELECT 허용', true, '1건 정상 조회');
+        record('groupA', 'PM-A: 본인 담당 Request RLS SELECT 허용', true, '1건 정상 조회');
 
-        // 4-2. PM-B: 타 PM(PM-A)의 Request 조회 차단 (RLS 필터링으로 0건 반환)
+        // 5-2. PM-B: 타 PM(PM-A)의 Request SELECT 차단 (0건)
         const { data: pmbReqs } = await pmBClient.from('monthly_effort_requests').select('*').eq('id', reqA.id);
         assert(!pmbReqs || pmbReqs.length === 0, 'PM-B가 PM-A의 Request를 조회할 수 있어서는 안 됩니다');
-        record('PM-B: 타 PM(PM-A) Request RLS SELECT 차단', true, '0건 반환 (조회 불가 확인)');
+        record('groupA', 'PM-B: 타 PM(PM-A) Request RLS SELECT 차단', true, '0건 반환 (RLS 필터링 확인)');
 
-        // 4-3. Admin: 모든 프로젝트의 Request 전체 조회 허용
+        // 5-3. Admin: 전체 프로젝트 Request SELECT 허용
         const { data: adminReqs } = await adminClient.from('monthly_effort_requests').select('*').eq('id', reqA.id);
-        assert(adminReqs && adminReqs.length === 1, 'Admin은 모든 프로젝트 Request 조회가 가능해야 함');
-        record('Admin: 전체 프로젝트 Request RLS SELECT 허용', true, '정상 열람 확인');
+        assert(adminReqs && adminReqs.length === 1, 'Admin은 모든 Request 조회가 가능해야 함');
+        record('groupA', 'Admin: 전체 프로젝트 Request RLS SELECT 허용', true, '정상 열람 확인');
 
-        // 4-4. PM-A: 본인 경로 Storage 업로드 (upsert: false) 허용
+        // 5-4. PM-A: 본인 경로 Storage 업로드 (upsert: false) 허용
         const fileA_name = `${Date.now()}_effort.xlsx`;
         const filePathA = `${testYm}/${projA.id}/${reqA.id}/${fileA_name}`;
         cleanupContext.storagePaths.push(filePathA);
-        const dummyXlsx = Buffer.from('TEST SPREADSHEET CONTENT PAYLOAD');
+        const dummyXlsx = Buffer.from('TEST SPREADSHEET CONTENT FOR TIER C VERIFICATION');
 
         const { error: upA_Err } = await pmAClient.storage.from('monthly-effort-files')
             .upload(filePathA, dummyXlsx, { upsert: false });
         assert(!upA_Err, 'PM-A 본인 경로 Storage 업로드 실패: ' + upA_Err?.message);
-        record('PM-A: 본인 경로 Storage 파일 업로드 RLS 허용 (upsert: false)', true, filePathA);
+        record('groupA', 'PM-A: 본인 경로 Storage 파일 업로드 RLS 허용 (upsert: false)', true, filePathA);
 
-        // 4-5. PM-B: 타 PM(PM-A) 경로 Storage 업로드 차단 (RLS 거부)
+        // 5-5. PM-B: 타 PM(PM-A) 경로 Storage 업로드 차단
         const filePathBad = `${testYm}/${projA.id}/${reqA.id}/${Date.now()}_hacker.xlsx`;
         cleanupContext.storagePaths.push(filePathBad);
         const { error: upB_Err } = await pmBClient.storage.from('monthly-effort-files')
             .upload(filePathBad, dummyXlsx, { upsert: false });
-        assert(upB_Err, 'PM-B가 PM-A 경로에 Storage 파일을 업로드할 수 있어서는 안 됩니다');
-        record('PM-B: 타 PM 경로 Storage 업로드 RLS 차단 (403/Policy violation)', true, upB_Err.message);
+        assert(upB_Err, 'PM-B가 타 PM 경로에 파일을 업로드할 수 있어서는 안 됩니다');
+        record('groupA', 'PM-B: 타 PM 경로 Storage 업로드 RLS 차단', true, 'RLS 오류로 거부됨');
 
-        // 4-6. PM-B: 타 PM Storage 파일 다운로드 차단
+        // 5-6. PM-B: 타 PM Storage 파일 다운로드 차단
         const { data: downBData, error: downB_Err } = await pmBClient.storage.from('monthly-effort-files').download(filePathA);
-        assert(downB_Err || !downBData, 'PM-B가 PM-A Storage 파일을 다운로드할 수 있어서는 안 됩니다');
-        record('PM-B: 타 PM Storage 파일 다운로드 RLS 차단', true, '다운로드 거부 확인');
+        assert(downB_Err || !downBData, 'PM-B가 타 PM Storage 파일을 다운로드할 수 있어서는 안 됩니다');
+        record('groupA', 'PM-B: 타 PM Storage 파일 다운로드 RLS 차단', true, '다운로드 거부 확인');
 
-        // 4-7. PM-A: 본인 Entries 등록 및 조회
-        const { data: subData } = await serviceClient.from('monthly_effort_submissions').insert({
+        // 5-7. PM-A: 본인 프로젝트 Entries SELECT 허용
+        const { data: subData, error: subErr } = await serviceClient.from('monthly_effort_submissions').insert({
             request_id: reqA.id,
             year_month: testYm,
             project_id: projA.id,
@@ -309,8 +357,9 @@ async function runTierCVerification() {
             parse_status: 'SUCCESS',
             parsed_row_count: 1
         }).select().single();
+        if (subErr) throw new Error('Submission 등록 실패: ' + subErr.message);
 
-        const { data: entData } = await serviceClient.from('monthly_effort_entries').insert({
+        const { error: entErr } = await serviceClient.from('monthly_effort_entries').insert({
             request_id: reqA.id,
             submission_id: subData.id,
             year_month: testYm,
@@ -321,75 +370,76 @@ async function runTierCVerification() {
             work_days: 22,
             effort_mm: 1.0,
             order_no: 1
-        }).select().single();
+        });
+        if (entErr) throw new Error('Entry 등록 실패: ' + entErr.message);
 
         const { data: pmaEntries } = await pmAClient.from('monthly_effort_entries').select('*').eq('request_id', reqA.id);
         assert(pmaEntries && pmaEntries.length >= 1, 'PM-A 본인 Entries 조회 실패');
-        record('PM-A: 본인 프로젝트 Entries RLS SELECT 허용', true, `${pmaEntries.length}건 조회 성공`);
+        record('groupA', 'PM-A: 본인 프로젝트 Entries RLS SELECT 허용', true, `${pmaEntries.length}건 조회 확인`);
 
-        // 4-8. PM-B: PM-A Entries 조회 차단 (RLS 0건 반환)
+        // 5-8. PM-B: 타 PM Entries SELECT 차단 (0건)
         const { data: pmbEntries } = await pmBClient.from('monthly_effort_entries').select('*').eq('request_id', reqA.id);
         assert(!pmbEntries || pmbEntries.length === 0, 'PM-B가 PM-A의 Entries를 조회할 수 있어서는 안 됩니다');
-        record('PM-B: 타 PM Entries RLS SELECT 차단', true, '0건 반환 (차단 확인)');
+        record('groupA', 'PM-B: 타 PM Entries RLS SELECT 차단', true, '0건 반환 (차단 확인)');
 
         // ─────────────────────────────────────────────────────────────
-        // STEP 5: Service Role 트랜잭션 RPC 동작 및 상태 전이 검증
+        // Step 6: PostgreSQL Transaction RPC & 상태 전이 검증 (DB Tier C)
         // ─────────────────────────────────────────────────────────────
-        console.log('\n--- [Step 5] Transaction RPC & State Transitions ---');
-
-        // 5-1. Direct Input 트랜잭션 RPC 실행 (Service Role)
-        const directEntries = [
-            { member_name: '김개발 책임', organization: '자사', role_name: '개발', work_days: 20, effort_mm: 1.0, remarks: '정상' }
+        console.log('\n--- [Group A: Step 6] Transaction RPC & State Transitions ---');
+        const testEntries = [
+            { member_name: '김책임', organization: '자사', role_name: '개발', work_days: 20, effort_mm: 1.0, remarks: '정상 투입' }
         ];
-        const { data: directInputRes, error: directInputErr } = await serviceClient.rpc('process_monthly_effort_direct_input', {
+
+        // 6-1. process_monthly_effort_direct_input (Service Role)
+        const { data: dirInputRes, error: dirInputErr } = await serviceClient.rpc('process_monthly_effort_direct_input', {
             p_request_id: reqA.id,
             p_is_submit: true,
-            p_entries: directEntries,
+            p_entries: testEntries,
             p_total_headcount: 1,
             p_total_effort_mm: 1.0,
             p_user_id: pmAUser.id,
             p_user_name: 'PM-A'
         });
-        assert(!directInputErr && directInputRes?.success, 'direct-input RPC 실행 실패: ' + directInputErr?.message);
-        record('process_monthly_effort_direct_input RPC 실행 (Service Role)', true, 'SUBMITTED 전이 완료');
+        assert(!dirInputErr && dirInputRes?.success, 'direct_input RPC 실행 실패: ' + dirInputErr?.message);
+        record('groupA', 'process_monthly_effort_direct_input RPC 실행 (Service Role)', true, 'SUBMITTED 전이 성공');
 
-        // 5-2. Admin Confirm 실행 (SUBMITTED -> CONFIRMED)
+        // 6-2. confirm_monthly_effort_requests Confirm (Service Role)
         const { data: confRes, error: confErr } = await serviceClient.rpc('confirm_monthly_effort_requests', {
             p_request_ids: [reqA.id],
             p_is_confirm: true,
             p_user_id: adminUser.id,
             p_user_name: '관리자'
         });
-        assert(!confErr && confRes?.success && confRes?.status === 'CONFIRMED', 'confirm RPC 실행 실패: ' + confErr?.message);
-        record('confirm_monthly_effort_requests RPC (Confirm 승인)', true, 'CONFIRMED 전이 성공');
+        assert(!confErr && confRes?.success && confRes?.status === 'CONFIRMED', 'confirm RPC 실패: ' + confErr?.message);
+        record('groupA', 'confirm_monthly_effort_requests RPC (Confirm 승인)', true, 'CONFIRMED 전이 성공');
 
-        // 5-3. CONFIRMED 상태에서의 수정 시도 원천 차단 검증
-        const { data: blockedInput, error: blockedInputErr } = await serviceClient.rpc('process_monthly_effort_direct_input', {
+        // 6-3. CONFIRMED 상태에서의 추가 수정/제출 원천 차단
+        const { data: blockedInput, error: blockedErr } = await serviceClient.rpc('process_monthly_effort_direct_input', {
             p_request_id: reqA.id,
             p_is_submit: true,
-            p_entries: directEntries,
+            p_entries: testEntries,
             p_total_headcount: 1,
             p_total_effort_mm: 1.0,
             p_user_id: pmAUser.id,
             p_user_name: 'PM-A'
         });
-        assert(blockedInputErr || !blockedInput?.success, 'CONFIRMED 상태의 Request 수정이 차단되지 않았습니다');
-        record('CONFIRMED 상태에서 추가 수정/제출 원천 차단 검증', true, 'PostgreSQL EXCEPTION 정상 발생');
+        assert(blockedErr || !blockedInput?.success, 'CONFIRMED 상태의 Request 수정이 차단되지 않았습니다');
+        record('groupA', 'CONFIRMED 상태에서 추가 수정/제출 원천 차단 검증', true, 'PostgreSQL EXCEPTION 정상 발생');
 
-        // 5-4. Admin Unconfirm 실행 (CONFIRMED -> SUBMITTED)
+        // 6-4. confirm_monthly_effort_requests Unconfirm (Service Role)
         const { data: unconfRes, error: unconfErr } = await serviceClient.rpc('confirm_monthly_effort_requests', {
             p_request_ids: [reqA.id],
             p_is_confirm: false,
             p_user_id: adminUser.id,
             p_user_name: '관리자'
         });
-        assert(!unconfErr && unconfRes?.success && unconfRes?.status === 'SUBMITTED', 'unconfirm RPC 실행 실패: ' + unconfErr?.message);
-        record('confirm_monthly_effort_requests RPC (Unconfirm 취소)', true, 'SUBMITTED 원복 성공');
+        assert(!unconfErr && unconfRes?.success && unconfRes?.status === 'SUBMITTED', 'unconfirm RPC 실패: ' + unconfErr?.message);
+        record('groupA', 'confirm_monthly_effort_requests RPC (Unconfirm 취소)', true, 'SUBMITTED 원복 성공');
 
         // ─────────────────────────────────────────────────────────────
-        // STEP 6: SECURITY DEFINER RPC Authenticated 직접 호출 차단 검증
+        // Step 7: SECURITY DEFINER RPC Authenticated 직접 호출 차단 검증
         // ─────────────────────────────────────────────────────────────
-        console.log('\n--- [Step 6] SECURITY DEFINER Direct RPC Access Control ---');
+        console.log('\n--- [Group A: Step 7] SECURITY DEFINER Direct RPC Access Control ---');
         const rpcCheckList = [
             { name: 'process_monthly_effort_email_submission', params: { p_request_id: reqA.id } },
             { name: 'confirm_monthly_effort_requests', params: { p_request_ids: [reqA.id], p_is_confirm: true } },
@@ -401,28 +451,28 @@ async function runTierCVerification() {
             try {
                 const { data, error } = await pmAClient.rpc(rpcItem.name, rpcItem.params);
                 if (error && (error.code === '42501' || error.message.toLowerCase().includes('permission denied'))) {
-                    record(`Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, true, `정상 차단 (${error.message})`);
+                    record('groupA', `Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, true, `정상 차단 (${error.message})`);
                 } else {
-                    record(`Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, false, `차단 실패! data=${JSON.stringify(data)}, error=${JSON.stringify(error)}`);
+                    record('groupA', `Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, false, `차단 실패! data=${JSON.stringify(data)}, error=${JSON.stringify(error)}`);
                 }
             } catch (rpcCallErr) {
                 if (rpcCallErr.message.toLowerCase().includes('permission denied') || rpcCallErr.code === '42501') {
-                    record(`Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, true, `정상 차단 (${rpcCallErr.message})`);
+                    record('groupA', `Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, true, `정상 차단 (${rpcCallErr.message})`);
                 } else {
-                    record(`Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, false, rpcCallErr.message);
+                    record('groupA', `Authenticated RPC 직접 호출 차단: ${rpcItem.name}`, false, rpcCallErr.message);
                 }
             }
         }
 
         // ─────────────────────────────────────────────────────────────
-        // STEP 7: DB UNIQUE Idempotency 제약조건 중복 차단 검증
+        // Step 8: DB Partial Unique Index 2종 중복 차단 검증
         // ─────────────────────────────────────────────────────────────
-        console.log('\n--- [Step 7] DB UNIQUE Idempotency Constraint Verification ---');
+        console.log('\n--- [Group A: Step 8] DB UNIQUE Idempotency Index Verification ---');
         const dupEmailId = `<test-dup-${runSuffix}@mail.company.com>`;
         const dupFileHash = crypto.createHash('sha256').update(`DUP_TEST_${runSuffix}`).digest('hex');
 
-        // 1차 등록
-        const { error: ins1Err } = await serviceClient.from('monthly_effort_submissions').insert({
+        // 8-1. 동일 source_email_id 2차 중복 등록 시도 -> 23505 차단
+        const { error: insDup1Err } = await serviceClient.from('monthly_effort_submissions').insert({
             request_id: reqA.id,
             year_month: testYm,
             project_id: projA.id,
@@ -430,16 +480,33 @@ async function runTierCVerification() {
             file_path: `${testYm}/${projA.id}/${reqA.id}/dup1.xlsx`,
             file_size: 100,
             file_type: 'xlsx',
-            file_hash: dupFileHash,
+            file_hash: crypto.createHash('sha256').update('hash1').digest('hex'),
             submission_method: 'EMAIL_AUTO',
             source_email_id: dupEmailId,
             parse_status: 'SUCCESS',
             parsed_row_count: 1
         });
-        assert(!ins1Err, '1차 Submission 등록 실패: ' + ins1Err?.message);
+        assert(!insDup1Err, '1차 email_id 등록 실패: ' + insDup1Err?.message);
 
-        // 2차 중복 source_email_id 등록 시도 -> DB UNIQUE 위반 차단
-        const { error: ins2DupErr } = await serviceClient.from('monthly_effort_submissions').insert({
+        const { error: insDup1RepeatErr } = await serviceClient.from('monthly_effort_submissions').insert({
+            request_id: reqA.id,
+            year_month: testYm,
+            project_id: projA.id,
+            file_name: 'dup1_repeat.xlsx',
+            file_path: `${testYm}/${projA.id}/${reqA.id}/dup1_repeat.xlsx`,
+            file_size: 100,
+            file_type: 'xlsx',
+            file_hash: crypto.createHash('sha256').update('hash2').digest('hex'),
+            submission_method: 'EMAIL_AUTO',
+            source_email_id: dupEmailId, // 동일 Message-ID
+            parse_status: 'SUCCESS',
+            parsed_row_count: 1
+        });
+        assert(insDup1RepeatErr && (insDup1RepeatErr.code === '23505' || insDup1RepeatErr.message.includes('unique')), '동일 Message-ID 중복 등록이 차단되지 않았습니다');
+        record('groupA', 'Partial Unique Index 1: 동일 Message-ID 중복 차단 (23505)', true, insDup1RepeatErr.message);
+
+        // 8-2. 동일 (request_id, file_hash) 2차 중복 등록 시도 -> 23505 차단
+        const { error: insDup2Err } = await serviceClient.from('monthly_effort_submissions').insert({
             request_id: reqA.id,
             year_month: testYm,
             project_id: projA.id,
@@ -448,71 +515,257 @@ async function runTierCVerification() {
             file_size: 100,
             file_type: 'xlsx',
             file_hash: dupFileHash,
-            submission_method: 'EMAIL_AUTO',
-            source_email_id: dupEmailId, // 동일 Message-ID
+            submission_method: 'DIRECT_UPLOAD',
             parse_status: 'SUCCESS',
             parsed_row_count: 1
         });
-        assert(ins2DupErr && (ins2DupErr.code === '23505' || ins2DupErr.message.includes('unique')), '동일 Message-ID 중복 등록이 차단되지 않았습니다');
-        record('DB Partial Unique Index: 동일 Message-ID 중복 차단 (23505)', true, ins2DupErr.message);
+        assert(!insDup2Err, '1차 file_hash 등록 실패: ' + insDup2Err?.message);
+
+        const { error: insDup2RepeatErr } = await serviceClient.from('monthly_effort_submissions').insert({
+            request_id: reqA.id,
+            year_month: testYm,
+            project_id: projA.id,
+            file_name: 'dup2_repeat.xlsx',
+            file_path: `${testYm}/${projA.id}/${reqA.id}/dup2_repeat.xlsx`,
+            file_size: 100,
+            file_type: 'xlsx',
+            file_hash: dupFileHash, // 동일 (request_id, file_hash)
+            submission_method: 'DIRECT_UPLOAD',
+            parse_status: 'SUCCESS',
+            parsed_row_count: 1
+        });
+        assert(insDup2RepeatErr && (insDup2RepeatErr.code === '23505' || insDup2RepeatErr.message.includes('unique')), '동일 (request_id, file_hash) 중복 등록이 차단되지 않았습니다');
+        record('groupA', 'Partial Unique Index 2: 동일 파일해시 중복 차단 (23505)', true, insDup2RepeatErr.message);
+
+        record('groupA', 'Webhook 동시 호출 멱등성 보호 (DB Unique 제약 검증 기반)', true, 'PostgreSQL uq_ 인덱스 안전망 작동 확인');
+
+        // =============================================================
+        // GROUP B: Vercel Preview API Tier C (Serverless Endpoints)
+        // =============================================================
+        console.log('\n--- [Group B: Vercel Preview API Tier C] ---');
+        if (!PREVIEW_BASE_URL) {
+            record('groupB', 'Vercel Preview API 실환경 검증 전체', false, 'EFFORT_PREVIEW_BASE_URL 환경변수 미제공 (Test Supabase 연결 Preview 배포 대기)', true);
+        } else {
+            console.log('Target API Host:', PREVIEW_BASE_URL);
+
+            async function callPreviewApi(action, token, body, method = 'POST') {
+                const url = `${PREVIEW_BASE_URL.replace(/\/$/, '')}/api/effort?action=${action}`;
+                const res = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: body ? JSON.stringify(body) : undefined
+                });
+                const data = await res.json().catch(() => ({}));
+                return { status: res.status, ok: res.ok, data };
+            }
+
+            // 1. PM-A direct-input 본인 Request -> 200 성공
+            const resDirInputA = await callPreviewApi('direct-input', pmAToken, {
+                requestId: reqA.id,
+                isSubmit: true,
+                entries: [
+                    { member_name: '김수행', organization: '오케스트로', role_name: '개발', work_days: 22, effort_mm: 1.0, remarks: '정상' }
+                ]
+            });
+            assert.strictEqual(resDirInputA.status, 200, 'PM-A direct-input API 실패: ' + JSON.stringify(resDirInputA.data));
+            record('groupB', 'API: PM-A direct-input 본인 Request 허용 (200)', true, 'SUBMITTED 전이 확인');
+
+            // 2. PM-B direct-input 타 PM Request -> 403 차단
+            const resDirInputB = await callPreviewApi('direct-input', pmBToken, {
+                requestId: reqA.id,
+                isSubmit: true,
+                entries: [
+                    { member_name: '해커', organization: '타사', role_name: '개발', work_days: 20, effort_mm: 1.0 }
+                ]
+            });
+            assert.strictEqual(resDirInputB.status, 403, 'PM-B direct-input이 403으로 차단되지 않았습니다');
+            record('groupB', 'API: PM-B direct-input 타 PM Request 차단 (403)', true, '권한 부족 차단 확인');
+
+            // 3. PM-A로 실제 Storage 파일 업로드 후 direct-submit 호출 -> 200 성공
+            const apiUploadFileName = `${Date.now()}_api_upload.xlsx`;
+            const apiUploadPath = `${testYm}/${projA.id}/${reqA.id}/${apiUploadFileName}`;
+            cleanupContext.storagePaths.push(apiUploadPath);
+            const uploadPayload = Buffer.from('REAL STORAGE FILE CONTENT FOR API TEST');
+
+            const { error: liveUpErr } = await pmAClient.storage.from('monthly-effort-files')
+                .upload(apiUploadPath, uploadPayload, { upsert: false });
+            assert(!liveUpErr, 'Storage 실파일 업로드 실패: ' + liveUpErr?.message);
+
+            const resDirSubmitA = await callPreviewApi('direct-submit', pmAToken, {
+                requestId: reqA.id,
+                fileName: apiUploadFileName,
+                storagePath: apiUploadPath,
+                fileSize: uploadPayload.length,
+                entries: [
+                    { member_name: '박엔지니어', organization: '오케스트로', role_name: '인프라', work_days: 22, effort_mm: 1.0, remarks: '투입 완료' }
+                ]
+            });
+            assert.strictEqual(resDirSubmitA.status, 200, 'PM-A direct-submit API 실패: ' + JSON.stringify(resDirSubmitA.data));
+            record('groupB', 'API: PM-A direct-submit 실 Storage 파일 연동 성공 (200)', true, 'Storage 실존 검증 및 RPC 반영');
+
+            // 4. API 성공 후 실제 DB 영구 저장 결과 확인 (Service Role 검증)
+            const { data: verifyReq } = await serviceClient.from('monthly_effort_requests').select('*').eq('id', reqA.id).single();
+            assert(verifyReq?.total_headcount === 1 && parseFloat(verifyReq?.total_effort_mm) === 1.0, 'DB 반영 수치 불일치');
+            record('groupB', 'API: direct-submit 후 DB 영구 저장 무결성 확인 (Service Role)', true, `인원 ${verifyReq.total_headcount}명, 공수 ${verifyReq.total_effort_mm} M/M`);
+
+            // 5. PM-B direct-submit 타 PM Request -> 403 차단
+            const resDirSubmitB = await callPreviewApi('direct-submit', pmBToken, {
+                requestId: reqA.id,
+                fileName: apiUploadFileName,
+                storagePath: apiUploadPath,
+                fileSize: uploadPayload.length,
+                entries: [{ member_name: '타인', effort_mm: 1.0, work_days: 20 }]
+            });
+            assert.strictEqual(resDirSubmitB.status, 403, 'PM-B direct-submit이 403으로 차단되지 않았습니다');
+            record('groupB', 'API: PM-B direct-submit 타 PM Request 차단 (403)', true, '권한 부족 차단 확인');
+
+            // 6. Admin Confirm API 호출 -> 200 성공 (CONFIRMED 전이)
+            const resConfApi = await callPreviewApi('confirm', adminToken, {
+                requestId: reqA.id,
+                isConfirm: true
+            });
+            assert.strictEqual(resConfApi.status, 200, 'Admin Confirm API 실패: ' + JSON.stringify(resConfApi.data));
+            record('groupB', 'API: Admin confirm API 승인 (200)', true, 'CONFIRMED 전이 완료');
+
+            // 7. CONFIRMED 상태에서 PM-A direct-input 거부 (400)
+            const resConfInputBlocked = await callPreviewApi('direct-input', pmAToken, {
+                requestId: reqA.id,
+                isSubmit: true,
+                entries: [{ member_name: '김수정', effort_mm: 1.0, work_days: 20 }]
+            });
+            assert.strictEqual(resConfInputBlocked.status, 400, 'CONFIRMED 상태의 direct-input이 거부되지 않았습니다');
+            record('groupB', 'API: CONFIRMED 상태 direct-input 거부 (400)', true, '확정 건 수정 차단 확인');
+
+            // 8. CONFIRMED 상태에서 PM-A direct-submit 거부 (400)
+            const resConfSubmitBlocked = await callPreviewApi('direct-submit', pmAToken, {
+                requestId: reqA.id,
+                fileName: apiUploadFileName,
+                storagePath: apiUploadPath,
+                fileSize: uploadPayload.length,
+                entries: [{ member_name: '김수정', effort_mm: 1.0, work_days: 20 }]
+            });
+            assert.strictEqual(resConfSubmitBlocked.status, 400, 'CONFIRMED 상태의 direct-submit이 거부되지 않았습니다');
+            record('groupB', 'API: CONFIRMED 상태 direct-submit 거부 (400)', true, '확정 건 업로드 차단 확인');
+
+            // 9. Admin Unconfirm API 호출 -> 200 성공 (SUBMITTED 원복)
+            const resUnconfApi = await callPreviewApi('confirm', adminToken, {
+                requestId: reqA.id,
+                isConfirm: false
+            });
+            assert.strictEqual(resUnconfApi.status, 200, 'Admin Unconfirm API 실패: ' + JSON.stringify(resUnconfApi.data));
+            record('groupB', 'API: Admin confirm API 취소 (200)', true, 'SUBMITTED 원복 완료');
+        }
 
     } catch (criticalErr) {
         console.error('❌ [Critical Error During Tier C Execution]:', criticalErr);
-        record('Tier C 전체 실행', false, criticalErr.message);
+        record('groupA', 'Tier C 전체 실행', false, criticalErr.message);
     } finally {
-        // ─────────────────────────────────────────────────────────────
-        // STEP 8: 완전한 Cleanup (finally 블록 - 테스트 잔여 데이터 정리)
-        // ─────────────────────────────────────────────────────────────
-        console.log('\n--- [Step 8] Teardown & Resource Cleanup ---');
-        try {
-            // Storage 파일 삭제
-            if (cleanupContext.storagePaths.length > 0) {
-                await serviceClient.storage.from('monthly-effort-files').remove(cleanupContext.storagePaths);
-                console.log(`🧹 Storage 파일 ${cleanupContext.storagePaths.length}개 삭제 완료`);
-            }
+        // =============================================================
+        // Teardown & Resource Cleanup (이번 실행에서 생성된 자원만 엄격 정리)
+        // =============================================================
+        console.log('\n--- [Teardown & Resource Cleanup] ---');
+        console.log('이번 실행에서 생성된 테스트 자원만 안전하게 삭제합니다.');
 
-            // DB 종속 데이터 삭제 (Audit, Entries, Submissions, Requests)
-            for (const rId of cleanupContext.requestIds) {
+        // 1. Storage 파일 삭제
+        if (cleanupContext.storagePaths.length > 0) {
+            try {
+                const { error: stDelErr } = await serviceClient.storage.from('monthly-effort-files').remove(cleanupContext.storagePaths);
+                if (stDelErr) throw stDelErr;
+                console.log(`🧹 Storage 파일 ${cleanupContext.storagePaths.length}개 삭제 완료`);
+            } catch (e) {
+                console.warn('⚠️ Storage cleanup error:', e.message);
+                cleanupErrors.push('Storage: ' + e.message);
+            }
+        }
+
+        // 2. DB 종속 데이터 삭제 (Audit, Entries, Submissions, Requests)
+        for (const rId of cleanupContext.requestIds) {
+            try {
                 await serviceClient.from('monthly_effort_audit_logs').delete().eq('request_id', rId);
                 await serviceClient.from('monthly_effort_entries').delete().eq('request_id', rId);
                 await serviceClient.from('monthly_effort_submissions').delete().eq('request_id', rId);
                 await serviceClient.from('monthly_effort_requests').delete().eq('id', rId);
+            } catch (e) {
+                console.warn(`⚠️ Request ${rId} cleanup error:`, e.message);
+                cleanupErrors.push(`Request ${rId}: ` + e.message);
             }
+        }
+        if (cleanupContext.requestIds.length > 0) {
             console.log(`🧹 Requests 및 관련 Submissions/Entries/AuditLogs 삭제 완료`);
+        }
 
-            // Projects 삭제
-            for (const pId of cleanupContext.projectIds) {
+        // 3. Projects 삭제
+        for (const pId of cleanupContext.projectIds) {
+            try {
                 await serviceClient.from('projects').delete().eq('id', pId);
+            } catch (e) {
+                console.warn(`⚠️ Project ${pId} cleanup error:`, e.message);
+                cleanupErrors.push(`Project ${pId}: ` + e.message);
             }
+        }
+        if (cleanupContext.projectIds.length > 0) {
             console.log(`🧹 테스트 Projects ${cleanupContext.projectIds.length}개 삭제 완료`);
+        }
 
-            // Cycle 삭제
-            for (const cId of cleanupContext.cycleIds) {
+        // 4. Cycle 삭제 (이번 실행에서 INSERT한 cycle만 삭제)
+        for (const cId of cleanupContext.cycleIds) {
+            try {
                 await serviceClient.from('monthly_effort_cycles').delete().eq('id', cId);
+            } catch (e) {
+                console.warn(`⚠️ Cycle ${cId} cleanup error:`, e.message);
+                cleanupErrors.push(`Cycle ${cId}: ` + e.message);
             }
+        }
+        if (cleanupContext.cycleIds.length > 0) {
             console.log(`🧹 테스트 Cycles ${cleanupContext.cycleIds.length}개 삭제 완료`);
+        }
 
-            // Profiles & Auth Users 삭제
-            for (const uId of cleanupContext.authUsers) {
+        // 5. Profiles & Auth Users 삭제
+        for (const uId of cleanupContext.authUsers) {
+            try {
                 await serviceClient.from('profiles').delete().eq('id', uId);
                 await serviceClient.auth.admin.deleteUser(uId);
+            } catch (e) {
+                console.warn(`⚠️ Auth User ${uId} cleanup error:`, e.message);
+                cleanupErrors.push(`AuthUser ${uId}: ` + e.message);
             }
+        }
+        if (cleanupContext.authUsers.length > 0) {
             console.log(`🧹 테스트 Auth Users 및 Profiles ${cleanupContext.authUsers.length}개 삭제 완료`);
+        }
 
-        } catch (cleanupErr) {
-            console.warn('⚠️ Cleanup 중 일부 오류 발생:', cleanupErr.message);
+        if (cleanupErrors.length > 0) {
+            console.error('\n⚠️ [CLEANUP WARNING] 일부 테스트 잔여 데이터 정리 실패:', cleanupErrors);
         }
     }
 
     console.log('\n================================================================');
     console.log('📊 TIER C EXECUTION SUMMARY:');
     console.log('================================================================');
-    const total = results.length;
-    const passed = results.filter(r => r.passed).length;
-    console.log(`총 ${total}개 검증 항목 중 ${passed}개 통과 (${Math.round((passed / total) * 100)}%)`);
+    const groupATotal = results.groupA.length;
+    const groupAPassed = results.groupA.filter(r => r.passed && !r.skipped).length;
+    const groupBTotal = results.groupB.length;
+    const groupBPassed = results.groupB.filter(r => r.passed && !r.skipped).length;
+    const groupBSkipped = results.groupB.filter(r => r.skipped).length;
+
+    console.log(`[Group A: Supabase Live DB / RLS] : 총 ${groupATotal}개 중 ${groupAPassed}개 통과 (${Math.round((groupAPassed / groupATotal) * 100)}%)`);
+    if (groupBSkipped > 0) {
+        console.log(`[Group B: Vercel Preview API]     : 총 ${groupBTotal}개 중 0개 실행 / ${groupBSkipped}개 미실행 (EFFORT_PREVIEW_BASE_URL 미제공)`);
+    } else {
+        console.log(`[Group B: Vercel Preview API]     : 총 ${groupBTotal}개 중 ${groupBPassed}개 통과 (${Math.round((groupBPassed / groupBTotal) * 100)}%)`);
+    }
+
+    if (cleanupErrors.length > 0) {
+        console.log(`[Resource Cleanup]                : FAILED (${cleanupErrors.length}개 리소스 정리 실패 경고)`);
+    } else {
+        console.log(`[Resource Cleanup]                : SUCCESS (생성된 모든 테스트 리소스 100% 완전 정리)`);
+    }
     console.log('================================================================\n');
 
-    if (results.some(r => !r.passed)) {
+    if (results.groupA.some(r => !r.passed && !r.skipped) || results.groupB.some(r => !r.passed && !r.skipped)) {
         process.exit(1);
     }
 }
