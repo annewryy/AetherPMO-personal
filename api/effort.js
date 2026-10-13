@@ -321,9 +321,20 @@ module.exports = async function handler(req, res) {
                                       (process.env.EFFORT_MAIL_MOCK_ENABLED === 'true' ? 'MOCK_SIMULATOR' : 'NONE'))
                 };
 
+                const runtimeSupabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+                let runtimeSupabaseProjectRef = null;
+                try {
+                    runtimeSupabaseProjectRef = runtimeSupabaseUrl ? new URL(runtimeSupabaseUrl).hostname.split('.')[0] : null;
+                } catch (_) {}
+
                 return res.status(200).json({
                     success: true,
                     service: 'AetherPMO Monthly Effort API',
+                    tiercRuntime: process.env.VERCEL_ENV === 'preview' ? {
+                        supabaseProjectRef: runtimeSupabaseProjectRef,
+                        hasServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+                        hasPublicKey: !!(process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
+                    } : undefined,
                     version: '1.2.0',
                     timestamp: new Date().toISOString(),
                     mailConfig,
