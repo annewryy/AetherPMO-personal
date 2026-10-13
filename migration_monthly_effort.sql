@@ -468,12 +468,18 @@ CREATE POLICY "monthly_effort_files_insert" ON storage.objects
 
 -- 10. 트리거 함수 (updated_at 자동 갱신)
 CREATE OR REPLACE FUNCTION public.fn_update_monthly_effort_timestamp()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog, public
+AS $
 BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$;
+
+REVOKE ALL ON FUNCTION public.fn_update_monthly_effort_timestamp() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS tr_monthly_effort_cycles_updated_at ON public.monthly_effort_cycles;
 CREATE TRIGGER tr_monthly_effort_cycles_updated_at
