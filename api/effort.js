@@ -247,14 +247,8 @@ module.exports = async function handler(req, res) {
                     if (createErr || !createdUser?.user?.id) throw createErr || new Error('Auth user creation failed');
 
                     const userId = createdUser.user.id;
-                    const { error: profileErr } = await svc.from('profiles').upsert({
-                        id: userId,
-                        email,
-                        name: `Tier C ${label}`,
-                        role
-                    }, { onConflict: 'id' });
-                    if (profileErr) throw profileErr;
-
+                    // 운영 profiles는 service_role에 DML 권한을 주지 않으므로 여기서 직접 수정하지 않는다.
+                    // Tier C 러너가 DB 관리자 경로로 임시 profile을 생성/role 지정한다.
                     const client = createClient(supabaseUrl, publicKey, {
                         auth: { persistSession: false, autoRefreshToken: false }
                     });
