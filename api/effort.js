@@ -17,6 +17,7 @@ const {
 } = require('./lib/effort-mail-adapter');
 
 const { parseEffortData } = require('./lib/effort-excel-parser');
+const crypto = require('crypto');
 
 // Supabase 클라이언트 로더
 let createClient;
@@ -209,6 +210,98 @@ module.exports = async function handler(req, res) {
 
     try {
         switch (action) {
+            // ─────────────────────────────────────────────────────────────
+            // TEMP Tier C Preview-only auth bootstrap/cleanup
+            // - Production에서 무조건 404
+            // - TIER_C_TEST_SECRET 헤더 일치 시에만 임시 Auth 사용자 생성/삭제
+            // - 실제 Tier C 검증 완료 직후 제거 예정
+            // ─────────────────────────────────────────────────────────────
+            case 'tierc-bootstrap': {
+                if (process.env.VERCEL_ENV !== 'preview' || !process.env.TIER_C_TEST_SECRET) {
+                    return res.status(404).json({ error: 'Not Found' });
+                }
+                if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+                if ((req.headers['x-tierc-test-secret'] || '') !== process.env.TIER_C_TEST_SECRET) {
+                    return res.status(403).json({ error: 'Forbidden' });
+                }
+
+                const svc = getServiceSupabaseClient();
+                const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+                const publicKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+                if (!svc || !supabaseUrl || !publicKey || !createClient) {
+                    return res.status(503).json({ error: 'Tier C bootstrap dependencies are not configured.' });
+                }
+
+                const suffix = Date.now().toString(36) + '-' + crypto.randomBytes(3).toString('hex');
+                const created = [];
+
+                const makeUser = async (label, role) => {
+                    const email = `tierc-${label}-${suffix}@aetherpmo.test`;
+                    const password = 'T!' + crypto.randomBytes(18).toString('base64url') + '9#';
+                    const { data: createdUser, error: createErr } = await svc.auth.admin.createUser({
+                        email,
+                        password,
+                        email_confirm: true,
+                        user_metadata: { name: `Tier C ${label}` }
+                    });
+                    if (createErr || !createdUser?.user?.id) throw createErr || new Error('Auth user creation failed');
+
+                    const userId = createdUser.user.id;
+                    const { error: profileErr } = await svc.from('profiles').upsert({
+                        id: userId,
+                        email,
+                        name: `Tier C ${label}`,
+                        role
+                    }, { onConflict: 'id' });
+                    if (profileErr) throw profileErr;
+
+                    const client = createClient(supabaseUrl, publicKey, {
+                        auth: { persistSession: false, autoRefreshToken: false }
+                    });
+                    const { data: login, error: loginErr } = await client.auth.signInWithPassword({ email, password });
+                    if (loginErr || !login?.session?.access_token) throw loginErr || new Error('Temp user login failed');
+
+                    created.push(userId);
+                    return {
+                        id: userId,
+                        email,
+                        role,
+                        accessToken: login.session.access_token
+                    };
+                };
+
+                try {
+                    const pmA = await makeUser('pma', 'PM');
+                    const pmB = await makeUser('pmb', 'PM');
+                    const admin = await makeUser('admin', 'SYS_ADMIN');
+                    return res.status(200).json({ success: true, users: { pmA, pmB, admin } });
+                } catch (err) {
+                    for (const userId of created.reverse()) {
+                        await svc.auth.admin.deleteUser(userId).catch(() => {});
+                    }
+                    return res.status(500).json({ success: false, error: err.message });
+                }
+            }
+
+            case 'tierc-cleanup': {
+                if (process.env.VERCEL_ENV !== 'preview' || !process.env.TIER_C_TEST_SECRET) {
+                    return res.status(404).json({ error: 'Not Found' });
+                }
+                if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+                if ((req.headers['x-tierc-test-secret'] || '') !== process.env.TIER_C_TEST_SECRET) {
+                    return res.status(403).json({ error: 'Forbidden' });
+                }
+                const svc = getServiceSupabaseClient();
+                if (!svc) return res.status(503).json({ error: 'Service client unavailable' });
+                const ids = Array.isArray(req.body?.userIds) ? req.body.userIds : [];
+                const errors = [];
+                for (const userId of ids) {
+                    const { error } = await svc.auth.admin.deleteUser(userId);
+                    if (error) errors.push({ userId, error: error.message });
+                }
+                return res.status(errors.length ? 500 : 200).json({ success: errors.length === 0, errors });
+            }
+
             // ─────────────────────────────────────────────────────────────
             // 1. 상태 및 연동 환경 확인 (Health Check)
             // ─────────────────────────────────────────────────────────────
