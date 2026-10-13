@@ -233,6 +233,51 @@ module.exports = async function handler(req, res) {
 
     try {
         switch (action) {
+            // TEMP cleanup-only Tier C route (Preview only; remove immediately after cleanup)
+            case 'tierc-cleanup': {
+                if (process.env.VERCEL_ENV !== 'preview' || !process.env.TIER_C_TEST_SECRET) {
+                    return res.status(404).json({ error: 'Not Found' });
+                }
+                if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+                if ((req.headers['x-tierc-test-secret'] || '') !== process.env.TIER_C_TEST_SECRET) {
+                    return res.status(403).json({ error: 'Forbidden' });
+                }
+                const svc = getServiceSupabaseClient();
+                if (!svc) return res.status(503).json({ error: 'Service client unavailable' });
+
+                const ids = Array.isArray(req.body?.userIds) ? req.body.userIds : [];
+                const storagePaths = Array.isArray(req.body?.storagePaths) ? req.body.storagePaths : [];
+                const errors = [];
+                let removedStorageCount = 0;
+                let deletedUserCount = 0;
+
+                for (const storagePath of storagePaths) {
+                    const isAllowedTestPath =
+                        typeof storagePath === 'string' &&
+                        /^209[89]-\d{2}\/tierc-[^/]+\/[^/]+\/.+/.test(storagePath);
+                    if (!isAllowedTestPath) {
+                        errors.push({ storagePath, error: 'Refusing to delete non-Tier-C storage path' });
+                        continue;
+                    }
+                    const { error } = await svc.storage.from('monthly-effort-files').remove([storagePath]);
+                    if (error) errors.push({ storagePath, error: error.message });
+                    else removedStorageCount += 1;
+                }
+
+                for (const userId of ids) {
+                    const { error } = await svc.auth.admin.deleteUser(userId);
+                    if (error) errors.push({ userId, error: error.message });
+                    else deletedUserCount += 1;
+                }
+
+                return res.status(errors.length ? 500 : 200).json({
+                    success: errors.length === 0,
+                    removedStorageCount,
+                    deletedUserCount,
+                    errors
+                });
+            }
+
             // ─────────────────────────────────────────────────────────────
             // 1. 상태 및 연동 환경 확인 (Health Check)
             // ─────────────────────────────────────────────────────────────
