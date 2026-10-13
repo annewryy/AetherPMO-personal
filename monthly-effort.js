@@ -2032,7 +2032,7 @@
                         .from('monthly-effort-files')
                         .upload(storagePath, file, {
                             cacheControl: '3600',
-                            upsert: true
+                            upsert: false
                         });
 
                     if (uploadErr) {

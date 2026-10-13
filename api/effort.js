@@ -585,7 +585,7 @@ module.exports = async function handler(req, res) {
                     .from('monthly-effort-files')
                     .upload(storagePath, fileBuffer, {
                         contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                        upsert: true
+                        upsert: false
                     });
 
                 if (uploadErr) {
@@ -862,25 +862,41 @@ module.exports = async function handler(req, res) {
                     });
                 }
 
-                // Service Role Storage API로 해당 object 실존 여부 확인
-                if (supabase.storage && typeof supabase.storage.from === 'function') {
-                    try {
-                        const bucket = supabase.storage.from('monthly-effort-files');
-                        const folderPath = pathSegments.slice(0, -1).join('/');
-                        if (typeof bucket.list === 'function') {
-                            const { data: listedFiles, error: listErr } = await bucket.list(folderPath, { search: pathFileName });
-                            if (!listErr && Array.isArray(listedFiles)) {
-                                const found = listedFiles.some(f => f.name === pathFileName);
-                                if (!found && listedFiles.length > 0) {
-                                    return res.status(400).json({
-                                        error: `Storage에 파일이 존재하지 않습니다: '${storagePath}'`
-                                    });
-                                }
-                            }
-                        }
-                    } catch (storageCheckErr) {
-                        console.warn('[DirectSubmit] Storage object check warning:', storageCheckErr?.message);
+                // Service Role Storage API로 해당 object 실존 여부 확인 (Fail-Closed)
+                if (!supabase.storage || typeof supabase.storage.from !== 'function') {
+                    return res.status(503).json({
+                        error: '서버 Storage 서비스를 사용할 수 없습니다. (Fail-Closed)'
+                    });
+                }
+
+                try {
+                    const bucket = supabase.storage.from('monthly-effort-files');
+                    const folderPath = pathSegments.slice(0, -1).join('/');
+                    if (typeof bucket.list !== 'function') {
+                        return res.status(503).json({
+                            error: 'Storage list API가 지원되지 않습니다. (Fail-Closed)'
+                        });
                     }
+
+                    const { data: listedFiles, error: listErr } = await bucket.list(folderPath, { search: pathFileName });
+                    if (listErr) {
+                        console.error('[DirectSubmit] Storage list error:', listErr);
+                        return res.status(503).json({
+                            error: `Supabase Storage 파일 목록 조회 실패: ${listErr.message || 'Storage error'} (Fail-Closed)`
+                        });
+                    }
+
+                    const exists = Array.isArray(listedFiles) && listedFiles.some(f => f.name === pathFileName);
+                    if (!exists) {
+                        return res.status(404).json({
+                            error: `Storage에 파일이 존재하지 않습니다: '${storagePath}'`
+                        });
+                    }
+                } catch (storageCheckErr) {
+                    console.error('[DirectSubmit] Storage check exception:', storageCheckErr);
+                    return res.status(503).json({
+                        error: `Supabase Storage 파일 확인 중 오류 발생: ${storageCheckErr.message} (Fail-Closed)`
+                    });
                 }
 
                 const entriesList = Array.isArray(entries) ? entries : [];

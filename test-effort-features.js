@@ -550,6 +550,10 @@ async function runTests() {
     };
 
     let directRpcCapturedPayload = null;
+    let mockStorageListError = null;
+    let mockStorageMissingFile = false;
+    let mockStorageException = false;
+
     global.__mockSupabaseClient = {
         from: (table) => ({
             select: () => ({
@@ -562,6 +566,23 @@ async function runTests() {
                 })
             })
         }),
+        storage: {
+            from: (bucket) => ({
+                list: (folder, options) => {
+                    if (mockStorageException) {
+                        throw new Error('Storage network timeout');
+                    }
+                    if (mockStorageListError) {
+                        return Promise.resolve({ data: null, error: mockStorageListError });
+                    }
+                    if (mockStorageMissingFile) {
+                        return Promise.resolve({ data: [], error: null });
+                    }
+                    const searchName = options?.search || 'pm_effort.xlsx';
+                    return Promise.resolve({ data: [{ name: searchName }], error: null });
+                }
+            })
+        },
         rpc: (fn, params) => {
             if (fn === 'process_monthly_effort_direct_submission') {
                 directRpcCapturedPayload = params;
@@ -813,8 +834,62 @@ async function runTests() {
     assert.strictEqual(resDirNameMismatch.get().statusCode, 400, 'filename mismatch must return 400');
     assert(resDirNameMismatch.get().responseData.error.includes('일치하지 않습니다'));
 
+    // 6-16. direct-submit Storage API 에러 발생 시 Fail-Closed 503 거부
+    mockStorageListError = { message: 'Storage rate limit exceeded' };
+    const resDirStorageErr = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_PM_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: {
+            requestId: 'req-pm-1',
+            fileName: 'pm_effort.xlsx',
+            storagePath: '2026-09/proj-1/req-pm-1/pm_effort.xlsx',
+            fileSize: 1024
+        }
+    }, resDirStorageErr);
+    assert.strictEqual(resDirStorageErr.get().statusCode, 503, 'Storage API list error must return 503 (Fail-Closed)');
+    assert(resDirStorageErr.get().responseData.error.includes('Fail-Closed'));
+    mockStorageListError = null;
+
+    // 6-17. direct-submit Storage에 실 파일 미존재 시 Fail-Closed 404 거부
+    mockStorageMissingFile = true;
+    const resDirFileNotFound = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_PM_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: {
+            requestId: 'req-pm-1',
+            fileName: 'pm_effort.xlsx',
+            storagePath: '2026-09/proj-1/req-pm-1/pm_effort.xlsx',
+            fileSize: 1024
+        }
+    }, resDirFileNotFound);
+    assert.strictEqual(resDirFileNotFound.get().statusCode, 404, 'Missing storage file must return 404 (Fail-Closed)');
+    assert(resDirFileNotFound.get().responseData.error.includes('존재하지 않습니다'));
+    mockStorageMissingFile = false;
+
+    // 6-18. direct-submit Storage 확인 중 예외(timeout) 발생 시 Fail-Closed 503 거부
+    mockStorageException = true;
+    const resDirStorageExcept = createMockRes();
+    await effortApiHandler({
+        method: 'POST',
+        headers: { authorization: 'Bearer TEST_PM_TOKEN' },
+        query: { action: 'direct-submit' },
+        body: {
+            requestId: 'req-pm-1',
+            fileName: 'pm_effort.xlsx',
+            storagePath: '2026-09/proj-1/req-pm-1/pm_effort.xlsx',
+            fileSize: 1024
+        }
+    }, resDirStorageExcept);
+    assert.strictEqual(resDirStorageExcept.get().statusCode, 503, 'Storage exception must return 503 (Fail-Closed)');
+    assert(resDirStorageExcept.get().responseData.error.includes('Fail-Closed'));
+    mockStorageException = false;
+
     delete global.__mockSupabaseClient;
-    console.log('✅ Test 6 Passed: Direct-submit 권한 통제 및 서버 데이터 검증 (anonymous 401, worker 403, 타 PM 403, 담당 PM 200, Admin 200, CONFIRMED 거부, 사용자 위조 차단, effort_mm 범위 검증, 성명 필수 검증, 클라이언트 조작 공수 무시/서버 재계산 강제, storagePath 격리, 필수값 fileName/storagePath/fileSize 검증, 파일명 일치 검증) 검증 완료');
+    console.log('✅ Test 6 Passed: Direct-submit 권한 통제 및 서버 데이터 검증 (anonymous 401, worker 403, 타 PM 403, 담당 PM 200, Admin 200, CONFIRMED 거부, 사용자 위조 차단, effort_mm 범위 검증, 성명 필수 검증, 클라이언트 조작 공수 무시/서버 재계산 강제, storagePath 격리, 필수값 fileName/storagePath/fileSize 검증, 파일명 일치 검증, Storage 실존 여부 Fail-Closed 503/404 검증) 검증 완료');
 
     // ─────────────────────────────────────────────────────────────────
     // TEST 7: Direct Input (수기 직접입력) 트랜잭션 RPC 통제 & 권한 검증
