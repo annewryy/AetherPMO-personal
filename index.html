@@ -216,11 +216,11 @@
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
                     </a>
                     <div class="nav-submenu">
-                        <a href="#salaries" class="submenu-item" data-subview="salaries" onclick="event.preventDefault(); window.app.switchView('salaries');">
+                        <a href="#salaries" class="submenu-item" data-subview="salaries" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('salaries');">
                             <i data-lucide="calculator"></i>
                             <span>월급여 정산</span>
                         </a>
-                        <a href="#salaries/effort" class="submenu-item" data-subview="monthly-effort" onclick="event.preventDefault(); window.app.switchView('monthly-effort');">
+                        <a href="#monthly-effort" class="submenu-item" data-subview="monthly-effort" onclick="event.preventDefault(); event.stopPropagation(); window.app.switchView('monthly-effort');">
                             <i data-lucide="clock-alert"></i>
                             <span>월투입공수 관리</span>
                         </a>

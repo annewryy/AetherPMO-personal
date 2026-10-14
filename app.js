@@ -4793,13 +4793,24 @@ class AetherPMO {
 
                     // If opened and not collapsed, navigate to view/sub-item
                     if (!isCollapsed && view) {
-                        if (view === 'projects') {
+                        const curHash = (window.location.hash || '').replace('#', '');
+                        if (view === 'salaries') {
+                            // 이미 월투입공수 또는 월급여 화면에 있으면 해시를 덮어쓰지 않음 (단순 아코디언 토글)
+                            if (curHash === 'monthly-effort' || curHash === 'salaries/effort' || curHash === 'salaries') {
+                                return;
+                            }
+                            // 아코디언만 펼치고 자동 해시 이동은 방지 (서브메뉴 선택 유도)
+                            return;
+                        } else if (view === 'projects') {
+                            if (curHash.startsWith('projects/')) return;
                             const stage = (this.activeProjectStageFilter || 'Bidding').toLowerCase();
                             window.location.hash = `projects/${stage}`;
                         } else if (view === 'resources') {
+                            if (curHash.startsWith('resources/')) return;
                             const sub = (this.activeResourceSubTab || 'members');
                             window.location.hash = `resources/${sub}`;
                         } else if (view === 'board') {
+                            if (curHash.startsWith('board/')) return;
                             window.location.hash = 'board/notices';
                         } else {
                             window.location.hash = view;
@@ -4833,7 +4844,9 @@ class AetherPMO {
                         const sub = hashPath.split('/')[1];
                         this.activeResourceSubTab = sub;
                     }
-                    window.location.hash = hashPath;
+                    if (window.location.hash !== href) {
+                        window.location.hash = hashPath;
+                    }
                 }
                 // Ensure parent wrapper is expanded when sub-item is clicked
                 const wrapper = item.closest('.nav-item-wrapper');
@@ -5113,6 +5126,9 @@ class AetherPMO {
     }
 
     async handleRouting() {
+        const routeToken = Symbol('routingToken');
+        this._currentRoutingToken = routeToken;
+
         console.log('[handleRouting:start]', {
             href: location.href,
             hash: location.hash,
@@ -5121,6 +5137,11 @@ class AetherPMO {
 
         // First check authentication
         const isAuthenticated = await this.checkAuth();
+        if (this._currentRoutingToken !== routeToken) {
+            console.log('[handleRouting] Cancelled: newer navigation in progress');
+            return;
+        }
+
         if (!isAuthenticated) {
             // Force show login wrapper and block further routing
             if (window.location.hash !== '') {
@@ -5256,6 +5277,15 @@ class AetherPMO {
             this.activeGlobalTemplateType  = type;
             this.activeGlobalTemplateStage = stage;
             await this.switchView('artifacts');
+        } else if (mainRoute === 'salaries') {
+            const sub = parts[1];
+            if (sub === 'effort' || sub === 'monthly-effort') {
+                await this.switchView('monthly-effort');
+            } else {
+                await this.switchView('salaries');
+            }
+        } else if (mainRoute === 'monthly-effort') {
+            await this.switchView('monthly-effort');
         } else {
             await this.switchView(mainRoute);
         }
@@ -5328,6 +5358,8 @@ class AetherPMO {
 
     async switchView(viewName, params = null, options = {}) {
         this.closeMobileDrawer();
+        this._currentRoutingToken = Symbol('switchViewToken');
+        this.currentView = viewName;
 
         const titleMap = {
             'dashboard': '홈',
@@ -9539,6 +9571,20 @@ renderTodayTasksRoleBased(todayStr) {
 
             const resWrapper = document.getElementById('nav-wrapper-resources') || resNav?.closest('.nav-item-wrapper');
             if (resWrapper) resWrapper.classList.remove('collapsed');
+        } else if (typeof route === 'string' && (route === 'salaries' || route.startsWith('salaries/') || route === 'monthly-effort')) {
+            const salariesWrapper = document.getElementById('nav-wrapper-salaries');
+            if (salariesWrapper) salariesWrapper.classList.remove('collapsed');
+
+            const salariesNav = document.querySelector('.nav-item[data-view="salaries"]');
+            if (salariesNav) salariesNav.classList.add('active');
+
+            if (route === 'salaries/effort' || route === 'monthly-effort') {
+                const effortSubmenu = document.querySelector('.submenu-item[data-subview="monthly-effort"]');
+                if (effortSubmenu) effortSubmenu.classList.add('active');
+            } else {
+                const salarySubmenu = document.querySelector('.submenu-item[data-subview="salaries"]');
+                if (salarySubmenu) salarySubmenu.classList.add('active');
+            }
         } else if (typeof route === 'string' && (route === 'backup' || route === 'menu-settings' || route === 'user-mgmt' || route.startsWith('backup'))) {
             const adminWrapper = document.getElementById('nav-wrapper-system-settings');
             if (adminWrapper) adminWrapper.classList.remove('collapsed');
@@ -29670,13 +29716,22 @@ renderTodayTasksRoleBased(todayStr) {
         const view = item.getAttribute('data-view');
 
         if (!isCollapsed && view) {
-            if (view === 'projects') {
+            const curHash = (window.location.hash || '').replace('#', '');
+            if (view === 'salaries') {
+                if (curHash === 'monthly-effort' || curHash === 'salaries/effort' || curHash === 'salaries') {
+                    return;
+                }
+                return;
+            } else if (view === 'projects') {
+                if (curHash.startsWith('projects/')) return;
                 const stage = (this.activeProjectStageFilter || 'Bidding').toLowerCase();
                 window.location.hash = `projects/${stage}`;
             } else if (view === 'resources') {
+                if (curHash.startsWith('resources/')) return;
                 const sub = (this.activeResourceSubTab || 'members');
                 window.location.hash = `resources/${sub}`;
             } else if (view === 'board') {
+                if (curHash.startsWith('board/')) return;
                 window.location.hash = 'board/notices';
             } else {
                 window.location.hash = view;
@@ -36357,7 +36412,10 @@ renderTodayTasksRoleBased(todayStr) {
                 children.forEach(c => {
                     const cIcon = c.icon ? `<i data-lucide="${c.icon}"></i>` : '';
                     const cRoute = c.route || '#';
-                    const cViewTarget = c.view_id ? c.view_id.replace('view-', '') : (c.route ? c.route.replace('#', '') : c.menu_code.toLowerCase());
+                    let cViewTarget = c.view_id ? c.view_id.replace('view-', '') : (c.route ? c.route.replace('#', '') : c.menu_code.toLowerCase());
+                    if (cViewTarget === 'salaries/effort' || c.route === '#monthly-effort' || c.route === '#salaries/effort' || c.menu_code === 'SALARIES_EFFORT') {
+                        cViewTarget = 'monthly-effort';
+                    }
                     html += `
                         <a href="${cRoute}" class="submenu-item" data-subview="${c.menu_code.toLowerCase()}"
                            onclick="event.preventDefault();event.stopPropagation();window.app?.switchView?.('${cViewTarget}')">
