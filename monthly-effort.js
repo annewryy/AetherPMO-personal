@@ -210,6 +210,32 @@
                 if (stRes.ok) {
                     const stData = await stRes.json();
                     this.serverMailConfig = stData.mailConfig || {};
+
+                    // Vercel 정적 배포 시 SUPABASE_CONFIG가 누락된 경우 서버리스 API 설정으로 자동 복구
+                    if (stData.publicSupabase?.url && stData.publicSupabase?.anonKey) {
+                        const currentUrl = window.SUPABASE_CONFIG?.url;
+                        if (!currentUrl || currentUrl === 'YOUR_SUPABASE_PROJECT_URL') {
+                            window.SUPABASE_CONFIG = {
+                                url: stData.publicSupabase.url,
+                                anonKey: stData.publicSupabase.anonKey
+                            };
+                            if (typeof window.supabase !== 'undefined') {
+                                const newClient = window.supabase.createClient(stData.publicSupabase.url, stData.publicSupabase.anonKey, {
+                                    auth: {
+                                        storage: window.sessionStorage,
+                                        persistSession: true,
+                                        detectSessionInUrl: false
+                                    }
+                                });
+                                this.supabase = newClient;
+                                this.useSupabase = true;
+                                if (window.app) {
+                                    window.app.supabase = newClient;
+                                    window.app.useSupabase = true;
+                                }
+                            }
+                        }
+                    }
                 }
             } catch (stErr) {
                 console.warn('[MonthlyEffort] Status API fetch warning:', stErr);
@@ -2625,9 +2651,39 @@
 
         // 실제 Supabase 클라이언트 및 세션 상태 검증 (연결 오류 / 세션 만료 / 클라이언트 부재 분기)
         app.checkSupabaseAuth = async function() {
-            const supabase = (typeof this.getSupabaseClient === 'function')
+            let supabase = (typeof this.getSupabaseClient === 'function')
                 ? this.getSupabaseClient()
                 : (this.supabase || window.app?.supabase);
+
+            if (!supabase) {
+                try {
+                    const stRes = await fetch('/api/effort?action=status');
+                    if (stRes.ok) {
+                        const stData = await stRes.json();
+                        if (stData.publicSupabase?.url && stData.publicSupabase?.anonKey && typeof window.supabase !== 'undefined') {
+                            window.SUPABASE_CONFIG = {
+                                url: stData.publicSupabase.url,
+                                anonKey: stData.publicSupabase.anonKey
+                            };
+                            supabase = window.supabase.createClient(stData.publicSupabase.url, stData.publicSupabase.anonKey, {
+                                auth: {
+                                    storage: window.sessionStorage,
+                                    persistSession: true,
+                                    detectSessionInUrl: false
+                                }
+                            });
+                            this.supabase = supabase;
+                            this.useSupabase = true;
+                            if (window.app) {
+                                window.app.supabase = supabase;
+                                window.app.useSupabase = true;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[MonthlyEffort] Auth fallback status fetch warning:', e);
+                }
+            }
 
             if (!supabase) {
                 return {

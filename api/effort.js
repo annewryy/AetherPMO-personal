@@ -252,12 +252,19 @@ module.exports = async function handler(req, res) {
                                       (process.env.EFFORT_MAIL_MOCK_ENABLED === 'true' ? 'MOCK_SIMULATOR' : 'NONE'))
                 };
 
+                const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || null;
+                const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || null;
+
                 return res.status(200).json({
                     success: true,
                     service: 'AetherPMO Monthly Effort API',
                     version: '1.2.0',
                     timestamp: new Date().toISOString(),
                     mailConfig,
+                    publicSupabase: {
+                        url: supabaseUrl,
+                        anonKey: supabaseAnonKey
+                    },
                     notes: '회신 메일 수집은 현재 수동 Sync 가능 / 자동 스케줄(Vercel Cron) 미설정 상태입니다.'
                 });
             }
