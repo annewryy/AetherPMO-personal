@@ -829,9 +829,9 @@
             // 재발송: 미회신 건 (status === 'SENT' or 'NEEDS_REVIEW') & pm_email 존재
             let targetRequests = [];
             if (!isResend) {
-                targetRequests = allRequests.filter(r => r.status === 'UNSENT' && r.pm_email);
+                targetRequests = allRequests.filter(r => r.status === 'UNSENT' && (r.collector_email || r.pm_email));
             } else {
-                targetRequests = allRequests.filter(r => (r.status === 'SENT' || r.status === 'NEEDS_REVIEW') && !r.submitted_at && r.pm_email);
+                targetRequests = allRequests.filter(r => (r.status === 'SENT' || r.status === 'NEEDS_REVIEW') && !r.submitted_at && (r.collector_email || r.pm_email));
             }
 
             if (targetRequests.length === 0) {
@@ -865,7 +865,7 @@
                     <tr style="border-bottom: 1px solid var(--bg-card-border);">
                         <td style="padding: 8px 10px; font-family: monospace; font-weight: 600;">${this.escapeHtml(r.project_code)}</td>
                         <td style="padding: 8px 10px; font-weight: 500;">${this.escapeHtml(r.project_name)}</td>
-                        <td style="padding: 8px 10px; text-align: center;">${this.escapeHtml(r.pm_name || '-')}</td>
+                        <td style="padding: 8px 10px; text-align: center;">${this.escapeHtml(r.collector_name || r.pm_name || '-')}</td>
                         <td style="padding: 8px 10px; color: var(--text-muted); font-size: 11.5px;">${this.escapeHtml(r.pm_email)}</td>
                     </tr>
                 `).join('');
