@@ -14234,3 +14234,18 @@ body.dark-theme #view-artifacts .data-table td:nth-child(3) {
 
 
 
+
+/* Consistent AetherPMO PWA brand: sidebar and login */
+.logo-icon.logo-icon-branded {
+    background: transparent;
+    padding: 0;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.logo-icon-branded .brand-app-icon {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: inherit;
+}
