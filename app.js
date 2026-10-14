@@ -25238,7 +25238,19 @@ renderTodayTasksRoleBased(todayStr) {
             updatedAt: p.updated_at
         }));
 
-        this.state.boardPosts = normalizedPosts;
+        // The four August sample notices are application demos, not persisted DB records.
+        // Restore their read-only display only when the notice query succeeds with zero rows.
+        // Do not seed fictional official notices into the Production database.
+        this.state.boardPosts = (activeCategory === 'notice' && normalizedPosts.length === 0)
+            ? this.getDefaultBoardPosts()
+                .filter(post => post.category === 'notice')
+                .map(post => ({
+                    ...post,
+                    isSampleNotice: true,
+                    allowComments: false,
+                    isPopup: false
+                }))
+            : normalizedPosts;
         this.renderBoardView();
     }
 
@@ -25340,7 +25352,7 @@ renderTodayTasksRoleBased(todayStr) {
                 minute: '2-digit'
             }) : '-';
 
-            const canManage = this.currentUser && (this.currentUser.role === 'SYS_ADMIN' || this.currentUser.role === 'PM' || this.currentUser.role === 'ADMIN' || post.authorId === this.currentUser.id || !post.authorId);
+            const canManage = !post.isSampleNotice && this.currentUser && (this.currentUser.role === 'SYS_ADMIN' || this.currentUser.role === 'PM' || this.currentUser.role === 'ADMIN' || post.authorId === this.currentUser.id || !post.authorId);
 
             tr.innerHTML = `
                 <td style="text-align: center; padding: 12px; border-right: 1px solid var(--bg-card-border); color: var(--text-muted); font-size: 13px;">${filteredPosts.length - index}</td>
@@ -25349,6 +25361,7 @@ renderTodayTasksRoleBased(todayStr) {
                 </td>
                 <td style="padding: 12px; border-right: 1px solid var(--bg-card-border); font-weight: 600; color: var(--text-main); font-size: 14px; text-align: left;" onclick="app.openBoardPostDetailModal('${post.id}')">
                     ${this.escapeHtml(post.title)}
+                    ${post.isSampleNotice ? `<span class="badge badge-yellow" style="font-size: 10px; margin-left: 6px; padding: 2px 5px;" title="Supabase에 등록되지 않은 예시 공지입니다">예시 · DB 미등록</span>` : ''}
                     ${post.attachmentUrl ? `<i data-lucide="paperclip" style="width:13px; height:13px; margin-left:6px; color:var(--text-muted);"></i>` : ''}
                     ${post.isPopup ? `<span class="badge badge-yellow" style="font-size: 10px; margin-left: 6px; padding: 2px 5px;">팝업</span>` : ''}
                 </td>
@@ -25841,7 +25854,9 @@ renderTodayTasksRoleBased(todayStr) {
             contentHeader.textContent = isInquiry ? '문의 내용' : '내용';
         }
 
-        document.getElementById('det-board-category').innerHTML = `<span class="badge badge-blue">${translateCategory(post.category)}</span>`;
+        document.getElementById('det-board-category').innerHTML = post.isSampleNotice
+            ? '<span class="badge badge-yellow">예시 공지 · DB 미등록</span>'
+            : `<span class="badge badge-blue">${translateCategory(post.category)}</span>`;
         document.getElementById('det-board-title').textContent = post.title;
         document.getElementById('det-board-author').textContent = post.authorName || '익명';
         document.getElementById('det-board-date').textContent = post.createdAt ? new Date(post.createdAt).toLocaleString('ko-KR') : '-';
