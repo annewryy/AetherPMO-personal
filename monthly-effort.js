@@ -534,7 +534,7 @@
                                 <button type="button" class="btn btn-outline" onclick="app.openEffortDetailModal('${req.id}')" style="height: 28px; padding: 0 8px; font-size: 11.5px;" title="상세 조회 및 직접 입력">
                                     <i data-lucide="${isConfirmed ? 'eye' : 'edit-3'}" style="width: 13px; height: 13px;"></i>
                                 </button>
-                                ${isAdmin && req.pm_email ? `
+                                ${isAdmin && (req.collector_email || req.pm_email) ? `
                                     <button type="button" class="btn btn-outline" onclick="app.sendSingleEffortEmail('${req.id}', ${req.send_count > 0})" style="height: 28px; padding: 0 8px; font-size: 11.5px;" title="${req.send_count > 0 ? '재발송' : '조사메일 발송'}">
                                         <i data-lucide="send" style="width: 13px; height: 13px; color: #3b82f6;"></i>
                                     </button>
@@ -905,8 +905,8 @@
                 yearMonth: r.year_month,
                 projectCode: r.project_code,
                 projectName: r.project_name,
-                pmName: r.pm_name,
-                pmEmail: r.pm_email,
+                pmName: r.collector_name || r.pm_name,
+                pmEmail: r.collector_email || r.pm_email,
                 token: r.request_token,
                 deadlineDate: this.getDefaultEffortDeadline(r.year_month)
             }));
@@ -1035,8 +1035,8 @@
         async sendSingleEffortEmail(requestId, isResend) {
             const req = (this.state.monthlyEffortRequests || []).find(r => r.id === requestId);
             if (!req) return;
-            if (!req.pm_email) {
-                alert('PM 이메일이 등록되어 있지 않습니다.');
+            if (!(req.collector_email || req.pm_email)) {
+                alert('취합 담당자 또는 PM 이메일이 등록되어 있지 않습니다.');
                 return;
             }
             this.mailSendQueue = [req];
@@ -2530,4 +2530,93 @@
     }
 
     console.log('[MonthlyEffort] Module successfully loaded and bound to AetherPMO.');
+})();
+
+/* M/M collector editor: PM assignment is not the collection contact. */
+(function () {
+    const apply = (app) => {
+        if (!app || app._collectorEditorInstalled || !app.renderEffortRequestsTable) return;
+        app._collectorEditorInstalled = true;
+        app.canEditEffortCollector = function(req) {
+            const role=String(this.currentUser?.role||'').toLowerCase();
+            if(['admin','sys_admin','manager','exec_admin'].includes(role)) return true;
+            if(role!=='pm'||!this.currentUser?.id) return false;
+            const uid=String(this.currentUser.id);
+            const project=(this.state.projects||[]).find(p=>String(p.id)===String(req.project_id));
+            if(!project)return false;
+            if(String(project.manager_id||project.managerId||'')===uid)return true;
+            return (this.state.projectMembers||[]).some(m=>
+                String(m.project_id||m.projectId)===String(project.id) &&
+                String(m.user_id||m.userId||'')===uid &&
+                (m.is_project_manager===true || String(m.participation_role||'').toUpperCase()==='PM'));
+        };
+        app.openEffortCollectorEditor = async function(requestId) {
+            const req=(this.state.monthlyEffortRequests||[]).find(r=>r.id===requestId);
+            if(!req||!this.canEditEffortCollector(req)){alert('해당 프로젝트의 수정 권한이 없습니다.');return;}
+            if(!this.useSupabase||!this.supabase){alert('서버 연결 후 수정할 수 있습니다.');return;}
+            const {data:people,error}=await this.supabase.from('profiles').select('id,name,email').order('name');
+            if(error){alert('사내 사용자 조회 실패: '+error.message);return;}
+            let modal=document.getElementById('effort-collector-editor');
+            if(!modal){
+                modal=document.createElement('div');modal.id='effort-collector-editor';modal.className='modal';
+                modal.setAttribute('data-app-modal','');
+                modal.style.cssText='display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:16px';
+                modal.innerHTML='<div class="modal-content" style="width:min(100%,480px);background:var(--bg-card);color:var(--text-main);border:1px solid var(--bg-card-border);border-radius:12px;padding:24px"><h3 style="margin:0 0 12px">월투입공수 취합 담당자 수정</h3><p id="effort-collector-project" style="font-size:13px;color:var(--text-muted)"></p><p style="font-size:12px;color:var(--text-muted)">사업 PM과 별도로 출근부(M/M)를 취합할 사내 담당자를 지정합니다.</p><label for="effort-collector-person">사내 취합 담당자</label><select id="effort-collector-person" class="form-control" style="width:100%;margin-top:6px"></select><p id="effort-collector-error" role="alert" style="color:#ef4444;font-size:12px"></p><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px"><button type="button" class="btn btn-outline" id="effort-collector-cancel">취소</button><button type="button" class="btn btn-primary" id="effort-collector-save">저장</button></div></div>';
+                document.body.appendChild(modal);
+                modal.querySelector('#effort-collector-cancel').onclick=()=>modal.style.display='none';
+                modal.addEventListener('click',e=>{if(e.target===modal)modal.style.display='none';});
+            }
+            modal.querySelector('#effort-collector-project').textContent=req.project_code+' · '+req.project_name;
+            const select=modal.querySelector('#effort-collector-person');
+            select.replaceChildren(new Option('미지정 (사업 PM 기본)',''));
+            for(const p of (people||[]).filter(p=>p.email))select.appendChild(new Option((p.name||p.email)+' ('+p.email+')',p.id));
+            select.value=req.collector_id||'';
+            const errorEl=modal.querySelector('#effort-collector-error');errorEl.textContent='';
+            const save=modal.querySelector('#effort-collector-save');save.disabled=false;
+            save.onclick=async()=>{
+                if(!this.canEditEffortCollector(req)){errorEl.textContent='수정 권한이 없습니다.';return;}
+                save.disabled=true;
+                const {data,error}=await this.supabase.rpc('set_effort_collector',{p_request_id:req.id,p_collector_id:select.value||null});
+                save.disabled=false;
+                if(error){errorEl.textContent='저장 실패: '+error.message;return;}
+                Object.assign(req,{collector_id:data.collector_id,collector_name:data.collector_name,collector_email:data.collector_email});
+                this.persistEffortState();
+                this.renderEffortRequestsTable();
+                modal.style.display='none';
+                if(this.showToast)this.showToast('취합 담당자 수정 완료','success');
+            };
+            modal.style.display='flex';
+        };
+        const originalRender=app.renderEffortRequestsTable;
+        app.renderEffortRequestsTable=function(...args){
+            const result=originalRender.apply(this,args);
+            document.querySelectorAll('#effort-requests-table-body tr').forEach(tr=>{
+                const link=tr.querySelector('td:nth-child(2) a[onclick]');
+                const match=link?.getAttribute('onclick')?.match(/openEffortDetailModal\('([^']+)'\)/);
+                if(!match)return;
+                const req=(this.state.monthlyEffortRequests||[]).find(r=>r.id===match[1]);
+                if(!req)return;
+                const pmCell=tr.querySelector('td:nth-child(4)');
+                const emailCell=tr.querySelector('td:nth-child(5)');
+                if(pmCell){const label=document.createElement('div');label.style.cssText='font-size:11px;color:#818cf8;margin-top:4px';label.textContent='취합: '+(req.collector_name||'PM 기본');pmCell.appendChild(label);}
+                if(emailCell&&req.collector_email){const label=document.createElement('div');label.style.cssText='font-size:11px;color:#818cf8;margin-top:4px';label.textContent=req.collector_email;emailCell.appendChild(label);}
+                if(this.canEditEffortCollector(req)){
+                    const container=tr.querySelector('td:last-child > div');if(!container)return;
+                    const button=document.createElement('button');button.type='button';button.className='btn btn-outline';
+                    button.style.cssText='height:28px;padding:0 8px;font-size:11.5px';
+                    button.textContent='수정';button.title='취합 담당자 수정';
+                    button.addEventListener('click',()=>this.openEffortCollectorEditor(req.id));
+                    container.prepend(button);
+                }
+            });
+            return result;
+        };
+    };
+    if(typeof AetherPMO!=='undefined' && AetherPMO.prototype){
+        const original=AetherPMO.prototype.renderEffortRequestsTable;
+        // New app instances are patched lazily when monthly effort loads.
+        const init=AetherPMO.prototype.initMonthlyEffortView;
+        AetherPMO.prototype.initMonthlyEffortView=async function(...args){apply(this);return init.apply(this,args);};
+    }
+    if(window.app)apply(window.app);
 })();
