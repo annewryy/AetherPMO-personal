@@ -110,9 +110,20 @@ VALUES
     ('TAILORING',       '테일러링',         'SCREEN', '#tailoring', 'view-tailoring',   'sliders',       30, true, false),
     ('ARTIFACTS',       '표준 산출물 관리', 'SCREEN', '#artifacts', 'view-artifacts',   'file-check',    40, true, false),
     ('RESOURCES',       '참여인력 관리',    'GROUP',  '#resources/members', 'view-resources',   'users',         50, true, false),
-    ('SALARIES',        '월급여 관리',      'SCREEN', '#salaries',  'view-salaries',    'banknote',      60, true, false),
+    ('SALARIES',        '월급여 관리',      'GROUP',  '#salaries',  'view-salaries',    'banknote',      60, true, false),
     ('BOARD',           '게시판',          'GROUP',  '#board/notices', 'view-board',       'message-square', 70, true, false),
     ('SYSTEM_SETTINGS', '시스템 설정',      'GROUP',  '#backup',    'view-backup',      'settings',      90, true, true)
+ON CONFLICT (menu_code) DO NOTHING;
+
+-- 월급여 관리 서브메뉴
+INSERT INTO system_menus (menu_code, menu_name, menu_type, parent_id, route, view_id, icon, sort_order, is_active, is_system)
+SELECT 'SALARIES_CALC', '월급여 정산', 'SCREEN', id, '#salaries', 'view-salaries', 'calculator', 61, true, false
+FROM system_menus WHERE menu_code = 'SALARIES'
+ON CONFLICT (menu_code) DO NOTHING;
+
+INSERT INTO system_menus (menu_code, menu_name, menu_type, parent_id, route, view_id, icon, sort_order, is_active, is_system)
+SELECT 'SALARIES_EFFORT', '월투입공수 관리', 'SCREEN', id, '#monthly-effort', 'view-monthly-effort', 'clock-alert', 62, true, false
+FROM system_menus WHERE menu_code = 'SALARIES'
 ON CONFLICT (menu_code) DO NOTHING;
 
 -- 참여인력 관리 서브메뉴
