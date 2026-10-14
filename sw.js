@@ -13,7 +13,7 @@
  * 3. STALE-WHILE-REVALIDATE: Same-Origin Static App Shell Assets (CSS, JS, Fonts, Images, Manifest)
  */
 
-const CACHE_VERSION = 'aetherpmo-v1.4.2-20260921';
+const CACHE_VERSION = 'aetherpmo-v1.4.3-20261014-brand-icon';
 const STATIC_CACHE_NAME = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE_NAME = `dynamic-${CACHE_VERSION}`;
 
@@ -28,6 +28,7 @@ const STATIC_ASSETS = [
     '/style.css',
     '/app.js',
     '/manifest.webmanifest',
+    '/aetherpmo-icon.svg',
     '/favicon.png',
     '/icon-192.png',
     '/icon-192-maskable.png',
