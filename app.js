@@ -1627,7 +1627,18 @@ class AetherPMO {
                     delete dbPayload.bidding_status;
                     delete dbPayload.biddingStatus;
 
-                    console.log('[Project Upsert Final DB Payload]', JSON.parse(JSON.stringify(dbPayload)));
+                    // AetherPMO-Personal columns differ from the legacy AetherPMO schema.
+                    // Normalize writes before PostgREST; never send non-existent legacy columns.
+                    dbPayload.name = dbPayload.project_name;
+                    dbPayload.description = dbPayload.desc;
+                    dbPayload.manager = dbPayload.pm_name;
+                    dbPayload.project_stage_filter = dbPayload.lifecycle_status;
+                    dbPayload.bidding_status = dbPayload.bid_status;
+                    dbPayload.announcement_no = dbPayload.bid_number;
+                    for (const legacyColumn of ['project_name', 'desc', 'pm_name', 'lifecycle_status', 'bid_status', 'bid_number']) {
+                        delete dbPayload[legacyColumn];
+                    }
+                    console.log('[Project Upsert Normalized DB Payload]', { id: dbPayload.id, project_code: dbPayload.project_code });
 
                     // INSERT vs UPDATE 분기 — 반환 행으로 영속 저장 검증
                     const _isNew = p._isNew === true;
@@ -2451,10 +2462,10 @@ class AetherPMO {
             this.state.projects = (projects || []).map(p => ({
                 id: p.id,
                 projectCode: p.project_code,
-                name: p.project_name,
-                desc: p.desc,
+                name: p.name || p.project_name,
+                desc: p.description || p.desc,
                 dept: p.dept,
-                manager: p.pm_name,
+                manager: p.manager || p.pm_name,
                 managerId: p.manager_id,
                 startDate: p.start_date,
                 endDate: p.end_date,
@@ -2466,13 +2477,13 @@ class AetherPMO {
                 remarks: p.remarks,
                 status: p.status,
                 project_status: p.status,
-                bidStatus: p.bid_status,
-                bid_status: p.bid_status,
-                bidding_status: p.bid_status,
-                is_bidding_project: Boolean(p.status === 'Bidding' || p.is_bidding_project || p.bid_status),
+                bidStatus: p.bidding_status || p.bid_status,
+                bid_status: p.bidding_status || p.bid_status,
+                bidding_status: p.bidding_status || p.bid_status,
+                is_bidding_project: Boolean(p.status === 'Bidding' || p.is_bidding_project || p.bidding_status || p.bid_status),
                 progress: Number(p.progress || 0),
                 resources: Number(p.resources || 0),
-                bidNumber: p.bid_number || p.project_code,
+                bidNumber: p.announcement_no || p.bid_number || p.project_code,
                 customerName: p.customer_name || p.customer || '',
                 customer: p.customer || p.customer_name || '',
                 projectBudget: Number(p.project_budget || p.budget || 0),
