@@ -6774,41 +6774,40 @@ class AetherPMO {
     async checkAIHealth() {
         const badge = document.getElementById('ai-status-badge');
         const indicator = document.getElementById('ai-status-indicator');
+        const setStatus = (message, color) => {
+            if (badge) { badge.style.color = color; badge.textContent = message; }
+            if (indicator) indicator.style.background = color;
+        };
 
-        if (badge) {
-            badge.style.color = '#f59e0b';
-            badge.textContent = '● 연결 상태 확인 중...';
-        }
-        if (indicator) {
-            indicator.style.background = '#f59e0b';
-        }
-
-        try {
-            const res = await fetch('/api/ai/health', { method: 'GET' });
-            if (res.ok) {
-                const data = await res.json();
-                if (data.status === 'ok') {
-                    if (badge) {
-                        badge.style.color = '#10b981';
-                        badge.textContent = `● 연결 가능 (${data.model || 'Ollama 로컬 LLM'})`;
-                    }
-                    if (indicator) {
-                        indicator.style.background = '#10b981';
-                    }
-                    return true;
-                }
-            }
-            throw new Error('Non-ok response');
-        } catch (e) {
-            if (badge) {
-                badge.style.color = '#ef4444';
-                badge.textContent = '● 연결 실패 (오프라인 / 게이트웨이 미연결)';
-            }
-            if (indicator) {
-                indicator.style.background = '#ef4444';
-            }
+        // Avoid re-requesting a known unavailable inference service each time
+        // the home screen or AI chat is opened; refresh the page to retry.
+        if (this._aiHealthUnavailable) {
+            setStatus('● AI 비활성화 (추론 서버 미연결)', '#94a3b8');
             return false;
         }
+        if (this._aiHealthPromise) return this._aiHealthPromise;
+
+        setStatus('● 연결 상태 확인 중...', '#f59e0b');
+        this._aiHealthPromise = (async () => {
+            try {
+                const res = await fetch('/api/ai/health', { method: 'GET', cache: 'no-store' });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data.status === 'ok') {
+                    setStatus(`● 연결 가능 (${data.model || 'Ollama 로컬 LLM'})`, '#10b981');
+                    return true;
+                }
+                this._aiHealthUnavailable = true;
+                setStatus('● AI 비활성화 (추론 서버 미연결)', '#94a3b8');
+                return false;
+            } catch (error) {
+                this._aiHealthUnavailable = true;
+                setStatus('● AI 비활성화 (추론 서버 미연결)', '#94a3b8');
+                return false;
+            } finally {
+                this._aiHealthPromise = null;
+            }
+        })();
+        return this._aiHealthPromise;
     }
 
     toggleAIChat() {
