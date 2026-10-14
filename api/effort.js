@@ -1167,7 +1167,115 @@ module.exports = async function handler(req, res) {
             }
 
             // ─────────────────────────────────────────────────────────────
-            // 8. 고유 토큰 생성 헬퍼 (로그인 사용자 인증 필수)
+            // 8. 월투입공수 취합 담당자 수정 (관리자 또는 해당 프로젝트 PM 전용)
+            // ─────────────────────────────────────────────────────────────
+            case 'set-collector': {
+                if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+
+                const auth = await authenticateUser(req);
+                if (!auth.authenticated) return res.status(auth.statusCode || 401).json({ error: auth.error });
+
+                const { requestId, collectorId } = req.body || {};
+                if (!requestId) {
+                    return res.status(400).json({ error: 'requestId가 누락되었습니다.' });
+                }
+
+                const supabase = getServiceSupabaseClient();
+                if (!supabase) {
+                    return res.status(503).json({ error: '서버 환경 설정 오류: Supabase 클라이언트를 초기화할 수 없습니다. (Fail-Closed)' });
+                }
+
+                // 1. 대상 투입공수 요청 조회
+                const { data: targetReq, error: reqErr } = await supabase
+                    .from('monthly_effort_requests')
+                    .select('id, year_month, project_id, project_code, project_name, pm_id, pm_email, status')
+                    .eq('id', requestId)
+                    .single();
+
+                if (reqErr || !targetReq) {
+                    return res.status(404).json({ error: '대상 투입공수 조사 요청을 찾을 수 없습니다.' });
+                }
+
+                // 2. 권한 검증: 관리자(admin/manager/sys_admin/exec_admin) 또는 담당 PM
+                let hasPermission = auth.isAdmin;
+                if (!hasPermission) {
+                    if (auth.isPm) {
+                        const userEmail = (auth.user.email || auth.profile?.email || '').toLowerCase();
+                        const pmEmail = (targetReq.pm_email || '').toLowerCase();
+
+                        if (targetReq.pm_id && String(targetReq.pm_id) === String(auth.user.id)) {
+                            hasPermission = true;
+                        } else if (pmEmail && pmEmail === userEmail) {
+                            hasPermission = true;
+                        } else if (targetReq.project_id) {
+                            const { data: projData } = await supabase
+                                .from('projects')
+                                .select('manager_id')
+                                .eq('id', targetReq.project_id)
+                                .single();
+
+                            if (projData && String(projData.manager_id) === String(auth.user.id)) {
+                                hasPermission = true;
+                            } else {
+                                const { data: memberData } = await supabase
+                                    .from('project_members')
+                                    .select('id, participation_role, is_project_manager')
+                                    .eq('project_id', targetReq.project_id)
+                                    .eq('user_id', auth.user.id);
+                                if (memberData && memberData.some(m => m.is_project_manager === true || String(m.participation_role || '').toUpperCase() === 'PM')) {
+                                    hasPermission = true;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!hasPermission) {
+                    return res.status(403).json({ error: '해당 프로젝트의 취합 담당자 수정 권한이 없습니다.' });
+                }
+
+                // 3. collector 정보 조회 (collectorId 전달 시)
+                let collectorName = null;
+                let collectorEmail = null;
+                if (collectorId) {
+                    const { data: collectorProfile, error: collErr } = await supabase
+                        .from('profiles')
+                        .select('id, name, email')
+                        .eq('id', collectorId)
+                        .single();
+
+                    if (collErr || !collectorProfile) {
+                        return res.status(400).json({ error: '선택한 사내 사용자를 profiles에서 찾을 수 없습니다.' });
+                    }
+                    collectorName = collectorProfile.name || collectorProfile.email;
+                    collectorEmail = collectorProfile.email;
+                }
+
+                // 4. DB 업데이트 실행
+                const { data: updatedReq, error: updateErr } = await supabase
+                    .from('monthly_effort_requests')
+                    .update({
+                        collector_id: collectorId || null,
+                        collector_name: collectorName,
+                        collector_email: collectorEmail
+                    })
+                    .eq('id', requestId)
+                    .select('id, project_code, project_name, collector_id, collector_name, collector_email')
+                    .single();
+
+                if (updateErr) {
+                    console.error('[SetCollector] Update DB error:', updateErr);
+                    return res.status(500).json({ error: '취합 담당자 DB 업데이트 실패: ' + updateErr.message });
+                }
+
+                return res.status(200).json({
+                    success: true,
+                    data: updatedReq
+                });
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // 9. 고유 토큰 생성 헬퍼 (로그인 사용자 인증 필수)
             // ─────────────────────────────────────────────────────────────
             case 'generate-token': {
                 const auth = await authenticateUser(req);

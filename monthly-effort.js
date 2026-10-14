@@ -54,18 +54,65 @@
             }
         },
 
-        // API 호출용 Supabase JWT 인증 헤더 생성
-        async getAuthHeaders() {
-            const headers = { 'Content-Type': 'application/json' };
-            if (this.supabase && this.supabase.auth) {
-                try {
-                    const { data } = await this.supabase.auth.getSession();
-                    if (data?.session?.access_token) {
-                        headers['Authorization'] = `Bearer ${data.session.access_token}`;
+        // Supabase 클라이언트 안전 조회 및 자동 동기화
+        getSupabaseClient() {
+            if (this && this.supabase && typeof this.supabase.from === 'function') {
+                return this.supabase;
+            }
+            if (typeof window !== 'undefined' && window.app && window.app.supabase && typeof window.app.supabase.from === 'function') {
+                if (this && !this.supabase) {
+                    this.supabase = window.app.supabase;
+                    this.useSupabase = true;
+                }
+                return window.app.supabase;
+            }
+            if (typeof window !== 'undefined' && typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function') {
+                const url = window.SUPABASE_CONFIG?.url || window.__ENV__?.SUPABASE_URL;
+                const key = window.SUPABASE_CONFIG?.anonKey || window.__ENV__?.SUPABASE_ANON_KEY;
+                if (url && url !== 'YOUR_SUPABASE_PROJECT_URL' && key && key !== 'YOUR_SUPABASE_ANON_KEY') {
+                    const client = window.supabase.createClient(url, key, {
+                        auth: {
+                            storage: window.sessionStorage,
+                            persistSession: true,
+                            detectSessionInUrl: false
+                        }
+                    });
+                    if (this) {
+                        this.supabase = client;
+                        this.useSupabase = true;
                     }
+                    if (window.app) {
+                        window.app.supabase = client;
+                        window.app.useSupabase = true;
+                    }
+                    return client;
+                }
+            }
+            return null;
+        },
+
+        // API 호출용 Supabase JWT 인증 토큰 조회
+        async getEffortAuthToken() {
+            const client = (typeof this.getSupabaseClient === 'function')
+                ? this.getSupabaseClient()
+                : (this.supabase || window.app?.supabase);
+            if (client && client.auth) {
+                try {
+                    const { data } = await client.auth.getSession();
+                    return data?.session?.access_token || null;
                 } catch (e) {
                     console.warn('[MonthlyEffort] Failed to get session token:', e);
                 }
+            }
+            return null;
+        },
+
+        // API 호출용 Supabase JWT 인증 헤더 생성
+        async getAuthHeaders() {
+            const headers = { 'Content-Type': 'application/json' };
+            const token = await this.getEffortAuthToken();
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
             }
             return headers;
         },
@@ -168,7 +215,13 @@
                 console.warn('[MonthlyEffort] Status API fetch warning:', stErr);
             }
 
-            if (this.useSupabase && this.supabase) {
+            const supabase = (typeof this.getSupabaseClient === 'function')
+                ? this.getSupabaseClient()
+                : (this.supabase || window.app?.supabase);
+
+            if (supabase && !this.demoMode) {
+                this.supabase = supabase;
+                this.useSupabase = true;
                 try {
                     const [
                         { data: dbCycles, error: errCycles },
@@ -178,12 +231,12 @@
                         { data: dbLogs, error: errLogs },
                         { data: dbAudits, error: errAudits }
                     ] = await Promise.all([
-                        this.supabase.from('monthly_effort_cycles').select('*').order('year_month', { ascending: false }),
-                        this.supabase.from('monthly_effort_requests').select('*'),
-                        this.supabase.from('monthly_effort_entries').select('*'),
-                        this.supabase.from('monthly_effort_submissions').select('*'),
-                        this.supabase.from('monthly_effort_email_logs').select('*').order('created_at', { ascending: false }).limit(100),
-                        this.supabase.from('monthly_effort_audit_logs').select('*').order('created_at', { ascending: false }).limit(100)
+                        supabase.from('monthly_effort_cycles').select('*').order('year_month', { ascending: false }),
+                        supabase.from('monthly_effort_requests').select('*'),
+                        supabase.from('monthly_effort_entries').select('*'),
+                        supabase.from('monthly_effort_submissions').select('*'),
+                        supabase.from('monthly_effort_email_logs').select('*').order('created_at', { ascending: false }).limit(100),
+                        supabase.from('monthly_effort_audit_logs').select('*').order('created_at', { ascending: false }).limit(100)
                     ]);
 
                     if (errCycles) console.warn('[MonthlyEffort] Cycles fetch error:', errCycles.message);
@@ -866,7 +919,7 @@
                         <td style="padding: 8px 10px; font-family: monospace; font-weight: 600;">${this.escapeHtml(r.project_code)}</td>
                         <td style="padding: 8px 10px; font-weight: 500;">${this.escapeHtml(r.project_name)}</td>
                         <td style="padding: 8px 10px; text-align: center;">${this.escapeHtml(r.collector_name || r.pm_name || '-')}</td>
-                        <td style="padding: 8px 10px; color: var(--text-muted); font-size: 11.5px;">${this.escapeHtml(r.pm_email)}</td>
+                        <td style="padding: 8px 10px; color: var(--text-muted); font-size: 11.5px;">${this.escapeHtml(r.collector_email || r.pm_email || '-')}</td>
                     </tr>
                 `).join('');
             }
@@ -2537,86 +2590,366 @@
     const apply = (app) => {
         if (!app || app._collectorEditorInstalled || !app.renderEffortRequestsTable) return;
         app._collectorEditorInstalled = true;
+
+        // 취합 담당자 수정 권한 검사:
+        // - 시스템관리자 (admin, sys_admin): 전체 프로젝트 수정 가능
+        // - 총괄관리자 (manager, exec_admin): 전체 프로젝트 수정 가능
+        // - PM (pm): 본인에게 배정된 프로젝트만 수정 가능
+        // - 그 외 역할: 수정 불가
         app.canEditEffortCollector = function(req) {
-            const role=String(this.currentUser?.role||'').toLowerCase();
-            if(['admin','sys_admin','manager','exec_admin'].includes(role)) return true;
-            if(role!=='pm'||!this.currentUser?.id) return false;
-            const uid=String(this.currentUser.id);
-            const project=(this.state.projects||[]).find(p=>String(p.id)===String(req.project_id));
-            if(!project)return false;
-            if(String(project.manager_id||project.managerId||'')===uid)return true;
-            return (this.state.projectMembers||[]).some(m=>
-                String(m.project_id||m.projectId)===String(project.id) &&
-                String(m.user_id||m.userId||'')===uid &&
-                (m.is_project_manager===true || String(m.participation_role||'').toUpperCase()==='PM'));
-        };
-        app.openEffortCollectorEditor = async function(requestId) {
-            const req=(this.state.monthlyEffortRequests||[]).find(r=>r.id===requestId);
-            if(!req||!this.canEditEffortCollector(req)){alert('해당 프로젝트의 수정 권한이 없습니다.');return;}
-            if(!this.useSupabase||!this.supabase){alert('서버 연결 후 수정할 수 있습니다.');return;}
-            const {data:people,error}=await this.supabase.from('profiles').select('id,name,email').order('name');
-            if(error){alert('사내 사용자 조회 실패: '+error.message);return;}
-            let modal=document.getElementById('effort-collector-editor');
-            if(!modal){
-                modal=document.createElement('div');modal.id='effort-collector-editor';modal.className='modal';
-                modal.setAttribute('data-app-modal','');
-                modal.style.cssText='display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:16px';
-                modal.innerHTML='<div class="modal-content" style="width:min(100%,480px);background:var(--bg-card);color:var(--text-main);border:1px solid var(--bg-card-border);border-radius:12px;padding:24px"><h3 style="margin:0 0 12px">월투입공수 취합 담당자 수정</h3><p id="effort-collector-project" style="font-size:13px;color:var(--text-muted)"></p><p style="font-size:12px;color:var(--text-muted)">사업 PM과 별도로 출근부(M/M)를 취합할 사내 담당자를 지정합니다.</p><label for="effort-collector-person">사내 취합 담당자</label><select id="effort-collector-person" class="form-control" style="width:100%;margin-top:6px"></select><p id="effort-collector-error" role="alert" style="color:#ef4444;font-size:12px"></p><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px"><button type="button" class="btn btn-outline" id="effort-collector-cancel">취소</button><button type="button" class="btn btn-primary" id="effort-collector-save">저장</button></div></div>';
-                document.body.appendChild(modal);
-                modal.querySelector('#effort-collector-cancel').onclick=()=>modal.style.display='none';
-                modal.addEventListener('click',e=>{if(e.target===modal)modal.style.display='none';});
+            if (!req) return false;
+            const role = String(this.currentUser?.role || '').toLowerCase();
+            if (['admin', 'sys_admin', 'manager', 'exec_admin'].includes(role)) return true;
+            if (role !== 'pm' || !this.currentUser?.id) return false;
+
+            const uid = String(this.currentUser.id);
+            const userEmail = String(this.currentUser.email || '').toLowerCase();
+
+            // 1. req 자체의 pm_id 또는 pm_email 일치 여부
+            if (req.pm_id && String(req.pm_id) === uid) return true;
+            if (req.pm_email && userEmail && String(req.pm_email).toLowerCase() === userEmail) return true;
+
+            // 2. projects 목록의 manager_id 일치 여부
+            const project = (this.state.projects || []).find(p => String(p.id) === String(req.project_id));
+            if (project) {
+                if (String(project.manager_id || project.managerId || '') === uid) return true;
             }
-            modal.querySelector('#effort-collector-project').textContent=req.project_code+' · '+req.project_name;
-            const select=modal.querySelector('#effort-collector-person');
-            select.replaceChildren(new Option('미지정 (사업 PM 기본)',''));
-            for(const p of (people||[]).filter(p=>p.email))select.appendChild(new Option((p.name||p.email)+' ('+p.email+')',p.id));
-            select.value=req.collector_id||'';
-            const errorEl=modal.querySelector('#effort-collector-error');errorEl.textContent='';
-            const save=modal.querySelector('#effort-collector-save');save.disabled=false;
-            save.onclick=async()=>{
-                if(!this.canEditEffortCollector(req)){errorEl.textContent='수정 권한이 없습니다.';return;}
-                save.disabled=true;
-                const {data,error}=await this.supabase.rpc('set_effort_collector',{p_request_id:req.id,p_collector_id:select.value||null});
-                save.disabled=false;
-                if(error){errorEl.textContent='저장 실패: '+error.message;return;}
-                Object.assign(req,{collector_id:data.collector_id,collector_name:data.collector_name,collector_email:data.collector_email});
-                this.persistEffortState();
-                this.renderEffortRequestsTable();
-                modal.style.display='none';
-                if(this.showToast)this.showToast('취합 담당자 수정 완료','success');
-            };
-            modal.style.display='flex';
+
+            // 3. projectMembers 내 PM 역할 확인
+            return (this.state.projectMembers || []).some(m =>
+                String(m.project_id || m.projectId) === String(req.project_id) &&
+                String(m.user_id || m.userId || '') === uid &&
+                (m.is_project_manager === true || String(m.participation_role || '').toUpperCase() === 'PM')
+            );
         };
-        const originalRender=app.renderEffortRequestsTable;
-        app.renderEffortRequestsTable=function(...args){
-            const result=originalRender.apply(this,args);
-            document.querySelectorAll('#effort-requests-table-body tr').forEach(tr=>{
-                const link=tr.querySelector('td:nth-child(2) a[onclick]');
-                const match=link?.getAttribute('onclick')?.match(/openEffortDetailModal\('([^']+)'\)/);
-                if(!match)return;
-                const req=(this.state.monthlyEffortRequests||[]).find(r=>r.id===match[1]);
-                if(!req)return;
-                const pmCell=tr.querySelector('td:nth-child(4)');
-                const emailCell=tr.querySelector('td:nth-child(5)');
-                if(pmCell){const label=document.createElement('div');label.style.cssText='font-size:11px;color:#818cf8;margin-top:4px';label.textContent='취합: '+(req.collector_name||'PM 기본');pmCell.appendChild(label);}
-                if(emailCell&&req.collector_email){const label=document.createElement('div');label.style.cssText='font-size:11px;color:#818cf8;margin-top:4px';label.textContent=req.collector_email;emailCell.appendChild(label);}
-                if(this.canEditEffortCollector(req)){
-                    const container=tr.querySelector('td:last-child > div');if(!container)return;
-                    const button=document.createElement('button');button.type='button';button.className='btn btn-outline';
-                    button.style.cssText='height:28px;padding:0 8px;font-size:11.5px';
-                    button.textContent='수정';button.title='취합 담당자 수정';
-                    button.addEventListener('click',()=>this.openEffortCollectorEditor(req.id));
-                    container.prepend(button);
+
+        // 실제 Supabase 클라이언트 및 세션 상태 검증 (연결 오류 / 세션 만료 / 클라이언트 부재 분기)
+        app.checkSupabaseAuth = async function() {
+            const supabase = (typeof this.getSupabaseClient === 'function')
+                ? this.getSupabaseClient()
+                : (this.supabase || window.app?.supabase);
+
+            if (!supabase) {
+                return {
+                    ok: false,
+                    errorType: 'NO_CLIENT',
+                    message: '서버 연결 정보를 찾을 수 없습니다. 페이지를 새로고침하거나 설정을 확인해 주세요.'
+                };
+            }
+
+            if (this && !this.supabase) this.supabase = supabase;
+            if (this && !this.useSupabase && !this.demoMode) this.useSupabase = true;
+
+            try {
+                const { data, error } = await supabase.auth.getSession();
+                if (error) {
+                    return {
+                        ok: false,
+                        errorType: 'AUTH_ERROR',
+                        message: '로그인 인증 세션 확인 실패: ' + error.message,
+                        supabase
+                    };
+                }
+                if (!data?.session) {
+                    return {
+                        ok: false,
+                        errorType: 'SESSION_EXPIRED',
+                        message: '로그인 세션이 만료되었습니다. 다시 로그인해 주세요.',
+                        supabase
+                    };
+                }
+                return {
+                    ok: true,
+                    session: data.session,
+                    user: data.session.user,
+                    supabase
+                };
+            } catch (netErr) {
+                return {
+                    ok: false,
+                    errorType: 'NETWORK_ERROR',
+                    message: '서버와 통신할 수 없습니다. 네트워크 연결 상태를 확인해 주세요.',
+                    supabase
+                };
+            }
+        };
+
+        // 취합 담당자 수정 모달 열기
+        app.openEffortCollectorEditor = async function(requestId) {
+            const req = (this.state.monthlyEffortRequests || []).find(r => String(r.id) === String(requestId));
+            if (!req) {
+                alert('해당 투입공수 요청 정보를 찾을 수 없습니다.');
+                return;
+            }
+
+            if (!this.canEditEffortCollector(req)) {
+                alert('해당 프로젝트의 취합 담당자 수정 권한이 없습니다.');
+                return;
+            }
+
+            // 단순 플래그가 아닌 실제 Supabase 클라이언트 및 세션 상태 검증
+            const authCheck = await this.checkSupabaseAuth();
+            if (!authCheck.ok) {
+                alert(authCheck.message);
+                return;
+            }
+            const supabase = authCheck.supabase;
+
+            // 사내 등록 사용자 목록(profiles) 조회
+            const { data: people, error: profilesErr } = await supabase
+                .from('profiles')
+                .select('id, name, email')
+                .order('name');
+
+            if (profilesErr) {
+                alert('사내 사용자 목록 조회 실패: ' + profilesErr.message);
+                return;
+            }
+
+            let modal = document.getElementById('effort-collector-editor');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'effort-collector-editor';
+                modal.className = 'modal';
+                modal.setAttribute('data-app-modal', '');
+                modal.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:16px';
+                modal.innerHTML = `
+                    <div class="modal-content" style="width:min(100%,500px);background:var(--bg-card);color:var(--text-main);border:1px solid var(--bg-card-border);border-radius:12px;padding:24px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.5);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                            <h3 style="margin:0;font-size:17px;font-weight:600">월투입공수 취합 담당자 수정</h3>
+                            <button type="button" class="btn-close" id="effort-collector-close" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;padding:4px">✕</button>
+                        </div>
+                        <div style="margin-bottom:16px;padding:12px;background:var(--bg-card-secondary,rgba(255,255,255,0.03));border:1px solid var(--bg-card-border);border-radius:8px">
+                            <div id="effort-collector-project" style="font-size:14px;font-weight:600;margin-bottom:4px"></div>
+                            <div id="effort-collector-pm-info" style="font-size:12px;color:var(--text-muted)"></div>
+                        </div>
+                        <p style="font-size:12.5px;color:var(--text-muted);margin:0 0 12px;line-height:1.5">
+                            사업 PM과 별도로 출근부(M/M)를 취합할 사내 담당자를 지정합니다.<br>
+                            지정된 경우 해당 담당자에게 조사메일이 발송되며, 미지정 시 사업 PM에게 발송됩니다.
+                        </p>
+                        <div style="margin-bottom:14px">
+                            <label for="effort-collector-person" style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">사내 취합 담당자 선택</label>
+                            <select id="effort-collector-person" class="form-control" style="width:100%;height:38px;border-radius:6px"></select>
+                        </div>
+                        <p id="effort-collector-error" role="alert" style="color:#ef4444;font-size:12px;margin:0 0 12px;min-height:16px"></p>
+                        <div style="display:flex;gap:8px;justify-content:flex-end">
+                            <button type="button" class="btn btn-outline" id="effort-collector-cancel" style="height:36px;padding:0 16px">취소</button>
+                            <button type="button" class="btn btn-primary" id="effort-collector-save" style="height:36px;padding:0 16px">저장</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                const closeModal = () => { modal.style.display = 'none'; };
+                modal.querySelector('#effort-collector-cancel').onclick = closeModal;
+                modal.querySelector('#effort-collector-close').onclick = closeModal;
+                modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+            }
+
+            modal.querySelector('#effort-collector-project').textContent = `${req.project_code} · ${req.project_name}`;
+            modal.querySelector('#effort-collector-pm-info').textContent = `사업 PM: ${req.pm_name || '미배정'} (${req.pm_email || '이메일 없음'})`;
+
+            const select = modal.querySelector('#effort-collector-person');
+            select.replaceChildren(new Option(`미지정 (사업 PM 기본: ${req.pm_name || 'PM'})`, ''));
+            for (const p of (people || []).filter(p => p.email)) {
+                select.appendChild(new Option(`${p.name || p.email} (${p.email})`, p.id));
+            }
+            select.value = req.collector_id || '';
+
+            const errorEl = modal.querySelector('#effort-collector-error');
+            errorEl.textContent = '';
+            const saveBtn = modal.querySelector('#effort-collector-save');
+            saveBtn.disabled = false;
+            saveBtn.textContent = '저장';
+
+            saveBtn.onclick = async () => {
+                if (!this.canEditEffortCollector(req)) {
+                    errorEl.textContent = '해당 프로젝트의 취합 담당자 수정 권한이 없습니다.';
+                    return;
+                }
+
+                // 세션 유효성 재확증
+                const recheck = await this.checkSupabaseAuth();
+                if (!recheck.ok) {
+                    errorEl.textContent = recheck.message;
+                    return;
+                }
+
+                saveBtn.disabled = true;
+                saveBtn.textContent = '저장 중...';
+                errorEl.textContent = '';
+
+                const selectedId = select.value || null;
+                const chosen = selectedId ? (people || []).find(p => String(p.id) === String(selectedId)) : null;
+                const newCollectorId = selectedId;
+                const newCollectorName = chosen ? (chosen.name || chosen.email) : null;
+                const newCollectorEmail = chosen ? chosen.email : null;
+
+                let updateSuccess = false;
+                let lastErrorMsg = '';
+
+                // 1. Supabase Direct DB UPDATE 시도
+                try {
+                    const { data: updateData, error: updateErr } = await supabase
+                        .from('monthly_effort_requests')
+                        .update({
+                            collector_id: newCollectorId,
+                            collector_name: newCollectorName,
+                            collector_email: newCollectorEmail
+                        })
+                        .eq('id', req.id)
+                        .select('id, project_code, project_name, collector_id, collector_name, collector_email')
+                        .single();
+
+                    if (!updateErr && updateData) {
+                        updateSuccess = true;
+                    } else if (updateErr) {
+                        lastErrorMsg = updateErr.message;
+                    }
+                } catch (e) {
+                    lastErrorMsg = e.message;
+                }
+
+                // 2. Supabase RPC 'set_effort_collector' 시도 (Direct UPDATE 실패 시)
+                if (!updateSuccess) {
+                    try {
+                        const { data: rpcData, error: rpcErr } = await supabase.rpc('set_effort_collector', {
+                            p_request_id: req.id,
+                            p_collector_id: newCollectorId
+                        });
+                        if (!rpcErr && rpcData) {
+                            updateSuccess = true;
+                        } else if (rpcErr) {
+                            lastErrorMsg = rpcErr.message;
+                        }
+                    } catch (e) {
+                        lastErrorMsg = e.message;
+                    }
+                }
+
+                // 3. 서버 백엔드 API /api/effort?action=set-collector 호출 (권한 RLS 분리 환경 대비)
+                if (!updateSuccess) {
+                    try {
+                        const authToken = (typeof this.getEffortAuthToken === 'function')
+                            ? await this.getEffortAuthToken()
+                            : (recheck.session?.access_token || null);
+                        const response = await fetch('/api/effort?action=set-collector', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+                            },
+                            body: JSON.stringify({
+                                requestId: req.id,
+                                collectorId: newCollectorId
+                            })
+                        });
+                        const resJson = await response.json().catch(() => ({}));
+                        if (response.ok && resJson.success) {
+                            updateSuccess = true;
+                        } else {
+                            lastErrorMsg = resJson.error || lastErrorMsg || '서버 API 응답 실패';
+                        }
+                    } catch (fetchErr) {
+                        lastErrorMsg = fetchErr.message;
+                    }
+                }
+
+                saveBtn.disabled = false;
+                saveBtn.textContent = '저장';
+
+                if (!updateSuccess) {
+                    errorEl.textContent = '저장 실패: ' + lastErrorMsg;
+                    return;
+                }
+
+                // 클라이언트 상태 즉시 갱신
+                req.collector_id = newCollectorId;
+                req.collector_name = newCollectorName;
+                req.collector_email = newCollectorEmail;
+
+                (this.state.monthlyEffortRequests || []).forEach(r => {
+                    if (String(r.id) === String(req.id)) {
+                        r.collector_id = newCollectorId;
+                        r.collector_name = newCollectorName;
+                        r.collector_email = newCollectorEmail;
+                    }
+                });
+
+                if (typeof this.persistEffortState === 'function') {
+                    this.persistEffortState();
+                }
+                this.renderEffortRequestsTable();
+                modal.style.display = 'none';
+                if (typeof this.showToast === 'function') {
+                    this.showToast('취합 담당자가 성공적으로 저장되었습니다.', 'success');
+                }
+            };
+
+            modal.style.display = 'flex';
+        };
+
+        const originalRender = app.renderEffortRequestsTable;
+        app.renderEffortRequestsTable = function(...args) {
+            const result = originalRender.apply(this, args);
+            document.querySelectorAll('#effort-requests-table-body tr').forEach(tr => {
+                const link = tr.querySelector('td:nth-child(2) a[onclick]');
+                const match = link?.getAttribute('onclick')?.match(/openEffortDetailModal\('([^']+)'\)/);
+                if (!match) return;
+                const req = (this.state.monthlyEffortRequests || []).find(r => r.id === match[1]);
+                if (!req) return;
+
+                const pmCell = tr.querySelector('td:nth-child(4)');
+                const emailCell = tr.querySelector('td:nth-child(5)');
+
+                if (pmCell) {
+                    const prevBadge = pmCell.querySelector('.effort-collector-badge');
+                    if (prevBadge) prevBadge.remove();
+                    const label = document.createElement('div');
+                    label.className = 'effort-collector-badge';
+                    label.style.cssText = 'font-size:11px;color:#818cf8;margin-top:4px';
+                    label.textContent = '취합: ' + (req.collector_name || 'PM 기본');
+                    pmCell.appendChild(label);
+                }
+
+                if (emailCell) {
+                    const prevEmailBadge = emailCell.querySelector('.effort-collector-email-badge');
+                    if (prevEmailBadge) prevEmailBadge.remove();
+                    if (req.collector_email) {
+                        const label = document.createElement('div');
+                        label.className = 'effort-collector-email-badge';
+                        label.style.cssText = 'font-size:11px;color:#818cf8;margin-top:4px';
+                        label.textContent = req.collector_email;
+                        emailCell.appendChild(label);
+                    }
+                }
+
+                if (this.canEditEffortCollector(req)) {
+                    const container = tr.querySelector('td:last-child > div');
+                    if (!container) return;
+                    if (!container.querySelector('.btn-effort-collector-edit')) {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'btn btn-outline btn-effort-collector-edit';
+                        button.style.cssText = 'height:28px;padding:0 8px;font-size:11.5px';
+                        button.textContent = '수정';
+                        button.title = '취합 담당자 수정';
+                        button.addEventListener('click', () => this.openEffortCollectorEditor(req.id));
+                        container.prepend(button);
+                    }
                 }
             });
             return result;
         };
     };
-    if(typeof AetherPMO!=='undefined' && AetherPMO.prototype){
-        const original=AetherPMO.prototype.renderEffortRequestsTable;
-        // New app instances are patched lazily when monthly effort loads.
-        const init=AetherPMO.prototype.initMonthlyEffortView;
-        AetherPMO.prototype.initMonthlyEffortView=async function(...args){apply(this);return init.apply(this,args);};
+
+    if (typeof AetherPMO !== 'undefined' && AetherPMO.prototype) {
+        const init = AetherPMO.prototype.initMonthlyEffortView;
+        if (init) {
+            AetherPMO.prototype.initMonthlyEffortView = async function(...args) {
+                apply(this);
+                return init.apply(this, args);
+            };
+        }
     }
-    if(window.app)apply(window.app);
+    if (window.app) apply(window.app);
 })();

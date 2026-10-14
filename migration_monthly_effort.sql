@@ -29,6 +29,9 @@ CREATE TABLE IF NOT EXISTS public.monthly_effort_requests (
     pm_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     pm_name TEXT,
     pm_email TEXT,
+    collector_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    collector_name TEXT,
+    collector_email TEXT,
     request_token TEXT NOT NULL UNIQUE, -- 고유 토큰 (예: EFF-202609-OP260826-XXXX)
     status TEXT NOT NULL DEFAULT 'UNSENT' CHECK (status IN (
         'NO_PM_INFO',    -- 담당자 정보 없음 (PM 또는 이메일 부재)
@@ -1093,4 +1096,43 @@ GRANT EXECUTE ON FUNCTION public.process_monthly_effort_direct_submission(UUID, 
 -- 4) process_monthly_effort_direct_input: Service Role 전용 (일반 사용자 직접 호출 절대 차단, Serverless API /api/effort?action=direct-input 통해서만 실행)
 REVOKE ALL ON FUNCTION public.process_monthly_effort_direct_input(UUID, BOOLEAN, JSONB, INT, NUMERIC, UUID, TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.process_monthly_effort_direct_input(UUID, BOOLEAN, JSONB, INT, NUMERIC, UUID, TEXT) TO service_role;
+
+-- 5) set_effort_collector: M/M 취합 담당자 지정 함수
+CREATE OR REPLACE FUNCTION public.set_effort_collector(
+    p_request_id UUID,
+    p_collector_id UUID DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_collector_name TEXT := NULL;
+    v_collector_email TEXT := NULL;
+    v_result RECORD;
+BEGIN
+    IF p_collector_id IS NOT NULL THEN
+        SELECT name, email INTO v_collector_name, v_collector_email
+        FROM public.profiles
+        WHERE id = p_collector_id;
+    END IF;
+
+    UPDATE public.monthly_effort_requests
+    SET 
+        collector_id = p_collector_id,
+        collector_name = v_collector_name,
+        collector_email = v_collector_email
+    WHERE id = p_request_id
+    RETURNING id, project_code, project_name, collector_id, collector_name, collector_email INTO v_result;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Request not found with id: %', p_request_id;
+    END IF;
+
+    RETURN to_jsonb(v_result);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.set_effort_collector(UUID, UUID) TO authenticated, anon, service_role;
 
