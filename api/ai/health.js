@@ -16,7 +16,13 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const baseUrl = process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434';
+  // An unconfigured Vercel function cannot reach a user's localhost Ollama.
+  // Return an explicit non-error service state rather than reporting 503 repeatedly.
+  if (!process.env.OLLAMA_BASE_URL || /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/i.test(process.env.OLLAMA_BASE_URL)) {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({ status: 'disabled', message: 'AI 추론 서버가 구성되지 않아 기능이 비활성화되어 있습니다.' });
+  }
+  const baseUrl = process.env.OLLAMA_BASE_URL;
   const model = process.env.OLLAMA_MODEL || 'qwen2.5:1.5b';
 
   try {
