@@ -28916,6 +28916,184 @@ renderTodayTasksRoleBased(todayStr) {
         this.closeUserProfileModal();
     }
 
+
+    // Permission requests: the form markup is in index.html; these handlers
+    // deliberately rely on verified Supabase Auth, never a browser-forged role.
+    async openPermissionRequestModal() {
+        const modal = document.getElementById('modal-permission-request');
+        if (!modal) {
+            this.showToast('권한 신청서 화면을 찾을 수 없습니다.', 'error');
+            return;
+        }
+        if (!this.useSupabase || !this.supabase) {
+            this.showToast('권한 신청은 서버에 로그인한 상태에서만 가능합니다.', 'warning');
+            return;
+        }
+        try {
+            const { data: authData, error: authError } = await this.supabase.auth.getUser();
+            const user = authData?.user;
+            if (authError || !user) throw new Error('로그인 세션을 확인할 수 없습니다. 다시 로그인해 주세요.');
+            const { data: profile, error: profileError } = await this.supabase
+                .from('profiles').select('name,email').eq('id', user.id).maybeSingle();
+            if (profileError) console.warn('[Permission Request] profile lookup:', profileError.message);
+            const nameField = document.getElementById('perm-req-user-name');
+            const emailField = document.getElementById('perm-req-user-email');
+            const roleField = document.getElementById('perm-req-role-select');
+            const reasonField = document.getElementById('perm-req-reason');
+            if (nameField) nameField.value = profile?.name || user.user_metadata?.name || (user.email || '').split('@')[0];
+            if (emailField) emailField.value = user.email || profile?.email || '';
+            if (roleField) roleField.value = 'worker';
+            if (reasonField) reasonField.value = '';
+            modal.style.display = 'flex';
+        } catch (error) {
+            console.error('[Permission Request] Unable to open form:', error);
+            this.showToast(error.message || '권한 신청서를 열 수 없습니다.', 'error');
+        }
+    }
+
+    closePermissionRequestModal() {
+        const modal = document.getElementById('modal-permission-request');
+        if (modal) modal.style.display = 'none';
+    }
+
+    closeAccessDeniedModal() {
+        const modal = document.getElementById('modal-access-denied');
+        if (modal) modal.style.display = 'none';
+    }
+
+    navigateToPermissionRequestBoard() {
+        this.closeAccessDeniedModal();
+        this.openPermissionRequestModal();
+    }
+
+    async submitPermissionRequest() {
+        const button = document.getElementById('btn-submit-perm-req');
+        if (button?.disabled) return;
+        const role = document.getElementById('perm-req-role-select')?.value;
+        const reason = (document.getElementById('perm-req-reason')?.value || '').trim();
+        if (!['worker', 'pm', 'manager'].includes(role)) {
+            this.showToast('신청 가능한 권한을 선택해 주세요.', 'warning');
+            return;
+        }
+        if (reason.length < 10 || reason.length > 2000) {
+            this.showToast('요청 사유를 10~2000자로 작성해 주세요.', 'warning');
+            return;
+        }
+        if (!this.useSupabase || !this.supabase) {
+            this.showToast('서버에 연결한 후 신청서를 제출해 주세요.', 'warning');
+            return;
+        }
+        if (button) button.disabled = true;
+        try {
+            const { data: authData, error: authError } = await this.supabase.auth.getUser();
+            const user = authData?.user;
+            if (authError || !user) throw new Error('로그인이 만료되었습니다. 다시 로그인해 주세요.');
+            const { error } = await this.supabase.from('permission_requests')
+                .insert({ requester_id: user.id, requested_role: role, reason });
+            if (error) {
+                if (error.code === '23505') throw new Error('이미 심사 대기 중인 신청서가 있습니다.');
+                throw error;
+            }
+            this.closePermissionRequestModal();
+            this.showToast('권한 신청이 접수되었습니다. 관리자 심사 후 반영됩니다.', 'success');
+            // A privileged reviewer can inspect the pending request immediately.
+            if (document.getElementById('view-user-management')?.classList.contains('active')) {
+                this.loadPermissionRequests();
+            }
+        } catch (error) {
+            console.error('[Permission Request] Submit failed:', error);
+            this.showToast(error.message || '권한 신청서 제출에 실패했습니다.', 'error');
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    async loadPermissionRequests() {
+        const tbody = document.getElementById('admin-permission-requests-tbody');
+        const badge = document.getElementById('admin-perm-req-badge');
+        if (!tbody || !this.supabase || !this.useSupabase) return;
+        tbody.innerHTML = '<tr><td colspan="7" style="padding:16px;text-align:center;">신청 내역 확인 중...</td></tr>';
+        try {
+            const { data: authData, error: authError } = await this.supabase.auth.getUser();
+            const user = authData?.user;
+            if (authError || !user) throw new Error('로그인이 필요합니다.');
+            const { data: myProfile, error: profileError } = await this.supabase
+                .from('profiles').select('role').eq('id', user.id).single();
+            if (profileError) throw profileError;
+            if (!['SYS_ADMIN', 'ADMIN'].includes((myProfile?.role || '').toUpperCase())) {
+                tbody.innerHTML = '<tr><td colspan="7" style="padding:16px;text-align:center;">시스템 관리자만 심사 내역을 볼 수 있습니다.</td></tr>';
+                if (badge) badge.textContent = '0건';
+                return;
+            }
+            const { data: requests, error } = await this.supabase
+                .from('permission_requests')
+                .select('id,requester_id,requested_role,reason,status,created_at,reviewed_at')
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            const entries = requests || [];
+            if (badge) badge.textContent = String(entries.filter(p => p.status === 'pending').length) + '건';
+            if (!entries.length) {
+                tbody.innerHTML = '<tr><td colspan="7" style="padding:18px;text-align:center;">등록된 권한 신청이 없습니다.</td></tr>';
+                return;
+            }
+            const requesterIds = [...new Set(entries.map(p => p.requester_id).filter(Boolean))];
+            let profiles = [];
+            if (requesterIds.length) {
+                const result = await this.supabase.from('profiles')
+                    .select('id,name,email').in('id', requesterIds);
+                if (result.error) console.warn('[Permission Request] applicant profile lookup:', result.error.message);
+                profiles = result.data || [];
+            }
+            const byId = new Map(profiles.map(p => [p.id, p]));
+            const roleLabels = { worker: '수행담당자', pm: 'PM', manager: '총괄관리자' };
+            const statusLabels = { pending: '심사 대기', approved: '승인', rejected: '반려' };
+            tbody.innerHTML = entries.map(req => {
+                const profile = byId.get(req.requester_id) || {};
+                const displayDate = req.created_at ? new Date(req.created_at).toLocaleString('ko-KR') : '-';
+                const actions = req.status === 'pending'
+                    ? '<button type="button" class="btn btn-xs btn-primary" onclick="app.reviewPermissionRequest(\'' + req.id + '\', \'approve\')">승인</button> '
+                      + '<button type="button" class="btn btn-xs btn-outline" onclick="app.reviewPermissionRequest(\'' + req.id + '\', \'reject\')">반려</button>'
+                    : '-';
+                return '<tr>'
+                    + '<td>' + this.escapeHtml(profile.name || '사용자') + '</td>'
+                    + '<td>' + this.escapeHtml(profile.email || '-') + '</td>'
+                    + '<td>' + this.escapeHtml(roleLabels[req.requested_role] || req.requested_role) + '</td>'
+                    + '<td style="max-width:260px;white-space:normal;overflow-wrap:anywhere;">' + this.escapeHtml(req.reason || '') + '</td>'
+                    + '<td>' + this.escapeHtml(displayDate) + '</td>'
+                    + '<td>' + this.escapeHtml(statusLabels[req.status] || req.status) + '</td>'
+                    + '<td>' + actions + '</td></tr>';
+            }).join('');
+        } catch (error) {
+            console.error('[Permission Request] Load failed:', error);
+            tbody.innerHTML = '<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--danger);">신청 내역을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</td></tr>';
+        }
+    }
+
+    async reviewPermissionRequest(requestId, decision) {
+        if (!/^[0-9a-f-]{36}$/i.test(requestId || '') || !['approve', 'reject'].includes(decision)) return;
+        if (!confirm(decision === 'approve' ? '이 요청을 승인하여 사용자 권한을 변경할까요?' : '이 권한 신청을 반려할까요?')) return;
+        try {
+            const { error } = await this.supabase.rpc('review_permission_request', {
+                p_request_id: requestId,
+                p_decision: decision
+            });
+            if (error) throw error;
+            this.showToast(decision === 'approve' ? '권한 변경을 승인했습니다.' : '권한 신청을 반려했습니다.', 'success');
+            await this.loadPermissionRequests();
+            const { data: profiles } = await this.supabase.from('profiles').select('*');
+            if (profiles && this.state) {
+                this.state.users = profiles.map(p => ({
+                    id: p.id, email: p.email, name: p.name || p.email,
+                    role: p.role, profileColor: p.profile_color, profileImage: p.profile_image
+                }));
+                this.renderUserManagementTable();
+            }
+        } catch (error) {
+            console.error('[Permission Request] Review failed:', error);
+            this.showToast(error.message || '심사 처리에 실패했습니다.', 'error');
+        }
+    }
+
     renderUserManagementTable() {
         const tbody = document.getElementById('user-management-tbody');
         if (!tbody) return;
