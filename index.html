@@ -187,7 +187,7 @@
 
                 <!-- 인력 및 연락처 관리 그룹 -->
                 <div class="nav-item-wrapper collapsed" id="nav-wrapper-hr">
-                    <a href="#resources/members" class="nav-item" data-view="resources" data-tooltip="참여인력 관리" aria-expanded="false" onclick="event.preventDefault(); event.stopPropagation(); const wrapper = this.closest(&quot;.nav-item-wrapper&quot;); if (wrapper) { const isCollapsed = wrapper.classList.toggle(&quot;collapsed&quot;); this.setAttribute(&quot;aria-expanded&quot;, String(!isCollapsed)); }">
+                    <a href="#resources/members" class="nav-item" data-view="resources" data-tooltip="참여인력 관리" aria-expanded="false">
                         <i data-lucide="users"></i>
                         <span>참여인력 관리</span>
                         <i data-lucide="chevron-down" class="submenu-toggle-icon"></i>
@@ -8560,5 +8560,28 @@
 </div>
 
 
+    <!-- HR accordion: capture click before delegated navigation/routing listeners.
+         Only parent nav link is intercepted; submenu links work normally. -->
+    <script>
+    (function () {
+        if (window.__aetherHrAccordionCaptureInstalled) return;
+        window.__aetherHrAccordionCaptureInstalled = true;
+        function toggleHr(event) {
+            var target = event.target;
+            if (!target || typeof target.closest !== 'function') return;
+            var parentLink = target.closest('#nav-wrapper-hr > a.nav-item');
+            if (!parentLink) return;
+            var wrapper = document.getElementById('nav-wrapper-hr');
+            if (!wrapper) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            var collapsed = wrapper.classList.toggle('collapsed');
+            parentLink.setAttribute('aria-expanded', String(!collapsed));
+        }
+        // Capturing phase runs before the app's bubbling sidebar handlers.
+        document.addEventListener('click', toggleHr, true);
+        // Keyboard Enter/Space on focused link generate a click and use the same handler.
+    })();
+    </script>
 </body>
 </html>
