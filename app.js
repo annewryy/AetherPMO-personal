@@ -18503,7 +18503,11 @@ renderTodayTasksRoleBased(todayStr) {
         methodologyObj.selectedActivityId = activityId;
         methodologyObj.selectedArtifactId = artifactId;
         methodologyObj.isArtifactSummaryOpen = true;
-        this.renderProjectDetailMethodology(projectId);
+        if (this.currentView === 'project-detail' && this.activeDetailTab !== 'methodology') {
+            this.setDetailTab('methodology');
+        } else {
+            this.renderProjectDetailMethodology(projectId);
+        }
     }
 
     selectMethodologyItem(projectId, activityId, artifactId) {
@@ -18566,10 +18570,11 @@ renderTodayTasksRoleBased(todayStr) {
         }
     }
 
-    applyTailoringAndNavigateToArtifacts(projectId) {
+    async applyTailoringAndNavigateToArtifacts(projectId) {
         const targetProjectId = projectId || this.activeProjectId;
         if (!targetProjectId) return;
 
+        this.activeProjectId = targetProjectId;
         const selectedArtifacts = this.getProjectSelectedArtifacts(targetProjectId);
         const count = selectedArtifacts ? selectedArtifacts.length : 0;
 
@@ -18577,10 +18582,25 @@ renderTodayTasksRoleBased(todayStr) {
             this.showToast(`테일러링에서 적용 선택된 ${count}개의 산출물이 산출물 탭으로 반영되었습니다.`, 'success');
         }
 
-        if (this.activeProjectId !== targetProjectId) {
-            this.switchView('project-detail', targetProjectId);
+        if (this.currentView !== 'project-detail') {
+            await this.switchView('project-detail', targetProjectId, { updateHash: true });
+        } else {
+            const targetHash = `#project-detail/${targetProjectId}`;
+            if (window.location.hash !== targetHash) {
+                history.pushState(null, '', targetHash);
+            }
         }
+
         this.setDetailTab('artifacts');
+
+        setTimeout(() => {
+            const artifactsTab = document.getElementById('detail-tab-content-artifacts');
+            if (artifactsTab) {
+                artifactsTab.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }, 50);
     }
 
     toggleMethodologyStageAllSelection(projectId, stageCode, isChecked) {
@@ -20665,8 +20685,7 @@ renderTodayTasksRoleBased(todayStr) {
 
     renderProjectDetailArtifactsTable(artifacts) {
         const container = document.getElementById('project-detail-artifacts-container');
-        const tbody = document.getElementById('project-detail-artifacts-tbody');
-        if (!tbody || !container) return;
+        if (!container) return;
 
         // If artifacts parameter is not provided, fetch selected ones
         if (!artifacts) {
@@ -20692,7 +20711,7 @@ renderTodayTasksRoleBased(todayStr) {
         // Restore table structure if previously overwritten by empty state
         if (!container.querySelector('table')) {
             container.innerHTML = `
-                <table class="data-table">
+                <table class="data-table g2b-data-table">
                     <thead>
                         <tr>
                             <th style="width: 130px;">단계</th>
