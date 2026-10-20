@@ -14249,3 +14249,52 @@ body.dark-theme #view-artifacts .data-table td:nth-child(3) {
     object-fit: contain;
     border-radius: inherit;
 }
+
+/* ==========================================================================
+   Consortium Edit & History Modal Dark/Light Theme Typography & Inputs
+   ========================================================================== */
+#modal-consortium-edit,
+#modal-consortium-history {
+    color: var(--text-main);
+}
+
+#modal-consortium-edit .modal-dialog,
+#modal-consortium-history .modal-dialog {
+    color: var(--text-main);
+}
+
+#modal-consortium-edit input,
+#modal-consortium-edit select {
+    color: var(--text-main) !important;
+    background-color: var(--bg-input) !important;
+    border-color: var(--border-color);
+}
+
+#modal-consortium-edit input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+#modal-consortium-edit table th,
+#modal-consortium-edit table td {
+    color: var(--text-main);
+}
+
+#modal-consortium-edit select option {
+    background-color: var(--bg-input, #0f172a);
+    color: var(--text-main, #f8fafc);
+}
+
+body.dark-theme #modal-consortium-edit input,
+body.dark-theme #modal-consortium-edit select,
+body.dark-theme #modal-consortium-history input,
+body.dark-theme #modal-consortium-history select {
+    color: #f8fafc !important;
+    background-color: #0f172a !important;
+}
+
+body.dark-theme #modal-consortium-edit table th,
+body.dark-theme #modal-consortium-edit table td {
+    color: #f8fafc !important;
+}
+

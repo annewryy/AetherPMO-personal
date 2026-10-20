@@ -19697,26 +19697,26 @@ renderTodayTasksRoleBased(todayStr) {
         tr.style.borderBottom = '1px solid var(--border-color)';
         tr.innerHTML = `
             <td style="padding:6px 8px;">
-                <input type="text" class="c-edit-company" value="${data.companyName || ''}" placeholder="(주)회사명" oninput="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
+                <input type="text" class="c-edit-company" value="${data.companyName || ''}" placeholder="(주)회사명" oninput="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-main); font-size:12px;">
             </td>
             <td style="padding:6px 8px;">
-                <select class="c-edit-role" onchange="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
+                <select class="c-edit-role" onchange="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-main); font-size:12px;">
                     <option value="PRIME" ${data.roleType === 'PRIME' ? 'selected' : ''}>주사업자</option>
                     <option value="MEMBER" ${data.roleType !== 'PRIME' ? 'selected' : ''}>공동수급사(부사업자)</option>
                 </select>
             </td>
 
             <td style="padding:6px 8px;">
-                <input type="number" class="c-edit-rate" value="${data.shareRate !== undefined ? data.shareRate : 0}" step="0.1" min="0" max="100" oninput="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px; font-weight:700; text-align:right;">
+                <input type="number" class="c-edit-rate" value="${data.shareRate !== undefined ? data.shareRate : 0}" step="0.1" min="0" max="100" oninput="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-main); font-size:12px; font-weight:700; text-align:right;">
             </td>
             <td style="padding:6px 8px;">
-                <input type="number" class="c-edit-amount" value="${data.contractAmount || 0}" step="100000" placeholder="0" oninput="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px; text-align:right;">
+                <input type="number" class="c-edit-amount" value="${data.contractAmount || 0}" step="100000" placeholder="0" oninput="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-main); font-size:12px; text-align:right;">
             </td>
             <td style="padding:6px 8px;">
-                <input type="text" class="c-edit-ceo" value="${data.ceoName || ''}" placeholder="대표자명" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
+                <input type="text" class="c-edit-ceo" value="${data.ceoName || ''}" placeholder="대표자명" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-main); font-size:12px;">
             </td>
             <td style="padding:6px 8px;">
-                <input type="text" class="c-edit-manager" value="${data.managerName || ''}" placeholder="담당자명" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); font-size:12px;">
+                <input type="text" class="c-edit-manager" value="${data.managerName || ''}" placeholder="담당자명" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-main); font-size:12px;">
             </td>
             <td style="padding:6px 8px; text-align:center;">
                 <button type="button" class="btn-icon" onclick="app.deleteConsortiumEditRow(this)" style="color:var(--danger);"><i data-lucide="trash-2" style="width:14px; height:14px;"></i></button>
