@@ -37347,11 +37347,10 @@ renderTodayTasksRoleBased(todayStr) {
                 const { data, error } = await this.supabase
                     .from('projects')
                     .update({
-                        deleted_at: deletedAt,
-                        deleted_by: deletedBy
+                        deleted_at: deletedAt
                     })
                     .eq('id', projectId)
-                    .select('id, deleted_at, deleted_by');
+                    .select('id, deleted_at');
 
                 if (error) {
                     console.error('[Supabase Delete Error]', error);
