@@ -363,6 +363,7 @@ class AetherPMO {
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js').then(reg => {
                 console.log('[PWA] ServiceWorker registered:', reg.scope);
+                reg.update();
             }).catch(err => {
                 console.warn('[PWA] ServiceWorker registration failed:', err);
             });
@@ -1564,6 +1565,24 @@ class AetherPMO {
                     }
 
                     // Strict Whitelist DB Payload matching actual Supabase `projects` table columns
+                    const projectWbs = Object.assign({}, (p.wbs && typeof p.wbs === 'object') ? p.wbs : { stages: [] });
+                    if (Array.isArray(p.consortium) && p.consortium.length > 0) {
+                        projectWbs.consortium = p.consortium;
+                    }
+                    if (Array.isArray(p.consortiumHistory) && p.consortiumHistory.length > 0) {
+                        projectWbs.consortiumHistory = p.consortiumHistory;
+                    }
+                    if (p.vrbUrl) {
+                        projectWbs.vrbUrl = p.vrbUrl;
+                    }
+                    if (p.vrbLinkTitle) {
+                        projectWbs.vrbLinkTitle = p.vrbLinkTitle;
+                    }
+                    if (this.state && this.state.projectMethodologies && this.state.projectMethodologies[p.id]) {
+                        projectWbs.projectMethodology = this.state.projectMethodologies[p.id];
+                    }
+                    p.wbs = projectWbs;
+
                     const dbPayload = {
                         id: p.id,
                         project_code: p.projectCode || p.id,
@@ -1618,7 +1637,7 @@ class AetherPMO {
                         main_features: p.mainFeatures || p.main_features || '',
                         risk_mitigation: p.riskAndMitigation || p.risk_mitigation || '',
                         related_projects: p.relatedProjects || p.related_projects || '',
-                        wbs: p.wbs || { stages: [] },
+                        wbs: projectWbs,
                         resources_list: p.resourcesList || [],
                         member_ids: p.memberIds || []
                     };
@@ -2535,9 +2554,13 @@ class AetherPMO {
                 businessManager: p.business_manager,
                 contractOwner: p.contract_owner,
                 legalOwner: p.legal_owner,
-                wbs: p.wbs || { stages: [] },
+                wbs: (p.wbs && typeof p.wbs === 'object') ? p.wbs : { stages: [] },
                 resourcesList: p.resources_list || [],
                 memberIds: p.member_ids || [],
+                consortium: (p.wbs && Array.isArray(p.wbs.consortium) && p.wbs.consortium.length > 0) ? p.wbs.consortium : null,
+                consortiumHistory: (p.wbs && Array.isArray(p.wbs.consortiumHistory)) ? p.wbs.consortiumHistory : [],
+                vrbUrl: (p.wbs && p.wbs.vrbUrl) ? p.wbs.vrbUrl : null,
+                vrbLinkTitle: (p.wbs && p.wbs.vrbLinkTitle) ? p.wbs.vrbLinkTitle : null,
                 consortiumMembers: [],
                 vrbInfo: null
             }));
@@ -2598,6 +2621,43 @@ class AetherPMO {
                     p.vrbInfo = { status: '미상신', plannedDate: '', submittedDate: '', approvedDate: '', vrbNumber: '', memo: '' };
                 }
             });
+
+            // Restore project methodologies from wbs if present
+            if (!this.state.projectMethodologies) this.state.projectMethodologies = {};
+            (projects || []).forEach(p => {
+                const wbsData = (p.wbs && typeof p.wbs === 'object') ? p.wbs : null;
+                if (wbsData && wbsData.projectMethodology) {
+                    this.state.projectMethodologies[p.id] = wbsData.projectMethodology;
+                }
+            });
+
+            // LocalStorage fallback merge for unsynced or locally enhanced properties
+            try {
+                const storedStateStr = localStorage.getItem('aether_pms_state');
+                if (storedStateStr) {
+                    const localState = JSON.parse(storedStateStr);
+                    if (localState && Array.isArray(localState.projects)) {
+                        this.state.projects.forEach(p => {
+                            const lp = localState.projects.find(x => x.id === p.id || (p.projectCode && x.projectCode === p.projectCode));
+                            if (lp) {
+                                if ((!p.consortium || p.consortium.length === 0) && Array.isArray(lp.consortium) && lp.consortium.length > 0) {
+                                    p.consortium = lp.consortium;
+                                }
+                                if ((!p.consortiumHistory || p.consortiumHistory.length === 0) && Array.isArray(lp.consortiumHistory) && lp.consortiumHistory.length > 0) {
+                                    p.consortiumHistory = lp.consortiumHistory;
+                                }
+                                if (!p.vrbUrl && lp.vrbUrl) p.vrbUrl = lp.vrbUrl;
+                                if (!p.vrbLinkTitle && lp.vrbLinkTitle) p.vrbLinkTitle = lp.vrbLinkTitle;
+                            }
+                        });
+                    }
+                    if (localState && localState.projectMethodologies) {
+                        this.state.projectMethodologies = Object.assign({}, localState.projectMethodologies, this.state.projectMethodologies || {});
+                    }
+                }
+            } catch (mergeErr) {
+                console.warn('[Supabase Load] Error merging local state:', mergeErr);
+            }
 
             // 템플릿 데이터만 분리하여 globalTemplates에 매핑
             this.state.globalTemplates = (artifacts || [])
@@ -19914,7 +19974,7 @@ renderTodayTasksRoleBased(todayStr) {
         }
     }
 
-    saveConsortiumEdit() {
+    async saveConsortiumEdit() {
         const project = this.state.projects.find(p => p.id === this.activeProjectId);
         if (!project) return;
 
@@ -20005,7 +20065,13 @@ renderTodayTasksRoleBased(todayStr) {
             }
         }
 
-        this.saveState('project_upsert', project);
+        if (!project.wbs || typeof project.wbs !== 'object') {
+            project.wbs = { stages: [] };
+        }
+        project.wbs.consortium = newList;
+        project.wbs.consortiumHistory = project.consortiumHistory || [];
+
+        await this.saveState('project_upsert', project);
         this.renderProjectDetailOverview(project);
         this.closeConsortiumEditModal();
         this.showToast('컨소시엄 구성 및 지분율 정보가 저장되었습니다.', 'success');
@@ -20079,14 +20145,19 @@ renderTodayTasksRoleBased(todayStr) {
         if (modal) modal.style.display = 'none';
     }
 
-    deleteConsortiumHistoryItem(historyId) {
+    async deleteConsortiumHistoryItem(historyId) {
         const project = this.state.projects.find(p => p.id === this.activeProjectId);
         if (!project || !project.consortiumHistory) return;
 
         if (!confirm('이 지분율 변경 이력 기록을 삭제하시겠습니까?')) return;
 
         project.consortiumHistory = project.consortiumHistory.filter(h => h.id !== historyId);
-        this.saveState('project_upsert', project);
+        if (!project.wbs || typeof project.wbs !== 'object') {
+            project.wbs = { stages: [] };
+        }
+        project.wbs.consortiumHistory = project.consortiumHistory;
+
+        await this.saveState('project_upsert', project);
         this.openConsortiumHistoryModal();
         this.renderProjectDetailOverview(project);
         this.showToast('지분율 변경 이력이 삭제되었습니다.', 'info');
@@ -20134,7 +20205,7 @@ renderTodayTasksRoleBased(todayStr) {
         if (modal) modal.classList.remove('open');
     }
 
-    saveVrbLinkForm() {
+    async saveVrbLinkForm() {
         const project = this.state.projects.find(p => p.id === this.activeProjectId);
         if (!project) return;
 
@@ -20162,13 +20233,19 @@ renderTodayTasksRoleBased(todayStr) {
         }
         project.vrbInfo.url = url;
 
-        this.saveState('project_upsert', project);
+        if (!project.wbs || typeof project.wbs !== 'object') {
+            project.wbs = { stages: [] };
+        }
+        project.wbs.vrbUrl = url;
+        project.wbs.vrbLinkTitle = title;
+
+        await this.saveState('project_upsert', project);
         this.closeVrbLinkModal();
         this.renderProjectDetailOverview(project);
         this.showToast('VRB 링크가 성공적으로 저장되었습니다.', 'success');
     }
 
-    deleteVrbLink() {
+    async deleteVrbLink() {
         const project = this.state.projects.find(p => p.id === this.activeProjectId);
         if (!project) return;
 
@@ -20180,7 +20257,12 @@ renderTodayTasksRoleBased(todayStr) {
             delete project.vrbInfo.url;
         }
 
-        this.saveState('project_upsert', project);
+        if (project.wbs) {
+            delete project.wbs.vrbUrl;
+            delete project.wbs.vrbLinkTitle;
+        }
+
+        await this.saveState('project_upsert', project);
         this.closeVrbLinkModal();
         this.renderProjectDetailOverview(project);
         this.showToast('VRB 링크가 삭제되었습니다.', 'info');

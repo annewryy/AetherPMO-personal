@@ -34,3 +34,11 @@ html = html.replace(/app\.js\?v=[^"']+/, `app.js?v=${buildVersion}`);
 html = html.replace(/monthly-effort\.js(\?v=[^"']+)?/, `monthly-effort.js?v=${buildVersion}`);
 fs.writeFileSync('index.html', html);
 console.log(`app.js & monthly-effort.js cache-busting version updated to: ${buildVersion}`);
+
+// ── sw.js 캐시 버전 갱신: 배포 시 서비스 워커 캐시 즉시 교체 ──
+if (fs.existsSync('sw.js')) {
+    let sw = fs.readFileSync('sw.js', 'utf-8');
+    sw = sw.replace(/const CACHE_VERSION = '[^']+';/, `const CACHE_VERSION = 'aetherpmo-${buildVersion}';`);
+    fs.writeFileSync('sw.js', sw);
+    console.log(`sw.js CACHE_VERSION updated to: aetherpmo-${buildVersion}`);
+}
