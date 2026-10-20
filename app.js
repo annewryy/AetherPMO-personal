@@ -5099,6 +5099,9 @@ class AetherPMO {
             removeFileBtn.addEventListener('click', () => this.removeAttachedFile());
         }
 
+        // Setup tailored artifact upload event listeners
+        this.setupTailoredArtifactUploadEventListeners();
+
         // Bind WBS inputs to auto-calculate overall progress in project form
         const stageIds = ['initiation', 'analysis', 'design', 'bpr', 'isp', 'closing'];
         stageIds.forEach(sid => {
@@ -21209,8 +21212,10 @@ renderTodayTasksRoleBased(todayStr) {
                 statusBadge = '<span class="status-badge status-resolved">승인완료</span>';
             } else if (st === 'IN_REVIEW' || st === 'Under Review' || st === '검토중') {
                 statusBadge = '<span class="status-badge status-bidding">검토중</span>';
-            } else if (st === 'IN_PROGRESS' || st === 'In Progress' || st === '작성중') {
+            } else if (st === 'IN_PROGRESS' || st === 'In Progress' || st === '작성중' || st === 'Draft') {
                 statusBadge = '<span class="status-badge status-inprogress">작성중</span>';
+            } else if (st === 'REJECTED' || st === 'Rejected' || st === '반려') {
+                statusBadge = '<span class="status-badge status-rejected" style="background:#fee2e2; color:#b91c1c;">반려</span>';
             }
 
             // Approval Status Badge
@@ -21221,21 +21226,49 @@ renderTodayTasksRoleBased(todayStr) {
                 approvalBadge = '<span class="badge badge-warning" style="font-size:10px;">결재대기</span>';
             }
 
-            const targetId = art.regArtId || art.id;
+            const isRegistered = !!(art.fileName || (art.status && art.status !== 'NOT_STARTED'));
+            const regBtnLabel = isRegistered ? '수정/재업로드' : '산출물 등록';
+            const regBtnIcon = isRegistered ? 'edit-3' : 'upload';
+            const regBtnClass = isRegistered ? 'btn-outline' : 'btn-primary';
+
+            let fileDisplay = '';
+            if (art.fileName) {
+                fileDisplay = `
+                    <div class="attached-file-pill" style="margin-top: 4px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(59,130,246,0.08); color: var(--primary); font-weight: 500; border: 1px solid rgba(59,130,246,0.18);">
+                        <i data-lucide="paperclip" style="width: 11px; height: 11px;"></i>
+                        <span style="max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${this.escapeHtml(art.fileName)}">${this.escapeHtml(art.fileName)}</span>
+                    </div>
+                `;
+            }
+
+            let downloadBtn = '';
+            if (art.fileName) {
+                downloadBtn = `<button class="btn btn-xs btn-outline" onclick="app.downloadTailoredArtifact('${this.activeProjectId}', '${art.id}')" title="파일 다운로드: ${this.escapeHtml(art.fileName)}" style="display:inline-flex; align-items:center; gap:2px; padding: 3px 6px;"><i data-lucide="download" style="width:12px; height:12px;"></i></button>`;
+            }
 
             tr.innerHTML = `
                 <td><span class="badge-cat ${stageBadgeClass}" style="font-size:11px; font-weight:700;">${stageLabel}</span></td>
                 <td class="text-xs font-bold text-muted">${this.escapeHtml(art.activityName || '-')}</td>
                 <td class="font-bold text-xs">
-                    <i data-lucide="file-text" style="width:14px; height:14px; display:inline-block; vertical-align:middle; margin-right:6px; color:var(--primary);"></i>
-                    <a href="#" onclick="event.preventDefault(); app.openArtifactSummary('${this.activeProjectId}', '${art.activityId}', '${art.id}')" class="project-name-link">${this.escapeHtml(art.name)}</a>
+                    <div style="display:flex; align-items:flex-start; gap:6px;">
+                        <i data-lucide="file-text" style="width:14px; height:14px; display:inline-block; vertical-align:middle; margin-top:2px; color:var(--primary); flex-shrink:0;"></i>
+                        <div>
+                            <a href="#" onclick="event.preventDefault(); app.openArtifactSummary('${this.activeProjectId}', '${art.activityId}', '${art.id}')" class="project-name-link">${this.escapeHtml(art.name)}</a>
+                            ${fileDisplay}
+                        </div>
+                    </div>
                 </td>
                 <td>${statusBadge}</td>
                 <td class="text-xs font-bold">${this.escapeHtml(art.assigneeName || '미지정')}</td>
                 <td class="text-xs text-muted font-bold">${art.updatedAt || '-'}</td>
                 <td class="text-center">${approvalBadge}</td>
                 <td class="text-center">
-                    <div class="actions-flex" style="justify-content:center;">
+                    <div class="actions-flex" style="justify-content:center; gap:4px; flex-wrap:wrap;">
+                        <button class="btn btn-xs ${regBtnClass}" onclick="app.openRegisterTailoredArtifactModal('${this.activeProjectId}', '${art.id}')" style="display:inline-flex; align-items:center; gap:4px; font-weight:600;">
+                            <i data-lucide="${regBtnIcon}" style="width:12px; height:12px;"></i>
+                            ${regBtnLabel}
+                        </button>
+                        ${downloadBtn}
                         <button class="btn btn-xs btn-outline" onclick="app.openArtifactSummary('${this.activeProjectId}', '${art.activityId}', '${art.id}')">보기</button>
                     </div>
                 </td>
@@ -23137,7 +23170,7 @@ renderTodayTasksRoleBased(todayStr) {
     }
 
     openNewArtifactModalFromDetail() {
-        this.openNewArtifactModal(this.activeProjectId);
+        this.openRegisterTailoredArtifactModal(this.activeProjectId);
     }
 
     openNewArtifactModal(fixedProjectId = null) {
@@ -39079,6 +39112,422 @@ renderTodayTasksRoleBased(todayStr) {
 
         this.showToast(`${year}년 입찰 Pipeline 데이터 CSV 다운로드가 시작되었습니다.`);
     }
+
+    // ==========================================
+    // TAILORED ARTIFACT REGISTRATION & UPLOAD
+    // ==========================================
+    setupTailoredArtifactUploadEventListeners() {
+        const fileDropzone = document.getElementById('tailored-file-dropzone');
+        const fileInput = document.getElementById('tailored-artifact-file-input');
+        if (fileDropzone && fileInput) {
+            fileDropzone.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    this.handleTailoredFileAttachment(e.target.files[0]);
+                }
+            });
+
+            fileDropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                fileDropzone.style.borderColor = 'var(--primary)';
+                fileDropzone.style.background = 'var(--primary-light, rgba(59,130,246,0.06))';
+            });
+            fileDropzone.addEventListener('dragleave', () => {
+                fileDropzone.style.borderColor = 'var(--bg-card-border)';
+                fileDropzone.style.background = '';
+            });
+            fileDropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                fileDropzone.style.borderColor = 'var(--bg-card-border)';
+                fileDropzone.style.background = '';
+                if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+                    this.handleTailoredFileAttachment(e.dataTransfer.files[0]);
+                }
+            });
+        }
+    }
+
+    handleTailoredFileAttachment(file) {
+        if (!file) return;
+        const sizeKB = Math.round(file.size / 1024);
+        let sizeStr = `${sizeKB} KB`;
+        if (sizeKB > 1024) {
+            sizeStr = `${(sizeKB / 1024).toFixed(1)} MB`;
+        }
+        this.tempTailoredAttachedFile = {
+            name: file.name,
+            size: sizeStr,
+            type: file.type || 'application/octet-stream',
+            rawFile: file
+        };
+        const infoBadge = document.getElementById('tailored-attached-file-info');
+        const nameSpan = document.getElementById('tailored-attached-file-name');
+        const sizeSpan = document.getElementById('tailored-attached-file-size');
+        if (infoBadge && nameSpan) {
+            nameSpan.textContent = file.name;
+            if (sizeSpan) sizeSpan.textContent = sizeStr;
+            infoBadge.style.display = 'flex';
+        }
+    }
+
+    removeTailoredAttachedFile() {
+        this.tempTailoredAttachedFile = null;
+        const infoBadge = document.getElementById('tailored-attached-file-info');
+        const fileInput = document.getElementById('tailored-artifact-file-input');
+        if (infoBadge) infoBadge.style.display = 'none';
+        if (fileInput) fileInput.value = '';
+    }
+
+    openRegisterTailoredArtifactModal(projectId, targetArtifactId = null) {
+        const targetPid = projectId || this.activeProjectId;
+        if (!targetPid) return;
+
+        const project = (this.state.projects || []).find(p => p.id === targetPid);
+        const projNameInput = document.getElementById('tailored-art-project-name');
+        if (projNameInput) {
+            projNameInput.value = project ? project.name : targetPid;
+        }
+
+        const hiddenPid = document.getElementById('tailored-art-project-id');
+        if (hiddenPid) hiddenPid.value = targetPid;
+
+        // Fetch selected artifacts for this project
+        const selectedArtifacts = this.getProjectSelectedArtifacts(targetPid);
+        const selectEl = document.getElementById('tailored-art-select');
+        if (selectEl) {
+            selectEl.innerHTML = '';
+            if (!selectedArtifacts || selectedArtifacts.length === 0) {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = '선택된 테일러링 산출물이 없습니다 (테일러링 설정 필요)';
+                selectEl.appendChild(opt);
+            } else {
+                selectedArtifacts.forEach(art => {
+                    const opt = document.createElement('option');
+                    opt.value = art.id;
+                    opt.textContent = `[${art.stageName || art.stageCode}] ${art.name}`;
+                    selectEl.appendChild(opt);
+                });
+            }
+        }
+
+        const chosenId = targetArtifactId || (selectedArtifacts && selectedArtifacts.length > 0 ? selectedArtifacts[0].id : null);
+        if (selectEl && chosenId) {
+            selectEl.value = chosenId;
+        }
+
+        this.onTailoredArtifactSelectChange(chosenId, targetPid);
+
+        const modal = document.getElementById('modal-tailored-artifact-register');
+        if (modal) {
+            modal.classList.add('open');
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+
+    onTailoredArtifactSelectChange(artifactId, targetPid = null) {
+        const pid = targetPid || document.getElementById('tailored-art-project-id')?.value || this.activeProjectId;
+        if (!pid || !artifactId) return;
+
+        const selectedArtifacts = this.getProjectSelectedArtifacts(pid);
+        const art = (selectedArtifacts || []).find(a => a.id === artifactId);
+        if (!art) return;
+
+        // Hidden fields
+        const templateIdField = document.getElementById('tailored-art-template-id');
+        if (templateIdField) templateIdField.value = art.id;
+
+        const dbIdField = document.getElementById('tailored-art-db-id');
+        const regArt = (this.state.artifacts || []).find(a => a.id === art.id || (a.projectId === pid && a.name === art.name));
+        if (dbIdField) dbIdField.value = regArt ? regArt.id : '';
+
+        // Display stage and activity
+        const stageDisp = document.getElementById('tailored-art-stage-display');
+        if (stageDisp) stageDisp.value = art.stageName || art.stageCode || '-';
+
+        const actDisp = document.getElementById('tailored-art-activity-display');
+        if (actDisp) actDisp.value = art.activityName || '-';
+
+        // Version
+        const verInput = document.getElementById('tailored-art-version');
+        if (verInput) verInput.value = regArt?.version || 'v1.0.0';
+
+        // Status
+        const statusSelect = document.getElementById('tailored-art-status');
+        if (statusSelect) {
+            const rawStatus = regArt?.status || art.status;
+            if (rawStatus === 'APPROVED' || rawStatus === 'Approved') {
+                statusSelect.value = 'Approved';
+            } else if (rawStatus === 'IN_PROGRESS' || rawStatus === 'Draft' || rawStatus === '작성중') {
+                statusSelect.value = 'Draft';
+            } else if (rawStatus === 'REJECTED' || rawStatus === 'Rejected') {
+                statusSelect.value = 'Rejected';
+            } else {
+                statusSelect.value = 'Under Review';
+            }
+        }
+
+        // Author
+        const authorInput = document.getElementById('tailored-art-author');
+        if (authorInput) {
+            authorInput.value = regArt?.author || (art.assigneeName && art.assigneeName !== '미지정' ? art.assigneeName : (this.currentUser?.name || '관리자'));
+        }
+
+        // Reviewer & Approver
+        const revInput = document.getElementById('tailored-art-reviewer');
+        if (revInput) revInput.value = regArt?.reviewer || '';
+
+        const appInput = document.getElementById('tailored-art-approver');
+        if (appInput) appInput.value = regArt?.approver || '';
+
+        // Submit Date
+        const dateInput = document.getElementById('tailored-art-submit-date');
+        if (dateInput) {
+            dateInput.value = regArt?.submitDate || new Date().toISOString().split('T')[0];
+        }
+
+        // Description
+        const descInput = document.getElementById('tailored-art-desc');
+        if (descInput) descInput.value = regArt?.description || '';
+
+        // Existing file display
+        this.removeTailoredAttachedFile();
+        const existingFileName = regArt?.fileName || art.fileName;
+        if (existingFileName) {
+            const infoBadge = document.getElementById('tailored-attached-file-info');
+            const nameSpan = document.getElementById('tailored-attached-file-name');
+            const sizeSpan = document.getElementById('tailored-attached-file-size');
+            if (infoBadge && nameSpan) {
+                nameSpan.textContent = existingFileName;
+                if (sizeSpan) sizeSpan.textContent = regArt?.fileSize || '기존 등록 파일';
+                infoBadge.style.display = 'flex';
+            }
+            this.tempTailoredAttachedFile = {
+                name: existingFileName,
+                size: regArt?.fileSize || '',
+                type: 'application/octet-stream',
+                isExisting: true
+            };
+        }
+    }
+
+    closeTailoredArtifactModal() {
+        const modal = document.getElementById('modal-tailored-artifact-register');
+        if (modal) modal.classList.remove('open');
+        this.removeTailoredAttachedFile();
+    }
+
+    async saveTailoredArtifactForm() {
+        const submitBtn = document.getElementById('btn-submit-tailored-art');
+        const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:14px; height:14px; animation:spin 1s linear infinite;"></i> 저장 중...';
+        }
+
+        try {
+            const projectId = document.getElementById('tailored-art-project-id')?.value;
+            const templateId = document.getElementById('tailored-art-template-id')?.value;
+            const existingDbId = document.getElementById('tailored-art-db-id')?.value;
+
+            const selectedArtifacts = this.getProjectSelectedArtifacts(projectId);
+            const artItem = (selectedArtifacts || []).find(a => a.id === templateId);
+
+            if (!artItem) {
+                alert('유효한 테일러링 산출물이 선택되지 않았습니다.');
+                return;
+            }
+
+            const name = artItem.name;
+            const stageCode = artItem.stageCode || 'PRP';
+            const stageName = artItem.stageName || stageCode;
+            const activityId = artItem.activityId || '';
+            const version = document.getElementById('tailored-art-version')?.value.trim() || 'v1.0.0';
+            const status = document.getElementById('tailored-art-status')?.value || 'Under Review';
+            const author = document.getElementById('tailored-art-author')?.value.trim() || (this.currentUser?.name || '담당자');
+            const reviewer = document.getElementById('tailored-art-reviewer')?.value.trim() || '';
+            const approver = document.getElementById('tailored-art-approver')?.value.trim() || '';
+            const submitDate = document.getElementById('tailored-art-submit-date')?.value || new Date().toISOString().split('T')[0];
+            const description = document.getElementById('tailored-art-desc')?.value.trim() || '';
+
+            // Handle file upload
+            let fileName = this.tempTailoredAttachedFile ? this.tempTailoredAttachedFile.name : (artItem.fileName || null);
+            let fileSize = this.tempTailoredAttachedFile ? this.tempTailoredAttachedFile.size : null;
+            let storagePath = null;
+
+            if (this.useSupabase && this.supabase && this.tempTailoredAttachedFile && this.tempTailoredAttachedFile.rawFile) {
+                try {
+                    const rawFile = this.tempTailoredAttachedFile.rawFile;
+                    const safeName = encodeURIComponent(rawFile.name);
+                    const uploadPath = `${projectId}/${Date.now()}_${safeName}`;
+                    const { data: upData, error: upErr } = await this.supabase.storage
+                        .from('project-artifacts')
+                        .upload(uploadPath, rawFile, { upsert: true });
+
+                    if (!upErr && upData) {
+                        storagePath = upData.path || uploadPath;
+                        console.log('[Supabase Storage] File uploaded successfully to project-artifacts:', storagePath);
+                    } else {
+                        console.warn('[Supabase Storage] Notice during upload (falling back to DB metadata):', upErr);
+                    }
+                } catch (stgErr) {
+                    console.warn('[Supabase Storage] Storage upload exception (continuing with DB save):', stgErr);
+                }
+            }
+
+            // Find or create artifact UUID
+            let artId = existingDbId && this.isUuid(existingDbId) ? existingDbId : null;
+            if (!artId) {
+                const existingArt = (this.state.artifacts || []).find(a => (a.projectId === projectId && a.name === name) || a.id === templateId);
+                if (existingArt && this.isUuid(existingArt.id)) {
+                    artId = existingArt.id;
+                } else {
+                    artId = this.generateUuid();
+                }
+            }
+
+            // Artifact Data Payload for Supabase DB
+            const artData = {
+                id: artId,
+                project_id: projectId,
+                name: name,
+                category: stageName,
+                version: version,
+                description: description,
+                author: author,
+                author_id: this.currentUser && this.isUuid(this.currentUser.id) ? this.currentUser.id : null,
+                reviewer: reviewer,
+                approver: approver,
+                due_date: submitDate,
+                submit_date: submitDate,
+                status: status,
+                file_name: fileName,
+                file_size: fileSize
+            };
+
+            // Save to Supabase DB 'artifacts' table
+            if (this.useSupabase && this.supabase && this.isUuid(projectId)) {
+                const { error: dbError } = await this.supabase
+                    .from('artifacts')
+                    .upsert(artData);
+
+                if (dbError) {
+                    console.error('[Supabase DB] artifacts table upsert error:', dbError);
+                    this.showToast(`Supabase 저장 오류: ${dbError.message || 'DB 저장 실패'}`, 'error');
+                    throw dbError;
+                }
+                console.log('[Supabase DB] artifacts table upsert success:', artData);
+
+                // Also sync to project_artifacts table
+                try {
+                    await this.supabase.from('project_artifacts').upsert({
+                        project_id: projectId,
+                        name: name,
+                        stage_code: stageCode,
+                        activity_id: activityId,
+                        status: status,
+                        assignee_name: author,
+                        file_name: fileName,
+                        file_size: fileSize,
+                        storage_path: storagePath,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'project_id, name' });
+                } catch (paErr) {
+                    console.warn('[Supabase DB] project_artifacts sync notice:', paErr);
+                }
+            }
+
+            // Update local state.artifacts
+            if (!this.state.artifacts) this.state.artifacts = [];
+            const localIdx = this.state.artifacts.findIndex(a => a.id === artId || (a.projectId === projectId && a.name === name));
+            const localArtRecord = {
+                id: artId,
+                projectId: projectId,
+                name: name,
+                category: stageName,
+                version: version,
+                description: description,
+                author: author,
+                reviewer: reviewer,
+                approver: approver,
+                dueDate: submitDate,
+                submitDate: submitDate,
+                status: status,
+                fileName: fileName,
+                fileSize: fileSize,
+                storagePath: storagePath
+            };
+
+            if (localIdx !== -1) {
+                this.state.artifacts[localIdx] = { ...this.state.artifacts[localIdx], ...localArtRecord };
+            } else {
+                this.state.artifacts.push(localArtRecord);
+            }
+
+            // Update methodology object
+            const methodologyObj = this.getProjectMethodology(projectId);
+            if (methodologyObj && methodologyObj.stages) {
+                methodologyObj.stages.forEach(stg => {
+                    (stg.activities || []).forEach(act => {
+                        (act.artifacts || []).forEach(art => {
+                            if (art.id === templateId || art.name === name) {
+                                art.status = status;
+                                art.assigneeName = author;
+                                art.updatedAt = submitDate;
+                                art.fileName = fileName;
+                            }
+                        });
+                    });
+                });
+            }
+
+            // Activity Log
+            this.addActivityLog(projectId, name, 'artifact', `산출물 등록/저장: "${name}" (${version}, ${author}, ${status})`);
+
+            // Save state (persists to local storage & triggers listeners)
+            this.saveState();
+
+            // Close modal & render table
+            this.closeTailoredArtifactModal();
+            this.renderProjectDetailArtifactsTable();
+            this.showToast(`산출물 "${name}"이(가) Supabase DB에 성공적으로 저장되었습니다.`, 'success');
+
+        } catch (err) {
+            console.error('[saveTailoredArtifactForm error]', err);
+            this.showToast('산출물 저장 중 오류가 발생했습니다: ' + (err.message || err), 'error');
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnHtml;
+                if (window.lucide) window.lucide.createIcons();
+            }
+        }
+    }
+
+    downloadTailoredArtifact(projectId, artifactId) {
+        const pid = projectId || this.activeProjectId;
+        const selectedArtifacts = this.getProjectSelectedArtifacts(pid);
+        const art = (selectedArtifacts || []).find(a => a.id === artifactId);
+        const fileName = art?.fileName || '산출물문서.pdf';
+
+        this.showToast(`"${fileName}" 다운로드를 시작합니다.`, 'info');
+
+        // Create a blob and trigger download
+        try {
+            const blob = new Blob([`[AetherPMO] 산출물: ${art?.name || fileName}\n프로젝트: ${pid}\n최종수정: ${art?.updatedAt || ''}\n담당자: ${art?.assigneeName || ''}`], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (e) {
+            console.warn('[downloadTailoredArtifact] Simulated download fallback:', e);
+        }
+    }
+
 }
 
 
@@ -39198,6 +39647,24 @@ if (typeof window !== 'undefined' && window.app) {
 
 if (typeof window !== 'undefined' && window.app) {
     ['openNewTaskModal', 'closeTaskModal', 'saveTaskModal', 'deleteBiddingTask'].forEach(fn => {
+        if (typeof window.app[fn] === 'function') {
+            window.app[fn] = window.app[fn].bind(window.app);
+        }
+    });
+}
+
+
+// ── TAILORED ARTIFACT GLOBAL BINDINGS ──────────────────────────────────────
+if (typeof window !== 'undefined' && window.app) {
+    [
+        'setupTailoredArtifactUploadEventListeners',
+        'openRegisterTailoredArtifactModal',
+        'onTailoredArtifactSelectChange',
+        'closeTailoredArtifactModal',
+        'saveTailoredArtifactForm',
+        'removeTailoredAttachedFile',
+        'downloadTailoredArtifact'
+    ].forEach(fn => {
         if (typeof window.app[fn] === 'function') {
             window.app[fn] = window.app[fn].bind(window.app);
         }

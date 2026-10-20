@@ -1484,7 +1484,7 @@
                                     <button class="btn btn-sm btn-outline" onclick="app.setDetailTab('methodology')">
                                         <i data-lucide="settings" style="width:14px; height:14px; margin-right:4px;"></i> 테일러링 설정
                                     </button>
-                                    <button class="btn btn-sm btn-primary" onclick="app.openNewArtifactModalFromDetail()">
+                                    <button class="btn btn-sm btn-primary" onclick="app.openRegisterTailoredArtifactModal(app.activeProjectId)">
                                         <i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 산출물 등록
                                     </button>
                                 </div>
@@ -4623,6 +4623,129 @@
         </div>
     </div>
 
+
+    <!-- 2-B. TAILORED ARTIFACT REGISTRATION / UPLOAD MODAL -->
+    <div class="modal-overlay" id="modal-tailored-artifact-register" data-app-modal data-modal-size="md">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="background:var(--primary-light, rgba(59,130,246,0.12)); color:var(--primary); width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center;">
+                        <i data-lucide="file-up" style="width:20px; height:20px;"></i>
+                    </div>
+                    <div>
+                        <h2 id="tailored-art-modal-title" style="margin:0; font-size:16px; font-weight:700;">테일러링 산출물 등록 및 파일 업로드</h2>
+                        <p class="text-xs text-muted" style="margin:2px 0 0 0;" id="tailored-art-modal-subtitle">프로젝트 산출물을 등록하고 Supabase DB에 저장합니다.</p>
+                    </div>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="app.closeTailoredArtifactModal()">&times;</button>
+            </div>
+            <form id="tailored-artifact-form" onsubmit="event.preventDefault(); app.saveTailoredArtifactForm();">
+                <input type="hidden" id="tailored-art-project-id">
+                <input type="hidden" id="tailored-art-template-id">
+                <input type="hidden" id="tailored-art-db-id">
+
+                <div class="form-grid">
+                    <!-- Target Project Display -->
+                    <div class="form-group span-2">
+                        <label>대상 프로젝트</label>
+                        <input type="text" id="tailored-art-project-name" class="form-control" readonly style="background:var(--bg-hover-item); font-weight:700; color:var(--text-main);">
+                    </div>
+
+                    <!-- Target Tailored Deliverable -->
+                    <div class="form-group span-2">
+                        <label for="tailored-art-select">대상 테일러링 산출물 <span class="required">*</span></label>
+                        <select id="tailored-art-select" required onchange="app.onTailoredArtifactSelectChange(this.value)" class="form-control" style="font-weight:700; color:var(--text-main);">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+
+                    <!-- Stage & Activity Info (Readonly preview) -->
+                    <div class="form-group">
+                        <label>수행 단계</label>
+                        <input type="text" id="tailored-art-stage-display" class="form-control" readonly style="background:var(--bg-hover-item); font-size:12px; font-weight:600;">
+                    </div>
+                    <div class="form-group">
+                        <label>수행 활동</label>
+                        <input type="text" id="tailored-art-activity-display" class="form-control" readonly style="background:var(--bg-hover-item); font-size:12px; font-weight:600;">
+                    </div>
+
+                    <!-- Version & Status -->
+                    <div class="form-group">
+                        <label for="tailored-art-version">버전 <span class="required">*</span></label>
+                        <input type="text" id="tailored-art-version" required placeholder="예: v1.0.0" value="v1.0.0" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="tailored-art-status">작성/검토 상태 <span class="required">*</span></label>
+                        <select id="tailored-art-status" class="form-control" required>
+                            <option value="Under Review" selected>검토 대기 (Under Review)</option>
+                            <option value="Draft">작성중 (Draft)</option>
+                            <option value="Approved">승인 완료 (Approved)</option>
+                            <option value="Rejected">반려 (Rejected)</option>
+                        </select>
+                    </div>
+
+                    <!-- Author & Reviewer -->
+                    <div class="form-group">
+                        <label for="tailored-art-author">작성자 / 담당자 <span class="required">*</span></label>
+                        <input type="text" id="tailored-art-author" required placeholder="예: 홍길동" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="tailored-art-reviewer">검토자</label>
+                        <input type="text" id="tailored-art-reviewer" placeholder="예: 김검토 부장" class="form-control">
+                    </div>
+
+                    <!-- Dates -->
+                    <div class="form-group">
+                        <label for="tailored-art-submit-date">제출일자 / 등록일 <span class="required">*</span></label>
+                        <input type="date" id="tailored-art-submit-date" required class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="tailored-art-approver">승인자</label>
+                        <input type="text" id="tailored-art-approver" placeholder="예: 이승인 본부장" class="form-control">
+                    </div>
+
+                    <!-- File Upload Dropzone -->
+                    <div class="form-group span-2">
+                        <label>산출물 파일 첨부 / 업로드</label>
+                        <div class="file-upload-dragzone" id="tailored-file-dropzone" style="cursor:pointer; border:2px dashed var(--bg-card-border); border-radius:8px; padding:20px; text-align:center; transition:all 0.2s ease;">
+                            <i data-lucide="cloud-upload" class="dragzone-icon" style="width:36px; height:36px; margin:0 auto 8px auto; color:var(--primary); display:block;"></i>
+                            <div class="dragzone-text">
+                                <span class="highlight" style="color:var(--primary); font-weight:700;">파일 선택</span> 또는 여기로 드래그앤드롭 하세요
+                                <div class="sub" style="font-size:12px; color:var(--text-muted); margin-top:4px;">PDF, HWP, DOCX, XLSX, PPTX, ZIP 지원 (최대 50MB)</div>
+                            </div>
+                            <input type="file" id="tailored-artifact-file-input" style="display:none;">
+                        </div>
+                        <div class="uploaded-file-badge" id="tailored-attached-file-info" style="display:none; margin-top:8px; padding:8px 12px; background:var(--bg-hover-item); border:1px solid var(--bg-card-border); border-radius:6px; align-items:center; justify-content:space-between;">
+                            <div class="file-details" style="display:flex; align-items:center; gap:8px;">
+                                <i data-lucide="file-check" class="file-icon text-primary" style="width:16px; height:16px; color:var(--primary);"></i>
+                                <div class="file-meta" style="display:flex; flex-direction:column;">
+                                    <span id="tailored-attached-file-name" class="filename" style="font-weight:600; font-size:13px; color:var(--text-main);">document.pdf</span>
+                                    <span id="tailored-attached-file-size" class="filesize" style="font-size:11px; color:var(--text-muted);">2.4 MB</span>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-xs btn-outline" id="btn-remove-tailored-file" onclick="app.removeTailoredAttachedFile()" aria-label="파일 삭제" style="padding:2px 8px;">
+                                <i data-lucide="x" style="width:12px; height:12px;"></i> 삭제
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Description / Remarks -->
+                    <div class="form-group span-2">
+                        <label for="tailored-art-desc">산출물 설명 / 등록 비고</label>
+                        <textarea id="tailored-art-desc" rows="2" placeholder="산출물 주요 내용, 변경 사항 및 비고를 적어주세요." class="form-control"></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+                    <button type="button" class="btn btn-outline" onclick="app.closeTailoredArtifactModal()">취소</button>
+                    <button type="submit" class="btn btn-primary" id="btn-submit-tailored-art" style="display:inline-flex; align-items:center; gap:6px;">
+                        <i data-lucide="check" style="width:14px; height:14px;"></i>
+                        <span>등록 및 Supabase 저장</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
     <!-- 3. ARTIFACT DETAIL, VERSION HISTORY & WORKFLOW REVIEW MODAL -->
     <div class="modal-overlay" id="artifact-detail-modal" data-app-modal data-modal-size="xl">
         <div class="modal-card wide-modal">
