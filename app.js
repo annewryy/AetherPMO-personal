@@ -19775,9 +19775,14 @@ renderTodayTasksRoleBased(todayStr) {
 
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid var(--border-color)';
+        if (data.bizRegNo) {
+            tr.dataset.bizRegNo = data.bizRegNo;
+        }
+        const bizBadge = data.bizRegNo ? `<div style="font-size:10px; color:var(--text-muted); font-family:monospace; margin-top:2px;" title="사업자등록번호: ${data.bizRegNo}">사번: ${data.bizRegNo}</div>` : '';
         tr.innerHTML = `
             <td style="padding:6px 8px;">
                 <input type="text" class="c-edit-company" value="${data.companyName || ''}" placeholder="(주)회사명" oninput="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-main); font-size:12px;">
+                ${bizBadge}
             </td>
             <td style="padding:6px 8px;">
                 <select class="c-edit-role" onchange="app.updateConsortiumTotalShare()" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-main); font-size:12px;">
@@ -19823,6 +19828,12 @@ renderTodayTasksRoleBased(todayStr) {
         });
         total = Math.round(total * 100) / 100;
 
+        const amounts = document.querySelectorAll('.c-edit-amount');
+        let totalAmt = 0;
+        amounts.forEach(input => {
+            totalAmt += Number(input.value) || 0;
+        });
+
         const label = document.getElementById('consortium-total-share-label');
         if (label) {
             label.textContent = `${total}%`;
@@ -19832,7 +19843,231 @@ renderTodayTasksRoleBased(todayStr) {
                 label.style.color = 'var(--danger, #ef4444)';
             }
         }
+
+        const amtLabel = document.getElementById('consortium-total-amount-label');
+        if (amtLabel) {
+            amtLabel.textContent = `${totalAmt.toLocaleString()}원`;
+        }
+
+        const matchBadge = document.getElementById('consortium-contract-match-badge');
+        const project = this.state.projects.find(p => p.id === this.activeProjectId);
+        const contractAmount = project ? (Number(project.contractAmount) || Number(project.budget) || 0) : 0;
+        if (matchBadge) {
+            if (contractAmount > 0 && totalAmt > 0) {
+                matchBadge.style.display = 'inline-block';
+                if (contractAmount === totalAmt) {
+                    matchBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+                    matchBadge.style.color = 'var(--success, #10b981)';
+                    matchBadge.textContent = `✓ 계약금액 일치 (${contractAmount.toLocaleString()}원)`;
+                } else {
+                    matchBadge.style.background = 'rgba(239, 68, 68, 0.15)';
+                    matchBadge.style.color = 'var(--danger, #ef4444)';
+                    matchBadge.textContent = `⚠ 계약금액 불일치 (설정금액: ${contractAmount.toLocaleString()}원)`;
+                }
+            } else {
+                matchBadge.style.display = 'none';
+            }
+        }
+
         this.renderConsortiumShareChart();
+    }
+
+    /**
+     * 조달청 표준 계약서 (일반용역계약서 최종 등) PDF 텍스트 파싱
+     * - 규칙 기반 파싱 (AI 호출 비용 0원)
+     * - 1페이지 <계약업체>에서 대표/수급 구분, 업체명, 사업자등록번호, 지분율, 지분금액 추출
+     * - 사업자등록번호 기준 중복 방지 (<계약상대자> 중복 방지)
+     * - 회사명 임의 변경 방지 (문서 원문 유지)
+     * - 지분율 합계 100%, 지분금액 합계 및 총 계약금액 일치 검증 (누락값 추측 금지)
+     */
+    parseContractPdfText(fullText) {
+        if (!fullText || typeof fullText !== 'string') {
+            return { companies: [], error: '추출된 텍스트가 없습니다.' };
+        }
+
+        // 1. 총 계약금액 추출
+        const contractAmtMatch = fullText.match(/계\s*약\s*금\s*액\s*[:\s]*([\d,]+)\s*원/);
+        const totalContractAmt = contractAmtMatch ? parseInt(contractAmtMatch[1].replace(/,/g, ''), 10) : null;
+
+        // 2. <계약업체> 섹션 영역 추출
+        // <계약업체> 이후부터 계약방법/계약건명/계약번호/계약물품명세서/[부가정보] 이전까지
+        let keText = '';
+        const keMatch = fullText.match(/<\s*계\s*약\s*업\s*체\s*>([\s\S]*?)(?:계\s*약\s*방\s*법|계\s*약\s*건\s*명|계\s*약\s*번\s*호|계\s*약\s*물\s*품\s*명\s*세\s*서|\[\s*부\s*가\s*정\s*보\s*\]|=== PAGE \d+ ===|$)/i);
+        if (keMatch && keMatch[1].trim()) {
+            keText = keMatch[1];
+        } else {
+            const altMatch = fullText.match(/계\s*약\s*업\s*체([\s\S]*?)(?:계\s*약\s*방\s*법|계\s*약\s*건\s*명|계\s*약\s*번\s*호|$)/i);
+            keText = altMatch ? altMatch[1] : fullText;
+        }
+
+        // 3. 업체별 블록 분할: (대표|수급|공동수급) 단위로 분할
+        const rawChunks = keText.split(/(?:^|[\r\n]+)\s*(?=(?:대표|수급|공동수급)\b)/);
+        const companies = [];
+        const seenBiz = new Set();
+
+        for (const chunk of rawChunks) {
+            const trimmed = chunk.trim();
+            if (!trimmed || !trimmed.includes('상')) continue;
+
+            // 역할 구분 (대표 vs 수급/공동수급)
+            const roleMatch = trimmed.match(/^(?:대표|수급|공동수급)/);
+            const roleType = (roleMatch && roleMatch[0] === '대표') ? 'PRIME' : 'MEMBER';
+
+            // 회사명 (상 호)
+            const compMatch = trimmed.match(/상\s*호\s*[:\s]*([^\r\n]+?)(?=\s*대\s*표\s*자|\s*사업자등록번호|\s*주\s*소|\s*지\s*분|\s*$)/);
+            if (!compMatch) continue;
+            const companyName = compMatch[1].trim();
+            if (!companyName) continue;
+
+            // 사업자등록번호
+            const bizMatch = trimmed.match(/사업자등록번호\s*[:\s]*([\d\-]+)/);
+            const bizRegNo = bizMatch ? bizMatch[1].trim() : '';
+            const cleanBiz = bizRegNo.replace(/\D/g, '');
+
+            // 대표자명
+            const ceoMatch = trimmed.match(/대\s*표\s*자\s*[:\s]*([^\r\n]+?)(?=\s*사업자등록번호|\s*주\s*소|\s*전\s*화|\s*지\s*분|\s*$)/);
+            const ceoName = ceoMatch ? ceoMatch[1].trim() : '';
+
+            // 지분율 (%)
+            const rateMatch = trimmed.match(/지\s*분\s*율\s*[:\s]*([\d.]+)\s*%/);
+            const shareRate = rateMatch ? parseFloat(rateMatch[1]) : 0;
+
+            // 지분금액 (원)
+            const amtMatch = trimmed.match(/지\s*분\s*금\s*액\s*[:\s]*([\d,]+)\s*원/);
+            const contractAmount = amtMatch ? parseInt(amtMatch[1].replace(/,/g, ''), 10) : 0;
+
+            // 사업자등록번호 중복 검증 (상단 <계약상대자> 중복 등록 방지)
+            if (cleanBiz && seenBiz.has(cleanBiz)) {
+                continue;
+            }
+            if (cleanBiz) {
+                seenBiz.add(cleanBiz);
+            }
+
+            companies.push({
+                companyName,
+                roleType,
+                bizRegNo,
+                ceoName,
+                shareRate,
+                contractAmount
+            });
+        }
+
+        const totalShare = Math.round(companies.reduce((sum, c) => sum + (c.shareRate || 0), 0) * 100) / 100;
+        const totalShareAmt = companies.reduce((sum, c) => sum + (c.contractAmount || 0), 0);
+        const isShareValid = Math.abs(totalShare - 100) < 0.01;
+        const isAmountValid = totalContractAmt !== null ? totalShareAmt === totalContractAmt : true;
+
+        return {
+            companies,
+            totalContractAmt,
+            totalShare,
+            totalShareAmt,
+            isShareValid,
+            isAmountValid
+        };
+    }
+
+    async handleContractPdfUpload(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+
+        if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+            this.showToast('PDF 파일만 업로드할 수 있습니다.', 'warning');
+            event.target.value = '';
+            return;
+        }
+
+        const currentRows = document.querySelectorAll('#consortium-edit-tbody tr');
+        if (currentRows.length > 0) {
+            const ok = confirm('기존에 입력된 컨소시엄 구성 정보가 있습니다.\nPDF에서 추출한 계약업체 정보로 교체하시겠습니까?\n\n(취소 시 기존 데이터가 보존됩니다.)');
+            if (!ok) {
+                event.target.value = '';
+                return;
+            }
+        }
+
+        try {
+            this.showToast('계약서 PDF 파일을 분석하는 중입니다...', 'info');
+
+            const pdfjs = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
+            if (!pdfjs) {
+                throw new Error('PDF 파서 라이브러리(PDF.js)를 불러오지 못했습니다. 네트워크 연결을 확인해 주세요.');
+            }
+
+            const arrayBuffer = await file.arrayBuffer();
+            const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+            const pdfDoc = await loadingTask.promise;
+
+            let fullText = '';
+            for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                const page = await pdfDoc.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                let pageText = '';
+                let lastY;
+                for (let i = 0; i < textContent.items.length; i++) {
+                    const item = textContent.items[i];
+                    if (lastY !== undefined && Math.abs(item.transform[5] - lastY) > 4) {
+                        pageText += '\n';
+                    } else if (pageText && !pageText.endsWith('\n') && !pageText.endsWith(' ')) {
+                        pageText += ' ';
+                    }
+                    pageText += item.str;
+                    if (item.hasEOL) {
+                        pageText += '\n';
+                    }
+                    lastY = item.transform[5];
+                }
+                fullText += `\n=== PAGE ${pageNum} ===\n` + pageText;
+            }
+
+            if (!fullText || fullText.replace(/\s/g, '').length < 30) {
+                this.showToast('PDF 텍스트를 추출할 수 없습니다. 스캔된 이미지 형태의 문서이거나 내용이 비어있습니다.', 'warning');
+                event.target.value = '';
+                return;
+            }
+
+            const result = this.parseContractPdfText(fullText);
+            if (!result.companies || result.companies.length === 0) {
+                this.showToast('계약서에서 <계약업체> 목록을 추출하지 못했습니다. 조달청 표준 양식이 아니거나 스캔 이미지 형태일 수 있습니다.', 'warning');
+                event.target.value = '';
+                return;
+            }
+
+            // 테이블 초기화 및 추출된 데이터 채우기
+            const tbody = document.getElementById('consortium-edit-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            result.companies.forEach(comp => {
+                this.addConsortiumEditRow(comp);
+            });
+
+            // 변경 사유 기본 문구 자동 입력
+            const reasonInput = document.getElementById('consortium-change-reason');
+            if (reasonInput && !reasonInput.value.trim()) {
+                reasonInput.value = `조달청 일반용역계약서(최종) 기반 자동 입력 (${file.name})`;
+            }
+
+            // 합계 및 그래프 갱신
+            this.updateConsortiumTotalShare();
+
+            // 유효성 안내 토스트
+            if (!result.isShareValid) {
+                this.showToast(`주의: 지분율 합계가 100%가 아닙니다 (현재: ${result.totalShare}%). 자동 입력된 값을 확인해 주세요.`, 'warning');
+            } else if (result.totalContractAmt && !result.isAmountValid) {
+                this.showToast(`주의: 지분금액 합계(${result.totalShareAmt.toLocaleString()}원)가 계약금액(${result.totalContractAmt.toLocaleString()}원)과 일치하지 않습니다.`, 'warning');
+            } else {
+                const totalAmtStr = result.totalShareAmt ? ` / 총액 ${result.totalShareAmt.toLocaleString()}원` : '';
+                this.showToast(`${result.companies.length}개 계약업체 정보가 자동 입력되었습니다. (지분율 100%${totalAmtStr} 검증 완료)\n검토 후 [저장하기]를 눌러주세요.`, 'success');
+            }
+        } catch (err) {
+            console.error('PDF parsing error:', err);
+            this.showToast(`PDF 분석 중 오류가 발생했습니다: ${err.message || err}`, 'danger');
+        } finally {
+            event.target.value = '';
+        }
     }
 
     renderConsortiumShareChart() {
@@ -19995,6 +20230,7 @@ renderTodayTasksRoleBased(todayStr) {
                 return;
             }
 
+            const biz = row.dataset.bizRegNo || '';
             newList.push({
                 id: `c-${Date.now()}-${i}`,
                 companyName: comp,
@@ -20002,7 +20238,8 @@ renderTodayTasksRoleBased(todayStr) {
                 shareRate: rate,
                 contractAmount: amt,
                 ceoName: ceo,
-                managerName: mgr
+                managerName: mgr,
+                bizRegNo: biz
             });
         }
 

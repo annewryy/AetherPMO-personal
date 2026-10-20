@@ -51,6 +51,13 @@
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon-180.png?v=20261014-icon3">
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- PDF.js CDN for Client-side Contract PDF Parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        if (window['pdfjs-dist/build/pdf'] || window.pdfjsLib) {
+            (window['pdfjs-dist/build/pdf'] || window.pdfjsLib).GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+    </script>
     <link rel="stylesheet" href="style.css?v=v143_20261014-brand">
 </head>
 <body class="dark-theme">
@@ -7479,11 +7486,17 @@
                 <button type="button" onclick="app.closeConsortiumEditModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-muted);">&times;</button>
             </div>
             <div class="modal-body" style="padding:20px 22px; overflow-y:auto; flex:1; color:var(--text-main);">
-                <div style="margin-bottom:14px; background:var(--bg-hover-item); padding:10px 14px; border-radius:8px; border:1px solid var(--border-color); font-size:12px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
+                <div style="margin-bottom:14px; background:var(--bg-hover-item); padding:10px 14px; border-radius:8px; border:1px solid var(--border-color); font-size:12px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                     <span>💡 주사업자 및 공동수급사를 등록하세요. 총 지분율 합계는 <strong style="color:var(--text-main);">100%</strong>이어야 합니다.</span>
-                    <button type="button" class="btn btn-xs btn-primary" onclick="app.addConsortiumEditRow()">
-                        <i data-lucide="plus" style="width:12px; height:12px; margin-right:4px;"></i>구성사 추가
-                    </button>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <input type="file" id="consortium-contract-pdf-input" accept=".pdf,application/pdf" style="display:none;" onchange="app.handleContractPdfUpload(event)">
+                        <button type="button" class="btn btn-xs btn-outline" id="btn-consortium-pdf-upload" onclick="document.getElementById('consortium-contract-pdf-input').click()" style="display:inline-flex; align-items:center; gap:4px; font-weight:700; border-color:var(--primary); color:var(--primary);" title="조달청 일반용역계약서(최종) PDF 업로드 시 지분율 및 구성사가 자동 입력됩니다">
+                            <i data-lucide="file-up" style="width:13px; height:13px;"></i>계약서 PDF 자동입력
+                        </button>
+                        <button type="button" class="btn btn-xs btn-primary" onclick="app.addConsortiumEditRow()">
+                            <i data-lucide="plus" style="width:12px; height:12px; margin-right:4px;"></i>구성사 추가
+                        </button>
+                    </div>
                 </div>
 
                 <!-- 지분율 변경 사유 입력 필드 -->
@@ -7514,9 +7527,18 @@
                     </table>
                 </div>
 
-                <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center; padding:12px; background:var(--bg-hover-item); border-radius:8px;">
-                    <span style="font-size:13px; font-weight:700; color:var(--text-main);">지분율 합계:</span>
-                    <span id="consortium-total-share-label" style="font-size:15px; font-weight:800; color:var(--primary);">0%</span>
+                <div id="consortium-total-summary-box" style="margin-top:14px; display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--bg-hover-item); border-radius:8px; border:1px solid var(--border-color); flex-wrap:wrap; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:20px;">
+                        <div>
+                            <span style="font-size:12px; color:var(--text-muted); margin-right:6px;">지분율 합계:</span>
+                            <span id="consortium-total-share-label" style="font-size:15px; font-weight:800; color:var(--primary);">0%</span>
+                        </div>
+                        <div>
+                            <span style="font-size:12px; color:var(--text-muted); margin-right:6px;">지분금액 합계:</span>
+                            <span id="consortium-total-amount-label" style="font-size:14px; font-weight:800; color:var(--text-main);">0원</span>
+                        </div>
+                    </div>
+                    <div id="consortium-contract-match-badge" style="font-size:11.5px; font-weight:700; padding:3px 10px; border-radius:6px; display:none;"></div>
                 </div>
             </div>
             <div class="modal-footer" style="padding:14px 22px; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end; gap:10px;">
