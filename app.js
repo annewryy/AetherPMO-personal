@@ -19932,23 +19932,31 @@ renderTodayTasksRoleBased(todayStr) {
         const totalContractAmt = contractAmtMatch ? parseInt(contractAmtMatch[1].replace(/,/g, ''), 10) : null;
 
         // 2. <계약업체> 섹션 영역 추출 (<계약상대자>는 반드시 제외)
-        let keIdx = fullText.indexOf('<계약업체>');
-        if (keIdx === -1) {
-            keIdx = fullText.indexOf('계약업체');
-        }
-        if (keIdx === -1) {
+        const keMatch = fullText.match(/<\s*계\s*약\s*업\s*체\s*>|계\s*약\s*업\s*체/);
+        if (!keMatch) {
             return { companies: [], error: '계약업체 섹션을 찾을 수 없습니다.' };
         }
 
-        let keText = fullText.substring(keIdx);
-        // 다음 주요 섹션 직전까지 잘라냄
-        const endMatch = keText.slice(10).match(/(?:=== PAGE \d+ ===|계\s*약\s*방\s*법|계\s*약\s*건\s*명|계\s*약\s*번\s*호|\[\s*부\s*가\s*정\s*보\s*\]|계약물품명세서)/);
+        let keText = fullText.substring(keMatch.index);
+        // 다음 주요 섹션 직전까지 잘라냄 (페이지 번호는 분할 시 건너뛰도록 유지)
+        const endMatch = keText.slice(10).match(/(?:계\s*약\s*방\s*법|계\s*약\s*건\s*명|계\s*약\s*번\s*호|\[\s*부\s*가\s*정\s*보\s*\]|계\s*약\s*물\s*품\s*명\s*세\s*서)/);
         if (endMatch && endMatch.index !== undefined) {
             keText = keText.substring(0, 10 + endMatch.index);
         }
 
-        // 3. 업체별 블록 분할: 상 호 단위 (선행하는 대표/수급 포함)
-        const rawBlocks = keText.split(/(?:^|[\r\n]+)\s*(?=(?:(?:대표|수급)\s*)?상\s*호\b)/);
+        // 3. 업체별 블록 추출: 상 호 시작 ~ 지 분 금 액 ... 원 까지 (선행 대표/수급 포함)
+        const blockRegex = /(?:(?:대표|수급|공동수급)[\s\r\n]+)?상\s*호[\s\S]*?지\s*분\s*금\s*액\s*[:\s]*[\d,]+\s*원/g;
+        let rawBlocks = [];
+        let m;
+        while ((m = blockRegex.exec(keText)) !== null) {
+            rawBlocks.push(m[0]);
+        }
+
+        // 블록 정규식 매칭 실패 시 백업 분할
+        if (rawBlocks.length === 0) {
+            rawBlocks = keText.split(/(?:^|[\r\n]+)\s*(?=(?:(?:대표|수급|공동수급)[\s\r\n]+)?상\s*호(?:\s|:))/);
+        }
+
         const companies = [];
         const seenBiz = new Set();
 
@@ -19968,19 +19976,19 @@ renderTodayTasksRoleBased(todayStr) {
             }
 
             // 회사명: 상호 다음부터 대표자 전까지 추출 및 공백 정규화
-            const compMatch = trimmed.match(/상\s*호\s*[:\s]*([\s\S]*?)(?=대\s*표\s*자|사업자등록번호|주\s*소|지\s*분|$)/);
+            const compMatch = trimmed.match(/상\s*호\s*[:\s]*([\s\S]*?)(?=대\s*표\s*자|사\s*업\s*자|주\s*소|지\s*분|$)/);
             if (!compMatch) continue;
-            let rawComp = compMatch[1].trim().replace(/^(?:대표|수급)\s*/, '');
+            let rawComp = compMatch[1].trim().replace(/^(?:대표|수급|공동수급)\s*/, '');
             const companyName = this.normalizeCompanyName(rawComp);
             if (!companyName) continue;
 
             // 대표자: 대표자 다음부터 사업자등록번호 전까지의 이름만 (담당자는 공란)
-            const ceoMatch = trimmed.match(/대\s*표\s*자\s*[:\s]*([\s\S]*?)(?=사업자등록번호|주\s*소|지\s*분|$)/);
+            const ceoMatch = trimmed.match(/대\s*표\s*자\s*[:\s]*([\s\S]*?)(?=사\s*업\s*자\s*등\s*록\s*번\s*호|사업자등록번호|주\s*소|지\s*분|$)/);
             const ceoRaw = ceoMatch ? ceoMatch[1].trim() : '';
             const ceoName = ceoRaw.replace(/[^가-힣a-zA-Z]/g, '').trim();
 
             // 사업자등록번호
-            const bizMatch = trimmed.match(/사업자등록번호\s*[:\s]*([\d\-]+)/);
+            const bizMatch = trimmed.match(/(?:사\s*업\s*자\s*등\s*록\s*번\s*호|사업자등록번호)\s*[:\s]*([\d\-]+)/);
             const bizRegNo = bizMatch ? bizMatch[1].trim() : '';
             const cleanBiz = bizRegNo.replace(/\D/g, '');
 
