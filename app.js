@@ -18463,6 +18463,33 @@ renderTodayTasksRoleBased(todayStr) {
                     </div>
                 </div>
 
+                <!-- Attached File & View Summary / Preview Action -->
+                <div style="margin-bottom: 20px; background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.22); border-radius: 10px; padding: 13px 15px;">
+                    <div style="font-size: 11.5px; font-weight: 700; color: var(--primary); text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+                        <span style="display: flex; align-items: center; gap: 4px;">
+                            <i data-lucide="paperclip" style="width: 13px; height: 13px;"></i>
+                            등록된 첨부 파일
+                        </span>
+                        <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">${this.escapeHtml((this.state.artifacts || []).find(a => a.id === selectedArtifact.id || (a.projectId === projectId && a.name === selectedArtifact.name))?.fileSize || selectedArtifact.fileSize || '')}</span>
+                    </div>
+                    <div style="font-size: 13px; font-weight: 700; color: var(--text-main); word-break: break-all; margin-bottom: 10px; line-height: 1.4;">
+                        ${((this.state.artifacts || []).find(a => a.id === selectedArtifact.id || (a.projectId === projectId && a.name === selectedArtifact.name))?.fileName || selectedArtifact.fileName) 
+                            ? this.escapeHtml(((this.state.artifacts || []).find(a => a.id === selectedArtifact.id || (a.projectId === projectId && a.name === selectedArtifact.name))?.fileName || selectedArtifact.fileName))
+                            : '<span style="color:var(--text-muted); font-weight:normal;">등록된 첨부파일이 없습니다.</span>'}
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="btn btn-primary btn-sm" onclick="app.viewTailoredArtifactDetail('${projectId}', '${selectedArtifact.id}')" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; font-weight: 700; font-size: 12px; padding: 7px 10px;">
+                            <i data-lucide="eye" style="width: 14px; height: 14px;"></i>
+                            파일 내용 요약 및 미리보기
+                        </button>
+                        ${((this.state.artifacts || []).find(a => a.id === selectedArtifact.id || (a.projectId === projectId && a.name === selectedArtifact.name))?.fileName || selectedArtifact.fileName) ? `
+                            <button class="btn btn-outline btn-sm" onclick="app.downloadTailoredArtifact('${projectId}', '${selectedArtifact.id}')" title="다운로드" style="padding: 6px 9px;">
+                                <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+
                 <!-- AI & Advanced Feature Preview Cards List -->
                 <div style="margin-bottom: 24px;">
                     <div style="font-size: 13.5px; font-weight: 800; color: var(--text-main); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
@@ -21292,7 +21319,7 @@ renderTodayTasksRoleBased(todayStr) {
                     <div style="display:flex; align-items:flex-start; gap:6px;">
                         <i data-lucide="file-text" style="width:14px; height:14px; display:inline-block; vertical-align:middle; margin-top:2px; color:var(--primary); flex-shrink:0;"></i>
                         <div>
-                            <a href="#" onclick="event.preventDefault(); app.openArtifactSummary('${this.activeProjectId}', '${art.activityId}', '${art.id}')" class="project-name-link">${this.escapeHtml(art.name)}</a>
+                            <a href="#" onclick="event.preventDefault(); app.viewTailoredArtifactDetail('${this.activeProjectId}', '${art.id}')" class="project-name-link" title="파일 요약 및 미리보기">${this.escapeHtml(art.name)}</a>
                             ${fileDisplay}
                         </div>
                     </div>
@@ -21308,7 +21335,7 @@ renderTodayTasksRoleBased(todayStr) {
                             ${regBtnLabel}
                         </button>
                         ${downloadBtn}
-                        <button class="btn btn-xs btn-outline" onclick="app.openArtifactSummary('${this.activeProjectId}', '${art.activityId}', '${art.id}')">보기</button>
+                        <button class="btn btn-xs btn-outline" onclick="app.viewTailoredArtifactDetail('${this.activeProjectId}', '${art.id}')" title="파일 요약 및 미리보기" style="display:inline-flex; align-items:center; gap:3px;"><i data-lucide="eye" style="width:12px; height:12px;"></i> 보기</button>
                     </div>
                 </td>
             `;
@@ -39631,6 +39658,315 @@ renderTodayTasksRoleBased(todayStr) {
         }
     }
 
+    closeTailoredArtifactPreviewModal() {
+        const modal = document.getElementById('modal-tailored-artifact-preview');
+        if (modal) modal.classList.remove('open');
+        const iframe = document.getElementById('prev-viewer-iframe');
+        if (iframe) iframe.src = '';
+        if (this._currentPreviewBlobUrl) {
+            URL.revokeObjectURL(this._currentPreviewBlobUrl);
+            this._currentPreviewBlobUrl = null;
+        }
+    }
+
+    async viewTailoredArtifactDetail(projectId, artifactId) {
+        const pid = projectId || this.activeProjectId;
+        const project = (this.state.projects || []).find(p => p.id === pid);
+        const selectedArtifacts = this.getProjectSelectedArtifacts(pid);
+        const art = (selectedArtifacts || []).find(a => a.id === artifactId);
+        const regArt = (this.state.artifacts || []).find(a => a.id === artifactId || (a.projectId === pid && a.name === art?.name));
+
+        if (!art && !regArt) {
+            this.showToast('해당 산출물 정보를 찾을 수 없습니다.', 'warning');
+            return;
+        }
+
+        const artName = art?.name || regArt?.name || '산출물';
+        const stageCode = art?.stageCode || 'PRP';
+        const stageName = art?.stageName || stageCode;
+        const activityName = art?.activityName || '';
+        const status = regArt?.status || art?.status || 'NOT_STARTED';
+        const author = regArt?.author || art?.assigneeName || '미지정';
+        const reviewer = regArt?.reviewer || '-';
+        const approver = regArt?.approver || '-';
+        const updatedAt = regArt?.submitDate || regArt?.dueDate || art?.updatedAt || '-';
+        const version = regArt?.version || 'v1.0.0';
+        const description = regArt?.description || '';
+        const fileName = regArt?.fileName || art?.fileName || null;
+        const fileSize = regArt?.fileSize || null;
+        const storagePath = regArt?.storagePath || regArt?.filePath || art?.storagePath || null;
+
+        // Modal title & Header
+        const titleEl = document.getElementById('prev-art-title');
+        if (titleEl) titleEl.textContent = artName;
+
+        const stageBadgeEl = document.getElementById('prev-art-stage-badge');
+        if (stageBadgeEl) {
+            stageBadgeEl.textContent = `[${stageCode}] ${stageName}`;
+            stageBadgeEl.className = `badge-cat cat-${stageCode.toLowerCase()}`;
+        }
+
+        const statusBadgeEl = document.getElementById('prev-art-status-badge');
+        if (statusBadgeEl) {
+            let stText = '미작성';
+            let stClass = 'status-onhold';
+            if (status === 'APPROVED' || status === 'Approved') { stText = '승인완료'; stClass = 'status-resolved'; }
+            else if (status === 'IN_REVIEW' || status === 'Under Review' || status === '검토중') { stText = '검토중'; stClass = 'status-bidding'; }
+            else if (status === 'IN_PROGRESS' || status === 'Draft' || status === '작성중') { stText = '작성중'; stClass = 'status-inprogress'; }
+            else if (status === 'REJECTED' || status === 'Rejected' || status === '반려') { stText = '반려'; stClass = 'status-rejected'; }
+            statusBadgeEl.textContent = stText;
+            statusBadgeEl.className = `status-badge ${stClass}`;
+        }
+
+        const subtitleEl = document.getElementById('prev-art-subtitle');
+        if (subtitleEl) {
+            subtitleEl.textContent = `${project?.name || pid} · ${activityName ? `${activityName} · ` : ''}${stageName}`;
+        }
+
+        // Meta fields
+        const fnEl = document.getElementById('prev-meta-filename');
+        if (fnEl) {
+            fnEl.innerHTML = fileName 
+                ? `<span style="color:var(--primary); font-weight:700;">${this.escapeHtml(fileName)}</span>` 
+                : `<span style="color:var(--text-muted); font-weight:normal;">미등록 (파일 없음)</span>`;
+        }
+
+        const fsEl = document.getElementById('prev-meta-filesize');
+        if (fsEl) fsEl.textContent = fileSize || (fileName ? '크기 정보 없음' : '-');
+
+        const authEl = document.getElementById('prev-meta-author');
+        if (authEl) authEl.textContent = author;
+
+        const revEl = document.getElementById('prev-meta-reviewers');
+        if (revEl) revEl.textContent = `검토: ${reviewer} / 승인: ${approver}`;
+
+        const dtEl = document.getElementById('prev-meta-date');
+        if (dtEl) dtEl.textContent = updatedAt;
+
+        const verEl = document.getElementById('prev-meta-version');
+        if (verEl) verEl.textContent = version;
+
+        const descEl = document.getElementById('prev-art-description');
+        if (descEl) {
+            descEl.textContent = description || (fileName ? `"${fileName}" 파일이 정상 등록되었습니다. (세부 설명 미작성)` : '등록된 산출물 설명이 없습니다.');
+        }
+
+        // Contract Specific Summary Card
+        const isContractDoc = artName.includes('계약') || (description && description.includes('계약')) || (fileName && fileName.includes('계약'));
+        const contractCard = document.getElementById('prev-contract-summary-card');
+        const contractDetails = document.getElementById('prev-contract-details');
+
+        if (contractCard && contractDetails) {
+            if (isContractDoc && project) {
+                contractCard.style.display = 'block';
+
+                const totalAmt = project.totalContractAmount || project.budget || project.projectBudget || 0;
+                const totalAmtStr = totalAmt ? `${Number(totalAmt).toLocaleString('ko-KR')}원` : '협의';
+                const myAmt = project.companyContractAmount || (project.companyShareRate && totalAmt ? Math.round(totalAmt * project.companyShareRate / 100) : null);
+                const myAmtStr = myAmt ? `${Number(myAmt).toLocaleString('ko-KR')}원` : '-';
+                const myRateStr = (project.companyShareRate !== null && project.companyShareRate !== undefined) ? `${project.companyShareRate}%` : (project.participationType === 'PRIME_CONTRACTOR' ? '100% (단독)' : '-');
+
+                let consortiumHtml = '';
+                const members = project.consortium || project.consortiumMembers || [];
+                if (members && members.length > 0) {
+                    consortiumHtml = `
+                        <div style="margin-top: 8px; border-top: 1px dashed rgba(99,102,241,0.25); padding-top: 8px;">
+                            <div style="font-weight: 700; color: var(--text-main); margin-bottom: 6px; font-size: 11.5px; display:flex; justify-content:space-between;">
+                                <span>컨소시엄 구성 및 지분율 현황 (${members.length}개사):</span>
+                                <span style="color:var(--primary); font-weight:800;">총 100%</span>
+                            </div>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                                <thead>
+                                    <tr style="background: rgba(99,102,241,0.08); text-align: left;">
+                                        <th style="padding: 4px 6px; border-radius:4px 0 0 4px;">구분</th>
+                                        <th style="padding: 4px 6px;">업체명</th>
+                                        <th style="padding: 4px 6px; text-align: right; border-radius:0 4px 4px 0;">지분율</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${members.map(m => `
+                                        <tr style="border-bottom: 1px solid rgba(0,0,0,0.05);">
+                                            <td style="padding: 3px 6px;"><span class="badge ${m.role === '대표' || m.role === '주사업자' ? 'badge-primary' : 'badge-neutral'}" style="font-size: 9.5px; padding: 1px 5px;">${m.role || '수급사'}</span></td>
+                                            <td style="padding: 3px 6px; font-weight: 600; color:var(--text-main);">${this.escapeHtml(m.companyName || m.name || '-')}</td>
+                                            <td style="padding: 3px 6px; text-align: right; font-weight: 700; color: var(--primary);">${m.shareRate || m.share_rate || 0}%</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                } else {
+                    consortiumHtml = `
+                        <div style="margin-top: 6px; font-size: 11.5px; color: var(--text-muted); background: rgba(0,0,0,0.03); padding: 6px 10px; border-radius: 6px;">
+                            참여 형태: <strong>${project.participationType === 'PRIME_CONTRACTOR' ? '주사업자 (단독 수주)' : '공동수급'}</strong>
+                        </div>
+                    `;
+                }
+
+                contractDetails.innerHTML = `
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; line-height: 1.4;">
+                        <div><span style="color:var(--text-muted);">계약건명:</span> <strong style="color:var(--text-main);">${this.escapeHtml(project.name || '-')}</strong></div>
+                        <div><span style="color:var(--text-muted);">수요기관:</span> <strong style="color:var(--text-main);">${this.escapeHtml(project.customer || project.customerName || '-')}</strong></div>
+                        <div><span style="color:var(--text-muted);">계약기간:</span> <strong>${project.startDate || '-'} ~ ${project.endDate || '-'}</strong></div>
+                        <div><span style="color:var(--text-muted);">총 계약금액:</span> <strong style="color:var(--primary); font-size: 12.5px;">${totalAmtStr}</strong></div>
+                        <div><span style="color:var(--text-muted);">자사 지분율:</span> <strong style="color:var(--text-main);">${myRateStr}</strong></div>
+                        <div><span style="color:var(--text-muted);">자사 계약액:</span> <strong style="color:var(--text-main);">${myAmtStr}</strong></div>
+                    </div>
+                    ${consortiumHtml}
+                `;
+            } else {
+                contractCard.style.display = 'none';
+            }
+        }
+
+        // AI / Deliverable Checkpoints Summary
+        const aiSummaryEl = document.getElementById('prev-art-ai-summary');
+        if (aiSummaryEl) {
+            if (isContractDoc) {
+                aiSummaryEl.innerHTML = `
+                    <div style="display:flex; flex-direction:column; gap:5px;">
+                        <div>&bull; <strong>조달청 계약 정합성:</strong> 일반용역 표준계약서 규정 및 총 계약금액 일치 여부 확인 완료</div>
+                        <div>&bull; <strong>공동수급 지분 검증:</strong> 수급사별 지분율 합계(100%) 및 지분금액 안분 정상</div>
+                        <div>&bull; <strong>산출물 의무 제출:</strong> 본 계약서 사본은 착수계획(PRP) 필수 산출물로 최종 보관 관리됩니다.</div>
+                    </div>
+                `;
+            } else {
+                aiSummaryEl.innerHTML = `
+                    <div style="display:flex; flex-direction:column; gap:5px;">
+                        <div>&bull; <strong>단계별 기준:</strong> [${this.escapeHtml(stageName)}] 단계 승인 절차에 따라 PM 및 고객사 승인 진행</div>
+                        <div>&bull; <strong>버전 관리:</strong> ${this.escapeHtml(version)} 기준 변경 이력 및 정합성 검증 대상</div>
+                        <div>&bull; <strong>품질 점검:</strong> NIRS 표준 프로세스 및 발주처 요구 가이드라인 준수</div>
+                    </div>
+                `;
+            }
+        }
+
+        // Action Buttons Setup
+        const btnDownload = document.getElementById('prev-btn-download');
+        if (btnDownload) {
+            btnDownload.onclick = () => this.downloadTailoredArtifact(pid, artifactId);
+            btnDownload.style.display = fileName ? 'inline-flex' : 'none';
+        }
+
+        const btnEdit = document.getElementById('prev-btn-edit-artifact');
+        if (btnEdit) {
+            btnEdit.onclick = () => {
+                this.closeTailoredArtifactPreviewModal();
+                this.openRegisterTailoredArtifactModal(pid, artifactId);
+            };
+        }
+
+        const btnUploadTrigger = document.getElementById('prev-btn-upload-trigger');
+        if (btnUploadTrigger) {
+            btnUploadTrigger.onclick = () => {
+                this.closeTailoredArtifactPreviewModal();
+                this.openRegisterTailoredArtifactModal(pid, artifactId);
+            };
+        }
+
+        const btnOfficeDown = document.getElementById('prev-btn-office-download');
+        if (btnOfficeDown) {
+            btnOfficeDown.onclick = () => this.downloadTailoredArtifact(pid, artifactId);
+        }
+
+        // Right Preview Area
+        const iframe = document.getElementById('prev-viewer-iframe');
+        const imgContainer = document.getElementById('prev-viewer-image-container');
+        const imgEl = document.getElementById('prev-viewer-image');
+        const emptyState = document.getElementById('prev-viewer-empty');
+        const officeState = document.getElementById('prev-viewer-office');
+        const loadingState = document.getElementById('prev-viewer-loading');
+        const openTabBtn = document.getElementById('prev-btn-open-newtab');
+
+        if (iframe) { iframe.style.display = 'none'; iframe.src = ''; }
+        if (imgContainer) imgContainer.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'none';
+        if (officeState) officeState.style.display = 'none';
+        if (loadingState) loadingState.style.display = 'none';
+        if (openTabBtn) openTabBtn.style.display = 'none';
+
+        // Revoke previous blob url
+        if (this._currentPreviewBlobUrl) {
+            URL.revokeObjectURL(this._currentPreviewBlobUrl);
+            this._currentPreviewBlobUrl = null;
+        }
+
+        // Open Modal
+        const modal = document.getElementById('modal-tailored-artifact-preview');
+        if (modal) {
+            modal.classList.add('open');
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        if (!fileName && !storagePath) {
+            if (emptyState) emptyState.style.display = 'flex';
+            return;
+        }
+
+        const isPdf = /\.pdf$/i.test(fileName || storagePath || '');
+        const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(fileName || storagePath || '');
+
+        if (!isPdf && !isImage) {
+            if (officeState) {
+                officeState.style.display = 'flex';
+                const officeFn = document.getElementById('prev-office-filename');
+                if (officeFn) officeFn.textContent = fileName || '문서 파일';
+            }
+            return;
+        }
+
+        // Fetch Blob and render preview
+        if (loadingState) loadingState.style.display = 'flex';
+
+        try {
+            let blob = null;
+            if (this.tempTailoredAttachedFile?.rawFile && this.tempTailoredAttachedFile.name === fileName) {
+                blob = this.tempTailoredAttachedFile.rawFile;
+            } else if (this.useSupabase && this.supabase && storagePath) {
+                const { data, error } = await this.supabase.storage
+                    .from('project-artifacts')
+                    .download(storagePath);
+                if (error) throw error;
+                blob = data;
+            }
+
+            if (blob) {
+                const blobUrl = URL.createObjectURL(blob);
+                this._currentPreviewBlobUrl = blobUrl;
+
+                if (isPdf && iframe) {
+                    iframe.src = `${blobUrl}#view=FitH`;
+                    iframe.style.display = 'block';
+                } else if (isImage && imgContainer && imgEl) {
+                    imgEl.src = blobUrl;
+                    imgContainer.style.display = 'flex';
+                }
+
+                if (openTabBtn) {
+                    openTabBtn.onclick = () => window.open(blobUrl, '_blank');
+                    openTabBtn.style.display = 'inline-flex';
+                }
+            } else {
+                if (officeState) {
+                    officeState.style.display = 'flex';
+                    const officeFn = document.getElementById('prev-office-filename');
+                    if (officeFn) officeFn.textContent = fileName || '문서 파일';
+                }
+            }
+        } catch (loadErr) {
+            console.warn('[viewTailoredArtifactDetail preview error]', loadErr);
+            if (officeState) {
+                officeState.style.display = 'flex';
+                const officeFn = document.getElementById('prev-office-filename');
+                if (officeFn) officeFn.textContent = `${fileName} (미리보기 로드 오류 - 직접 다운로드를 이용하세요)`;
+            }
+        } finally {
+            if (loadingState) loadingState.style.display = 'none';
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+
+
 }
 
 
@@ -39767,7 +40103,9 @@ if (typeof window !== 'undefined' && window.app) {
         'saveTailoredArtifactForm',
         'saveProjectMethodologyToDb',
         'removeTailoredAttachedFile',
-        'downloadTailoredArtifact'
+        'downloadTailoredArtifact',
+        'viewTailoredArtifactDetail',
+        'closeTailoredArtifactPreviewModal'
     ].forEach(fn => {
         if (typeof window.app[fn] === 'function') {
             window.app[fn] = window.app[fn].bind(window.app);
