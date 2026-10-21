@@ -1814,8 +1814,8 @@ class AetherPMO {
                 }
                 case 'artifact_upsert': {
                     const a = data;
-                    if (!this.isUuid(a.id) || !this.isUuid(a.projectId)) {
-                        console.warn(`[Supabase Sync] Skipping artifact_upsert for legacy non-UUID id: ${a.id} or projectId: ${a.projectId}`);
+                    if (!a.id || !a.projectId) {
+                        console.warn(`[Supabase Sync] Skipping artifact_upsert for missing id or projectId: ${a.id}`);
                         break;
                     }
                     const artData = {
@@ -2429,7 +2429,7 @@ class AetherPMO {
                 projectArtifactsDb.forEach(pa => {
                     const pid = pa.project_id;
                     if (!this.state.projectMethodologies[pid]) {
-                        this.state.projectMethodologies[pid] = this.getDefaultMethodologyTemplate();
+                        this.state.projectMethodologies[pid] = this.initializeProjectMethodology(pid);
                     }
                     const meth = this.state.projectMethodologies[pid];
                     (meth.stages || []).forEach(stg => {
@@ -2625,8 +2625,11 @@ class AetherPMO {
             // Restore project methodologies from wbs if present
             if (!this.state.projectMethodologies) this.state.projectMethodologies = {};
             (projects || []).forEach(p => {
-                const wbsData = (p.wbs && typeof p.wbs === 'object') ? p.wbs : null;
-                if (wbsData && wbsData.projectMethodology) {
+                let wbsData = p.wbs;
+                if (typeof wbsData === 'string') {
+                    try { wbsData = JSON.parse(wbsData); } catch (e) { wbsData = null; }
+                }
+                if (wbsData && typeof wbsData === 'object' && wbsData.projectMethodology) {
                     this.state.projectMethodologies[p.id] = wbsData.projectMethodology;
                 }
             });
@@ -2752,7 +2755,9 @@ class AetherPMO {
                     submitDate: a.submit_date,
                     status: a.status,
                     fileName: a.file_name,
-                    fileSize: a.file_size
+                    fileSize: a.file_size,
+                    storagePath: a.storage_path || a.file_path,
+                    filePath: a.file_path || a.storage_path
                 }));
 
             this.state.checklists = (checklists || []).map(c => ({
@@ -18005,11 +18010,58 @@ renderTodayTasksRoleBased(todayStr) {
         return this.state.projectMethodologies[projectId];
     }
 
+    async saveProjectMethodologyToDb(projectId) {
+        if (!projectId) return;
+        const project = (this.state.projects || []).find(p => p.id === projectId);
+        const methObj = this.state.projectMethodologies ? this.state.projectMethodologies[projectId] : null;
+        if (!methObj) return;
+
+        // Keep project.wbs in sync
+        if (project) {
+            if (!project.wbs || typeof project.wbs !== 'object') {
+                project.wbs = { stages: [] };
+            }
+            project.wbs.projectMethodology = methObj;
+        }
+
+        // Save local state to localStorage
+        this.saveState();
+
+        // If Supabase is active, persist directly to projects.wbs
+        if (this.useSupabase && this.supabase) {
+            try {
+                let currentWbs = (project && project.wbs && typeof project.wbs === 'object') ? Object.assign({}, project.wbs) : { stages: [] };
+                currentWbs.projectMethodology = methObj;
+                const { error } = await this.supabase
+                    .from('projects')
+                    .update({ wbs: currentWbs })
+                    .eq('id', projectId);
+
+                if (error) {
+                    console.error('[saveProjectMethodologyToDb] update projects error:', error);
+                } else {
+                    console.log('[saveProjectMethodologyToDb] successfully saved to projects.wbs for project:', projectId);
+                }
+            } catch (err) {
+                console.error('[saveProjectMethodologyToDb] exception:', err);
+            }
+        }
+    }
+
     getProjectMethodology(projectId) {
         if (!this.state.projectMethodologies) {
             this.state.projectMethodologies = {};
         }
         if (!this.state.projectMethodologies[projectId]) {
+            const project = (this.state.projects || []).find(p => p.id === projectId);
+            let wbsObj = project?.wbs;
+            if (typeof wbsObj === 'string') {
+                try { wbsObj = JSON.parse(wbsObj); } catch (e) { wbsObj = null; }
+            }
+            if (wbsObj && wbsObj.projectMethodology) {
+                this.state.projectMethodologies[projectId] = wbsObj.projectMethodology;
+                return this.state.projectMethodologies[projectId];
+            }
             return this.initializeProjectMethodology(projectId);
         }
         return this.state.projectMethodologies[projectId];
@@ -18593,6 +18645,7 @@ renderTodayTasksRoleBased(todayStr) {
                 });
             });
         });
+        this.saveProjectMethodologyToDb(projectId);
         this.renderProjectDetailMethodology(projectId);
     }
 
@@ -18616,15 +18669,7 @@ renderTodayTasksRoleBased(todayStr) {
             });
         });
 
-        if (targetArt) {
-            this.saveState('project_artifact_upsert', {
-                projectId,
-                stageCode: targetStage ? targetStage.stageCode : 'PRP',
-                activityId: targetAct ? targetAct.activityId : '',
-                ...targetArt
-            });
-        }
-
+        this.saveProjectMethodologyToDb(projectId);
         this.renderProjectDetailMethodology(projectId);
 
         if (this.activeProjectId === projectId) {
@@ -18638,6 +18683,7 @@ renderTodayTasksRoleBased(todayStr) {
         if (!targetProjectId) return;
 
         this.activeProjectId = targetProjectId;
+        await this.saveProjectMethodologyToDb(targetProjectId);
         const selectedArtifacts = this.getProjectSelectedArtifacts(targetProjectId);
         const count = selectedArtifacts ? selectedArtifacts.length : 0;
 
@@ -18675,16 +18721,10 @@ renderTodayTasksRoleBased(todayStr) {
             (act.artifacts || []).forEach(art => {
                 art.is_selected = isChecked;
                 art.is_active = isChecked;
-
-                this.saveState('project_artifact_upsert', {
-                    projectId,
-                    stageCode: stage.stageCode,
-                    activityId: act.activityId,
-                    ...art
-                });
             });
         });
 
+        this.saveProjectMethodologyToDb(projectId);
         this.renderProjectDetailMethodology(projectId);
 
         if (this.activeProjectId === projectId) {
@@ -18702,18 +18742,12 @@ renderTodayTasksRoleBased(todayStr) {
                     (act.artifacts || []).forEach(art => {
                         art.is_selected = isChecked;
                         art.is_active = isChecked;
-
-                        this.saveState('project_artifact_upsert', {
-                            projectId,
-                            stageCode: stg.stageCode,
-                            activityId: act.activityId,
-                            ...art
-                        });
                     });
                 }
             });
         });
 
+        this.saveProjectMethodologyToDb(projectId);
         this.renderProjectDetailMethodology(projectId);
 
         if (this.activeProjectId === projectId) {
@@ -18747,7 +18781,8 @@ renderTodayTasksRoleBased(todayStr) {
                             status: regArt ? regArt.status : (art.status || 'NOT_STARTED'),
                             assigneeName: regArt ? (regArt.author || regArt.assigneeName) : (art.assigneeName || '미지정'),
                             updatedAt: regArt ? (regArt.submitDate || regArt.createdDate || regArt.dueDate) : (art.updatedAt || '2026-06-01'),
-                            fileName: regArt ? regArt.fileName : null,
+                            fileName: regArt ? regArt.fileName : (art.fileName || null),
+                            storagePath: regArt ? (regArt.storagePath || regArt.filePath) : (art.storagePath || null),
                             regArtId: regArt ? regArt.id : null
                         });
                     }
@@ -39358,8 +39393,10 @@ renderTodayTasksRoleBased(todayStr) {
             if (this.useSupabase && this.supabase && this.tempTailoredAttachedFile && this.tempTailoredAttachedFile.rawFile) {
                 try {
                     const rawFile = this.tempTailoredAttachedFile.rawFile;
-                    const safeName = encodeURIComponent(rawFile.name);
-                    const uploadPath = `${projectId}/${Date.now()}_${safeName}`;
+                    const extMatch = (rawFile.name || '').match(/\.([0-9a-zA-Z]+)$/);
+                    const ext = extMatch ? extMatch[1].toLowerCase() : 'bin';
+                    const randomSuffix = Math.random().toString(36).substring(2, 8);
+                    const uploadPath = `${projectId}/${Date.now()}_${randomSuffix}.${ext}`;
                     const { data: upData, error: upErr } = await this.supabase.storage
                         .from('project-artifacts')
                         .upload(uploadPath, rawFile, { upsert: true });
@@ -39402,14 +39439,16 @@ renderTodayTasksRoleBased(todayStr) {
                 submit_date: submitDate,
                 status: status,
                 file_name: fileName,
-                file_size: fileSize
+                file_size: fileSize,
+                file_path: storagePath,
+                storage_path: storagePath
             };
 
             // Save to Supabase DB 'artifacts' table
-            if (this.useSupabase && this.supabase && this.isUuid(projectId)) {
+            if (this.useSupabase && this.supabase && projectId) {
                 const { error: dbError } = await this.supabase
                     .from('artifacts')
-                    .upsert(artData);
+                    .upsert(artData, { onConflict: 'id' });
 
                 if (dbError) {
                     console.error('[Supabase DB] artifacts table upsert error:', dbError);
@@ -39417,24 +39456,6 @@ renderTodayTasksRoleBased(todayStr) {
                     throw dbError;
                 }
                 console.log('[Supabase DB] artifacts table upsert success:', artData);
-
-                // Also sync to project_artifacts table
-                try {
-                    await this.supabase.from('project_artifacts').upsert({
-                        project_id: projectId,
-                        name: name,
-                        stage_code: stageCode,
-                        activity_id: activityId,
-                        status: status,
-                        assignee_name: author,
-                        file_name: fileName,
-                        file_size: fileSize,
-                        storage_path: storagePath,
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'project_id, name' });
-                } catch (paErr) {
-                    console.warn('[Supabase DB] project_artifacts sync notice:', paErr);
-                }
             }
 
             // Update local state.artifacts
@@ -39475,11 +39496,15 @@ renderTodayTasksRoleBased(todayStr) {
                                 art.assigneeName = author;
                                 art.updatedAt = submitDate;
                                 art.fileName = fileName;
+                                if (storagePath) art.storagePath = storagePath;
                             }
                         });
                     });
                 });
             }
+
+            // Persist methodology to DB (projects.wbs.projectMethodology)
+            await this.saveProjectMethodologyToDb(projectId);
 
             // Activity Log
             this.addActivityLog(projectId, name, 'artifact', `산출물 등록/저장: "${name}" (${version}, ${author}, ${status})`);
@@ -39504,15 +39529,39 @@ renderTodayTasksRoleBased(todayStr) {
         }
     }
 
-    downloadTailoredArtifact(projectId, artifactId) {
+    async downloadTailoredArtifact(projectId, artifactId) {
         const pid = projectId || this.activeProjectId;
         const selectedArtifacts = this.getProjectSelectedArtifacts(pid);
         const art = (selectedArtifacts || []).find(a => a.id === artifactId);
-        const fileName = art?.fileName || '산출물문서.pdf';
+        const regArt = (this.state.artifacts || []).find(a => a.id === artifactId || (a.projectId === pid && a.name === art?.name));
+        const fileName = art?.fileName || regArt?.fileName || '산출물문서.pdf';
+        const storagePath = art?.storagePath || regArt?.storagePath || regArt?.filePath;
 
         this.showToast(`"${fileName}" 다운로드를 시작합니다.`, 'info');
 
-        // Create a blob and trigger download
+        if (this.useSupabase && this.supabase && storagePath) {
+            try {
+                const { data, error } = await this.supabase.storage
+                    .from('project-artifacts')
+                    .download(storagePath);
+
+                if (!error && data) {
+                    const url = URL.createObjectURL(data);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    return;
+                }
+            } catch (err) {
+                console.warn('[downloadTailoredArtifact] Supabase download error, falling back:', err);
+            }
+        }
+
+        // Create a blob and trigger download fallback
         try {
             const blob = new Blob([`[AetherPMO] 산출물: ${art?.name || fileName}\n프로젝트: ${pid}\n최종수정: ${art?.updatedAt || ''}\n담당자: ${art?.assigneeName || ''}`], { type: 'application/octet-stream' });
             const url = URL.createObjectURL(blob);
@@ -39662,6 +39711,7 @@ if (typeof window !== 'undefined' && window.app) {
         'onTailoredArtifactSelectChange',
         'closeTailoredArtifactModal',
         'saveTailoredArtifactForm',
+        'saveProjectMethodologyToDb',
         'removeTailoredAttachedFile',
         'downloadTailoredArtifact'
     ].forEach(fn => {
