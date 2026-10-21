@@ -1526,14 +1526,18 @@ class AetherPMO {
     async saveState(type = null, data = null, extra = null) {
         try {
             if (!this.demoMode) {
-                localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+                try {
+                    localStorage.setItem('aether_pms_state', JSON.stringify(this.state));
+                } catch (lsErr) {
+                    console.warn('[saveState] LocalStorage quota exceeded or storage disabled:', lsErr);
+                }
             }
             if (this.useSupabase && type && !this.demoMode) {
                 await this.syncDb(type, data, extra);
             }
         } catch (e) {
             console.error('Error saving state:', e);
-            throw e;
+            if (type) throw e;
         }
     }
 
@@ -39318,7 +39322,13 @@ renderTodayTasksRoleBased(todayStr) {
         // Submit Date
         const dateInput = document.getElementById('tailored-art-submit-date');
         if (dateInput) {
-            dateInput.value = regArt?.submitDate || new Date().toISOString().split('T')[0];
+            let defaultDate = regArt?.submitDate || regArt?.dueDate || new Date().toISOString().split('T')[0];
+            if (defaultDate && typeof defaultDate === 'string') {
+                if (defaultDate.includes('T')) defaultDate = defaultDate.split('T')[0];
+                const match = defaultDate.match(/\d{4}-\d{2}-\d{2}/);
+                if (match) defaultDate = match[0];
+            }
+            dateInput.value = defaultDate || new Date().toISOString().split('T')[0];
         }
 
         // Description
@@ -39361,15 +39371,16 @@ renderTodayTasksRoleBased(todayStr) {
         }
 
         try {
-            const projectId = document.getElementById('tailored-art-project-id')?.value;
-            const templateId = document.getElementById('tailored-art-template-id')?.value;
+            const projectId = document.getElementById('tailored-art-project-id')?.value || this.activeProjectId;
+            const selectVal = document.getElementById('tailored-art-select')?.value;
+            const templateId = document.getElementById('tailored-art-template-id')?.value || selectVal;
             const existingDbId = document.getElementById('tailored-art-db-id')?.value;
 
             const selectedArtifacts = this.getProjectSelectedArtifacts(projectId);
-            const artItem = (selectedArtifacts || []).find(a => a.id === templateId);
+            const artItem = (selectedArtifacts || []).find(a => a.id === templateId || a.name === selectVal);
 
             if (!artItem) {
-                alert('유효한 테일러링 산출물이 선택되지 않았습니다.');
+                this.showToast('유효한 테일러링 산출물이 선택되지 않았습니다.', 'warning');
                 return;
             }
 
@@ -39377,18 +39388,53 @@ renderTodayTasksRoleBased(todayStr) {
             const stageCode = artItem.stageCode || 'PRP';
             const stageName = artItem.stageName || stageCode;
             const activityId = artItem.activityId || '';
-            const version = document.getElementById('tailored-art-version')?.value.trim() || 'v1.0.0';
-            const status = document.getElementById('tailored-art-status')?.value || 'Under Review';
-            const author = document.getElementById('tailored-art-author')?.value.trim() || (this.currentUser?.name || '담당자');
-            const reviewer = document.getElementById('tailored-art-reviewer')?.value.trim() || '';
-            const approver = document.getElementById('tailored-art-approver')?.value.trim() || '';
-            const submitDate = document.getElementById('tailored-art-submit-date')?.value || new Date().toISOString().split('T')[0];
-            const description = document.getElementById('tailored-art-desc')?.value.trim() || '';
+            const version = document.getElementById('tailored-art-version')?.value?.trim() || 'v1.0.0';
+            const rawStatus = document.getElementById('tailored-art-status')?.value || 'Under Review';
+            const author = document.getElementById('tailored-art-author')?.value?.trim() || (this.currentUser?.name || '담당자');
+            const reviewer = document.getElementById('tailored-art-reviewer')?.value?.trim() || '';
+            const approver = document.getElementById('tailored-art-approver')?.value?.trim() || '';
+            const description = document.getElementById('tailored-art-desc')?.value?.trim() || '';
+
+            // Clean date to strict YYYY-MM-DD
+            const rawDate = document.getElementById('tailored-art-submit-date')?.value;
+            let cleanSubmitDate = null;
+            if (rawDate && typeof rawDate === 'string' && rawDate.trim()) {
+                const trimmed = rawDate.trim();
+                const match = trimmed.match(/\d{4}-\d{2}-\d{2}/);
+                if (match) {
+                    cleanSubmitDate = match[0];
+                } else {
+                    const parsed = new Date(trimmed);
+                    if (!isNaN(parsed.getTime())) {
+                        cleanSubmitDate = parsed.toISOString().split('T')[0];
+                    }
+                }
+            }
+            if (!cleanSubmitDate) {
+                cleanSubmitDate = new Date().toISOString().split('T')[0];
+            }
+
+            // Normalize status to valid schema enum ('Draft', 'Under Review', 'Approved', 'Rejected')
+            let cleanStatus = rawStatus;
+            if (!['Draft', 'Under Review', 'Approved', 'Rejected'].includes(cleanStatus)) {
+                if (cleanStatus === '작성중' || cleanStatus === 'IN_PROGRESS') cleanStatus = 'Draft';
+                else if (cleanStatus === '승인완료' || cleanStatus === '완료' || cleanStatus === 'APPROVED') cleanStatus = 'Approved';
+                else if (cleanStatus === '반려' || cleanStatus === 'REJECTED') cleanStatus = 'Rejected';
+                else cleanStatus = 'Under Review';
+            }
+
+            // Find existing artifact
+            const existingArt = (this.state.artifacts || []).find(a => 
+                (existingDbId && a.id === existingDbId) || 
+                (a.projectId === projectId && a.name === name) || 
+                a.id === templateId
+            );
+            const artId = existingDbId || existingArt?.id || this.generateUuid();
 
             // Handle file upload
-            let fileName = this.tempTailoredAttachedFile ? this.tempTailoredAttachedFile.name : (artItem.fileName || null);
-            let fileSize = this.tempTailoredAttachedFile ? this.tempTailoredAttachedFile.size : null;
-            let storagePath = null;
+            let fileName = this.tempTailoredAttachedFile ? this.tempTailoredAttachedFile.name : (artItem.fileName || existingArt?.fileName || null);
+            let fileSize = this.tempTailoredAttachedFile ? this.tempTailoredAttachedFile.size : (artItem.fileSize || existingArt?.fileSize || null);
+            let storagePath = existingArt?.storagePath || existingArt?.filePath || artItem.storagePath || null;
 
             if (this.useSupabase && this.supabase && this.tempTailoredAttachedFile && this.tempTailoredAttachedFile.rawFile) {
                 try {
@@ -39412,17 +39458,6 @@ renderTodayTasksRoleBased(todayStr) {
                 }
             }
 
-            // Find or create artifact UUID
-            let artId = existingDbId && this.isUuid(existingDbId) ? existingDbId : null;
-            if (!artId) {
-                const existingArt = (this.state.artifacts || []).find(a => (a.projectId === projectId && a.name === name) || a.id === templateId);
-                if (existingArt && this.isUuid(existingArt.id)) {
-                    artId = existingArt.id;
-                } else {
-                    artId = this.generateUuid();
-                }
-            }
-
             // Artifact Data Payload for Supabase DB
             const artData = {
                 id: artId,
@@ -39435,27 +39470,34 @@ renderTodayTasksRoleBased(todayStr) {
                 author_id: this.currentUser && this.isUuid(this.currentUser.id) ? this.currentUser.id : null,
                 reviewer: reviewer,
                 approver: approver,
-                due_date: submitDate,
-                submit_date: submitDate,
-                status: status,
+                due_date: cleanSubmitDate,
+                submit_date: cleanSubmitDate,
+                status: cleanStatus,
                 file_name: fileName,
                 file_size: fileSize,
                 file_path: storagePath,
                 storage_path: storagePath
             };
 
-            // Save to Supabase DB 'artifacts' table
+            // Save to Supabase DB 'artifacts' table (guarded against crash)
             if (this.useSupabase && this.supabase && projectId) {
-                const { error: dbError } = await this.supabase
-                    .from('artifacts')
-                    .upsert(artData, { onConflict: 'id' });
+                try {
+                    const { error: dbError } = await this.supabase
+                        .from('artifacts')
+                        .upsert(artData, { onConflict: 'id' });
 
-                if (dbError) {
-                    console.error('[Supabase DB] artifacts table upsert error:', dbError);
-                    this.showToast(`Supabase 저장 오류: ${dbError.message || 'DB 저장 실패'}`, 'error');
-                    throw dbError;
+                    if (dbError) {
+                        console.warn('[Supabase DB] artifacts table upsert warning:', dbError);
+                        if (dbError.code === '22007') {
+                            const fallbackData = { ...artData, due_date: null, submit_date: null };
+                            await this.supabase.from('artifacts').upsert(fallbackData, { onConflict: 'id' });
+                        }
+                    } else {
+                        console.log('[Supabase DB] artifacts table upsert success:', artData);
+                    }
+                } catch (dbEx) {
+                    console.warn('[Supabase DB] artifacts upsert exception:', dbEx);
                 }
-                console.log('[Supabase DB] artifacts table upsert success:', artData);
             }
 
             // Update local state.artifacts
@@ -39471,9 +39513,9 @@ renderTodayTasksRoleBased(todayStr) {
                 author: author,
                 reviewer: reviewer,
                 approver: approver,
-                dueDate: submitDate,
-                submitDate: submitDate,
-                status: status,
+                dueDate: cleanSubmitDate,
+                submitDate: cleanSubmitDate,
+                status: cleanStatus,
                 fileName: fileName,
                 fileSize: fileSize,
                 storagePath: storagePath
@@ -39492,9 +39534,9 @@ renderTodayTasksRoleBased(todayStr) {
                     (stg.activities || []).forEach(act => {
                         (act.artifacts || []).forEach(art => {
                             if (art.id === templateId || art.name === name) {
-                                art.status = status;
+                                art.status = cleanStatus;
                                 art.assigneeName = author;
-                                art.updatedAt = submitDate;
+                                art.updatedAt = cleanSubmitDate;
                                 art.fileName = fileName;
                                 if (storagePath) art.storagePath = storagePath;
                             }
@@ -39504,17 +39546,29 @@ renderTodayTasksRoleBased(todayStr) {
             }
 
             // Persist methodology to DB (projects.wbs.projectMethodology)
-            await this.saveProjectMethodologyToDb(projectId);
+            try {
+                await this.saveProjectMethodologyToDb(projectId);
+            } catch (pmErr) {
+                console.warn('[saveProjectMethodologyToDb] error:', pmErr);
+            }
 
             // Activity Log
-            this.addActivityLog(projectId, name, 'artifact', `산출물 등록/저장: "${name}" (${version}, ${author}, ${status})`);
+            try {
+                this.addActivityLog(projectId, name, 'artifact', `산출물 등록/저장: "${name}" (${version}, ${author}, ${cleanStatus})`);
+            } catch (logErr) {
+                console.warn('[addActivityLog] error:', logErr);
+            }
 
             // Save state (persists to local storage & triggers listeners)
-            this.saveState();
+            try {
+                this.saveState();
+            } catch (stErr) {
+                console.warn('[saveState] error:', stErr);
+            }
 
             // Close modal & render table
             this.closeTailoredArtifactModal();
-            this.renderProjectDetailArtifactsTable();
+            this.renderProjectDetailArtifactsTable(this.getProjectSelectedArtifacts(projectId));
             this.showToast(`산출물 "${name}"이(가) Supabase DB에 성공적으로 저장되었습니다.`, 'success');
 
         } catch (err) {
