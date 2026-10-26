@@ -1,4 +1,5 @@
 // AetherPMO AI 어시스턴트 헬스체크 Vercel Serverless Function 엔드포인트 (/api/ai/health)
+// 지원 Provider: 1. Gemini API, 2. OpenAI API, 3. 외부 Ollama / 게이트웨이
 const http = require('http');
 const https = require('https');
 const url = require('url');
@@ -6,7 +7,7 @@ const url = require('url');
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -16,20 +17,47 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // An unconfigured Vercel function cannot reach a user's localhost Ollama.
-  // Return an explicit non-error service state rather than reporting 503 repeatedly.
-  if (!process.env.OLLAMA_BASE_URL || /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/i.test(process.env.OLLAMA_BASE_URL)) {
-    res.setHeader('Cache-Control', 'no-store');
-    return res.status(200).json({ status: 'disabled', message: 'AI 추론 서버가 구성되지 않아 기능이 비활성화되어 있습니다.' });
+  res.setHeader('Cache-Control', 'no-store');
+
+  // 1. Google Gemini API 검사 (우선순위 1)
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
+  if (geminiKey) {
+    const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    return res.status(200).json({
+      status: 'ready',
+      provider: 'gemini',
+      model: model,
+      message: `Google Gemini 생성형 AI 서비스(${model})가 정상 준비되었습니다.`
+    });
   }
+
+  // 2. OpenAI API 검사 (우선순위 2)
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (openaiKey) {
+    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    return res.status(200).json({
+      status: 'ready',
+      provider: 'openai',
+      model: model,
+      message: `OpenAI 생성형 AI 서비스(${model})가 정상 준비되었습니다.`
+    });
+  }
+
+  // 3. Ollama 서버 검사 (기존 외부 Ollama 유지)
+  if (!process.env.OLLAMA_BASE_URL || /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/i.test(process.env.OLLAMA_BASE_URL)) {
+    return res.status(200).json({
+      status: 'disabled',
+      provider: 'none',
+      message: 'AI 추론 API 키(GEMINI_API_KEY 또는 OPENAI_API_KEY)가 설정되지 않아 기능이 비활성화되어 있습니다.'
+    });
+  }
+
   const baseUrl = process.env.OLLAMA_BASE_URL;
   const model = process.env.OLLAMA_MODEL || 'qwen2.5:1.5b';
 
   try {
     const parsed = new URL(baseUrl);
     const protocol = parsed.protocol === 'https:' ? https : http;
-
-    // 게이트웨이가 있으면 /health, Ollama 직접 연결이면 /api/tags
     const targetPath = baseUrl.includes('11435') || parsed.pathname.includes('gateway') ? '/health' : '/api/tags';
 
     const headers = {};
@@ -48,12 +76,13 @@ module.exports = async (req, res) => {
         headers,
         timeout: 3000,
       }, (pingRes) => {
-        if (pingRes.statusCode >= 200 && pingRes.statusCode < 400) {
+        if (pingRes.statusCode >= 200 && pingRes.statusCode < 300) {
           resolve(true);
         } else {
           resolve(false);
         }
       });
+
       pingReq.on('error', () => resolve(false));
       pingReq.on('timeout', () => {
         pingReq.destroy();
@@ -62,13 +91,25 @@ module.exports = async (req, res) => {
       pingReq.end();
     });
 
-    const isHealthy = await checkPromise;
-    if (isHealthy) {
-      return res.status(200).json({ status: 'ok', model, baseUrl: parsed.hostname });
+    const isAlive = await checkPromise;
+    if (isAlive) {
+      return res.status(200).json({
+        status: 'ready',
+        provider: 'ollama',
+        model: model,
+        message: `Ollama AI 어시스턴트 서비스(${model})가 정상 작동 중입니다.`
+      });
     } else {
-      return res.status(503).json({ status: 'error', message: '추론 게이트웨이 또는 로컬 Ollama에 연결할 수 없습니다.' });
+      return res.status(200).json({
+        status: 'error',
+        provider: 'ollama',
+        message: 'Ollama 서버와 통신할 수 없습니다.'
+      });
     }
   } catch (err) {
-    return res.status(503).json({ status: 'error', message: err.message });
+    return res.status(200).json({
+      status: 'error',
+      message: 'AI 헬스체크 중 예외가 발생했습니다: ' + err.message
+    });
   }
 };

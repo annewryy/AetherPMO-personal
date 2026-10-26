@@ -52,8 +52,20 @@ const OPMS_STATUS_PROGRESS = {
 };
 
 class AetherPMO {
+    normalizeRole(role) {
+        if (!role) return 'VIEWER';
+        const r = String(role).trim().toUpperCase();
+        if (r === 'SYS_ADMIN' || r === 'ADMIN') return 'SYS_ADMIN';
+        if (r === 'EXEC_ADMIN' || r === 'MANAGER') return 'EXEC_ADMIN';
+        if (r === 'PM') return 'PM';
+        if (r === 'WORKER') return 'WORKER';
+        if (r === 'VIEWER') return 'VIEWER';
+        return r;
+    }
+
     isAdminRole(role) {
-        return role === 'SYS_ADMIN' || role === 'EXEC_ADMIN';
+        const r = this.normalizeRole(role);
+        return r === 'SYS_ADMIN' || r === 'EXEC_ADMIN';
     }
 
     getAccessibleProjects() {
@@ -517,7 +529,7 @@ class AetherPMO {
                         id: profile.id,
                         email: profile.email,
                         name: profile.name,
-                        role: profile.role,
+                        role: this.normalizeRole(profile.role),
                         company: profile.company,
                         division: profile.division,
                         position: profile.position,

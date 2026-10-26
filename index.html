@@ -2,19 +2,8 @@
 <html lang="ko">
 <head>
     <script>
-        // Check for dev mode or auto-login param to facilitate testing/visual verification
+        // Hash navigation normalization
         try {
-            var testSession = {
-                id: 'usr_admin',
-                email: 'admin@aetherpmo.com',
-                name: '시스템 관리자',
-                role: 'SYS_ADMIN'
-            };
-            sessionStorage.setItem('aether_pmo_session', JSON.stringify(testSession));
-            localStorage.setItem('aether_pmo_auto_session', JSON.stringify(testSession));
-            localStorage.setItem('aether_pmo_auto_login', 'true');
-
-            // If visiting with #view-artifacts, redirect hash to #artifacts
             if (window.location.hash === '#view-artifacts') {
                 window.location.hash = '#artifacts';
             }
