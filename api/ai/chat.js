@@ -765,11 +765,17 @@ async function getProjectRiskAssessment(project, supabaseUrl, serviceKeyOrAnon, 
   };
 }
 
-// 3-7. 서버 측 AI 실행 감사로그 Supabase DB 영구 보존 (단일 원천 & 응답 확인)
-async function saveAIAuditLog(supabaseUrl, serviceKeyOrAnon, record, userToken = null) {
+// 3-7. 서버 측 AI 실행 감사로그 Supabase DB 영구 보존 (서버 전용 백엔드 경로로 분리)
+// 보안 원칙: 일반 사용자의 AI_AUDIT 임의 INSERT는 RLS로 차단되며,
+// 오직 Vercel 서버리스의 SUPABASE_SERVICE_ROLE_KEY를 통해서만 안전하게 기록됨 (사용자 JWT 배제)
+async function saveAIAuditLog(supabaseUrl, serviceRoleKey, record) {
+  if (!serviceRoleKey) {
+    console.warn('[AI Audit Log] SUPABASE_SERVICE_ROLE_KEY 미설정으로 서버 감사로그 저장을 건너뜁니다.');
+    return { dbSaved: false, dbError: 'Service role key not configured', logId: null };
+  }
+
   try {
     const parsed = new URL(supabaseUrl);
-    const authKey = userToken || serviceKeyOrAnon;
     const actId = crypto.randomUUID ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2, 10));
 
     // 민감 정보 제거: API 키, 원문 전문 배제, 안전한 메타데이터 요약만 보관
@@ -779,8 +785,8 @@ async function saveAIAuditLog(supabaseUrl, serviceKeyOrAnon, record, userToken =
 
     const actData = {
       id: actId,
-      project_id: (record.projectId && record.projectId.length === 36) ? record.projectId : null,
-      user_id: (record.userId && record.userId.length === 36) ? record.userId : null,
+      project_id: (record.projectId && String(record.projectId).length === 36) ? String(record.projectId) : null,
+      user_id: record.userId ? String(record.userId) : null, // varchar 자료형 매핑
       type: 'AI_AUDIT',
       text: JSON.stringify({
         featureCode: record.featureCode,
@@ -803,8 +809,8 @@ async function saveAIAuditLog(supabaseUrl, serviceKeyOrAnon, record, userToken =
       path: '/rest/v1/activity_logs',
       method: 'POST',
       headers: {
-        'apikey': serviceKeyOrAnon,
-        'Authorization': `Bearer ${authKey}`,
+        'apikey': serviceRoleKey,
+        'Authorization': `Bearer ${serviceRoleKey}`, // 오직 서버 Secret/service_role 키만 사용
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal',
         'Content-Length': Buffer.byteLength(postData)

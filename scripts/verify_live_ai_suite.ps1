@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 # AetherPMO AI 5대 기능(AI-01~05) 실제 엔드포인트 통합 검증 스크립트
 # 
 # [원칙 준수]:
@@ -88,11 +88,17 @@ Write-Host "================================================================"
 try {
     $noTokenHeaders = @{ "Content-Type" = "application/json" }
     $noTokenBody = '{"message":"test","featureType":"AI-01"}'
-    $null = Invoke-RestMethod -Uri $TargetApiUrl -Method Post -Headers $noTokenHeaders -Body $noTokenBody -TimeoutSec 10
-    Write-Host "[FAIL] Unauthenticated request was NOT blocked!"
+    $res401 = Invoke-WebRequest -Uri $TargetApiUrl -Method Post -Headers $noTokenHeaders -Body $noTokenBody -TimeoutSec 10 -ErrorAction Stop
+    Write-Host "[FAIL] Unauthenticated request was NOT blocked! Status: " $res401.StatusCode
     exit 1
 } catch {
-    Write-Host "[PASS] 401 Unauthorized safely enforced for unauthenticated request."
+    $status = $_.Exception.Response.StatusCode.value__
+    if ($status -eq 401) {
+        Write-Host "[PASS] 401 Unauthorized safely enforced for unauthenticated request."
+    } else {
+        Write-Host "[FAIL] Expected 401 Unauthorized, got: $status"
+        exit 1
+    }
 }
 
 # 2-2. 권한 없는 프로젝트 접근 403 차단 검증
@@ -109,11 +115,17 @@ try {
         message = "권한 없는 프로젝트 분석 요청"
     } | ConvertTo-Json
 
-    $null = Invoke-RestMethod -Uri $TargetApiUrl -Method Post -Headers $forbiddenHeaders -Body $forbiddenBody -TimeoutSec 15
-    Write-Host "[FAIL] Unauthorized project access was NOT blocked!"
+    $res403 = Invoke-WebRequest -Uri $TargetApiUrl -Method Post -Headers $forbiddenHeaders -Body $forbiddenBody -TimeoutSec 15 -ErrorAction Stop
+    Write-Host "[FAIL] Unauthorized project access was NOT blocked! Status: " $res403.StatusCode
     exit 1
 } catch {
-    Write-Host "[PASS] 403 Forbidden safely enforced for unauthorized project access."
+    $status = $_.Exception.Response.StatusCode.value__
+    if ($status -eq 403) {
+        Write-Host "[PASS] 403 Forbidden safely enforced for unauthorized project access."
+    } else {
+        Write-Host "[FAIL] Expected 403 Forbidden, got: $status"
+        exit 1
+    }
 }
 
 Write-Host "`n================================================================"
@@ -186,6 +198,10 @@ foreach ($feat in $features) {
         $latency = $response.metadata.latencyMs
         $logId = $response.metadata.dbAudit.logId
         $dbSaved = $response.metadata.dbAudit.dbSaved
+        if ($dbSaved -ne $true -or -not $logId) {
+            Write-Host ("    [FAIL] " + $fCode + " DB 감사로그 저장 실패: dbSaved=" + $dbSaved + ", logId=" + $logId)
+            exit 1
+        }
 
         Write-Host ("    [PASS] Gemini 응답 성공 (모델: " + $modelName + ", 소요: " + $durationMs + "ms)")
         Write-Host ("    [감사로그 저장 결과]: logId=" + $logId + ", dbSaved=" + $dbSaved)
@@ -210,8 +226,8 @@ Write-Host " [Step 4] Supabase activity_logs DB SELECT Verification"
 Write-Host "================================================================"
 
 if (-not $serviceRoleKey) {
-    Write-Host "[INFO] SUPABASE_SERVICE_ROLE_KEY 환경변수가 설정되지 않아 DB 직접 재조회를 건너뜁니다."
-    Write-Host "       (API 응답의 metadata.dbAudit 결과를 통해 간접 검증됨)"
+    Write-Host "[FAIL] SUPABASE_SERVICE_ROLE_KEY 환경변수가 설정되지 않아 DB 전수 조회가 불가능합니다."
+    exit 1
 } else {
     try {
         $auditQueryHeaders = @{
@@ -229,6 +245,10 @@ if (-not $serviceRoleKey) {
             if ($found) { $matchedCount++ }
         }
         Write-Host ("[PASS] API 반환 logId와 실제 DB 저장 레코드 매칭: " + $matchedCount + "/" + $capturedLogIds.Count + "건 일치")
+        if ($matchedCount -ne 5) {
+            Write-Host "[FAIL] 5개 기능 중 일부의 감사로그가 DB에 저장되지 않았습니다! (일치: " $matchedCount "/5)"
+            exit 1
+        }
     } catch {
         Write-Host ("[FAIL] activity_logs DB 재조회 실패: " + $_.Exception.Message)
         exit 1
