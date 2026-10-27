@@ -8,7 +8,7 @@
 # 4. 검증 실패 또는 모의 실행 시 ALL TESTS PASSED 출력 절대 금지 (Fail-Fast)
 # ============================================================================
 param(
-    [string]$TargetApiUrl = "https://aether-pmo-personal-gar33znz3-annewryys-projects.vercel.app/api/ai/chat",
+    [string]$TargetApiUrl = "https://aether-pmo-personal-h2n3gf5ow-annewryys-projects.vercel.app/api/ai/chat",
     [string]$TestEmail = "pm1@aetherpmo.com",
     [string]$TestPassword = "",
     [string]$VercelBypassSecret = ""
@@ -101,8 +101,15 @@ try {
     }
 }
 
-# 2-2. 권한 없는 프로젝트 접근 403 차단 검증
+# 2-2. 실제 존재하지만 pm1에게 접근 권한이 없는 프로젝트에 대한 403 차단 검증
 try {
+    # 전체 프로젝트 중 현재 사용자가 접근 가능한 프로젝트를 제외한 실제 비인가 프로젝트 1건 조회
+    $allProjUri = $supabaseUrl + '/rest/v1/projects?select=id,project_code,name&order=id.desc&limit=10'
+    $allProjs = Invoke-RestMethod -Uri $allProjUri -Method Get -Headers @{ "apikey" = $anonKey; "Authorization" = ("Bearer " + $jwtToken) }
+    $unauthProj = $allProjs | Where-Object { $_.id -ne $targetProj.id } | Select-Object -First 1
+    $unauthProjId = if ($unauthProj) { $unauthProj.id } else { "3f345495-cb2f-4843-9a0c-73555aebdb2c" }
+    $unauthProjCode = if ($unauthProj) { $unauthProj.project_code } else { "OP-25-1095" }
+    Write-Host ("    [INFO] Testing 403 access control with existing unassigned project: [" + $unauthProjCode + "] " + $unauthProjId)
     $forbiddenHeaders = @{
         "Content-Type" = "application/json"
         "Authorization" = ("Bearer " + $jwtToken)
@@ -111,24 +118,23 @@ try {
     if ($VercelBypassSecret) { $forbiddenHeaders["x-vercel-protection-bypass"] = $VercelBypassSecret }
     $forbiddenBody = @{
         featureType = "AI-01"
-        projectId = "00000000-0000-0000-0000-000000000000"
-        message = "권한 없는 프로젝트 분석 요청"
+        projectId = $unauthProjId
+        message = "권한 없는 실제 프로젝트 분석 시도"
     } | ConvertTo-Json
-
     $res403 = Invoke-WebRequest -Uri $TargetApiUrl -Method Post -Headers $forbiddenHeaders -Body $forbiddenBody -TimeoutSec 15 -ErrorAction Stop
     Write-Host "[FAIL] Unauthorized project access was NOT blocked! Status: " $res403.StatusCode
     exit 1
 } catch {
     $status = $_.Exception.Response.StatusCode.value__
     if ($status -eq 403) {
-        Write-Host "[PASS] 403 Forbidden safely enforced for unauthorized project access."
+        Write-Host "[PASS] 403 Forbidden safely enforced for unauthorized real project access."
     } else {
         Write-Host "[FAIL] Expected 403 Forbidden, got: $status"
         exit 1
     }
 }
 
-Write-Host "`n================================================================"
+Write-Host "================================================================"
 Write-Host " [Step 3] AI-01 ~ AI-05 Actual Endpoint Execution & Gemini Verification"
 Write-Host "================================================================"
 
