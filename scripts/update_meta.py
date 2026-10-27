@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
+import os
 import urllib.request
 import json
 
-service_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnlmemltdnBra3Vsam5tZmN0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NTI1Nzg3MiwiZXhwIjoyMTAwODMzODcyfQ.1GTE5Vs8mcILEnLC11E_Crc2rcXPehEharjWHfibSbs'
-url_base = 'https://rhbyfzimvpkkuljnmfct.supabase.co/auth/v1/admin/users'
+service_key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+if not service_key:
+    raise RuntimeError('SUPABASE_SERVICE_ROLE_KEY 환경변수가 설정되지 않았습니다.')
+url_base = os.environ.get('SUPABASE_URL', 'https://rhbyfzimvpkkuljnmfct.supabase.co') + '/auth/v1/admin/users'
 
 updates = [
     ('515ec161-1a5d-47a1-9d14-151b8da5fea6', '매니저1', 'EXEC_ADMIN'),
