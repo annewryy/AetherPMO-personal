@@ -391,17 +391,29 @@
 
         if (featureType === 'AI-04') {
             const scColor = kpis.gradeBadgeColor || '#94a3b8';
-            gradeBadgeHtml = `<span class="ai-grade-badge" style="background:${scColor}22; color:${scColor}; border:1px solid ${scColor};">${escapeHtml(kpis.grade || '판정')}</span>`;
-            diagnosisSummary = `정량 리스크 산출 결과: 100점 만점 중 <strong>${kpis.totalScore !== null ? kpis.totalScore + '점' : '판정 보류'}</strong> 상태입니다. 4대 핵심 축(일정, 산출물, 이슈, Action Item)을 종합 검토하여 산출되었습니다.`;
-            businessImpact = (kpis.totalScore || 0) >= 50 ? '⚠️ 사업 지연 및 감리 지적 위험이 높으므로 비상 관리 대응 체계 가동이 요구됩니다.' : '✅ 관리 지표가 통제 범위 내에서 운영 중이며 선제적 조기 경보 관리를 권고합니다.';
+            if (kpis.allFourEvaluated === false || kpis.totalScore === null) {
+                gradeBadgeHtml = `<span class="ai-grade-badge" style="background:rgba(239, 68, 68, 0.2); color:#f87171; border:1px solid #f87171;">⚠️ 판정 보류 (지표 결측)</span>`;
+                diagnosisSummary = `정량 리스크 산출 결과: 4대 핵심 축(일정, 산출물, 이슈, Action Item) 중 필수 지표 결측으로 종합 위험도 산출이 보류되었습니다.`;
+                businessImpact = '⚠️ 리스크 왜곡 방지를 위해 기초 데이터(WBS 일정, 필수 산출물, 이슈 등록 등) 입력이 선행되어야 합니다.';
+            } else {
+                gradeBadgeHtml = `<span class="ai-grade-badge" style="background:${scColor}22; color:${scColor}; border:1px solid ${scColor};">${escapeHtml(kpis.grade || '판정')}</span>`;
+                diagnosisSummary = `정량 리스크 산출 결과: 100점 만점 중 <strong>${kpis.totalScore}점</strong> 상태입니다. 4대 핵심 축(일정, 산출물, 이슈, Action Item)을 종합 검토하여 산출되었습니다.`;
+                businessImpact = (kpis.totalScore || 0) >= 50 ? '⚠️ 사업 지연 및 감리 지적 위험이 높으므로 비상 관리 대응 체계 가동이 요구됩니다.' : '✅ 관리 지표가 통제 범위 내에서 운영 중이며 선제적 조기 경보 관리를 권고합니다.';
+            }
         } else if (featureType === 'AI-02') {
             const unreg = kpis.unregisteredCount || 0;
             const subRate = kpis.submissionRate || 0;
-            const color = unreg >= 3 ? '#ef4444' : unreg >= 1 ? '#f59e0b' : '#10b981';
-            const label = unreg >= 3 ? '집중 만회 필요' : unreg >= 1 ? '주의 관리' : '정상 관리';
-            gradeBadgeHtml = `<span class="ai-grade-badge" style="background:${color}22; color:${color}; border:1px solid ${color};">${label} (제출률 ${subRate}%)</span>`;
-            diagnosisSummary = `표준 산출물 총 ${kpis.totalRequired || 0}종 중 승인 완료 ${kpis.approvedCount || 0}건, 검토 지연 ${kpis.underReviewCount || 0}건, 미등록 누락 ${unreg}건으로 확인되었습니다.`;
-            businessImpact = unreg > 0 ? `단계별 마일스톤 도래 시 미제출 산출물(${unreg}건)로 인한 검수 지연 및 납기 리스크 발생 가능성이 있습니다.` : '필수 산출물 대부분이 적기 등록되어 안정적인 형상 관리가 유지되고 있습니다.';
+            if (kpis.isIndeterminate) {
+                gradeBadgeHtml = `<span class="ai-grade-badge" style="background:rgba(239, 68, 68, 0.2); color:#f87171; border:1px solid #f87171;">⚠️ 판정 보류 (조회 오류)</span>`;
+                diagnosisSummary = `표준 산출물 조회 중 오류가 발생하여 갭 판정이 보류되었습니다. 데이터 누락 또는 권한을 확인하세요.`;
+                businessImpact = '⚠️ 실제 등록 건수가 0건으로 오인되지 않도록 Supabase 연결 상태를 점검해 주세요.';
+            } else {
+                const color = unreg >= 3 ? '#ef4444' : unreg >= 1 ? '#f59e0b' : '#10b981';
+                const label = unreg >= 3 ? '집중 만회 필요' : unreg >= 1 ? '주의 관리' : '정상 관리';
+                gradeBadgeHtml = `<span class="ai-grade-badge" style="background:${color}22; color:${color}; border:1px solid ${color};">${label} (제출률 ${subRate}%)</span>`;
+                diagnosisSummary = `표준 산출물 총 ${kpis.totalRequired || 0}종 중 승인 완료 ${kpis.approvedCount || 0}건, 검토 지연 ${kpis.underReviewCount || 0}건, 미등록 누락 ${unreg}건으로 확인되었습니다.`;
+                businessImpact = unreg > 0 ? `단계별 마일스톤 도래 시 미제출 산출물(${unreg}건)로 인한 검수 지연 및 납기 리스크 발생 가능성이 있습니다.` : '필수 산출물 대부분이 적기 등록되어 안정적인 형상 관리가 유지되고 있습니다.';
+            }
         } else if (featureType === 'AI-01') {
             gradeBadgeHtml = `<span class="ai-grade-badge" style="background:rgba(139, 92, 246, 0.2); color:#a78bfa; border:1px solid #a78bfa;">종합 사업현황 브리핑</span>`;
             diagnosisSummary = `실적 공정률 ${escapeHtml(kpis.progress || '0%')}, 미해결 이슈 ${kpis.issuesCount || 0}건, 미완료 Action Items ${kpis.actionsCount || 0}건에 근거한 PMO 종합 진단 결과입니다.`;
@@ -411,8 +423,14 @@
             diagnosisSummary = `${escapeHtml(kpis.weekLabel || '금주')} 동안 실제 시스템에 등록·확인된 실적 ${kpis.completedCount || 0}건을 집계하고 차주 실행 계획을 수립하였습니다.`;
             businessImpact = '미해결 이슈 및 Action Item 지연 리스크를 사전에 예방하기 위한 PM 중점 추진 방향이 제시되었습니다.';
         } else if (featureType === 'AI-05') {
+            const pageCitations = (answer.match(/\[p\.\s*\d+\]/gi) || []);
+            const uniquePages = [...new Set(pageCitations.map(p => p.trim()))];
+            const citationNotice = uniquePages.length > 0 
+                ? ` (원문 인용 검증: ${uniquePages.slice(0, 5).join(', ')}${uniquePages.length > 5 ? ` 외 ${uniquePages.length - 5}개소` : ''} 확인)` 
+                : ' (원문 페이지 인용 표기 없음)';
+
             gradeBadgeHtml = `<span class="ai-grade-badge" style="background:rgba(59, 130, 246, 0.2); color:#60a5fa; border:1px solid #60a5fa;">공공 RFP 8대 요건 정밀 분석</span>`;
-            diagnosisSummary = `제안요청서 [${escapeHtml(kpis.fileName || '문서')}]의 사업개요, 예산, 과업요건, 참가자격, 평가배점, 투입인력, 제출서류를 구조적으로 분석하였습니다.`;
+            diagnosisSummary = `제안요청서 [${escapeHtml(kpis.fileName || '문서')}]의 사업개요, 예산, 과업요건, 참가자격, 평가배점, 투입인력, 제출서류를 구조적으로 분석하였습니다.${citationNotice}`;
             businessImpact = kpis.isTruncated ? '⚠️ 본 문서는 40,000자 발췌 분석이 적용되었으므로 상세 제안서 작성 시 원문 전체 대조가 병행되어야 합니다.' : '원문 전문 분석을 통해 누락 없는 입찰 타당성 및 제안 차별화 전략이 수립되었습니다.';
         }
 
@@ -431,43 +449,87 @@
             </div>
         `;
 
-        // 3. 중요도별 3대 관리 권고사항 카드
+        // 3. 중요도별 3대 관리 권고사항 카드 (실제 데이터 및 분석 결과 기반 동적 생성)
+        const recs = kpis.recommendations || {};
+        const crit = recs.critical || {
+            type: 'critical',
+            title: '🚨 [긴급 조치 (Critical)]',
+            action: '미해결 이슈 및 지연 항목 집중 해소',
+            evidence: '현행 데이터 기반 진단',
+            impact: '공정 지연 예방',
+            assignee: '사업 총괄 PM',
+            deadline: '즉시 조치'
+        };
+        const warn = recs.warning || {
+            type: 'warning',
+            title: '⚠️ [주의 관리 (Warning)]',
+            action: '공정률 격차 및 주요 마일스톤 사전 점검',
+            evidence: '주간 공정 기준',
+            impact: '지연 누적 차단',
+            assignee: '공정관리 PL',
+            deadline: '차주 전 완료'
+        };
+        const info = recs.recommendation || {
+            type: 'info',
+            title: '💡 [권고 사항 (Recommendation)]',
+            action: '표준 개발 방법론 가이드라인 및 산출물 형상관리 준수',
+            evidence: 'PMO 표준 카탈로그',
+            impact: '품질 감리 신뢰성 확보',
+            assignee: '전체 프로젝트 팀',
+            deadline: '상시 유지'
+        };
+
+        const critClass = crit.type === 'stable' ? 'stable' : (crit.type === 'warning' ? 'warning' : 'critical');
+        const critIcon = crit.type === 'stable' ? 'check-circle' : (crit.type === 'warning' ? 'alert-triangle' : 'alert-octagon');
+
         html += `
             <div class="ai-recs-grid">
-                <div class="ai-rec-card critical">
+                <div class="ai-rec-card ${critClass}">
                     <div class="ai-rec-header">
-                        <i data-lucide="alert-octagon"></i> 🚨 [긴급 조치 (Critical)]
+                        <i data-lucide="${critIcon}"></i> ${escapeHtml(crit.title)}
                     </div>
                     <div class="ai-rec-body">
-                        ${featureType === 'AI-02' ? '미등록 필수 산출물에 대한 즉시 작성 착수 및 담당자 배정' :
-                          featureType === 'AI-04' ? 'Critical 등급 미해결 이슈 해결을 위한 비상 기술회의 소집 및 기한초과 Action Item 즉시 해소' :
-                          featureType === 'AI-03' ? '금주 미해결 Critical 이슈 및 차주 마감 임박 태스크에 대한 PM 우선 집중 관리' :
-                          featureType === 'AI-05' ? '입찰 참가자격 제한 요건 및 기술평가 필수 배점 항목에 대한 적격성 1차 검증' :
-                          '공정 지연 갭 해소를 위한 핵심 공정 인력 투입 및 지연 태스크 집중 만회'}
+                        <div class="ai-rec-action"><strong>조치 과제:</strong> ${escapeHtml(crit.action)}</div>
+                        <div class="ai-rec-detail-row">
+                            <span><strong>발생 근거:</strong> ${escapeHtml(crit.evidence)}</span>
+                            <span><strong>업무 영향:</strong> ${escapeHtml(crit.impact)}</span>
+                        </div>
+                        <div class="ai-rec-detail-row" style="margin-top:6px; font-size:12px; color:var(--text-muted);">
+                            <span><strong>담당자:</strong> ${escapeHtml(crit.assignee)}</span>
+                            <span><strong>권고 기한:</strong> ${escapeHtml(crit.deadline)}</span>
+                        </div>
                     </div>
                 </div>
                 <div class="ai-rec-card warning">
                     <div class="ai-rec-header">
-                        <i data-lucide="alert-triangle"></i> ⚠️ [주의 관리 (Warning)]
+                        <i data-lucide="alert-triangle"></i> ${escapeHtml(warn.title)}
                     </div>
                     <div class="ai-rec-body">
-                        ${featureType === 'AI-02' ? '검토 지연(Under Review) 산출물 승인 절차 단축 및 품질 감리 사전 대비' :
-                          featureType === 'AI-04' ? '직선형 공정률 격차 모니터링 및 마일스톤 도래 전 위험 조기 경보 체계 유지' :
-                          featureType === 'AI-03' ? '미완료 Action Items 지연 방지를 위한 담당자별 진행 상황 주간 중간 점검' :
-                          featureType === 'AI-05' ? '필수 투입인력 등급 요건 충족 여부 및 공동수급(컨소시엄) 최소 지분율 협의' :
-                          '미해결 이슈 진행 상태 및 차주 마감 예정 Action Items 진행 현황 일일 점검'}
+                        <div class="ai-rec-action"><strong>조치 과제:</strong> ${escapeHtml(warn.action)}</div>
+                        <div class="ai-rec-detail-row">
+                            <span><strong>발생 근거:</strong> ${escapeHtml(warn.evidence)}</span>
+                            <span><strong>업무 영향:</strong> ${escapeHtml(warn.impact)}</span>
+                        </div>
+                        <div class="ai-rec-detail-row" style="margin-top:6px; font-size:12px; color:var(--text-muted);">
+                            <span><strong>담당자:</strong> ${escapeHtml(warn.assignee)}</span>
+                            <span><strong>권고 기한:</strong> ${escapeHtml(warn.deadline)}</span>
+                        </div>
                     </div>
                 </div>
                 <div class="ai-rec-card info">
                     <div class="ai-rec-header">
-                        <i data-lucide="lightbulb"></i> 💡 [권고 사항 (Recommendation)]
+                        <i data-lucide="lightbulb"></i> ${escapeHtml(info.title)}
                     </div>
                     <div class="ai-rec-body">
-                        ${featureType === 'AI-02' ? '산출물 작성 표준 가이드 준수 및 NIRS 표준 카탈로그 템플릿 배포 활성화' :
-                          featureType === 'AI-04' ? 'WBS 상세 태스크 연동을 통한 공정률 객관성 강화 및 감리 증빙 체계 정비' :
-                          featureType === 'AI-03' ? '활동로그(activity_logs) 기반 업무 완료 이력 실시간 기록 문화 정착' :
-                          featureType === 'AI-05' ? '수주 확률 제고를 위한 기술평가 차별화 제안 전략 및 질의서 접수 준비' :
-                          '마일스톤 단계 전환 전 산출물 및 결함 관리 기준 사전 합의 및 프로세스 안정화'}
+                        <div class="ai-rec-action"><strong>조치 과제:</strong> ${escapeHtml(info.action)}</div>
+                        <div class="ai-rec-detail-row">
+                            <span><strong>발생 근거:</strong> ${escapeHtml(info.evidence)}</span>
+                            <span><strong>업무 영향:</strong> ${escapeHtml(info.impact)}</span>
+                        </div>
+                        <div class="ai-rec-detail-row" style="margin-top:6px; font-size:12px; color:var(--text-muted);">
+                            <span><strong>담당자:</strong> ${escapeHtml(info.assignee)}</span>
+                            <span><strong>권고 기한:</strong> ${escapeHtml(info.deadline)}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -746,7 +808,7 @@
                 </div>
             `;
 
-            this._renderEnhancedReportView('AI-01', data, 'ai-01');
+            this._renderEnhancedReportView('AI-02', data, 'ai-02');
             const dbStatus = data.metadata?.dbAudit?.dbSaved ? ' (DB 저장완료)' : '';
             metaInfo.textContent = `모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}${dbStatus}`;
             groundPre.textContent = JSON.stringify(data.groundingData || {}, null, 2);
@@ -872,7 +934,7 @@
                 </div>
             `;
 
-            this._renderEnhancedReportView('AI-01', data, 'ai-01');
+            this._renderEnhancedReportView('AI-03', data, 'ai-03');
             const dbStatus = data.metadata?.dbAudit?.dbSaved ? ' (DB 저장완료)' : '';
             metaInfo.textContent = `모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}${dbStatus}`;
             groundPre.textContent = JSON.stringify(data.groundingData || {}, null, 2);
@@ -1010,7 +1072,7 @@
                 </div>
             `;
 
-            this._renderEnhancedReportView('AI-01', data, 'ai-01');
+            this._renderEnhancedReportView('AI-04', data, 'ai-04');
             const dbStatus = data.metadata?.dbAudit?.dbSaved ? ' (DB 저장완료)' : '';
             metaInfo.textContent = `모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}${dbStatus}`;
             groundPre.textContent = JSON.stringify(data.groundingData || {}, null, 2);

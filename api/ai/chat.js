@@ -871,19 +871,31 @@ async function saveAIAuditLog(supabaseUrl, serviceRoleKey, record) {
     };
 
     const postData = JSON.stringify(actData);
+
+    // Supabase PostgREST 인증 헤더 호환성 처리:
+    // 1) Legacy service_role 키: 3개 dot으로 구분된 JWT 형식 (xxx.yyy.zzz).
+    //    PostgREST는 apikey와 Authorization: Bearer <jwt>를 필요로 함.
+    // 2) 신규 Secret Key (sb_secret_... 등 Opaque 키):
+    //    JWT가 아니므로 Authorization: Bearer로 전달하면 PostgREST JWT 파싱 에러(401 invalid JWT) 발생.
+    //    공식 Supabase 규격에 따라 서버 전용 'apikey' 헤더로만 전달.
+    const isJwt = typeof serviceRoleKey === 'string' && serviceRoleKey.split('.').length === 3;
+    const reqHeaders = {
+      'apikey': serviceRoleKey,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal',
+      'Content-Length': Buffer.byteLength(postData)
+    };
+    if (isJwt) {
+      reqHeaders['Authorization'] = `Bearer ${serviceRoleKey}`;
+    }
+
     const options = {
       protocol: parsed.protocol,
       hostname: parsed.hostname,
       port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
       path: '/rest/v1/activity_logs',
       method: 'POST',
-      headers: {
-        'apikey': serviceRoleKey,
-        'Authorization': `Bearer ${serviceRoleKey}`, // PostgREST service_role 인식을 위한 필수 Authorization 헤더
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal',
-        'Content-Length': Buffer.byteLength(postData)
-      },
+      headers: reqHeaders,
       timeout: 4000
     };
     
@@ -1604,55 +1616,329 @@ ${JSON.stringify(pmoContextData, null, 2)}
     let structuredKPIs = null;
     if (featureType === 'AI-01') {
       const ov = pmoContextData?.projectOverview || {};
+      const issuesCount = pmoContextData?.recentIssues?.length || 0;
+      const actionsCount = pmoContextData?.recentActions?.length || 0;
+      const hasWbs = targetProj ? Boolean(targetProj.wbs && typeof targetProj.wbs === 'object' && Array.isArray(targetProj.wbs.stages) && targetProj.wbs.stages.length > 0) : false;
+
+      // 동적 3대 권고사항 (위험요인 미존재 시 긴급 비상알림 차단 및 안정 유지 표기)
+      let recCritical = null;
+      if (issuesCount === 0 && actionsCount === 0) {
+        recCritical = {
+          type: 'stable',
+          title: '✅ [긴급 리스크 없음 (안정 유지)]',
+          action: '사업 공정을 중단시킬 치명적 장애나 기한 초과 항목이 없습니다. 기존 마일스톤 계획에 따라 안정적으로 업무를 수행하세요.',
+          evidence: '미해결 이슈 0건, 지연 Action Item 0건 확인',
+          impact: '공정 지연 없이 목표 일정 달성 유효',
+          assignee: ov.manager || '사업 총괄 PM',
+          deadline: '정기 주간 점검'
+        };
+      } else {
+        recCritical = {
+          type: 'critical',
+          title: '🚨 [긴급 조치 (Critical)]',
+          action: '미해결 이슈 및 지연 Action Item 집중 해소를 위한 긴급 공정 회의 소집',
+          evidence: `미해결 이슈 ${issuesCount}건, 잔여 Action Item ${actionsCount}건 등록`,
+          impact: '마일스톤 도래 시 공정 지연 및 후속 단계 착수 차질 우려',
+          assignee: ov.manager || '사업 총괄 PM 및 파트장',
+          deadline: '즉시 조치 (D+2 이내)'
+        };
+      }
+
+      const recWarning = {
+        type: 'warning',
+        title: '⚠️ [주의 관리 (Warning)]',
+        action: hasWbs ? 'WBS 공정률 대비 실적 진척도 모니터링 및 병목 공정 자원 재배치' : 'WBS 상세 세부 일정 등록을 통한 공정 진척 관리 객관성 확보',
+        evidence: hasWbs ? `실적 공정률 ${ov.progress || '0%'} 기준` : '세부 WBS 태스크 미등록 상태',
+        impact: '공정 예측 신뢰도 저하 및 진척 왜곡 예방',
+        assignee: 'PMO 일정관리자',
+        deadline: '차주 전 완료'
+      };
+
+      const recInfo = {
+        type: 'info',
+        title: '💡 [권고 사항 (Recommendation)]',
+        action: '단계별 검수 기준 및 형상관리 무결성 사전 점검',
+        evidence: '표준 개발방법론 가이드라인 기준',
+        impact: '완료 검수 승인율 제고',
+        assignee: '품질보증(QA) 담당',
+        deadline: '월간 점검'
+      };
+
       structuredKPIs = {
         progress: ov.progress || '0%',
         period: ov.period || '미등록',
         status: ov.status || '진행중',
-        issuesCount: pmoContextData?.recentIssues?.length || 0,
-        actionsCount: pmoContextData?.recentActions?.length || 0,
-        hasWbs: targetProj ? Boolean(targetProj.wbs && typeof targetProj.wbs === 'object' && Array.isArray(targetProj.wbs.stages) && targetProj.wbs.stages.length > 0) : false
+        issuesCount,
+        actionsCount,
+        hasWbs,
+        recommendations: {
+          critical: recCritical,
+          warning: recWarning,
+          recommendation: recInfo
+        }
       };
     } else if (featureType === 'AI-02') {
       const sum = pmoContextData?.deliverableComparison?.statusSummary || {};
+      const isIndeterminate = Boolean(sum.isIndeterminate);
+      const unreg = sum.unregisteredCount || 0;
+      const review = sum.underReviewCount || 0;
+
+      let recCritical = null;
+      if (isIndeterminate) {
+        recCritical = {
+          type: 'warning',
+          title: '⚠️ [판정 보류 (데이터 조회 오류)]',
+          action: '산출물 데이터 조회 실패로 인한 갭 분석 보류. Supabase 권한 및 네트워크 점검 요망',
+          evidence: '산출물 테이블 조회 401/403/500 에러 발생',
+          impact: '정확한 필수 산출물 제출 여부 판단 불가',
+          assignee: '시스템 관리자',
+          deadline: '즉시 점검'
+        };
+      } else if (unreg === 0) {
+        recCritical = {
+          type: 'stable',
+          title: '✅ [긴급 결함 없음 (안정 유지)]',
+          action: '필수 표준 산출물이 누락 없이 100% 정상 등록되어 있습니다.',
+          evidence: `필수 산출물 총 ${sum.totalRequired || 0}종 전수 등록 (누락 0건)`,
+          impact: '감리 및 검수 통과 기준 충족',
+          assignee: '형상관리 담당자',
+          deadline: '상시 유지'
+        };
+      } else {
+        recCritical = {
+          type: 'critical',
+          title: '🚨 [긴급 조치 (Critical)]',
+          action: `미등록 필수 산출물(${unreg}종) 즉시 작성 착수 및 작성 책임자 배정`,
+          evidence: `마스터 카탈로그 기준 필수 ${sum.totalRequired || 0}종 중 ${unreg}종 미제출`,
+          impact: '마일스톤 도래 시 단계 승인 지연 및 품질 감리 결함 지적 위험',
+          assignee: '공정별 책임 PL',
+          deadline: '착수 D+3 이내'
+        };
+      }
+
+      const recWarning = {
+        type: 'warning',
+        title: '⚠️ [주의 관리 (Warning)]',
+        action: review > 0 ? `검토 지연 산출물(${review}건) 조속 승인 및 피드백 반영` : '기등록 산출물 승인 상태 유지 및 버전 형상 관리',
+        evidence: `검토 중 ${review}건`,
+        impact: '검토 적체 해소',
+        assignee: '고객사 PM 및 감리원',
+        deadline: 'D+5 이내'
+      };
+
+      const recInfo = {
+        type: 'info',
+        title: '💡 [권고 사항 (Recommendation)]',
+        action: '표준 카탈로그 기반 산출물 서식 준수 및 변경 이력 추적성 관리',
+        evidence: 'NIRS 공공 표준 템플릿 기준',
+        impact: '산출물 품질 표준화',
+        assignee: '전체 작성자',
+        deadline: '상시 준수'
+      };
+
       structuredKPIs = {
         totalRequired: sum.totalRequired || 0,
         submissionRate: sum.submissionRate || 0,
         approvedCount: sum.approvedCount || 0,
-        underReviewCount: sum.underReviewCount || 0,
-        unregisteredCount: sum.unregisteredCount || 0,
-        isIndeterminate: Boolean(sum.isIndeterminate)
+        underReviewCount: review,
+        unregisteredCount: unreg,
+        isIndeterminate,
+        recommendations: {
+          critical: recCritical,
+          warning: recWarning,
+          recommendation: recInfo
+        }
       };
     } else if (featureType === 'AI-03') {
       const perf = pmoContextData?.performanceSummary || {};
       const completedCount = (perf.completedActivities?.length || 0) + (perf.closedIssues?.length || 0) + (perf.completedActions?.length || 0) + (perf.completedDeliverables?.length || 0);
+      const ongoingIssuesCount = pmoContextData?.ongoingIssues?.length || 0;
+      const pendingActionsCount = pmoContextData?.pendingActions?.length || 0;
+
+      let recCritical = null;
+      if (completedCount === 0 && !perf.hasRecords) {
+        recCritical = {
+          type: 'warning',
+          title: '⚠️ [실적 등록 필요]',
+          action: '금주 기간 내 등록된 완료 실적이 없습니다. 주간 활동로그 실적 입력을 권고합니다.',
+          evidence: '금주 완료 실적 0건 확인',
+          impact: '주간 보고의 대외 공신력 저하',
+          assignee: '사업 총괄 PM 및 파트원',
+          deadline: '금주 마감 전'
+        };
+      } else if (ongoingIssuesCount === 0 && pendingActionsCount === 0) {
+        recCritical = {
+          type: 'stable',
+          title: '✅ [긴급 리스크 없음 (안정 유지)]',
+          action: '금주 중점 관리 대상 미해결 이슈 및 지연 Action Item이 없습니다.',
+          evidence: `금주 완료 실적 ${completedCount}건 달성, 미해결 0건`,
+          impact: '차주 공정 차질 없이 착수 가능',
+          assignee: '전체 프로젝트 팀',
+          deadline: '현행 유지'
+        };
+      } else {
+        recCritical = {
+          type: 'critical',
+          title: '🚨 [긴급 조치 (Critical)]',
+          action: `금주 미해결 이슈(${ongoingIssuesCount}건) 차주 초 집중 해소`,
+          evidence: `미해결 이슈 ${ongoingIssuesCount}건 잔여`,
+          impact: '차주 일정 및 마일스톤 연쇄 지연 예방',
+          assignee: '이슈 조치 담당자',
+          deadline: '차주 화요일까지'
+        };
+      }
+
+      const recWarning = {
+        type: 'warning',
+        title: '⚠️ [주의 관리 (Warning)]',
+        action: `차주 예정 및 미완료 Action Items(${pendingActionsCount}건) 진행 상태 사전 점검`,
+        evidence: `잔여 액션 ${pendingActionsCount}건`,
+        impact: '지연 누적 방지',
+        assignee: '각 태스크 담당자',
+        deadline: '차주 수요일 중간점검'
+      };
+
+      const recInfo = {
+        type: 'info',
+        title: '💡 [권고 사항 (Recommendation)]',
+        action: '업무 완료 즉시 활동로그(activity_logs) 등록 문화 정착 (AI_AUDIT와 엄격 분리)',
+        evidence: '주간 보고 자동 집계 정확도 제고',
+        impact: '수기 취합 공수 절감',
+        assignee: '전 참여인력',
+        deadline: '상시'
+      };
+
       structuredKPIs = {
         completedCount,
-        ongoingIssuesCount: pmoContextData?.ongoingIssues?.length || 0,
-        pendingActionsCount: pmoContextData?.pendingActions?.length || 0,
+        ongoingIssuesCount,
+        pendingActionsCount,
         hasRecords: perf.hasRecords,
-        weekLabel: pmoContextData?.weekRange?.label || ''
+        weekLabel: pmoContextData?.weekRange?.label || '',
+        recommendations: {
+          critical: recCritical,
+          warning: recWarning,
+          recommendation: recInfo
+        }
       };
     } else if (featureType === 'AI-04') {
       const ov = pmoContextData?.overallAssessment || {};
       const sc = pmoContextData?.quantitativeRiskScores || {};
+      const totalScore = ov.totalScore;
+      const allFour = Boolean(ov.allFourEvaluated);
+
+      let recCritical = null;
+      if (!allFour || totalScore === null) {
+        recCritical = {
+          type: 'warning',
+          title: '⚠️ [판정 보류 (지표 결측)]',
+          action: '일정·산출물·이슈·Action Item 중 필수 지표 결측으로 종합 위험도 산출이 보류되었습니다.',
+          evidence: '4대 평가 영역 중 일부 데이터 미등록',
+          impact: '위험도 왜곡 방지를 위해 기초 데이터 정비 필요',
+          assignee: 'PMO 데이터 관리자',
+          deadline: '즉시 정비'
+        };
+      } else if (totalScore < 30 && (sc.issue?.criticalCount || 0) === 0 && (sc.actionItem?.overdueCount || 0) === 0) {
+        recCritical = {
+          type: 'stable',
+          title: '✅ [긴급 리스크 없음 (안정 유지)]',
+          action: `종합 위험도 ${totalScore}점(정상 통제 범위)으로 긴급 비상 대응이 불필요합니다.`,
+          evidence: `치명적 결함 0건, 기한 초과 0건, 정상 공정률 범위`,
+          impact: '현행 관리 체계 하에서 안정적 순항 유지',
+          assignee: '사업 총괄 PM',
+          deadline: '상시 모니터링'
+        };
+      } else {
+        recCritical = {
+          type: 'critical',
+          title: '🚨 [긴급 조치 (Critical)]',
+          action: `고위험 요인(${totalScore}점) 해소를 위한 PMO 비상 리스크 대응 체계 가동`,
+          evidence: `일정 갭(${sc.schedule?.gap || 0}%), 미등록 산출물(${sc.deliverable?.unregistered || 0}건), Critical이슈(${sc.issue?.criticalCount || 0}건), 기한초과(${sc.actionItem?.overdueCount || 0}건)`,
+          impact: '프로젝트 납기 및 품질 감리 위기 도래',
+          assignee: '사업총괄 및 기술총괄',
+          deadline: 'D+2 이내 비상회의'
+        };
+      }
+
+      const recWarning = {
+        type: 'warning',
+        title: '⚠️ [주의 관리 (Warning)]',
+        action: '공정률 격차 추적 및 마일스톤 조기 경보 체계 유지',
+        evidence: `일정 점수 ${sc.schedule?.score || 0}점 / 30점`,
+        impact: '지연 누적 조기 차단',
+        assignee: '공정관리 PL',
+        deadline: '주 2회 모니터링'
+      };
+
+      const recInfo = {
+        type: 'info',
+        title: '💡 [권고 사항 (Recommendation)]',
+        action: 'WBS 세부 태스크 진척도 연동 및 정량 증빙 기반 형상 관리 체계 확립',
+        evidence: '정량 리스크 4대 축 지표',
+        impact: '감리 및 대외 평가 신뢰성 확보',
+        assignee: 'PMO 전담조직',
+        deadline: '월간 점검'
+      };
+
       structuredKPIs = {
-        totalScore: ov.totalScore,
+        totalScore,
         grade: ov.grade || '판정 불가',
         gradeBadgeColor: ov.gradeBadgeColor || '#94a3b8',
         scheduleScore: sc.schedule?.score,
         deliverableScore: sc.deliverable?.score,
         issueScore: sc.issue?.score,
         actionItemScore: sc.actionItem?.score,
-        allFourEvaluated: Boolean(ov.allFourEvaluated)
+        allFourEvaluated: allFour,
+        recommendations: {
+          critical: recCritical,
+          warning: recWarning,
+          recommendation: recInfo
+        }
       };
     } else if (featureType === 'AI-05') {
       const meta = pmoContextData?.documentMeta || {};
+      const isTrunc = Boolean(meta.isTruncated);
+
+      const recCritical = {
+        type: 'critical',
+        title: '🚨 [핵심 검토 (Critical)]',
+        action: '입찰 참가자격 제한 요건 및 기술평가 필수 배점 항목에 대한 1차 적격성 전수 검증',
+        evidence: 'RFP 참가자격 및 결격사유 조항 명시 [p.N]',
+        impact: '부적격 탈락 및 감점 요인 사전 원천 차단',
+        assignee: '제안 총괄 PM 및 영업대표',
+        deadline: '입찰 공고 마감 D-7'
+      };
+
+      const recWarning = {
+        type: 'warning',
+        title: '⚠️ [주의 관리 (Warning)]',
+        action: isTrunc ? `40,000자 타겟팅 발췌 분석이 적용되었으므로 상세 제안서 작성 시 원문 전체 대조 필수` : '필수 투입인력 등급 요건 충족 및 공동수급체 최소 지분율 사전 협의',
+        evidence: isTrunc ? `전체 ${meta.charCount}자 중 40,000자 발췌` : 'RFP 인력투입 기준 충족 여부',
+        impact: '제안 세부 규격 누락 방지',
+        assignee: '제안 PL',
+        deadline: '제안 착수 전'
+      };
+
+      const recInfo = {
+        type: 'info',
+        title: '💡 [권고 사항 (Recommendation)]',
+        action: '기술평가 차별화 제안 전략 도출 및 발주기관 사전 질의서 접수 준비',
+        evidence: '평가 배점표 우위 전략 수립',
+        impact: '수주 경쟁력 및 기술 점수 극대화',
+        assignee: '제안 작성팀 전체',
+        deadline: '질의 마감 D-2'
+      };
+
       structuredKPIs = {
         fileName: meta.fileName || 'RFP문서',
         pageCount: meta.pageCount || 1,
         charCount: meta.charCount || 0,
         analyzedRange: meta.analyzedRange || '',
-        isTruncated: Boolean(meta.isTruncated)
+        isTruncated: isTrunc,
+        recommendations: {
+          critical: recCritical,
+          warning: recWarning,
+          recommendation: recInfo
+        }
       };
     }
 

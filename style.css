@@ -14815,6 +14815,37 @@ body.light-theme .ai-diagnosis-banner {
     flex: 1;
 }
 
+/* 안정 유지 (Stable / No Critical Risk) */
+body.dark-theme .ai-rec-card.stable {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.3);
+}
+body.dark-theme .ai-rec-card.stable .ai-rec-header { color: #34d399; }
+body.light-theme .ai-rec-card.stable {
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+}
+body.light-theme .ai-rec-card.stable .ai-rec-header { color: #047857; }
+
+.ai-rec-action {
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.5;
+    margin-bottom: 6px;
+    color: var(--text-main);
+}
+.ai-rec-detail-row {
+    font-size: 12px;
+    line-height: 1.5;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    color: var(--text-muted);
+}
+.ai-rec-detail-row strong {
+    color: var(--text-main);
+}
+
 /* 긴급 권고 (Critical) */
 body.dark-theme .ai-rec-card.critical {
     background: rgba(239, 68, 68, 0.08);
