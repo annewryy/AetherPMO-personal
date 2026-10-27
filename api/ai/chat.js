@@ -188,28 +188,14 @@ async function getAccessibleProjects(userId, role, supabaseUrl, serviceKeyOrAnon
   try {
     const memberRes = await requestHttp(memberOptions);
     projectIds = Array.isArray(memberRes.body) ? memberRes.body.map(m => m.project_id) : [];
-  } catch (e) {}
+  } catch (e) {
+    console.warn('Member projects fetch failed:', e.message);
+  }
 
+  // Fail-Closed 원칙: 관리자 권한이 없으면서 project_members에도 소속되지 않은 일반 사용자는
+  // 임의의 프로젝트를 반환하지 않고 엄격하게 빈 배열을 반환하여 비인가 접근을 원천 차단함
   if (projectIds.length === 0) {
-    // 만약 project_members가 비어있고 일반 사용자라도 조회 가능한 공개 프로젝트 시도
-    const publicProjOptions = {
-      protocol: parsed.protocol,
-      hostname: parsed.hostname,
-      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-      path: `/rest/v1/projects?select=${projSelect}&limit=10&order=id.asc`,
-      method: 'GET',
-      headers: {
-        'apikey': serviceKeyOrAnon,
-        'Authorization': `Bearer ${authKey}`,
-      },
-      timeout: 5000,
-    };
-    try {
-      const pRes = await requestHttp(publicProjOptions);
-      return Array.isArray(pRes.body) ? pRes.body : [];
-    } catch (e) {
-      return [];
-    }
+    return [];
   }
 
   const projOptions = {
