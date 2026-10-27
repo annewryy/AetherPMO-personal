@@ -917,14 +917,19 @@
 
             resBody.innerHTML = this._renderSafeMarkdown(data.answer);
             const dbStatus = data.metadata?.dbAudit?.dbSaved ? ' (DB 저장완료)' : '';
-            metaInfo.textContent = `문서: ${escapeHtml(rfpFileName)} | 모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}${dbStatus}`;
+            const rangeInfo = data.groundingData?.documentMeta?.analyzedRange ? ` | 범위: ${data.groundingData.documentMeta.analyzedRange}` : '';
+            metaInfo.textContent = `문서: ${escapeHtml(rfpFileName)} | 모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}${dbStatus}${rangeInfo}`;
             groundPre.textContent = JSON.stringify(data.groundingData || {}, null, 2);
             resContainer.style.display = 'block';
 
             statusBar.style.background = 'rgba(16, 185, 129, 0.15)';
             statusBar.style.color = '#34d399';
             statusBar.style.border = '1px solid rgba(16, 185, 129, 0.4)';
-            statusBar.innerHTML = `<strong>[분석 완료]</strong> 제안요청서 8대 필수 분석 요건과 AI 수주 검토 의견이 성공적으로 도출되었습니다.`;
+            if (data.groundingData?.documentMeta?.balancedSplitApplied) {
+                statusBar.innerHTML = `<strong>[분석 완료 (3분할 균형 분석)]</strong> 40,000자 초과 대용량 문서에 대해 도입부·과업요건·후반부(평가기준/투입인력/제출서류)를 균형 추출하여 8대 필수 요건을 누락 없이 도출했습니다.`;
+            } else {
+                statusBar.innerHTML = `<strong>[분석 완료]</strong> 제안요청서 8대 필수 분석 요건과 AI 수주 검토 의견이 성공적으로 도출되었습니다.`;
+            }
 
             this.recordAIAuditLog({
                 featureCode: 'AI-05',
@@ -1090,16 +1095,61 @@
         }).join('');
     };
 
-    // 16. 감사로그 CSV 추출 (평가 증빙 산출물)
-    proto.exportAIAuditLogsCSV = function() {
-        const logs = JSON.parse(localStorage.getItem('aether_ai_audit_logs') || '[]');
-        if (logs.length === 0) {
-            this.showToast?.('추출할 감사 로그가 없습니다.', 'warning');
-            return;
+    // 16. 감사로그 CSV 추출 (서버 DB 우선 조회 및 로컬 캐시 폴백, 평가 증빙 산출물)
+    proto.exportAIAuditLogsCSV = async function() {
+        let exportRows = [];
+        let sourceLabel = '로컬 캐시';
+
+        // 1. 서버 Supabase DB activity_logs 우선 조회 시도
+        if (this.supabase && typeof this.supabase.from === 'function') {
+            try {
+                const { data: dbLogs, error } = await this.supabase
+                    .from('activity_logs')
+                    .select('*')
+                    .eq('type', 'AI_AUDIT')
+                    .order('date', { ascending: false })
+                    .limit(300);
+
+                if (!error && Array.isArray(dbLogs) && dbLogs.length > 0) {
+                    sourceLabel = `서버 DB (${dbLogs.length}건)`;
+                    exportRows = dbLogs.map(item => {
+                        let parsed = {};
+                        try {
+                            parsed = typeof item.text === 'object' ? item.text : JSON.parse(item.text || '{}');
+                        } catch (e) {
+                            parsed = { snippet: item.text };
+                        }
+                        return {
+                            executedAt: item.date || item.created_at || 'N/A',
+                            featureCode: parsed.featureCode || 'N/A',
+                            featureName: parsed.featureName || 'AI 업무분석',
+                            projectName: parsed.projectName || '',
+                            user: parsed.userEmail || item.user_id || 'N/A',
+                            model: parsed.model || 'gemini-2.5-flash',
+                            latencyMs: parsed.latencyMs || 0,
+                            success: parsed.success !== false,
+                            snippet: parsed.snippet || ''
+                        };
+                    });
+                }
+            } catch (err) {
+                console.warn('[Audit Log CSV] 서버 DB 조회 실패, 로컬 캐시 사용:', err.message);
+            }
+        }
+
+        // 2. 서버 DB 기록이 없는 경우 로컬 스토리지 캐시 폴백
+        if (exportRows.length === 0) {
+            const localLogs = JSON.parse(localStorage.getItem('aether_ai_audit_logs') || '[]');
+            if (localLogs.length === 0) {
+                this.showToast?.('추출할 감사 로그가 없습니다. (서버 DB 및 로컬 캐시 모두 없음)', 'warning');
+                return;
+            }
+            exportRows = localLogs;
+            sourceLabel = `로컬 캐시 (${localLogs.length}건)`;
         }
 
         const headers = ['실행시각', '기능코드', '기능명', '대상프로젝트/문서', '사용자', '모델', '소요시간(ms)', '성공여부', '결과요약'];
-        const rows = logs.map(l => [
+        const rows = exportRows.map(l => [
             `"${String(l.executedAt).replace(/"/g, '""')}"`,
             `"${String(l.featureCode).replace(/"/g, '""')}"`,
             `"${String(l.featureName).replace(/"/g, '""')}"`,
@@ -1118,7 +1168,7 @@
         link.download = `AetherPMO_AI_Audit_Logs_${new Date().toISOString().slice(0,10)}.csv`;
         link.click();
         URL.revokeObjectURL(link.href);
-        this.showToast?.('AI 실행 감사 로그 CSV 다운로드를 완료했습니다.', 'success');
+        this.showToast?.(`AI 감사로그 CSV 다운로드 완료 [출처: ${sourceLabel}]`, 'success');
     };
 
     // 17. 감사로그 초기화

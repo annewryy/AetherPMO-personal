@@ -495,30 +495,36 @@ async function getWeeklyReportGroundingData(project, supabaseUrl, serviceKeyOrAn
     }
   });
 
-  // 금주 해결된 이슈 (상태가 완료이고, 완료/수정/생성일이 이번 주에 속하는 경우만 포함)
+  // 금주 해결된 이슈 (상태가 완료이고, 실제 완료일자가 이번 주에 속하는 경우만 포함. created_at/due_date 대체 엄격 금지)
   const closedIssuesThisWeek = issues.filter(i => {
     const st = (i.status || '').toUpperCase();
     const isCompleted = (st === 'CLOSED' || st === 'RESOLVED' || st === '완료');
     if (!isCompleted) return false;
-    const completionDate = i.closed_at || i.resolved_at || i.updated_at || i.created_at;
+    // 실제 완료일이 없을 경우 created_at 등을 완료일로 간주하지 않고 실적에서 제외
+    const completionDate = i.closed_at || i.resolved_at;
+    if (!completionDate) return false;
     return isDateInCurrentWeek(completionDate, weekRange.startDateStr, weekRange.endDateStr);
   });
 
-  // 금주 완료된 Action Items (완료 상태이고 완료일이 이번 주에 속하는 경우만 포함)
+  // 금주 완료된 Action Items (완료 상태이고 실제 완료일자가 이번 주에 속하는 경우만 포함. due_date 대체 엄격 금지)
   const completedActionsThisWeek = actionItems.filter(a => {
     const st = (a.status || '').toUpperCase();
     const isCompleted = (st === 'COMPLETED' || st === 'DONE' || st === '완료');
     if (!isCompleted) return false;
-    const completionDate = a.completed_at || a.updated_at || a.due_date;
+    // 실제 완료일이 없을 경우 due_date 등을 완료일로 간주하지 않고 실적에서 제외
+    const completionDate = a.completed_at;
+    if (!completionDate) return false;
     return isDateInCurrentWeek(completionDate, weekRange.startDateStr, weekRange.endDateStr);
   });
 
-  // 금주 승인/제출 산출물 (제출일 또는 수정일이 이번 주에 속하는 경우만 포함)
+  // 금주 승인/제출 산출물 (제출일 또는 승인일이 이번 주에 속하는 경우만 포함)
   const completedDeliverablesThisWeek = deliverables.filter(d => {
     const st = (d.status || '').toUpperCase();
     const isCompleted = (st === 'APPROVED' || st === 'SUBMITTED' || st === '완료');
     if (!isCompleted) return false;
-    const completionDate = d.submit_date || d.updated_at;
+    // 실제 제출일/승인일이 명시된 경우만 금주 실적으로 인정
+    const completionDate = d.submit_date || d.approved_at;
+    if (!completionDate) return false;
     return isDateInCurrentWeek(completionDate, weekRange.startDateStr, weekRange.endDateStr);
   });
 
@@ -1230,12 +1236,30 @@ module.exports = async (req, res) => {
     }
 
     // 대용량 문서 분할 및 분석 범위 한도 적용 (Gemini 입력 안전성: 최대 40,000자 발췌)
+    // 공공 RFP의 후반부에 집중된 평가기준, 투입인력, 제출서류 누락을 방지하기 위한 3분할 균형 추출
     const MAX_RFP_CHARS = 40000;
     const isTruncated = rfpText.length > MAX_RFP_CHARS;
-    const analyzedText = isTruncated ? rfpText.slice(0, MAX_RFP_CHARS) : rfpText;
-    const rangeNotice = isTruncated
-      ? `(주의: 전체 ${rfpText.length.toLocaleString()}자 중 핵심 분량 ${MAX_RFP_CHARS.toLocaleString()}자 발췌 분석)`
-      : `(전체 ${rfpText.length.toLocaleString()}자 전문 분석)`;
+    let analyzedText = rfpText;
+    let rangeNotice = `전체 ${rfpText.length.toLocaleString()}자 전문 분석 (100% 반영)`;
+
+    if (isTruncated) {
+      const part1Len = 14000; // 도입부: 개요, 발주기관, 예산 (앞 14,000자)
+      const part3Len = 12000; // 후반부: 평가기준, 투입인력, 제출서류 (뒤 12,000자)
+      const part2Len = 14000; // 중반부: 주요 과업 및 기능 요건 (중간 14,000자)
+
+      const part1 = rfpText.slice(0, part1Len);
+      const part3 = rfpText.slice(rfpText.length - part3Len);
+      const midStart = Math.max(part1Len, Math.floor((rfpText.length - part2Len) / 2));
+      const part2 = rfpText.slice(midStart, midStart + part2Len);
+
+      analyzedText = [
+        `=== [섹션 1: RFP 도입부 (사업개요, 기간, 예산, 발주기관)] ===\n${part1}`,
+        `=== [섹션 2: RFP 과업핵심부 (시스템 구축 요건 및 기능 요구사항)] ===\n${part2}`,
+        `=== [섹션 3: RFP 후반부 (입찰참가자격, 기술/가격평가기준, 투입인력, 제출서류)] ===\n${part3}`
+      ].join('\n\n');
+
+      rangeNotice = `전체 ${rfpText.length.toLocaleString()}자 중 40,000자 3분할 균형 추출 분석 (도입부 14,000자 + 과업부 14,000자 + 후반부 평가기준/인력/제출서류 12,000자 포함)`;
+    }
 
     pmoContextData = {
       documentMeta: {
@@ -1243,7 +1267,8 @@ module.exports = async (req, res) => {
         pageCount,
         charCount: rfpText.length,
         analyzedRange: rangeNotice,
-        isTruncated
+        isTruncated,
+        balancedSplitApplied: isTruncated
       },
       textPreview: analyzedText.slice(0, 400) + '...'
     };

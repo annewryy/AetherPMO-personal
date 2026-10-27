@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     AetherPMO-Personal 15개 신규 테스트 계정 생성 및 역할 동기화 스크립트
 
@@ -43,11 +43,11 @@ Write-Host "================================================================" -F
 # 1. 대상 15개 계정 정의 (매니저 이메일: aetherpmo.com 확인 완료)
 $targetAccounts = @(
     # 매니저 5명 (화면 manager -> DB 저장 EXEC_ADMIN)
-    @{ Name = "매니저1"; Email = "manager1@aerherpmo.com"; ScreenRole = "manager"; Role = "EXEC_ADMIN" },
-    @{ Name = "매니저2"; Email = "manager2@aerherpmo.com"; ScreenRole = "manager"; Role = "EXEC_ADMIN" },
-    @{ Name = "매니저3"; Email = "manager3@aerherpmo.com"; ScreenRole = "manager"; Role = "EXEC_ADMIN" },
-    @{ Name = "매니저4"; Email = "manager4@aerherpmo.com"; ScreenRole = "manager"; Role = "EXEC_ADMIN" },
-    @{ Name = "매니저5"; Email = "manager5@aerherpmo.com"; ScreenRole = "manager"; Role = "EXEC_ADMIN" },
+    @{ Name = "매니저1"; Email = "manager1@aetherpmo.com"; ScreenRole = "manager"; Role = "EXEC_ADMIN" },
+    @{ Name = "매니저2"; Email = "manager2@aetherpmo.com"; ScreenRole = "manager"; Role = "EXEC_ADMIN" },
+    @{ Name = "매니저3"; Email = "manager3@aetherpmo.com"; ScreenRole = "manager"; Role = "EXEC_ADMIN" },
+    @{ Name = "매니저4"; Email = "manager4@aetherpmo.com"; ScreenRole = "manager"; Role = "EXEC_ADMIN" },
+    @{ Name = "매니저5"; Email = "manager5@aetherpmo.com"; ScreenRole = "manager"; Role = "EXEC_ADMIN" },
 
     # PM 5명 (화면 pm -> DB 저장 PM)
     @{ Name = "pm1"; Email = "pm1@aetherpmo.com"; ScreenRole = "pm"; Role = "PM" },
