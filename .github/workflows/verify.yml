@@ -30,13 +30,27 @@ jobs:
 
       - name: Security Check - No Plaintext Secrets in Code
         run: |
-          echo "Scanning for plaintext service_role keys or secrets..."
-          if grep -rn "sb_secret_" . --exclude-dir={.git,node_modules}; then
-            echo "::error::Found plaintext Supabase secret key!"
+          echo "Scanning for leaked credentials with precise pattern matching..."
+          FAIL=0
+
+          # 1. Supabase Secret API Key (sb_secret_ followed by 20+ alphanumerics)
+          # Exclude the workflow file itself to prevent false positives
+          SECRET_MATCHES=$(grep -rnE "sb_secret_[A-Za-z0-9_-]{20,}" . --exclude-dir={.git,node_modules} --exclude="verify.yml" || true)
+          if [ -n "$SECRET_MATCHES" ]; then
+            echo "::error::Detected actual plaintext Supabase Secret API Key!"
+            FAIL=1
+          fi
+
+          # 2. Leaked Legacy service_role JWT Key (exact prefix match)
+          LEGACY_MATCHES=$(grep -rn "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnlmemltdnBra3Vsam5tZmN0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZS" . --exclude-dir={.git,node_modules} --exclude="verify.yml" || true)
+          if [ -n "$LEGACY_MATCHES" ]; then
+            echo "::error::Detected leaked legacy service_role JWT key in source code!"
+            FAIL=1
+          fi
+
+          if [ $FAIL -eq 1 ]; then
+            echo "Security scan failed. Please remove plaintext secrets from the repository."
             exit 1
           fi
-          if grep -rn "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnlmemltdnBra3Vsam5tZmN0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZS" . --exclude-dir={.git,node_modules}; then
-            echo "::error::Found leaked legacy service_role key!"
-            exit 1
-          fi
-          echo "No hardcoded credentials found."
+
+          echo "Security scan passed: No hardcoded credentials detected."
