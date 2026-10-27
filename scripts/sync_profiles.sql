@@ -3,10 +3,13 @@
 -- Supabase Dashboard -> SQL Editor 에 복사하여 실행해주세요.
 -- ============================================================================
 
--- 1. service_role 및 authenticated 에 권한 부여 (필수)
-GRANT ALL ON TABLE public.profiles TO postgres, service_role, authenticated;
-GRANT ALL ON TABLE public.activity_logs TO postgres, service_role, authenticated;
-GRANT SELECT ON TABLE public.projects TO postgres, service_role, authenticated;
+-- 1. 최소 권한 원칙(Least Privilege)에 따른 테이블 접근 권한 부여
+GRANT SELECT, INSERT, UPDATE ON TABLE public.profiles TO authenticated, service_role;
+GRANT SELECT, INSERT ON TABLE public.activity_logs TO authenticated, service_role;
+GRANT SELECT ON TABLE public.projects TO authenticated, service_role;
+GRANT SELECT ON TABLE public.artifacts TO authenticated, service_role;
+GRANT SELECT ON TABLE public.issues TO authenticated, service_role;
+GRANT SELECT ON TABLE public.action_items TO authenticated, service_role;
 
 -- 2. 15개 테스트 계정 Profiles 데이터 INSERT / UPDATE
 -- 조직정보(corporation_type, division, team, part, position)는 일체 입력하지 않음 (NULL 유지)

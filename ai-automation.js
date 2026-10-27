@@ -1,6 +1,6 @@
 // ============================================================================
-// AetherPMO AI 업무자동화 스튜디오 (2026 혁신과제 AI 자동화 프론트엔드 모듈)
-// AI-01 사업현황 요약, AI-02 산출물 갭 분석, AI-03 주간업무보고, AI-04 위험도 분석
+// AetherPMO AI 업무자동화 스튜디오 (2026 혁신과제 AI 5대 기능 프론트엔드 모듈)
+// AI-01 사업현황 요약, AI-02 산출물 갭 분석, AI-03 주간업무보고, AI-04 위험도 분석, AI-05 RFP 분석
 // ============================================================================
 
 (function() {
@@ -124,7 +124,7 @@
         if (typeof lucide !== 'undefined') lucide.createIcons();
     };
 
-    // 4. 프로젝트 셀렉트 채우기 (접근 권한 있는 프로젝트 목록: AI-01 ~ AI-04)
+    // 4. 프로젝트 셀렉트 채우기 (접근 권한 있는 프로젝트 목록: AI-01 ~ AI-05)
     proto.populateAIProjectSelects = function() {
         const accessible = (typeof this.getAccessibleProjects === 'function') 
             ? this.getAccessibleProjects() 
@@ -134,24 +134,36 @@
             document.getElementById('ai-01-project-select'),
             document.getElementById('ai-02-project-select'),
             document.getElementById('ai-03-project-select'),
-            document.getElementById('ai-04-project-select')
+            document.getElementById('ai-04-project-select'),
+            document.getElementById('ai-05-project-select')
         ];
 
         selects.forEach(sel => {
             if (!sel) return;
+            const isOptional = (sel.id === 'ai-05-project-select');
             sel.innerHTML = '';
-            if (accessible.length === 0) {
+
+            if (isOptional) {
+                const defOpt = document.createElement('option');
+                defOpt.value = '';
+                defOpt.textContent = '사업 미지정 (독립 RFP 분석)';
+                sel.appendChild(defOpt);
+            }
+
+            if (accessible.length === 0 && !isOptional) {
                 sel.innerHTML = '<option value="">조회 가능한 프로젝트가 없습니다.</option>';
                 return;
             }
+
             accessible.forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.id;
                 opt.textContent = `[${p.project_code || 'PRJ'}] ${p.name} (진행률: ${p.progress || 0}%)`;
                 sel.appendChild(opt);
             });
-            // 현재 활성 프로젝트가 있으면 기본 선택
-            if (this.activeProjectId) {
+
+            // 현재 활성 프로젝트가 있으면 기본 선택 (단, AI-05는 선택사항 유지)
+            if (this.activeProjectId && !isOptional) {
                 sel.value = this.activeProjectId;
             }
         });
@@ -165,7 +177,6 @@
                 if (data?.session?.access_token) return data.session.access_token;
             } catch (e) {}
         }
-        // 로컬스토리지 백업
         const sess = JSON.parse(sessionStorage.getItem('aether_pmo_session') || localStorage.getItem('aether_pmo_session') || '{}');
         return sess.access_token || sess.token || null;
     };
@@ -220,9 +231,9 @@
                 throw new Error(data.error || `HTTP ${res.status}`);
             }
 
-            // 분석 결과 렌더링 (XSS 방어 적용)
             resBody.innerHTML = this._renderSafeMarkdown(data.answer);
-            metaInfo.textContent = `모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}`;
+            const dbStatus = data.metadata?.dbAudit?.dbSaved ? ' (DB 저장완료)' : '';
+            metaInfo.textContent = `모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}${dbStatus}`;
             groundPre.textContent = JSON.stringify(data.groundingData || {}, null, 2);
             resContainer.style.display = 'block';
 
@@ -231,7 +242,6 @@
             statusBar.style.border = '1px solid rgba(16, 185, 129, 0.4)';
             statusBar.innerHTML = `<strong>[분석 완료]</strong> 실제 사업 데이터에 근거한 AI 종합 브리핑 및 관리 권고사항이 성공적으로 도출되었습니다.`;
 
-            // 감사 이력 저장
             this.recordAIAuditLog({
                 featureCode: 'AI-01',
                 featureName: '사업현황 자동 요약',
@@ -241,6 +251,7 @@
                 model: data.metadata?.model || 'gemini-2.5-flash',
                 latencyMs: data.metadata?.latencyMs || (Date.now() - startTime),
                 success: true,
+                dbSaved: data.metadata?.dbAudit?.dbSaved !== false,
                 snippet: String(data.answer).slice(0, 100)
             });
 
@@ -260,6 +271,7 @@
                 model: 'gemini-2.5-flash',
                 latencyMs: Date.now() - startTime,
                 success: false,
+                dbSaved: false,
                 snippet: `오류: ${err.message}`
             });
 
@@ -322,7 +334,6 @@
                 throw new Error(data.error || `HTTP ${res.status}`);
             }
 
-            // 정량 지표 카드 렌더링
             const summary = data.groundingData?.deliverableComparison?.statusSummary || {};
             metricsRow.innerHTML = `
                 <div class="card" style="padding:12px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
@@ -347,9 +358,9 @@
                 </div>
             `;
 
-            // 분석 결과 본문 렌더링 (XSS 방어 적용)
             resBody.innerHTML = this._renderSafeMarkdown(data.answer);
-            metaInfo.textContent = `모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}`;
+            const dbStatus = data.metadata?.dbAudit?.dbSaved ? ' (DB 저장완료)' : '';
+            metaInfo.textContent = `모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}${dbStatus}`;
             groundPre.textContent = JSON.stringify(data.groundingData || {}, null, 2);
             resContainer.style.display = 'block';
 
@@ -358,7 +369,6 @@
             statusBar.style.border = '1px solid rgba(16, 185, 129, 0.4)';
             statusBar.innerHTML = `<strong>[분석 완료]</strong> 표준 산출물 갭 진단 및 우선 조치 대응 계획이 수립되었습니다.`;
 
-            // 감사 이력 저장
             this.recordAIAuditLog({
                 featureCode: 'AI-02',
                 featureName: '산출물 누락 및 대응방안 분석',
@@ -368,6 +378,7 @@
                 model: data.metadata?.model || 'gemini-2.5-flash',
                 latencyMs: data.metadata?.latencyMs || (Date.now() - startTime),
                 success: true,
+                dbSaved: data.metadata?.dbAudit?.dbSaved !== false,
                 snippet: String(data.answer).slice(0, 100)
             });
 
@@ -387,6 +398,7 @@
                 model: 'gemini-2.5-flash',
                 latencyMs: Date.now() - startTime,
                 success: false,
+                dbSaved: false,
                 snippet: `오류: ${err.message}`
             });
 
@@ -398,7 +410,7 @@
         }
     };
 
-    // 8. [AI-03] 주간업무보고서 자동 생성 실행 (신규)
+    // 8. [AI-03] 주간업무보고서 자동 생성 실행
     proto.runAI03WeeklyReport = async function() {
         const sel = document.getElementById('ai-03-project-select');
         const projectId = sel ? sel.value : null;
@@ -453,7 +465,6 @@
             const issuesList = data.groundingData?.ongoingIssues || [];
             const actionsList = data.groundingData?.pendingActions || [];
 
-            // 정량 지표 요약 카드
             summaryCards.innerHTML = `
                 <div class="card" style="padding:12px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
                     <div style="font-size:11px; color:#94a3b8;">보고 주간</div>
@@ -473,9 +484,9 @@
                 </div>
             `;
 
-            // 보고서 본문 렌더링 (XSS 방어 적용)
             resBody.innerHTML = this._renderSafeMarkdown(data.answer);
-            metaInfo.textContent = `모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}`;
+            const dbStatus = data.metadata?.dbAudit?.dbSaved ? ' (DB 저장완료)' : '';
+            metaInfo.textContent = `모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}${dbStatus}`;
             groundPre.textContent = JSON.stringify(data.groundingData || {}, null, 2);
             resContainer.style.display = 'block';
 
@@ -484,7 +495,6 @@
             statusBar.style.border = '1px solid rgba(16, 185, 129, 0.4)';
             statusBar.innerHTML = `<strong>[보고서 생성 완료]</strong> 실제 주간 활동 데이터와 일정에 근거한 공식 주간업무보고서가 도출되었습니다.`;
 
-            // 감사 이력 저장
             this.recordAIAuditLog({
                 featureCode: 'AI-03',
                 featureName: '주간업무보고서 자동 생성',
@@ -494,6 +504,7 @@
                 model: data.metadata?.model || 'gemini-2.5-flash',
                 latencyMs: data.metadata?.latencyMs || (Date.now() - startTime),
                 success: true,
+                dbSaved: data.metadata?.dbAudit?.dbSaved !== false,
                 snippet: String(data.answer).slice(0, 100)
             });
 
@@ -513,6 +524,7 @@
                 model: 'gemini-2.5-flash',
                 latencyMs: Date.now() - startTime,
                 success: false,
+                dbSaved: false,
                 snippet: `오류: ${err.message}`
             });
 
@@ -524,7 +536,7 @@
         }
     };
 
-    // 9. [AI-04] 프로젝트 위험도 분석 실행 (신규)
+    // 9. [AI-04] 프로젝트 위험도 분석 실행
     proto.runAI04RiskAnalysis = async function() {
         const sel = document.getElementById('ai-04-project-select');
         const projectId = sel ? sel.value : null;
@@ -582,12 +594,11 @@
             const totalText = overall.totalScore !== null ? `${overall.totalScore}점` : '판정 불가';
             const gradeText = overall.grade || '판정 불가';
 
-            // 정량 위험 지표 카드 렌더링
             metricsGrid.innerHTML = `
                 <div class="card" style="padding:14px; background:#0f172a; border:2px solid ${gradeColor}; border-radius:6px; text-align:center;">
                     <div style="font-size:12px; color:#94a3b8; font-weight:600;">종합 위험등급 / 점수</div>
                     <div style="font-size:22px; font-weight:800; color:${gradeColor}; margin-top:4px;">${totalText}</div>
-                    <span class="badge" style="background:${gradeColor}22; color:${gradeColor}; padding:2px 8px; border-radius:4px; font-size:11px; margin-top:4px; display:inline-block; font-weight:700;">${gradeText}</span>
+                    <span class="badge" style="background:${gradeColor}22; color:${gradeColor}; padding:2px 8px; border-radius:4px; font-size:11px; margin-top:4px; display:inline-block; font-weight:700;">${escapeHtml(gradeText)}</span>
                 </div>
                 <div class="card" style="padding:14px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
                     <div style="font-size:11px; color:#94a3b8;">1. 일정 지연 위험</div>
@@ -611,9 +622,9 @@
                 </div>
             `;
 
-            // AI 위험 분석 보고서 본문 렌더링 (XSS 방어 적용)
             resBody.innerHTML = this._renderSafeMarkdown(data.answer);
-            metaInfo.textContent = `모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}`;
+            const dbStatus = data.metadata?.dbAudit?.dbSaved ? ' (DB 저장완료)' : '';
+            metaInfo.textContent = `모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}${dbStatus}`;
             groundPre.textContent = JSON.stringify(data.groundingData || {}, null, 2);
             resContainer.style.display = 'block';
 
@@ -622,7 +633,6 @@
             statusBar.style.border = '1px solid rgba(16, 185, 129, 0.4)';
             statusBar.innerHTML = `<strong>[위험 진단 완료]</strong> 서버 정량 규칙 기반 스코어링 및 AI 리스크 대응 전략 보고서가 도출되었습니다.`;
 
-            // 감사 이력 저장
             this.recordAIAuditLog({
                 featureCode: 'AI-04',
                 featureName: '프로젝트 위험도 분석',
@@ -632,6 +642,7 @@
                 model: data.metadata?.model || 'gemini-2.5-flash',
                 latencyMs: data.metadata?.latencyMs || (Date.now() - startTime),
                 success: true,
+                dbSaved: data.metadata?.dbAudit?.dbSaved !== false,
                 snippet: String(data.answer).slice(0, 100)
             });
 
@@ -651,6 +662,7 @@
                 model: 'gemini-2.5-flash',
                 latencyMs: Date.now() - startTime,
                 success: false,
+                dbSaved: false,
                 snippet: `오류: ${err.message}`
             });
 
@@ -662,7 +674,300 @@
         }
     };
 
-    // 10. 결과 클립보드 복사
+    // 10. [AI-05] RFP 제안요청서 자동 분석 모드 전환 및 파일 파싱
+    proto.switchAI05InputMode = function(mode) {
+        const fileSec = document.getElementById('ai-05-file-section');
+        const textSec = document.getElementById('ai-05-text-section');
+        const fileBtn = document.getElementById('ai-05-tab-file-btn');
+        const textBtn = document.getElementById('ai-05-tab-text-btn');
+
+        if (mode === 'text') {
+            if (fileSec) fileSec.style.display = 'none';
+            if (textSec) textSec.style.display = 'block';
+            if (fileBtn) {
+                fileBtn.style.background = 'transparent';
+                fileBtn.style.color = '#94a3b8';
+            }
+            if (textBtn) {
+                textBtn.style.background = '#38bdf8';
+                textBtn.style.color = '#0f172a';
+            }
+            this._ai05ActiveMode = 'text';
+        } else {
+            if (fileSec) fileSec.style.display = 'block';
+            if (textSec) textSec.style.display = 'none';
+            if (fileBtn) {
+                fileBtn.style.background = '#38bdf8';
+                fileBtn.style.color = '#0f172a';
+            }
+            if (textBtn) {
+                textBtn.style.background = 'transparent';
+                textBtn.style.color = '#94a3b8';
+            }
+            this._ai05ActiveMode = 'file';
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+
+    // AI-05 텍스트 글자 수 카운터 업데이트
+    proto.updateAI05TextCount = function() {
+        const txt = document.getElementById('ai-05-text-input');
+        const counter = document.getElementById('ai-05-text-counter');
+        if (txt && counter) {
+            const len = txt.value.length;
+            counter.textContent = `${len.toLocaleString()}자`;
+        }
+    };
+
+    // AI-05 PDF 파일 업로드 및 텍스트 추출 (PDF.js 활용)
+    proto.handleAI05PdfUpload = async function(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+
+        const infoBox = document.getElementById('ai-05-file-info');
+        const nameEl = document.getElementById('ai-05-file-name');
+        const sizeEl = document.getElementById('ai-05-file-size');
+        const pageEl = document.getElementById('ai-05-page-stats');
+        const warnBox = document.getElementById('ai-05-file-warning');
+
+        if (warnBox) warnBox.style.display = 'none';
+
+        // 1) 파일 확장자 및 형식 검증
+        if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+            this.showToast?.('PDF 형식의 제안요청서 문서만 업로드 가능합니다.', 'warning');
+            event.target.value = '';
+            return;
+        }
+
+        // 2) 파일 크기 한도 검증 (최대 25MB)
+        const maxBytes = 25 * 1024 * 1024;
+        if (file.size > maxBytes) {
+            this.showToast?.('파일 크기가 25MB를 초과했습니다.', 'error');
+            if (warnBox) {
+                warnBox.style.display = 'block';
+                warnBox.innerHTML = `<strong>[파일 크기 초과]</strong> 선택한 파일(${(file.size / (1024*1024)).toFixed(1)}MB)이 최대 허용 용량(25MB)을 초과했습니다.`;
+            }
+            event.target.value = '';
+            return;
+        }
+
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        if (nameEl) nameEl.textContent = file.name;
+        if (sizeEl) sizeEl.textContent = `(${sizeMB} MB)`;
+        if (pageEl) pageEl.innerHTML = '<i data-lucide="loader" class="spin" style="width:12px;height:12px;vertical-align:middle;"></i> 텍스트 추출 중...';
+        if (infoBox) infoBox.style.display = 'block';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        try {
+            const pdfjs = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
+            if (!pdfjs) {
+                throw new Error('PDF 파서 라이브러리(PDF.js)를 불러오지 못했습니다. 네트워크 연결을 확인해주세요.');
+            }
+
+            const arrayBuffer = await file.arrayBuffer();
+            const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+            const pdfDoc = await loadingTask.promise;
+
+            let fullText = '';
+            let extractedPageCount = pdfDoc.numPages;
+
+            for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                const page = await pdfDoc.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                
+                // 페이지 내 텍스트 조합
+                const pageStrings = textContent.items.map(it => (it && it.str) ? it.str : '').join(' ');
+                if (pageStrings.trim().length > 0) {
+                    fullText += `\n[p.${pageNum}] ` + pageStrings.trim() + '\n';
+                }
+            }
+
+            this._ai05ExtractedText = fullText.trim();
+            this._ai05FileName = file.name;
+            this._ai05PageCount = extractedPageCount;
+
+            // 3) 스캔형 이미지 PDF 또는 텍스트 미추출 검증
+            if (this._ai05ExtractedText.length < 50) {
+                if (warnBox) {
+                    warnBox.style.display = 'block';
+                    warnBox.innerHTML = `<strong>[텍스트 추출 불가]</strong> 스캔형/이미지 전용 PDF이거나 텍스트를 추출할 수 없습니다. 텍스트가 포함된 전자문서(PDF)를 업로드하거나 [원문 직접 입력] 탭을 이용해주세요.`;
+                }
+                if (pageEl) pageEl.innerHTML = `<span style="color:#f87171;">텍스트 없음 (스캔문서 추정)</span>`;
+                this.showToast?.('스캔형 PDF는 텍스트를 추출할 수 없습니다.', 'warning');
+            } else {
+                if (pageEl) {
+                    pageEl.innerHTML = `총 ${extractedPageCount}페이지 (약 ${this._ai05ExtractedText.length.toLocaleString()}자 추출 완료)`;
+                }
+                this.showToast?.(`PDF 텍스트 추출 완료: 총 ${extractedPageCount}페이지`, 'success');
+            }
+
+        } catch (err) {
+            console.error('[AI-05 PDF Parser Error]', err);
+            if (warnBox) {
+                warnBox.style.display = 'block';
+                warnBox.innerHTML = `<strong>[PDF 파싱 오류]</strong> ${escapeHtml(err.message)}`;
+            }
+            if (pageEl) pageEl.innerHTML = '<span style="color:#f87171;">파싱 실패</span>';
+            this.showToast?.(`PDF 파싱 실패: ${err.message}`, 'error');
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+
+    // 11. [AI-05] RFP 제안요청서 자동 분석 실행
+    proto.runAI05RfpAnalysis = async function() {
+        let rfpText = '';
+        let rfpFileName = 'RFP_원문';
+        let pageCount = 1;
+
+        if (this._ai05ActiveMode === 'text') {
+            const txtInput = document.getElementById('ai-05-text-input');
+            rfpText = txtInput ? txtInput.value.trim() : '';
+            rfpFileName = 'RFP_직접입력텍스트';
+        } else {
+            rfpText = this._ai05ExtractedText || '';
+            rfpFileName = this._ai05FileName || 'RFP_업로드문서.pdf';
+            pageCount = this._ai05PageCount || 1;
+        }
+
+        if (!rfpText || rfpText.length < 30) {
+            this.showToast?.('분석할 제안요청서(RFP) 텍스트를 30자 이상 입력하거나 PDF를 업로드해주세요.', 'warning');
+            return;
+        }
+
+        const sel = document.getElementById('ai-05-project-select');
+        const projectId = sel ? sel.value : null;
+
+        const btn = document.getElementById('btn-run-ai-05');
+        const statusBar = document.getElementById('ai-05-status-bar');
+        const resContainer = document.getElementById('ai-05-result-container');
+        const navCards = document.getElementById('ai-05-nav-cards');
+        const resBody = document.getElementById('ai-05-result-body');
+        const metaInfo = document.getElementById('ai-05-meta-info');
+        const groundPre = document.getElementById('ai-05-grounding-pre');
+
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader" class="spin"></i> RFP 8대 요건 심층 분석 중...';
+        statusBar.style.display = 'block';
+        statusBar.style.background = 'rgba(2, 132, 199, 0.15)';
+        statusBar.style.color = '#38bdf8';
+        statusBar.style.border = '1px solid rgba(2, 132, 199, 0.3)';
+        statusBar.innerHTML = `<strong>[RFP 심층 분석 중]</strong> 제안요청서 원문의 사업개요, 참가자격, 과업범위, 평가기준을 생성형 AI 모델이 종합 분석하고 있습니다...`;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        const token = await this._getAISessionToken();
+        const startTime = Date.now();
+
+        try {
+            const res = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token || ''}`
+                },
+                body: JSON.stringify({
+                    featureType: 'AI-05',
+                    rfpText: rfpText,
+                    rfpFileName: rfpFileName,
+                    pageCount: pageCount,
+                    projectId: projectId || undefined,
+                    message: `제안요청서 [${rfpFileName}]의 핵심 8대 요건 분석 보고서를 작성해주세요.`
+                })
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || `HTTP ${res.status}`);
+            }
+
+            // 8대 요건 퀵 네비게이션 뱃지 그리드
+            navCards.innerHTML = `
+                <div class="card" style="padding:10px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
+                    <div style="font-size:10px; color:#94a3b8;">1. 사업개요</div>
+                    <div style="font-size:12px; font-weight:700; color:#38bdf8; margin-top:2px;">발주기관/목적</div>
+                </div>
+                <div class="card" style="padding:10px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
+                    <div style="font-size:10px; color:#94a3b8;">2. 사업예산</div>
+                    <div style="font-size:12px; font-weight:700; color:#34d399; margin-top:2px;">기간 및 금액</div>
+                </div>
+                <div class="card" style="padding:10px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
+                    <div style="font-size:10px; color:#94a3b8;">3. 주요과업</div>
+                    <div style="font-size:12px; font-weight:700; color:#c4b5fd; margin-top:2px;">필수 요구사항</div>
+                </div>
+                <div class="card" style="padding:10px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
+                    <div style="font-size:10px; color:#94a3b8;">4. 참가자격</div>
+                    <div style="font-size:12px; font-weight:700; color:#fbbf24; margin-top:2px;">제한/공동수급</div>
+                </div>
+                <div class="card" style="padding:10px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
+                    <div style="font-size:10px; color:#94a3b8;">5. 평가기준</div>
+                    <div style="font-size:12px; font-weight:700; color:#f87171; margin-top:2px;">기술:가격배점</div>
+                </div>
+                <div class="card" style="padding:10px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
+                    <div style="font-size:10px; color:#94a3b8;">6. 투입인력</div>
+                    <div style="font-size:12px; font-weight:700; color:#a78bfa; margin-top:2px;">PM 및 기술등급</div>
+                </div>
+                <div class="card" style="padding:10px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
+                    <div style="font-size:10px; color:#94a3b8;">7. 제출서류</div>
+                    <div style="font-size:12px; font-weight:700; color:#38bdf8; margin-top:2px;">마감일/제출목록</div>
+                </div>
+                <div class="card" style="padding:10px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
+                    <div style="font-size:10px; color:#94a3b8;">8. AI 검토의견</div>
+                    <div style="font-size:12px; font-weight:700; color:#34d399; margin-top:2px;">수주전략/리스크</div>
+                </div>
+            `;
+
+            resBody.innerHTML = this._renderSafeMarkdown(data.answer);
+            const dbStatus = data.metadata?.dbAudit?.dbSaved ? ' (DB 저장완료)' : '';
+            metaInfo.textContent = `문서: ${escapeHtml(rfpFileName)} | 모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}${dbStatus}`;
+            groundPre.textContent = JSON.stringify(data.groundingData || {}, null, 2);
+            resContainer.style.display = 'block';
+
+            statusBar.style.background = 'rgba(16, 185, 129, 0.15)';
+            statusBar.style.color = '#34d399';
+            statusBar.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+            statusBar.innerHTML = `<strong>[분석 완료]</strong> 제안요청서 8대 필수 분석 요건과 AI 수주 검토 의견이 성공적으로 도출되었습니다.`;
+
+            this.recordAIAuditLog({
+                featureCode: 'AI-05',
+                featureName: 'RFP 제안요청서 자동 분석',
+                projectId: projectId || null,
+                projectName: rfpFileName,
+                user: this.currentUser?.email || 'admin',
+                model: data.metadata?.model || 'gemini-2.5-flash',
+                latencyMs: data.metadata?.latencyMs || (Date.now() - startTime),
+                success: true,
+                dbSaved: data.metadata?.dbAudit?.dbSaved !== false,
+                snippet: String(data.answer).slice(0, 100)
+            });
+
+            this.showToast?.('RFP 제안요청서 자동 분석이 완료되었습니다.', 'success');
+        } catch (err) {
+            statusBar.style.background = 'rgba(239, 68, 68, 0.15)';
+            statusBar.style.color = '#f87171';
+            statusBar.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+            statusBar.innerHTML = `<strong>[분석 실패]</strong> ${escapeHtml(err.message)}`;
+
+            this.recordAIAuditLog({
+                featureCode: 'AI-05',
+                featureName: 'RFP 제안요청서 자동 분석',
+                projectId: projectId || null,
+                projectName: rfpFileName,
+                user: this.currentUser?.email || 'admin',
+                model: 'gemini-2.5-flash',
+                latencyMs: Date.now() - startTime,
+                success: false,
+                dbSaved: false,
+                snippet: `오류: ${err.message}`
+            });
+
+            this.showToast?.(`AI RFP 분석 오류: ${err.message}`, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="sparkles"></i> AI RFP 8대 요건 심층 분석 실행';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    };
+
+    // 12. 결과 클립보드 복사
     proto.copyAIResult = function(elementId) {
         const el = document.getElementById(elementId);
         if (!el) return;
@@ -674,7 +979,7 @@
         });
     };
 
-    // 11. 결과 파일 다운로드 (Markdown)
+    // 13. 결과 파일 다운로드 (Markdown)
     proto.downloadAIResult = function(elementId, filename) {
         const el = document.getElementById(elementId);
         if (!el) return;
@@ -688,16 +993,17 @@
         this.showToast?.('결과 보고서 다운로드를 시작합니다.', 'info');
     };
 
-    // 12. AI 실행 감사 이력 기록 (Supabase DB 영속화 + LocalStorage 캐시)
+    // 14. AI 실행 감사 이력 기록 (서버 DB 단일 원천 + 클라이언트 로컬 캐시 관리)
     proto.recordAIAuditLog = function(entry) {
         const record = {
             id: 'ai-log-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
             executedAt: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }),
             timestamp: Date.now(),
+            dbSaved: entry.dbSaved !== false,
             ...entry
         };
 
-        // 1) LocalStorage 캐시 저장
+        // 로컬스토리지 캐시 영구 보존
         try {
             const logs = JSON.parse(localStorage.getItem('aether_ai_audit_logs') || '[]');
             logs.unshift(record);
@@ -706,45 +1012,16 @@
         } catch (e) {
             console.warn('[AI Audit LocalStorage Warning]:', e.message);
         }
-
-        // 2) Supabase DB activity_logs 영구 보존 시도
-        if (this.supabase && this.currentUser) {
-            const isUuid = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(str));
-            const cleanSnippet = String(record.snippet || '')
-                .replace(/[A-Za-z0-9_-]{30,}/g, '[REDACTED]')
-                .slice(0, 150);
-
-            const dbPayload = {
-                project_id: isUuid(record.projectId) ? record.projectId : null,
-                user_id: isUuid(this.currentUser.id) ? this.currentUser.id : null,
-                type: 'AI_AUDIT',
-                text: JSON.stringify({
-                    featureCode: record.featureCode,
-                    featureName: record.featureName,
-                    projectName: record.projectName,
-                    user: record.user,
-                    model: record.model,
-                    latencyMs: record.latencyMs,
-                    success: record.success,
-                    snippet: cleanSnippet
-                }),
-                date: new Date().toISOString()
-            };
-
-            this.supabase.from('activity_logs').insert([dbPayload]).then(({ error }) => {
-                if (error) console.warn('[AI Audit Supabase Sync Warning]:', error.message);
-            }).catch(() => {});
-        }
     };
 
-    // 13. AI 감사 이력 테이블 렌더링 (DB 조회 지원 + XSS 안전 이스케이프)
+    // 15. AI 감사 이력 테이블 렌더링 (DB 조회 우선 + XSS 안전 이스케이프 + DB 동기화 상태 뱃지)
     proto.renderAIAuditLogs = async function() {
         const tbody = document.getElementById('ai-audit-logs-tbody');
         if (!tbody) return;
 
         let logs = [];
 
-        // Supabase DB에서 우선 조회 시도
+        // Supabase DB에서 우선 조회
         if (this.supabase) {
             try {
                 const { data, error } = await this.supabase
@@ -768,6 +1045,7 @@
                             model: parsed.model || 'gemini-2.5-flash',
                             latencyMs: parsed.latencyMs || 0,
                             success: parsed.success !== false,
+                            dbSaved: true,
                             snippet: parsed.snippet || ''
                         };
                     });
@@ -775,7 +1053,7 @@
             } catch (e) {}
         }
 
-        // DB 기록이 없으면 LocalStorage 캐시 활용
+        // DB 기록이 없거나 조회 실패 시 LocalStorage 캐시 활용
         if (logs.length === 0) {
             logs = JSON.parse(localStorage.getItem('aether_ai_audit_logs') || '[]');
         }
@@ -785,7 +1063,12 @@
             return;
         }
 
-        tbody.innerHTML = logs.map(l => `
+        tbody.innerHTML = logs.map(l => {
+            const dbBadge = l.dbSaved 
+                ? '<span style="font-size:9px; background:rgba(16,185,129,0.15); color:#34d399; padding:1px 4px; border-radius:3px; margin-left:4px;">DB</span>'
+                : '<span style="font-size:9px; background:rgba(245,158,11,0.15); color:#fbbf24; padding:1px 4px; border-radius:3px; margin-left:4px;">Local</span>';
+
+            return `
             <tr style="border-bottom: 1px solid rgba(51, 65, 85, 0.5);">
                 <td style="padding: 10px 12px; color: #94a3b8; font-family: monospace; font-size: 11px;">${escapeHtml(l.executedAt)}</td>
                 <td style="padding: 10px 12px; font-weight: 600; color: #c4b5fd;">
@@ -800,12 +1083,14 @@
                     <span class="badge" style="background: ${l.success ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}; color: ${l.success ? '#34d399' : '#f87171'}; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
                         ${l.success ? '성공' : '실패'}
                     </span>
+                    ${dbBadge}
                 </td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
     };
 
-    // 14. 감사로그 CSV 추출 (평가 증빙 산출물)
+    // 16. 감사로그 CSV 추출 (평가 증빙 산출물)
     proto.exportAIAuditLogsCSV = function() {
         const logs = JSON.parse(localStorage.getItem('aether_ai_audit_logs') || '[]');
         if (logs.length === 0) {
@@ -813,7 +1098,7 @@
             return;
         }
 
-        const headers = ['실행시각', '기능코드', '기능명', '대상프로젝트', '사용자', '모델', '소요시간(ms)', '성공여부', '결과요약'];
+        const headers = ['실행시각', '기능코드', '기능명', '대상프로젝트/문서', '사용자', '모델', '소요시간(ms)', '성공여부', '결과요약'];
         const rows = logs.map(l => [
             `"${String(l.executedAt).replace(/"/g, '""')}"`,
             `"${String(l.featureCode).replace(/"/g, '""')}"`,
@@ -836,7 +1121,7 @@
         this.showToast?.('AI 실행 감사 로그 CSV 다운로드를 완료했습니다.', 'success');
     };
 
-    // 15. 감사로그 초기화
+    // 17. 감사로그 초기화
     proto.clearAIAuditLogs = function() {
         if (!confirm('기록된 AI 실행 감사 로그를 초기화하시겠습니까?')) return;
         localStorage.removeItem('aether_ai_audit_logs');

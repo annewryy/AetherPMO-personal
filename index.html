@@ -1116,12 +1116,111 @@
                         </div>
                     </div>
 
-                    <!-- AI-05 RFP 분석 탭 패널 (Phase 4 준비) -->
+                    <!-- AI-05 RFP 분석 탭 패널 (Phase 4 구현) -->
                     <div id="ai-panel-ai-05" class="ai-tab-panel" style="display: none;">
-                        <div class="card" style="padding: 30px; text-align: center; background: var(--card-bg, #1e293b); border: 1px dashed var(--border-color, #334155); border-radius: 8px;">
-                            <i data-lucide="file-text" style="width: 36px; height: 36px; color: #3b82f6; margin-bottom: 12px;"></i>
-                            <h3 style="margin: 0 0 8px 0; color: #f8fafc;">AI-05 RFP 공고 자동 분석</h3>
-                            <p style="color: #94a3b8; font-size: 13px; margin: 0;">Phase 4 개발 예정 기능입니다. (제안요청서 요약, 평가기준 및 자격 추출)</p>
+                        <div class="card" style="padding: 20px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;">
+                                <div>
+                                    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                                        <i data-lucide="file-search" style="color: #38bdf8;"></i>
+                                        RFP 제안요청서 자동 분석
+                                    </h3>
+                                    <p style="color: var(--text-muted, #94a3b8); margin-top: 4px; font-size: 13px;">
+                                        공공입찰 제안요청서(PDF/텍스트)를 입력받아 사업개요, 참가자격, 필수요구사항, 평가기준 등 핵심 8대 요건을 생성형 AI가 심층 분석합니다.
+                                    </p>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div class="btn-group" style="display: flex; background: #0f172a; padding: 3px; border-radius: 6px; border: 1px solid #334155;">
+                                        <button id="ai-05-tab-file-btn" type="button" class="btn btn-sm active" onclick="app.switchAI05InputMode('file')" style="padding: 5px 12px; font-size: 12px; font-weight: 600; border-radius: 4px; background: #38bdf8; color: #0f172a; border: none; cursor: pointer;">
+                                            <i data-lucide="file-up" style="width: 12px; height: 12px; vertical-align: middle;"></i> PDF 파일 업로드
+                                        </button>
+                                        <button id="ai-05-tab-text-btn" type="button" class="btn btn-sm" onclick="app.switchAI05InputMode('text')" style="padding: 5px 12px; font-size: 12px; font-weight: 600; border-radius: 4px; background: transparent; color: #94a3b8; border: none; cursor: pointer;">
+                                            <i data-lucide="edit-3" style="width: 12px; height: 12px; vertical-align: middle;"></i> 원문 직접 입력
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- PDF 파일 업로드 모드 -->
+                            <div id="ai-05-file-section" style="display: block;">
+                                <div id="ai-05-dropzone" style="border: 2px dashed #475569; border-radius: 8px; padding: 26px; text-align: center; background: rgba(15, 23, 42, 0.4); cursor: pointer; transition: border-color 0.2s;" onclick="document.getElementById('ai-05-file-input').click()">
+                                    <i data-lucide="file-up" style="width: 36px; height: 36px; color: #38bdf8; margin-bottom: 8px;"></i>
+                                    <div style="font-size: 14px; font-weight: 600; color: #f8fafc;">RFP 제안요청서 PDF 파일을 선택하거나 드래그하세요</div>
+                                    <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">텍스트형 전자문서 PDF 지원 (최대 25MB)</div>
+                                    <input type="file" id="ai-05-file-input" accept=".pdf,application/pdf" style="display: none;" onchange="app.handleAI05PdfUpload(event)">
+                                </div>
+
+                                <div id="ai-05-file-info" style="display: none; margin-top: 14px; padding: 12px 16px; background: #0f172a; border: 1px solid #334155; border-radius: 6px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <i data-lucide="check-circle" style="color: #34d399; width: 16px; height: 16px;"></i>
+                                            <span id="ai-05-file-name" style="font-weight: 600; color: #f8fafc; font-size: 13px;"></span>
+                                            <span id="ai-05-file-size" style="color: #94a3b8; font-size: 12px;"></span>
+                                        </div>
+                                        <div id="ai-05-page-stats" style="color: #38bdf8; font-size: 12px; font-weight: 600;"></div>
+                                    </div>
+                                </div>
+
+                                <div id="ai-05-file-warning" style="display: none; margin-top: 12px; padding: 10px 14px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; color: #f87171; font-size: 12px;"></div>
+                            </div>
+
+                            <!-- 텍스트 직접 입력 모드 -->
+                            <div id="ai-05-text-section" style="display: none;">
+                                <textarea id="ai-05-text-input" rows="7" class="form-control" placeholder="RFP 제안요청서의 사업개요, 주요 과업내용, 입찰 참가자격, 평가기준 등의 원문 내용을 붙여넣으세요..." style="width: 100%; box-sizing: border-box; padding: 12px; background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 6px; font-size: 13px; line-height: 1.6; resize: vertical;" oninput="app.updateAI05TextCount()"></textarea>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 12px; color: #94a3b8;">
+                                    <span>입력된 RFP 원문 글자 수에 따라 핵심 분량이 자동 발췌 분석됩니다.</span>
+                                    <span id="ai-05-text-counter" style="font-weight: 600; color: #38bdf8;">0자</span>
+                                </div>
+                            </div>
+
+                            <!-- 하단 실행 컨트롤 바 -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 14px; border-top: 1px solid #334155; flex-wrap: wrap; gap: 12px;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span style="font-size: 12px; color: #94a3b8;">연계 대상 사업 (선택사항):</span>
+                                    <select id="ai-05-project-select" class="form-control" style="min-width: 220px; padding: 7px 10px; background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 6px; font-size: 12px;">
+                                        <option value="">사업 미지정 (독립 RFP 분석)</option>
+                                    </select>
+                                </div>
+                                <button id="btn-run-ai-05" class="btn btn-primary" onclick="app.runAI05RfpAnalysis()" style="padding: 10px 22px; font-weight: 600; display: flex; align-items: center; gap: 8px; background: #0284c7; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                                    <i data-lucide="sparkles"></i> AI RFP 8대 요건 심층 분석 실행
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="ai-05-status-bar" style="display: none; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 13px;"></div>
+
+                        <div id="ai-05-result-container" style="display: none;">
+                            <!-- 8대 분석 요건 퀵 네비게이션 뱃지 그리드 -->
+                            <div id="ai-05-nav-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 20px;"></div>
+
+                            <div class="card" style="padding: 24px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color, #334155); padding-bottom: 14px; margin-bottom: 18px;">
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 8px;">
+                                            <i data-lucide="file-check-2"></i> RFP 8대 요건 종합 분석 보고서
+                                        </h3>
+                                        <span id="ai-05-meta-info" style="font-size: 12px; color: var(--text-muted, #94a3b8); margin-top: 4px; display: inline-block;"></span>
+                                    </div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button class="btn btn-sm" onclick="app.copyAIResult('ai-05-result-body')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                            <i data-lucide="copy"></i> 결과 복사
+                                        </button>
+                                        <button class="btn btn-sm" onclick="app.downloadAIResult('ai-05-result-body', 'AI-05_RFP_분석보고서.md')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                            <i data-lucide="download"></i> 파일 다운로드
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="ai-05-result-body" class="markdown-body" style="line-height: 1.7; color: var(--text-color, #e2e8f0); font-size: 14px;"></div>
+                            </div>
+
+                            <div class="card" style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px dashed var(--border-color, #334155); border-radius: 8px;">
+                                <details>
+                                    <summary style="cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-muted, #94a3b8);">
+                                        <i data-lucide="database" style="width: 14px; height: 14px; vertical-align: middle;"></i> 추출된 원문 텍스트 및 분석 메타데이터 확인
+                                    </summary>
+                                    <pre id="ai-05-grounding-pre" style="margin-top: 12px; padding: 12px; background: #0f172a; border-radius: 6px; font-size: 12px; overflow-x: auto; color: #94a3b8; max-height: 250px;"></pre>
+                                </details>
+                            </div>
                         </div>
                     </div>
 
