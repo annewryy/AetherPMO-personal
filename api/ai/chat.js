@@ -1,4 +1,4 @@
-// AetherPMO AI 어시스턴트 Vercel Serverless Function 엔드포인트 (/api/ai/chat)
+﻿// AetherPMO AI 어시스턴트 Vercel Serverless Function 엔드포인트 (/api/ai/chat)
 // Supabase JWT 검증, DB 기반 역할 검증, 프로젝트 컨텍스트 수집, 멀티 LLM 연동
 // AI-01 사업현황 요약, AI-02 산출물 갭 분석, AI-03 주간업무보고, AI-04 위험도 분석, AI-05 RFP 분석
 
@@ -810,7 +810,6 @@ async function saveAIAuditLog(supabaseUrl, serviceRoleKey, record) {
       method: 'POST',
       headers: {
         'apikey': serviceRoleKey,
-        'Authorization': `Bearer ${serviceRoleKey}`, // 오직 서버 Secret/service_role 키만 사용
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal',
         'Content-Length': Buffer.byteLength(postData)
@@ -1036,7 +1035,7 @@ module.exports = async (req, res) => {
   const token = authHeader.slice(7).trim();
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseAnonKey;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || null;
 
   if (!supabaseUrl || !supabaseAnonKey) {
     return res.status(500).json({
@@ -1053,7 +1052,7 @@ module.exports = async (req, res) => {
   }
 
   // 2. 사용자 프로필 및 역할 파악 (보안 지침: user_metadata.role 배제, 검증된 DB profiles.role만 인정)
-  const profile = await getUserProfile(authUser.id, supabaseUrl, supabaseServiceKey, token);
+  const profile = await getUserProfile(authUser.id, supabaseUrl, supabaseAnonKey, token);
   const role = (profile && profile.role) ? String(profile.role).toUpperCase() : 'VIEWER';
   const userName = (profile && profile.name) ? profile.name : (authUser.email ? authUser.email.split('@')[0] : '사용자');
 
@@ -1070,7 +1069,7 @@ module.exports = async (req, res) => {
   // 3. 프로젝트 접근 권한 검증 및 데이터 수집 (AI-05의 경우 프로젝트 선택이 선택사항)
   let accessibleProjects = [];
   try {
-    accessibleProjects = await getAccessibleProjects(authUser.id, role, supabaseUrl, supabaseServiceKey, token);
+    accessibleProjects = await getAccessibleProjects(authUser.id, role, supabaseUrl, supabaseAnonKey, token);
   } catch (e) {
     console.error('Projects fetch failed:', e.message);
   }
@@ -1116,7 +1115,7 @@ module.exports = async (req, res) => {
 
     let issuesAndActions = { issues: [], actionItems: [] };
     try {
-      issuesAndActions = await getProjectIssuesAndActions(targetProj.id, supabaseUrl, supabaseServiceKey, token);
+      issuesAndActions = await getProjectIssuesAndActions(targetProj.id, supabaseUrl, supabaseAnonKey, token);
     } catch (e) {}
 
     // WBS 상세 데이터 검증 (DB 등록 여부 정확히 확인)
@@ -1161,7 +1160,7 @@ module.exports = async (req, res) => {
 
     let comparison = null;
     try {
-      comparison = await getDeliverablesComparison(targetProj, supabaseUrl, supabaseServiceKey, token);
+      comparison = await getDeliverablesComparison(targetProj, supabaseUrl, supabaseAnonKey, token);
     } catch (e) {
       console.error('Deliverable comparison failed:', e.message);
     }
@@ -1187,7 +1186,7 @@ module.exports = async (req, res) => {
 
     let weeklyData = null;
     try {
-      weeklyData = await getWeeklyReportGroundingData(targetProj, supabaseUrl, supabaseServiceKey, token);
+      weeklyData = await getWeeklyReportGroundingData(targetProj, supabaseUrl, supabaseAnonKey, token);
     } catch (e) {
       console.error('Weekly data fetch error:', e.message);
     }
@@ -1220,7 +1219,7 @@ module.exports = async (req, res) => {
 
     let riskAssessment = null;
     try {
-      riskAssessment = await getProjectRiskAssessment(targetProj, supabaseUrl, supabaseServiceKey, token);
+      riskAssessment = await getProjectRiskAssessment(targetProj, supabaseUrl, supabaseAnonKey, token);
     } catch (e) {
       console.error('Risk assessment error:', e.message);
     }
