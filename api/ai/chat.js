@@ -833,7 +833,11 @@ async function saveAIAuditLog(supabaseUrl, serviceRoleKey, record) {
 
 // 4-1. Google Gemini API 호출 (최신 모델: gemini-2.5-flash 기본)
 async function callGemini(messages) {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY ||
+                 process.env.GOOGLE_AI_API_KEY ||
+                 process.env.GOOGLE_API_KEY ||
+                 process.env.GEMINI_KEY ||
+                 process.env.GOOGLE_GEMINI_API_KEY;
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const timeoutMs = Number(process.env.AI_TIMEOUT_MS || 45000);
 
@@ -999,7 +1003,11 @@ async function callOllama(messages) {
 
 // 4-4. 통합 LLM 호출 진입점 (Provider 자동 선택)
 async function callLLM(messages) {
-  if (process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY) {
+  if (process.env.GEMINI_API_KEY ||
+      process.env.GOOGLE_AI_API_KEY ||
+      process.env.GOOGLE_API_KEY ||
+      process.env.GEMINI_KEY ||
+      process.env.GOOGLE_GEMINI_API_KEY) {
     return await callGemini(messages);
   }
   if (process.env.OPENAI_API_KEY) {

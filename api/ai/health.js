@@ -53,7 +53,11 @@ module.exports = async (req, res) => {
 
   res.setHeader('Cache-Control', 'no-store');
 
-  const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY ||
+                    process.env.GOOGLE_AI_API_KEY ||
+                    process.env.GOOGLE_API_KEY ||
+                    process.env.GEMINI_KEY ||
+                    process.env.GOOGLE_GEMINI_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
   const ollamaUrl = process.env.OLLAMA_BASE_URL;
 
