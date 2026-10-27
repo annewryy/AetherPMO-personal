@@ -8,7 +8,7 @@
 # 4. 검증 실패 또는 모의 실행 시 ALL TESTS PASSED 출력 절대 금지 (Fail-Fast)
 # ============================================================================
 param(
-    [string]$TargetApiUrl = "https://aether-pmo-personal-p7594tfkd-annewryys-projects.vercel.app/api/ai/chat",
+    [string]$TargetApiUrl = "https://aether-pmo-personal-gar33znz3-annewryys-projects.vercel.app/api/ai/chat",
     [string]$TestEmail = "pm1@aetherpmo.com",
     [string]$TestPassword = "",
     [string]$VercelBypassSecret = ""
@@ -232,7 +232,6 @@ if (-not $serviceRoleKey) {
     try {
         $auditQueryHeaders = @{
             "apikey" = $serviceRoleKey
-            "Authorization" = ("Bearer " + $serviceRoleKey)
         }
         $queryUri = $supabaseUrl + '/rest/v1/activity_logs?type=eq.AI_AUDIT&order=date.desc&limit=10'
         $dbLogs = Invoke-RestMethod -Uri $queryUri -Method Get -Headers $auditQueryHeaders
