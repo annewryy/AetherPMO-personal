@@ -5470,7 +5470,8 @@ class AetherPMO {
             'board/inquiries': '문의사항',
             'board/resources': '자료실',
             'backup': '관리자 설정',
-            'my-account': '내 정보'
+            'my-account': '내 정보',
+            'ai-automation': 'AI 업무자동화'
         };
         const titleEl = document.getElementById('mobile-view-title');
         if (titleEl) {
@@ -5523,7 +5524,8 @@ class AetherPMO {
             'action-items': 'view-action-items',
             'official-docs': 'view-official-docs',
             'meeting-minutes': 'view-meeting-minutes',
-            'menu-settings': 'view-menu-settings'
+            'menu-settings': 'view-menu-settings',
+            'ai-automation': 'view-ai-automation'
         };
 
         const targetId = routes[viewName] || `view-${viewName}`;
@@ -5634,6 +5636,10 @@ class AetherPMO {
             }
             if (!this.state.systemMenus) await this.loadSystemMenus();
             this.renderMenuSettings();
+        } else if (viewName === 'ai-automation') {
+            if (typeof this.renderAIAutomationView === 'function') {
+                this.renderAIAutomationView();
+            }
         } else if (viewName === 'my-account') {
             this.renderMyAccountCenter();
         } else if (viewName === 'projects-g2b') {

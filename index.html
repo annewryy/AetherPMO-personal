@@ -174,6 +174,14 @@
                     <span>테일러링</span>
                 </a>
 
+                                <!-- AI 업무자동화 메뉴 (2026 혁신과제) -->
+                <div class="nav-item-wrapper" id="nav-wrapper-ai-automation">
+                    <a href="#ai-automation" class="nav-item" data-view="ai-automation" data-tooltip="AI 업무자동화">
+                        <i data-lucide="sparkles" style="color: #a78bfa;"></i>
+                        <span>AI 업무자동화</span>
+                    </a>
+                </div>
+
                 <div class="nav-item-wrapper" id="nav-wrapper-artifacts">
                     <a href="#artifacts" class="nav-item" id="menu-institution-standard-artifacts" data-view="artifacts" data-tooltip="표준 산출물 관리" onclick="app.resetStandardArtifactView()">
                         <i data-lucide="file-check"></i>
@@ -829,6 +837,227 @@
 
 
                 <!-- 3. PROJECTS VIEW (Restructured with Bidding, Active, Closed Tabs) -->
+                                <!-- ========================================== -->
+                <!-- AI 업무자동화 뷰 (2026 혁신과제 AI 5대 기능) -->
+                <!-- ========================================== -->
+                <section id="view-ai-automation" class="content-view" style="display: none;">
+                    <div class="view-header" style="margin-bottom: 20px;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <h1 style="font-size: 22px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px;">
+                                    <i data-lucide="sparkles" style="color: #8b5cf6;"></i>
+                                    AI 업무자동화 스튜디오
+                                </h1>
+                                <span class="badge" id="ai-studio-health-badge" style="background: rgba(139, 92, 246, 0.15); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.3); font-size: 11px; padding: 3px 8px; border-radius: 9999px;">
+                                    <i data-lucide="loader" class="spin" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle;"></i> AI 상태 확인 중...
+                                </span>
+                            </div>
+                            <p style="color: var(--text-muted, #94a3b8); margin-top: 6px; font-size: 13px;">
+                                2026년 혁신과제 「생성형 AI를 활용한 사업분석 및 산출물관리 시스템 개발」 핵심 자동화 엔진
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- AI 기능 상단 네비게이션 탭 -->
+                    <div class="ai-tabs-container" style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color, #334155); margin-bottom: 24px; padding-bottom: 12px; overflow-x: auto;">
+                        <button class="btn ai-tab-btn active" data-ai-tab="ai-01" onclick="app.switchAITab('ai-01')" style="padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <i data-lucide="bar-chart-3"></i> AI-01 사업현황 요약
+                        </button>
+                        <button class="btn ai-tab-btn" data-ai-tab="ai-02" onclick="app.switchAITab('ai-02')" style="padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <i data-lucide="file-check"></i> AI-02 산출물 갭 분석
+                        </button>
+                        <button class="btn ai-tab-btn" data-ai-tab="ai-03" onclick="app.switchAITab('ai-03')" style="padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <i data-lucide="calendar"></i> AI-03 주간업무보고
+                        </button>
+                        <button class="btn ai-tab-btn" data-ai-tab="ai-04" onclick="app.switchAITab('ai-04')" style="padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <i data-lucide="alert-triangle"></i> AI-04 위험도 분석
+                        </button>
+                        <button class="btn ai-tab-btn" data-ai-tab="ai-05" onclick="app.switchAITab('ai-05')" style="padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <i data-lucide="file-text"></i> AI-05 RFP 분석
+                        </button>
+                        <button class="btn ai-tab-btn" data-ai-tab="ai-audit" onclick="app.switchAITab('ai-audit')" style="padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <i data-lucide="history"></i> AI 실행 감사이력
+                        </button>
+                    </div>
+
+                    <!-- AI-01 사업현황 자동 요약 탭 패널 -->
+                    <div id="ai-panel-ai-01" class="ai-tab-panel">
+                        <div class="card" style="padding: 20px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                            <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between;">
+                                <div style="flex: 1; min-width: 280px;">
+                                    <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted, #94a3b8); margin-bottom: 6px;">
+                                        <i data-lucide="folder-kanban" style="width: 14px; height: 14px; vertical-align: middle;"></i> 분석 대상 프로젝트 선택
+                                    </label>
+                                    <select id="ai-01-project-select" class="form-control" style="width: 100%; padding: 10px; background: var(--input-bg, #0f172a); border: 1px solid var(--border-color, #334155); border-radius: 6px; color: var(--text-color, #f8fafc);">
+                                        <option value="">프로젝트 불러오는 중...</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <button id="btn-run-ai-01" class="btn btn-primary" onclick="app.runAI01Summary()" style="padding: 10px 20px; font-weight: 600; display: flex; align-items: center; gap: 8px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                                        <i data-lucide="sparkles"></i> AI 사업현황 분석 실행
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="ai-01-status-bar" style="display: none; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 13px;"></div>
+
+                        <div id="ai-01-result-container" style="display: none;">
+                            <div class="card" style="padding: 24px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color, #334155); padding-bottom: 14px; margin-bottom: 18px;">
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #a78bfa; display: flex; align-items: center; gap: 8px;">
+                                            <i data-lucide="check-circle-2"></i> AI 사업현황 분석 및 관리 권고사항
+                                        </h3>
+                                        <span id="ai-01-meta-info" style="font-size: 12px; color: var(--text-muted, #94a3b8); margin-top: 4px; display: inline-block;"></span>
+                                    </div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button class="btn btn-sm" onclick="app.copyAIResult('ai-01-result-body')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                            <i data-lucide="copy"></i> 결과 복사
+                                        </button>
+                                        <button class="btn btn-sm" onclick="app.downloadAIResult('ai-01-result-body', 'AI-01_사업현황요약.md')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                            <i data-lucide="download"></i> 파일 다운로드
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="ai-01-result-body" class="markdown-body" style="line-height: 1.7; color: var(--text-color, #e2e8f0); font-size: 14px;"></div>
+                            </div>
+
+                            <div class="card" style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px dashed var(--border-color, #334155); border-radius: 8px;">
+                                <details>
+                                    <summary style="cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-muted, #94a3b8);">
+                                        <i data-lucide="database" style="width: 14px; height: 14px; vertical-align: middle;"></i> 분석 근거 데이터 (Grounding Data) 확인
+                                    </summary>
+                                    <pre id="ai-01-grounding-pre" style="margin-top: 12px; padding: 12px; background: #0f172a; border-radius: 6px; font-size: 12px; overflow-x: auto; color: #94a3b8;"></pre>
+                                </details>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI-02 산출물 누락 및 대응방안 분석 탭 패널 -->
+                    <div id="ai-panel-ai-02" class="ai-tab-panel" style="display: none;">
+                        <div class="card" style="padding: 20px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                            <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between;">
+                                <div style="flex: 1; min-width: 280px;">
+                                    <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted, #94a3b8); margin-bottom: 6px;">
+                                        <i data-lucide="file-search" style="width: 14px; height: 14px; vertical-align: middle;"></i> 분석 대상 프로젝트 선택
+                                    </label>
+                                    <select id="ai-02-project-select" class="form-control" style="width: 100%; padding: 10px; background: var(--input-bg, #0f172a); border: 1px solid var(--border-color, #334155); border-radius: 6px; color: var(--text-color, #f8fafc);">
+                                        <option value="">프로젝트 불러오는 중...</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <button id="btn-run-ai-02" class="btn btn-primary" onclick="app.runAI02DeliverablesAnalysis()" style="padding: 10px 20px; font-weight: 600; display: flex; align-items: center; gap: 8px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                                        <i data-lucide="sparkles"></i> 산출물 갭 & 대응방안 분석 실행
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="ai-02-status-bar" style="display: none; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 13px;"></div>
+
+                        <div id="ai-02-result-container" style="display: none;">
+                            <div id="ai-02-metrics-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px;"></div>
+
+                            <div class="card" style="padding: 24px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color, #334155); padding-bottom: 14px; margin-bottom: 18px;">
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #60a5fa; display: flex; align-items: center; gap: 8px;">
+                                            <i data-lucide="file-warning"></i> 산출물 누락 진단 및 우선 조치계획
+                                        </h3>
+                                        <span id="ai-02-meta-info" style="font-size: 12px; color: var(--text-muted, #94a3b8); margin-top: 4px; display: inline-block;"></span>
+                                    </div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button class="btn btn-sm" onclick="app.copyAIResult('ai-02-result-body')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                            <i data-lucide="copy"></i> 결과 복사
+                                        </button>
+                                        <button class="btn btn-sm" onclick="app.downloadAIResult('ai-02-result-body', 'AI-02_산출물누락_대응방안.md')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                            <i data-lucide="download"></i> 파일 다운로드
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="ai-02-result-body" class="markdown-body" style="line-height: 1.7; color: var(--text-color, #e2e8f0); font-size: 14px;"></div>
+                            </div>
+
+                            <div class="card" style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px dashed var(--border-color, #334155); border-radius: 8px;">
+                                <details>
+                                    <summary style="cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-muted, #94a3b8);">
+                                        <i data-lucide="database" style="width: 14px; height: 14px; vertical-align: middle;"></i> 미등록/검토지연 산출물 대조 원본 데이터 확인
+                                    </summary>
+                                    <pre id="ai-02-grounding-pre" style="margin-top: 12px; padding: 12px; background: #0f172a; border-radius: 6px; font-size: 12px; overflow-x: auto; color: #94a3b8;"></pre>
+                                </details>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI-03 주간업무보고 탭 패널 (Phase 3 준비) -->
+                    <div id="ai-panel-ai-03" class="ai-tab-panel" style="display: none;">
+                        <div class="card" style="padding: 30px; text-align: center; background: var(--card-bg, #1e293b); border: 1px dashed var(--border-color, #334155); border-radius: 8px;">
+                            <i data-lucide="calendar" style="width: 36px; height: 36px; color: #8b5cf6; margin-bottom: 12px;"></i>
+                            <h3 style="margin: 0 0 8px 0; color: #f8fafc;">AI-03 주간업무보고서 자동 생성</h3>
+                            <p style="color: #94a3b8; font-size: 13px; margin: 0;">Phase 3 개발 예정 기능입니다. (금주 실적 및 차주 계획 자동 취합)</p>
+                        </div>
+                    </div>
+
+                    <!-- AI-04 위험도 분석 탭 패널 (Phase 3 준비) -->
+                    <div id="ai-panel-ai-04" class="ai-tab-panel" style="display: none;">
+                        <div class="card" style="padding: 30px; text-align: center; background: var(--card-bg, #1e293b); border: 1px dashed var(--border-color, #334155); border-radius: 8px;">
+                            <i data-lucide="alert-triangle" style="width: 36px; height: 36px; color: #f59e0b; margin-bottom: 12px;"></i>
+                            <h3 style="margin: 0 0 8px 0; color: #f8fafc;">AI-04 프로젝트 위험도 분석</h3>
+                            <p style="color: #94a3b8; font-size: 13px; margin: 0;">Phase 3 개발 예정 기능입니다. (정량 위험 스코어링 및 원인 진단)</p>
+                        </div>
+                    </div>
+
+                    <!-- AI-05 RFP 분석 탭 패널 (Phase 4 준비) -->
+                    <div id="ai-panel-ai-05" class="ai-tab-panel" style="display: none;">
+                        <div class="card" style="padding: 30px; text-align: center; background: var(--card-bg, #1e293b); border: 1px dashed var(--border-color, #334155); border-radius: 8px;">
+                            <i data-lucide="file-text" style="width: 36px; height: 36px; color: #3b82f6; margin-bottom: 12px;"></i>
+                            <h3 style="margin: 0 0 8px 0; color: #f8fafc;">AI-05 RFP 공고 자동 분석</h3>
+                            <p style="color: #94a3b8; font-size: 13px; margin: 0;">Phase 4 개발 예정 기능입니다. (제안요청서 요약, 평가기준 및 자격 추출)</p>
+                        </div>
+                    </div>
+
+                    <!-- AI 실행 감사이력 탭 패널 (평가 증빙용) -->
+                    <div id="ai-panel-ai-audit" class="ai-tab-panel" style="display: none;">
+                        <div class="card" style="padding: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                <div>
+                                    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #f8fafc;">
+                                        <i data-lucide="clipboard-list"></i> AI 기능 실행 감사 로그 (혁신과제 평가 증빙)
+                                    </h3>
+                                    <span style="font-size: 12px; color: #94a3b8;">실제 생성형 AI 모델 호출 일시, 대상 프로젝트, 모델 정보 및 성공 여부 실시간 기록</span>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn btn-sm" onclick="app.exportAIAuditLogsCSV()" style="padding: 6px 12px; font-size: 12px; background: #334155; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                        <i data-lucide="download"></i> 감사로그 CSV 추출
+                                    </button>
+                                    <button class="btn btn-sm" onclick="app.clearAIAuditLogs()" style="padding: 6px 12px; font-size: 12px; background: transparent; border: 1px solid #475569; color: #94a3b8; border-radius: 4px; cursor: pointer;">
+                                        이력 초기화
+                                    </button>
+                                </div>
+                            </div>
+                            <div style="overflow-x: auto;">
+                                <table class="table" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid var(--border-color, #334155); color: #94a3b8; text-align: left;">
+                                            <th style="padding: 8px 12px;">실행 시각</th>
+                                            <th style="padding: 8px 12px;">기능</th>
+                                            <th style="padding: 8px 12px;">대상 프로젝트</th>
+                                            <th style="padding: 8px 12px;">사용자</th>
+                                            <th style="padding: 8px 12px;">AI 모델</th>
+                                            <th style="padding: 8px 12px;">소요시간</th>
+                                            <th style="padding: 8px 12px;">상태</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="ai-audit-logs-tbody">
+                                        <tr><td colspan="7" style="text-align:center; padding: 24px; color: #64748b;">기록된 AI 실행 이력이 없습니다.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <section id="view-projects" class="content-view">
                     <div class="view-header">
                         <div>
@@ -7006,6 +7235,7 @@
     <!-- Core App logic script -->
     <script src="app.js?v=v151_20261020_save_fix"></script>
     <script src="monthly-effort.js?v=v151_20261020_save_fix"></script>
+    <script src="ai-automation.js?v=v20261027_ai_pmo"></script>
 
     <!-- ======================================================================= -->
     <!-- MODAL: SALARY PAYMENT APPROVAL DETAIL & PRINT PREVIEW                   -->

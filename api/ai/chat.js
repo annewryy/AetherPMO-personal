@@ -1,5 +1,5 @@
 // AetherPMO AI 어시스턴트 Vercel Serverless Function 엔드포인트 (/api/ai/chat)
-// Supabase JWT 검증, 프로젝트/역할 권한 제어, PMO 업무 컨텍스트 수집, 멀티 LLM(Gemini / OpenAI / Ollama) 연동
+// Supabase JWT 검증, DB 기반 역할 검증, 프로젝트 컨텍스트(사업/산출물/이슈/조치사항) 수집, 멀티 LLM 연동
 
 const http = require('http');
 const https = require('https');
@@ -110,7 +110,7 @@ async function verifySupabaseToken(token, supabaseUrl, supabaseAnonKey) {
   }
 }
 
-// 2. 사용자 프로필 및 권한 확인
+// 2. 사용자 프로필 및 역할 확인 (오직 Supabase DB profiles 테이블 기준 검증)
 async function getUserProfile(userId, supabaseUrl, serviceKeyOrAnon) {
   const parsed = new URL(supabaseUrl);
   const options = {
@@ -147,7 +147,7 @@ async function getAccessibleProjects(userId, role, supabaseUrl, serviceKeyOrAnon
       protocol: parsed.protocol,
       hostname: parsed.hostname,
       port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-      path: `/rest/v1/projects?select=id,project_code,name,status,progress,manager,customer,start_date,end_date,budget&order=id.asc`,
+      path: `/rest/v1/projects?select=id,project_code,name,status,progress,manager,customer,start_date,end_date,budget,stage&order=id.asc`,
       method: 'GET',
       headers: {
         'apikey': serviceKeyOrAnon,
@@ -181,7 +181,7 @@ async function getAccessibleProjects(userId, role, supabaseUrl, serviceKeyOrAnon
     protocol: parsed.protocol,
     hostname: parsed.hostname,
     port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-    path: `/rest/v1/projects?id=in.(${projectIds.join(',')})&select=id,project_code,name,status,progress,manager,customer,start_date,end_date,budget&order=id.asc`,
+    path: `/rest/v1/projects?id=in.(${projectIds.join(',')})&select=id,project_code,name,status,progress,manager,customer,start_date,end_date,budget,stage&order=id.asc`,
     method: 'GET',
     headers: {
       'apikey': serviceKeyOrAnon,
@@ -193,7 +193,50 @@ async function getAccessibleProjects(userId, role, supabaseUrl, serviceKeyOrAnon
   return Array.isArray(projRes.body) ? projRes.body : [];
 }
 
-// 3-2. 필수 산출물 및 등록 산출물 비교
+// 3-2. 프로젝트 이슈 및 Action Item 조회
+async function getProjectIssuesAndActions(projectId, supabaseUrl, serviceKeyOrAnon) {
+  const parsed = new URL(supabaseUrl);
+  
+  // 이슈 조회
+  const issueOptions = {
+    protocol: parsed.protocol,
+    hostname: parsed.hostname,
+    port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+    path: `/rest/v1/issues?project_id=eq.${encodeURIComponent(projectId)}&select=id,title,status,priority,category,created_at&order=created_at.desc&limit=15`,
+    method: 'GET',
+    headers: { 'apikey': serviceKeyOrAnon, 'Authorization': `Bearer ${serviceKeyOrAnon}` },
+    timeout: 5000
+  };
+  let issues = [];
+  try {
+    const res = await requestHttp(issueOptions);
+    issues = Array.isArray(res.body) ? res.body : [];
+  } catch (e) {
+    console.warn('Issues fetch warning:', e.message);
+  }
+
+  // Action Items 조회
+  const actionOptions = {
+    protocol: parsed.protocol,
+    hostname: parsed.hostname,
+    port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+    path: `/rest/v1/action_items?project_id=eq.${encodeURIComponent(projectId)}&select=id,title,status,priority,assignee,due_date&order=created_at.desc&limit=15`,
+    method: 'GET',
+    headers: { 'apikey': serviceKeyOrAnon, 'Authorization': `Bearer ${serviceKeyOrAnon}` },
+    timeout: 5000
+  };
+  let actionItems = [];
+  try {
+    const res = await requestHttp(actionOptions);
+    actionItems = Array.isArray(res.body) ? res.body : [];
+  } catch (e) {
+    console.warn('Action items fetch warning:', e.message);
+  }
+
+  return { issues, actionItems };
+}
+
+// 3-3. 필수 산출물 및 등록 산출물 비교 (AI-02용)
 async function getDeliverablesComparison(project, supabaseUrl, serviceKeyOrAnon) {
   const parsed = new URL(supabaseUrl);
   const projectId = project.id;
@@ -253,6 +296,7 @@ async function getDeliverablesComparison(project, supabaseUrl, serviceKeyOrAnon)
       unregisteredList.push({
         name: tpl.name,
         category: tpl.category || '표준산출물',
+        stage: tpl.stage || project.stage || '공통',
         status: 'UNREGISTERED',
         statusDescription: '미등록 (산출물 미생성)',
         dueDate: '미정'
@@ -272,7 +316,7 @@ async function getDeliverablesComparison(project, supabaseUrl, serviceKeyOrAnon)
           name: tpl.name,
           category: tpl.category,
           status: matched.status,
-          statusDescription: '제출 후 검토 중 (발주처/PMO 검토 단계)',
+          statusDescription: '제출 후 검토 중 (지연 검토 대상)',
           submitDate: matched.submit_date || '제출됨'
         });
       } else {
@@ -280,7 +324,7 @@ async function getDeliverablesComparison(project, supabaseUrl, serviceKeyOrAnon)
           name: tpl.name,
           category: tpl.category,
           status: matched.status || 'DRAFT',
-          statusDescription: '작성 중 (내부 작성 및 보완 단계)',
+          statusDescription: '작성 중 (보완 필요)',
           dueDate: matched.due_date || '미정'
         });
       }
@@ -291,22 +335,25 @@ async function getDeliverablesComparison(project, supabaseUrl, serviceKeyOrAnon)
     baselineSource: project.stage ? `프로젝트 단계(${project.stage}) 기준 필수 표준 산출물 카탈로그` : '전체 표준 산출물 카탈로그',
     totalRequiredStandards: templates.length,
     statusSummary: {
+      totalRequired: templates.length,
+      registeredCount: projDeliverables.length,
       approvedCount: approvedList.length,
       underReviewCount: underReviewList.length,
       draftCount: draftList.length,
       unregisteredCount: unregisteredList.length,
+      submissionRate: templates.length > 0 ? Math.round(((templates.length - unregisteredList.length) / templates.length) * 100) : 0
     },
-    approvedList: approvedList.slice(0, 10),
-    underReviewList: underReviewList.slice(0, 10),
-    draftList: draftList.slice(0, 10),
-    unregisteredList: unregisteredList.slice(0, 10),
+    unregisteredList: unregisteredList,
+    underReviewList: underReviewList,
+    draftList: draftList,
+    approvedList: approvedList
   };
 }
 
-// 4-1. Google Gemini API 호출
+// 4-1. Google Gemini API 호출 (최신 모델: gemini-2.5-flash 기본)
 async function callGemini(messages) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
-  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const timeoutMs = Number(process.env.AI_TIMEOUT_MS || 45000);
 
   let systemText = '';
@@ -434,10 +481,7 @@ async function callOllama(messages) {
     model,
     messages,
     stream: false,
-    options: {
-      temperature: 0.2,
-      top_p: 0.8,
-    }
+    options: { temperature: 0.2, top_p: 0.8 }
   });
 
   const headers = {
@@ -487,7 +531,6 @@ async function callLLM(messages) {
 }
 
 module.exports = async (req, res) => {
-  // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -527,10 +570,10 @@ module.exports = async (req, res) => {
     });
   }
 
-  // 2. 사용자 프로필 및 역할 파악
+  // 2. 사용자 프로필 및 역할 파악 (보안 지침: user_metadata.role 배제, 검증된 DB profiles.role만 인정)
   const profile = await getUserProfile(authUser.id, supabaseUrl, supabaseServiceKey);
-  const role = (profile?.role || authUser.user_metadata?.role || 'VIEWER').toUpperCase();
-  const userName = profile?.name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || '사용자';
+  const role = (profile && profile.role) ? String(profile.role).toUpperCase() : 'VIEWER';
+  const userName = (profile && profile.name) ? profile.name : (authUser.email ? authUser.email.split('@')[0] : '사용자');
 
   const body = req.body || {};
   const message = String(body.message || '').trim();
@@ -559,7 +602,6 @@ module.exports = async (req, res) => {
     }
   }
 
-  // 의도 및 데이터 파이프라인
   let intent = featureType || 'general';
   let pmoContextData = null;
   const sources = [];
@@ -570,13 +612,6 @@ module.exports = async (req, res) => {
     timeZone: 'Asia/Seoul'
   }).format(new Date());
 
-  const now = new Date();
-  const kstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  const day = kstDate.getUTCDay();
-  const diffToMonday = day === 0 ? 6 : day - 1;
-  const currentWeekMonday = new Date(kstDate.getTime() - diffToMonday * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  const currentWeekSunday = new Date(new Date(currentWeekMonday).getTime() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
   const targetProj = requestedProjectId
     ? accessibleProjects.find(p => String(p.id) === requestedProjectId)
     : accessibleProjects[0];
@@ -585,76 +620,94 @@ module.exports = async (req, res) => {
     sources.push({ id: targetProj.id, name: targetProj.name, type: 'project' });
   }
 
-  // 기능별/질의별 데이터 바인딩
-  const lowerMsg = message.toLowerCase();
-  if (featureType === 'AI-02' || lowerMsg.includes('산출물') || lowerMsg.includes('문서')) {
-    intent = 'deliverables_status';
-    if (targetProj) {
-      let comparison = null;
-      try {
-        comparison = await getDeliverablesComparison(targetProj, supabaseUrl, supabaseServiceKey);
-      } catch (e) {
-        console.error('Deliverable comparison failed:', e.message);
-      }
-      pmoContextData = {
-        project: { id: targetProj.id, code: targetProj.project_code, name: targetProj.name, status: targetProj.status, progress: targetProj.progress },
-        baselineSource: 'AetherPMO 표준 산출물 템플릿(표준 카탈로그 기준) 대조 결과',
-        comparison: comparison || '산출물 데이터 조회 실패'
-      };
+  // 기능별 프롬프트 및 데이터 취합
+  let featureTitle = 'AetherPMO AI 분석관';
+  let specificInstructions = '';
+
+  if (featureType === 'AI-01') {
+    intent = 'AI-01_project_summary';
+    featureTitle = 'AI-01 사업현황 자동 요약 분석관';
+    if (!targetProj) {
+      return res.status(400).json({ error: '사업현황 요약을 실행할 프로젝트가 선택되지 않았거나 접근 권한이 없습니다.' });
     }
-  } else if (featureType === 'AI-03' || lowerMsg.includes('주간') || lowerMsg.includes('보고')) {
-    intent = 'weekly_report';
-    if (targetProj) {
-      pmoContextData = {
-        project: { id: targetProj.id, code: targetProj.project_code, name: targetProj.name, progress: targetProj.progress, status: targetProj.status, manager: targetProj.manager },
-        reportingPeriod: `${currentWeekMonday} ~ ${currentWeekSunday}`,
-        currentWeekMonday: currentWeekMonday,
-        notice: `KST 역법 기준 이번 주(${currentWeekMonday} ~ ${currentWeekSunday}) 주간보고 실적/계획 요약 데이터입니다.`
-      };
+
+    // 이슈 및 조치사항 데이터 함께 취합
+    let issuesAndActions = { issues: [], actionItems: [] };
+    try {
+      issuesAndActions = await getProjectIssuesAndActions(targetProj.id, supabaseUrl, supabaseServiceKey);
+    } catch (e) {
+      console.warn('Issue/Action fetch error:', e.message);
     }
-  } else if (featureType === 'AI-04' || lowerMsg.includes('위험') || lowerMsg.includes('risk')) {
-    intent = 'risk_analysis';
-    if (targetProj) {
-      pmoContextData = {
-        project: { id: targetProj.id, code: targetProj.project_code, name: targetProj.name, progress: targetProj.progress, status: targetProj.status, startDate: targetProj.start_date, endDate: targetProj.end_date },
-        analysisCriteria: '일정 지연 여부, 산출물 누락 상태, 리스크 수준 정량 평가 기준'
-      };
-    }
-  } else if (featureType === 'AI-05' || body.rfpText) {
-    intent = 'rfp_analysis';
+
     pmoContextData = {
-      rfpText: (body.rfpText || message).slice(0, 15000),
-      notice: '사용자가 제출한 제안요청서(RFP) 문서 본문입니다.'
+      projectOverview: {
+        id: targetProj.id,
+        code: targetProj.project_code || 'N/A',
+        name: targetProj.name,
+        customer: targetProj.customer || '미지정',
+        manager: targetProj.manager || '미지정',
+        period: `${targetProj.start_date || '미정'} ~ ${targetProj.end_date || '미정'}`,
+        status: targetProj.status,
+        progress: `${targetProj.progress || 0}%`,
+        budget: targetProj.budget ? `${Number(targetProj.budget).toLocaleString()}원` : '미등록',
+        stage: targetProj.stage || '수행'
+      },
+      recentIssues: issuesAndActions.issues.map(i => ({ title: i.title, priority: i.priority, status: i.status })),
+      recentActions: issuesAndActions.actionItems.map(a => ({ title: a.title, priority: a.priority, status: a.status, dueDate: a.due_date }))
     };
-  } else {
-    intent = 'project_status';
-    const totalCount = accessibleProjects.length;
+
+    specificInstructions = `
+[작성 지침 - AI-01 사업현황 자동 요약]:
+1. 프로젝트 기본 개요(사업명, 발주처, 기간, 현재 공정률 및 상태)를 간결하게 요약 브리핑하세요.
+2. 현재 진행률과 일정, 미해결 이슈/Action Item을 종합 분석하여 "주요 특이사항 및 병목 지점"을 명확히 진단하세요.
+3. PMO 총괄 관점에서 프로젝트 성공을 위해 이번 주 즉시 조치해야 할 "핵심 관리 권고사항(3가지 이내)"을 구체적인 행동 단위로 제시하세요.
+4. 없는 수치나 사실은 절대 임의 생성하지 마세요.`;
+
+  } else if (featureType === 'AI-02') {
+    intent = 'AI-02_deliverables_gap_analysis';
+    featureTitle = 'AI-02 산출물 누락 및 대응방안 분석관';
+    if (!targetProj) {
+      return res.status(400).json({ error: '산출물 분석을 실행할 프로젝트가 선택되지 않았거나 접근 권한이 없습니다.' });
+    }
+
+    let comparison = null;
+    try {
+      comparison = await getDeliverablesComparison(targetProj, supabaseUrl, supabaseServiceKey);
+    } catch (e) {
+      console.error('Deliverable comparison failed:', e.message);
+    }
+
     pmoContextData = {
-      totalAccessibleProjects: totalCount,
-      targetProject: targetProj || null,
-      projects: accessibleProjects.slice(0, 10).map(p => ({
-        id: p.id,
-        code: p.project_code,
-        name: p.name,
-        status: p.status,
-        progress: p.progress,
-        manager: p.manager,
-        customer: p.customer,
-        endDate: p.end_date
-      }))
+      project: { id: targetProj.id, code: targetProj.project_code, name: targetProj.name, stage: targetProj.stage },
+      deliverableComparison: comparison || '산출물 데이터를 조회하지 못했습니다.'
+    };
+
+    specificInstructions = `
+[작성 지침 - AI-02 산출물 누락 및 대응방안 분석]:
+1. 표준 산출물 템플릿 대비 등록 현황 요약(전체 필수 건수, 등록 건수, 제출률, 승인/검토중/작성중/미등록 건수)을 제시하세요.
+2. 미등록(UNREGISTERED) 및 검토 지연(UNDER_REVIEW/DRAFT) 항목 중 사업 일정과 직결된 "우선 조치 대상 산출물"을 선별하세요.
+3. 누락 및 지연 원인을 단계별(요구분석/설계/구현 등)로 진단하고, PM/수행팀이 산출물 작성을 단기간에 만회할 수 있는 "실천적 대응방안 및 보완 일정 계획"을 수립하세요.`;
+
+  } else {
+    // 일반 대화 질의 처리
+    intent = 'general_chat';
+    pmoContextData = {
+      accessibleProjectsCount: accessibleProjects.length,
+      targetProject: targetProj || null
     };
   }
 
   // 시스템 프롬프트 구성
-  let systemPrompt = `당신은 공공 SI 사업관리 플랫폼 AetherPMO의 전문 AI 분석관입니다.
-현재 사용자: ${userName} (역할: ${role})
+  let systemPrompt = `당신은 공공 SI 사업관리 플랫폼 AetherPMO의 전문 ${featureTitle}입니다.
+현재 사용자: ${userName} (검증된 DB 권한: ${role})
 조회 기준 시각: ${nowKST}
 
 [답변 원칙]:
 1. 제공된 [조회된 실제 PMO 데이터]에 근거하여 명확하고 신뢰성 있게 한국어로 답변하세요.
 2. 실제 데이터에 없는 사실, 존재하지 않는 수치, 임의의 일정은 절대 날조(환각)하지 마세요. 근거가 없으면 "확인 불가" 또는 "데이터 없음"으로 명시하세요.
-3. 결과는 사용자가 바로 보고서로 활용할 수 있도록 정갈한 Markdown 헤더(#, ##), 불릿 기호(-), 굵은 글씨(**)로 구조화하여 작성하세요.
-4. 자바스크립트 코드(<script> 등)나 실행 태그는 절대 출력하지 마세요.`;
+3. 결과는 사용자가 바로 보고서로 활용할 수 있도록 정갈한 Markdown 헤더(#, ##, ###), 불릿 기호(-), 굵은 글씨(**)로 구조화하여 작성하세요.
+4. 자바스크립트 코드(<script> 등)나 실행 태그는 절대 출력하지 마세요.
+${specificInstructions}`;
 
   if (pmoContextData) {
     systemPrompt += `\n\n[조회된 실제 PMO 데이터 (읽기 전용)]:
@@ -663,9 +716,9 @@ ${JSON.stringify(pmoContextData, null, 2)}
 \`\`\``;
   }
 
-  const promptMessage = message || `다음 기능에 대한 전문적인 분석 및 보고서를 생성해주세요: ${featureType || intent}`;
+  const promptMessage = message || `프로젝트 [${targetProj ? targetProj.name : '선택 사업'}]에 대해 ${featureType} 업무 분석 보고서를 생성해주세요.`;
 
-  const sanitizedHistory = history.slice(-6).map(h => ({
+  const sanitizedHistory = history.slice(-4).map(h => ({
     role: h.role === 'assistant' ? 'assistant' : 'user',
     content: String(h.content || '').slice(0, 500)
   }));
@@ -687,6 +740,7 @@ ${JSON.stringify(pmoContextData, null, 2)}
       sources,
       groundingData: pmoContextData,
       metadata: {
+        featureType: featureType || 'GENERAL',
         model: result.model,
         provider: result.provider,
         queriedAt: nowKST,
@@ -698,7 +752,9 @@ ${JSON.stringify(pmoContextData, null, 2)}
     const status = err.statusCode || 500;
     return res.status(status).json({
       error: err.message || 'AI 어시스턴트 처리 중 오류가 발생했습니다.',
+      groundingData: pmoContextData,
       metadata: {
+        featureType: featureType || 'GENERAL',
         latencyMs: Date.now() - startTime
       }
     });
