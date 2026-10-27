@@ -990,21 +990,129 @@
                         </div>
                     </div>
 
-                    <!-- AI-03 주간업무보고 탭 패널 (Phase 3 준비) -->
+                    <!-- AI-03 주간업무보고 탭 패널 (Phase 3 구현) -->
                     <div id="ai-panel-ai-03" class="ai-tab-panel" style="display: none;">
-                        <div class="card" style="padding: 30px; text-align: center; background: var(--card-bg, #1e293b); border: 1px dashed var(--border-color, #334155); border-radius: 8px;">
-                            <i data-lucide="calendar" style="width: 36px; height: 36px; color: #8b5cf6; margin-bottom: 12px;"></i>
-                            <h3 style="margin: 0 0 8px 0; color: #f8fafc;">AI-03 주간업무보고서 자동 생성</h3>
-                            <p style="color: #94a3b8; font-size: 13px; margin: 0;">Phase 3 개발 예정 기능입니다. (금주 실적 및 차주 계획 자동 취합)</p>
+                        <div class="card" style="padding: 20px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                                <div>
+                                    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                                        <i data-lucide="calendar" style="color: #a78bfa;"></i>
+                                        주간업무보고서 자동 생성
+                                    </h3>
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 6px;">
+                                        <p style="color: var(--text-muted, #94a3b8); margin: 0; font-size: 13px;">
+                                            활동 이력, 이슈 및 Action Item 데이터를 종합하여 금주 실적과 차주 계획 초안을 자동 편성합니다.
+                                        </p>
+                                        <span id="ai-03-week-badge" class="badge" style="background: rgba(139, 92, 246, 0.2); color: #c4b5fd; font-size: 11px; padding: 2px 8px; border-radius: 4px;">
+                                            <i data-lucide="clock" style="width: 11px; height: 11px; vertical-align: middle;"></i> KST 주간 집계 (월~일)
+                                        </span>
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <select id="ai-03-project-select" class="form-control" style="min-width: 280px; padding: 9px 12px; background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 6px; font-size: 13px;">
+                                        <option value="">프로젝트 불러오는 중...</option>
+                                    </select>
+                                    <button id="btn-run-ai-03" class="btn btn-primary" onclick="app.runAI03WeeklyReport()" style="padding: 10px 20px; font-weight: 600; display: flex; align-items: center; gap: 8px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                                        <i data-lucide="sparkles"></i> AI 주간보고서 생성 실행
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="ai-03-status-bar" style="display: none; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 13px;"></div>
+
+                        <div id="ai-03-result-container" style="display: none;">
+                            <div id="ai-03-summary-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px;"></div>
+
+                            <div class="card" style="padding: 24px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color, #334155); padding-bottom: 14px; margin-bottom: 18px;">
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #c4b5fd; display: flex; align-items: center; gap: 8px;">
+                                            <i data-lucide="file-text"></i> 프로젝트 주간업무보고서
+                                        </h3>
+                                        <span id="ai-03-meta-info" style="font-size: 12px; color: var(--text-muted, #94a3b8); margin-top: 4px; display: inline-block;"></span>
+                                    </div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button class="btn btn-sm" onclick="app.copyAIResult('ai-03-result-body')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                            <i data-lucide="copy"></i> 결과 복사
+                                        </button>
+                                        <button class="btn btn-sm" onclick="app.downloadAIResult('ai-03-result-body', 'AI-03_주간업무보고서.md')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                            <i data-lucide="download"></i> 파일 다운로드
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="ai-03-result-body" class="markdown-body" style="line-height: 1.7; color: var(--text-color, #e2e8f0); font-size: 14px;"></div>
+                            </div>
+
+                            <div class="card" style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px dashed var(--border-color, #334155); border-radius: 8px;">
+                                <details>
+                                    <summary style="cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-muted, #94a3b8);">
+                                        <i data-lucide="database" style="width: 14px; height: 14px; vertical-align: middle;"></i> 주간 집계 원본 데이터 (Grounding Context) 확인
+                                    </summary>
+                                    <pre id="ai-03-grounding-pre" style="margin-top: 12px; padding: 12px; background: #0f172a; border-radius: 6px; font-size: 12px; overflow-x: auto; color: #94a3b8;"></pre>
+                                </details>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- AI-04 위험도 분석 탭 패널 (Phase 3 준비) -->
+                    <!-- AI-04 위험도 분석 탭 패널 (Phase 3 구현) -->
                     <div id="ai-panel-ai-04" class="ai-tab-panel" style="display: none;">
-                        <div class="card" style="padding: 30px; text-align: center; background: var(--card-bg, #1e293b); border: 1px dashed var(--border-color, #334155); border-radius: 8px;">
-                            <i data-lucide="alert-triangle" style="width: 36px; height: 36px; color: #f59e0b; margin-bottom: 12px;"></i>
-                            <h3 style="margin: 0 0 8px 0; color: #f8fafc;">AI-04 프로젝트 위험도 분석</h3>
-                            <p style="color: #94a3b8; font-size: 13px; margin: 0;">Phase 3 개발 예정 기능입니다. (정량 위험 스코어링 및 원인 진단)</p>
+                        <div class="card" style="padding: 20px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                                <div>
+                                    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                                        <i data-lucide="alert-triangle" style="color: #f59e0b;"></i>
+                                        프로젝트 종합 위험도 분석
+                                    </h3>
+                                    <p style="color: var(--text-muted, #94a3b8); margin-top: 4px; font-size: 13px;">
+                                        일정 지연, 산출물 누락, 미해결 이슈, Action Item을 기반으로 정량 위험점수를 산정하고 AI 대응 전략을 수립합니다.
+                                    </p>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <select id="ai-04-project-select" class="form-control" style="min-width: 280px; padding: 9px 12px; background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 6px; font-size: 13px;">
+                                        <option value="">프로젝트 불러오는 중...</option>
+                                    </select>
+                                    <button id="btn-run-ai-04" class="btn btn-primary" onclick="app.runAI04RiskAnalysis()" style="padding: 10px 20px; font-weight: 600; display: flex; align-items: center; gap: 8px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                                        <i data-lucide="sparkles"></i> AI 위험도 진단 실행
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="ai-04-status-bar" style="display: none; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 13px;"></div>
+
+                        <div id="ai-04-result-container" style="display: none;">
+                            <!-- 정량 위험 지표 대시보드 카드 그리드 -->
+                            <div id="ai-04-metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px;"></div>
+
+                            <div class="card" style="padding: 24px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color, #334155); padding-bottom: 14px; margin-bottom: 18px;">
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #fbbf24; display: flex; align-items: center; gap: 8px;">
+                                            <i data-lucide="shield-alert"></i> 위험 요인 심층 진단 및 맞춤형 대응 전략
+                                        </h3>
+                                        <span id="ai-04-meta-info" style="font-size: 12px; color: var(--text-muted, #94a3b8); margin-top: 4px; display: inline-block;"></span>
+                                    </div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button class="btn btn-sm" onclick="app.copyAIResult('ai-04-result-body')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                            <i data-lucide="copy"></i> 결과 복사
+                                        </button>
+                                        <button class="btn btn-sm" onclick="app.downloadAIResult('ai-04-result-body', 'AI-04_프로젝트_위험도분석.md')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                            <i data-lucide="download"></i> 파일 다운로드
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="ai-04-result-body" class="markdown-body" style="line-height: 1.7; color: var(--text-color, #e2e8f0); font-size: 14px;"></div>
+                            </div>
+
+                            <div class="card" style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px dashed var(--border-color, #334155); border-radius: 8px;">
+                                <details>
+                                    <summary style="cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-muted, #94a3b8);">
+                                        <i data-lucide="database" style="width: 14px; height: 14px; vertical-align: middle;"></i> 위험 산출 근거 및 원본 데이터 (Grounding Context) 확인
+                                    </summary>
+                                    <pre id="ai-04-grounding-pre" style="margin-top: 12px; padding: 12px; background: #0f172a; border-radius: 6px; font-size: 12px; overflow-x: auto; color: #94a3b8;"></pre>
+                                </details>
+                            </div>
                         </div>
                     </div>
 

@@ -5,6 +5,8 @@
 
 -- 1. service_role 및 authenticated 에 권한 부여 (필수)
 GRANT ALL ON TABLE public.profiles TO postgres, service_role, authenticated;
+GRANT ALL ON TABLE public.activity_logs TO postgres, service_role, authenticated;
+GRANT SELECT ON TABLE public.projects TO postgres, service_role, authenticated;
 
 -- 2. 15개 테스트 계정 Profiles 데이터 INSERT / UPDATE
 -- 조직정보(corporation_type, division, team, part, position)는 일체 입력하지 않음 (NULL 유지)

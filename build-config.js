@@ -32,6 +32,7 @@ const buildVersion = process.env.VERCEL_GIT_COMMIT_SHA
 let html = fs.readFileSync('index.html', 'utf-8');
 html = html.replace(/app\.js\?v=[^"']+/, `app.js?v=${buildVersion}`);
 html = html.replace(/monthly-effort\.js(\?v=[^"']+)?/, `monthly-effort.js?v=${buildVersion}`);
+html = html.replace(/ai-automation\.js(\?v=[^"']+)?/, `ai-automation.js?v=${buildVersion}`);
 fs.writeFileSync('index.html', html);
 console.log(`app.js & monthly-effort.js cache-busting version updated to: ${buildVersion}`);
 
