@@ -1,0 +1,42 @@
+﻿name: AetherPMO CI Verification
+
+on:
+  push:
+    branches:
+      - feature/ai-pmo-automation
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  verify:
+    name: Code & Security Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate JavaScript Syntax
+        run: |
+          node --check api/ai/chat.js
+          node --check api/ai/health.js
+          node --check ai-automation.js
+          node --check build-config.js
+
+      - name: Security Check - No Plaintext Secrets in Code
+        run: |
+          echo "Scanning for plaintext service_role keys or secrets..."
+          if grep -rn "sb_secret_" . --exclude-dir={.git,node_modules}; then
+            echo "::error::Found plaintext Supabase secret key!"
+            exit 1
+          fi
+          if grep -rn "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnlmemltdnBra3Vsam5tZmN0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZS" . --exclude-dir={.git,node_modules}; then
+            echo "::error::Found leaked legacy service_role key!"
+            exit 1
+          fi
+          echo "No hardcoded credentials found."

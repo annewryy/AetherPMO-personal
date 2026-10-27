@@ -31,9 +31,13 @@ ORDER BY grantee, privilege_type;
 -- [Phase 2] 서버 전용 최소 권한 부여 (service_role SELECT, INSERT 단 2종만 부여)
 -- ============================================================================
 -- 1) anon의 비인가 쓰기/수정/삭제 권한 원천 차단
-REVOKE INSERT, UPDATE, DELETE ON TABLE public.activity_logs FROM anon;
+-- 1) anon의 비인가 SELECT(정보 노출 방지) 및 DML 전면 차단
+REVOKE ALL ON TABLE public.activity_logs FROM anon;
 
--- 2) 서버리스 백엔드 Secret Key(service_role)에만 감사로그 INSERT 및 검증용 SELECT 부여
+-- 2) authenticated(로그인 사용자)의 일반 활동 로그 SELECT 허용 (기존 화면 유지)
+GRANT SELECT ON TABLE public.activity_logs TO authenticated;
+
+-- 3) 서버리스 백엔드 Secret Key(service_role)에만 감사로그 INSERT 및 검증용 SELECT 부여
 GRANT SELECT, INSERT ON TABLE public.activity_logs TO service_role;
 
 -- ============================================================================
