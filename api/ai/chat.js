@@ -228,17 +228,21 @@ async function getAccessibleProjects(userId, role, supabaseUrl, serviceKeyOrAnon
   return Array.isArray(projRes.body) ? projRes.body : [];
 }
 
-// 3-2. 프로젝트 이슈 및 Action Item 조회
+// 3-2. 프로젝트 이슈 및 Action Item 조회 (실제 DB 스키마 정합성 반영)
+// issues: id, project_id, title, category, impact, status, reporter, assignee, due_date, solution, created_at, updated_at (priority, closed_at 없음)
+// action_items: id, project_id, title, assignee, due_date, status, priority, created_at, updated_at (completed_at 없음)
 async function getProjectIssuesAndActions(projectId, supabaseUrl, serviceKeyOrAnon, userToken = null) {
   const parsed = new URL(supabaseUrl);
   const authKey = userToken || serviceKeyOrAnon;
+  let issuesError = null;
+  let actionsError = null;
   
-  // 이슈 조회
+  // 이슈 조회 (실제 스키마: impact가 심각도 역할, priority/closed_at 컬럼 없음)
   const issueOptions = {
     protocol: parsed.protocol,
     hostname: parsed.hostname,
     port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-    path: `/rest/v1/issues?project_id=eq.${encodeURIComponent(projectId)}&select=id,title,status,priority,category,created_at,closed_at,updated_at&order=created_at.desc&limit=25`,
+    path: `/rest/v1/issues?project_id=eq.${encodeURIComponent(projectId)}&select=id,project_id,title,category,impact,status,reporter,assignee,due_date,solution,created_at,updated_at&order=created_at.desc&limit=25`,
     method: 'GET',
     headers: { 'apikey': serviceKeyOrAnon, 'Authorization': `Bearer ${authKey}` },
     timeout: 5000
@@ -246,17 +250,26 @@ async function getProjectIssuesAndActions(projectId, supabaseUrl, serviceKeyOrAn
   let issues = [];
   try {
     const res = await requestHttp(issueOptions);
-    issues = Array.isArray(res.body) ? res.body : [];
+    if (res.statusCode >= 200 && res.statusCode < 300 && Array.isArray(res.body)) {
+      issues = res.body.map(i => ({
+        ...i,
+        priority: i.impact || 'NORMAL' // 실제 impact 컬럼을 priority 필드로 정규화 매핑
+      }));
+    } else {
+      issuesError = `이슈 조회 실패 (HTTP ${res.statusCode}): ${res.body?.message || JSON.stringify(res.body)}`;
+      console.warn('[DB Schema Sync]', issuesError);
+    }
   } catch (e) {
-    console.warn('Issues fetch warning:', e.message);
+    issuesError = `이슈 조회 예외: ${e.message}`;
+    console.warn('[DB Schema Sync]', issuesError);
   }
 
-  // Action Items 조회
+  // Action Items 조회 (실제 스키마: completed_at 컬럼 없음)
   const actionOptions = {
     protocol: parsed.protocol,
     hostname: parsed.hostname,
     port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-    path: `/rest/v1/action_items?project_id=eq.${encodeURIComponent(projectId)}&select=id,title,status,priority,assignee,due_date,created_at,completed_at,updated_at&order=created_at.desc&limit=25`,
+    path: `/rest/v1/action_items?project_id=eq.${encodeURIComponent(projectId)}&select=id,project_id,title,assignee,due_date,status,priority,created_at,updated_at&order=created_at.desc&limit=25`,
     method: 'GET',
     headers: { 'apikey': serviceKeyOrAnon, 'Authorization': `Bearer ${authKey}` },
     timeout: 5000
@@ -264,12 +277,18 @@ async function getProjectIssuesAndActions(projectId, supabaseUrl, serviceKeyOrAn
   let actionItems = [];
   try {
     const res = await requestHttp(actionOptions);
-    actionItems = Array.isArray(res.body) ? res.body : [];
+    if (res.statusCode >= 200 && res.statusCode < 300 && Array.isArray(res.body)) {
+      actionItems = res.body;
+    } else {
+      actionsError = `Action Item 조회 실패 (HTTP ${res.statusCode}): ${res.body?.message || JSON.stringify(res.body)}`;
+      console.warn('[DB Schema Sync]', actionsError);
+    }
   } catch (e) {
-    console.warn('Action items fetch warning:', e.message);
+    actionsError = `Action Item 조회 예외: ${e.message}`;
+    console.warn('[DB Schema Sync]', actionsError);
   }
 
-  return { issues, actionItems };
+  return { issues, actionItems, issuesError, actionsError };
 }
 
 // 3-3. 필수 산출물 및 등록 산출물 비교 (AI-02 및 AI-04 위험도 분석 공용)
@@ -495,35 +514,43 @@ async function getWeeklyReportGroundingData(project, supabaseUrl, serviceKeyOrAn
     }
   });
 
-  // 금주 해결된 이슈 (상태가 완료이고, 실제 완료일자가 이번 주에 속하는 경우만 포함. created_at/due_date 대체 엄격 금지)
+  // 금주 해결된 이슈 (실제 DB 스키마: closed_at/resolved_at 컬럼 없음)
+  // 완료일이 확인되지 않는 데이터는 절대 금주 실적으로 임의 인정하지 않고 제외 (상태변경 활동로그 등 명확한 근거 확인)
   const closedIssuesThisWeek = issues.filter(i => {
     const st = (i.status || '').toUpperCase();
     const isCompleted = (st === 'CLOSED' || st === 'RESOLVED' || st === '완료');
     if (!isCompleted) return false;
-    // 실제 완료일이 없을 경우 created_at 등을 완료일로 간주하지 않고 실적에서 제외
-    const completionDate = i.closed_at || i.resolved_at;
-    if (!completionDate) return false;
-    return isDateInCurrentWeek(completionDate, weekRange.startDateStr, weekRange.endDateStr);
+    
+    // activity_logs에서 해당 이슈 완료/해결 이력이 금주에 존재하는지 확인
+    const hasLogEvidence = weeklyLogs.some(log => {
+      const text = typeof log.text === 'string' ? log.text : JSON.stringify(log.text || {});
+      return (text.includes(i.title) || (i.id && text.includes(i.id))) && (text.includes('해결') || text.includes('종료') || text.includes('완료'));
+    });
+    return hasLogEvidence;
   });
 
-  // 금주 완료된 Action Items (완료 상태이고 실제 완료일자가 이번 주에 속하는 경우만 포함. due_date 대체 엄격 금지)
+  // 금주 완료된 Action Items (실제 DB 스키마: completed_at 컬럼 없음)
+  // 완료 상태라 하더라도 실제 완료일자나 활동로그 증빙이 없으면 금주 실적으로 인정하지 않음 (due_date 대체 엄격 금지)
   const completedActionsThisWeek = actionItems.filter(a => {
     const st = (a.status || '').toUpperCase();
     const isCompleted = (st === 'COMPLETED' || st === 'DONE' || st === '완료');
     if (!isCompleted) return false;
-    // 실제 완료일이 없을 경우 due_date 등을 완료일로 간주하지 않고 실적에서 제외
-    const completionDate = a.completed_at;
-    if (!completionDate) return false;
-    return isDateInCurrentWeek(completionDate, weekRange.startDateStr, weekRange.endDateStr);
+
+    // activity_logs에서 해당 액션아이템 완료 이력이 금주에 존재하는지 확인
+    const hasLogEvidence = weeklyLogs.some(log => {
+      const text = typeof log.text === 'string' ? log.text : JSON.stringify(log.text || {});
+      return (text.includes(a.title) || (a.id && text.includes(a.id))) && (text.includes('완료') || text.includes('조치'));
+    });
+    return hasLogEvidence;
   });
 
-  // 금주 승인/제출 산출물 (제출일 또는 승인일이 이번 주에 속하는 경우만 포함)
+  // 금주 승인/제출 산출물 (실제 DB 스키마: approved_at 컬럼 없음, submit_date가 실제 제출일)
   const completedDeliverablesThisWeek = deliverables.filter(d => {
     const st = (d.status || '').toUpperCase();
-    const isCompleted = (st === 'APPROVED' || st === 'SUBMITTED' || st === '완료');
+    const isCompleted = (st === 'APPROVED' || st === 'SUBMITTED' || st === '완료' || st === '승인');
     if (!isCompleted) return false;
-    // 실제 제출일/승인일이 명시된 경우만 금주 실적으로 인정
-    const completionDate = d.submit_date || d.approved_at;
+    // 실제 제출일(submit_date)이 이번 주(KST) 범위에 명시된 경우만 금주 실적으로 인정
+    const completionDate = d.submit_date;
     if (!completionDate) return false;
     return isDateInCurrentWeek(completionDate, weekRange.startDateStr, weekRange.endDateStr);
   });
@@ -573,9 +600,9 @@ async function getWeeklyReportGroundingData(project, supabaseUrl, serviceKeyOrAn
   };
 }
 
-// 3-6. AI-04 프로젝트 위험도 정량 스코어링 엔진 (직선형 추정치 명시 & 부분 판정 보류 처리)
+// 3-6. AI-04 프로젝트 위험도 정량 스코어링 엔진 (직선형 추정치 명시 & 부분 판정 보류 처리 & 결측치 왜곡 방지)
 async function getProjectRiskAssessment(project, supabaseUrl, serviceKeyOrAnon, userToken = null) {
-  const { issues, actionItems } = await getProjectIssuesAndActions(project.id, supabaseUrl, serviceKeyOrAnon, userToken);
+  const { issues, actionItems, issuesError, actionsError } = await getProjectIssuesAndActions(project.id, supabaseUrl, serviceKeyOrAnon, userToken);
   const comparison = await getDeliverablesComparison(project, supabaseUrl, serviceKeyOrAnon, userToken);
 
   const today = new Date();
@@ -650,35 +677,49 @@ async function getProjectRiskAssessment(project, supabaseUrl, serviceKeyOrAnon, 
   let openCritical = 0;
   let openHigh = 0;
   let openNormal = 0;
+  let issueDetail = '미해결 이슈 없음';
 
-  issues.forEach(i => {
-    const st = (i.status || '').toUpperCase();
-    if (st !== 'CLOSED' && st !== 'RESOLVED' && st !== '완료') {
-      const pri = (i.priority || '').toUpperCase();
-      if (pri === 'CRITICAL' || pri === '긴급') openCritical++;
-      else if (pri === 'HIGH' || pri === '높음') openHigh++;
-      else openNormal++;
-    }
-  });
+  if (issuesError) {
+    issueScore = null;
+    issueDetail = `이슈 데이터 조회 불가 (${issuesError})`;
+  } else {
+    issues.forEach(i => {
+      const st = (i.status || '').toUpperCase();
+      if (st !== 'CLOSED' && st !== 'RESOLVED' && st !== '완료') {
+        const pri = (i.priority || i.impact || '').toUpperCase();
+        if (pri === 'CRITICAL' || pri === '긴급') openCritical++;
+        else if (pri === 'HIGH' || pri === '높음') openHigh++;
+        else openNormal++;
+      }
+    });
 
-  const rawIssueScore = (openCritical * 10) + (openHigh * 5) + (openNormal * 2);
-  issueScore = Math.min(25, rawIssueScore);
-  const issueDetail = `미해결 이슈: 긴급(Critical) ${openCritical}건, 중요(High) ${openHigh}건, 보통/낮음 ${openNormal}건`;
+    const rawIssueScore = (openCritical * 10) + (openHigh * 5) + (openNormal * 2);
+    issueScore = Math.min(25, rawIssueScore);
+    issueDetail = `미해결 이슈: 긴급(Critical) ${openCritical}건, 중요(High) ${openHigh}건, 보통/낮음 ${openNormal}건`;
+  }
 
   // 4) Action Item 기한 초과 위험 (Action Item Risk, 0~20점)
   let overdueActions = 0;
-  actionItems.forEach(a => {
-    const st = (a.status || '').toUpperCase();
-    if (st !== 'COMPLETED' && st !== 'DONE' && st !== '완료' && a.due_date) {
-      const d = new Date(a.due_date);
-      if (!isNaN(d.getTime()) && d < today) {
-        overdueActions++;
-      }
-    }
-  });
+  let actionItemScore = 0;
+  let actionItemDetail = '지연된 Action Item 없음';
 
-  const actionItemScore = Math.min(20, overdueActions * 5);
-  const actionItemDetail = `기한 초과(Overdue) 미완료 Action Item ${overdueActions}건 발생`;
+  if (actionsError) {
+    actionItemScore = null;
+    actionItemDetail = `Action Item 데이터 조회 불가 (${actionsError})`;
+  } else {
+    actionItems.forEach(a => {
+      const st = (a.status || '').toUpperCase();
+      if (st !== 'COMPLETED' && st !== 'DONE' && st !== '완료' && a.due_date) {
+        const d = new Date(a.due_date);
+        if (!isNaN(d.getTime()) && d < today) {
+          overdueActions++;
+        }
+      }
+    });
+
+    actionItemScore = Math.min(20, overdueActions * 5);
+    actionItemDetail = `기한 초과(Overdue) 미완료 Action Item ${overdueActions}건 발생`;
+  }
 
   // 종합 점수 및 등급 산출 (일부 지표 미확인 시 정상 등급 부여 금지)
   let totalScore = null;
@@ -1236,36 +1277,75 @@ module.exports = async (req, res) => {
     }
 
     // 대용량 문서 분할 및 분석 범위 한도 적용 (Gemini 입력 안전성: 최대 40,000자 발췌)
-    // 공공 RFP의 후반부에 집중된 평가기준, 투입인력, 제출서류 누락을 방지하기 위한 3분할 균형 추출
+    // 공공 RFP의 핵심 8대 요건(평가기준, 투입인력, 입찰자격, 제출서류 등)이 문서 어디에 위치하든 누락되지 않도록
+    // 스마트 키워드 앵커링(Targeted Section Anchoring) 및 정직한 발췌율 표기 적용
     const MAX_RFP_CHARS = 40000;
-    const isTruncated = rfpText.length > MAX_RFP_CHARS;
+    const totalChars = rfpText.length;
+    const isTruncated = totalChars > MAX_RFP_CHARS;
     let analyzedText = rfpText;
-    let rangeNotice = `전체 ${rfpText.length.toLocaleString()}자 전문 분석 (100% 반영)`;
+    let rangeNotice = `전체 ${totalChars.toLocaleString()}자 전문 분석 (100% 반영)`;
 
     if (isTruncated) {
-      const part1Len = 14000; // 도입부: 개요, 발주기관, 예산 (앞 14,000자)
-      const part3Len = 12000; // 후반부: 평가기준, 투입인력, 제출서류 (뒤 12,000자)
-      const part2Len = 14000; // 중반부: 주요 과업 및 기능 요건 (중간 14,000자)
+      const coveragePercent = Math.round((MAX_RFP_CHARS / totalChars) * 100);
 
-      const part1 = rfpText.slice(0, part1Len);
-      const part3 = rfpText.slice(rfpText.length - part3Len);
-      const midStart = Math.max(part1Len, Math.floor((rfpText.length - part2Len) / 2));
-      const part2 = rfpText.slice(midStart, midStart + part2Len);
+      // 1) 도입부: 사업 개요, 기간, 예산, 발주기관 (앞 12,000자)
+      const part1 = rfpText.slice(0, 12000);
+
+      // 2) 평가기준/인력/자격/서류 핵심 구간 앵커 탐색
+      const evalKeywords = ['평가기준', '배점한도', '기술평가', '가격평가', '입찰참가자격', '투입인력', '기술자', '제출서류'];
+      let evalAnchorIndex = -1;
+      for (const kw of evalKeywords) {
+        const idx = rfpText.lastIndexOf(kw);
+        if (idx > 12000 && (evalAnchorIndex === -1 || idx > evalAnchorIndex)) {
+          evalAnchorIndex = idx;
+        }
+      }
+
+      let part3 = '';
+      if (evalAnchorIndex !== -1) {
+        // 키워드 발견 위치 중심 전후 발췌
+        const p3Start = Math.max(12000, evalAnchorIndex - 3000);
+        part3 = rfpText.slice(p3Start, p3Start + 14000);
+      } else {
+        // 키워드가 명시적으로 잡히지 않는 경우 문서 후반부 14,000자 발췌
+        part3 = rfpText.slice(totalChars - 14000);
+      }
+
+      // 3) 과업요구사항 핵심 구간 앵커 탐색
+      const taskKeywords = ['요구사항', '기능요건', '과업내용', '구축범위', '주요과업'];
+      let taskAnchorIndex = -1;
+      for (const kw of taskKeywords) {
+        const idx = rfpText.indexOf(kw, 10000);
+        if (idx !== -1 && idx < (evalAnchorIndex > 0 ? evalAnchorIndex : totalChars - 10000)) {
+          taskAnchorIndex = idx;
+          break;
+        }
+      }
+
+      let part2 = '';
+      const p2Len = 14000;
+      if (taskAnchorIndex !== -1) {
+        const p2Start = Math.max(12000, taskAnchorIndex - 1000);
+        part2 = rfpText.slice(p2Start, p2Start + p2Len);
+      } else {
+        const midStart = Math.max(12000, Math.floor((totalChars - p2Len) / 2));
+        part2 = rfpText.slice(midStart, midStart + p2Len);
+      }
 
       analyzedText = [
         `=== [섹션 1: RFP 도입부 (사업개요, 기간, 예산, 발주기관)] ===\n${part1}`,
-        `=== [섹션 2: RFP 과업핵심부 (시스템 구축 요건 및 기능 요구사항)] ===\n${part2}`,
-        `=== [섹션 3: RFP 후반부 (입찰참가자격, 기술/가격평가기준, 투입인력, 제출서류)] ===\n${part3}`
+        `=== [섹션 2: RFP 과업핵심부 (시스템 구축 요건 및 기능 요구사항 발췌)] ===\n${part2}`,
+        `=== [섹션 3: RFP 평가/인력/서류 핵심부 (입찰참가자격, 기술/가격평가기준, 투입인력, 제출서류 타겟팅 발췌)] ===\n${part3}`
       ].join('\n\n');
 
-      rangeNotice = `전체 ${rfpText.length.toLocaleString()}자 중 40,000자 3분할 균형 추출 분석 (도입부 14,000자 + 과업부 14,000자 + 후반부 평가기준/인력/제출서류 12,000자 포함)`;
+      rangeNotice = `전체 ${totalChars.toLocaleString()}자 중 40,000자 발췌 분석 (발췌율: ${coveragePercent}%, 사업개요·과업요건·평가기준·투입인력·제출서류 핵심구간 타겟팅 발췌, 전문 전체 분석 아님)`;
     }
 
     pmoContextData = {
       documentMeta: {
         fileName: rfpFileName,
         pageCount,
-        charCount: rfpText.length,
+        charCount: totalChars,
         analyzedRange: rangeNotice,
         isTruncated,
         balancedSplitApplied: isTruncated

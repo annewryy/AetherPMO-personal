@@ -926,9 +926,9 @@
             statusBar.style.color = '#34d399';
             statusBar.style.border = '1px solid rgba(16, 185, 129, 0.4)';
             if (data.groundingData?.documentMeta?.balancedSplitApplied) {
-                statusBar.innerHTML = `<strong>[분석 완료 (3분할 균형 분석)]</strong> 40,000자 초과 대용량 문서에 대해 도입부·과업요건·후반부(평가기준/투입인력/제출서류)를 균형 추출하여 8대 필수 요건을 누락 없이 도출했습니다.`;
+                statusBar.innerHTML = `<strong>[분석 완료 (타겟팅 발췌 분석)]</strong> 대용량 문서에 대해 사업개요·과업요건·평가기준·투입인력·제출서류 핵심구간을 40,000자 발췌 분석하여 8대 요건을 도출했습니다. (원문 전체 분석 아님)`;
             } else {
-                statusBar.innerHTML = `<strong>[분석 완료]</strong> 제안요청서 8대 필수 분석 요건과 AI 수주 검토 의견이 성공적으로 도출되었습니다.`;
+                statusBar.innerHTML = `<strong>[분석 완료 (전문 분석)]</strong> 제안요청서 8대 필수 분석 요건과 AI 수주 검토 의견이 성공적으로 도출되었습니다.`;
             }
 
             this.recordAIAuditLog({
