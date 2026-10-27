@@ -8,10 +8,11 @@
 # 4. 검증 실패 또는 모의 실행 시 ALL TESTS PASSED 출력 절대 금지 (Fail-Fast)
 # ============================================================================
 param(
-    [string]$TargetApiUrl = "https://aether-pmo-personal-h2n3gf5ow-annewryys-projects.vercel.app/api/ai/chat",
+    [string]$TargetApiUrl = "https://aether-pmo-personal-1d9obv9og-annewryys-projects.vercel.app/api/ai/chat",
     [string]$TestEmail = "pm1@aetherpmo.com",
     [string]$TestPassword = "",
-    [string]$VercelBypassSecret = ""
+    [string]$VercelBypassSecret = "",
+    [string]$UnassignedProjectId = "proj-demo-26-001" # 서버 준비 단계에서 pm1 미배정이 확정된 실제 프로젝트
 )
 
 if ($env:AETHER_TEST_PASSWORD) { $TestPassword = $env:AETHER_TEST_PASSWORD }
@@ -87,6 +88,7 @@ Write-Host "================================================================"
 # 2-1. 미인증(무토큰) 요청 401 차단 검증
 try {
     $noTokenHeaders = @{ "Content-Type" = "application/json" }
+    if ($VercelBypassSecret) { $noTokenHeaders["x-vercel-protection-bypass"] = $VercelBypassSecret }
     $noTokenBody = '{"message":"test","featureType":"AI-01"}'
     $res401 = Invoke-WebRequest -Uri $TargetApiUrl -Method Post -Headers $noTokenHeaders -Body $noTokenBody -TimeoutSec 10 -ErrorAction Stop
     Write-Host "[FAIL] Unauthenticated request was NOT blocked! Status: " $res401.StatusCode
@@ -101,15 +103,10 @@ try {
     }
 }
 
-# 2-2. 실제 존재하지만 pm1에게 접근 권한이 없는 프로젝트에 대한 403 차단 검증
+# 2-2. 사전에 확정된 실제 미배정 프로젝트($UnassignedProjectId)에 대한 403 차단 검증
+# 보안 원칙: 사용자 JWT로 타 프로젝트를 무단 열람하지 않고, 서버 준비 단계에서 지정된 비인가 프로젝트 ID 사용
 try {
-    # 전체 프로젝트 중 현재 사용자가 접근 가능한 프로젝트를 제외한 실제 비인가 프로젝트 1건 조회
-    $allProjUri = $supabaseUrl + '/rest/v1/projects?select=id,project_code,name&order=id.desc&limit=10'
-    $allProjs = Invoke-RestMethod -Uri $allProjUri -Method Get -Headers @{ "apikey" = $anonKey; "Authorization" = ("Bearer " + $jwtToken) }
-    $unauthProj = $allProjs | Where-Object { $_.id -ne $targetProj.id } | Select-Object -First 1
-    $unauthProjId = if ($unauthProj) { $unauthProj.id } else { "3f345495-cb2f-4843-9a0c-73555aebdb2c" }
-    $unauthProjCode = if ($unauthProj) { $unauthProj.project_code } else { "OP-25-1095" }
-    Write-Host ("    [INFO] Testing 403 access control with existing unassigned project: [" + $unauthProjCode + "] " + $unauthProjId)
+    Write-Host ("    [INFO] Testing 403 access control with confirmed unassigned project: " + $UnassignedProjectId)
     $forbiddenHeaders = @{
         "Content-Type" = "application/json"
         "Authorization" = ("Bearer " + $jwtToken)
@@ -118,7 +115,7 @@ try {
     if ($VercelBypassSecret) { $forbiddenHeaders["x-vercel-protection-bypass"] = $VercelBypassSecret }
     $forbiddenBody = @{
         featureType = "AI-01"
-        projectId = $unauthProjId
+        projectId = $UnassignedProjectId
         message = "권한 없는 실제 프로젝트 분석 시도"
     } | ConvertTo-Json
     $res403 = Invoke-WebRequest -Uri $TargetApiUrl -Method Post -Headers $forbiddenHeaders -Body $forbiddenBody -TimeoutSec 15 -ErrorAction Stop
@@ -134,7 +131,8 @@ try {
     }
 }
 
-Write-Host "================================================================"
+Write-Host "
+================================================================"
 Write-Host " [Step 3] AI-01 ~ AI-05 Actual Endpoint Execution & Gemini Verification"
 Write-Host "================================================================"
 
