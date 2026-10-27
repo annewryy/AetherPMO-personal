@@ -63,7 +63,7 @@ module.exports = async (req, res) => {
 
   // 1. Google Gemini API 헬스체크 (기본 모델: gemini-2.5-flash)
   if (geminiKey) {
-    const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+    const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
     try {
       // 실제 API 호출 검증 (최소 토큰 'ping' 검사)
       const postData = JSON.stringify({
@@ -80,7 +80,7 @@ module.exports = async (req, res) => {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postData)
         },
-        timeout: 5000
+        timeout: 15000
       }, postData);
 
       if (pingRes.statusCode === 200 && pingRes.body?.candidates) {
@@ -132,7 +132,7 @@ module.exports = async (req, res) => {
           'Authorization': `Bearer ${openaiKey}`,
           'Content-Length': Buffer.byteLength(postData)
         },
-        timeout: 5000
+        timeout: 15000
       }, postData);
 
       if (pingRes.statusCode === 200 && pingRes.body?.choices) {

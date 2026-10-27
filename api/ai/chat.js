@@ -838,7 +838,7 @@ async function callGemini(messages) {
                  process.env.GOOGLE_API_KEY ||
                  process.env.GEMINI_KEY ||
                  process.env.GOOGLE_GEMINI_API_KEY;
-  const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
   const timeoutMs = Number(process.env.AI_TIMEOUT_MS || 45000);
 
   let systemText = '';
@@ -1484,7 +1484,7 @@ ${JSON.stringify(pmoContextData, null, 2)}
       userEmail: authUser.email,
       featureCode: featureType || 'GENERAL',
       featureName: featureTitle,
-      model: process.env.GEMINI_MODEL || 'gemini-3.8-flash',
+      model: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
       latencyMs,
       success: false,
       snippet: `오류: ${err.message}`
