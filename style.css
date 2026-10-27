@@ -14298,3 +14298,380 @@ body.dark-theme #modal-consortium-edit table td {
     color: #f8fafc !important;
 }
 
+
+/* ==========================================================================
+   AI Automation Studio Theme System (Dark / Light Theme Accessibility)
+   ========================================================================== */
+
+/* 1. 상단 AI 탭 네비게이션 버튼 */
+.ai-tab-btn {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid transparent !important;
+}
+body.light-theme .ai-tab-btn {
+    color: #475569 !important;
+    background: transparent !important;
+}
+body.light-theme .ai-tab-btn:hover {
+    color: #1e293b !important;
+    background: rgba(139, 92, 246, 0.08) !important;
+}
+body.light-theme .ai-tab-btn.active {
+    background: #ede9fe !important; /* 연보라색 배경 */
+    color: #5b21b6 !important;       /* 진한 보라색 (WCAG AA 대비 7.5:1 이상) */
+    border-color: #8b5cf6 !important;
+    font-weight: 700 !important;
+}
+
+body.dark-theme .ai-tab-btn {
+    color: #94a3b8 !important;
+    background: transparent !important;
+}
+body.dark-theme .ai-tab-btn:hover {
+    color: #f8fafc !important;
+    background: rgba(139, 92, 246, 0.12) !important;
+}
+body.dark-theme .ai-tab-btn.active {
+    background: rgba(139, 92, 246, 0.2) !important;
+    color: #c4b5fd !important;
+    border-color: #8b5cf6 !important;
+    font-weight: 700 !important;
+}
+
+/* 2. 상단 네비게이션 탭 컨테이너 구분선 */
+body.light-theme .ai-tabs-container {
+    border-bottom-color: #cbd5e1 !important;
+}
+body.dark-theme .ai-tabs-container {
+    border-bottom-color: #334155 !important;
+}
+
+/* 3. AI 패널 내부 카드 공통 */
+body.light-theme #view-ai-automation .card {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06);
+    color: #0f172a !important;
+}
+body.dark-theme #view-ai-automation .card {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    color: #f8fafc !important;
+}
+
+/* 4. 분석 대상 선택 영역 (Select, Textarea, Label) */
+body.light-theme #view-ai-automation select.form-control,
+body.light-theme #view-ai-automation textarea.form-control,
+body.light-theme #view-ai-automation input.form-control {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+}
+body.light-theme #view-ai-automation select.form-control:focus,
+body.light-theme #view-ai-automation textarea.form-control:focus {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2) !important;
+}
+body.light-theme #view-ai-automation label,
+body.light-theme #view-ai-automation .form-label {
+    color: #334155 !important;
+    font-weight: 600 !important;
+}
+body.light-theme #view-ai-automation select option {
+    background: #ffffff !important;
+    color: #0f172a !important;
+}
+
+body.dark-theme #view-ai-automation select.form-control,
+body.dark-theme #view-ai-automation textarea.form-control,
+body.dark-theme #view-ai-automation input.form-control {
+    background: #0f172a !important;
+    color: #f8fafc !important;
+    border: 1px solid #334155 !important;
+}
+body.dark-theme #view-ai-automation select option {
+    background: #0f172a !important;
+    color: #f8fafc !important;
+}
+
+/* 5. 텍스트 카운터 및 설명 라벨 */
+body.light-theme #view-ai-automation p,
+body.light-theme #view-ai-automation span:not(.badge),
+body.light-theme #ai-05-text-section div span:first-child,
+body.light-theme #view-ai-automation div[style*="border-top"] span {
+    color: #334155 !important;
+}
+body.light-theme #view-ai-automation h1,
+body.light-theme #view-ai-automation h2 {
+    color: #0f172a !important;
+}
+body.light-theme #ai-03-week-badge {
+    background: #ede9fe !important;
+    color: #6d28d9 !important;
+    border: 1px solid #c4b5fd !important;
+}
+
+/* 6. AI-05 파일 업로드 영역 & 컨트롤 */
+body.light-theme #ai-05-dropzone {
+    background: #f8fafc !important;
+    border: 2px dashed #94a3b8 !important;
+}
+body.light-theme #ai-05-dropzone:hover {
+    background: #f1f5f9 !important;
+    border-color: #0284c7 !important;
+}
+body.light-theme #ai-05-dropzone div:nth-child(2) {
+    color: #0f172a !important;
+}
+body.light-theme #ai-05-dropzone div:nth-child(3) {
+    color: #64748b !important;
+}
+body.light-theme #ai-05-file-info {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+}
+body.light-theme #ai-05-file-name {
+    color: #0f172a !important;
+}
+body.light-theme #ai-05-file-size {
+    color: #64748b !important;
+}
+body.light-theme #view-ai-automation .btn-group {
+    background: #e2e8f0 !important;
+    border: 1px solid #cbd5e1 !important;
+}
+body.light-theme #ai-05-tab-text-btn:not(.active),
+body.light-theme #ai-05-tab-file-btn:not(.active) {
+    color: #475569 !important;
+    background: transparent !important;
+}
+body.light-theme #ai-05-tab-file-btn.active {
+    background: #0284c7 !important;
+    color: #ffffff !important;
+}
+body.light-theme #ai-05-tab-text-btn.active {
+    background: #0284c7 !important;
+    color: #ffffff !important;
+}
+
+/* 7. 동적 지표 카드 (Metrics Cards - AI-02, AI-03, AI-04, AI-05) */
+body.light-theme #ai-02-metrics-row .card,
+body.light-theme #ai-03-summary-cards .card,
+body.light-theme #ai-04-metrics-grid .card,
+body.light-theme #ai-05-nav-cards .card {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+body.light-theme #ai-02-metrics-row div div:first-child,
+body.light-theme #ai-03-summary-cards div div:first-child,
+body.light-theme #ai-04-metrics-grid div div:first-child,
+body.light-theme #ai-05-nav-cards div div:first-child {
+    color: #475569 !important;
+    font-weight: 600 !important;
+}
+body.light-theme #ai-02-metrics-row div div:nth-child(2),
+body.light-theme #ai-03-summary-cards div div:nth-child(2),
+body.light-theme #ai-04-metrics-grid div div:nth-child(2),
+body.light-theme #ai-05-nav-cards div div:nth-child(2) {
+    color: #0f172a !important;
+}
+/* 특수 색상 텍스트 라이트모드 고대비 보정 */
+body.light-theme #ai-02-metrics-row div div[style*="#38bdf8"] { color: #0284c7 !important; }
+body.light-theme #ai-02-metrics-row div div[style*="#34d399"] { color: #16a34a !important; }
+body.light-theme #ai-02-metrics-row div div[style*="#fbbf24"] { color: #d97706 !important; }
+body.light-theme #ai-02-metrics-row div div[style*="#f87171"] { color: #dc2626 !important; }
+body.light-theme #ai-03-summary-cards div div[style*="#c4b5fd"] { color: #6d28d9 !important; }
+body.light-theme #ai-04-metrics-grid div div[style*="#64748b"] { color: #64748b !important; }
+body.light-theme #ai-05-nav-cards div div[style*="#c4b5fd"] { color: #6d28d9 !important; }
+body.light-theme #ai-05-nav-cards div div[style*="#38bdf8"] { color: #0284c7 !important; }
+body.light-theme #ai-05-nav-cards div div[style*="#34d399"] { color: #16a34a !important; }
+body.light-theme #ai-05-nav-cards div div[style*="#fbbf24"] { color: #d97706 !important; }
+body.light-theme #ai-05-nav-cards div div[style*="#f87171"] { color: #dc2626 !important; }
+body.light-theme #ai-05-nav-cards div div[style*="#a78bfa"] { color: #7c3aed !important; }
+
+/* 8. 결과 카드 헤더, 제목 및 메타정보 */
+body.light-theme #ai-01-result-container h3 { color: #6d28d9 !important; }
+body.light-theme #ai-02-result-container h3 { color: #1d4ed8 !important; }
+body.light-theme #ai-03-result-container h3 { color: #6d28d9 !important; }
+body.light-theme #ai-04-result-container h3 { color: #b45309 !important; }
+body.light-theme #ai-05-result-container h3 { color: #0284c7 !important; }
+body.light-theme #ai-panel-ai-audit h3 { color: #0f172a !important; }
+
+body.light-theme #ai-01-meta-info,
+body.light-theme #ai-02-meta-info,
+body.light-theme #ai-03-meta-info,
+body.light-theme #ai-04-meta-info,
+body.light-theme #ai-05-meta-info {
+    color: #334155 !important;
+    font-weight: 500 !important;
+}
+
+body.light-theme #view-ai-automation div[style*="border-bottom"] {
+    border-bottom-color: #cbd5e1 !important;
+}
+body.light-theme #view-ai-automation div[style*="border-top"] {
+    border-top-color: #cbd5e1 !important;
+}
+
+/* 9. 복사 / 파일 다운로드 / 액션 버튼 */
+body.light-theme #view-ai-automation .btn-sm {
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #1e293b !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+body.light-theme #view-ai-automation .btn-sm:hover {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border-color: #94a3b8 !important;
+}
+
+/* 10. 결과 본문 Markdown 서식 (제목, 본문, 목록, 표, 코드블록) */
+body.light-theme #view-ai-automation .markdown-body {
+    color: #0f172a !important;
+    line-height: 1.8 !important;
+}
+body.light-theme #view-ai-automation .markdown-body h1 {
+    color: #4338ca !important;
+    border-bottom: 2px solid #e2e8f0 !important;
+    padding-bottom: 8px !important;
+    margin: 20px 0 12px !important;
+    font-size: 19px !important;
+    font-weight: 800 !important;
+}
+body.light-theme #view-ai-automation .markdown-body h2 {
+    color: #1e293b !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    padding-bottom: 6px !important;
+    margin: 18px 0 10px !important;
+    font-size: 17px !important;
+    font-weight: 700 !important;
+}
+body.light-theme #view-ai-automation .markdown-body h3 {
+    color: #5b21b6 !important;
+    margin: 16px 0 8px !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+}
+body.light-theme #view-ai-automation .markdown-body h4 {
+    color: #334155 !important;
+    margin: 14px 0 6px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+body.light-theme #view-ai-automation .markdown-body p,
+body.light-theme #view-ai-automation .markdown-body li {
+    color: #1e293b !important;
+    font-size: 14px !important;
+}
+body.light-theme #view-ai-automation .markdown-body strong {
+    color: #0f172a !important;
+    font-weight: 700 !important;
+}
+body.light-theme #view-ai-automation .markdown-body blockquote {
+    background: #f8fafc !important;
+    border-left: 4px solid #8b5cf6 !important;
+    color: #334155 !important;
+    padding: 8px 16px !important;
+    margin: 12px 0 !important;
+    border-radius: 0 4px 4px 0 !important;
+}
+body.light-theme #view-ai-automation .markdown-body table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin: 16px 0 !important;
+}
+body.light-theme #view-ai-automation .markdown-body th {
+    background: #f1f5f9 !important;
+    color: #1e293b !important;
+    font-weight: 700 !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 8px 12px !important;
+}
+body.light-theme #view-ai-automation .markdown-body td {
+    border: 1px solid #e2e8f0 !important;
+    padding: 8px 12px !important;
+    color: #1e293b !important;
+}
+body.light-theme #view-ai-automation .markdown-body code {
+    background: #f1f5f9 !important;
+    color: #6d28d9 !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    border: 1px solid #e2e8f0 !important;
+    font-size: 13px !important;
+}
+body.light-theme #view-ai-automation .markdown-body pre {
+    background: #f8fafc !important;
+    color: #1e293b !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    padding: 14px !important;
+}
+
+/* 11. Grounding Data (분석 근거 데이터 카드 & pre) */
+body.light-theme #view-ai-automation div.card[style*="border: 1px dashed"],
+body.light-theme #view-ai-automation div.card[style*="dashed"] {
+    background: #f8fafc !important;
+    border: 1px dashed #cbd5e1 !important;
+}
+body.light-theme #view-ai-automation details summary {
+    color: #334155 !important;
+}
+body.light-theme #view-ai-automation details summary:hover {
+    color: #0f172a !important;
+}
+body.light-theme #view-ai-automation pre[id$="-grounding-pre"] {
+    background: #ffffff !important;
+    color: #334155 !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+/* 12. AI 실행 감사이력 테이블 */
+body.light-theme #ai-panel-ai-audit table th {
+    background: #f8fafc !important;
+    color: #334155 !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+    font-weight: 700 !important;
+}
+body.light-theme #ai-panel-ai-audit table td {
+    border-bottom: 1px solid #e2e8f0 !important;
+    color: #1e293b !important;
+}
+body.light-theme #ai-audit-logs-tbody tr:hover {
+    background: #f8fafc !important;
+}
+body.light-theme #ai-audit-logs-tbody td span.badge[style*="#a78bfa"] {
+    background: #ede9fe !important;
+    color: #6d28d9 !important;
+    border: 1px solid #c4b5fd !important;
+}
+body.light-theme #ai-audit-logs-tbody td[style*="#c4b5fd"] {
+    color: #5b21b6 !important;
+}
+body.light-theme #ai-audit-logs-tbody td[style*="#f8fafc"] {
+    color: #0f172a !important;
+}
+body.light-theme #ai-audit-logs-tbody td[style*="#94a3b8"] {
+    color: #475569 !important;
+}
+body.light-theme #ai-audit-logs-tbody td[style*="#38bdf8"] {
+    color: #0284c7 !important;
+}
+body.light-theme #ai-panel-ai-audit button[onclick*="exportAIAuditLogsCSV"] {
+    background: #475569 !important;
+    color: #ffffff !important;
+}
+body.light-theme #ai-panel-ai-audit button[onclick*="clearAIAuditLogs"] {
+    background: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    color: #64748b !important;
+}
+
+/* 13. AI 상태 뱃지 (Health Badge) */
+body.light-theme #ai-studio-health-badge {
+    background: #ede9fe !important;
+    color: #6d28d9 !important;
+    border-color: #c4b5fd !important;
+}

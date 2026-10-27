@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
     <script>
@@ -859,7 +859,7 @@
                     </div>
 
                     <!-- AI 기능 상단 네비게이션 탭 -->
-                    <div class="ai-tabs-container" style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color, #334155); margin-bottom: 24px; padding-bottom: 12px; overflow-x: auto;">
+                    <div class="ai-tabs-container" style="display: flex; gap: 8px; border-bottom: 1px solid var(--bg-card-border); margin-bottom: 24px; padding-bottom: 12px; overflow-x: auto;">
                         <button class="btn ai-tab-btn active" data-ai-tab="ai-01" onclick="app.switchAITab('ai-01')" style="padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
                             <i data-lucide="bar-chart-3"></i> AI-01 사업현황 요약
                         </button>
@@ -882,13 +882,13 @@
 
                     <!-- AI-01 사업현황 자동 요약 탭 패널 -->
                     <div id="ai-panel-ai-01" class="ai-tab-panel">
-                        <div class="card" style="padding: 20px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                        <div class="card" style="padding: 20px; margin-bottom: 20px; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px;">
                             <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between;">
                                 <div style="flex: 1; min-width: 280px;">
                                     <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted, #94a3b8); margin-bottom: 6px;">
                                         <i data-lucide="folder-kanban" style="width: 14px; height: 14px; vertical-align: middle;"></i> 분석 대상 프로젝트 선택
                                     </label>
-                                    <select id="ai-01-project-select" class="form-control" style="width: 100%; padding: 10px; background: var(--input-bg, #0f172a); border: 1px solid var(--border-color, #334155); border-radius: 6px; color: var(--text-color, #f8fafc);">
+                                    <select id="ai-01-project-select" class="form-control" style="width: 100%; padding: 10px; background: var(--bg-input); border: 1px solid var(--bg-card-border); border-radius: 6px; color: var(--text-main);">
                                         <option value="">프로젝트 불러오는 중...</option>
                                     </select>
                                 </div>
@@ -903,8 +903,8 @@
                         <div id="ai-01-status-bar" style="display: none; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 13px;"></div>
 
                         <div id="ai-01-result-container" style="display: none;">
-                            <div class="card" style="padding: 24px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color, #334155); padding-bottom: 14px; margin-bottom: 18px;">
+                            <div class="card" style="padding: 24px; margin-bottom: 20px; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 14px; margin-bottom: 18px;">
                                     <div>
                                         <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #a78bfa; display: flex; align-items: center; gap: 8px;">
                                             <i data-lucide="check-circle-2"></i> AI 사업현황 분석 및 관리 권고사항
@@ -912,23 +912,23 @@
                                         <span id="ai-01-meta-info" style="font-size: 12px; color: var(--text-muted, #94a3b8); margin-top: 4px; display: inline-block;"></span>
                                     </div>
                                     <div style="display: flex; gap: 8px;">
-                                        <button class="btn btn-sm" onclick="app.copyAIResult('ai-01-result-body')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                        <button class="btn btn-sm" onclick="app.copyAIResult('ai-01-result-body')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--bg-card-border); background: transparent; color: var(--text-main); border-radius: 4px; cursor: pointer;">
                                             <i data-lucide="copy"></i> 결과 복사
                                         </button>
-                                        <button class="btn btn-sm" onclick="app.downloadAIResult('ai-01-result-body', 'AI-01_사업현황요약.md')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                        <button class="btn btn-sm" onclick="app.downloadAIResult('ai-01-result-body', 'AI-01_사업현황요약.md')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--bg-card-border); background: transparent; color: var(--text-main); border-radius: 4px; cursor: pointer;">
                                             <i data-lucide="download"></i> 파일 다운로드
                                         </button>
                                     </div>
                                 </div>
-                                <div id="ai-01-result-body" class="markdown-body" style="line-height: 1.7; color: var(--text-color, #e2e8f0); font-size: 14px;"></div>
+                                <div id="ai-01-result-body" class="markdown-body" style="line-height: 1.7; color: var(--text-main); font-size: 14px;"></div>
                             </div>
 
-                            <div class="card" style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px dashed var(--border-color, #334155); border-radius: 8px;">
+                            <div class="card" style="padding: 16px; background: var(--bg-card); border: 1px dashed var(--bg-card-border); border-radius: 8px;">
                                 <details>
                                     <summary style="cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-muted, #94a3b8);">
                                         <i data-lucide="database" style="width: 14px; height: 14px; vertical-align: middle;"></i> 분석 근거 데이터 (Grounding Data) 확인
                                     </summary>
-                                    <pre id="ai-01-grounding-pre" style="margin-top: 12px; padding: 12px; background: #0f172a; border-radius: 6px; font-size: 12px; overflow-x: auto; color: #94a3b8;"></pre>
+                                    <pre id="ai-01-grounding-pre" style="margin-top: 12px; padding: 12px; border-radius: 6px; font-size: 12px; overflow-x: auto;"></pre>
                                 </details>
                             </div>
                         </div>
@@ -936,13 +936,13 @@
 
                     <!-- AI-02 산출물 누락 및 대응방안 분석 탭 패널 -->
                     <div id="ai-panel-ai-02" class="ai-tab-panel" style="display: none;">
-                        <div class="card" style="padding: 20px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                        <div class="card" style="padding: 20px; margin-bottom: 20px; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px;">
                             <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between;">
                                 <div style="flex: 1; min-width: 280px;">
                                     <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted, #94a3b8); margin-bottom: 6px;">
                                         <i data-lucide="file-search" style="width: 14px; height: 14px; vertical-align: middle;"></i> 분석 대상 프로젝트 선택
                                     </label>
-                                    <select id="ai-02-project-select" class="form-control" style="width: 100%; padding: 10px; background: var(--input-bg, #0f172a); border: 1px solid var(--border-color, #334155); border-radius: 6px; color: var(--text-color, #f8fafc);">
+                                    <select id="ai-02-project-select" class="form-control" style="width: 100%; padding: 10px; background: var(--bg-input); border: 1px solid var(--bg-card-border); border-radius: 6px; color: var(--text-main);">
                                         <option value="">프로젝트 불러오는 중...</option>
                                     </select>
                                 </div>
@@ -959,8 +959,8 @@
                         <div id="ai-02-result-container" style="display: none;">
                             <div id="ai-02-metrics-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px;"></div>
 
-                            <div class="card" style="padding: 24px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color, #334155); padding-bottom: 14px; margin-bottom: 18px;">
+                            <div class="card" style="padding: 24px; margin-bottom: 20px; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 14px; margin-bottom: 18px;">
                                     <div>
                                         <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #60a5fa; display: flex; align-items: center; gap: 8px;">
                                             <i data-lucide="file-warning"></i> 산출물 누락 진단 및 우선 조치계획
@@ -968,23 +968,23 @@
                                         <span id="ai-02-meta-info" style="font-size: 12px; color: var(--text-muted, #94a3b8); margin-top: 4px; display: inline-block;"></span>
                                     </div>
                                     <div style="display: flex; gap: 8px;">
-                                        <button class="btn btn-sm" onclick="app.copyAIResult('ai-02-result-body')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                        <button class="btn btn-sm" onclick="app.copyAIResult('ai-02-result-body')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--bg-card-border); background: transparent; color: var(--text-main); border-radius: 4px; cursor: pointer;">
                                             <i data-lucide="copy"></i> 결과 복사
                                         </button>
-                                        <button class="btn btn-sm" onclick="app.downloadAIResult('ai-02-result-body', 'AI-02_산출물누락_대응방안.md')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                        <button class="btn btn-sm" onclick="app.downloadAIResult('ai-02-result-body', 'AI-02_산출물누락_대응방안.md')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--bg-card-border); background: transparent; color: var(--text-main); border-radius: 4px; cursor: pointer;">
                                             <i data-lucide="download"></i> 파일 다운로드
                                         </button>
                                     </div>
                                 </div>
-                                <div id="ai-02-result-body" class="markdown-body" style="line-height: 1.7; color: var(--text-color, #e2e8f0); font-size: 14px;"></div>
+                                <div id="ai-02-result-body" class="markdown-body" style="line-height: 1.7; color: var(--text-main); font-size: 14px;"></div>
                             </div>
 
-                            <div class="card" style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px dashed var(--border-color, #334155); border-radius: 8px;">
+                            <div class="card" style="padding: 16px; background: var(--bg-card); border: 1px dashed var(--bg-card-border); border-radius: 8px;">
                                 <details>
                                     <summary style="cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-muted, #94a3b8);">
                                         <i data-lucide="database" style="width: 14px; height: 14px; vertical-align: middle;"></i> 미등록/검토지연 산출물 대조 원본 데이터 확인
                                     </summary>
-                                    <pre id="ai-02-grounding-pre" style="margin-top: 12px; padding: 12px; background: #0f172a; border-radius: 6px; font-size: 12px; overflow-x: auto; color: #94a3b8;"></pre>
+                                    <pre id="ai-02-grounding-pre" style="margin-top: 12px; padding: 12px; border-radius: 6px; font-size: 12px; overflow-x: auto;"></pre>
                                 </details>
                             </div>
                         </div>
@@ -992,7 +992,7 @@
 
                     <!-- AI-03 주간업무보고 탭 패널 (Phase 3 구현) -->
                     <div id="ai-panel-ai-03" class="ai-tab-panel" style="display: none;">
-                        <div class="card" style="padding: 20px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                        <div class="card" style="padding: 20px; margin-bottom: 20px; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
                                 <div>
                                     <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
@@ -1009,7 +1009,7 @@
                                     </div>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                                    <select id="ai-03-project-select" class="form-control" style="min-width: 280px; padding: 9px 12px; background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 6px; font-size: 13px;">
+                                    <select id="ai-03-project-select" class="form-control" style="min-width: 280px; padding: 9px 12px; background: var(--bg-input); border: 1px solid var(--bg-card-border); color: var(--text-main); border-radius: 6px; font-size: 13px;">
                                         <option value="">프로젝트 불러오는 중...</option>
                                     </select>
                                     <button id="btn-run-ai-03" class="btn btn-primary" onclick="app.runAI03WeeklyReport()" style="padding: 10px 20px; font-weight: 600; display: flex; align-items: center; gap: 8px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer;">
@@ -1024,8 +1024,8 @@
                         <div id="ai-03-result-container" style="display: none;">
                             <div id="ai-03-summary-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px;"></div>
 
-                            <div class="card" style="padding: 24px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color, #334155); padding-bottom: 14px; margin-bottom: 18px;">
+                            <div class="card" style="padding: 24px; margin-bottom: 20px; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 14px; margin-bottom: 18px;">
                                     <div>
                                         <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #c4b5fd; display: flex; align-items: center; gap: 8px;">
                                             <i data-lucide="file-text"></i> 프로젝트 주간업무보고서
@@ -1033,23 +1033,23 @@
                                         <span id="ai-03-meta-info" style="font-size: 12px; color: var(--text-muted, #94a3b8); margin-top: 4px; display: inline-block;"></span>
                                     </div>
                                     <div style="display: flex; gap: 8px;">
-                                        <button class="btn btn-sm" onclick="app.copyAIResult('ai-03-result-body')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                        <button class="btn btn-sm" onclick="app.copyAIResult('ai-03-result-body')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--bg-card-border); background: transparent; color: var(--text-main); border-radius: 4px; cursor: pointer;">
                                             <i data-lucide="copy"></i> 결과 복사
                                         </button>
-                                        <button class="btn btn-sm" onclick="app.downloadAIResult('ai-03-result-body', 'AI-03_주간업무보고서.md')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                        <button class="btn btn-sm" onclick="app.downloadAIResult('ai-03-result-body', 'AI-03_주간업무보고서.md')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--bg-card-border); background: transparent; color: var(--text-main); border-radius: 4px; cursor: pointer;">
                                             <i data-lucide="download"></i> 파일 다운로드
                                         </button>
                                     </div>
                                 </div>
-                                <div id="ai-03-result-body" class="markdown-body" style="line-height: 1.7; color: var(--text-color, #e2e8f0); font-size: 14px;"></div>
+                                <div id="ai-03-result-body" class="markdown-body" style="line-height: 1.7; color: var(--text-main); font-size: 14px;"></div>
                             </div>
 
-                            <div class="card" style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px dashed var(--border-color, #334155); border-radius: 8px;">
+                            <div class="card" style="padding: 16px; background: var(--bg-card); border: 1px dashed var(--bg-card-border); border-radius: 8px;">
                                 <details>
                                     <summary style="cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-muted, #94a3b8);">
                                         <i data-lucide="database" style="width: 14px; height: 14px; vertical-align: middle;"></i> 주간 집계 원본 데이터 (Grounding Context) 확인
                                     </summary>
-                                    <pre id="ai-03-grounding-pre" style="margin-top: 12px; padding: 12px; background: #0f172a; border-radius: 6px; font-size: 12px; overflow-x: auto; color: #94a3b8;"></pre>
+                                    <pre id="ai-03-grounding-pre" style="margin-top: 12px; padding: 12px; border-radius: 6px; font-size: 12px; overflow-x: auto;"></pre>
                                 </details>
                             </div>
                         </div>
@@ -1057,7 +1057,7 @@
 
                     <!-- AI-04 위험도 분석 탭 패널 (Phase 3 구현) -->
                     <div id="ai-panel-ai-04" class="ai-tab-panel" style="display: none;">
-                        <div class="card" style="padding: 20px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                        <div class="card" style="padding: 20px; margin-bottom: 20px; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
                                 <div>
                                     <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
@@ -1069,7 +1069,7 @@
                                     </p>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                                    <select id="ai-04-project-select" class="form-control" style="min-width: 280px; padding: 9px 12px; background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 6px; font-size: 13px;">
+                                    <select id="ai-04-project-select" class="form-control" style="min-width: 280px; padding: 9px 12px; background: var(--bg-input); border: 1px solid var(--bg-card-border); color: var(--text-main); border-radius: 6px; font-size: 13px;">
                                         <option value="">프로젝트 불러오는 중...</option>
                                     </select>
                                     <button id="btn-run-ai-04" class="btn btn-primary" onclick="app.runAI04RiskAnalysis()" style="padding: 10px 20px; font-weight: 600; display: flex; align-items: center; gap: 8px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer;">
@@ -1085,8 +1085,8 @@
                             <!-- 정량 위험 지표 대시보드 카드 그리드 -->
                             <div id="ai-04-metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px;"></div>
 
-                            <div class="card" style="padding: 24px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color, #334155); padding-bottom: 14px; margin-bottom: 18px;">
+                            <div class="card" style="padding: 24px; margin-bottom: 20px; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 14px; margin-bottom: 18px;">
                                     <div>
                                         <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #fbbf24; display: flex; align-items: center; gap: 8px;">
                                             <i data-lucide="shield-alert"></i> 위험 요인 심층 진단 및 맞춤형 대응 전략
@@ -1094,23 +1094,23 @@
                                         <span id="ai-04-meta-info" style="font-size: 12px; color: var(--text-muted, #94a3b8); margin-top: 4px; display: inline-block;"></span>
                                     </div>
                                     <div style="display: flex; gap: 8px;">
-                                        <button class="btn btn-sm" onclick="app.copyAIResult('ai-04-result-body')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                        <button class="btn btn-sm" onclick="app.copyAIResult('ai-04-result-body')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--bg-card-border); background: transparent; color: var(--text-main); border-radius: 4px; cursor: pointer;">
                                             <i data-lucide="copy"></i> 결과 복사
                                         </button>
-                                        <button class="btn btn-sm" onclick="app.downloadAIResult('ai-04-result-body', 'AI-04_프로젝트_위험도분석.md')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                        <button class="btn btn-sm" onclick="app.downloadAIResult('ai-04-result-body', 'AI-04_프로젝트_위험도분석.md')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--bg-card-border); background: transparent; color: var(--text-main); border-radius: 4px; cursor: pointer;">
                                             <i data-lucide="download"></i> 파일 다운로드
                                         </button>
                                     </div>
                                 </div>
-                                <div id="ai-04-result-body" class="markdown-body" style="line-height: 1.7; color: var(--text-color, #e2e8f0); font-size: 14px;"></div>
+                                <div id="ai-04-result-body" class="markdown-body" style="line-height: 1.7; color: var(--text-main); font-size: 14px;"></div>
                             </div>
 
-                            <div class="card" style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px dashed var(--border-color, #334155); border-radius: 8px;">
+                            <div class="card" style="padding: 16px; background: var(--bg-card); border: 1px dashed var(--bg-card-border); border-radius: 8px;">
                                 <details>
                                     <summary style="cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-muted, #94a3b8);">
                                         <i data-lucide="database" style="width: 14px; height: 14px; vertical-align: middle;"></i> 위험 산출 근거 및 원본 데이터 (Grounding Context) 확인
                                     </summary>
-                                    <pre id="ai-04-grounding-pre" style="margin-top: 12px; padding: 12px; background: #0f172a; border-radius: 6px; font-size: 12px; overflow-x: auto; color: #94a3b8;"></pre>
+                                    <pre id="ai-04-grounding-pre" style="margin-top: 12px; padding: 12px; border-radius: 6px; font-size: 12px; overflow-x: auto;"></pre>
                                 </details>
                             </div>
                         </div>
@@ -1118,7 +1118,7 @@
 
                     <!-- AI-05 RFP 분석 탭 패널 (Phase 4 구현) -->
                     <div id="ai-panel-ai-05" class="ai-tab-panel" style="display: none;">
-                        <div class="card" style="padding: 20px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                        <div class="card" style="padding: 20px; margin-bottom: 20px; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;">
                                 <div>
                                     <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
@@ -1150,7 +1150,7 @@
                                     <input type="file" id="ai-05-file-input" accept=".pdf,application/pdf" style="display: none;" onchange="app.handleAI05PdfUpload(event)">
                                 </div>
 
-                                <div id="ai-05-file-info" style="display: none; margin-top: 14px; padding: 12px 16px; background: #0f172a; border: 1px solid #334155; border-radius: 6px;">
+                                <div id="ai-05-file-info" style="display: none; margin-top: 14px; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 6px;">
                                     <div style="display: flex; justify-content: space-between; align-items: center;">
                                         <div style="display: flex; align-items: center; gap: 8px;">
                                             <i data-lucide="check-circle" style="color: #34d399; width: 16px; height: 16px;"></i>
@@ -1166,7 +1166,7 @@
 
                             <!-- 텍스트 직접 입력 모드 -->
                             <div id="ai-05-text-section" style="display: none;">
-                                <textarea id="ai-05-text-input" rows="7" class="form-control" placeholder="RFP 제안요청서의 사업개요, 주요 과업내용, 입찰 참가자격, 평가기준 등의 원문 내용을 붙여넣으세요..." style="width: 100%; box-sizing: border-box; padding: 12px; background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 6px; font-size: 13px; line-height: 1.6; resize: vertical;" oninput="app.updateAI05TextCount()"></textarea>
+                                <textarea id="ai-05-text-input" rows="7" class="form-control" placeholder="RFP 제안요청서의 사업개요, 주요 과업내용, 입찰 참가자격, 평가기준 등의 원문 내용을 붙여넣으세요..." style="width: 100%; box-sizing: border-box; padding: 12px; background: var(--bg-input); border: 1px solid var(--bg-card-border); color: var(--text-main); border-radius: 6px; font-size: 13px; line-height: 1.6; resize: vertical;" oninput="app.updateAI05TextCount()"></textarea>
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 12px; color: #94a3b8;">
                                     <span>입력된 RFP 원문 글자 수에 따라 핵심 분량이 자동 발췌 분석됩니다.</span>
                                     <span id="ai-05-text-counter" style="font-weight: 600; color: #38bdf8;">0자</span>
@@ -1177,7 +1177,7 @@
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 14px; border-top: 1px solid #334155; flex-wrap: wrap; gap: 12px;">
                                 <div style="display: flex; align-items: center; gap: 10px;">
                                     <span style="font-size: 12px; color: #94a3b8;">연계 대상 사업 (선택사항):</span>
-                                    <select id="ai-05-project-select" class="form-control" style="min-width: 220px; padding: 7px 10px; background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 6px; font-size: 12px;">
+                                    <select id="ai-05-project-select" class="form-control" style="min-width: 220px; padding: 7px 10px; background: var(--bg-input); border: 1px solid var(--bg-card-border); color: var(--text-main); border-radius: 6px; font-size: 12px;">
                                         <option value="">사업 미지정 (독립 RFP 분석)</option>
                                     </select>
                                 </div>
@@ -1193,8 +1193,8 @@
                             <!-- 8대 분석 요건 퀵 네비게이션 뱃지 그리드 -->
                             <div id="ai-05-nav-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 20px;"></div>
 
-                            <div class="card" style="padding: 24px; margin-bottom: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color, #334155); padding-bottom: 14px; margin-bottom: 18px;">
+                            <div class="card" style="padding: 24px; margin-bottom: 20px; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg-card-border); padding-bottom: 14px; margin-bottom: 18px;">
                                     <div>
                                         <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 8px;">
                                             <i data-lucide="file-check-2"></i> RFP 8대 요건 종합 분석 보고서
@@ -1202,23 +1202,23 @@
                                         <span id="ai-05-meta-info" style="font-size: 12px; color: var(--text-muted, #94a3b8); margin-top: 4px; display: inline-block;"></span>
                                     </div>
                                     <div style="display: flex; gap: 8px;">
-                                        <button class="btn btn-sm" onclick="app.copyAIResult('ai-05-result-body')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                        <button class="btn btn-sm" onclick="app.copyAIResult('ai-05-result-body')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--bg-card-border); background: transparent; color: var(--text-main); border-radius: 4px; cursor: pointer;">
                                             <i data-lucide="copy"></i> 결과 복사
                                         </button>
-                                        <button class="btn btn-sm" onclick="app.downloadAIResult('ai-05-result-body', 'AI-05_RFP_분석보고서.md')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--border-color, #334155); background: transparent; color: var(--text-color, #f8fafc); border-radius: 4px; cursor: pointer;">
+                                        <button class="btn btn-sm" onclick="app.downloadAIResult('ai-05-result-body', 'AI-05_RFP_분석보고서.md')" style="padding: 6px 12px; font-size: 12px; border: 1px solid var(--bg-card-border); background: transparent; color: var(--text-main); border-radius: 4px; cursor: pointer;">
                                             <i data-lucide="download"></i> 파일 다운로드
                                         </button>
                                     </div>
                                 </div>
-                                <div id="ai-05-result-body" class="markdown-body" style="line-height: 1.7; color: var(--text-color, #e2e8f0); font-size: 14px;"></div>
+                                <div id="ai-05-result-body" class="markdown-body" style="line-height: 1.7; color: var(--text-main); font-size: 14px;"></div>
                             </div>
 
-                            <div class="card" style="padding: 16px; background: rgba(15, 23, 42, 0.6); border: 1px dashed var(--border-color, #334155); border-radius: 8px;">
+                            <div class="card" style="padding: 16px; background: var(--bg-card); border: 1px dashed var(--bg-card-border); border-radius: 8px;">
                                 <details>
                                     <summary style="cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-muted, #94a3b8);">
                                         <i data-lucide="database" style="width: 14px; height: 14px; vertical-align: middle;"></i> 추출된 원문 텍스트 및 분석 메타데이터 확인
                                     </summary>
-                                    <pre id="ai-05-grounding-pre" style="margin-top: 12px; padding: 12px; background: #0f172a; border-radius: 6px; font-size: 12px; overflow-x: auto; color: #94a3b8; max-height: 250px;"></pre>
+                                    <pre id="ai-05-grounding-pre" style="margin-top: 12px; padding: 12px; border-radius: 6px; font-size: 12px; overflow-x: auto; max-height: 250px;"></pre>
                                 </details>
                             </div>
                         </div>
@@ -1226,7 +1226,7 @@
 
                     <!-- AI 실행 감사이력 탭 패널 (평가 증빙용) -->
                     <div id="ai-panel-ai-audit" class="ai-tab-panel" style="display: none;">
-                        <div class="card" style="padding: 20px; background: var(--card-bg, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px;">
+                        <div class="card" style="padding: 20px; background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: 8px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                                 <div>
                                     <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #f8fafc;">
@@ -1246,7 +1246,7 @@
                             <div style="overflow-x: auto;">
                                 <table class="table" style="width: 100%; border-collapse: collapse; font-size: 13px;">
                                     <thead>
-                                        <tr style="border-bottom: 1px solid var(--border-color, #334155); color: #94a3b8; text-align: left;">
+                                        <tr style="border-bottom: 1px solid var(--bg-card-border); color: #94a3b8; text-align: left;">
                                             <th style="padding: 8px 12px;">실행 시각</th>
                                             <th style="padding: 8px 12px;">기능</th>
                                             <th style="padding: 8px 12px;">대상 프로젝트</th>
@@ -7458,7 +7458,7 @@
             </div>
             <div class="modal-body" style="padding: 20px 0;">
                 <!-- Header Info Box -->
-                <div style="background: var(--bg-card, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 8px; padding: 16px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; color: var(--text-main, #ffffff);">
+                <div style="background: var(--bg-card, #1e293b); border: 1px solid var(--bg-card-border); border-radius: 8px; padding: 16px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; color: var(--text-main, #ffffff);">
                     <div><span style="color:var(--text-muted); font-size:12px;">품의번호:</span> <strong id="sal-modal-approval-no" style="font-family:monospace; color:var(--text-main, #ffffff);">-</strong></div>
                     <div><span style="color:var(--text-muted); font-size:12px;">지급연월:</span> <strong id="sal-modal-payment-month" style="color:var(--text-main, #ffffff);">-</strong></div>
                     <div><span style="color:var(--text-muted); font-size:12px;">프로젝트:</span> <strong id="sal-modal-project-name" style="color:var(--text-main, #ffffff);">-</strong></div>
@@ -7530,7 +7530,7 @@
     <!-- MODAL: SALARY TARGET ITEM EDIT                                          -->
     <!-- ======================================================================= -->
     <div id="modal-salary-target-edit" class="modal" style="display: none;" data-app-modal data-modal-size="md">
-        <div class="modal-content" style="max-width: 600px; border-radius: 14px; background: #0f172a; border: 1px solid #334155; color: #f8fafc; overflow: hidden; padding: 0;">
+        <div class="modal-content" style="max-width: 600px; border-radius: 14px; background: var(--bg-input); border: 1px solid var(--bg-card-border); color: var(--text-main); overflow: hidden; padding: 0;">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding: 16px 22px; background: #1e293b;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <i data-lucide="edit-3" style="width: 18px; height: 18px; color: #818cf8;"></i>

@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // AetherPMO AI 업무자동화 스튜디오 (2026 혁신과제 AI 5대 기능 프론트엔드 모듈)
 // AI-01 사업현황 요약, AI-02 산출물 갭 분석, AI-03 주간업무보고, AI-04 위험도 분석, AI-05 RFP 분석
 // ============================================================================
@@ -22,12 +22,55 @@
             .replace(/'/g, '&#39;');
     }
 
+    // 상태바 테마 스타일 적용 헬퍼
+    proto._applyStatusBarStyle = function(statusBar, type) {
+        if (!statusBar) return;
+        const isLight = typeof document !== 'undefined' && document.body.classList.contains('light-theme');
+        if (isLight) {
+            if (type === 'success') {
+                statusBar.style.background = '#dcfce7';
+                statusBar.style.color = '#15803d';
+                statusBar.style.border = '1px solid #86efac';
+            } else if (type === 'error') {
+                statusBar.style.background = '#fee2e2';
+                statusBar.style.color = '#b91c1c';
+                statusBar.style.border = '1px solid #fca5a5';
+            } else if (type === 'warning') {
+                statusBar.style.background = '#fef3c7';
+                statusBar.style.color = '#b45309';
+                statusBar.style.border = '1px solid #fde68a';
+            } else {
+                statusBar.style.background = '#ede9fe';
+                statusBar.style.color = '#5b21b6';
+                statusBar.style.border = '1px solid #c4b5fd';
+            }
+        } else {
+            if (type === 'success') {
+                statusBar.style.background = 'rgba(16, 185, 129, 0.15)';
+                statusBar.style.color = '#34d399';
+                statusBar.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+            } else if (type === 'error') {
+                statusBar.style.background = 'rgba(239, 68, 68, 0.15)';
+                statusBar.style.color = '#f87171';
+                statusBar.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+            } else if (type === 'warning') {
+                statusBar.style.background = 'rgba(245, 158, 11, 0.15)';
+                statusBar.style.color = '#fbbf24';
+                statusBar.style.border = '1px solid rgba(245, 158, 11, 0.4)';
+            } else {
+                statusBar.style.background = 'rgba(139, 92, 246, 0.15)';
+                statusBar.style.color = '#c4b5fd';
+                statusBar.style.border = '1px solid rgba(139, 92, 246, 0.3)';
+            }
+        }
+    };
+
     // 마크다운 안전 렌더링 헬퍼
     proto._renderSafeMarkdown = function(content) {
         if (!content) return '';
         const raw = String(content);
 
-        if (typeof this._renderMarkdown === 'function') {
+        if (false && typeof this._renderMarkdown === 'function') {
             // 외부 태그 중 script, iframe, onerror 등 위험 요소 제거 후 렌더링
             const sanitized = raw
                 .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
@@ -41,9 +84,9 @@
         // 자체 기본 마크다운 파서 (XSS 안전 이스케이프 적용)
         const escaped = escapeHtml(raw);
         return escaped
-            .replace(/^### (.*$)/gim, '<h3 style="color:#c4b5fd; margin:16px 0 8px 0; font-size:15px; font-weight:700;">$1</h3>')
-            .replace(/^## (.*$)/gim, '<h2 style="color:#f8fafc; border-bottom:1px solid #334155; padding-bottom:6px; margin:20px 0 10px 0; font-size:17px; font-weight:700;">$1</h2>')
-            .replace(/^# (.*$)/gim, '<h1 style="color:#818cf8; font-size:19px; font-weight:800; margin:20px 0 12px 0;">$1</h1>')
+            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
             .replace(/^\- (.*$)/gim, '<li style="margin-left: 20px; list-style-type: disc;">$1</li>')
@@ -55,13 +98,13 @@
         document.querySelectorAll('.ai-tab-btn').forEach(btn => {
             if (btn.getAttribute('data-ai-tab') === tabId) {
                 btn.classList.add('active');
-                btn.style.background = 'rgba(139, 92, 246, 0.2)';
-                btn.style.color = '#c4b5fd';
-                btn.style.borderColor = '#8b5cf6';
+                btn.style.background = '';
+                btn.style.color = '';
+                btn.style.borderColor = '';
             } else {
                 btn.classList.remove('active');
                 btn.style.background = 'transparent';
-                btn.style.color = 'var(--text-muted, #94a3b8)';
+                btn.style.color = '';
                 btn.style.borderColor = 'transparent';
             }
         });
@@ -336,24 +379,24 @@
 
             const summary = data.groundingData?.deliverableComparison?.statusSummary || {};
             metricsRow.innerHTML = `
-                <div class="card" style="padding:12px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:11px; color:#94a3b8;">필수 표준산출물</div>
-                    <div style="font-size:20px; font-weight:700; color:#f8fafc; margin-top:4px;">${summary.totalRequired || 0}종</div>
+                <div class="card" style="padding:12px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:11px; color:var(--text-muted);">필수 표준산출물</div>
+                    <div style="font-size:20px; font-weight:700; color:var(--text-main); margin-top:4px;">${summary.totalRequired || 0}종</div>
                 </div>
-                <div class="card" style="padding:12px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:11px; color:#94a3b8;">제출 완료율</div>
+                <div class="card" style="padding:12px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:11px; color:var(--text-muted);">제출 완료율</div>
                     <div style="font-size:20px; font-weight:700; color:#38bdf8; margin-top:4px;">${summary.submissionRate || 0}%</div>
                 </div>
-                <div class="card" style="padding:12px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:11px; color:#94a3b8;">승인 완료</div>
+                <div class="card" style="padding:12px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:11px; color:var(--text-muted);">승인 완료</div>
                     <div style="font-size:20px; font-weight:700; color:#34d399; margin-top:4px;">${summary.approvedCount || 0}건</div>
                 </div>
-                <div class="card" style="padding:12px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:11px; color:#94a3b8;">검토 지연</div>
+                <div class="card" style="padding:12px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:11px; color:var(--text-muted);">검토 지연</div>
                     <div style="font-size:20px; font-weight:700; color:#fbbf24; margin-top:4px;">${summary.underReviewCount || 0}건</div>
                 </div>
-                <div class="card" style="padding:12px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:11px; color:#94a3b8;">누락(미등록)</div>
+                <div class="card" style="padding:12px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:11px; color:var(--text-muted);">누락(미등록)</div>
                     <div style="font-size:20px; font-weight:700; color:#f87171; margin-top:4px;">${summary.unregisteredCount || 0}건</div>
                 </div>
             `;
@@ -466,20 +509,20 @@
             const actionsList = data.groundingData?.pendingActions || [];
 
             summaryCards.innerHTML = `
-                <div class="card" style="padding:12px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:11px; color:#94a3b8;">보고 주간</div>
+                <div class="card" style="padding:12px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:11px; color:var(--text-muted);">보고 주간</div>
                     <div style="font-size:13px; font-weight:700; color:#c4b5fd; margin-top:4px;">${escapeHtml(data.groundingData?.weekRange?.label || '이번 주차')}</div>
                 </div>
-                <div class="card" style="padding:12px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:11px; color:#94a3b8;">실적 기록 상태</div>
+                <div class="card" style="padding:12px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:11px; color:var(--text-muted);">실적 기록 상태</div>
                     <div style="font-size:13px; font-weight:700; color:${pSummary.hasRecords ? '#34d399' : '#fbbf24'}; margin-top:4px;">${escapeHtml(pSummary.statusLabel || '확인 완료')}</div>
                 </div>
-                <div class="card" style="padding:12px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:11px; color:#94a3b8;">진행 중 이슈</div>
+                <div class="card" style="padding:12px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:11px; color:var(--text-muted);">진행 중 이슈</div>
                     <div style="font-size:20px; font-weight:700; color:#f87171; margin-top:4px;">${issuesList.length}건</div>
                 </div>
-                <div class="card" style="padding:12px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:11px; color:#94a3b8;">미완료 Action Item</div>
+                <div class="card" style="padding:12px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:11px; color:var(--text-muted);">미완료 Action Item</div>
                     <div style="font-size:20px; font-weight:700; color:#38bdf8; margin-top:4px;">${actionsList.length}건</div>
                 </div>
             `;
@@ -595,29 +638,29 @@
             const gradeText = overall.grade || '판정 불가';
 
             metricsGrid.innerHTML = `
-                <div class="card" style="padding:14px; background:#0f172a; border:2px solid ${gradeColor}; border-radius:6px; text-align:center;">
-                    <div style="font-size:12px; color:#94a3b8; font-weight:600;">종합 위험등급 / 점수</div>
+                <div class="card" style="padding:14px; background:var(--bg-card); border:2px solid ${gradeColor}; border-radius:6px; text-align:center;">
+                    <div style="font-size:12px; color:var(--text-muted); font-weight:600;">종합 위험등급 / 점수</div>
                     <div style="font-size:22px; font-weight:800; color:${gradeColor}; margin-top:4px;">${totalText}</div>
                     <span class="badge" style="background:${gradeColor}22; color:${gradeColor}; padding:2px 8px; border-radius:4px; font-size:11px; margin-top:4px; display:inline-block; font-weight:700;">${escapeHtml(gradeText)}</span>
                 </div>
-                <div class="card" style="padding:14px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:11px; color:#94a3b8;">1. 일정 지연 위험</div>
-                    <div style="font-size:18px; font-weight:700; color:#f8fafc; margin-top:4px;">${scores.schedule?.score !== null ? scores.schedule?.score + '점 / 30' : '판정 불가'}</div>
+                <div class="card" style="padding:14px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:11px; color:var(--text-muted);">1. 일정 지연 위험</div>
+                    <div style="font-size:18px; font-weight:700; color:var(--text-main); margin-top:4px;">${scores.schedule?.score !== null ? scores.schedule?.score + '점 / 30' : '판정 불가'}</div>
                     <div style="font-size:10px; color:#64748b; margin-top:4px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${escapeHtml(scores.schedule?.detail || '')}">${escapeHtml(scores.schedule?.detail || '-')}</div>
                 </div>
-                <div class="card" style="padding:14px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:11px; color:#94a3b8;">2. 산출물 갭 위험</div>
-                    <div style="font-size:18px; font-weight:700; color:#f8fafc; margin-top:4px;">${scores.deliverable?.score !== null ? scores.deliverable?.score + '점 / 25' : '판정 불가'}</div>
+                <div class="card" style="padding:14px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:11px; color:var(--text-muted);">2. 산출물 갭 위험</div>
+                    <div style="font-size:18px; font-weight:700; color:var(--text-main); margin-top:4px;">${scores.deliverable?.score !== null ? scores.deliverable?.score + '점 / 25' : '판정 불가'}</div>
                     <div style="font-size:10px; color:#64748b; margin-top:4px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${escapeHtml(scores.deliverable?.detail || '')}">${escapeHtml(scores.deliverable?.detail || '-')}</div>
                 </div>
-                <div class="card" style="padding:14px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:11px; color:#94a3b8;">3. 미해결 이슈 위험</div>
-                    <div style="font-size:18px; font-weight:700; color:#f8fafc; margin-top:4px;">${scores.issue?.score || 0}점 / 25</div>
+                <div class="card" style="padding:14px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:11px; color:var(--text-muted);">3. 미해결 이슈 위험</div>
+                    <div style="font-size:18px; font-weight:700; color:var(--text-main); margin-top:4px;">${scores.issue?.score || 0}점 / 25</div>
                     <div style="font-size:10px; color:#64748b; margin-top:4px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${escapeHtml(scores.issue?.detail || '')}">${escapeHtml(scores.issue?.detail || '-')}</div>
                 </div>
-                <div class="card" style="padding:14px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:11px; color:#94a3b8;">4. Action Item 지연</div>
-                    <div style="font-size:18px; font-weight:700; color:#f8fafc; margin-top:4px;">${scores.actionItem?.score || 0}점 / 20</div>
+                <div class="card" style="padding:14px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:11px; color:var(--text-muted);">4. Action Item 지연</div>
+                    <div style="font-size:18px; font-weight:700; color:var(--text-main); margin-top:4px;">${scores.actionItem?.score || 0}점 / 20</div>
                     <div style="font-size:10px; color:#64748b; margin-top:4px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${escapeHtml(scores.actionItem?.detail || '')}">${escapeHtml(scores.actionItem?.detail || '-')}</div>
                 </div>
             `;
@@ -881,36 +924,36 @@
 
             // 8대 요건 퀵 네비게이션 뱃지 그리드
             navCards.innerHTML = `
-                <div class="card" style="padding:10px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:10px; color:#94a3b8;">1. 사업개요</div>
+                <div class="card" style="padding:10px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:10px; color:var(--text-muted);">1. 사업개요</div>
                     <div style="font-size:12px; font-weight:700; color:#38bdf8; margin-top:2px;">발주기관/목적</div>
                 </div>
-                <div class="card" style="padding:10px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:10px; color:#94a3b8;">2. 사업예산</div>
+                <div class="card" style="padding:10px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:10px; color:var(--text-muted);">2. 사업예산</div>
                     <div style="font-size:12px; font-weight:700; color:#34d399; margin-top:2px;">기간 및 금액</div>
                 </div>
-                <div class="card" style="padding:10px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:10px; color:#94a3b8;">3. 주요과업</div>
+                <div class="card" style="padding:10px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:10px; color:var(--text-muted);">3. 주요과업</div>
                     <div style="font-size:12px; font-weight:700; color:#c4b5fd; margin-top:2px;">필수 요구사항</div>
                 </div>
-                <div class="card" style="padding:10px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:10px; color:#94a3b8;">4. 참가자격</div>
+                <div class="card" style="padding:10px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:10px; color:var(--text-muted);">4. 참가자격</div>
                     <div style="font-size:12px; font-weight:700; color:#fbbf24; margin-top:2px;">제한/공동수급</div>
                 </div>
-                <div class="card" style="padding:10px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:10px; color:#94a3b8;">5. 평가기준</div>
+                <div class="card" style="padding:10px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:10px; color:var(--text-muted);">5. 평가기준</div>
                     <div style="font-size:12px; font-weight:700; color:#f87171; margin-top:2px;">기술:가격배점</div>
                 </div>
-                <div class="card" style="padding:10px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:10px; color:#94a3b8;">6. 투입인력</div>
+                <div class="card" style="padding:10px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:10px; color:var(--text-muted);">6. 투입인력</div>
                     <div style="font-size:12px; font-weight:700; color:#a78bfa; margin-top:2px;">PM 및 기술등급</div>
                 </div>
-                <div class="card" style="padding:10px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:10px; color:#94a3b8;">7. 제출서류</div>
+                <div class="card" style="padding:10px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:10px; color:var(--text-muted);">7. 제출서류</div>
                     <div style="font-size:12px; font-weight:700; color:#38bdf8; margin-top:2px;">마감일/제출목록</div>
                 </div>
-                <div class="card" style="padding:10px; background:#0f172a; border:1px solid #334155; border-radius:6px; text-align:center;">
-                    <div style="font-size:10px; color:#94a3b8;">8. AI 검토의견</div>
+                <div class="card" style="padding:10px; background:var(--bg-card); border:1px solid var(--bg-card-border); border-radius:6px; text-align:center;">
+                    <div style="font-size:10px; color:var(--text-muted);">8. AI 검토의견</div>
                     <div style="font-size:12px; font-weight:700; color:#34d399; margin-top:2px;">수주전략/리스크</div>
                 </div>
             `;
