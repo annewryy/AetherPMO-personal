@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AetherPMO PWA Service Worker
  * Manual Cache Version Constant: 'aetherpmo-v1.0.3-20260810'
  * 
@@ -82,11 +82,12 @@ self.addEventListener('fetch', event => {
                           url.pathname.includes('/realtime/v1/') ||
                           url.pathname.includes('/rpc/');
     const isNonGetMethod = request.method !== 'GET';
+    const isSupabaseConfig = url.pathname.includes('supabase-config.js');
     const isApiRoute = url.pathname.startsWith('/api/') ||
                        url.pathname.startsWith('/rest/') ||
                        url.pathname.startsWith('/v1/');
 
-    if (isCrossOrigin || isSupabaseApi || isNonGetMethod || isApiRoute) {
+    if (isCrossOrigin || isSupabaseApi || isNonGetMethod || isApiRoute || isSupabaseConfig) {
         return; // Early return without event.respondWith(), browser fetches directly over network
     }
 

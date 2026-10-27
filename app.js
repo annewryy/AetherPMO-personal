@@ -2413,6 +2413,15 @@ class AetherPMO {
             console.log('[ActionItem Raw DB Rows]', actionItems);
             if (errProj) {
                 console.error('[projects error]', errProj);
+                this.projectFetchStatus = {
+                    isError: true,
+                    code: errProj.code || (errProj.message && errProj.message.includes('JWT') ? '401' : 'FETCH_ERROR'),
+                    message: errProj.message || '프로젝트 데이터를 불러오지 못했습니다.',
+                    is401: errProj.code === 'PGRST301' || errProj.code === '401' || (errProj.message && (errProj.message.includes('JWT') || errProj.message.includes('token') || errProj.message.includes('auth') || errProj.message.includes('Legacy API keys') || errProj.message.includes('disabled') || errProj.message.includes('apikey'))),
+                    is403: errProj.code === '42501' || errProj.code === '403' || (errProj.message && (errProj.message.includes('permission') || errProj.message.includes('policy') || errProj.message.includes('denied')))
+                };
+            } else {
+                this.projectFetchStatus = { isError: false, count: Array.isArray(projects) ? projects.length : 0 };
             }
             if (errMem) console.error('Error loading project_members:', errMem);
             if (errRes) console.error('Error loading resources:', errRes);
@@ -2494,7 +2503,9 @@ class AetherPMO {
                 this.state.users = this.getDefaultUsers();
             }
 
-            this.state.projects = (projects || []).map(p => ({
+            // Fail-Closed Safeguard: DB 오류 발생 시 빈 배열로 기존 상태를 덮어쓰지 않음
+            if (!errProj && Array.isArray(projects)) {
+                this.state.projects = projects.map(p => ({
                 id: p.id,
                 projectCode: p.project_code,
                 name: p.name || p.project_name,
@@ -2580,8 +2591,9 @@ class AetherPMO {
                 consortiumMembers: [],
                 vrbInfo: null
             }));
-        // Standard projects seeding only when DB has 0 projects
-        if (this.useSupabase && (!projects || projects.length === 0)) {
+            }
+        // Fail-Closed Safeguard: DB 조회 에러가 있거나 이미 데이터가 있는 경우 표준 프로젝트 자동 시딩 차단
+        if (false && this.useSupabase && !errProj && Array.isArray(projects) && projects.length === 0) {
             const standardProjects = [{"code": "OP-25-0825", "customer": "국가정보자원관리원 광주센터", "name": "2025년 국가정보자원관리원 광주센터 정보시스템 1군 운영유지관리", "startDate": "2025-04-01", "endDate": "2026-12-31", "id": "7fb83430-bef2-5f62-b08c-f9cf8349384d"}, {"code": "OP-25-0021", "customer": "국가정보자원관리원 대전본원", "name": "대전본원 정보시스템1군 운영·유지관리(2025년~2026년)", "startDate": "2025-04-01", "endDate": "2026-12-31", "id": "07805587-c11e-5695-bb1c-6d6068fdef5e"}, {"code": "OP-25-0895", "customer": "국가정보자원관리원 대구센터", "name": "2026년 국가정보자원관리원 대구센터 클라우드 자원풀 운영·유지관리 사업", "startDate": "2026-01-01", "endDate": "2026-12-31", "id": "33aa98d9-8582-5689-84da-d1243dcad785"}, {"code": "OP-25-0820", "customer": "한국지역정보개발원", "name": "2026년 표준지방인사정보시스템 등 유지관리", "startDate": "2026-01-01", "endDate": "2026-12-31", "id": "cca12c28-a9af-56cf-a0a4-7129ba148c9c"}, {"code": "OP-25-1040", "customer": "행정안전부", "name": "2026년 긴급신고통합시스템 유지관리 사업", "startDate": "2025-02-21", "endDate": "2026-12-31", "id": "0d4c26c3-d995-5d2a-92cd-d1b1005a1d79"}, {"code": "OP-26-0222", "customer": "전라남도청", "name": "2026년 전남광주통합특별시 정보시스템통합 컨설팅 용역", "startDate": "2026-06-01", "endDate": "2026-11-30", "id": "25a85e0b-261e-5476-ac69-e99d7ed56ebc"}, {"code": "OP-26-0154", "customer": "국가정보자원관리원 대전본원", "name": "2026년 정보보호인프라보강 사업(HW)", "startDate": "2026-07-01", "endDate": "2026-12-31", "id": "63e509cc-8482-56eb-bd44-9c9844c26129"}, {"code": "OP-26-0826", "customer": "국가정보자원관리원 대전본원", "name": "2026년 제1차 정보자원 통합구축 HW3", "startDate": "2026-07-13", "endDate": "2027-02-12", "id": "17e71021-9f1d-5147-b1f3-0a6c38982c4e"}, {"code": "OP-26-0061", "customer": "국가정보자원관리원 대전본원", "name": "2026년 제1차 정보자원 통합구축 HW5", "startDate": "2026-07-20", "endDate": "2026-12-31", "id": "01d18a2b-c850-5536-b65d-b7f242d50eb0"}];
             try {
                 for (const sp of standardProjects) {
@@ -8784,23 +8796,39 @@ renderTodayTasksRoleBased(todayStr) {
 
             if (filtered.length === 0) {
                 let emptyIcon = 'folder-open';
-                let emptyMsg = '조회 조건에 부합하는 프로젝트가 존재하지 않습니다.';
-                if (this.activeProjectStageFilter === 'Bidding') {
-                    emptyMsg = '등록된 입찰 단계 제안 사업이 없습니다.';
+                let emptyMsg = '조회 조건에 일치하는 프로젝트가 없습니다.';
+                let emptySubMsg = '';
+
+                // 인증 오류(401), 접근 권한 거부(403), 정상 빈 목록(200) 명확한 구분 표시
+                if (this.projectFetchStatus && this.projectFetchStatus.isError) {
+                    emptyIcon = 'alert-triangle';
+                    if (this.projectFetchStatus.is401) {
+                        emptyMsg = '[401 인증 오류] 세션이 만료되었거나 유효하지 않은 인증 상태입니다.';
+                        emptySubMsg = '로그아웃 후 다시 로그인해주세요. (' + (this.projectFetchStatus.message || '') + ')';
+                    } else if (this.projectFetchStatus.is403) {
+                        emptyMsg = '[403 접근 거부] 프로젝트 조회 권한이 제한되었습니다.';
+                        emptySubMsg = 'Supabase RLS 정책 또는 사용자 역할을 확인해주세요. (' + (this.projectFetchStatus.message || '') + ')';
+                    } else {
+                        emptyMsg = '[데이터베이스 조회 오류] 프로젝트 목록을 불러오지 못했습니다.';
+                        emptySubMsg = this.projectFetchStatus.message || '네트워크 연결 상태를 확인해주세요.';
+                    }
+                } else if (this.activeProjectStageFilter === 'Bidding') {
+                    emptyMsg = '등록된 입찰 단계 사업이 없습니다.';
                     emptyIcon = 'landmark';
                 } else if (this.activeProjectStageFilter === 'Completed') {
-                    emptyMsg = '종료 및 검수가 완료된 프로젝트가 존재하지 않습니다.';
+                    emptyMsg = '사업 수행 완료된 프로젝트가 없습니다.';
                     emptyIcon = 'archive';
-                } else if (!this.isAdminRole(this.currentUser?.role)) {
-                    emptyMsg = '현재 로그인 계정에 할당된 수행단계 프로젝트가 없습니다.';
+                } else if (!this.isAdminRole(this.currentUser?.role) && (!accessibleProjects || accessibleProjects.length === 0)) {
+                    emptyMsg = '현재 로그인 계정에 할당된 수행 프로젝트가 없습니다.';
+                    emptySubMsg = '프로젝트 멤버십(PM 또는 팀원)으로 배정된 프로젝트만 표시됩니다.';
                 }
 
-                grid.innerHTML = `
-                    <div class="span-2 text-center text-muted py-5" style="grid-column: 1 / -1; padding: 48px 0;">
-                        <i data-lucide="${emptyIcon}" style="width:48px; height:48px; margin-bottom:12px; opacity:0.5; display:inline-block;"></i>
-                        <p>${emptyMsg}</p>
-                    </div>
-                `;
+                const errColor = this.projectFetchStatus && this.projectFetchStatus.isError ? '#ef4444' : 'var(--text-muted)';
+                grid.innerHTML = '<div class="span-2 text-center text-muted py-5" style="grid-column: 1 / -1; padding: 48px 0;">' +
+                    '<i data-lucide="' + emptyIcon + '" style="width:48px; height:48px; margin-bottom:12px; opacity:0.7; display:inline-block; color:' + errColor + ';"></i>' +
+                    '<p style="font-weight:600; font-size:15px; margin-bottom:4px;">' + emptyMsg + '</p>' +
+                    (emptySubMsg ? '<p style="font-size:13px; opacity:0.8;">' + emptySubMsg + '</p>' : '') +
+                    '</div>';
                 if (typeof lucide !== 'undefined') lucide.createIcons();
                 return;
             }

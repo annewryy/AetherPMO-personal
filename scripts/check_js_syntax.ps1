@@ -1,7 +1,7 @@
 $baseDir = Split-Path $PSScriptRoot -Parent
 Set-Location $baseDir
 
-$files = @("api/ai/chat.js", "api/ai/health.js", "ai-automation.js", "build-config.js")
+$files = @("api/ai/chat.js", "api/ai/health.js", "ai-automation.js", "build-config.js", "app.js", "sw.js")
 
 foreach ($f in $files) {
     $fullPath = Join-Path $baseDir $f
