@@ -1,4 +1,4 @@
-﻿-- ============================================================================
+-- ============================================================================
 -- [AetherPMO AI 감사로그 전용 최소 권한 부여 SQL (승인 대기용)]
 -- 파일 경로: scripts/security_02_grant_audit_log_only.sql
 -- 
@@ -45,6 +45,25 @@ REVOKE TRUNCATE, UPDATE, DELETE ON TABLE public.activity_logs FROM service_role;
 
 -- 5) 서버리스 백엔드 Secret Key(service_role)에만 감사로그 INSERT 및 검증용 SELECT 부여
 GRANT SELECT, INSERT ON TABLE public.activity_logs TO service_role;
+
+-- 6) RLS 활성화 및 광범위 'Allow all access to activity_logs' 정책 제거 및 안전한 정책 재정의
+ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access to activity_logs" ON public.activity_logs;
+DROP POLICY IF EXISTS "activity_logs_select_authenticated" ON public.activity_logs;
+DROP POLICY IF EXISTS "activity_logs_insert_user" ON public.activity_logs;
+
+-- [RLS Policy 1]: 로그인된 사용자(authenticated)의 활동 로그 SELECT 허용 (익명 anon은 RLS 수준에서도 완전 차단)
+CREATE POLICY "activity_logs_select_authenticated" ON public.activity_logs
+    FOR SELECT TO authenticated
+    USING (true);
+
+-- [RLS Policy 2]: 일반 사용자는 일반 활동로그만 기록 가능 (AI_AUDIT 타입 위조 원천 차단, AI_AUDIT는 오직 service_role만 기록 가능)
+CREATE POLICY "activity_logs_insert_user" ON public.activity_logs
+    FOR INSERT TO authenticated
+    WITH CHECK (
+        (user_id = auth.uid()::text OR user_id IS NULL)
+        AND (type IS DISTINCT FROM 'AI_AUDIT')
+    );
 
 -- ============================================================================
 -- [Phase 3] 실행 후 권한 상태 사후 검증 (Post-check)
