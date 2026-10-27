@@ -1,4 +1,4 @@
-﻿// AetherPMO AI 어시스턴트 Vercel Serverless Function 엔드포인트 (/api/ai/chat)
+// AetherPMO AI 어시스턴트 Vercel Serverless Function 엔드포인트 (/api/ai/chat)
 // Supabase JWT 검증, DB 기반 역할 검증, 프로젝트 컨텍스트 수집, 멀티 LLM 연동
 // AI-01 사업현황 요약, AI-02 산출물 갭 분석, AI-03 주간업무보고, AI-04 위험도 분석, AI-05 RFP 분석
 
@@ -1033,13 +1033,24 @@ module.exports = async (req, res) => {
   }
 
   const token = authHeader.slice(7).trim();
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  const configuredUrl = process.env.SUPABASE_URL ||
+                        process.env.VITE_SUPABASE_URL ||
+                        process.env.NEXT_PUBLIC_SUPABASE_URL ||
+                        process.env.REACT_APP_SUPABASE_URL;
+  const badProjectHost = 'rhbyfzimvpkkuljmnfct.supabase.co';
+  const correctProjectHost = 'rhbyfzimvpkkuljnmfct.supabase.co';
+  const supabaseUrl = configuredUrl ? configuredUrl.replace(badProjectHost, correctProjectHost) : null;
+  const supabaseAnonKey = process.env.SUPABASE_PUBLISHABLE_KEY ||
+                          process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+                          process.env.SUPABASE_ANON_KEY ||
+                          process.env.VITE_SUPABASE_ANON_KEY ||
+                          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+                          process.env.REACT_APP_SUPABASE_ANON_KEY;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || null;
 
   if (!supabaseUrl || !supabaseAnonKey) {
     return res.status(500).json({
-      error: '서버에 Supabase 설정(SUPABASE_URL, SUPABASE_ANON_KEY)이 구성되지 않았습니다.'
+      error: '서버에 Supabase 설정(SUPABASE_URL, SUPABASE_ANON_KEY 또는 SUPABASE_PUBLISHABLE_KEY)이 구성되지 않았습니다.'
     });
   }
 
