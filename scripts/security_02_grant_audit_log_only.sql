@@ -94,6 +94,7 @@ CREATE POLICY "activity_logs_scoped_read" ON public.activity_logs
         -- 3. 참여 중인 프로젝트의 일반 활동 로그 (AI_AUDIT 제외, 타 프로젝트 열람 불가)
         OR (
             type IS DISTINCT FROM 'AI_AUDIT'
+            AND project_id IS NOT NULL
             AND (
                 project_id IN (
                     SELECT project_id FROM public.project_members 
@@ -110,27 +111,34 @@ CREATE POLICY "activity_logs_scoped_read" ON public.activity_logs
 -- [RLS Policy 2]: 안전한 활동 기록 (activity_logs_insert_user)
 -- 일반 사용자는:
 --   1) 반드시 본인 명의(user_id = auth.uid()::text)로만 작성 가능 (user_id IS NULL 임의 생성 원천 차단)
---   2) 소속된 프로젝트 또는 PM/관리자 권한을 가진 프로젝트에만 작성 가능 (타 프로젝트 활동 위조 방지)
---   3) AI_AUDIT 타입은 위조 방지를 위해 오직 서버 백엔드(service_role)만 작성 가능
+--   2) project_id IS NULL(공통 로그)는 오직 SYS_ADMIN/EXEC_ADMIN/ADMIN/PMO 권한자만 작성 허용 (일반 사용자 임의 생성 차단)
+--   3) 일반 사용자는 소속된 프로젝트 또는 PM 권한을 가진 프로젝트에만 작성 가능 (타 프로젝트 활동 위조 방지)
+--   4) AI_AUDIT 타입은 위조 방지를 위해 오직 서버 백엔드(service_role)만 작성 가능
 CREATE POLICY "activity_logs_insert_user" ON public.activity_logs
     FOR INSERT TO authenticated
     WITH CHECK (
         user_id = auth.uid()::text
         AND type IS DISTINCT FROM 'AI_AUDIT'
         AND (
-            project_id IS NULL
-            OR project_id IN (
-                SELECT project_id FROM public.project_members 
-                WHERE user_id = auth.uid()::text
-            )
-            OR project_id IN (
-                SELECT id FROM public.projects 
-                WHERE manager_id = auth.uid()::text
-            )
-            OR EXISTS (
+            -- 관리자 및 PMO는 공통 활동로그(project_id IS NULL) 및 전 프로젝트 작성 허용
+            EXISTS (
                 SELECT 1 FROM public.profiles 
                 WHERE profiles.id = auth.uid() 
                   AND profiles.role IN ('SYS_ADMIN', 'EXEC_ADMIN', 'ADMIN', 'PMO')
+            )
+            -- 일반 사용자는 배정된 유효 프로젝트(project_id NOT NULL)의 로그만 작성 가능
+            OR (
+                project_id IS NOT NULL
+                AND (
+                    project_id IN (
+                        SELECT project_id FROM public.project_members 
+                        WHERE user_id = auth.uid()::text
+                    )
+                    OR project_id IN (
+                        SELECT id FROM public.projects 
+                        WHERE manager_id = auth.uid()::text
+                    )
+                )
             )
         )
     );
@@ -139,26 +147,30 @@ CREATE POLICY "activity_logs_insert_user" ON public.activity_logs
 -- 일반 사용자는:
 --   1) 오직 본인이 작성한 일반 로그만 수정 가능 (타인 로그 수정 원천 차단)
 --   2) AI_AUDIT 타입 로그 수정 절대 불가
---   3) 소속 프로젝트 범위를 벗어난 수정 불가
+--   3) project_id IS NULL(공통 로그)는 관리자/PMO만 수정 가능하며 일반 사용자는 소속 프로젝트로 제한
 CREATE POLICY "activity_logs_update_user" ON public.activity_logs
     FOR UPDATE TO authenticated
     USING (
         user_id = auth.uid()::text 
         AND type IS DISTINCT FROM 'AI_AUDIT'
         AND (
-            project_id IS NULL
-            OR project_id IN (
-                SELECT project_id FROM public.project_members 
-                WHERE user_id = auth.uid()::text
-            )
-            OR project_id IN (
-                SELECT id FROM public.projects 
-                WHERE manager_id = auth.uid()::text
-            )
-            OR EXISTS (
+            EXISTS (
                 SELECT 1 FROM public.profiles 
                 WHERE profiles.id = auth.uid() 
                   AND profiles.role IN ('SYS_ADMIN', 'EXEC_ADMIN', 'ADMIN', 'PMO')
+            )
+            OR (
+                project_id IS NOT NULL
+                AND (
+                    project_id IN (
+                        SELECT project_id FROM public.project_members 
+                        WHERE user_id = auth.uid()::text
+                    )
+                    OR project_id IN (
+                        SELECT id FROM public.projects 
+                        WHERE manager_id = auth.uid()::text
+                    )
+                )
             )
         )
     )
@@ -166,19 +178,23 @@ CREATE POLICY "activity_logs_update_user" ON public.activity_logs
         user_id = auth.uid()::text 
         AND type IS DISTINCT FROM 'AI_AUDIT'
         AND (
-            project_id IS NULL
-            OR project_id IN (
-                SELECT project_id FROM public.project_members 
-                WHERE user_id = auth.uid()::text
-            )
-            OR project_id IN (
-                SELECT id FROM public.projects 
-                WHERE manager_id = auth.uid()::text
-            )
-            OR EXISTS (
+            EXISTS (
                 SELECT 1 FROM public.profiles 
                 WHERE profiles.id = auth.uid() 
                   AND profiles.role IN ('SYS_ADMIN', 'EXEC_ADMIN', 'ADMIN', 'PMO')
+            )
+            OR (
+                project_id IS NOT NULL
+                AND (
+                    project_id IN (
+                        SELECT project_id FROM public.project_members 
+                        WHERE user_id = auth.uid()::text
+                    )
+                    OR project_id IN (
+                        SELECT id FROM public.projects 
+                        WHERE manager_id = auth.uid()::text
+                    )
+                )
             )
         )
     );

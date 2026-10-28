@@ -277,6 +277,19 @@ async function getProjectIssuesAndActions(projectId, supabaseUrl, serviceKeyOrAn
   return { issues, actionItems, issuesError, actionsError };
 }
 
+// 이슈/Action Item 완료 및 종료 상태 판별 헬퍼 (AI-01 및 AI-04 집계 정합성 보장)
+function isClosedIssue(status) {
+  if (!status) return false;
+  const s = String(status).toUpperCase().trim();
+  return ['CLOSED', 'RESOLVED', 'DONE', '완료', '종료', '해결'].includes(s);
+}
+
+function isClosedAction(status) {
+  if (!status) return false;
+  const s = String(status).toUpperCase().trim();
+  return ['COMPLETED', 'CLOSED', 'DONE', 'RESOLVED', '완료', '종료'].includes(s);
+}
+
 // 3-3. 필수 산출물 및 등록 산출물 비교 (AI-02 및 AI-04 위험도 분석 공용)
 // 산출물 명칭 정규화 헬퍼 (공백, 버전, 확장자, 대괄호 접두어 제거하여 정밀 매핑)
 function normalizeArtifactName(name) {
@@ -375,24 +388,29 @@ async function getDeliverablesComparison(project, supabaseUrl, serviceKeyOrAnon,
   const underReviewList = [];
   const draftList = [];
   const unregisteredList = [];
+  const matchedDeliverableIds = new Set();
 
   for (const tpl of templates) {
     const tplName = (tpl.name || '').trim();
     const normTpl = normalizeArtifactName(tplName);
 
-    // 1단계: 정밀 일치
-    let matched = projDeliverables.find(d => (d.name || '').trim() === tplName);
+    // 미매핑된 프로젝트 산출물 후보군에서만 탐색 (1:1 매핑 보장 및 중복 매핑 원천 차단)
+    const availableDeliverables = projDeliverables.filter(d => !matchedDeliverableIds.has(d.id));
 
-    // 2단계: 정규화 일치 (특수기호, 버전, 확장자, 대괄호 제거 후 대조)
+    // 1단계: 완전 일치 (대소문자/공백 정밀 일치)
+    let matched = availableDeliverables.find(d => (d.name || '').trim() === tplName);
+
+    // 2단계: 정규화 완전 일치 (특수기호, 버전, 확장자, 대괄호 제거 후 정확한 동일성 대조)
     if (!matched && normTpl) {
-      matched = projDeliverables.find(d => normalizeArtifactName(d.name) === normTpl);
+      matched = availableDeliverables.find(d => normalizeArtifactName(d.name) === normTpl);
     }
 
-    // 3단계: 핵심 키워드 포함 대조 (길이 4글자 이상)
-    if (!matched && normTpl.length >= 4) {
-      matched = projDeliverables.find(d => {
+    // 3단계: 정밀 접두/접미 일치 (부분 일치 오탐 차단: 최소 5글자 이상이며 앞 또는 뒤에서 결합된 형태만 허용)
+    if (!matched && normTpl.length >= 5) {
+      matched = availableDeliverables.find(d => {
         const normD = normalizeArtifactName(d.name);
-        return normD.length >= 4 && (normD.includes(normTpl) || normTpl.includes(normD));
+        if (normD.length < 5) return false;
+        return normD.startsWith(normTpl) || normD.endsWith(normTpl) || normTpl.startsWith(normD) || normTpl.endsWith(normD);
       });
     }
 
@@ -406,6 +424,7 @@ async function getDeliverablesComparison(project, supabaseUrl, serviceKeyOrAnon,
         dueDate: '미정'
       });
     } else {
+      matchedDeliverableIds.add(matched.id);
       const st = (matched.status || '').toUpperCase();
       if (st === 'APPROVED' || st === '완료' || st === '승인') {
         approvedList.push({
@@ -792,20 +811,26 @@ async function getProjectRiskAssessment(project, supabaseUrl, serviceKeyOrAnon, 
   if (isPartiallyEvaluated) {
     totalScore = (scheduleScore || 0) + (deliverableScore || 0) + (issueScore || 0) + (actionItemScore || 0);
 
-    if (totalScore >= 70) {
+    // Critical 이슈 존재 시 총점과 무관하게 정상 등급 부여 차단 (경보와 등급의 정합성 동기화)
+    if (totalScore >= 70 || openCritical >= 2) {
       grade = allFourEvaluated ? '심각 (CRITICAL)' : '심각 (CRITICAL, 일부 지표 미확인)';
       gradeBadgeColor = '#ef4444';
-    } else if (totalScore >= 50) {
+    } else if (totalScore >= 50 || openCritical >= 1) {
       grade = allFourEvaluated ? '경고 (WARNING)' : '경고 (WARNING, 일부 지표 미확인)';
       gradeBadgeColor = '#f97316';
     } else if (totalScore >= 30) {
       grade = allFourEvaluated ? '주의 (CAUTION)' : '주의 (CAUTION, 일부 지표 미확인)';
       gradeBadgeColor = '#eab308';
     } else {
-      // 30점 미만: 4개 지표가 모두 온전히 평가되었을 때만 '정상' 부여!
+      // 30점 미만: 4개 지표가 모두 온전히 평가되었고 잔여 결함(Critical/High/Overdue/미등록)이 전혀 없을 때만 '정상' 부여!
       if (allFourEvaluated) {
-        grade = '정상 (NORMAL)';
-        gradeBadgeColor = '#22c55e';
+        if (openCritical === 0 && openHigh === 0 && overdueActions === 0 && (sum?.unregisteredCount || 0) === 0) {
+          grade = '정상 (NORMAL)';
+          gradeBadgeColor = '#22c55e';
+        } else {
+          grade = '주의 (CAUTION, 잔여 관리과제 존재)';
+          gradeBadgeColor = '#eab308';
+        }
       } else {
         // 미확인 지표(일정 지연 30점, 산출물 누락 25점 등)가 남아있으므로 정상으로 오인되지 않도록 보류
         grade = '부분 판정 (일부 지표 미등록으로 정상 판정 보류)';
@@ -1223,9 +1248,20 @@ module.exports = async (req, res) => {
     }
 
     let issuesAndActions = { issues: [], actionItems: [] };
+    let issuesFetchError = null;
+    let actionsFetchError = null;
     try {
-      issuesAndActions = await getProjectIssuesAndActions(targetProj.id, supabaseUrl, supabaseAnonKey, token);
-    } catch (e) {}
+      const resIA = await getProjectIssuesAndActions(targetProj.id, supabaseUrl, supabaseAnonKey, token);
+      issuesAndActions = resIA;
+      issuesFetchError = resIA.issuesError;
+      actionsFetchError = resIA.actionsError;
+    } catch (e) {
+      issuesFetchError = e.message;
+    }
+
+    // 미해결 이슈 및 잔여 Action Item: 완료·종료 상태 엄격 제외
+    const openIssues = (issuesAndActions.issues || []).filter(i => !isClosedIssue(i.status));
+    const pendingActions = (issuesAndActions.actionItems || []).filter(a => !isClosedAction(a.status));
 
     // WBS 상세 데이터 검증 (DB 등록 여부 정확히 확인)
     const hasRegisteredWbs = targetProj.wbs && typeof targetProj.wbs === 'object' && Array.isArray(targetProj.wbs.stages) && targetProj.wbs.stages.length > 0;
@@ -1248,8 +1284,12 @@ module.exports = async (req, res) => {
         milestones: targetProj.milestones || '미등록'
       },
       wbsStatus: wbsData,
-      recentIssues: issuesAndActions.issues.map(i => ({ title: i.title, priority: i.priority, status: i.status })),
-      recentActions: issuesAndActions.actionItems.map(a => ({ title: a.title, priority: a.priority, status: a.status, dueDate: a.due_date }))
+      recentIssues: openIssues.map(i => ({ title: i.title, priority: i.priority, status: i.status })),
+      recentActions: pendingActions.map(a => ({ title: a.title, priority: a.priority, status: a.status, dueDate: a.due_date })),
+      fetchErrors: {
+        issuesError: issuesFetchError,
+        actionsError: actionsFetchError
+      }
     };
 
     specificInstructions = `
@@ -1622,18 +1662,31 @@ ${JSON.stringify(pmoContextData, null, 2)}
     let structuredKPIs = null;
     if (featureType === 'AI-01') {
       const ov = pmoContextData?.projectOverview || {};
-      const issuesCount = pmoContextData?.recentIssues?.length || 0;
-      const actionsCount = pmoContextData?.recentActions?.length || 0;
+      const openIssuesList = pmoContextData?.recentIssues || [];
+      const pendingActionsList = pmoContextData?.recentActions || [];
+      const issuesCount = openIssuesList.length;
+      const actionsCount = pendingActionsList.length;
       const hasWbs = targetProj ? Boolean(targetProj.wbs && typeof targetProj.wbs === 'object' && Array.isArray(targetProj.wbs.stages) && targetProj.wbs.stages.length > 0) : false;
+      const hasFetchError = Boolean(pmoContextData?.fetchErrors?.issuesError || pmoContextData?.fetchErrors?.actionsError);
 
-      // 동적 3대 권고사항 (위험요인 미존재 시 긴급 비상알림 차단 및 안정 유지 표기)
+      // 동적 3대 권고사항 (데이터 결측 시 보류, 위험요인 미존재 시 안정 유지 표기)
       let recCritical = null;
-      if (issuesCount === 0 && actionsCount === 0) {
+      if (hasFetchError) {
+        recCritical = {
+          type: 'warning',
+          title: '⚠️ [판정 보류 (데이터 조회 오류)]',
+          action: '이슈 또는 Action Item 데이터 조회 중 오류가 발생하여 종합 진단이 일부 보류되었습니다. Supabase 권한을 확인하세요.',
+          evidence: `데이터 조회 오류: ${pmoContextData?.fetchErrors?.issuesError || pmoContextData?.fetchErrors?.actionsError || '통신 오류'}`,
+          impact: '정확한 잔여 과제 수 파악 제한',
+          assignee: '시스템 관리자',
+          deadline: '즉시 점검'
+        };
+      } else if (issuesCount === 0 && actionsCount === 0) {
         recCritical = {
           type: 'stable',
           title: '✅ [긴급 리스크 없음 (안정 유지)]',
           action: '사업 공정을 중단시킬 치명적 장애나 기한 초과 항목이 없습니다. 기존 마일스톤 계획에 따라 안정적으로 업무를 수행하세요.',
-          evidence: '미해결 이슈 0건, 지연 Action Item 0건 확인',
+          evidence: '미해결 이슈 0건, 잔여 Action Item 0건 확인 (완료·종료 항목 엄격 제외)',
           impact: '공정 지연 없이 목표 일정 달성 유효',
           assignee: ov.manager || '사업 총괄 PM',
           deadline: '정기 주간 점검'
@@ -1643,7 +1696,7 @@ ${JSON.stringify(pmoContextData, null, 2)}
           type: 'critical',
           title: '🚨 [긴급 조치 (Critical)]',
           action: '미해결 이슈 및 지연 Action Item 집중 해소를 위한 긴급 공정 회의 소집',
-          evidence: `미해결 이슈 ${issuesCount}건, 잔여 Action Item ${actionsCount}건 등록`,
+          evidence: `미해결 이슈 ${issuesCount}건, 잔여 Action Item ${actionsCount}건 등록 (완료·종료 제외 실질 잔여)`,
           impact: '마일스톤 도래 시 공정 지연 및 후속 단계 착수 차질 우려',
           assignee: ov.manager || '사업 총괄 PM 및 파트장',
           deadline: '즉시 조치 (D+2 이내)'
@@ -1677,6 +1730,7 @@ ${JSON.stringify(pmoContextData, null, 2)}
         issuesCount,
         actionsCount,
         hasWbs,
+        isIndeterminate: hasFetchError,
         recommendations: {
           critical: recCritical,
           warning: recWarning,
@@ -2021,3 +2075,14 @@ ${JSON.stringify(pmoContextData, null, 2)}
     if (release) release();
   }
 };
+
+// 실무 로직 단위/통합 검증 및 외부 모듈 참조를 위한 내보내기
+module.exports.normalizeArtifactName = normalizeArtifactName;
+module.exports.getProjectIssuesAndActions = getProjectIssuesAndActions;
+module.exports.getDeliverablesComparison = getDeliverablesComparison;
+module.exports.getProjectRiskAssessment = getProjectRiskAssessment;
+module.exports.extractRfpRequirements = extractRfpRequirements;
+module.exports.getWeeklyPerformanceSummary = getWeeklyPerformanceSummary;
+module.exports.saveAIAuditLog = saveAIAuditLog;
+module.exports.isClosedIssue = isClosedIssue;
+module.exports.isClosedAction = isClosedAction;

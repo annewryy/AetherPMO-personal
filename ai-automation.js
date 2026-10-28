@@ -415,9 +415,15 @@
                 businessImpact = unreg > 0 ? `단계별 마일스톤 도래 시 미제출 산출물(${unreg}건)로 인한 검수 지연 및 납기 리스크 발생 가능성이 있습니다.` : '필수 산출물 대부분이 적기 등록되어 안정적인 형상 관리가 유지되고 있습니다.';
             }
         } else if (featureType === 'AI-01') {
-            gradeBadgeHtml = `<span class="ai-grade-badge" style="background:rgba(139, 92, 246, 0.2); color:#a78bfa; border:1px solid #a78bfa;">종합 사업현황 브리핑</span>`;
-            diagnosisSummary = `실적 공정률 ${escapeHtml(kpis.progress || '0%')}, 미해결 이슈 ${kpis.issuesCount || 0}건, 미완료 Action Items ${kpis.actionsCount || 0}건에 근거한 PMO 종합 진단 결과입니다.`;
-            businessImpact = '사업 추진 현황 및 병목 구간을 진단하여 즉시 조치해야 할 관리 과제를 도출하였습니다.';
+            if (kpis.isIndeterminate) {
+                gradeBadgeHtml = `<span class="ai-grade-badge" style="background:rgba(239, 68, 68, 0.2); color:#f87171; border:1px solid #f87171;">⚠️ 판정 보류 (조회 오류)</span>`;
+                diagnosisSummary = `이슈/Action Item 조회 중 오류가 발생하여 종합 진단이 보류되었습니다. 데이터베이스 접근 권한을 확인해 주세요.`;
+                businessImpact = '⚠️ 실제 잔여 과제가 0건으로 오인되지 않도록 시스템 연결 상태를 점검해야 합니다.';
+            } else {
+                gradeBadgeHtml = `<span class="ai-grade-badge" style="background:rgba(139, 92, 246, 0.2); color:#a78bfa; border:1px solid #a78bfa;">종합 사업현황 브리핑</span>`;
+                diagnosisSummary = `실적 공정률 ${escapeHtml(kpis.progress || '0%')}, 미해결 이슈 ${kpis.issuesCount || 0}건, 잔여 Action Items ${kpis.actionsCount || 0}건(완료·종료 제외)에 근거한 PMO 종합 진단 결과입니다.`;
+                businessImpact = '사업 추진 현황 및 병목 구간을 진단하여 즉시 조치해야 할 관리 과제를 도출하였습니다.';
+            }
         } else if (featureType === 'AI-03') {
             gradeBadgeHtml = `<span class="ai-grade-badge" style="background:rgba(16, 185, 129, 0.2); color:#10b981; border:1px solid #10b981;">주간 업무 실적 및 계획</span>`;
             diagnosisSummary = `${escapeHtml(kpis.weekLabel || '금주')} 동안 실제 시스템에 등록·확인된 실적 ${kpis.completedCount || 0}건을 집계하고 차주 실행 계획을 수립하였습니다.`;
@@ -431,11 +437,11 @@
 
             let citationNotice = '';
             if (pageNums.length === 0) {
-                citationNotice = ' <span style="color:#fbbf24; font-weight:600;">[원문 인용 미표기]</span> (답변 내 [p.N] 페이지 표기 누락으로 원문 추적 불가)';
+                citationNotice = ' <span style="color:#fbbf24; font-weight:600;">[페이지 번호 미표기]</span> (답변 내 [p.N] 페이지 표기 누락으로 원문 추적 불가)';
             } else if (outOfBounds.length > 0) {
-                citationNotice = ` <span style="color:#f87171; font-weight:600;">[원문 인용 검증 불일치]</span> (문서 범위 1~${maxPage}p 초과 인용 [p.${outOfBounds.join(', ')}] 감지, 전문 대조 요망)`;
+                citationNotice = ` <span style="color:#f87171; font-weight:600;">[페이지 번호 범위 불일치]</span> (문서 범위 1~${maxPage}p 초과 인용 [p.${outOfBounds.join(', ')}] 감지, 전문 대조 요망)`;
             } else {
-                citationNotice = ` <span style="color:#34d399; font-weight:600;">[원문 인용 검증 완료]</span> (${uniquePages.slice(0, 5).join(', ')}${uniquePages.length > 5 ? ` 외 ${uniquePages.length - 5}개소` : ''} 대조 확인, 총 ${maxPage}p 범위 내 유효)`;
+                citationNotice = ` <span style="color:#34d399; font-weight:600;">[페이지 번호 범위 일치 (내용 미검증)]</span> (${uniquePages.slice(0, 5).join(', ')}${uniquePages.length > 5 ? ` 외 ${uniquePages.length - 5}개소` : ''} 표기 확인, 총 ${maxPage}p 범위 내 유효 / 원문 문구 대조는 별도 확인 필요)`;
             }
 
             gradeBadgeHtml = `<span class="ai-grade-badge" style="background:rgba(59, 130, 246, 0.2); color:#60a5fa; border:1px solid #60a5fa;">공공 RFP 8대 요건 정밀 분석</span>`;
