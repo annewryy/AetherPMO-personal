@@ -78,7 +78,7 @@ Assert-Check "Deliverables query failure guarded against false normal" $hasIndet
 $hasRiskScoreNullNotice = $chatJs.Contains("allFourEvaluated")
 Assert-Check "Risk score metric insufficiency guarded against false zero" $hasRiskScoreNullNotice "Incomplete axes flagged as indeterminate"
 
-$hasRfpCitationInDiagnosis = $aiJs.Contains("uniquePages.length > 0")
+$hasRfpCitationInDiagnosis = $aiJs.Contains("pageCitations") -and $aiJs.Contains("outOfBounds")
 Assert-Check "RFP page citation ([p.N]) extraction and verification logic" $hasRfpCitationInDiagnosis "Tracks [p.N] citations in document analysis"
 
 # ----------------------------------------------------------------------------

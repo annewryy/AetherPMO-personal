@@ -664,6 +664,9 @@ async function getProjectRiskAssessment(project, supabaseUrl, serviceKeyOrAnon, 
   let scheduleScore = 0;
   let scheduleDetail = '정상 진행 중';
   let isScheduleEvaluated = false;
+  let scheduleGap = 0;
+  let plannedProgressVal = 0;
+  let actualProgressVal = Number(project.progress) || 0;
 
   if (project.start_date && project.end_date) {
     const start = new Date(project.start_date);
@@ -672,28 +675,29 @@ async function getProjectRiskAssessment(project, supabaseUrl, serviceKeyOrAnon, 
       isScheduleEvaluated = true;
       const totalDays = (end - start) / (1000 * 60 * 60 * 24);
       const elapsedDays = Math.max(0, (today - start) / (1000 * 60 * 60 * 24));
-      const plannedProgress = Math.min(100, Math.round((elapsedDays / totalDays) * 100));
-      const actualProgress = Number(project.progress) || 0;
-      const gap = plannedProgress - actualProgress;
+      plannedProgressVal = Math.min(100, Math.round((elapsedDays / totalDays) * 100));
+      actualProgressVal = Number(project.progress) || 0;
+      scheduleGap = plannedProgressVal - actualProgressVal;
 
-      if (gap >= 15) {
+      if (scheduleGap >= 15) {
         scheduleScore = 30;
-        scheduleDetail = `추정 계획 공정률(${plannedProgress}%, 직선형 기간 경과 추정치) 대비 실적 공정률(${actualProgress}%)이 ${gap}%p 심각하게 지연되었습니다.`;
-      } else if (gap >= 10) {
+        scheduleDetail = `추정 계획 공정률(${plannedProgressVal}%, 직선형 기간 경과 추정치) 대비 실적 공정률(${actualProgressVal}%)이 ${scheduleGap}%p 심각하게 지연되었습니다.`;
+      } else if (scheduleGap >= 10) {
         scheduleScore = 20;
-        scheduleDetail = `추정 계획 공정률(${plannedProgress}%, 직선형 기간 경과 추정치) 대비 실적 공정률(${actualProgress}%)이 ${gap}%p 지연되어 주의가 필요합니다.`;
-      } else if (gap >= 5) {
+        scheduleDetail = `추정 계획 공정률(${plannedProgressVal}%, 직선형 기간 경과 추정치) 대비 실적 공정률(${actualProgressVal}%)이 ${scheduleGap}%p 지연되어 주의가 필요합니다.`;
+      } else if (scheduleGap >= 5) {
         scheduleScore = 10;
-        scheduleDetail = `추정 계획 공정률(${plannedProgress}%, 직선형 기간 경과 추정치) 대비 실적 공정률(${actualProgress}%)이 ${gap}%p 소폭 지연 상태입니다.`;
+        scheduleDetail = `추정 계획 공정률(${plannedProgressVal}%, 직선형 기간 경과 추정치) 대비 실적 공정률(${actualProgressVal}%)이 ${scheduleGap}%p 소폭 지연 상태입니다.`;
       } else {
         scheduleScore = 0;
-        scheduleDetail = `추정 계획 공정률(${plannedProgress}%, 직선형 기간 경과 추정치) 대비 실적 공정률(${actualProgress}%)이 일정 범위 내에서 정상 추진 중입니다.`;
+        scheduleDetail = `추정 계획 공정률(${plannedProgressVal}%, 직선형 기간 경과 추정치) 대비 실적 공정률(${actualProgressVal}%)이 일정 범위 내에서 정상 추진 중입니다.`;
       }
     }
   }
 
   if (!isScheduleEvaluated) {
     scheduleScore = null;
+    scheduleGap = null;
     scheduleDetail = '프로젝트 시작일/종료일 미등록으로 일정 위험도 정량 판정 불가 (직선형 추정치 산출 불가)';
   }
 
@@ -819,17 +823,19 @@ async function getProjectRiskAssessment(project, supabaseUrl, serviceKeyOrAnon, 
       allFourEvaluated
     },
     breakdown: {
-      schedule: { score: scheduleScore, max: 30, detail: scheduleDetail },
-      deliverable: { score: deliverableScore, max: 25, detail: deliverableDetail },
-      issue: { score: issueScore, max: 25, detail: issueDetail },
-      actionItem: { score: actionItemScore, max: 20, detail: actionItemDetail }
+      schedule: { score: scheduleScore, max: 30, detail: scheduleDetail, gap: scheduleGap, plannedProgress: plannedProgressVal, actualProgress: actualProgressVal },
+      deliverable: { score: deliverableScore, max: 25, detail: deliverableDetail, unregistered: sum?.unregisteredCount || 0, underReview: sum?.underReviewCount || 0 },
+      issue: { score: issueScore, max: 25, detail: issueDetail, openCritical, openHigh, openNormal },
+      actionItem: { score: actionItemScore, max: 20, detail: actionItemDetail, overdueActions }
     },
     groundingCounts: {
+      scheduleGap,
       openCritical,
       openHigh,
       openNormal,
       overdueActions,
-      unregisteredDeliverables: sum?.unregisteredCount || 0
+      unregisteredDeliverables: sum?.unregisteredCount || 0,
+      underReviewDeliverables: sum?.underReviewCount || 0
     }
   };
 }
@@ -1823,8 +1829,16 @@ ${JSON.stringify(pmoContextData, null, 2)}
     } else if (featureType === 'AI-04') {
       const ov = pmoContextData?.overallAssessment || {};
       const sc = pmoContextData?.quantitativeRiskScores || {};
+      const counts = pmoContextData?.groundingCounts || {};
       const totalScore = ov.totalScore;
       const allFour = Boolean(ov.allFourEvaluated);
+
+      const openCritical = Number(counts.openCritical ?? sc.issue?.openCritical ?? 0);
+      const openHigh = Number(counts.openHigh ?? sc.issue?.openHigh ?? 0);
+      const openNormal = Number(counts.openNormal ?? sc.issue?.openNormal ?? 0);
+      const overdueActions = Number(counts.overdueActions ?? sc.actionItem?.overdueActions ?? 0);
+      const unregisteredDeliv = Number(counts.unregisteredDeliverables ?? sc.deliverable?.unregistered ?? 0);
+      const scheduleGap = Number(counts.scheduleGap ?? sc.schedule?.gap ?? 0);
 
       let recCritical = null;
       if (!allFour || totalScore === null) {
@@ -1837,12 +1851,23 @@ ${JSON.stringify(pmoContextData, null, 2)}
           assignee: 'PMO 데이터 관리자',
           deadline: '즉시 정비'
         };
-      } else if (totalScore < 30 && (sc.issue?.criticalCount || 0) === 0 && (sc.actionItem?.overdueCount || 0) === 0) {
+      } else if (openCritical > 0) {
+        // Critical 이슈가 1건이라도 존재하면 총점(저점수 포함)과 무관하게 무조건 긴급 조치 경보 발령
+        recCritical = {
+          type: 'critical',
+          title: '🚨 [긴급 조치 (Critical)]',
+          action: `미해결 긴급(Critical) 이슈 ${openCritical}건 해소를 위한 비상 기술회의 소집 및 즉각 조치`,
+          evidence: `심각도 Critical 이슈 ${openCritical}건 미해결 (High: ${openHigh}건, 기한초과: ${overdueActions}건, 미등록 산출물: ${unregisteredDeliv}건, 공정갭: ${scheduleGap}%p)`,
+          impact: '핵심 기능 결함 또는 납기 중단 위험 초래',
+          assignee: '사업 총괄 PM 및 기술책임자',
+          deadline: '즉시 조치 (D+1 이내)'
+        };
+      } else if (totalScore < 30 && openHigh === 0 && overdueActions === 0 && unregisteredDeliv === 0) {
         recCritical = {
           type: 'stable',
           title: '✅ [긴급 리스크 없음 (안정 유지)]',
           action: `종합 위험도 ${totalScore}점(정상 통제 범위)으로 긴급 비상 대응이 불필요합니다.`,
-          evidence: `치명적 결함 0건, 기한 초과 0건, 정상 공정률 범위`,
+          evidence: `Critical/High 이슈 0건, 기한초과 0건, 미등록 산출물 0건 (정상 추진)`,
           impact: '현행 관리 체계 하에서 안정적 순항 유지',
           assignee: '사업 총괄 PM',
           deadline: '상시 모니터링'
@@ -1852,7 +1877,7 @@ ${JSON.stringify(pmoContextData, null, 2)}
           type: 'critical',
           title: '🚨 [긴급 조치 (Critical)]',
           action: `고위험 요인(${totalScore}점) 해소를 위한 PMO 비상 리스크 대응 체계 가동`,
-          evidence: `일정 갭(${sc.schedule?.gap || 0}%), 미등록 산출물(${sc.deliverable?.unregistered || 0}건), Critical이슈(${sc.issue?.criticalCount || 0}건), 기한초과(${sc.actionItem?.overdueCount || 0}건)`,
+          evidence: `공정갭 ${scheduleGap}%p, 미등록 산출물 ${unregisteredDeliv}건, High이슈 ${openHigh}건, 기한초과 Action ${overdueActions}건`,
           impact: '프로젝트 납기 및 품질 감리 위기 도래',
           assignee: '사업총괄 및 기술총괄',
           deadline: 'D+2 이내 비상회의'
@@ -1863,7 +1888,7 @@ ${JSON.stringify(pmoContextData, null, 2)}
         type: 'warning',
         title: '⚠️ [주의 관리 (Warning)]',
         action: '공정률 격차 추적 및 마일스톤 조기 경보 체계 유지',
-        evidence: `일정 점수 ${sc.schedule?.score || 0}점 / 30점`,
+        evidence: `일정 점수 ${sc.schedule?.score !== null && sc.schedule?.score !== undefined ? sc.schedule.score : 0}점 / 30점 (공정갭 ${scheduleGap}%p)`,
         impact: '지연 누적 조기 차단',
         assignee: '공정관리 PL',
         deadline: '주 2회 모니터링'
@@ -1888,6 +1913,14 @@ ${JSON.stringify(pmoContextData, null, 2)}
         issueScore: sc.issue?.score,
         actionItemScore: sc.actionItem?.score,
         allFourEvaluated: allFour,
+        groundingCounts: {
+          scheduleGap,
+          openCritical,
+          openHigh,
+          openNormal,
+          overdueActions,
+          unregisteredDeliverables: unregisteredDeliv
+        },
         recommendations: {
           critical: recCritical,
           warning: recWarning,

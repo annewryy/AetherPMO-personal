@@ -425,9 +425,18 @@
         } else if (featureType === 'AI-05') {
             const pageCitations = (answer.match(/\[p\.\s*\d+\]/gi) || []);
             const uniquePages = [...new Set(pageCitations.map(p => p.trim()))];
-            const citationNotice = uniquePages.length > 0 
-                ? ` (원문 인용 검증: ${uniquePages.slice(0, 5).join(', ')}${uniquePages.length > 5 ? ` 외 ${uniquePages.length - 5}개소` : ''} 확인)` 
-                : ' (원문 페이지 인용 표기 없음)';
+            const maxPage = Number(kpis.pageCount || 1);
+            const pageNums = uniquePages.map(p => parseInt(p.replace(/\D/g, ''), 10)).filter(n => !isNaN(n));
+            const outOfBounds = pageNums.filter(n => n < 1 || n > maxPage);
+
+            let citationNotice = '';
+            if (pageNums.length === 0) {
+                citationNotice = ' <span style="color:#fbbf24; font-weight:600;">[원문 인용 미표기]</span> (답변 내 [p.N] 페이지 표기 누락으로 원문 추적 불가)';
+            } else if (outOfBounds.length > 0) {
+                citationNotice = ` <span style="color:#f87171; font-weight:600;">[원문 인용 검증 불일치]</span> (문서 범위 1~${maxPage}p 초과 인용 [p.${outOfBounds.join(', ')}] 감지, 전문 대조 요망)`;
+            } else {
+                citationNotice = ` <span style="color:#34d399; font-weight:600;">[원문 인용 검증 완료]</span> (${uniquePages.slice(0, 5).join(', ')}${uniquePages.length > 5 ? ` 외 ${uniquePages.length - 5}개소` : ''} 대조 확인, 총 ${maxPage}p 범위 내 유효)`;
+            }
 
             gradeBadgeHtml = `<span class="ai-grade-badge" style="background:rgba(59, 130, 246, 0.2); color:#60a5fa; border:1px solid #60a5fa;">공공 RFP 8대 요건 정밀 분석</span>`;
             diagnosisSummary = `제안요청서 [${escapeHtml(kpis.fileName || '문서')}]의 사업개요, 예산, 과업요건, 참가자격, 평가배점, 투입인력, 제출서류를 구조적으로 분석하였습니다.${citationNotice}`;
