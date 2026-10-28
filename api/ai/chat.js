@@ -223,12 +223,12 @@ async function getProjectIssuesAndActions(projectId, supabaseUrl, serviceKeyOrAn
   let issuesError = null;
   let actionsError = null;
   
-  // 이슈 조회 (실제 스키마: impact가 심각도 역할, priority/closed_at 컬럼 없음)
+  // 이슈 조회 (실제 스키마: impact가 심각도 역할, priority/closed_at 컬럼 없음, 25건 초과 전체 집계 지원)
   const issueOptions = {
     protocol: parsed.protocol,
     hostname: parsed.hostname,
     port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-    path: `/rest/v1/issues?project_id=eq.${encodeURIComponent(projectId)}&select=id,project_id,title,category,impact,status,reporter,assignee,due_date,solution,created_at,updated_at&order=created_at.desc&limit=25`,
+    path: `/rest/v1/issues?project_id=eq.${encodeURIComponent(projectId)}&select=id,project_id,title,category,impact,status,reporter,assignee,due_date,solution,created_at,updated_at&order=created_at.desc&limit=500`,
     method: 'GET',
     headers: { 'apikey': serviceKeyOrAnon, 'Authorization': `Bearer ${authKey}` },
     timeout: 5000
@@ -250,12 +250,12 @@ async function getProjectIssuesAndActions(projectId, supabaseUrl, serviceKeyOrAn
     console.warn('[DB Schema Sync]', issuesError);
   }
 
-  // Action Items 조회 (실제 스키마: completed_at 컬럼 없음)
+  // Action Items 조회 (실제 스키마: completed_at 컬럼 없음, 25건 초과 전체 집계 지원)
   const actionOptions = {
     protocol: parsed.protocol,
     hostname: parsed.hostname,
     port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-    path: `/rest/v1/action_items?project_id=eq.${encodeURIComponent(projectId)}&select=id,project_id,title,assignee,due_date,status,priority,created_at,updated_at&order=created_at.desc&limit=25`,
+    path: `/rest/v1/action_items?project_id=eq.${encodeURIComponent(projectId)}&select=id,project_id,title,assignee,due_date,status,priority,created_at,updated_at&order=created_at.desc&limit=500`,
     method: 'GET',
     headers: { 'apikey': serviceKeyOrAnon, 'Authorization': `Bearer ${authKey}` },
     timeout: 5000
@@ -2081,8 +2081,9 @@ module.exports.normalizeArtifactName = normalizeArtifactName;
 module.exports.getProjectIssuesAndActions = getProjectIssuesAndActions;
 module.exports.getDeliverablesComparison = getDeliverablesComparison;
 module.exports.getProjectRiskAssessment = getProjectRiskAssessment;
-module.exports.extractRfpRequirements = extractRfpRequirements;
-module.exports.getWeeklyPerformanceSummary = getWeeklyPerformanceSummary;
+module.exports.getWeeklyReportGroundingData = getWeeklyReportGroundingData;
+module.exports.getKSTWeekRange = getKSTWeekRange;
+module.exports.isDateInCurrentWeek = isDateInCurrentWeek;
 module.exports.saveAIAuditLog = saveAIAuditLog;
 module.exports.isClosedIssue = isClosedIssue;
 module.exports.isClosedAction = isClosedAction;

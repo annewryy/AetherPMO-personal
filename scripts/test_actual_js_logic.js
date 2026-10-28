@@ -2,11 +2,14 @@
 // [AetherPMO] 실제 JavaScript 업무 로직 기반 정밀 통합 검증 스위트
 // 파일 경로: scripts/test_actual_js_logic.js
 // 
-// 특징: PowerShell 모의 연산이 아닌, 실제 api/ai/chat.js 모듈을 require하여
-//       실행되는 순수 자바스크립트 엔진과 비즈니스 로직을 직접 테스트합니다.
+// 특징: PowerShell 모의 연산이 아닌, 실제 api/ai/chat.js 모듈의
+//       getDeliverablesComparison(), getProjectRiskAssessment(),
+//       getProjectIssuesAndActions() 함수를 직접 호출하여
+//       순수 JavaScript 엔진과 비즈니스 로직을 End-to-End로 검증합니다.
 // ============================================================================
 
 const assert = require('assert');
+const http = require('http');
 const path = require('path');
 const chatModule = require('../api/ai/chat.js');
 
@@ -15,11 +18,12 @@ const {
   isClosedIssue,
   isClosedAction,
   getDeliverablesComparison,
-  getProjectRiskAssessment
+  getProjectRiskAssessment,
+  getProjectIssuesAndActions
 } = chatModule;
 
 console.log('============================================================================');
-console.log(' [AetherPMO] Real JavaScript Engine & Logic Integration Test Suite');
+console.log(' [AetherPMO] Real JavaScript Function Invocation & Integration Test Suite');
 console.log('============================================================================\n');
 
 let passCount = 0;
@@ -28,6 +32,17 @@ let failCount = 0;
 function runTest(name, fn) {
   try {
     fn();
+    console.log(`  [PASS] ${name}`);
+    passCount++;
+  } catch (err) {
+    console.error(`  [FAIL] ${name}: ${err.message}`);
+    failCount++;
+  }
+}
+
+async function runAsyncTest(name, fn) {
+  try {
+    await fn();
     console.log(`  [PASS] ${name}`);
     passCount++;
   } catch (err) {
@@ -317,10 +332,161 @@ runTest('In-memory data preprocessing benchmark operates at sub-millisecond spee
   console.log(`         Manual human labor: ~45 min ~ 180 min (documented operational standard)`);
 });
 
-console.log('\n============================================================================');
-console.log(` [JavaScript Test Summary] Total: ${passCount + failCount} | Passed: ${passCount} | Failed: ${failCount}`);
-console.log('============================================================================');
+// -----------------------------------------------------------------------------
+// [Test Suite 6, 7, 8] 실제 getProjectRiskAssessment, getDeliverablesComparison, 25건+ 집계 호출 검증
+// -----------------------------------------------------------------------------
+console.log('\n[Test Suite 6] Actual getProjectRiskAssessment() Execution with Mock HTTP Server');
 
-if (failCount > 0) {
-  process.exit(1);
+async function runMockServerTests() {
+  // 모의 PostgREST 서버 구축 (포트 19842)
+  let mockIssues = [];
+  let mockActions = [];
+  let mockTemplates = [];
+  let mockDeliverables = [];
+
+  const server = http.createServer((req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    const u = new URL(req.url, 'http://127.0.0.1:19842');
+
+    if (u.pathname === '/rest/v1/issues') {
+      res.writeHead(200);
+      res.end(JSON.stringify(mockIssues));
+    } else if (u.pathname === '/rest/v1/action_items') {
+      res.writeHead(200);
+      res.end(JSON.stringify(mockActions));
+    } else if (u.pathname === '/rest/v1/artifacts') {
+      const isTemplateParam = u.searchParams.get('is_template');
+      if (isTemplateParam === 'eq.true' || isTemplateParam === 'true') {
+        res.writeHead(200);
+        res.end(JSON.stringify(mockTemplates));
+      } else {
+        res.writeHead(200);
+        res.end(JSON.stringify(mockDeliverables));
+      }
+    } else {
+      res.writeHead(404);
+      res.end(JSON.stringify({ error: 'not found' }));
+    }
+  });
+
+  await new Promise(resolve => server.listen(19842, '127.0.0.1', resolve));
+  const mockUrl = 'http://127.0.0.1:19842';
+
+  try {
+    // 6.1: getProjectRiskAssessment with 1 Critical Issue -> must elevate to WARNING
+    mockIssues = [
+      { id: 'I1', title: 'DB Deadlock', impact: 'CRITICAL', status: 'OPEN' }
+    ];
+    mockActions = [];
+    mockTemplates = [{ id: 'T1', name: '요구사항정의서' }];
+    mockDeliverables = [{ id: 'D1', name: '요구사항정의서', status: 'APPROVED' }];
+
+    const sampleProject = {
+      id: 'P001',
+      name: '차세대 PMO 포털 구축',
+      progress: 50,
+      start_date: '2026-01-01',
+      end_date: '2026-12-31'
+    };
+
+    await runAsyncTest('getProjectRiskAssessment() elevates grade to WARNING when Critical issue exists (openCritical=1)', async () => {
+      const result = await getProjectRiskAssessment(sampleProject, mockUrl, 'test-key');
+      assert(result, 'Result must exist');
+      assert.strictEqual(result.groundingCounts.openCritical, 1, 'Must ground openCritical as 1');
+      assert.strictEqual(result.breakdown.issue.openCritical, 1);
+      assert.strictEqual(result.summary.grade, '경고 (WARNING)', 'Must elevate to WARNING even at low total score');
+      assert.strictEqual(result.summary.gradeBadgeColor, '#f97316');
+      assert.notStrictEqual(result.summary.grade, '정상 (NORMAL)');
+    });
+
+    // 6.2: Clean project -> grade NORMAL
+    mockIssues = [];
+    mockActions = [];
+    mockTemplates = [{ id: 'T1', name: '요구사항정의서' }];
+    mockDeliverables = [{ id: 'D1', name: '요구사항정의서', status: 'APPROVED' }];
+
+    const cleanProject = {
+      id: 'P002',
+      name: '정상 순항 프로젝트',
+      progress: 100,
+      start_date: '2026-01-01',
+      end_date: '2026-12-31'
+    };
+
+    await runAsyncTest('getProjectRiskAssessment() assigns NORMAL grade when zero risks exist', async () => {
+      const result = await getProjectRiskAssessment(cleanProject, mockUrl, 'test-key');
+      assert.strictEqual(result.summary.grade, '정상 (NORMAL)');
+      assert.strictEqual(result.summary.gradeBadgeColor, '#22c55e');
+      assert.strictEqual(result.summary.totalScore, 0);
+    });
+
+    console.log('\n[Test Suite 7] Actual getDeliverablesComparison() Execution & 1-to-1 Mapping');
+
+    // 7.1: getDeliverablesComparison 1-to-1 mapping
+    mockTemplates = [
+      { id: 'T1', name: '요구사항정의서', category: '분석', stage: '분석' },
+      { id: 'T2', name: '요구사항정의서(보완)', category: '분석', stage: '분석' }
+    ];
+    mockDeliverables = [
+      { id: 'D101', name: '요구사항정의서', status: 'APPROVED', stage: '분석' }
+    ];
+
+    await runAsyncTest('getDeliverablesComparison() enforces 1-to-1 mapping and prevents duplicate template claims', async () => {
+      const comp = await getDeliverablesComparison(sampleProject, mockUrl, 'test-key');
+      assert(comp, 'Comparison must exist');
+      assert.strictEqual(comp.statusSummary.totalRequired, 2, 'Total required must be 2');
+      assert.strictEqual(comp.statusSummary.approvedCount, 1, 'Only 1 template matched D101');
+      assert.strictEqual(comp.statusSummary.unregisteredCount, 1, 'Second template must remain UNREGISTERED');
+      assert.strictEqual(comp.approvedList.length, 1);
+      assert.strictEqual(comp.unregisteredList.length, 1);
+    });
+
+    console.log('\n[Test Suite 8] Actual getProjectIssuesAndActions() 25+ Record Aggregation');
+
+    // 8.1: Over 25 records (35 issues, 40 action items)
+    mockIssues = [];
+    for (let i = 1; i <= 35; i++) {
+      mockIssues.push({
+        id: `ISSUE-${i}`,
+        title: `Issue number ${i}`,
+        impact: i <= 5 ? 'CRITICAL' : 'NORMAL',
+        status: i <= 10 ? 'CLOSED' : 'OPEN'
+      });
+    }
+
+    mockActions = [];
+    for (let j = 1; j <= 40; j++) {
+      mockActions.push({
+        id: `ACT-${j}`,
+        title: `Action number ${j}`,
+        priority: 'NORMAL',
+        status: j <= 15 ? 'COMPLETED' : 'IN_PROGRESS'
+      });
+    }
+
+    await runAsyncTest('getProjectIssuesAndActions() fetches and aggregates 25+ records accurately (no limit=25 truncation)', async () => {
+      const res = await getProjectIssuesAndActions(sampleProject.id, mockUrl, 'test-key');
+      assert.strictEqual(res.issues.length, 35, 'Must fetch all 35 issues without being capped at 25');
+      assert.strictEqual(res.actionItems.length, 40, 'Must fetch all 40 action items without being capped at 25');
+
+      const openIssues = res.issues.filter(i => !isClosedIssue(i.status));
+      assert.strictEqual(openIssues.length, 25, '35 total - 10 closed = 25 open issues');
+
+      const pendingActions = res.actionItems.filter(a => !isClosedAction(a.status));
+      assert.strictEqual(pendingActions.length, 25, '40 total - 15 completed = 25 pending actions');
+    });
+
+  } finally {
+    server.close();
+  }
+
+  console.log('\n============================================================================');
+  console.log(` [Final Summary] Total Tests: ${passCount + failCount} | Passed: ${passCount} | Failed: ${failCount}`);
+  console.log('============================================================================');
+
+  if (failCount > 0) {
+    process.exit(1);
+  }
 }
+
+runMockServerTests();

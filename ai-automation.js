@@ -254,13 +254,13 @@
                 </div>
                 <div class="ai-kpi-card">
                     <div class="ai-kpi-label">미해결 이슈</div>
-                    <div class="ai-kpi-value" style="color:${(kpis.issuesCount || 0) > 0 ? '#f87171' : '#34d399'};">${kpis.issuesCount || 0}건</div>
-                    <div class="ai-kpi-sub">집중 관리 대상</div>
+                    <div class="ai-kpi-value" style="color:${kpis.isIndeterminate ? '#f87171' : ((kpis.issuesCount || 0) > 0 ? '#f87171' : '#34d399')}; font-size:${kpis.isIndeterminate ? '16px' : '24px'}; margin-top:${kpis.isIndeterminate ? '6px' : '0'};">${kpis.isIndeterminate ? '조회 불가' : `${kpis.issuesCount || 0}건`}</div>
+                    <div class="ai-kpi-sub">${kpis.isIndeterminate ? '데이터 권한 점검' : '집중 관리 대상'}</div>
                 </div>
                 <div class="ai-kpi-card">
                     <div class="ai-kpi-label">잔여 Action Items</div>
-                    <div class="ai-kpi-value" style="color:${(kpis.actionsCount || 0) > 0 ? '#fbbf24' : '#34d399'};">${kpis.actionsCount || 0}건</div>
-                    <div class="ai-kpi-sub">기한 내 완료 요망</div>
+                    <div class="ai-kpi-value" style="color:${kpis.isIndeterminate ? '#f87171' : ((kpis.actionsCount || 0) > 0 ? '#fbbf24' : '#34d399')}; font-size:${kpis.isIndeterminate ? '16px' : '24px'}; margin-top:${kpis.isIndeterminate ? '6px' : '0'};">${kpis.isIndeterminate ? '조회 불가' : `${kpis.actionsCount || 0}건`}</div>
+                    <div class="ai-kpi-sub">${kpis.isIndeterminate ? '데이터 권한 점검' : '기한 내 완료 요망'}</div>
                 </div>
                 <div class="ai-kpi-card">
                     <div class="ai-kpi-label">WBS 등록 상태</div>
