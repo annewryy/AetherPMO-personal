@@ -167,11 +167,36 @@
         if (typeof lucide !== 'undefined') lucide.createIcons();
     };
 
-    // 4. 프로젝트 셀렉트 채우기 (접근 권한 있는 프로젝트 목록: AI-01 ~ AI-05)
+    // 4. AI 분석대상은 수행단계 사업만 표시합니다.
+    // DB 레거시 값: status='In Progress', project_stage_filter='Active'/'EXECUTION'.
+    // 입찰 사업 중에도 status='In Progress'인 데이터가 있으므로 입찰 여부를 먼저 배제합니다.
+    proto._isAIExecutionProject = function(project) {
+        if (!project || project.deleted_at) return false;
+        const normalize = value => String(value ?? '').trim().toUpperCase().replace(/[_-]/g, ' ');
+        const status = normalize(project.status);
+        const stage = normalize(project.project_stage_filter || project.stage);
+        const biddingFlag = project.is_bidding_project === true
+            || project.isBiddingProject === true
+            || normalize(project.is_bidding_project) === 'TRUE'
+            || normalize(project.isBiddingProject) === 'TRUE';
+        const biddingValues = ['BIDDING', 'BID', '입찰', '입찰중', '입찰단계'];
+        const executionValues = ['IN PROGRESS', 'ACTIVE', 'EXECUTION', '수행', '수행중', '수행단계', '진행중'];
+
+        if (biddingFlag || biddingValues.includes(status) || biddingValues.includes(stage)) return false;
+        if (['COMPLETED', 'CLOSED', '종료', '종료단계', '완료'].includes(status)
+            || ['COMPLETED', 'CLOSED', '종료', '종료단계', '완료'].includes(stage)) return false;
+        // 상태가 확실한 수행 프로젝트만 허용하고, 누락된 상태는 수행 단계값으로만 보완합니다.
+        return executionValues.includes(status) && (!stage || executionValues.includes(stage))
+            || (!status && executionValues.includes(stage));
+    };
+
+    // 4-1. 접근 권한이 있는 수행 프로젝트만 AI-01~05 선택 목록에 표시
     proto.populateAIProjectSelects = function() {
-        const accessible = (typeof this.getAccessibleProjects === 'function') 
-            ? this.getAccessibleProjects() 
+        const accessible = (typeof this.getAccessibleProjects === 'function')
+            ? this.getAccessibleProjects()
             : (this.state?.projects || []);
+        const executionProjects = (Array.isArray(accessible) ? accessible : [])
+            .filter(project => this._isAIExecutionProject(project));
 
         const selects = [
             document.getElementById('ai-01-project-select'),
@@ -193,21 +218,22 @@
                 sel.appendChild(defOpt);
             }
 
-            if (accessible.length === 0 && !isOptional) {
-                sel.innerHTML = '<option value="">조회 가능한 프로젝트가 없습니다.</option>';
+            if (executionProjects.length === 0 && !isOptional) {
+                sel.innerHTML = '<option value="">조회 가능한 수행단계 프로젝트가 없습니다.</option>';
                 return;
             }
 
-            accessible.forEach(p => {
+            executionProjects.forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.id;
                 opt.textContent = `[${p.project_code || 'PRJ'}] ${p.name} (진행률: ${p.progress || 0}%)`;
                 sel.appendChild(opt);
             });
 
-            // 현재 활성 프로젝트가 있으면 기본 선택 (단, AI-05는 선택사항 유지)
-            if (this.activeProjectId && !isOptional) {
-                sel.value = this.activeProjectId;
+            // 입찰/종료 프로젝트가 activeProjectId로 남아 있어도 기본 선택하지 않음.
+            if (!isOptional) {
+                const active = executionProjects.find(p => String(p.id) === String(this.activeProjectId || ''));
+                sel.value = active ? String(active.id) : (executionProjects[0] ? String(executionProjects[0].id) : '');
             }
         });
     };
