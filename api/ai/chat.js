@@ -303,17 +303,26 @@ function normalizeArtifactName(name) {
     .trim();
 }
 
+function isNirsProject(project) {
+  return [project?.customer, project?.customer_name, project?.demand_agency, project?.name]
+    .some(v => String(v || '').includes('국가정보자원관리원'));
+}
+
 async function getDeliverablesComparison(project, supabaseUrl, serviceKeyOrAnon, userToken = null) {
   const parsed = new URL(supabaseUrl);
   const authKey = userToken || serviceKeyOrAnon;
   const projectId = project.id;
   const stage = project.project_stage_filter || project.stage;
+  const isNirsCatalog = isNirsProject(project);
 
   let templateError = null;
   let projDelivError = null;
 
-  let templatePath = `/rest/v1/artifacts?is_template=eq.true&select=id,name,category,stage,display_order&order=display_order.asc`;
-  if (stage) {
+  // NIRS만 신규 115종 카탈로그 사용; 다른 고객사의 기존 표준 목록은 유지
+  let templatePath = isNirsCatalog
+    ? '/rest/v1/nirs_standard_catalog?select=source_no,division,stage,activity,task,name,display_name,is_required&order=source_no.asc&limit=115'
+    : '/rest/v1/artifacts?is_template=eq.true&select=id,name,category,stage,display_order&order=display_order.asc';
+  if (stage && !isNirsCatalog) {
     templatePath = `/rest/v1/artifacts?is_template=eq.true&stage=eq.${encodeURIComponent(stage)}&select=id,name,category,stage,display_order&order=display_order.asc`;
   }
 
@@ -330,7 +339,13 @@ async function getDeliverablesComparison(project, supabaseUrl, serviceKeyOrAnon,
   try {
     const templateRes = await requestHttp(templateOptions);
     if (templateRes.statusCode >= 200 && templateRes.statusCode < 300 && Array.isArray(templateRes.body)) {
-      templates = templateRes.body;
+      templates = isNirsCatalog ? templateRes.body.map(t => ({
+        id: `nirs-${t.source_no}`,
+        source_no: t.source_no, division: t.division,
+        stage: t.stage, activity: t.activity, task: t.task,
+        name: t.display_name || t.name, category: t.activity,
+        is_required: t.is_required
+      })) : templateRes.body;
     } else {
       templateError = `표준 산출물 조회 실패 (HTTP ${templateRes.statusCode}): ${templateRes.body?.message || ''}`;
       console.warn('[Deliverable Comparison]', templateError);
@@ -341,7 +356,7 @@ async function getDeliverablesComparison(project, supabaseUrl, serviceKeyOrAnon,
   }
 
   // 만약 특정 stage로 조회했을 때 없으면 전체 템플릿 재조회 (조회 에러가 없을 때만)
-  if (!templateError && templates.length === 0 && stage) {
+  if (!templateError && templates.length === 0 && stage && !isNirsCatalog) {
     try {
       const fallbackRes = await requestHttp({
         protocol: parsed.protocol,
@@ -381,8 +396,14 @@ async function getDeliverablesComparison(project, supabaseUrl, serviceKeyOrAnon,
     console.warn('[Deliverable Comparison]', projDelivError);
   }
 
-  // 조회 실패가 정상 데이터 0건으로 오인되지 않도록 명확히 판정 보류 처리
+  if (isNirsCatalog && !templateError && templates.length !== 115) {
+    templateError = `NIRS 표준 목록 불완전 (${templates.length}/115)`;
+  }
   const hasFetchError = Boolean(templateError || projDelivError);
+  // 제공 목록에는 필수/선택 여부가 없어 미확정 항목을 자동으로 누락 처리하지 않음.
+  const requirementUnknownCount = isNirsCatalog ? templates.filter(t => t.is_required !== true && t.is_required !== false).length : 0;
+  const tailoringPending = isNirsCatalog && requirementUnknownCount > 0;
+  const requiredTemplates = isNirsCatalog ? templates.filter(t => t.is_required === true) : templates;
 
   const approvedList = [];
   const underReviewList = [];
@@ -390,7 +411,7 @@ async function getDeliverablesComparison(project, supabaseUrl, serviceKeyOrAnon,
   const unregisteredList = [];
   const matchedDeliverableIds = new Set();
 
-  for (const tpl of templates) {
+  for (const tpl of requiredTemplates) {
     const tplName = (tpl.name || '').trim();
     const normTpl = normalizeArtifactName(tplName);
 
@@ -459,22 +480,36 @@ async function getDeliverablesComparison(project, supabaseUrl, serviceKeyOrAnon,
     }
   }
 
-  const totalRequired = templates.length;
-  const isIndeterminate = hasFetchError || totalRequired === 0;
+  const totalRequired = requiredTemplates.length;
+  const isIndeterminate = hasFetchError || totalRequired === 0 || tailoringPending;
 
   return {
-    baselineSource: stage ? `프로젝트 단계(${stage}) 기준 필수 표준 산출물 카탈로그` : '전체 표준 산출물 카탈로그',
+    baselineSource: isNirsCatalog
+      ? '국가정보자원관리원 사업관리 표준 산출물 115종 (사용자 제공 목록, 필수 여부 미확정)'
+      : (stage ? `프로젝트 단계(${stage}) 기준 필수 표준 산출물 카탈로그` : '전체 표준 산출물 카탈로그'),
     totalRequiredStandards: totalRequired,
+    catalogCount: templates.length,
+    catalogItems: isNirsCatalog ? templates.map(t => ({
+      source_no: t.source_no, division: t.division, stage: t.stage,
+      activity: t.activity, task: t.task, name: t.name, is_required: t.is_required
+    })) : [],
+    requirementUnknownCount,
+    tailoringPending,
+    isNirsCatalog,
     fetchError: hasFetchError,
     errorMessage: templateError || projDelivError || null,
     statusSummary: {
       totalRequired,
+      catalogCount: templates.length,
+      tailoringPending,
+      requirementUnknownCount,
+      isNirsCatalog,
       registeredCount: projDeliverables.length,
       approvedCount: approvedList.length,
       underReviewCount: underReviewList.length,
       draftCount: draftList.length,
       unregisteredCount: unregisteredList.length,
-      submissionRate: (totalRequired > 0 && !hasFetchError) ? Math.round(((totalRequired - unregisteredList.length) / totalRequired) * 100) : 0,
+      submissionRate: (totalRequired > 0 && !isIndeterminate) ? Math.round(((totalRequired - unregisteredList.length) / totalRequired) * 100) : null,
       isIndeterminate
     },
     unregisteredList,
@@ -1339,6 +1374,7 @@ module.exports = async (req, res) => {
 
     specificInstructions = `
 [작성 지침 - AI-02 산출물 누락 및 대응방안 분석]:
+- NIRS 115종은 사용자 제공 표준 목록입니다. statusSummary.tailoringPending=true이면 필수 여부가 미확정이므로 누락·제출률·정상 100%를 단정하지 말고 '테일러링 확정 필요'로 표시하세요.
 아래 5개 핵심 섹션을 반드시 준수하여 명확한 Markdown 제목(###)과 구조화된 서식으로 보고서를 작성하세요:
 
 ### 1. [핵심 진단 요약]
@@ -1744,7 +1780,17 @@ ${JSON.stringify(pmoContextData, null, 2)}
       const review = sum.underReviewCount || 0;
 
       let recCritical = null;
-      if (isIndeterminate) {
+      if (sum.tailoringPending && !pmoContextData?.deliverableComparison?.fetchError) {
+        recCritical = {
+          type: 'warning',
+          title: '⚠️ [판정 보류 (필수 산출물 미확정)]',
+          action: '국가정보자원관리원 표준 목록의 필수/선택/제외 항목을 사업별 테일러링으로 확정한 뒤 산출물 갭 분석을 수행하세요.',
+          evidence: `표준목록 ${sum.catalogCount || 0}종, 필수여부 미확정 ${sum.requirementUnknownCount || 0}종`,
+          impact: '테일러링 전에는 산출물 누락 및 제출률을 단정할 수 없음',
+          assignee: '사업 PM 및 PMO',
+          deadline: '사업별 테일러링 확정 시'
+        };
+      } else if (isIndeterminate) {
         recCritical = {
           type: 'warning',
           title: '⚠️ [판정 보류 (데이터 조회 오류)]',
@@ -1790,7 +1836,7 @@ ${JSON.stringify(pmoContextData, null, 2)}
         type: 'info',
         title: '💡 [권고 사항 (Recommendation)]',
         action: '표준 카탈로그 기반 산출물 서식 준수 및 변경 이력 추적성 관리',
-        evidence: 'NIRS 공공 표준 템플릿 기준',
+        evidence: pmoContextData?.deliverableComparison?.baselineSource || 'PMO 표준 템플릿 기준',
         impact: '산출물 품질 표준화',
         assignee: '전체 작성자',
         deadline: '상시 준수'
@@ -1798,7 +1844,9 @@ ${JSON.stringify(pmoContextData, null, 2)}
 
       structuredKPIs = {
         totalRequired: sum.totalRequired || 0,
-        submissionRate: sum.submissionRate || 0,
+        catalogCount: sum.catalogCount || 0,
+        tailoringPending: Boolean(sum.tailoringPending),
+        submissionRate: sum.submissionRate,
         approvedCount: sum.approvedCount || 0,
         underReviewCount: review,
         unregisteredCount: unreg,
@@ -2080,6 +2128,7 @@ ${JSON.stringify(pmoContextData, null, 2)}
 module.exports.normalizeArtifactName = normalizeArtifactName;
 module.exports.getProjectIssuesAndActions = getProjectIssuesAndActions;
 module.exports.getDeliverablesComparison = getDeliverablesComparison;
+module.exports.isNirsProject = isNirsProject;
 module.exports.getProjectRiskAssessment = getProjectRiskAssessment;
 module.exports.getWeeklyReportGroundingData = getWeeklyReportGroundingData;
 module.exports.getKSTWeekRange = getKSTWeekRange;
