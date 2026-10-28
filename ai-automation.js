@@ -271,28 +271,28 @@
         } else if (featureType === 'AI-02') {
             html += `
                 <div class="ai-kpi-card">
-                    <div class="ai-kpi-label">필수 표준산출물</div>
-                    <div class="ai-kpi-value">${kpis.totalRequired || 0}종</div>
-                    <div class="ai-kpi-sub">마스터 카탈로그 기준</div>
+                    <div class="ai-kpi-label">${kpis.catalogCount ? 'NIRS 표준산출물 목록' : '필수 표준산출물'}</div>
+                    <div class="ai-kpi-value">${kpis.catalogCount || kpis.totalRequired || 0}종</div>
+                    <div class="ai-kpi-sub">${kpis.tailoringPending ? '필수 여부 확정 전 · 누락 판정 보류' : '마스터 카탈로그 기준'}</div>
                 </div>
                 <div class="ai-kpi-card">
                     <div class="ai-kpi-label">제출 완료율</div>
-                    <div class="ai-kpi-value" style="color:#38bdf8;">${kpis.submissionRate || 0}%</div>
+                    <div class="ai-kpi-value" style="color:#38bdf8;">${kpis.isIndeterminate ? '판정 보류' : (kpis.submissionRate ?? 0) + '%'}</div>
                     <div class="ai-kpi-sub">등록 산출물 비율</div>
                 </div>
                 <div class="ai-kpi-card">
                     <div class="ai-kpi-label">승인 완료</div>
-                    <div class="ai-kpi-value" style="color:#34d399;">${kpis.approvedCount || 0}건</div>
+                    <div class="ai-kpi-value" style="color:#34d399;">${kpis.tailoringPending ? '-' : (kpis.approvedCount || 0) + '건'}</div>
                     <div class="ai-kpi-sub">검토 통과</div>
                 </div>
                 <div class="ai-kpi-card">
                     <div class="ai-kpi-label">검토 지연</div>
-                    <div class="ai-kpi-value" style="color:#fbbf24;">${kpis.underReviewCount || 0}건</div>
+                    <div class="ai-kpi-value" style="color:#fbbf24;">${kpis.tailoringPending ? '-' : (kpis.underReviewCount || 0) + '건'}</div>
                     <div class="ai-kpi-sub">조속 승인 필요</div>
                 </div>
                 <div class="ai-kpi-card">
                     <div class="ai-kpi-label">누락(미등록)</div>
-                    <div class="ai-kpi-value" style="color:#f87171;">${kpis.unregisteredCount || 0}건</div>
+                    <div class="ai-kpi-value" style="color:#f87171;">${kpis.isIndeterminate ? '판정 보류' : (kpis.unregisteredCount || 0) + '건'}</div>
                     <div class="ai-kpi-sub">우선 작성 대상</div>
                 </div>
             `;
@@ -584,6 +584,24 @@
             const unregList = comp.unregisteredList || [];
             const reviewList = comp.underReviewList || [];
             const appList = comp.approvedList || [];
+            // NIRS 전용 목록: 원본 115행의 번호/구분/단계/활동/업무/명칭을 전부 표시
+            if (comp.isNirsCatalog) {
+                const rows = Array.isArray(comp.catalogItems) ? comp.catalogItems : [];
+                html += '<div class="ai-comparison-card"><h4><i data-lucide="list-checks"></i> 국가정보자원관리원 표준산출물 목록 (' + rows.length + '종)</h4>';
+                html += '<p style="font-size:12px;color:var(--text-muted);">목록 115종은 등록 기준이며, 필수/선택/제외 판정은 사업별 테일러링 확정이 필요합니다.</p>';
+                html += '<div style="max-height:430px;overflow:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
+                html += '<thead><tr><th>No.</th><th>구분</th><th>단계</th><th>활동</th><th>업무</th><th>산출물명</th><th>필수여부</th></tr></thead><tbody>';
+                html += rows.map(t => '<tr style="border-bottom:1px solid var(--bg-card-border);">'
+                    + '<td>' + escapeHtml(String(t.source_no)) + '</td>'
+                    + '<td>' + escapeHtml(t.division || '') + '</td>'
+                    + '<td>' + escapeHtml(t.stage || '') + '</td>'
+                    + '<td>' + escapeHtml(t.activity || '') + '</td>'
+                    + '<td>' + escapeHtml(t.task || '') + '</td>'
+                    + '<td>' + escapeHtml(t.name || '') + '</td>'
+                    + '<td>' + (t.is_required === true ? '필수' : t.is_required === false ? '비필수' : '미확정') + '</td>'
+                    + '</tr>').join('');
+                html += '</tbody></table></div></div>';
+            }
             html += `
                 <div class="ai-comparison-card">
                     <h4><i data-lucide="table"></i> 표준 산출물 마스터 대조 현황 (총 ${comp.totalRequiredStandards || 0}종)</h4>
