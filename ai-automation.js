@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // AetherPMO AI 업무자동화 스튜디오 (2026 혁신과제 AI 5대 기능 프론트엔드 모듈)
 // AI-01 사업현황 요약, AI-02 산출물 갭 분석, AI-03 주간업무보고, AI-04 위험도 분석, AI-05 RFP 분석
 // ============================================================================
@@ -224,6 +224,428 @@
         return sess.access_token || sess.token || null;
     };
 
+    // 5-1. AI 5대 기능 고도화 뷰 렌더링 엔진 (KPI 카드 + 종합 진단 + 3대 권고 + 비교표 + 접이식 전문 보고서)
+    proto._renderEnhancedReportView = function(featureType, data, prefix) {
+        const resBody = document.getElementById(`${prefix}-result-body`);
+        if (!resBody) return;
+
+        const answer = data.answer || '';
+        resBody.dataset.rawMarkdown = answer;
+
+        const kpis = data.structuredKPIs || {};
+        const grounding = data.groundingData || {};
+
+        let html = '';
+
+        // 1. 최상단 핵심 KPI 요약 카드 그리드
+        html += '<div class="ai-kpi-grid">';
+        if (featureType === 'AI-01') {
+            const ov = grounding.projectOverview || {};
+            html += `
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">실적 공정률</div>
+                    <div class="ai-kpi-value" style="color:#38bdf8;">${escapeHtml(kpis.progress || '0%')}</div>
+                    <div class="ai-kpi-sub">수행 단계: ${escapeHtml(ov.stage || '수행')}</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">사업 상태</div>
+                    <div class="ai-kpi-value" style="color:#10b981;">${escapeHtml(kpis.status || '진행중')}</div>
+                    <div class="ai-kpi-sub">담당 PM: ${escapeHtml(ov.manager || '미지정')}</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">미해결 이슈</div>
+                    <div class="ai-kpi-value" style="color:${kpis.isIndeterminate ? '#f87171' : ((kpis.issuesCount || 0) > 0 ? '#f87171' : '#34d399')}; font-size:${kpis.isIndeterminate ? '16px' : '24px'}; margin-top:${kpis.isIndeterminate ? '6px' : '0'};">${kpis.isIndeterminate ? '조회 불가' : `${kpis.issuesCount || 0}건`}</div>
+                    <div class="ai-kpi-sub">${kpis.isIndeterminate ? '데이터 권한 점검' : '집중 관리 대상'}</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">잔여 Action Items</div>
+                    <div class="ai-kpi-value" style="color:${kpis.isIndeterminate ? '#f87171' : ((kpis.actionsCount || 0) > 0 ? '#fbbf24' : '#34d399')}; font-size:${kpis.isIndeterminate ? '16px' : '24px'}; margin-top:${kpis.isIndeterminate ? '6px' : '0'};">${kpis.isIndeterminate ? '조회 불가' : `${kpis.actionsCount || 0}건`}</div>
+                    <div class="ai-kpi-sub">${kpis.isIndeterminate ? '데이터 권한 점검' : '기한 내 완료 요망'}</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">WBS 등록 상태</div>
+                    <div class="ai-kpi-value" style="font-size:15px; margin-top:8px; color:${kpis.hasWbs ? '#34d399' : '#94a3b8'};">${kpis.hasWbs ? '등록 완료' : '미등록 (기간기준)'}</div>
+                    <div class="ai-kpi-sub">${kpis.hasWbs ? '세부 Task 분석' : '마일스톤 기준'}</div>
+                </div>
+            `;
+        } else if (featureType === 'AI-02') {
+            html += `
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">필수 표준산출물</div>
+                    <div class="ai-kpi-value">${kpis.totalRequired || 0}종</div>
+                    <div class="ai-kpi-sub">마스터 카탈로그 기준</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">제출 완료율</div>
+                    <div class="ai-kpi-value" style="color:#38bdf8;">${kpis.submissionRate || 0}%</div>
+                    <div class="ai-kpi-sub">등록 산출물 비율</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">승인 완료</div>
+                    <div class="ai-kpi-value" style="color:#34d399;">${kpis.approvedCount || 0}건</div>
+                    <div class="ai-kpi-sub">검토 통과</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">검토 지연</div>
+                    <div class="ai-kpi-value" style="color:#fbbf24;">${kpis.underReviewCount || 0}건</div>
+                    <div class="ai-kpi-sub">조속 승인 필요</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">누락(미등록)</div>
+                    <div class="ai-kpi-value" style="color:#f87171;">${kpis.unregisteredCount || 0}건</div>
+                    <div class="ai-kpi-sub">우선 작성 대상</div>
+                </div>
+            `;
+        } else if (featureType === 'AI-03') {
+            html += `
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">금주 확인 실적</div>
+                    <div class="ai-kpi-value" style="color:#10b981;">${kpis.completedCount || 0}건</div>
+                    <div class="ai-kpi-sub">${kpis.hasRecords ? '활동/이슈/액션 완료' : '완료 이력 없음'}</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">진행중 이슈</div>
+                    <div class="ai-kpi-value" style="color:${(kpis.ongoingIssuesCount || 0) > 0 ? '#f87171' : '#34d399'};">${kpis.ongoingIssuesCount || 0}건</div>
+                    <div class="ai-kpi-sub">해결 관리 요망</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">미완료 Actions</div>
+                    <div class="ai-kpi-value" style="color:${(kpis.pendingActionsCount || 0) > 0 ? '#fbbf24' : '#34d399'};">${kpis.pendingActionsCount || 0}건</div>
+                    <div class="ai-kpi-sub">차주 이월 관리</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">주간 집계 기준</div>
+                    <div class="ai-kpi-value" style="font-size:14px; margin-top:8px; color:#c4b5fd;">KST 주간 (월~일)</div>
+                    <div class="ai-kpi-sub">${escapeHtml(kpis.weekLabel || '금주차')}</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">AI_AUDIT 실적 분리</div>
+                    <div class="ai-kpi-value" style="font-size:15px; margin-top:8px; color:#38bdf8;">엄격 분리</div>
+                    <div class="ai-kpi-sub">감사로그 실적오염 차단</div>
+                </div>
+            `;
+        } else if (featureType === 'AI-04') {
+            const scColor = kpis.gradeBadgeColor || '#94a3b8';
+            html += `
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">종합 위험점수</div>
+                    <div class="ai-kpi-value" style="color:${scColor};">${kpis.totalScore !== null ? kpis.totalScore + '점' : '판정보류'}</div>
+                    <div class="ai-kpi-sub">100점 만점 기준</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">일정 지연 위험</div>
+                    <div class="ai-kpi-value" style="color:${(kpis.scheduleScore || 0) >= 15 ? '#f87171' : '#38bdf8'};">${kpis.scheduleScore !== null ? kpis.scheduleScore + ' / 30' : '-'}</div>
+                    <div class="ai-kpi-sub">직선형 공정 갭</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">산출물 위험</div>
+                    <div class="ai-kpi-value" style="color:${(kpis.deliverableScore || 0) >= 15 ? '#f87171' : '#38bdf8'};">${kpis.deliverableScore !== null ? kpis.deliverableScore + ' / 25' : '-'}</div>
+                    <div class="ai-kpi-sub">미등록/지연 건수</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">이슈 위험</div>
+                    <div class="ai-kpi-value" style="color:${(kpis.issueScore || 0) >= 15 ? '#f87171' : '#38bdf8'};">${kpis.issueScore !== null ? kpis.issueScore + ' / 25' : '-'}</div>
+                    <div class="ai-kpi-sub">Critical/High 가중치</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">Action Item 위험</div>
+                    <div class="ai-kpi-value" style="color:${(kpis.actionItemScore || 0) >= 10 ? '#f87171' : '#38bdf8'};">${kpis.actionItemScore !== null ? kpis.actionItemScore + ' / 20' : '-'}</div>
+                    <div class="ai-kpi-sub">기한 초과 건수</div>
+                </div>
+            `;
+        } else if (featureType === 'AI-05') {
+            html += `
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">RFP 문서명</div>
+                    <div class="ai-kpi-value" style="font-size:14px; margin-top:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(kpis.fileName || 'RFP')}">${escapeHtml(kpis.fileName || 'RFP')}</div>
+                    <div class="ai-kpi-sub">${kpis.pageCount || 1}페이지 분량</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">총 텍스트 분량</div>
+                    <div class="ai-kpi-value">${(kpis.charCount || 0).toLocaleString()}자</div>
+                    <div class="ai-kpi-sub">문서 전체 크기</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">분석 반영율</div>
+                    <div class="ai-kpi-value" style="color:${kpis.isTruncated ? '#fbbf24' : '#34d399'};">${kpis.isTruncated ? '타겟팅 발췌' : '100% 전문'}</div>
+                    <div class="ai-kpi-sub">${kpis.isTruncated ? '핵심 3개 구간' : '누락 없는 전문 분석'}</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">8대 필수 요건</div>
+                    <div class="ai-kpi-value" style="color:#a78bfa;">전수 점검</div>
+                    <div class="ai-kpi-sub">평가·인력·자격·제출</div>
+                </div>
+                <div class="ai-kpi-card">
+                    <div class="ai-kpi-label">원문 근거 검증</div>
+                    <div class="ai-kpi-value" style="font-size:15px; margin-top:8px; color:#38bdf8;">[p.N] 표기</div>
+                    <div class="ai-kpi-sub">인용 추적성 확보</div>
+                </div>
+            `;
+        }
+        html += '</div>';
+
+        // 2. AI 종합 진단 배너
+        let gradeBadgeHtml = '';
+        let diagnosisSummary = '';
+        let businessImpact = '';
+
+        if (featureType === 'AI-04') {
+            const scColor = kpis.gradeBadgeColor || '#94a3b8';
+            if (kpis.allFourEvaluated === false || kpis.totalScore === null) {
+                gradeBadgeHtml = `<span class="ai-grade-badge" style="background:rgba(239, 68, 68, 0.2); color:#f87171; border:1px solid #f87171;">⚠️ 판정 보류 (지표 결측)</span>`;
+                diagnosisSummary = `정량 리스크 산출 결과: 4대 핵심 축(일정, 산출물, 이슈, Action Item) 중 필수 지표 결측으로 종합 위험도 산출이 보류되었습니다.`;
+                businessImpact = '⚠️ 리스크 왜곡 방지를 위해 기초 데이터(WBS 일정, 필수 산출물, 이슈 등록 등) 입력이 선행되어야 합니다.';
+            } else {
+                gradeBadgeHtml = `<span class="ai-grade-badge" style="background:${scColor}22; color:${scColor}; border:1px solid ${scColor};">${escapeHtml(kpis.grade || '판정')}</span>`;
+                diagnosisSummary = `정량 리스크 산출 결과: 100점 만점 중 <strong>${kpis.totalScore}점</strong> 상태입니다. 4대 핵심 축(일정, 산출물, 이슈, Action Item)을 종합 검토하여 산출되었습니다.`;
+                businessImpact = (kpis.totalScore || 0) >= 50 ? '⚠️ 사업 지연 및 감리 지적 위험이 높으므로 비상 관리 대응 체계 가동이 요구됩니다.' : '✅ 관리 지표가 통제 범위 내에서 운영 중이며 선제적 조기 경보 관리를 권고합니다.';
+            }
+        } else if (featureType === 'AI-02') {
+            const unreg = kpis.unregisteredCount || 0;
+            const subRate = kpis.submissionRate || 0;
+            if (kpis.isIndeterminate) {
+                gradeBadgeHtml = `<span class="ai-grade-badge" style="background:rgba(239, 68, 68, 0.2); color:#f87171; border:1px solid #f87171;">⚠️ 판정 보류 (조회 오류)</span>`;
+                diagnosisSummary = `표준 산출물 조회 중 오류가 발생하여 갭 판정이 보류되었습니다. 데이터 누락 또는 권한을 확인하세요.`;
+                businessImpact = '⚠️ 실제 등록 건수가 0건으로 오인되지 않도록 Supabase 연결 상태를 점검해 주세요.';
+            } else {
+                const color = unreg >= 3 ? '#ef4444' : unreg >= 1 ? '#f59e0b' : '#10b981';
+                const label = unreg >= 3 ? '집중 만회 필요' : unreg >= 1 ? '주의 관리' : '정상 관리';
+                gradeBadgeHtml = `<span class="ai-grade-badge" style="background:${color}22; color:${color}; border:1px solid ${color};">${label} (제출률 ${subRate}%)</span>`;
+                diagnosisSummary = `표준 산출물 총 ${kpis.totalRequired || 0}종 중 승인 완료 ${kpis.approvedCount || 0}건, 검토 지연 ${kpis.underReviewCount || 0}건, 미등록 누락 ${unreg}건으로 확인되었습니다.`;
+                businessImpact = unreg > 0 ? `단계별 마일스톤 도래 시 미제출 산출물(${unreg}건)로 인한 검수 지연 및 납기 리스크 발생 가능성이 있습니다.` : '필수 산출물 대부분이 적기 등록되어 안정적인 형상 관리가 유지되고 있습니다.';
+            }
+        } else if (featureType === 'AI-01') {
+            if (kpis.isIndeterminate) {
+                gradeBadgeHtml = `<span class="ai-grade-badge" style="background:rgba(239, 68, 68, 0.2); color:#f87171; border:1px solid #f87171;">⚠️ 판정 보류 (조회 오류)</span>`;
+                diagnosisSummary = `이슈/Action Item 조회 중 오류가 발생하여 종합 진단이 보류되었습니다. 데이터베이스 접근 권한을 확인해 주세요.`;
+                businessImpact = '⚠️ 실제 잔여 과제가 0건으로 오인되지 않도록 시스템 연결 상태를 점검해야 합니다.';
+            } else {
+                gradeBadgeHtml = `<span class="ai-grade-badge" style="background:rgba(139, 92, 246, 0.2); color:#a78bfa; border:1px solid #a78bfa;">종합 사업현황 브리핑</span>`;
+                diagnosisSummary = `실적 공정률 ${escapeHtml(kpis.progress || '0%')}, 미해결 이슈 ${kpis.issuesCount || 0}건, 잔여 Action Items ${kpis.actionsCount || 0}건(완료·종료 제외)에 근거한 PMO 종합 진단 결과입니다.`;
+                businessImpact = '사업 추진 현황 및 병목 구간을 진단하여 즉시 조치해야 할 관리 과제를 도출하였습니다.';
+            }
+        } else if (featureType === 'AI-03') {
+            gradeBadgeHtml = `<span class="ai-grade-badge" style="background:rgba(16, 185, 129, 0.2); color:#10b981; border:1px solid #10b981;">주간 업무 실적 및 계획</span>`;
+            diagnosisSummary = `${escapeHtml(kpis.weekLabel || '금주')} 동안 실제 시스템에 등록·확인된 실적 ${kpis.completedCount || 0}건을 집계하고 차주 실행 계획을 수립하였습니다.`;
+            businessImpact = '미해결 이슈 및 Action Item 지연 리스크를 사전에 예방하기 위한 PM 중점 추진 방향이 제시되었습니다.';
+        } else if (featureType === 'AI-05') {
+            const pageCitations = (answer.match(/\[p\.\s*\d+\]/gi) || []);
+            const uniquePages = [...new Set(pageCitations.map(p => p.trim()))];
+            const maxPage = Number(kpis.pageCount || 1);
+            const pageNums = uniquePages.map(p => parseInt(p.replace(/\D/g, ''), 10)).filter(n => !isNaN(n));
+            const outOfBounds = pageNums.filter(n => n < 1 || n > maxPage);
+
+            let citationNotice = '';
+            if (pageNums.length === 0) {
+                citationNotice = ' <span style="color:#fbbf24; font-weight:600;">[페이지 번호 미표기]</span> (답변 내 [p.N] 페이지 표기 누락으로 원문 추적 불가)';
+            } else if (outOfBounds.length > 0) {
+                citationNotice = ` <span style="color:#f87171; font-weight:600;">[페이지 번호 범위 불일치]</span> (문서 범위 1~${maxPage}p 초과 인용 [p.${outOfBounds.join(', ')}] 감지, 전문 대조 요망)`;
+            } else {
+                citationNotice = ` <span style="color:#34d399; font-weight:600;">[페이지 번호 범위 일치 (내용 미검증)]</span> (${uniquePages.slice(0, 5).join(', ')}${uniquePages.length > 5 ? ` 외 ${uniquePages.length - 5}개소` : ''} 표기 확인, 총 ${maxPage}p 범위 내 유효 / 원문 문구 대조는 별도 확인 필요)`;
+            }
+
+            gradeBadgeHtml = `<span class="ai-grade-badge" style="background:rgba(59, 130, 246, 0.2); color:#60a5fa; border:1px solid #60a5fa;">공공 RFP 8대 요건 정밀 분석</span>`;
+            diagnosisSummary = `제안요청서 [${escapeHtml(kpis.fileName || '문서')}]의 사업개요, 예산, 과업요건, 참가자격, 평가배점, 투입인력, 제출서류를 구조적으로 분석하였습니다.${citationNotice}`;
+            businessImpact = kpis.isTruncated ? '⚠️ 본 문서는 40,000자 발췌 분석이 적용되었으므로 상세 제안서 작성 시 원문 전체 대조가 병행되어야 합니다.' : '원문 전문 분석을 통해 누락 없는 입찰 타당성 및 제안 차별화 전략이 수립되었습니다.';
+        }
+
+        html += `
+            <div class="ai-diagnosis-banner">
+                <div class="ai-diagnosis-header">
+                    <div class="ai-diagnosis-title">
+                        <i data-lucide="shield-check"></i> PMO AI 핵심 종합 진단
+                    </div>
+                    ${gradeBadgeHtml}
+                </div>
+                <p class="ai-diagnosis-desc">${diagnosisSummary}</p>
+                <div class="ai-diagnosis-meta">
+                    <span><strong>업무 영향:</strong> ${businessImpact}</span>
+                </div>
+            </div>
+        `;
+
+        // 3. 중요도별 3대 관리 권고사항 카드 (실제 데이터 및 분석 결과 기반 동적 생성)
+        const recs = kpis.recommendations || {};
+        const crit = recs.critical || {
+            type: 'critical',
+            title: '🚨 [긴급 조치 (Critical)]',
+            action: '미해결 이슈 및 지연 항목 집중 해소',
+            evidence: '현행 데이터 기반 진단',
+            impact: '공정 지연 예방',
+            assignee: '사업 총괄 PM',
+            deadline: '즉시 조치'
+        };
+        const warn = recs.warning || {
+            type: 'warning',
+            title: '⚠️ [주의 관리 (Warning)]',
+            action: '공정률 격차 및 주요 마일스톤 사전 점검',
+            evidence: '주간 공정 기준',
+            impact: '지연 누적 차단',
+            assignee: '공정관리 PL',
+            deadline: '차주 전 완료'
+        };
+        const info = recs.recommendation || {
+            type: 'info',
+            title: '💡 [권고 사항 (Recommendation)]',
+            action: '표준 개발 방법론 가이드라인 및 산출물 형상관리 준수',
+            evidence: 'PMO 표준 카탈로그',
+            impact: '품질 감리 신뢰성 확보',
+            assignee: '전체 프로젝트 팀',
+            deadline: '상시 유지'
+        };
+
+        const critClass = crit.type === 'stable' ? 'stable' : (crit.type === 'warning' ? 'warning' : 'critical');
+        const critIcon = crit.type === 'stable' ? 'check-circle' : (crit.type === 'warning' ? 'alert-triangle' : 'alert-octagon');
+
+        html += `
+            <div class="ai-recs-grid">
+                <div class="ai-rec-card ${critClass}">
+                    <div class="ai-rec-header">
+                        <i data-lucide="${critIcon}"></i> ${escapeHtml(crit.title)}
+                    </div>
+                    <div class="ai-rec-body">
+                        <div class="ai-rec-action"><strong>조치 과제:</strong> ${escapeHtml(crit.action)}</div>
+                        <div class="ai-rec-detail-row">
+                            <span><strong>발생 근거:</strong> ${escapeHtml(crit.evidence)}</span>
+                            <span><strong>업무 영향:</strong> ${escapeHtml(crit.impact)}</span>
+                        </div>
+                        <div class="ai-rec-detail-row" style="margin-top:6px; font-size:12px; color:var(--text-muted);">
+                            <span><strong>담당자:</strong> ${escapeHtml(crit.assignee)}</span>
+                            <span><strong>권고 기한:</strong> ${escapeHtml(crit.deadline)}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="ai-rec-card warning">
+                    <div class="ai-rec-header">
+                        <i data-lucide="alert-triangle"></i> ${escapeHtml(warn.title)}
+                    </div>
+                    <div class="ai-rec-body">
+                        <div class="ai-rec-action"><strong>조치 과제:</strong> ${escapeHtml(warn.action)}</div>
+                        <div class="ai-rec-detail-row">
+                            <span><strong>발생 근거:</strong> ${escapeHtml(warn.evidence)}</span>
+                            <span><strong>업무 영향:</strong> ${escapeHtml(warn.impact)}</span>
+                        </div>
+                        <div class="ai-rec-detail-row" style="margin-top:6px; font-size:12px; color:var(--text-muted);">
+                            <span><strong>담당자:</strong> ${escapeHtml(warn.assignee)}</span>
+                            <span><strong>권고 기한:</strong> ${escapeHtml(warn.deadline)}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="ai-rec-card info">
+                    <div class="ai-rec-header">
+                        <i data-lucide="lightbulb"></i> ${escapeHtml(info.title)}
+                    </div>
+                    <div class="ai-rec-body">
+                        <div class="ai-rec-action"><strong>조치 과제:</strong> ${escapeHtml(info.action)}</div>
+                        <div class="ai-rec-detail-row">
+                            <span><strong>발생 근거:</strong> ${escapeHtml(info.evidence)}</span>
+                            <span><strong>업무 영향:</strong> ${escapeHtml(info.impact)}</span>
+                        </div>
+                        <div class="ai-rec-detail-row" style="margin-top:6px; font-size:12px; color:var(--text-muted);">
+                            <span><strong>담당자:</strong> ${escapeHtml(info.assignee)}</span>
+                            <span><strong>권고 기한:</strong> ${escapeHtml(info.deadline)}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // 4. 실제 데이터 기반 차트 및 비교표 (기능별)
+        if (featureType === 'AI-04') {
+            const sc = grounding.quantitativeRiskScores || {};
+            const getPct = (score, max) => score !== null ? Math.min(100, Math.round((score / max) * 100)) : 0;
+            html += `
+                <div class="ai-comparison-card">
+                    <h4><i data-lucide="activity"></i> 4대 영역별 위험 스코어링 현황 (실제 DB 정량 산출 지표)</h4>
+                    <div class="ai-gauge-row">
+                        <div class="ai-gauge-label">일정 지연 위험 (30점)</div>
+                        <div class="ai-gauge-track"><div class="ai-gauge-fill" style="width:${getPct(sc.schedule?.score, 30)}%; background:#ef4444;"></div></div>
+                        <div class="ai-gauge-score">${sc.schedule?.score !== null ? sc.schedule?.score + '점' : '판정보류'}</div>
+                    </div>
+                    <div class="ai-gauge-row">
+                        <div class="ai-gauge-label">산출물 위험 (25점)</div>
+                        <div class="ai-gauge-track"><div class="ai-gauge-fill" style="width:${getPct(sc.deliverable?.score, 25)}%; background:#f59e0b;"></div></div>
+                        <div class="ai-gauge-score">${sc.deliverable?.score !== null ? sc.deliverable?.score + '점' : '판정보류'}</div>
+                    </div>
+                    <div class="ai-gauge-row">
+                        <div class="ai-gauge-label">이슈 위험 (25점)</div>
+                        <div class="ai-gauge-track"><div class="ai-gauge-fill" style="width:${getPct(sc.issue?.score, 25)}%; background:#eab308;"></div></div>
+                        <div class="ai-gauge-score">${sc.issue?.score !== null ? sc.issue?.score + '점' : '판정보류'}</div>
+                    </div>
+                    <div class="ai-gauge-row">
+                        <div class="ai-gauge-label">Action Item 위험 (20점)</div>
+                        <div class="ai-gauge-track"><div class="ai-gauge-fill" style="width:${getPct(sc.actionItem?.score, 20)}%; background:#3b82f6;"></div></div>
+                        <div class="ai-gauge-score">${sc.actionItem?.score !== null ? sc.actionItem?.score + '점' : '판정보류'}</div>
+                    </div>
+                </div>
+            `;
+        } else if (featureType === 'AI-02') {
+            const comp = grounding.deliverableComparison || {};
+            const unregList = comp.unregisteredList || [];
+            const reviewList = comp.underReviewList || [];
+            const appList = comp.approvedList || [];
+            html += `
+                <div class="ai-comparison-card">
+                    <h4><i data-lucide="table"></i> 표준 산출물 마스터 대조 현황 (총 ${comp.totalRequiredStandards || 0}종)</h4>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+                            <thead>
+                                <tr style="border-bottom:1px solid var(--bg-card-border); text-align:left;">
+                                    <th style="padding:8px 12px; color:var(--text-muted);">표준 산출물명</th>
+                                    <th style="padding:8px 12px; color:var(--text-muted);">카테고리/단계</th>
+                                    <th style="padding:8px 12px; color:var(--text-muted);">상태</th>
+                                    <th style="padding:8px 12px; color:var(--text-muted);">진단 내용</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${unregList.slice(0, 5).map(u => `
+                                    <tr style="border-bottom:1px solid var(--bg-card-border);">
+                                        <td style="padding:8px 12px; font-weight:600; color:#f87171;">${escapeHtml(u.name)}</td>
+                                        <td style="padding:8px 12px; color:var(--text-muted);">${escapeHtml(u.category || '공통')}</td>
+                                        <td style="padding:8px 12px;"><span class="badge" style="background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; font-size:11px;">미등록(누락)</span></td>
+                                        <td style="padding:8px 12px; color:var(--text-muted);">${escapeHtml(u.statusDescription || '작성 필요')}</td>
+                                    </tr>
+                                `).join('')}
+                                ${reviewList.slice(0, 3).map(r => `
+                                    <tr style="border-bottom:1px solid var(--bg-card-border);">
+                                        <td style="padding:8px 12px; font-weight:600; color:#fbbf24;">${escapeHtml(r.name)}</td>
+                                        <td style="padding:8px 12px; color:var(--text-muted);">${escapeHtml(r.category || '공통')}</td>
+                                        <td style="padding:8px 12px;"><span class="badge" style="background:#fffbeb; color:#b45309; border:1px solid #fde68a; font-size:11px;">검토지연</span></td>
+                                        <td style="padding:8px 12px; color:var(--text-muted);">${escapeHtml(r.statusDescription || '승인 대기')}</td>
+                                    </tr>
+                                `).join('')}
+                                ${appList.slice(0, 3).map(a => `
+                                    <tr style="border-bottom:1px solid var(--bg-card-border);">
+                                        <td style="padding:8px 12px; font-weight:600; color:#34d399;">${escapeHtml(a.name)}</td>
+                                        <td style="padding:8px 12px; color:var(--text-muted);">${escapeHtml(a.category || '공통')}</td>
+                                        <td style="padding:8px 12px;"><span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:11px;">승인완료</span></td>
+                                        <td style="padding:8px 12px; color:var(--text-muted);">${escapeHtml(a.statusDescription || '검토 통과')}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 5. 접고 펼칠 수 있는 상세 분석 보고서 전문
+        html += `
+            <details open class="ai-report-details">
+                <summary>
+                    <span><i data-lucide="file-text"></i> PMO 심층 분석 보고서 전문 (클릭하여 접기/펼치기)</span>
+                    <span class="badge" style="background:var(--bg-input); border:1px solid var(--bg-card-border); font-size:11px;">전문 열람</span>
+                </summary>
+                <div class="markdown-body">
+                    ${this._renderSafeMarkdown(answer)}
+                </div>
+            </details>
+        `;
+
+        resBody.innerHTML = html;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+
     // 6. [AI-01] 사업현황 자동 요약 실행
     proto.runAI01Summary = async function() {
         const sel = document.getElementById('ai-01-project-select');
@@ -274,7 +696,7 @@
                 throw new Error(data.error || `HTTP ${res.status}`);
             }
 
-            resBody.innerHTML = this._renderSafeMarkdown(data.answer);
+            this._renderEnhancedReportView('AI-01', data, 'ai-01');
             const dbStatus = data.metadata?.dbAudit?.dbSaved ? ' (DB 저장완료)' : '';
             metaInfo.textContent = `모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}${dbStatus}`;
             groundPre.textContent = JSON.stringify(data.groundingData || {}, null, 2);
@@ -401,7 +823,7 @@
                 </div>
             `;
 
-            resBody.innerHTML = this._renderSafeMarkdown(data.answer);
+            this._renderEnhancedReportView('AI-02', data, 'ai-02');
             const dbStatus = data.metadata?.dbAudit?.dbSaved ? ' (DB 저장완료)' : '';
             metaInfo.textContent = `모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}${dbStatus}`;
             groundPre.textContent = JSON.stringify(data.groundingData || {}, null, 2);
@@ -527,7 +949,7 @@
                 </div>
             `;
 
-            resBody.innerHTML = this._renderSafeMarkdown(data.answer);
+            this._renderEnhancedReportView('AI-03', data, 'ai-03');
             const dbStatus = data.metadata?.dbAudit?.dbSaved ? ' (DB 저장완료)' : '';
             metaInfo.textContent = `모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}${dbStatus}`;
             groundPre.textContent = JSON.stringify(data.groundingData || {}, null, 2);
@@ -665,7 +1087,7 @@
                 </div>
             `;
 
-            resBody.innerHTML = this._renderSafeMarkdown(data.answer);
+            this._renderEnhancedReportView('AI-04', data, 'ai-04');
             const dbStatus = data.metadata?.dbAudit?.dbSaved ? ' (DB 저장완료)' : '';
             metaInfo.textContent = `모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}${dbStatus}`;
             groundPre.textContent = JSON.stringify(data.groundingData || {}, null, 2);
@@ -958,7 +1380,7 @@
                 </div>
             `;
 
-            resBody.innerHTML = this._renderSafeMarkdown(data.answer);
+            this._renderEnhancedReportView('AI-05', data, 'ai-05');
             const dbStatus = data.metadata?.dbAudit?.dbSaved ? ' (DB 저장완료)' : '';
             const rangeInfo = data.groundingData?.documentMeta?.analyzedRange ? ` | 범위: ${data.groundingData.documentMeta.analyzedRange}` : '';
             metaInfo.textContent = `문서: ${escapeHtml(rfpFileName)} | 모델: ${data.metadata?.model || 'Gemini 2.5'} | 소요시간: ${((data.metadata?.latencyMs || (Date.now() - startTime)) / 1000).toFixed(2)}초 | 기준시각: ${data.metadata?.queriedAt || '방금 전'}${dbStatus}${rangeInfo}`;
@@ -1019,9 +1441,9 @@
     proto.copyAIResult = function(elementId) {
         const el = document.getElementById(elementId);
         if (!el) return;
-        const text = el.innerText || el.textContent;
+        const text = el.dataset?.rawMarkdown || el.innerText || el.textContent;
         navigator.clipboard.writeText(text).then(() => {
-            this.showToast?.('AI 분석 결과가 클립보드에 복사되었습니다.', 'success');
+            this.showToast?.('AI 분석 보고서 전문이 클립보드에 복사되었습니다.', 'success');
         }).catch(() => {
             this.showToast?.('클립보드 복사에 실패했습니다.', 'error');
         });
@@ -1031,7 +1453,7 @@
     proto.downloadAIResult = function(elementId, filename) {
         const el = document.getElementById(elementId);
         if (!el) return;
-        const text = el.innerText || el.textContent;
+        const text = el.dataset?.rawMarkdown || el.innerText || el.textContent;
         const blob = new Blob([text], { type: 'text/markdown;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
