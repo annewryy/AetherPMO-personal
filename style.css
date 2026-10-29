@@ -14994,3 +14994,225 @@ body.light-theme .ai-badge-proposed {
     padding: 20px;
 }
 
+
+
+/* ============================================================================
+   AetherPMO Mobile PWA & Responsive Safe Area Enhancements
+   ============================================================================ */
+
+/* 1. Safe Area Inset Support across App Container & Viewports */
+:root {
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-left: env(safe-area-inset-left, 0px);
+    --safe-area-right: env(safe-area-inset-right, 0px);
+}
+
+body {
+    padding-top: var(--safe-area-top);
+    padding-bottom: var(--safe-area-bottom);
+    padding-left: var(--safe-area-left);
+    padding-right: var(--safe-area-right);
+}
+
+.app-container {
+    min-height: calc(100vh - var(--safe-area-top) - var(--safe-area-bottom));
+}
+
+/* 2. Login Screen PWA Installation Container */
+.pwa-install-container {
+    margin-top: 18px;
+    padding-top: 6px;
+    text-align: center;
+}
+
+.pwa-install-divider {
+    display: flex;
+    align-items: center;
+    margin: 14px 0 16px;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.pwa-install-divider::before,
+.pwa-install-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--bg-card-border);
+}
+
+.pwa-install-divider span {
+    padding: 0 10px;
+}
+
+.pwa-install-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    background: rgba(56, 189, 248, 0.08);
+    color: #38bdf8;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pwa-install-btn:hover {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: #38bdf8;
+    transform: translateY(-1px);
+}
+
+.pwa-install-hint {
+    margin: 8px 0 0;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* Light Theme Overrides for PWA Install Button */
+body.light-theme .pwa-install-btn {
+    border-color: rgba(2, 132, 199, 0.4);
+    background: rgba(2, 132, 199, 0.08);
+    color: #0369a1;
+}
+
+body.light-theme .pwa-install-btn:hover {
+    background: rgba(2, 132, 199, 0.16);
+    border-color: #0284c7;
+}
+
+/* 3. iOS Safari PWA Install Modal */
+.ios-pwa-modal-dialog {
+    max-width: 460px;
+    width: 90%;
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid var(--bg-card-border);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+}
+
+.pwa-modal-icon-wrap {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+}
+
+.pwa-modal-app-icon {
+    border-radius: 8px;
+}
+
+.modal-title-with-icon {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.ios-pwa-modal-body {
+    padding: 20px 24px;
+}
+
+.ios-install-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.ios-step-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--bg-hover-item);
+    border: 1px solid var(--bg-card-border);
+}
+
+.ios-step-badge {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 50%;
+    background: #3b82f6;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.ios-step-content {
+    flex: 1;
+}
+
+.ios-step-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 2px;
+}
+
+.ios-step-desc {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+
+/* 4. Mobile Responsiveness & Touch Target Improvements (<= 768px) */
+@media (max-width: 768px) {
+    /* Touch friendly minimum heights */
+    button, .btn, .nav-item, .custom-checkbox-label, .input-wrapper input {
+        min-height: 44px;
+    }
+
+    /* Modal Dialog safe-area & viewport containment */
+    .modal-dialog, .modal-content {
+        max-height: calc(100vh - 30px - var(--safe-area-top) - var(--safe-area-bottom)) !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        margin: 15px auto !important;
+        width: 94% !important;
+    }
+
+    /* Table horizontal scroll container guard */
+    .table-responsive,
+    .table-container,
+    .data-table-wrapper,
+    .deliverables-table-wrapper,
+    .artifacts-table-container {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+        margin-bottom: 16px;
+    }
+
+    /* Prevent login card overflow on compact mobile devices */
+    .login-card {
+        width: 92% !important;
+        max-width: 420px !important;
+        padding: 24px 20px !important;
+    }
+
+    /* Bottom spacing for fixed action bars / drawers */
+    .mobile-bottom-nav,
+    .toast-container {
+        padding-bottom: calc(12px + var(--safe-area-bottom)) !important;
+    }
+}

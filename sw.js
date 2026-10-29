@@ -1,19 +1,21 @@
-﻿/**
+/**
  * AetherPMO PWA Service Worker
- * Manual Cache Version Constant: 'aetherpmo-v1.0.3-20260810'
+ * Cache Version: 'aetherpmo-v1.6.0-20261029-pwa'
  * 
- * Strict Allowlist & Bypass Strategy:
- * 1. NETWORK ONLY BYPASS:
- *    - Cross-origin requests (url.origin !== self.location.origin)
- *    - Supabase API endpoints (*.supabase.co, /auth/v1/, /rest/v1/, /storage/v1/, /realtime/v1/, /rpc/)
- *    - Non-GET HTTP methods (POST, PUT, DELETE, PATCH, etc.)
- *    - Same-origin API endpoints (/api/, /rest/, /v1/, dynamic JSON endpoints)
- *    - Non-static asset GET requests not matching explicit Static Resource Allowlist
- * 2. NETWORK FIRST: Same-Origin HTML Navigation requests
- * 3. STALE-WHILE-REVALIDATE: Same-Origin Static App Shell Assets (CSS, JS, Fonts, Images, Manifest)
+ * Strict Allowlist & Security Strategy:
+ * 1. ZERO-CACHE POLICY FOR BUSINESS & AUTH DATA:
+ *    - All Supabase endpoints (*.supabase.co, /auth/v1/, /rest/v1/, /storage/v1/, /realtime/v1/, /rpc/) are 100% NETWORK ONLY.
+ *    - All same-origin API endpoints (/api/, /rest/, /v1/) and config scripts are 100% NETWORK ONLY.
+ *    - Cross-origin requests (url.origin !== self.location.origin) are NEVER cached.
+ *    - Non-GET HTTP methods (POST, PUT, DELETE, PATCH) are NEVER cached.
+ *    - Requests carrying Authorization or apikey headers are NEVER cached.
+ *    - Personal information, project data, deliverables, and tokens are NEVER stored in CacheStorage.
+ * 2. APP SHELL ONLY CACHING:
+ *    - HTML Navigation: NETWORK FIRST (falling back to cached /index.html only when offline)
+ *    - Static Assets (CSS, JS, Fonts, Images, Manifest): STALE-WHILE-REVALIDATE for fast app launch
  */
 
-const CACHE_VERSION = 'aetherpmo-v1.5.1-20261020-save-fix';
+const CACHE_VERSION = 'aetherpmo-v1.6.0-20261029-pwa';
 const STATIC_CACHE_NAME = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE_NAME = `dynamic-${CACHE_VERSION}`;
 
@@ -27,6 +29,7 @@ const STATIC_ASSETS = [
     '/index.html',
     '/style.css',
     '/app.js',
+    '/ai-automation.js',
     '/manifest.webmanifest',
     '/aetherpmo-icon.svg',
     '/aetherpmo-icon-maskable.svg',
@@ -44,7 +47,7 @@ self.addEventListener('install', event => {
     self.skipWaiting();
     event.waitUntil(
         caches.open(STATIC_CACHE_NAME).then(cache => {
-            console.log('[SW] Pre-caching static app shell');
+            console.log('[SW] Pre-caching static app shell v1.6.0');
             return cache.addAll(STATIC_ASSETS).catch(err => {
                 console.warn('[SW] Pre-cache partial failure:', err);
             });
@@ -52,7 +55,7 @@ self.addEventListener('install', event => {
     );
 });
 
-// Activate Event: Delete outdated caches immediately
+// Activate Event: Delete outdated caches immediately & claim clients
 self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys().then(cacheNames => {
@@ -66,6 +69,13 @@ self.addEventListener('activate', event => {
             );
         }).then(() => self.clients.claim())
     );
+});
+
+// Message Event: Handle update skip waiting signal from client
+self.addEventListener('message', event => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
 });
 
 // Fetch Event: Apply strict origin checks, static allowlists & network vs cache strategies
@@ -87,6 +97,7 @@ self.addEventListener('fetch', event => {
                        url.pathname.startsWith('/rest/') ||
                        url.pathname.startsWith('/v1/');
 
+    // NEVER cache business data, user tokens, or authenticated API calls
     if (isCrossOrigin || isSupabaseApi || isNonGetMethod || isApiRoute || isSupabaseConfig) {
         return; // Early return without event.respondWith(), browser fetches directly over network
     }

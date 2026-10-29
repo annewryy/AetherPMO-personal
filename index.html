@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <script>
@@ -27,13 +27,16 @@
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AetherPMO">
+    <meta name="application-name" content="AetherPMO">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>AetherPMO | 사업관리 플랫폼</title>
     <!-- Google Fonts: Plus Jakarta Sans for UI, Noto Sans KR for Korean -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- PWA Manifest & Icons -->
-    <link rel="manifest" href="manifest.webmanifest?v=20261014-icon3">
+    <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/svg+xml" href="aetherpmo-icon.svg?v=20261014-icon3">
     <link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=20261014-icon3">
     <link rel="icon" type="image/x-icon" href="favicon.ico?v=20261014-icon3">
@@ -115,6 +118,18 @@
             <div class="signup-prompt">
                 <span>아직 계정이 없으신가요?</span>
                 <button type="button" class="btn-signup-link" onclick="app.openSignupModal()">회원가입</button>
+            </div>
+
+            <!-- PWA Mobile App Installation Section -->
+            <div id="pwa-install-container" class="pwa-install-container" style="display: none;">
+                <div class="pwa-install-divider">
+                    <span>모바일 앱</span>
+                </div>
+                <button type="button" id="pwa-install-btn" class="btn btn-outline btn-block pwa-install-btn" onclick="app.handlePwaInstallClick()">
+                    <i data-lucide="smartphone"></i>
+                    <span id="pwa-install-btn-text">AetherPMO 모바일 앱 설치</span>
+                </button>
+                <p class="pwa-install-hint" id="pwa-install-hint">스마트폰 홈 화면에 추가하여 전체 화면 앱으로 편리하게 이용하세요</p>
             </div>
         </div>
     </div>
@@ -9283,6 +9298,59 @@
         <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--bg-card-border); display: flex; justify-content: flex-end; gap: 8px;">
             <button type="button" class="btn btn-outline" onclick="app.closeEffortPreviewModal()">취소</button>
             <button type="button" class="btn btn-primary" onclick="app.applyParsedEffortData()" style="font-weight: 700;">현재 프로젝트에 데이터 반영</button>
+        </div>
+    </div>
+</div>
+
+    <!-- iOS Safari PWA Install Guide Modal -->
+    <div id="ios-pwa-modal" class="modal-backdrop" style="display: none;" onclick="if(event.target===this) app.closeIosPwaModal()">
+        <div class="modal-dialog ios-pwa-modal-dialog">
+            <div class="modal-header">
+                <div class="modal-title-with-icon">
+                    <div class="pwa-modal-icon-wrap">
+                        <img src="icon-192.png" alt="AetherPMO" width="36" height="36" class="pwa-modal-app-icon">
+                    </div>
+                    <div>
+                        <h3 class="modal-title" style="margin: 0; font-size: 18px; font-weight: 700;">AetherPMO 앱 설치 안내</h3>
+                        <p class="modal-subtitle" style="margin: 2px 0 0 0; font-size: 13px; color: var(--text-muted);">Safari 브라우저에서 3단계로 간편하게 홈 화면에 추가하세요</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" onclick="app.closeIosPwaModal()" aria-label="닫기">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body ios-pwa-modal-body">
+                <div class="ios-install-steps">
+                    <div class="ios-step-item">
+                        <div class="ios-step-badge">1</div>
+                        <div class="ios-step-content">
+                            <div class="ios-step-title">Safari 하단 도구 막대의 <strong>[공유]</strong> 버튼 탭</div>
+                            <div class="ios-step-desc">화면 하단 중앙의 네모 상자 위쪽 화살표 아이콘(<i data-lucide="share" style="width:16px;height:16px;display:inline-block;vertical-align:middle;color:#38bdf8;"></i>)을 탭합니다.</div>
+                        </div>
+                    </div>
+                    <div class="ios-step-item">
+                        <div class="ios-step-badge">2</div>
+                        <div class="ios-step-content">
+                            <div class="ios-step-title">공유 메뉴에서 <strong>'홈 화면에 추가'</strong> 선택</div>
+                            <div class="ios-step-desc">메뉴 목록을 아래로 스크롤하여 <strong>'홈 화면에 추가'</strong>(<i data-lucide="plus-square" style="width:16px;height:16px;display:inline-block;vertical-align:middle;color:#10b981;"></i>) 항목을 선택합니다.</div>
+                        </div>
+                    </div>
+                    <div class="ios-step-item">
+                        <div class="ios-step-badge">3</div>
+                        <div class="ios-step-content">
+                            <div class="ios-step-title">우측 상단 <strong>[추가]</strong> 버튼 탭</div>
+                            <div class="ios-step-desc">홈 화면에 <strong>AetherPMO</strong> 앱 아이콘이 생성되어 브라우저 주소창 없이 전체 화면으로 실행됩니다.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--bg-card-border);">
+                <button type="button" class="btn btn-primary btn-block" onclick="app.closeIosPwaModal()" style="height: 44px; font-weight: 700;">
+                    확인했습니다
+                </button>
+            </div>
+        </div>
+    </div>
         </div>
     </div>
 </div>

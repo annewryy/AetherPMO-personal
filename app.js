@@ -376,10 +376,24 @@ class AetherPMO {
             navigator.serviceWorker.register('./sw.js').then(reg => {
                 console.log('[PWA] ServiceWorker registered:', reg.scope);
                 reg.update();
+                reg.addEventListener('updatefound', () => {
+                    const newWorker = reg.installing;
+                    if (newWorker) {
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                console.log('[PWA] New service worker version installed');
+                                newWorker.postMessage({ type: 'SKIP_WAITING' });
+                            }
+                        });
+                    }
+                });
             }).catch(err => {
                 console.warn('[PWA] ServiceWorker registration failed:', err);
             });
         }
+
+        // Initialize PWA mobile installation prompt
+        this.initPwaInstallPrompt();
 
         // Auto-close mobile drawer when window resizes to >= 769px
         window.addEventListener('resize', () => {
@@ -399,6 +413,92 @@ class AetherPMO {
         // Initialise Lucide icons
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
+        }
+    }
+
+    isPwaStandalone() {
+        return window.matchMedia('(display-mode: standalone)').matches ||
+               window.navigator.standalone === true ||
+               document.referrer.includes('android-app://');
+    }
+
+    initPwaInstallPrompt() {
+        this.deferredPwaPrompt = null;
+        const container = document.getElementById('pwa-install-container');
+        if (!container) return;
+
+        // 이미 PWA standalone 모드로 실행 중인 경우 설치 안내 숨김
+        if (this.isPwaStandalone()) {
+            container.style.display = 'none';
+            return;
+        }
+
+        const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+        // Android / Chrome / Edge: beforeinstallprompt 이벤트 감지
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.deferredPwaPrompt = e;
+            if (!this.isPwaStandalone()) {
+                container.style.display = 'block';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        });
+
+        // iOS Safari: 모바일 기기 감지 시 설치 안내 버튼 노출
+        if (isIos && !this.isPwaStandalone()) {
+            container.style.display = 'block';
+            const hint = document.getElementById('pwa-install-hint');
+            if (hint) hint.textContent = 'Safari에서 홈 화면에 추가하여 앱처럼 편리하게 이용하세요';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        // 데스크톱/기타 모바일 브라우저에서도 미설치 상태 시 버튼 노출
+        if (!this.isPwaStandalone() && container.style.display === 'none') {
+            container.style.display = 'block';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        // 앱 설치 완료 감지
+        window.addEventListener('appinstalled', () => {
+            this.deferredPwaPrompt = null;
+            container.style.display = 'none';
+            this.showToast('AetherPMO 앱이 성공적으로 설치되었습니다!', 'success');
+        });
+    }
+
+    handlePwaInstallClick() {
+        const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        if (isIos) {
+            this.openIosPwaModal();
+            return;
+        }
+
+        if (this.deferredPwaPrompt) {
+            this.deferredPwaPrompt.prompt();
+            this.deferredPwaPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('[PWA] User accepted installation prompt');
+                }
+                this.deferredPwaPrompt = null;
+            });
+        } else {
+            this.openIosPwaModal();
+        }
+    }
+
+    openIosPwaModal() {
+        const modal = document.getElementById('ios-pwa-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    closeIosPwaModal() {
+        const modal = document.getElementById('ios-pwa-modal');
+        if (modal) {
+            modal.style.display = 'none';
         }
     }
 
