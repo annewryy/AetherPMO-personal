@@ -9,19 +9,102 @@
             }
         } catch(e) {}
 
-        window.onerror = function(message, source, lineno, colno, error) {
-            var div = document.createElement('div');
-            div.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#0f172a;color:#ef4444;z-index:999999;padding:32px;font-family:monospace;font-size:14px;white-space:pre-wrap;overflow-y:auto;';
-            div.innerHTML = '<h1 style="color:#f87171;font-size:24px;margin-top:0;">[Global Javascript Error Detected]</h1>' + 
-                            '<h3 style="color:#fca5a5;">' + message + '</h3>' +
-                            '<p style="color:#cbd5e1;"><b>Source:</b> ' + source + '</p>' +
-                            '<p style="color:#cbd5e1;"><b>Line:</b> ' + lineno + ' | <b>Col:</b> ' + colno + '</p>' +
-                            '<p style="color:#94a3b8;"><b>Stack Trace:</b><br>' + (error && error.stack ? error.stack : 'N/A') + '</p>' +
-                            '<div style="margin-top:20px;"><button onclick="location.reload()" style="background:#3b82f6;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;">새로고침</button></div>';
-            document.body.appendChild(div);
-            return false;
-        };
+        // Global Diagnostic & Non-blocking Error Handler
+        (function() {
+            function sanitizeDiagnosticInfo(str) {
+                if (typeof str !== 'string') return '';
+                return str
+                    .replace(/Bearer\s+[A-Za-z0-9_\-\.]+/gi, 'Bearer [REDACTED]')
+                    .replace(/sb_[a-zA-Z0-9_\-]+/gi, '[REDACTED_KEY]')
+                    .replace(/eyJ[A-Za-z0-9_\-\.]+\.[A-Za-z0-9_\-\.]+/gi, '[REDACTED_JWT]')
+                    .replace(/apikey=[A-Za-z0-9_\-\.]+/gi, 'apikey=[REDACTED]')
+                    .replace(/password\s*[:=]\s*[^\s,]+/gi, 'password=[REDACTED]')
+                    .replace(/[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/gi, '[REDACTED_EMAIL]');
+            }
+
+            function isTrivialOrCrossOriginError(message, source, lineno, colno) {
+                var msg = (message || '').toString();
+                var src = (source || '').toString().trim();
+                // 1. Cross-origin masked error or empty source (line 0, col 0)
+                if (!src || (lineno === 0 && colno === 0)) return true;
+                if (msg.indexOf('Script error') !== -1) return true;
+                // 2. Benign browser notifications and aborted requests
+                if (msg.indexOf('ResizeObserver loop') !== -1 ||
+                    msg.indexOf('The operation was aborted') !== -1 ||
+                    msg.indexOf('AbortError') !== -1) {
+                    return true;
+                }
+                // 3. Browser extension errors
+                if (src.indexOf('chrome-extension://') !== -1 ||
+                    src.indexOf('moz-extension://') !== -1 ||
+                    src.indexOf('safari-extension://') !== -1) {
+                    return true;
+                }
+                return false;
+            }
+
+            function showNonBlockingNotification(safeMsg) {
+                if (document.getElementById('aether-global-err-toast')) return;
+                var toast = document.createElement('div');
+                toast.id = 'aether-global-err-toast';
+                toast.style.cssText = 'position:fixed;bottom:20px;right:20px;max-width:340px;background:#1e293b;color:#f87171;border:1px solid #ef4444;border-radius:10px;padding:12px 16px;box-shadow:0 10px 25px rgba(0,0,0,0.5);z-index:10000;font-size:12.5px;line-height:1.4;display:flex;align-items:flex-start;gap:10px;';
+
+                var textSpan = document.createElement('span');
+                textSpan.style.flex = '1';
+                textSpan.textContent = '일부 스크립트 실행 중 알림이 감지되었습니다: ' + (safeMsg.length > 80 ? safeMsg.substring(0, 80) + '...' : safeMsg);
+
+                var closeBtn = document.createElement('button');
+                closeBtn.type = 'button';
+                closeBtn.textContent = '×';
+                closeBtn.style.cssText = 'background:none;border:none;color:#94a3b8;font-size:18px;line-height:1;cursor:pointer;padding:0 4px;';
+                closeBtn.onclick = function() {
+                    if (toast && toast.parentNode) toast.parentNode.removeChild(toast);
+                };
+
+                toast.appendChild(textSpan);
+                toast.appendChild(closeBtn);
+                if (document.body) {
+                    document.body.appendChild(toast);
+                } else {
+                    window.addEventListener('DOMContentLoaded', function() {
+                        if (document.body) document.body.appendChild(toast);
+                    });
+                }
+            }
+
+            window.onerror = function(message, source, lineno, colno, error) {
+                var safeMsg = sanitizeDiagnosticInfo((message || '').toString());
+                var safeSrc = sanitizeDiagnosticInfo((source || '').toString());
+                var safeStack = error && error.stack ? sanitizeDiagnosticInfo(error.stack.toString()) : '';
+
+                // Diagnostic console logging (always logged with sanitized info)
+                console.warn('[AetherPMO Global Error Diagnostic]:', {
+                    message: safeMsg,
+                    source: safeSrc,
+                    line: lineno || 0,
+                    col: colno || 0,
+                    stack: safeStack
+                });
+
+                // Filter out cross-origin and line 0/col 0 trivial errors: DO NOT BLOCK UI
+                if (isTrivialOrCrossOriginError(message, source, lineno, colno)) {
+                    return true; // Prevents default browser handling, no UI disruption
+                }
+
+                // For genuine application runtime errors, show non-blocking dismissible toast
+                showNonBlockingNotification(safeMsg);
+                return true;
+            };
+
+            window.addEventListener('unhandledrejection', function(event) {
+                var reason = event.reason;
+                var msg = reason && reason.message ? reason.message : String(reason);
+                var safeMsg = sanitizeDiagnosticInfo(msg);
+                console.warn('[AetherPMO Unhandled Rejection Diagnostic]:', safeMsg);
+            });
+        })();
     </script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0f172a">
