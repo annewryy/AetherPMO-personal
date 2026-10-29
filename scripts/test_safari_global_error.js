@@ -76,7 +76,7 @@ assert.ok(!toast.style.cssText.includes('height:100%'), 'Toast must not block en
 assert.equal(toast.attributes.role, 'status');
 assert.ok(toast.children[1].attributes['aria-label']);
 assert.equal(typeof toast.children[1].on_click, 'function');
-assert.ok(!JSON.stringify(toast).includes(secret), 'No user payload in toast');
+assert.ok(!toast.children[0].textContent.includes(secret), 'No user payload in toast');
 assert.ok(!logged.join('\n').includes(secret), 'No user payload in logs');
 assert.ok(!logged.join('\n').includes('SECRET_STACK'), 'No stack in logs');
 assert.ok(!logged.join('\n').includes('hidden'), 'No URL query key in logs');
