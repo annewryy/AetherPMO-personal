@@ -9455,11 +9455,11 @@
     <div id="pwa-update-banner" class="pwa-update-banner" style="display: none;">
         <div class="pwa-update-content">
             <i data-lucide="sparkles" class="pwa-update-icon"></i>
-            <span id="pwa-update-text">AetherPMO ??踰꾩쟾??以鍮꾨릺?덉뒿?덈떎. ?묒꽦 以묒씤 ?댁슜????????덈줈怨좎묠?섏꽭??</span>
+            <span id="pwa-update-text">AetherPMO 새 버전이 준비되었습니다. 작성 중인 내용을 저장 후 새로고침하세요.</span>
         </div>
         <div class="pwa-update-actions">
-            <button type="button" class="btn btn-primary btn-sm pwa-update-reload-btn" onclick="app.applyPwaUpdate()">吏湲??덈줈怨좎묠</button>
-            <button type="button" class="btn btn-outline btn-sm pwa-update-dismiss-btn" onclick="app.dismissPwaUpdate()">?섏쨷??/button>
+            <button type="button" class="btn btn-primary btn-sm pwa-update-reload-btn" onclick="app.applyPwaUpdate()">지금 새로고침</button>
+            <button type="button" class="btn btn-outline btn-sm pwa-update-dismiss-btn" onclick="app.dismissPwaUpdate()">나중에</button>
         </div>
     </div>
 
@@ -9472,34 +9472,36 @@
                         <i data-lucide="alert-triangle" style="width: 22px; height: 22px;"></i>
                     </div>
                     <div>
-                        <h3 class="modal-title" style="margin: 0; font-size: 17px; font-weight: 700;">?묒꽦 以묒씤 ?댁슜 ?좎떎 二쇱쓽</h3>
-                        <p class="modal-subtitle" style="margin: 2px 0 0 0; font-size: 12.5px; color: var(--text-muted);">誘몄???蹂寃쎌궗??씠 ?덉뒿?덈떎</p>
+                        <h3 class="modal-title" style="margin: 0; font-size: 17px; font-weight: 700;">작성 중인 내용 유실 주의</h3>
+                        <p class="modal-subtitle" style="margin: 2px 0 0 0; font-size: 12.5px; color: var(--text-muted);">미저장 변경사항이 있습니다</p>
                     </div>
                 </div>
-                <button type="button" class="btn-close" onclick="app.cancelPwaUpdate()" aria-label="?リ린">
+                <button type="button" class="btn-close" onclick="app.cancelPwaUpdate()" aria-label="닫기">
                     <i data-lucide="x"></i>
                 </button>
             </div>
             <div class="modal-body" style="padding: 18px 20px; font-size: 13.5px; color: var(--text-main); line-height: 1.5;">
                 <p style="margin: 0 0 10px 0;" id="pwa-update-confirm-msg">
-                    ?꾩옱 ?섏젙 以묒씤 蹂寃쎌궗??씠 ?덉뒿?덈떎. 吏湲??덈줈怨좎묠?섏뿬 ?깆쓣 ?낅뜲?댄듃?섎㈃ <strong>?낅젰 以묒씤 蹂寃쎌궗??씠 ?좎떎</strong>?????덉뒿?덈떎.
+                    현재 수정 중인 변경사항이 있습니다. 지금 새로고침하여 앱을 업데이트하면 <strong>입력 중인 변경사항이 유실</strong>될 수 있습니다.
                 </p>
                 <p style="margin: 0; font-size: 12.5px; color: var(--text-muted);">
-                    ?묒뾽 ?댁슜??癒쇱? ??ν븯?????낅뜲?댄듃?섏떆湲곕? 沅뚯옣?⑸땲?? 洹몃옒??吏湲??낅뜲?댄듃?섏떆寃좎뒿?덇퉴?
+                    작업 내용을 먼저 저장하신 후 업데이트하시기를 권장합니다. 그래도 지금 업데이트하시겠습니까?
                 </p>
             </div>
             <div class="modal-footer" style="padding: 14px 20px; border-top: 1px solid var(--bg-card-border); display: flex; justify-content: flex-end; gap: 8px;">
                 <button type="button" class="btn btn-outline" onclick="app.cancelPwaUpdate()" style="height: 40px; font-weight: 600;">
-                    痍⑥냼 (?묒뾽 怨꾩냽)
+                    취소 (작업 계속)
                 </button>
                 <button type="button" class="btn btn-primary" onclick="app.forcePwaUpdate()" style="height: 40px; font-weight: 700; background: #ef4444; border-color: #ef4444; color: white;">
-                    臾댁떆?섍퀬 ?낅뜲?댄듃
+                    무시하고 업데이트
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- HR accordion: capture click before delegated navigation/routing listeners.
+
+
+        <!-- HR accordion: capture click before delegated navigation/routing listeners.
          Only parent nav link is intercepted; submenu links work normally. -->
     <script>
     (function () {

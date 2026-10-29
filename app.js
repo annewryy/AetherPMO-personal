@@ -490,7 +490,15 @@ class AetherPMO {
             return { isEditing: true, reason: 'AI 프롬프트 작성 중' };
         }
 
-        // 2. Check open editing modals and verify if any field is genuinely modified from defaultValue (dirty)
+        // Helper to retrieve initial value supporting both DOM defaultValue and dynamic data-initial-value
+        const getInitialVal = (el) => {
+            if (el && typeof el.hasAttribute === 'function' && el.hasAttribute('data-initial-value')) {
+                return el.getAttribute('data-initial-value');
+            }
+            return (el && el.defaultValue !== undefined) ? el.defaultValue : '';
+        };
+
+        // 2. Check open editing modals and verify if any field is genuinely modified (dirty)
         const openModals = Array.from(document.querySelectorAll('.modal, .modal-backdrop')).filter(m => {
             if (m.id === 'ios-pwa-modal' || m.id === 'android-pwa-modal' || m.id === 'desktop-pwa-modal' || m.id === 'pwa-update-confirm-modal') {
                 return false;
@@ -504,22 +512,32 @@ class AetherPMO {
             for (const el of inputs) {
                 if (el.tagName === 'INPUT') {
                     if (el.type === 'checkbox' || el.type === 'radio') {
-                        if (el.checked !== el.defaultChecked) return { isEditing: true, reason: '모달 폼 수정 중' };
+                        const initChecked = (el.hasAttribute && el.hasAttribute('data-initial-checked'))
+                            ? el.getAttribute('data-initial-checked') === 'true'
+                            : (el.defaultChecked !== undefined ? el.defaultChecked : false);
+                        if (el.checked !== initChecked) return { isEditing: true, reason: '모달 폼 수정 중' };
                     } else {
-                        // Truly dirty if value differs from default initial value and not empty
-                        if (el.value !== el.defaultValue && el.value.trim() !== '') {
+                        // Compare current value with initial value regardless of whether current value is empty
+                        // (Detects both new entries and total deletion of existing entries)
+                        const initialVal = getInitialVal(el);
+                        if (el.value !== initialVal) {
                             return { isEditing: true, reason: '모달 폼 수정 중' };
                         }
                     }
                 } else if (el.tagName === 'TEXTAREA') {
-                    if (el.value !== el.defaultValue && el.value.trim() !== '') {
+                    const initialVal = getInitialVal(el);
+                    if (el.value !== initialVal) {
                         return { isEditing: true, reason: '모달 텍스트 작성 중' };
                     }
                 } else if (el.tagName === 'SELECT') {
-                    const defaultSelected = Array.from(el.options).find(o => o.defaultSelected);
-                    const currentVal = el.value;
-                    const defaultVal = defaultSelected ? defaultSelected.value : (el.options[0] ? el.options[0].value : '');
-                    if (currentVal !== defaultVal) {
+                    let initialVal = '';
+                    if (el.hasAttribute && el.hasAttribute('data-initial-value')) {
+                        initialVal = el.getAttribute('data-initial-value');
+                    } else {
+                        const defaultSelected = Array.from(el.options).find(o => o.defaultSelected);
+                        initialVal = defaultSelected ? defaultSelected.value : (el.options[0] ? el.options[0].value : '');
+                    }
+                    if (el.value !== initialVal) {
                         return { isEditing: true, reason: '모달 선택값 변경 중' };
                     }
                 }
@@ -529,7 +547,8 @@ class AetherPMO {
         // 3. Global check for any active focused element with genuinely modified content
         const activeEl = document.activeElement;
         if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
-            if (activeEl.value !== activeEl.defaultValue && activeEl.value.trim() !== '') {
+            const initialVal = getInitialVal(activeEl);
+            if (activeEl.value !== initialVal) {
                 return { isEditing: true, reason: '입력 필드 수정 중' };
             }
         }

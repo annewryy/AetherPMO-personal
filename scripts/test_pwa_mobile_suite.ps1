@@ -137,8 +137,8 @@ Assert-Result "Desktop environment suppresses mobile install prompt unless nativ
 # Check 4.5: applyPwaUpdate directly invokes isUserEditingData and distinguishes dirty state
 $hasDirtyGuard = $appContent.Contains("applyPwaUpdate() {`r`n        const editingStatus = this.isUserEditingData();") -or
                  $appContent.Contains("applyPwaUpdate() {`n        const editingStatus = this.isUserEditingData();")
-$hasDefaultValueCheck = $appContent.Contains("el.value !== el.defaultValue") -and $appContent.Contains("el.checked !== el.defaultChecked")
-Assert-Result "applyPwaUpdate() invokes isUserEditingData() and distinguishes modified dirty state" ($hasDirtyGuard -and $hasDefaultValueCheck) "Unsaved work triggers confirmation modal"
+$hasInitialValueCheck = $appContent.Contains("el.value !== initialVal") -and $appContent.Contains("getInitialVal")
+Assert-Result "applyPwaUpdate() invokes isUserEditingData() and distinguishes modified dirty state" ($hasDirtyGuard -and $hasInitialValueCheck) "Unsaved work triggers confirmation modal"
 
 # Check 4.6: Modal lifecycle handlers implemented for iOS, Android, and Desktop
 $hasAllModalHandlers = $appContent.Contains("openIosPwaModal()") -and

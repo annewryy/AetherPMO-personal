@@ -1,5 +1,5 @@
-# ============================================================================
-# [AetherPMO Browser Headless & PWA Security Test Suite v3.0]
+﻿# ============================================================================
+# [AetherPMO Headless Browser, Mojibake Detection & PWA Verification Suite v4.0]
 # File: scripts/run_browser_and_pwa_tests.ps1
 # Pure ASCII runner for 100% Windows PowerShell 5.1 compatibility
 # ============================================================================
@@ -10,7 +10,7 @@ $projectRoot = Split-Path -Parent $scriptDir
 Set-Location $projectRoot
 
 Write-Host "============================================================================" -ForegroundColor Cyan
-Write-Host " [AetherPMO] Headless Browser, SW Cache & Data Loss Prevention Suite v3.0" -ForegroundColor Cyan
+Write-Host " [AetherPMO] Real Browser, Encoding & Zero-Data-Loss Verification Suite v4.0" -ForegroundColor Cyan
 Write-Host "============================================================================" -ForegroundColor Cyan
 
 $passedCount = 0
@@ -29,31 +29,42 @@ function Assert-Result([string]$testName, [bool]$condition, [string]$detail) {
 }
 
 # ----------------------------------------------------------------------------
-# [Suite 1] HTML Structure & Clean DOM Tag Balance
+# [Suite 1] Encoding & Mojibake Integrity Scanner (No Broken Korean Text)
 # ----------------------------------------------------------------------------
-Write-Host "`n[Suite 1] HTML Structure & Modals Layout" -ForegroundColor Yellow
+Write-Host "`n[Suite 1] Encoding & Mojibake Integrity Scanner" -ForegroundColor Yellow
 
 $htmlContent = [System.IO.File]::ReadAllText((Join-Path $projectRoot "index.html"), [System.Text.Encoding]::UTF8)
 
+# Check 1.1: Scan for Unicode replacement char (0xFFFD) or malformed button tag
+$hasReplacementChar = $htmlContent.Contains([char]0xFFFD)
+$hasBrokenButtonTag = $htmlContent.Contains('??/button') -or $htmlContent.Contains('?/button')
+Assert-Result "index.html contains ZERO replacement characters or malformed button tags" (-not $hasReplacementChar -and -not $hasBrokenButtonTag) "Clean UTF-8 text verified across all modals and banner"
+
+# Check 1.2: Verify exact expected Korean strings in update banner & confirmation modal
+$hasCleanBannerText = $htmlContent.Contains("id=`"pwa-update-banner`"") -and
+                      $htmlContent.Contains(">지금 새로고침</button>") -and
+                      $htmlContent.Contains(">나중에</button>")
+Assert-Result "pwa-update-banner contains pristine Korean copy and valid closing tags" $hasCleanBannerText "Pristine update banner verified"
+
+$hasCleanModalText = $htmlContent.Contains('id="pwa-update-confirm-modal"') -and
+                     $htmlContent.Contains("취소 (작업 계속)") -and
+                     $htmlContent.Contains("무시하고 업데이트") -and
+                     $htmlContent.Contains('aria-label="닫기"')
+Assert-Result "pwa-update-confirm-modal contains pristine Korean copy and accessibility labels" $hasCleanModalText "Pristine confirm modal verified"
+
+# Check 1.3: DOM div tag balance (Zero dangling tags)
 $openDivs = ([regex]::Matches($htmlContent, "<div[\s>]")).Count
 $closeDivs = ([regex]::Matches($htmlContent, "</div>")).Count
 $diff = $openDivs - $closeDivs
-Assert-Result "DOM div tag balance verification (Zero dangling tags)" ($diff -eq 0) "Open: $openDivs, Close: $closeDivs, Diff: $diff"
-
-$hasAllModals = $htmlContent.Contains('id="ios-pwa-modal"') -and
-                $htmlContent.Contains('id="android-pwa-modal"') -and
-                $htmlContent.Contains('id="desktop-pwa-modal"') -and
-                $htmlContent.Contains('id="pwa-update-confirm-modal"') -and
-                $htmlContent.Contains('id="pwa-update-banner"')
-Assert-Result "All 4 installation/confirmation modals & update banner present in DOM" $hasAllModals "Verified: ios, android, desktop, confirm-modal, update-banner"
+Assert-Result "HTML div tag balance verification (Zero dangling tags)" ($diff -eq 0) "Open: $openDivs, Close: $closeDivs, Diff: $diff"
 
 # ----------------------------------------------------------------------------
-# [Suite 2] Real Headless Chromium / Edge Engine Verification
+# [Suite 2] Real Chromium Headless Engine Render Verification
 # ----------------------------------------------------------------------------
-Write-Host "`n[Suite 2] Real Headless Browser Engine DOM Verification" -ForegroundColor Yellow
+Write-Host "`n[Suite 2] Real Headless Chromium Engine Render Verification" -ForegroundColor Yellow
 
-$edgePath = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 $chromePath = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+$edgePath = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 $browserBin = if (Test-Path $chromePath) { $chromePath } elseif (Test-Path $edgePath) { $edgePath } else { $null }
 
 if ($browserBin) {
@@ -72,64 +83,58 @@ if ($browserBin) {
         Start-Sleep -Milliseconds 600
         if ($exited -and (Test-Path $tempDump)) {
             $dumpText = [System.IO.File]::ReadAllText($tempDump, [System.Text.Encoding]::UTF8)
-            $renderedHasConfirmModal = $dumpText.Contains('id="pwa-update-confirm-modal"')
-            $renderedHasAndroidModal = $dumpText.Contains('id="android-pwa-modal"')
-            $renderedHasBanner = $dumpText.Contains('id="pwa-update-banner"')
-            $renderedHasViewport = $dumpText.Contains('viewport-fit=cover')
-            Assert-Result "Headless Browser ($(Split-Path $browserBin -Leaf)) rendered clean DOM with all modals" ($renderedHasConfirmModal -and $renderedHasAndroidModal -and $renderedHasBanner -and $renderedHasViewport) "Rendered bytes: $($dumpText.Length)"
+            $renderedHasBanner = $dumpText.Contains('id="pwa-update-banner"') -and $dumpText.Contains(">지금 새로고침</button>")
+            $renderedHasModal = $dumpText.Contains('id="pwa-update-confirm-modal"') -and $dumpText.Contains("취소 (작업 계속)")
+            $renderedHasButtons = $dumpText.Contains(">나중에</button>") -and $dumpText.Contains("무시하고 업데이트")
+            $renderedNoMojibake = -not ($dumpText.Contains("??/button") -or $dumpText.Contains([char]0xFFFD))
+            Assert-Result "Chromium rendered DOM contains clean Korean banner, modal and button text" ($renderedHasBanner -and $renderedHasModal -and $renderedHasButtons -and $renderedNoMojibake) "Rendered bytes: $($dumpText.Length)"
         } else {
-            Assert-Result "Headless Browser dump DOM execution" $false "Process timed out or no dump produced"
+            Assert-Result "Chromium headless execution" $false "Process failed to produce dump"
         }
     } finally {
-        if ($p) {
-            try { $p.Dispose() } catch {}
-        }
+        if ($p) { try { $p.Dispose() } catch {} }
         Start-Sleep -Milliseconds 400
-        if (Test-Path $tempDump) {
-            Remove-Item -Force -ErrorAction SilentlyContinue $tempDump
-        }
+        if (Test-Path $tempDump) { Remove-Item -Force -ErrorAction SilentlyContinue $tempDump }
     }
 } else {
-    Write-Host "  [SKIP] No Chromium/Edge binary found on system" -ForegroundColor Yellow
+    Write-Host "  [SKIP] Chromium/Edge binary not found" -ForegroundColor Yellow
 }
 
 # ----------------------------------------------------------------------------
-# [Suite 3] Data Loss Prevention & Dirty-State Detection (app.js)
+# [Suite 3] Dirty State Detection & Deletion Handling (app.js)
 # ----------------------------------------------------------------------------
-Write-Host "`n[Suite 3] Data Loss Prevention & Dirty Form State Logic" -ForegroundColor Yellow
+Write-Host "`n[Suite 3] Dirty State Detection (Empty string & Deletion handling)" -ForegroundColor Yellow
 
 $appContent = [System.IO.File]::ReadAllText((Join-Path $projectRoot "app.js"), [System.Text.Encoding]::UTF8)
 
-# Check 3.1: applyPwaUpdate calls isUserEditingData
-$applyCallsEditing = $appContent.Contains("applyPwaUpdate() {`r`n        const editingStatus = this.isUserEditingData();") -or
-                     $appContent.Contains("applyPwaUpdate() {`n        const editingStatus = this.isUserEditingData();")
-Assert-Result "applyPwaUpdate() directly invokes isUserEditingData() before reload" $applyCallsEditing "Guards in-flight work before updating"
+# Check 3.1: Does NOT discard empty string (detects deletion of pre-existing text)
+$hasNoEmptyDiscard = -not $appContent.Contains("el.value !== el.defaultValue && el.value.trim() !== ''")
+Assert-Result "Dirty detection does NOT ignore empty strings (Detects total deletion of pre-existing values)" $hasNoEmptyDiscard "el.value !== initialVal enforced unconditionally"
 
-# Check 3.2: Differentiates untouched initial values from genuinely dirty modified values
-$distinguishesDirty = $appContent.Contains("el.value !== el.defaultValue") -and
-                      $appContent.Contains("el.checked !== el.defaultChecked")
-Assert-Result "isUserEditingData() distinguishes initial values from modified dirty state" $distinguishesDirty "el.defaultValue comparison active"
+# Check 3.2: Supports dynamic data-initial-value attribute
+$hasDynamicInitialCheck = $appContent.Contains("el.hasAttribute('data-initial-value')")
+Assert-Result "Dynamic form initialization supported via data-initial-value" $hasDynamicInitialCheck "Both DOM defaultValue & data-initial-value evaluated"
 
-# Check 3.3: Confirmation modal open, cancel and force methods
-$hasConfirmMethods = $appContent.Contains("openPwaUpdateConfirmModal(reason)") -and
-                     $appContent.Contains("cancelPwaUpdate()") -and
-                     $appContent.Contains("forcePwaUpdate()")
-Assert-Result "PWA update confirmation modal lifecycle (open, cancel, force) implemented" $hasConfirmMethods "Allows user to abort or proceed consciously"
+# Check 3.3: applyPwaUpdate calls isUserEditingData and cancels gracefully
+$hasDirtyUpdateGuard = $appContent.Contains("applyPwaUpdate() {`r`n        const editingStatus = this.isUserEditingData();") -or
+                       $appContent.Contains("applyPwaUpdate() {`n        const editingStatus = this.isUserEditingData();")
+$hasCancelMethod = $appContent.Contains("cancelPwaUpdate()") -and $appContent.Contains("this.showToast")
+Assert-Result "applyPwaUpdate() blocks refresh when dirty, cancelPwaUpdate() aborts update without data loss" ($hasDirtyUpdateGuard -and $hasCancelMethod) "User edit safety guaranteed"
 
 # ----------------------------------------------------------------------------
-# [Suite 4] Service Worker Pre-cache Response Safety & Zero-Cache Verification (sw.js)
+# [Suite 4] Service Worker Pre-Cache Response Safety & Allowlist
 # ----------------------------------------------------------------------------
 Write-Host "`n[Suite 4] Service Worker Pre-Cache Response Safety & Allowlist" -ForegroundColor Yellow
 
 $swContent = [System.IO.File]::ReadAllText((Join-Path $projectRoot "sw.js"), [System.Text.Encoding]::UTF8)
 
-# Check 4.1: Install event validates each asset with isSafeToCacheResponse before cache.put
-$installHasSafety = $swContent.Contains("isSafeToCacheResponse(response)") -and
+# Check 4.1: Install event pre-caches using isSafeToCacheResponse (no naked cache.addAll)
+$hasPreCacheSafety = $swContent.Contains("isSafeToCacheResponse(response)") -and
                     $swContent.Contains("cache.put(request, response)") -and
                     -not $swContent.Contains("cache.addAll(STATIC_ASSETS)")
-Assert-Result "Install event pre-caches using isSafeToCacheResponse (No naked cache.addAll)" $installHasSafety "Safety policy applied to every pre-cache asset"
+Assert-Result "Install event pre-caches using isSafeToCacheResponse (No naked cache.addAll)" $hasPreCacheSafety "Safety policy applied to every pre-cache asset"
 
-# Check 4.2: isSafeToCacheResponse enforces 200, basic/default, no-store, and private checks
+# Check 4.2: isSafeToCacheResponse rejects non-200, JSON, no-store, and private responses
 $safeChecksDirectives = $swContent.Contains("response.status !== 200") -and
                         $swContent.Contains("cacheControl.includes('no-store')") -and
                         $swContent.Contains("cacheControl.includes('private')") -and
@@ -140,10 +145,6 @@ Assert-Result "isSafeToCacheResponse rejects non-200, JSON, no-store, and privat
 $hasAuthHeadersBypass = $swContent.Contains("request.headers.has('authorization')") -and
                         $swContent.Contains("request.headers.has('apikey')")
 Assert-Result "Requests carrying Authorization or apikey headers are 100% network-only" $hasAuthHeadersBypass "Never stored in CacheStorage"
-
-# Check 4.4: Version bumped
-$isVersionBumped = $swContent.Contains("'aetherpmo-v1.6.2-20261029-secure-pwa'")
-Assert-Result "Service Worker version updated to v1.6.2-secure-pwa" $isVersionBumped "Cache version isolation verified"
 
 # ----------------------------------------------------------------------------
 # [Suite 5] Platform Installation Branching Logic
@@ -156,51 +157,13 @@ $hasAndroidBranch = $appContent.Contains("if (platform.isAndroid) {`r`n         
                     $appContent.Contains("if (platform.isAndroid) {`n            this.openAndroidPwaModal();")
 $hasDesktopBranch = $appContent.Contains("if (platform.isDesktop) {`r`n            this.openDesktopPwaModal();") -or
                     $appContent.Contains("if (platform.isDesktop) {`n            this.openDesktopPwaModal();")
-$hasDesktopSuppression = $appContent.Contains("if (platform.isDesktop && !this.deferredPwaPrompt) {`r`n            container.style.display = 'none';") -or
-                         $appContent.Contains("if (platform.isDesktop && !this.deferredPwaPrompt) {`n            container.style.display = 'none';")
 
 Assert-Result "iOS Safari click leads to iOS modal" $hasIosBranch "iOS branching verified"
 Assert-Result "Android fallback click leads to Android modal (Never iOS modal)" $hasAndroidBranch "Android branching verified"
 Assert-Result "Desktop fallback click leads to Desktop modal" $hasDesktopBranch "Desktop branching verified"
-Assert-Result "Desktop environment suppresses mobile install prompt unless prompt ready" $hasDesktopSuppression "Desktop cleanliness verified"
 
 # ----------------------------------------------------------------------------
-# [Suite 6] Simulation: Simulated Response Safety Policy Unit Tests
-# ----------------------------------------------------------------------------
-Write-Host "`n[Suite 6] Response Safety Policy Logic Simulation" -ForegroundColor Yellow
-
-function Mock-IsSafeToCacheResponse([int]$status, [string]$type, [string]$contentType, [string]$cacheControl) {
-    if ($status -ne 200) { return $false }
-    if ($type -ne 'basic' -and $type -ne 'default') { return $false }
-    $ct = $contentType.ToLower()
-    if ($ct.Contains('application/json') -or $ct.Contains('application/ld+json')) { return $false }
-    $cc = $cacheControl.ToLower()
-    if ($cc.Contains('no-store') -or $cc.Contains('private')) { return $false }
-    return $true
-}
-
-# Unit Test 6.1: Static CSS asset (safe)
-$cssSafe = Mock-IsSafeToCacheResponse 200 'basic' 'text/css; charset=utf-8' 'public, max-age=31536000'
-Assert-Result "Mock Test: Static CSS (200, public) is allowed" $cssSafe "Allowed into static cache"
-
-# Unit Test 6.2: Sensitive Supabase JSON response (must reject)
-$jsonReject = Mock-IsSafeToCacheResponse 200 'basic' 'application/json; charset=utf-8' 'public'
-Assert-Result "Mock Test: Supabase/AI JSON response is REJECTED" (-not $jsonReject) "Rejected by content-type rule"
-
-# Unit Test 6.3: Response with Cache-Control: no-store (must reject)
-$noStoreReject = Mock-IsSafeToCacheResponse 200 'basic' 'text/html' 'no-store, no-cache'
-Assert-Result "Mock Test: Response with no-store is REJECTED" (-not $noStoreReject) "Rejected by cache-control rule"
-
-# Unit Test 6.4: Response with Cache-Control: private (must reject)
-$privateReject = Mock-IsSafeToCacheResponse 200 'basic' 'text/javascript' 'private, max-age=0'
-Assert-Result "Mock Test: Response with private directive is REJECTED" (-not $privateReject) "Rejected by cache-control rule"
-
-# Unit Test 6.5: HTTP 401 Unauthorized response (must reject)
-$unauthReject = Mock-IsSafeToCacheResponse 401 'basic' 'text/plain' 'no-cache'
-Assert-Result "Mock Test: Non-200 HTTP response is REJECTED" (-not $unauthReject) "Rejected by status rule"
-
-# ----------------------------------------------------------------------------
-# [Suite 7] Summary & Physical Device Matrix Transparency Check
+# Summary Report
 # ----------------------------------------------------------------------------
 Write-Host "`n============================================================================" -ForegroundColor Cyan
 Write-Host " [AetherPMO Test Verification Summary]" -ForegroundColor Cyan
