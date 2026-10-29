@@ -372,17 +372,24 @@ class AetherPMO {
         this.initDemoAndPresentation();
 
         // Register PWA Service Worker
+        // PWA Service Worker Registration & Graceful Update Listener
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js').then(reg => {
                 console.log('[PWA] ServiceWorker registered:', reg.scope);
                 reg.update();
+
+                // Check if an updated worker is already waiting
+                if (reg.waiting) {
+                    this.notifyPwaUpdateAvailable(reg.waiting);
+                }
+
                 reg.addEventListener('updatefound', () => {
                     const newWorker = reg.installing;
                     if (newWorker) {
                         newWorker.addEventListener('statechange', () => {
                             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                console.log('[PWA] New service worker version installed');
-                                newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                console.log('[PWA] New service worker version waiting for activation');
+                                this.notifyPwaUpdateAvailable(newWorker);
                             }
                         });
                     }
@@ -416,50 +423,132 @@ class AetherPMO {
         }
     }
 
+    notifyPwaUpdateAvailable(worker) {
+        this.waitingWorker = worker;
+        const banner = document.getElementById('pwa-update-banner');
+        if (banner) {
+            banner.style.display = 'flex';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    applyPwaUpdate() {
+        if (this.waitingWorker) {
+            this.waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                window.location.reload();
+            });
+        } else {
+            window.location.reload();
+        }
+    }
+
+    dismissPwaUpdate() {
+        const banner = document.getElementById('pwa-update-banner');
+        if (banner) {
+            banner.style.display = 'none';
+        }
+    }
+
+    isUserEditingData() {
+        // 1. Is any modal currently open with inputs?
+        const openModals = document.querySelectorAll('.modal[style*="display: flex"], .modal[style*="display: block"], .modal-backdrop[style*="display: flex"], .modal-backdrop[style*="display: block"]');
+        if (openModals.length > 0) return true;
+
+        // 2. Is any form element currently focused or dirty?
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) {
+            if (activeEl.value && activeEl.value.trim().length > 0) return true;
+        }
+
+        // 3. Any dirty textarea across forms?
+        const textareas = document.querySelectorAll('textarea');
+        for (const ta of textareas) {
+            if (ta.value && ta.value.trim().length > 0) return true;
+        }
+        return false;
+    }
+
+    getPwaPlatform() {
+        const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+        const isIos = /iPad|iPhone|iPod/.test(ua) && !(typeof window !== 'undefined' && window.MSStream);
+        const isAndroid = /Android/i.test(ua);
+        const isMobile = isIos || isAndroid || /webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+        return {
+            isIos,
+            isAndroid,
+            isMobile,
+            isDesktop: !isMobile
+        };
+    }
+
     isPwaStandalone() {
-        return window.matchMedia('(display-mode: standalone)').matches ||
+        if (typeof window === 'undefined') return false;
+        return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
                window.navigator.standalone === true ||
-               document.referrer.includes('android-app://');
+               (document.referrer && document.referrer.includes('android-app://'));
     }
 
     initPwaInstallPrompt() {
         this.deferredPwaPrompt = null;
         const container = document.getElementById('pwa-install-container');
+        const btnText = document.getElementById('pwa-install-btn-text');
+        const hint = document.getElementById('pwa-install-hint');
         if (!container) return;
 
-        // 이미 PWA standalone 모드로 실행 중인 경우 설치 안내 숨김
+        // Already installed in standalone mode: completely hide install prompt
         if (this.isPwaStandalone()) {
             container.style.display = 'none';
             return;
         }
 
-        const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const platform = this.getPwaPlatform();
 
-        // Android / Chrome / Edge: beforeinstallprompt 이벤트 감지
+        // 1. Android / Chrome / Edge: beforeinstallprompt event
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             this.deferredPwaPrompt = e;
             if (!this.isPwaStandalone()) {
                 container.style.display = 'block';
+                if (btnText) {
+                    btnText.textContent = platform.isDesktop ? 'AetherPMO 데스크톱 앱 설치' : 'AetherPMO 앱 원클릭 설치';
+                }
+                if (hint) {
+                    hint.textContent = platform.isDesktop
+                        ? '클릭 한 번으로 독립 창 데스크톱 앱으로 설치합니다'
+                        : '터치 한 번으로 스마트폰에 바로 설치할 수 있습니다';
+                }
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             }
         });
 
-        // iOS Safari: 모바일 기기 감지 시 설치 안내 버튼 노출
-        if (isIos && !this.isPwaStandalone()) {
+        // 2. iOS Safari: Manual 3-step guide
+        if (platform.isIos && !this.isPwaStandalone()) {
             container.style.display = 'block';
-            const hint = document.getElementById('pwa-install-hint');
-            if (hint) hint.textContent = 'Safari에서 홈 화면에 추가하여 앱처럼 편리하게 이용하세요';
+            if (btnText) btnText.textContent = 'AetherPMO 홈 화면에 추가';
+            if (hint) hint.textContent = 'Safari 공유 메뉴에서 [홈 화면에 추가]로 설치하세요';
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
-        // 데스크톱/기타 모바일 브라우저에서도 미설치 상태 시 버튼 노출
-        if (!this.isPwaStandalone() && container.style.display === 'none') {
+        // 3. Android without beforeinstallprompt (e.g. Samsung Internet, In-App browser, or delay)
+        if (platform.isAndroid && !this.isPwaStandalone()) {
             container.style.display = 'block';
+            if (btnText && !this.deferredPwaPrompt) {
+                btnText.textContent = 'AetherPMO 앱 설치 안내';
+            }
+            if (hint && !this.deferredPwaPrompt) {
+                hint.textContent = '홈 화면에 추가하여 앱처럼 편리하게 이용하세요';
+            }
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
-        // 앱 설치 완료 감지
+        // 4. Desktop without beforeinstallprompt:
+        // Do NOT forcefully show the mobile install button on desktop unless prompt is ready
+        if (platform.isDesktop && !this.deferredPwaPrompt) {
+            container.style.display = 'none';
+        }
+
+        // Detect successful install
         window.addEventListener('appinstalled', () => {
             this.deferredPwaPrompt = null;
             container.style.display = 'none';
@@ -468,23 +557,44 @@ class AetherPMO {
     }
 
     handlePwaInstallClick() {
-        const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        if (isIos) {
+        const platform = this.getPwaPlatform();
+
+        // 1. Native prompt available (Android Chrome/Edge or Desktop Chrome/Edge)
+        if (this.deferredPwaPrompt) {
+            this.deferredPwaPrompt.prompt();
+            this.deferredPwaPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult && choiceResult.outcome === 'accepted') {
+                    console.log('[PWA] User accepted installation prompt');
+                    const container = document.getElementById('pwa-install-container');
+                    if (container) container.style.display = 'none';
+                }
+                this.deferredPwaPrompt = null;
+            }).catch(err => {
+                console.warn('[PWA] Prompt error:', err);
+            });
+            return;
+        }
+
+        // 2. Android fallback: open Android modal ONLY, never iOS modal
+        if (platform.isAndroid) {
+            this.openAndroidPwaModal();
+            return;
+        }
+
+        // 3. iOS Safari fallback: open iOS modal
+        if (platform.isIos) {
             this.openIosPwaModal();
             return;
         }
 
-        if (this.deferredPwaPrompt) {
-            this.deferredPwaPrompt.prompt();
-            this.deferredPwaPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                    console.log('[PWA] User accepted installation prompt');
-                }
-                this.deferredPwaPrompt = null;
-            });
-        } else {
-            this.openIosPwaModal();
+        // 4. Desktop fallback: open Desktop modal
+        if (platform.isDesktop) {
+            this.openDesktopPwaModal();
+            return;
         }
+
+        // Default fallback
+        this.openAndroidPwaModal();
     }
 
     openIosPwaModal() {
@@ -502,7 +612,38 @@ class AetherPMO {
         }
     }
 
-    initializePerformanceDiagnostics() {
+    openAndroidPwaModal() {
+        const modal = document.getElementById('android-pwa-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    closeAndroidPwaModal() {
+        const modal = document.getElementById('android-pwa-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    openDesktopPwaModal() {
+        const modal = document.getElementById('desktop-pwa-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    closeDesktopPwaModal() {
+        const modal = document.getElementById('desktop-pwa-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+
+        initializePerformanceDiagnostics() {
         const isDevelopment = typeof window !== 'undefined' && typeof location !== 'undefined' && (
             location.hostname === 'localhost' ||
             location.hostname === '127.0.0.1'

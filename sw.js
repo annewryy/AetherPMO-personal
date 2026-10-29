@@ -1,30 +1,30 @@
 /**
  * AetherPMO PWA Service Worker
- * Cache Version: 'aetherpmo-v1.6.0-20261029-pwa'
+ * Cache Version: 'aetherpmo-v1.6.1-20261029-secure-pwa'
  * 
- * Strict Allowlist & Security Strategy:
+ * Strict Allowlist & High-Security Strategy:
  * 1. ZERO-CACHE POLICY FOR BUSINESS & AUTH DATA:
+ *    - Requests carrying Authorization, apikey, x-api-key, or x-supabase-auth headers are NEVER cached.
  *    - All Supabase endpoints (*.supabase.co, /auth/v1/, /rest/v1/, /storage/v1/, /realtime/v1/, /rpc/) are 100% NETWORK ONLY.
  *    - All same-origin API endpoints (/api/, /rest/, /v1/) and config scripts are 100% NETWORK ONLY.
  *    - Cross-origin requests (url.origin !== self.location.origin) are NEVER cached.
  *    - Non-GET HTTP methods (POST, PUT, DELETE, PATCH) are NEVER cached.
- *    - Requests carrying Authorization or apikey headers are NEVER cached.
+ *    - Responses with Content-Type: application/json or Cache-Control: no-store/private are NEVER stored in CacheStorage.
  *    - Personal information, project data, deliverables, and tokens are NEVER stored in CacheStorage.
- * 2. APP SHELL ONLY CACHING:
- *    - HTML Navigation: NETWORK FIRST (falling back to cached /index.html only when offline)
- *    - Static Assets (CSS, JS, Fonts, Images, Manifest): STALE-WHILE-REVALIDATE for fast app launch
+ * 2. EXPLICIT STATIC ALLOWLIST ONLY:
+ *    - Only explicitly pre-approved static asset paths (HTML, CSS, core JS, icons, manifest) can be cached.
+ *    - Loose file extension patterns are strictly prohibited to prevent caching dynamic JSON/API routes.
+ * 3. DATA LOSS PREVENTION ON SW UPDATE:
+ *    - Install event does NOT forcefully trigger skipWaiting() during active sessions.
+ *    - skipWaiting() is executed only upon explicit client message ('SKIP_WAITING') after user confirmation.
  */
 
-const CACHE_VERSION = 'aetherpmo-v1.6.0-20261029-pwa';
+const CACHE_VERSION = 'aetherpmo-v1.6.1-20261029-secure-pwa';
 const STATIC_CACHE_NAME = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE_NAME = `dynamic-${CACHE_VERSION}`;
 
-// Explicit Static Resource Allowlist Definitions
-const ALLOWED_DESTINATIONS = ['document', 'style', 'script', 'image', 'font', 'manifest'];
-const ALLOWED_EXTENSIONS = /\.(html|css|js|png|jpg|jpeg|svg|ico|json|webmanifest|woff2?|ttf|eot)$/i;
-
-// Core static App Shell assets to pre-cache (Same-Origin only)
-const STATIC_ASSETS = [
+// Explicitly approved static asset URLs (Same-Origin only)
+const EXPLICIT_STATIC_PATHS = new Set([
     '/',
     '/index.html',
     '/style.css',
@@ -40,14 +40,52 @@ const STATIC_ASSETS = [
     '/icon-512.png',
     '/icon-512-maskable.png',
     '/apple-touch-icon-180.png'
-];
+]);
 
-// Install Event: Pre-cache static App Shell
+// Core static App Shell assets to pre-cache on install
+const STATIC_ASSETS = Array.from(EXPLICIT_STATIC_PATHS);
+
+/**
+ * Validates whether a requested pathname is explicitly permitted for caching
+ */
+function isApprovedStaticAsset(url) {
+    if (url.origin !== self.location.origin) return false;
+    const pathname = url.pathname;
+
+    // 1. Exact match in explicit static allowlist
+    if (EXPLICIT_STATIC_PATHS.has(pathname)) return true;
+
+    // 2. Strict media/font subdirectories (no scripts, no JSON, no query params)
+    if (url.search === '' && /^\/(assets|icons|images|fonts)\/[a-zA-Z0-9_\-.\/]+\.(css|png|jpg|jpeg|svg|ico|woff2?|ttf)$/i.test(pathname)) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Validates whether a response is safe to store in CacheStorage
+ */
+function isSafeToCacheResponse(response) {
+    if (!response || response.status !== 200 || response.type !== 'basic') {
+        return false;
+    }
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json') || contentType.includes('application/ld+json')) {
+        return false;
+    }
+    const cacheControl = response.headers.get('cache-control') || '';
+    if (cacheControl.includes('no-store') || cacheControl.includes('private')) {
+        return false;
+    }
+    return true;
+}
+
+// Install Event: Pre-cache static App Shell without abrupt skipWaiting
 self.addEventListener('install', event => {
-    self.skipWaiting();
     event.waitUntil(
         caches.open(STATIC_CACHE_NAME).then(cache => {
-            console.log('[SW] Pre-caching static app shell v1.6.0');
+            console.log('[SW] Pre-caching approved static app shell v1.6.1');
             return cache.addAll(STATIC_ASSETS).catch(err => {
                 console.warn('[SW] Pre-cache partial failure:', err);
             });
@@ -55,7 +93,7 @@ self.addEventListener('install', event => {
     );
 });
 
-// Activate Event: Delete outdated caches immediately & claim clients
+// Activate Event: Delete outdated caches safely and claim clients
 self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys().then(cacheNames => {
@@ -71,19 +109,26 @@ self.addEventListener('activate', event => {
     );
 });
 
-// Message Event: Handle update skip waiting signal from client
+// Message Event: Controlled skipWaiting execution on user approval
 self.addEventListener('message', event => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
+        console.log('[SW] User approved update: activating new service worker');
         self.skipWaiting();
     }
 });
 
-// Fetch Event: Apply strict origin checks, static allowlists & network vs cache strategies
+// Fetch Event: Apply strict origin checks, header inspections, explicit allowlists & zero-cache security
 self.addEventListener('fetch', event => {
     const request = event.request;
     const url = new URL(request.url);
 
-    // 1. HARD BYPASS: Cross-origin, Supabase, Non-GET, and API routes
+    // 1. HARD SECURITY BYPASS: Authentication headers check
+    const hasAuthHeader = request.headers.has('authorization') ||
+                          request.headers.has('apikey') ||
+                          request.headers.has('x-api-key') ||
+                          request.headers.has('x-supabase-auth');
+
+    // 2. HARD SECURITY BYPASS: Origin, Supabase, Non-GET, and API routes
     const isCrossOrigin = url.origin !== self.location.origin;
     const isSupabaseApi = url.hostname.includes('supabase.co') ||
                           url.pathname.includes('/auth/v1/') ||
@@ -98,25 +143,22 @@ self.addEventListener('fetch', event => {
                        url.pathname.startsWith('/v1/');
 
     // NEVER cache business data, user tokens, or authenticated API calls
-    if (isCrossOrigin || isSupabaseApi || isNonGetMethod || isApiRoute || isSupabaseConfig) {
-        return; // Early return without event.respondWith(), browser fetches directly over network
+    if (hasAuthHeader || isCrossOrigin || isSupabaseApi || isNonGetMethod || isApiRoute || isSupabaseConfig) {
+        return; // Early return: browser fetches directly over network
     }
 
-    // 2. STATIC RESOURCE ALLOWLIST FILTERING:
-    // Only cache if request destination or file extension belongs to the static asset allowlist
-    const isAllowedDestination = ALLOWED_DESTINATIONS.includes(request.destination);
-    const isAllowedExtension = ALLOWED_EXTENSIONS.test(url.pathname);
-
-    if (!isAllowedDestination && !isAllowedExtension) {
-        return; // Non-static GET request bypassed over network
+    // 3. EXPLICIT STATIC RESOURCE ALLOWLIST FILTERING:
+    // Only cache if the URL matches explicit approved static assets
+    if (!isApprovedStaticAsset(url)) {
+        return; // Non-approved GET request bypassed over network
     }
 
-    // 3. NETWORK FIRST: Navigation & HTML requests (Same-Origin)
+    // 4. NETWORK FIRST: Navigation & HTML requests (Same-Origin)
     if (request.mode === 'navigate' || request.destination === 'document' || request.headers.get('accept')?.includes('text/html')) {
         event.respondWith(
             fetch(request)
                 .then(networkResponse => {
-                    if (networkResponse && networkResponse.status === 200) {
+                    if (isSafeToCacheResponse(networkResponse)) {
                         const responseClone = networkResponse.clone();
                         caches.open(STATIC_CACHE_NAME).then(cache => {
                             cache.put(request, responseClone);
@@ -133,12 +175,12 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    // 4. STALE-WHILE-REVALIDATE: Allowed static assets (CSS, JS, Images, Fonts, Manifest)
+    // 5. STALE-WHILE-REVALIDATE: Pre-approved static assets (CSS, JS, Images, Fonts, Manifest)
     event.respondWith(
         caches.match(request).then(cachedResponse => {
             const fetchPromise = fetch(request)
                 .then(networkResponse => {
-                    if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                    if (isSafeToCacheResponse(networkResponse)) {
                         const responseClone = networkResponse.clone();
                         caches.open(DYNAMIC_CACHE_NAME).then(cache => {
                             cache.put(request, responseClone);
