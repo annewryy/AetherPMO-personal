@@ -433,6 +433,39 @@ class AetherPMO {
     }
 
     applyPwaUpdate() {
+        const editingStatus = this.isUserEditingData();
+        if (editingStatus && editingStatus.isEditing) {
+            this.openPwaUpdateConfirmModal(editingStatus.reason);
+            return;
+        }
+        this.forcePwaUpdate();
+    }
+
+    openPwaUpdateConfirmModal(reason) {
+        const modal = document.getElementById('pwa-update-confirm-modal');
+        const msg = document.getElementById('pwa-update-confirm-msg');
+        if (msg && reason) {
+            msg.innerHTML = `현재 <strong>${reason}</strong> 상태입니다. 지금 새로고침하여 앱을 업데이트하면 <strong>입력 중인 변경사항이 유실</strong>될 수 있습니다.`;
+        }
+        if (modal) {
+            modal.style.display = 'flex';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    cancelPwaUpdate() {
+        const modal = document.getElementById('pwa-update-confirm-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        this.showToast('업데이트가 보류되었습니다. 작업 내용을 저장하신 후 언제든 다시 업데이트하실 수 있습니다.', 'info');
+    }
+
+    forcePwaUpdate() {
+        const modal = document.getElementById('pwa-update-confirm-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
         if (this.waitingWorker) {
             this.waitingWorker.postMessage({ type: 'SKIP_WAITING' });
             navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -451,25 +484,61 @@ class AetherPMO {
     }
 
     isUserEditingData() {
-        // 1. Is any modal currently open with inputs?
-        const openModals = document.querySelectorAll('.modal[style*="display: flex"], .modal[style*="display: block"], .modal-backdrop[style*="display: flex"], .modal-backdrop[style*="display: block"]');
-        if (openModals.length > 0) return true;
+        // 1. Check AI chat input or portal prompt if user has typed an unsubmitted prompt
+        const chatInput = document.getElementById('chat-input') || document.querySelector('.chat-input-box');
+        if (chatInput && chatInput.value && chatInput.value.trim().length > 0) {
+            return { isEditing: true, reason: 'AI 프롬프트 작성 중' };
+        }
 
-        // 2. Is any form element currently focused or dirty?
+        // 2. Check open editing modals and verify if any field is genuinely modified from defaultValue (dirty)
+        const openModals = Array.from(document.querySelectorAll('.modal, .modal-backdrop')).filter(m => {
+            if (m.id === 'ios-pwa-modal' || m.id === 'android-pwa-modal' || m.id === 'desktop-pwa-modal' || m.id === 'pwa-update-confirm-modal') {
+                return false;
+            }
+            const style = window.getComputedStyle ? window.getComputedStyle(m) : m.style;
+            return style.display !== 'none' && style.visibility !== 'hidden';
+        });
+
+        for (const modal of openModals) {
+            const inputs = modal.querySelectorAll('input:not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]), textarea, select');
+            for (const el of inputs) {
+                if (el.tagName === 'INPUT') {
+                    if (el.type === 'checkbox' || el.type === 'radio') {
+                        if (el.checked !== el.defaultChecked) return { isEditing: true, reason: '모달 폼 수정 중' };
+                    } else {
+                        // Truly dirty if value differs from default initial value and not empty
+                        if (el.value !== el.defaultValue && el.value.trim() !== '') {
+                            return { isEditing: true, reason: '모달 폼 수정 중' };
+                        }
+                    }
+                } else if (el.tagName === 'TEXTAREA') {
+                    if (el.value !== el.defaultValue && el.value.trim() !== '') {
+                        return { isEditing: true, reason: '모달 텍스트 작성 중' };
+                    }
+                } else if (el.tagName === 'SELECT') {
+                    const defaultSelected = Array.from(el.options).find(o => o.defaultSelected);
+                    const currentVal = el.value;
+                    const defaultVal = defaultSelected ? defaultSelected.value : (el.options[0] ? el.options[0].value : '');
+                    if (currentVal !== defaultVal) {
+                        return { isEditing: true, reason: '모달 선택값 변경 중' };
+                    }
+                }
+            }
+        }
+
+        // 3. Global check for any active focused element with genuinely modified content
         const activeEl = document.activeElement;
-        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) {
-            if (activeEl.value && activeEl.value.trim().length > 0) return true;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+            if (activeEl.value !== activeEl.defaultValue && activeEl.value.trim() !== '') {
+                return { isEditing: true, reason: '입력 필드 수정 중' };
+            }
         }
 
-        // 3. Any dirty textarea across forms?
-        const textareas = document.querySelectorAll('textarea');
-        for (const ta of textareas) {
-            if (ta.value && ta.value.trim().length > 0) return true;
-        }
-        return false;
+        return { isEditing: false, reason: null };
     }
 
-    getPwaPlatform() {
+
+        getPwaPlatform() {
         const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
         const isIos = /iPad|iPhone|iPod/.test(ua) && !(typeof window !== 'undefined' && window.MSStream);
         const isAndroid = /Android/i.test(ua);

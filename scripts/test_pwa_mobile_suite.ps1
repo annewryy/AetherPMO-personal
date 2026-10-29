@@ -1,5 +1,5 @@
 # ============================================================================
-# [AetherPMO Mobile PWA & Responsive Test Suite v2.0]
+# [AetherPMO Mobile PWA & Responsive Test Suite v3.0]
 # File: scripts/test_pwa_mobile_suite.ps1
 # Pure ASCII runner for 100% Windows PowerShell 5.1 compatibility
 # ============================================================================
@@ -10,7 +10,7 @@ $projectRoot = Split-Path -Parent $scriptDir
 Set-Location $projectRoot
 
 Write-Host "============================================================================" -ForegroundColor Cyan
-Write-Host " [AetherPMO] Mobile PWA, Security & Responsive Verification Suite v2.0" -ForegroundColor Cyan
+Write-Host " [AetherPMO] Mobile PWA, Security & Responsive Verification Suite v3.0" -ForegroundColor Cyan
 Write-Host "============================================================================" -ForegroundColor Cyan
 
 $passedCount = 0
@@ -46,11 +46,12 @@ Assert-Result "HTML div tag balance verification (Zero dangling tags)" ($divDiff
 $hasDanglingClosingPattern = $htmlContent.Contains("</div>`r`n        </div>`r`n    </div>`r`n</div>`r`n`r`n`r`n    <!-- HR accordion")
 Assert-Result "Elimination of 3 redundant closing div tags after modal" (-not $hasDanglingClosingPattern) "Dangling tags successfully removed"
 
-# Check 1.3: Presence of all 3 platform-specific install modals
+# Check 1.3: Presence of all 4 installation/confirmation modals
 $hasIosModal = $htmlContent.Contains('id="ios-pwa-modal"')
 $hasAndroidModal = $htmlContent.Contains('id="android-pwa-modal"')
 $hasDesktopModal = $htmlContent.Contains('id="desktop-pwa-modal"')
-Assert-Result "Platform-specific install guide modals defined (iOS, Android, Desktop)" ($hasIosModal -and $hasAndroidModal -and $hasDesktopModal) "All 3 platform modal backdrops verified in DOM"
+$hasConfirmModal = $htmlContent.Contains('id="pwa-update-confirm-modal"')
+Assert-Result "Platform-specific install & update-confirm modals defined (iOS, Android, Desktop, Confirm)" ($hasIosModal -and $hasAndroidModal -and $hasDesktopModal -and $hasConfirmModal) "All 4 modal backdrops verified in DOM"
 
 # Check 1.4: Presence of PWA update notification banner DOM
 $hasUpdateBanner = $htmlContent.Contains('id="pwa-update-banner"') -and $htmlContent.Contains('onclick="app.applyPwaUpdate()"')
@@ -98,11 +99,15 @@ $hasExplicitAllowlist = $swContent.Contains("EXPLICIT_STATIC_PATHS") -and $swCon
 $noLooseExtensionMatch = -not $swContent.Contains("ALLOWED_EXTENSIONS = /\.(html|css|js")
 Assert-Result "Explicit static allowlist enforcement (No loose file extension matching)" ($hasExplicitAllowlist -and $noLooseExtensionMatch) "Only approved static files eligible for caching"
 
-# Check 3.4: Response-level JSON and sensitive data rejection
+# Check 3.4: Pre-cache applies isSafeToCacheResponse (no naked cache.addAll)
+$hasPreCacheSafety = $swContent.Contains("isSafeToCacheResponse(response)") -and $swContent.Contains("cache.put(request, response)") -and (-not $swContent.Contains("cache.addAll(STATIC_ASSETS)"))
+Assert-Result "Pre-cache validates every asset with isSafeToCacheResponse before cache.put" $hasPreCacheSafety "Prevents no-store/private assets from entering cache on install"
+
+# Check 3.5: Response-level JSON and sensitive data rejection
 $hasSafeResponseCheck = $swContent.Contains("isSafeToCacheResponse") -and $swContent.Contains("application/json") -and $swContent.Contains("no-store")
 Assert-Result "Response filter rejects JSON and private/no-store payloads from CacheStorage" $hasSafeResponseCheck "Double-layer response protection verified"
 
-# Check 3.5: No abrupt skipWaiting on install to prevent user data loss
+# Check 3.6: No abrupt skipWaiting on install to prevent user data loss
 $noAbruptSkipWaiting = -not $swContent.Contains("self.addEventListener('install', event => {`r`n    self.skipWaiting();") -and $swContent.Contains("self.addEventListener('message', event => {")
 Assert-Result "Service Worker update executes gracefully on explicit user message (No abrupt skipWaiting)" $noAbruptSkipWaiting "Protects in-flight form entries from unexpected refresh"
 
@@ -129,13 +134,18 @@ Assert-Result "Android fallback opens Android-specific guide (Never opens iOS mo
 $hasDesktopHandling = $appContent.Contains("if (platform.isDesktop && !this.deferredPwaPrompt) {`r`n            container.style.display = 'none';") -or $appContent.Contains("if (platform.isDesktop && !this.deferredPwaPrompt) {`n            container.style.display = 'none';")
 Assert-Result "Desktop environment suppresses mobile install prompt unless native prompt is ready" $hasDesktopHandling "Clean desktop login interface preserved"
 
-# Check 4.5: User editing data protection check
-$hasDataLossGuard = $appContent.Contains("isUserEditingData()") -and $appContent.Contains("notifyPwaUpdateAvailable")
-Assert-Result "Form input detection (isUserEditingData) protects active user work from update disruption" $hasDataLossGuard "Active typing & open modals detected"
+# Check 4.5: applyPwaUpdate directly invokes isUserEditingData and distinguishes dirty state
+$hasDirtyGuard = $appContent.Contains("applyPwaUpdate() {`r`n        const editingStatus = this.isUserEditingData();") -or
+                 $appContent.Contains("applyPwaUpdate() {`n        const editingStatus = this.isUserEditingData();")
+$hasDefaultValueCheck = $appContent.Contains("el.value !== el.defaultValue") -and $appContent.Contains("el.checked !== el.defaultChecked")
+Assert-Result "applyPwaUpdate() invokes isUserEditingData() and distinguishes modified dirty state" ($hasDirtyGuard -and $hasDefaultValueCheck) "Unsaved work triggers confirmation modal"
 
-# Check 4.6: Modal open/close handlers implemented for all platforms
-$hasAllModalHandlers = $appContent.Contains("openIosPwaModal()") -and $appContent.Contains("openAndroidPwaModal()") -and $appContent.Contains("openDesktopPwaModal()")
-Assert-Result "Modal lifecycle handlers implemented for iOS, Android, and Desktop" $hasAllModalHandlers "All 3 platform handlers verified"
+# Check 4.6: Modal lifecycle handlers implemented for iOS, Android, and Desktop
+$hasAllModalHandlers = $appContent.Contains("openIosPwaModal()") -and
+                       $appContent.Contains("openAndroidPwaModal()") -and
+                       $appContent.Contains("openDesktopPwaModal()") -and
+                       $appContent.Contains("openPwaUpdateConfirmModal")
+Assert-Result "Modal lifecycle handlers implemented for iOS, Android, Desktop, and Confirm" $hasAllModalHandlers "All 4 modal handlers verified"
 
 # ----------------------------------------------------------------------------
 # [Suite 5] CSS Mobile Responsiveness & Safe Area (style.css)
@@ -176,7 +186,6 @@ Assert-Result "vercel.json configures application/manifest+json MIME type" $hasM
 # ----------------------------------------------------------------------------
 Write-Host "`n[Suite 7] Executable Platform Branching Simulation" -ForegroundColor Yellow
 
-# Simulate getPwaPlatform logic in PowerShell
 function Simulate-GetPwaPlatform([string]$ua) {
     $isIos = ($ua -match "iPad|iPhone|iPod")
     $isAndroid = ($ua -match "Android")
@@ -219,7 +228,6 @@ Assert-Result "Simulation Scenario D: Static App Shell assets present in SW cach
 
 $swBypassPass = $true
 foreach ($url in $testBypassedUrls) {
-    # Ensure none of the sensitive routes are in EXPLICIT_STATIC_PATHS
     if ($swContent.Contains("'$url'")) { $swBypassPass = $false }
 }
 Assert-Result "Simulation Scenario E: Sensitive API & DB routes completely excluded from SW cache allowlist" $swBypassPass "Verified sensitive routes excluded"
@@ -233,8 +241,4 @@ Write-Host "  Passed : $passedCount" -ForegroundColor Green
 Write-Host "  Failed : $failedCount" -ForegroundColor $(if ($failedCount -eq 0) { "Green" } else { "Red" })
 Write-Host "============================================================================" -ForegroundColor Cyan
 
-if ($failedCount -gt 0) {
-    exit 1
-} else {
-    exit 0
-}
+if ($failedCount -gt 0) { exit 1 } else { exit 0 }

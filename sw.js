@@ -1,6 +1,6 @@
 /**
  * AetherPMO PWA Service Worker
- * Cache Version: 'aetherpmo-v1.6.1-20261029-secure-pwa'
+ * Cache Version: 'aetherpmo-v1.6.2-20261029-secure-pwa'
  * 
  * Strict Allowlist & High-Security Strategy:
  * 1. ZERO-CACHE POLICY FOR BUSINESS & AUTH DATA:
@@ -14,12 +14,15 @@
  * 2. EXPLICIT STATIC ALLOWLIST ONLY:
  *    - Only explicitly pre-approved static asset paths (HTML, CSS, core JS, icons, manifest) can be cached.
  *    - Loose file extension patterns are strictly prohibited to prevent caching dynamic JSON/API routes.
- * 3. DATA LOSS PREVENTION ON SW UPDATE:
+ * 3. PRE-CACHE RESPONSE SAFETY VALIDATION:
+ *    - Install event evaluates each pre-cache asset individually via isSafeToCacheResponse().
+ *    - Assets returning non-200, no-store, private, or application/json are rejected before touching CacheStorage.
+ * 4. DATA LOSS PREVENTION ON SW UPDATE:
  *    - Install event does NOT forcefully trigger skipWaiting() during active sessions.
  *    - skipWaiting() is executed only upon explicit client message ('SKIP_WAITING') after user confirmation.
  */
 
-const CACHE_VERSION = 'aetherpmo-v1.6.1-20261029-secure-pwa';
+const CACHE_VERSION = 'aetherpmo-v1.6.2-20261029-secure-pwa';
 const STATIC_CACHE_NAME = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE_NAME = `dynamic-${CACHE_VERSION}`;
 
@@ -65,30 +68,46 @@ function isApprovedStaticAsset(url) {
 
 /**
  * Validates whether a response is safe to store in CacheStorage
+ * Enforces strict HTTP status, content-type, and cache-control security directives.
  */
 function isSafeToCacheResponse(response) {
-    if (!response || response.status !== 200 || response.type !== 'basic') {
+    if (!response || response.status !== 200) {
         return false;
     }
-    const contentType = response.headers.get('content-type') || '';
+    // Only basic (same-origin) or default response types are allowed
+    if (response.type !== 'basic' && response.type !== 'default') {
+        return false;
+    }
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
     if (contentType.includes('application/json') || contentType.includes('application/ld+json')) {
         return false;
     }
-    const cacheControl = response.headers.get('cache-control') || '';
+    const cacheControl = (response.headers.get('cache-control') || '').toLowerCase();
     if (cacheControl.includes('no-store') || cacheControl.includes('private')) {
         return false;
     }
     return true;
 }
 
-// Install Event: Pre-cache static App Shell without abrupt skipWaiting
+// Install Event: Pre-cache static App Shell applying strict response safety policy to every asset
 self.addEventListener('install', event => {
     event.waitUntil(
-        caches.open(STATIC_CACHE_NAME).then(cache => {
-            console.log('[SW] Pre-caching approved static app shell v1.6.1');
-            return cache.addAll(STATIC_ASSETS).catch(err => {
-                console.warn('[SW] Pre-cache partial failure:', err);
+        caches.open(STATIC_CACHE_NAME).then(async cache => {
+            console.log('[SW] Pre-caching approved static app shell v1.6.2 with response safety policy');
+            const preCachePromises = STATIC_ASSETS.map(async assetUrl => {
+                try {
+                    const request = new Request(assetUrl, { method: 'GET', cache: 'no-cache' });
+                    const response = await fetch(request);
+                    if (isSafeToCacheResponse(response)) {
+                        await cache.put(request, response);
+                    } else {
+                        console.warn('[SW] Skipped unsafe static asset from pre-cache (rejected by policy):', assetUrl);
+                    }
+                } catch (err) {
+                    console.warn('[SW] Pre-cache fetch error for asset:', assetUrl, err);
+                }
             });
+            await Promise.all(preCachePromises);
         })
     );
 });
