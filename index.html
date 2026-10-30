@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <script>
@@ -9,31 +9,117 @@
             }
         } catch(e) {}
 
-        window.onerror = function(message, source, lineno, colno, error) {
-            var div = document.createElement('div');
-            div.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#0f172a;color:#ef4444;z-index:999999;padding:32px;font-family:monospace;font-size:14px;white-space:pre-wrap;overflow-y:auto;';
-            div.innerHTML = '<h1 style="color:#f87171;font-size:24px;margin-top:0;">[Global Javascript Error Detected]</h1>' + 
-                            '<h3 style="color:#fca5a5;">' + message + '</h3>' +
-                            '<p style="color:#cbd5e1;"><b>Source:</b> ' + source + '</p>' +
-                            '<p style="color:#cbd5e1;"><b>Line:</b> ' + lineno + ' | <b>Col:</b> ' + colno + '</p>' +
-                            '<p style="color:#94a3b8;"><b>Stack Trace:</b><br>' + (error && error.stack ? error.stack : 'N/A') + '</p>' +
-                            '<div style="margin-top:20px;"><button onclick="location.reload()" style="background:#3b82f6;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;">새로고침</button></div>';
-            document.body.appendChild(div);
-            return false;
-        };
+        // Global Diagnostic & Non-blocking Error Handler
+        (function() {
+            function sanitizeDiagnosticInfo(str) {
+                if (typeof str !== 'string') return '';
+                return str
+                    .replace(/Bearer\s+[A-Za-z0-9_\-\.]+/gi, 'Bearer [REDACTED]')
+                    .replace(/sb_[a-zA-Z0-9_\-]+/gi, '[REDACTED_KEY]')
+                    .replace(/eyJ[A-Za-z0-9_\-\.]+\.[A-Za-z0-9_\-\.]+/gi, '[REDACTED_JWT]')
+                    .replace(/apikey=[A-Za-z0-9_\-\.]+/gi, 'apikey=[REDACTED]')
+                    .replace(/password\s*[:=]\s*[^\s,]+/gi, 'password=[REDACTED]')
+                    .replace(/[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/gi, '[REDACTED_EMAIL]');
+            }
+
+            function isTrivialOrCrossOriginError(message, source, lineno, colno) {
+                var msg = (message || '').toString();
+                var src = (source || '').toString().trim();
+                // 1. Cross-origin masked error or empty source (line 0, col 0)
+                if (!src || (lineno === 0 && colno === 0)) return true;
+                if (msg.indexOf('Script error') !== -1) return true;
+                // 2. Benign browser notifications and aborted requests
+                if (msg.indexOf('ResizeObserver loop') !== -1 ||
+                    msg.indexOf('The operation was aborted') !== -1 ||
+                    msg.indexOf('AbortError') !== -1) {
+                    return true;
+                }
+                // 3. Browser extension errors
+                if (src.indexOf('chrome-extension://') !== -1 ||
+                    src.indexOf('moz-extension://') !== -1 ||
+                    src.indexOf('safari-extension://') !== -1) {
+                    return true;
+                }
+                return false;
+            }
+
+            function showNonBlockingNotification(safeMsg) {
+                if (document.getElementById('aether-global-err-toast')) return;
+                var toast = document.createElement('div');
+                toast.id = 'aether-global-err-toast';
+                toast.style.cssText = 'position:fixed;bottom:20px;right:20px;max-width:340px;background:#1e293b;color:#f87171;border:1px solid #ef4444;border-radius:10px;padding:12px 16px;box-shadow:0 10px 25px rgba(0,0,0,0.5);z-index:10000;font-size:12.5px;line-height:1.4;display:flex;align-items:flex-start;gap:10px;';
+
+                var textSpan = document.createElement('span');
+                textSpan.style.flex = '1';
+                textSpan.textContent = '일부 스크립트 실행 중 알림이 감지되었습니다: ' + (safeMsg.length > 80 ? safeMsg.substring(0, 80) + '...' : safeMsg);
+
+                var closeBtn = document.createElement('button');
+                closeBtn.type = 'button';
+                closeBtn.textContent = '×';
+                closeBtn.style.cssText = 'background:none;border:none;color:#94a3b8;font-size:18px;line-height:1;cursor:pointer;padding:0 4px;';
+                closeBtn.onclick = function() {
+                    if (toast && toast.parentNode) toast.parentNode.removeChild(toast);
+                };
+
+                toast.appendChild(textSpan);
+                toast.appendChild(closeBtn);
+                if (document.body) {
+                    document.body.appendChild(toast);
+                } else {
+                    window.addEventListener('DOMContentLoaded', function() {
+                        if (document.body) document.body.appendChild(toast);
+                    });
+                }
+            }
+
+            window.onerror = function(message, source, lineno, colno, error) {
+                var safeMsg = sanitizeDiagnosticInfo((message || '').toString());
+                var safeSrc = sanitizeDiagnosticInfo((source || '').toString());
+                var safeStack = error && error.stack ? sanitizeDiagnosticInfo(error.stack.toString()) : '';
+
+                // Diagnostic console logging (always logged with sanitized info)
+                console.warn('[AetherPMO Global Error Diagnostic]:', {
+                    message: safeMsg,
+                    source: safeSrc,
+                    line: lineno || 0,
+                    col: colno || 0,
+                    stack: safeStack
+                });
+
+                // Filter out cross-origin and line 0/col 0 trivial errors: DO NOT BLOCK UI
+                if (isTrivialOrCrossOriginError(message, source, lineno, colno)) {
+                    return true; // Prevents default browser handling, no UI disruption
+                }
+
+                // For genuine application runtime errors, show non-blocking dismissible toast
+                showNonBlockingNotification(safeMsg);
+                return true;
+            };
+
+            window.addEventListener('unhandledrejection', function(event) {
+                var reason = event.reason;
+                var msg = reason && reason.message ? reason.message : String(reason);
+                var safeMsg = sanitizeDiagnosticInfo(msg);
+                console.warn('[AetherPMO Unhandled Rejection Diagnostic]:', safeMsg);
+            });
+        })();
     </script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AetherPMO">
+    <meta name="application-name" content="AetherPMO">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>AetherPMO | 사업관리 플랫폼</title>
     <!-- Google Fonts: Plus Jakarta Sans for UI, Noto Sans KR for Korean -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- PWA Manifest & Icons -->
-    <link rel="manifest" href="manifest.webmanifest?v=20261014-icon3">
+    <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/svg+xml" href="aetherpmo-icon.svg?v=20261014-icon3">
     <link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=20261014-icon3">
     <link rel="icon" type="image/x-icon" href="favicon.ico?v=20261014-icon3">
@@ -115,6 +201,18 @@
             <div class="signup-prompt">
                 <span>아직 계정이 없으신가요?</span>
                 <button type="button" class="btn-signup-link" onclick="app.openSignupModal()">회원가입</button>
+            </div>
+
+            <!-- PWA Mobile App Installation Section -->
+            <div id="pwa-install-container" class="pwa-install-container" style="display: none;">
+                <div class="pwa-install-divider">
+                    <span>모바일 앱</span>
+                </div>
+                <button type="button" id="pwa-install-btn" class="btn btn-outline btn-block pwa-install-btn" onclick="app.handlePwaInstallClick()">
+                    <i data-lucide="smartphone"></i>
+                    <span id="pwa-install-btn-text">AetherPMO 모바일 앱 설치</span>
+                </button>
+                <p class="pwa-install-hint" id="pwa-install-hint">스마트폰 홈 화면에 추가하여 전체 화면 앱으로 편리하게 이용하세요</p>
             </div>
         </div>
     </div>
@@ -7810,7 +7908,6 @@
             </div>
         </div>
     </div>
- </div>
 
 
     <!-- RESOURCE DETAIL POPUP MODAL (Project-by-Project Deployment Details) -->
@@ -9287,8 +9384,207 @@
     </div>
 </div>
 
+    <!-- iOS Safari PWA Install Guide Modal -->
+    <div id="ios-pwa-modal" class="modal-backdrop" style="display: none;" onclick="if(event.target===this) app.closeIosPwaModal()">
+        <div class="modal-dialog ios-pwa-modal-dialog">
+            <div class="modal-header">
+                <div class="modal-title-with-icon">
+                    <div class="pwa-modal-icon-wrap">
+                        <img src="icon-192.png" alt="AetherPMO" width="36" height="36" class="pwa-modal-app-icon">
+                    </div>
+                    <div>
+                        <h3 class="modal-title" style="margin: 0; font-size: 18px; font-weight: 700;">AetherPMO 앱 설치 안내</h3>
+                        <p class="modal-subtitle" style="margin: 2px 0 0 0; font-size: 13px; color: var(--text-muted);">Safari 브라우저에서 3단계로 간편하게 홈 화면에 추가하세요</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" onclick="app.closeIosPwaModal()" aria-label="닫기">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body ios-pwa-modal-body">
+                <div class="ios-install-steps">
+                    <div class="ios-step-item">
+                        <div class="ios-step-badge">1</div>
+                        <div class="ios-step-content">
+                            <div class="ios-step-title">Safari 하단 도구 막대의 <strong>[공유]</strong> 버튼 탭</div>
+                            <div class="ios-step-desc">화면 하단 중앙의 네모 상자 위쪽 화살표 아이콘(<i data-lucide="share" style="width:16px;height:16px;display:inline-block;vertical-align:middle;color:#38bdf8;"></i>)을 탭합니다.</div>
+                        </div>
+                    </div>
+                    <div class="ios-step-item">
+                        <div class="ios-step-badge">2</div>
+                        <div class="ios-step-content">
+                            <div class="ios-step-title">공유 메뉴에서 <strong>'홈 화면에 추가'</strong> 선택</div>
+                            <div class="ios-step-desc">메뉴 목록을 아래로 스크롤하여 <strong>'홈 화면에 추가'</strong>(<i data-lucide="plus-square" style="width:16px;height:16px;display:inline-block;vertical-align:middle;color:#10b981;"></i>) 항목을 선택합니다.</div>
+                        </div>
+                    </div>
+                    <div class="ios-step-item">
+                        <div class="ios-step-badge">3</div>
+                        <div class="ios-step-content">
+                            <div class="ios-step-title">우측 상단 <strong>[추가]</strong> 버튼 탭</div>
+                            <div class="ios-step-desc">홈 화면에 <strong>AetherPMO</strong> 앱 아이콘이 생성되어 브라우저 주소창 없이 전체 화면으로 실행됩니다.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--bg-card-border);">
+                <button type="button" class="btn btn-primary btn-block" onclick="app.closeIosPwaModal()" style="height: 44px; font-weight: 700;">
+                    확인했습니다
+                </button>
+            </div>
+        </div>
+    </div>
 
-    <!-- HR accordion: capture click before delegated navigation/routing listeners.
+    <!-- Android PWA Install Guide Modal -->
+    <div id="android-pwa-modal" class="modal-backdrop" style="display: none;" onclick="if(event.target===this) app.closeAndroidPwaModal()">
+        <div class="modal-dialog ios-pwa-modal-dialog">
+            <div class="modal-header">
+                <div class="modal-title-with-icon">
+                    <div class="pwa-modal-icon-wrap">
+                        <img src="icon-192.png" alt="AetherPMO" width="36" height="36" class="pwa-modal-app-icon">
+                    </div>
+                    <div>
+                        <h3 class="modal-title" style="margin: 0; font-size: 18px; font-weight: 700;">AetherPMO Android 앱 설치 안내</h3>
+                        <p class="modal-subtitle" style="margin: 2px 0 0 0; font-size: 13px; color: var(--text-muted);">홈 화면에 추가하여 앱처럼 편리하게 이용하세요</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" onclick="app.closeAndroidPwaModal()" aria-label="닫기">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body ios-pwa-modal-body">
+                <div class="ios-install-steps">
+                    <div class="ios-step-item">
+                        <div class="ios-step-badge">1</div>
+                        <div class="ios-step-content">
+                            <div class="ios-step-title">브라우저 우측 상단 <strong>더보기 [ ⋮ ]</strong> 메뉴 터치</div>
+                            <div class="ios-step-desc">Chrome 또는 사용 중인 브라우저 우측 상단의 점 3개 메뉴 버튼을 터치합니다.</div>
+                        </div>
+                    </div>
+                    <div class="ios-step-item">
+                        <div class="ios-step-badge">2</div>
+                        <div class="ios-step-content">
+                            <div class="ios-step-title">메뉴에서 <strong>'앱 설치'</strong> 또는 <strong>'홈 화면에 추가'</strong> 선택</div>
+                            <div class="ios-step-desc">메뉴 목록에서 <strong>'앱 설치'</strong>(<i data-lucide="download" style="width:16px;height:16px;display:inline-block;vertical-align:middle;color:#10b981;"></i>) 또는 <strong>'홈 화면에 추가'</strong> 항목을 선택합니다.</div>
+                        </div>
+                    </div>
+                    <div class="ios-step-item">
+                        <div class="ios-step-badge">3</div>
+                        <div class="ios-step-content">
+                            <div class="ios-step-title">설치 팝업에서 <strong>[설치]</strong> 터치</div>
+                            <div class="ios-step-desc">홈 화면과 앱 서랍에 <strong>AetherPMO</strong> 앱이 등록되며, 주소창 없는 전체 화면으로 실행됩니다.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--bg-card-border);">
+                <button type="button" class="btn btn-primary btn-block" onclick="app.closeAndroidPwaModal()" style="height: 44px; font-weight: 700;">
+                    확인했습니다
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Desktop PWA Install Guide Modal -->
+    <div id="desktop-pwa-modal" class="modal-backdrop" style="display: none;" onclick="if(event.target===this) app.closeDesktopPwaModal()">
+        <div class="modal-dialog ios-pwa-modal-dialog">
+            <div class="modal-header">
+                <div class="modal-title-with-icon">
+                    <div class="pwa-modal-icon-wrap">
+                        <img src="icon-192.png" alt="AetherPMO" width="36" height="36" class="pwa-modal-app-icon">
+                    </div>
+                    <div>
+                        <h3 class="modal-title" style="margin: 0; font-size: 18px; font-weight: 700;">AetherPMO 데스크톱 앱 설치 안내</h3>
+                        <p class="modal-subtitle" style="margin: 2px 0 0 0; font-size: 13px; color: var(--text-muted);">독립 창으로 편리하게 AetherPMO를 이용하세요</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" onclick="app.closeDesktopPwaModal()" aria-label="닫기">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body ios-pwa-modal-body">
+                <div class="ios-install-steps">
+                    <div class="ios-step-item">
+                        <div class="ios-step-badge">1</div>
+                        <div class="ios-step-content">
+                            <div class="ios-step-title">주소창 우측 <strong>[앱 설치]</strong> 아이콘 클릭</div>
+                            <div class="ios-step-desc">Chrome 또는 Edge 브라우저 상단 주소창(URL) 오른쪽 끝의 설치 아이콘(<i data-lucide="monitor-down" style="width:16px;height:16px;display:inline-block;vertical-align:middle;color:#38bdf8;"></i>)을 클릭합니다.</div>
+                        </div>
+                    </div>
+                    <div class="ios-step-item">
+                        <div class="ios-step-badge">2</div>
+                        <div class="ios-step-content">
+                            <div class="ios-step-title">설치 확인 창에서 <strong>[설치]</strong> 클릭</div>
+                            <div class="ios-step-desc">'AetherPMO 앱을 설치하시겠습니까?' 확인 창에서 [설치] 버튼을 누릅니다.</div>
+                        </div>
+                    </div>
+                    <div class="ios-step-item">
+                        <div class="ios-step-badge">3</div>
+                        <div class="ios-step-content">
+                            <div class="ios-step-title">바탕화면 및 작업 표시줄에서 실행</div>
+                            <div class="ios-step-desc">별도의 브라우저 창이나 탭 없이 독립된 데스크톱 애플리케이션으로 바로 실행됩니다.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--bg-card-border);">
+                <button type="button" class="btn btn-primary btn-block" onclick="app.closeDesktopPwaModal()" style="height: 44px; font-weight: 700;">
+                    확인했습니다
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PWA Service Worker Update Prompt Banner -->
+    <div id="pwa-update-banner" class="pwa-update-banner" style="display: none;">
+        <div class="pwa-update-content">
+            <i data-lucide="sparkles" class="pwa-update-icon"></i>
+            <span id="pwa-update-text">AetherPMO 새 버전이 준비되었습니다. 작성 중인 내용을 저장 후 새로고침하세요.</span>
+        </div>
+        <div class="pwa-update-actions">
+            <button type="button" class="btn btn-primary btn-sm pwa-update-reload-btn" onclick="app.applyPwaUpdate()">지금 새로고침</button>
+            <button type="button" class="btn btn-outline btn-sm pwa-update-dismiss-btn" onclick="app.dismissPwaUpdate()">나중에</button>
+        </div>
+    </div>
+
+    <!-- PWA Update Confirmation Modal (Data Loss Prevention) -->
+    <div id="pwa-update-confirm-modal" class="modal-backdrop" style="display: none;" onclick="if(event.target===this) app.cancelPwaUpdate()">
+        <div class="modal-dialog ios-pwa-modal-dialog" style="max-width: 440px;">
+            <div class="modal-header">
+                <div class="modal-title-with-icon">
+                    <div class="pwa-modal-icon-wrap" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">
+                        <i data-lucide="alert-triangle" style="width: 22px; height: 22px;"></i>
+                    </div>
+                    <div>
+                        <h3 class="modal-title" style="margin: 0; font-size: 17px; font-weight: 700;">작성 중인 내용 유실 주의</h3>
+                        <p class="modal-subtitle" style="margin: 2px 0 0 0; font-size: 12.5px; color: var(--text-muted);">미저장 변경사항이 있습니다</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" onclick="app.cancelPwaUpdate()" aria-label="닫기">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 18px 20px; font-size: 13.5px; color: var(--text-main); line-height: 1.5;">
+                <p style="margin: 0 0 10px 0;" id="pwa-update-confirm-msg">
+                    현재 수정 중인 변경사항이 있습니다. 지금 새로고침하여 앱을 업데이트하면 <strong>입력 중인 변경사항이 유실</strong>될 수 있습니다.
+                </p>
+                <p style="margin: 0; font-size: 12.5px; color: var(--text-muted);">
+                    작업 내용을 먼저 저장하신 후 업데이트하시기를 권장합니다. 그래도 지금 업데이트하시겠습니까?
+                </p>
+            </div>
+            <div class="modal-footer" style="padding: 14px 20px; border-top: 1px solid var(--bg-card-border); display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" class="btn btn-outline" onclick="app.cancelPwaUpdate()" style="height: 40px; font-weight: 600;">
+                    취소 (작업 계속)
+                </button>
+                <button type="button" class="btn btn-primary" onclick="app.forcePwaUpdate()" style="height: 40px; font-weight: 700; background: #ef4444; border-color: #ef4444; color: white;">
+                    무시하고 업데이트
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+
+        <!-- HR accordion: capture click before delegated navigation/routing listeners.
          Only parent nav link is intercepted; submenu links work normally. -->
     <script>
     (function () {

@@ -372,14 +372,35 @@ class AetherPMO {
         this.initDemoAndPresentation();
 
         // Register PWA Service Worker
+        // PWA Service Worker Registration & Graceful Update Listener
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js').then(reg => {
                 console.log('[PWA] ServiceWorker registered:', reg.scope);
                 reg.update();
+
+                // Check if an updated worker is already waiting
+                if (reg.waiting) {
+                    this.notifyPwaUpdateAvailable(reg.waiting);
+                }
+
+                reg.addEventListener('updatefound', () => {
+                    const newWorker = reg.installing;
+                    if (newWorker) {
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                console.log('[PWA] New service worker version waiting for activation');
+                                this.notifyPwaUpdateAvailable(newWorker);
+                            }
+                        });
+                    }
+                });
             }).catch(err => {
                 console.warn('[PWA] ServiceWorker registration failed:', err);
             });
         }
+
+        // Initialize PWA mobile installation prompt
+        this.initPwaInstallPrompt();
 
         // Auto-close mobile drawer when window resizes to >= 769px
         window.addEventListener('resize', () => {
@@ -402,7 +423,315 @@ class AetherPMO {
         }
     }
 
-    initializePerformanceDiagnostics() {
+    notifyPwaUpdateAvailable(worker) {
+        this.waitingWorker = worker;
+        const banner = document.getElementById('pwa-update-banner');
+        if (banner) {
+            banner.style.display = 'flex';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    applyPwaUpdate() {
+        const editingStatus = this.isUserEditingData();
+        if (editingStatus && editingStatus.isEditing) {
+            this.openPwaUpdateConfirmModal(editingStatus.reason);
+            return;
+        }
+        this.forcePwaUpdate();
+    }
+
+    openPwaUpdateConfirmModal(reason) {
+        const modal = document.getElementById('pwa-update-confirm-modal');
+        const msg = document.getElementById('pwa-update-confirm-msg');
+        if (msg && reason) {
+            msg.innerHTML = `현재 <strong>${reason}</strong> 상태입니다. 지금 새로고침하여 앱을 업데이트하면 <strong>입력 중인 변경사항이 유실</strong>될 수 있습니다.`;
+        }
+        if (modal) {
+            modal.style.display = 'flex';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    cancelPwaUpdate() {
+        const modal = document.getElementById('pwa-update-confirm-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        this.showToast('업데이트가 보류되었습니다. 작업 내용을 저장하신 후 언제든 다시 업데이트하실 수 있습니다.', 'info');
+    }
+
+    forcePwaUpdate() {
+        const modal = document.getElementById('pwa-update-confirm-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        if (this.waitingWorker) {
+            this.waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                window.location.reload();
+            });
+        } else {
+            window.location.reload();
+        }
+    }
+
+    dismissPwaUpdate() {
+        const banner = document.getElementById('pwa-update-banner');
+        if (banner) {
+            banner.style.display = 'none';
+        }
+    }
+
+    isUserEditingData() {
+        // 1. Check AI chat input or portal prompt if user has typed an unsubmitted prompt
+        const chatInput = document.getElementById('chat-input') || document.querySelector('.chat-input-box');
+        if (chatInput && chatInput.value && chatInput.value.trim().length > 0) {
+            return { isEditing: true, reason: 'AI 프롬프트 작성 중' };
+        }
+
+        // Helper to retrieve initial value supporting both DOM defaultValue and dynamic data-initial-value
+        const getInitialVal = (el) => {
+            if (el && typeof el.hasAttribute === 'function' && el.hasAttribute('data-initial-value')) {
+                return el.getAttribute('data-initial-value');
+            }
+            return (el && el.defaultValue !== undefined) ? el.defaultValue : '';
+        };
+
+        // 2. Check open editing modals and verify if any field is genuinely modified (dirty)
+        const openModals = Array.from(document.querySelectorAll('.modal, .modal-backdrop')).filter(m => {
+            if (m.id === 'ios-pwa-modal' || m.id === 'android-pwa-modal' || m.id === 'desktop-pwa-modal' || m.id === 'pwa-update-confirm-modal') {
+                return false;
+            }
+            const style = window.getComputedStyle ? window.getComputedStyle(m) : m.style;
+            return style.display !== 'none' && style.visibility !== 'hidden';
+        });
+
+        for (const modal of openModals) {
+            const inputs = modal.querySelectorAll('input:not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]), textarea, select');
+            for (const el of inputs) {
+                if (el.tagName === 'INPUT') {
+                    if (el.type === 'checkbox' || el.type === 'radio') {
+                        const initChecked = (el.hasAttribute && el.hasAttribute('data-initial-checked'))
+                            ? el.getAttribute('data-initial-checked') === 'true'
+                            : (el.defaultChecked !== undefined ? el.defaultChecked : false);
+                        if (el.checked !== initChecked) return { isEditing: true, reason: '모달 폼 수정 중' };
+                    } else {
+                        // Compare current value with initial value regardless of whether current value is empty
+                        // (Detects both new entries and total deletion of existing entries)
+                        const initialVal = getInitialVal(el);
+                        if (el.value !== initialVal) {
+                            return { isEditing: true, reason: '모달 폼 수정 중' };
+                        }
+                    }
+                } else if (el.tagName === 'TEXTAREA') {
+                    const initialVal = getInitialVal(el);
+                    if (el.value !== initialVal) {
+                        return { isEditing: true, reason: '모달 텍스트 작성 중' };
+                    }
+                } else if (el.tagName === 'SELECT') {
+                    let initialVal = '';
+                    if (el.hasAttribute && el.hasAttribute('data-initial-value')) {
+                        initialVal = el.getAttribute('data-initial-value');
+                    } else {
+                        const defaultSelected = Array.from(el.options).find(o => o.defaultSelected);
+                        initialVal = defaultSelected ? defaultSelected.value : (el.options[0] ? el.options[0].value : '');
+                    }
+                    if (el.value !== initialVal) {
+                        return { isEditing: true, reason: '모달 선택값 변경 중' };
+                    }
+                }
+            }
+        }
+
+        // 3. Global check for any active focused element with genuinely modified content
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+            const initialVal = getInitialVal(activeEl);
+            if (activeEl.value !== initialVal) {
+                return { isEditing: true, reason: '입력 필드 수정 중' };
+            }
+        }
+
+        return { isEditing: false, reason: null };
+    }
+
+
+        getPwaPlatform() {
+        const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+        const isIos = /iPad|iPhone|iPod/.test(ua) && !(typeof window !== 'undefined' && window.MSStream);
+        const isAndroid = /Android/i.test(ua);
+        const isMobile = isIos || isAndroid || /webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+        return {
+            isIos,
+            isAndroid,
+            isMobile,
+            isDesktop: !isMobile
+        };
+    }
+
+    isPwaStandalone() {
+        if (typeof window === 'undefined') return false;
+        return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+               window.navigator.standalone === true ||
+               (document.referrer && document.referrer.includes('android-app://'));
+    }
+
+    initPwaInstallPrompt() {
+        this.deferredPwaPrompt = null;
+        const container = document.getElementById('pwa-install-container');
+        const btnText = document.getElementById('pwa-install-btn-text');
+        const hint = document.getElementById('pwa-install-hint');
+        if (!container) return;
+
+        // Already installed in standalone mode: completely hide install prompt
+        if (this.isPwaStandalone()) {
+            container.style.display = 'none';
+            return;
+        }
+
+        const platform = this.getPwaPlatform();
+
+        // 1. Android / Chrome / Edge: beforeinstallprompt event
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.deferredPwaPrompt = e;
+            if (!this.isPwaStandalone()) {
+                container.style.display = 'block';
+                if (btnText) {
+                    btnText.textContent = platform.isDesktop ? 'AetherPMO 데스크톱 앱 설치' : 'AetherPMO 앱 원클릭 설치';
+                }
+                if (hint) {
+                    hint.textContent = platform.isDesktop
+                        ? '클릭 한 번으로 독립 창 데스크톱 앱으로 설치합니다'
+                        : '터치 한 번으로 스마트폰에 바로 설치할 수 있습니다';
+                }
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        });
+
+        // 2. iOS Safari: Manual 3-step guide
+        if (platform.isIos && !this.isPwaStandalone()) {
+            container.style.display = 'block';
+            if (btnText) btnText.textContent = 'AetherPMO 홈 화면에 추가';
+            if (hint) hint.textContent = 'Safari 공유 메뉴에서 [홈 화면에 추가]로 설치하세요';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        // 3. Android without beforeinstallprompt (e.g. Samsung Internet, In-App browser, or delay)
+        if (platform.isAndroid && !this.isPwaStandalone()) {
+            container.style.display = 'block';
+            if (btnText && !this.deferredPwaPrompt) {
+                btnText.textContent = 'AetherPMO 앱 설치 안내';
+            }
+            if (hint && !this.deferredPwaPrompt) {
+                hint.textContent = '홈 화면에 추가하여 앱처럼 편리하게 이용하세요';
+            }
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        // 4. Desktop without beforeinstallprompt:
+        // Do NOT forcefully show the mobile install button on desktop unless prompt is ready
+        if (platform.isDesktop && !this.deferredPwaPrompt) {
+            container.style.display = 'none';
+        }
+
+        // Detect successful install
+        window.addEventListener('appinstalled', () => {
+            this.deferredPwaPrompt = null;
+            container.style.display = 'none';
+            this.showToast('AetherPMO 앱이 성공적으로 설치되었습니다!', 'success');
+        });
+    }
+
+    handlePwaInstallClick() {
+        const platform = this.getPwaPlatform();
+
+        // 1. Native prompt available (Android Chrome/Edge or Desktop Chrome/Edge)
+        if (this.deferredPwaPrompt) {
+            this.deferredPwaPrompt.prompt();
+            this.deferredPwaPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult && choiceResult.outcome === 'accepted') {
+                    console.log('[PWA] User accepted installation prompt');
+                    const container = document.getElementById('pwa-install-container');
+                    if (container) container.style.display = 'none';
+                }
+                this.deferredPwaPrompt = null;
+            }).catch(err => {
+                console.warn('[PWA] Prompt error:', err);
+            });
+            return;
+        }
+
+        // 2. Android fallback: open Android modal ONLY, never iOS modal
+        if (platform.isAndroid) {
+            this.openAndroidPwaModal();
+            return;
+        }
+
+        // 3. iOS Safari fallback: open iOS modal
+        if (platform.isIos) {
+            this.openIosPwaModal();
+            return;
+        }
+
+        // 4. Desktop fallback: open Desktop modal
+        if (platform.isDesktop) {
+            this.openDesktopPwaModal();
+            return;
+        }
+
+        // Default fallback
+        this.openAndroidPwaModal();
+    }
+
+    openIosPwaModal() {
+        const modal = document.getElementById('ios-pwa-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    closeIosPwaModal() {
+        const modal = document.getElementById('ios-pwa-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    openAndroidPwaModal() {
+        const modal = document.getElementById('android-pwa-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    closeAndroidPwaModal() {
+        const modal = document.getElementById('android-pwa-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    openDesktopPwaModal() {
+        const modal = document.getElementById('desktop-pwa-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    closeDesktopPwaModal() {
+        const modal = document.getElementById('desktop-pwa-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+
+        initializePerformanceDiagnostics() {
         const isDevelopment = typeof window !== 'undefined' && typeof location !== 'undefined' && (
             location.hostname === 'localhost' ||
             location.hostname === '127.0.0.1'

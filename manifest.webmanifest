@@ -1,14 +1,20 @@
 {
   "id": "/",
-  "name": "AetherPMO | 사업관리 플랫폼",
+  "name": "AetherPMO",
   "short_name": "AetherPMO",
   "description": "공공 SI 사업관리 및 산출물 통합관리 플랫폼",
+  "lang": "ko",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
+  "categories": [
+    "business",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "/icon-192.png",
