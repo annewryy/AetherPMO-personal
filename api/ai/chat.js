@@ -1,4 +1,4 @@
-﻿// AetherPMO AI 어시스턴트 Vercel Serverless Function 엔드포인트 (/api/ai/chat)
+// AetherPMO AI 어시스턴트 Vercel Serverless Function 엔드포인트 (/api/ai/chat)
 // Supabase JWT 검증, DB 기반 역할 검증, 프로젝트 컨텍스트 수집, 멀티 LLM 연동
 // AI-01 사업현황 요약, AI-02 산출물 갭 분석, AI-03 주간업무보고, AI-04 위험도 분석, AI-05 RFP 분석
 
@@ -6,7 +6,7 @@ const http = require('http');
 const https = require('https');
 const url = require('url');
 const crypto = require('crypto');
-const securityGateway = require('./security');
+const securityGateway = require('../../lib/ai-security');
 
 // 동시 추론 제어 (인스턴스 내 단일 추론)
 let isInferring = false;
@@ -892,8 +892,9 @@ async function saveAIAuditLog(supabaseUrl, serviceRoleKey, record) {
       text: JSON.stringify({
         featureCode: record.featureCode,
         featureName: record.featureName,
-        projectName: record.projectName,
-        userEmail: record.userEmail,
+        userId: record.userId,
+        resultStatus: record.resultStatus || (record.success ? 'SUCCESS' : 'FAILED'),
+        securityVerdict: record.securityVerdict || (record.success ? 'PERMITTED' : 'BLOCKED'),
         model: record.model,
         latencyMs: record.latencyMs,
         success: Boolean(record.success),
@@ -1565,7 +1566,7 @@ module.exports = async (req, res) => {
 아래 3개 핵심 블록 및 하위 8대 요건에 대해 명확한 Markdown 제목(###)과 구조화된 불릿 리스트로 보고서를 작성하세요:
 
 ### 1. [문서 발췌 범위 및 분석 현황]
-- 분석 대상: ${rfpFileName} (전체 ${totalChars.toLocaleString()}자, ${pageCount}페이지)
+- 분석 대상: 공공_제안요청서_문서 (전체 ${totalChars.toLocaleString()}자, ${pageCount}페이지)
 - 분석 범위: ${rangeNotice}
 ${isTruncated ? `> ⚠️ **[PMO 주의사항 및 분석 누락 가능성 고지]**:
 > 본 문서는 대용량 RFP(전체 ${totalChars.toLocaleString()}자)로, 핵심 8대 요건(사업개요·과업요건·평가기준·투입인력·제출서류)을 타겟팅한 발췌 분석(발췌율 ${Math.round((MAX_RFP_CHARS / totalChars) * 100)}%)이 적용되었습니다.
@@ -1590,11 +1591,7 @@ ${isTruncated ? `> ⚠️ **[PMO 주의사항 및 분석 누락 가능성 고지
    - PMO 관점에서의 입찰 타당성 및 수주 포인트, 주요 위험요인
 
 ### 3. [입찰 수주 전략 및 PMO 권고사항]
-- 기술평가 고득점을 위한 차별화 전략, 컨소시엄 구성 시 유의사항, 제안서 작성 중점 관리 항목
-
-<rfp_document_content>
-${analyzedText}
-</rfp_document_content>`;
+- 기술평가 고득점을 위한 차별화 전략, 컨소시엄 구성 시 유의사항, 제안서 작성 중점 관리 항목`;
 
   } else {
     // 일반 대화 질의 처리
@@ -1612,7 +1609,7 @@ ${analyzedText}
     pmoContextData,
     message,
     history,
-    rfpText: (featureType === 'AI-05') ? String(body.rfpText || body.rfpContent || message || '') : '',
+    rfpText: (featureType === 'AI-05') ? analyzedText : '',
     rfpFileName: (featureType === 'AI-05') ? (body.rfpFileName || 'RFP문서') : '',
     isPublicDocument,
     publicNoticeId,
@@ -1627,15 +1624,16 @@ ${analyzedText}
   if (!egressResult.allowed) {
     const blockAudit = await saveAIAuditLog(supabaseUrl, supabaseServiceKey, securityGateway.prepareSafeAuditRecord({
       projectId: targetProj ? targetProj.id : null,
-      projectName: (featureType === 'AI-05') ? (body.rfpFileName || 'RFP문서') : (targetProj ? targetProj.name : null),
+      projectName: (featureType === 'AI-05') ? '[공공 제안요청서]' : (targetProj ? '[PROTECTED_PROJECT]' : null),
       userId: authUser.id,
-      userEmail: authUser.email,
+      userEmail: null,
       featureCode: featureType || 'GENERAL',
       featureName: featureTitle,
       model: 'BLOCKED (AI Gateway)',
       latencyMs: Date.now() - startTime,
       success: false,
-      snippet: `전송 차단: ${egressResult.blockReason}`
+      securityVerdict: egressResult.securityGate ? egressResult.securityGate.status : 'BLOCKED',
+      blockReason: egressResult.blockReason
     }), token);
 
     return res.status(403).json({
@@ -1676,15 +1674,15 @@ ${analyzedText}
     // 감사로그 Supabase DB 영구 보존 시도 (살균된 메타데이터 요약)
     const auditRes = await saveAIAuditLog(supabaseUrl, supabaseServiceKey, securityGateway.prepareSafeAuditRecord({
       projectId: targetProj ? targetProj.id : null,
-      projectName: (featureType === 'AI-05') ? (body.rfpFileName || 'RFP문서') : (targetProj ? targetProj.name : null),
+      projectName: (featureType === 'AI-05') ? '[공공 제안요청서]' : (targetProj ? '[PROTECTED_PROJECT]' : null),
       userId: authUser.id,
-      userEmail: authUser.email,
+      userEmail: null,
       featureCode: featureType || 'GENERAL',
       featureName: featureTitle,
       model: result.model,
       latencyMs,
       success: true,
-      snippet: String(ingressResult.safeAnswer).slice(0, 150)
+      securityVerdict: egressResult.securityGate ? egressResult.securityGate.status : 'PERMITTED'
     }), token);
 
     // 프론트엔드 KPI 요약 카드 및 시각화를 위한 정량 지표 패키징
@@ -2082,15 +2080,16 @@ ${analyzedText}
     // 실패 이력도 감사로그 DB 보존 시도 (살균된 메타데이터)
     const auditRes = await saveAIAuditLog(supabaseUrl, supabaseServiceKey, securityGateway.prepareSafeAuditRecord({
       projectId: targetProj ? targetProj.id : null,
-      projectName: (featureType === 'AI-05') ? (body.rfpFileName || 'RFP문서') : (targetProj ? targetProj.name : null),
-      userId: authUser.id,
-      userEmail: authUser.email,
+      projectName: (featureType === 'AI-05') ? '[공공 제안요청서]' : (targetProj ? '[PROTECTED_PROJECT]' : null),
+      userId: authUser ? authUser.id : null,
+      userEmail: null,
       featureCode: featureType || 'GENERAL',
       featureName: featureTitle,
       model: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
       latencyMs,
       success: false,
-      snippet: `오류: ${err.message}`
+      securityVerdict: 'EXECUTION_ERROR',
+      blockReason: err.message
     }), token);
 
     return res.status(status).json({

@@ -8,13 +8,13 @@ $files = @(
     "build-config.js",
     "app.js",
     "sw.js",
-    "api/ai/security/data-classifier.js",
-    "api/ai/security/deidentifier.js",
-    "api/ai/security/prompt-whitelist.js",
-    "api/ai/security/text-sanitizer.js",
-    "api/ai/security/gateway.js",
-    "api/ai/security/audit-guard.js",
-    "api/ai/security/index.js"
+    "lib/ai-security/data-classifier.js",
+    "lib/ai-security/deidentifier.js",
+    "lib/ai-security/prompt-whitelist.js",
+    "lib/ai-security/text-sanitizer.js",
+    "lib/ai-security/gateway.js",
+    "lib/ai-security/audit-guard.js",
+    "lib/ai-security/index.js"
 )
 
 foreach ($f in $files) {

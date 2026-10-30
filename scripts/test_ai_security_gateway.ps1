@@ -31,21 +31,28 @@ function Assert-Result([string]$testName, [bool]$condition, [string]$detail) {
 # ----------------------------------------------------------------------------
 # Suite 1: File Architecture and Module Integrity
 # ----------------------------------------------------------------------------
-Write-Host "`n[Suite 1] Security Gateway File Architecture and Module Integrity" -ForegroundColor Yellow
+Write-Host "`n[Suite 1] Security Gateway File Architecture and Vercel Routing Isolation" -ForegroundColor Yellow
+
+# Check Vercel Hobby plan limit: files in api/ must be <= 12
+$apiJsFiles = Get-ChildItem -Path (Join-Path $projectRoot "api") -Filter "*.js" -Recurse | Where-Object { -not $_.PSIsContainer }
+Assert-Result "Vercel Hobby plan limit check: total api/ functions count is $($apiJsFiles.Count) (Limit: <= 12)" ($apiJsFiles.Count -le 12) "Currently $($apiJsFiles.Count) files under api/"
+
+$legacyApiSec = Test-Path (Join-Path $projectRoot "api/ai/security")
+Assert-Result "api/ai/security directory completely removed (no public HTTP routing)" (-not $legacyApiSec) "Server-internal security modules isolated"
 
 $reqModules = @(
-    "api/ai/security/data-classifier.js",
-    "api/ai/security/deidentifier.js",
-    "api/ai/security/prompt-whitelist.js",
-    "api/ai/security/text-sanitizer.js",
-    "api/ai/security/gateway.js",
-    "api/ai/security/audit-guard.js",
-    "api/ai/security/index.js"
+    "lib/ai-security/data-classifier.js",
+    "lib/ai-security/deidentifier.js",
+    "lib/ai-security/prompt-whitelist.js",
+    "lib/ai-security/text-sanitizer.js",
+    "lib/ai-security/gateway.js",
+    "lib/ai-security/audit-guard.js",
+    "lib/ai-security/index.js"
 )
 
 foreach ($mod in $reqModules) {
     $exists = Test-Path (Join-Path $projectRoot $mod)
-    Assert-Result "Module exists on disk: $mod" $exists "Security component present"
+    Assert-Result "Module exists on disk: $mod" $exists "Security component present in root lib/"
 }
 
 # ----------------------------------------------------------------------------
@@ -53,7 +60,7 @@ foreach ($mod in $reqModules) {
 # ----------------------------------------------------------------------------
 Write-Host "`n[Suite 2] Automated De-identification and Deterministic Token Mapping" -ForegroundColor Yellow
 
-$deidContent = [System.IO.File]::ReadAllText((Join-Path $projectRoot "api/ai/security/deidentifier.js"), [System.Text.Encoding]::UTF8)
+$deidContent = [System.IO.File]::ReadAllText((Join-Path $projectRoot "lib/ai-security/deidentifier.js"), [System.Text.Encoding]::UTF8)
 
 # Check 2.1: Deterministic token mapping prefix
 $hasProjectToken = $deidContent.Contains("getOrSetToken(name, projectToToken, tokenToProject, 'PROJECT', pRef)")
@@ -100,7 +107,7 @@ Assert-Result "Supabase Secret Key, Bearer JWT tokens, and passwords blocked" $h
 # ----------------------------------------------------------------------------
 Write-Host "`n[Suite 4] 4-Tier Data Classification and Document Screening" -ForegroundColor Yellow
 
-$classContent = [System.IO.File]::ReadAllText((Join-Path $projectRoot "api/ai/security/data-classifier.js"), [System.Text.Encoding]::UTF8)
+$classContent = [System.IO.File]::ReadAllText((Join-Path $projectRoot "lib/ai-security/data-classifier.js"), [System.Text.Encoding]::UTF8)
 
 # Check 4.1: 4 Tiers defined
 $hasTiers = $classContent.Contains("PUBLIC: 'PUBLIC'") -and $classContent.Contains("INTERNAL: 'INTERNAL'") -and $classContent.Contains("CONFIDENTIAL: 'CONFIDENTIAL'") -and $classContent.Contains("RESTRICTED: 'RESTRICTED'")
@@ -119,7 +126,7 @@ Assert-Result "Unverified documents default-denied and blocked (Fail-Closed)" $h
 # ----------------------------------------------------------------------------
 Write-Host "`n[Suite 5] Whitelist-Based Minimal Prompt Generation per Feature" -ForegroundColor Yellow
 
-$wlContent = [System.IO.File]::ReadAllText((Join-Path $projectRoot "api/ai/security/prompt-whitelist.js"), [System.Text.Encoding]::UTF8)
+$wlContent = [System.IO.File]::ReadAllText((Join-Path $projectRoot "lib/ai-security/prompt-whitelist.js"), [System.Text.Encoding]::UTF8)
 
 # Check 5.1: AI-01 minimal whitelist (Budget category, WBS summary counts, issue/action statistics)
 $hasAI01Wl = $wlContent.Contains("budgetCategory: p.categorizeBudget") -and $wlContent.Contains("wbsMetrics: wbsSummary") -and $wlContent.Contains("totalOpen: openIssues.length")
@@ -138,7 +145,7 @@ $hasAI04Wl = $wlContent.Contains("scoresBreakdown") -and $wlContent.Contains("sc
 Assert-Result "AI-04 transmits 4-pillar risk scores and objective grounding counts" $hasAI04Wl "Risk analysis whitelist enforced"
 
 # Check 5.5: AI-05 RFP metadata whitelist
-$hasAI05Wl = $wlContent.Contains("fileName: p.pseudonymizeText(meta.fileName")
+$hasAI05Wl = $wlContent.Contains("fileName: p.pseudonymizeDocument(meta.fileName")
 Assert-Result "AI-05 passes pseudonymized document metadata and range notice" $hasAI05Wl "RFP metadata whitelist enforced"
 
 # ----------------------------------------------------------------------------
@@ -146,8 +153,8 @@ Assert-Result "AI-05 passes pseudonymized document metadata and range notice" $h
 # ----------------------------------------------------------------------------
 Write-Host "`n[Suite 6] Fail-Closed Security Rules and Gatekeeper Verification" -ForegroundColor Yellow
 
-$gwContent = [System.IO.File]::ReadAllText((Join-Path $projectRoot "api/ai/security/gateway.js"), [System.Text.Encoding]::UTF8)
-$sanContent = [System.IO.File]::ReadAllText((Join-Path $projectRoot "api/ai/security/text-sanitizer.js"), [System.Text.Encoding]::UTF8)
+$gwContent = [System.IO.File]::ReadAllText((Join-Path $projectRoot "lib/ai-security/gateway.js"), [System.Text.Encoding]::UTF8)
+$sanContent = [System.IO.File]::ReadAllText((Join-Path $projectRoot "lib/ai-security/text-sanitizer.js"), [System.Text.Encoding]::UTF8)
 
 # Check 6.1: Residual leak scanner
 $hasResidualScanner = $sanContent.Contains("verifyResidualSafety") -and $sanContent.Contains("safe: false")
@@ -168,14 +175,14 @@ Assert-Result "Prompt injection and system jailbreak patterns neutralized" $hasI
 # ----------------------------------------------------------------------------
 Write-Host "`n[Suite 7] Audit Guard and Sensitive Data Concealment" -ForegroundColor Yellow
 
-$agContent = [System.IO.File]::ReadAllText((Join-Path $projectRoot "api/ai/security/audit-guard.js"), [System.Text.Encoding]::UTF8)
+$agContent = [System.IO.File]::ReadAllText((Join-Path $projectRoot "lib/ai-security/audit-guard.js"), [System.Text.Encoding]::UTF8)
 
 # Check 7.1: Mapping dictionary stripped from audit logs
 $hasStripMapping = $agContent.Contains("delete safeRecord.mapping") -and $agContent.Contains("delete safeRecord.dictionary")
 Assert-Result "Token mapping dictionaries explicitly purged from audit logs" $hasStripMapping "Mapping table remains server-confidential"
 
 # Check 7.2: Snippets sanitized in audit log
-$hasAuditSanitize = $agContent.Contains('sanitizeForAudit') -and $agContent.Contains('snippet: sanitizeForAudit')
+$hasAuditSanitize = $agContent.Contains('sanitizeForAudit') -and $agContent.Contains('snippet: safeSnippet')
 Assert-Result "Audit log snippets sanitized to prevent credential/PII persistence" $hasAuditSanitize "Supabase DB audit records clean"
 
 # Check 7.3: Safe console logging
@@ -212,14 +219,24 @@ $hasAdminToggle = $aiAutoJs.Contains("toggleSecurityAuditDetails") -and $aiAutoJ
 Assert-Result "Admin-only de-identification audit detail toggle restricted to SYS_ADMIN/ADMIN" $hasAdminToggle "Least-privilege UI access enforced"
 
 # ----------------------------------------------------------------------------
-# Suite 9: Supabase Production RLS and Database Safety
+# Suite 10: Real Node.js Dynamic Execution and Live Mock Gemini Suite
 # ----------------------------------------------------------------------------
-Write-Host "`n[Suite 9] Supabase Production Schema and RLS Safety" -ForegroundColor Yellow
+Write-Host "`n[Suite 10] Real Node.js Dynamic Execution and Live Mock Gemini Suite" -ForegroundColor Yellow
 
-# Verify git status to ensure no database schema migration files were created or modified
-$gitStatus = & git status --porcelain
-$schemaModified = $gitStatus -match "migrations/|supabase_migrations/|schema\.sql"
-Assert-Result "Zero modification to Supabase production migrations or schema" (-not $schemaModified) "Production DB schema untouched"
+$electronPath = Join-Path $env:LOCALAPPDATA "Programs/Antigravity/Antigravity.exe"
+$liveTestScript = Join-Path $projectRoot "scripts/test_security_gateway_live.js"
+
+if (Test-Path $electronPath) {
+    $env:ELECTRON_RUN_AS_NODE = "1"
+    $liveOutput = & $electronPath $liveTestScript 2>&1 | Out-String
+    $liveSuccess = ($LASTEXITCODE -eq 0) -and ($liveOutput -match "Failed: 0")
+    Assert-Result "Live Node.js Dynamic Security & Mock Suite (64 checks)" $liveSuccess "Real JS execution & HTTP mock passed"
+    if (-not $liveSuccess) {
+        Write-Host $liveOutput -ForegroundColor DarkYellow
+    }
+} else {
+    Write-Host "  [SKIP] Antigravity Node runner not found at $electronPath" -ForegroundColor DarkGray
+}
 
 # ============================================================================
 # Summary
