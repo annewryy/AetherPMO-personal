@@ -22826,6 +22826,13 @@ renderTodayTasksRoleBased(todayStr) {
         const riskLevel = document.getElementById('project-risk-level')?.value || '보통';
         const bidStatus = document.getElementById('project-bid-status')?.value || '';
         const newBiddingStatus = document.getElementById('new-bidding-status')?.value || 'review';
+        const rawBidStatus = bidStatus;
+        const rawNewBiddingStatus = document.getElementById('new-bidding-status')?.value || '';
+        const isBiddingSave = Boolean(status === 'Bidding' || this.activeProjectStageFilter === 'Bidding');
+        const chosenBidStatus = isBiddingSave
+            ? (rawNewBiddingStatus || rawBidStatus || 'review')
+            : '';
+        const normBidStatus = chosenBidStatus ? this.normalizeBiddingStatus(chosenBidStatus) : '';
 
         // Retrieve Contract, Consortium, and Subcontract fields
         const participationType = document.getElementById('project-participation-type')?.value || 'PRIME_CONTRACTOR';
@@ -22941,11 +22948,6 @@ renderTodayTasksRoleBased(todayStr) {
 
                 const old = this.state.projects[index];
                 const oldManagerId = old.managerId;
-
-                const rawBidStatus = document.getElementById('project-bid-status')?.value || '';
-                const rawNewBiddingStatus = document.getElementById('new-bidding-status')?.value || '';
-                const chosenBidStatus = (status === 'Bidding') ? (rawNewBiddingStatus || rawBidStatus || 'review') : (rawBidStatus || rawNewBiddingStatus);
-                let normBidStatus = chosenBidStatus ? this.normalizeBiddingStatus(chosenBidStatus) : '';
 
                 let targetStatus = status;
                 let targetBiddingStatus = normBidStatus;
@@ -23079,14 +23081,14 @@ renderTodayTasksRoleBased(todayStr) {
                 const newProject = {
                     _isNew: true, // Supabase INSERT 분기용 플래그
                     id: newId, name, desc, dept, manager, startDate, endDate,
-                    status: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? 'Bidding' : status,
-                    project_status: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? 'Bidding' : status,
-                    bidding_status: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? (normBidStatus || newBiddingStatus) : (normBidStatus || bidStatus || 'review'),
-                    biddingStatus: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? (normBidStatus || newBiddingStatus) : (normBidStatus || bidStatus || 'review'),
-                    bid_stage: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? (normBidStatus || newBiddingStatus) : (normBidStatus || bidStatus || 'review'),
-                    bidStatus: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? (normBidStatus || newBiddingStatus) : (normBidStatus || bidStatus || 'review'),
-                    bid_status: (status === 'Bidding' || this.activeProjectStageFilter === 'Bidding') ? (normBidStatus || newBiddingStatus) : (normBidStatus || bidStatus || 'review'),
-                    is_bidding_project: Boolean(status === 'Bidding' || this.activeProjectStageFilter === 'Bidding'),
+                    status: isBiddingSave ? 'Bidding' : status,
+                    project_status: isBiddingSave ? 'Bidding' : status,
+                    bidding_status: isBiddingSave ? (normBidStatus || newBiddingStatus || 'review') : null,
+                    biddingStatus: isBiddingSave ? (normBidStatus || newBiddingStatus || 'review') : null,
+                    bid_stage: isBiddingSave ? (normBidStatus || newBiddingStatus || 'review') : null,
+                    bidStatus: isBiddingSave ? (normBidStatus || newBiddingStatus || 'review') : null,
+                    bid_status: isBiddingSave ? (normBidStatus || newBiddingStatus || 'review') : null,
+                    is_bidding_project: isBiddingSave,
                     progress: finalProgress, resources,
                     customer: finalCustomer,
                     customerName: finalCustomer,
@@ -23267,15 +23269,14 @@ renderTodayTasksRoleBased(todayStr) {
             this.closeProjectModal();
 
             const targetProjectId = id || (savedProject ? savedProject.id : null);
-            const rawBidStatus = document.getElementById('project-bid-status')?.value || '';
-            const normBidStatus = savedProject ? this.normalizeBiddingStatus(savedProject) : (rawBidStatus ? this.normalizeBiddingStatus(rawBidStatus) : 'proposal_preparing');
+            const postSaveNormBidStatus = savedProject ? this.normalizeBiddingStatus(savedProject) : (normBidStatus || (rawBidStatus ? this.normalizeBiddingStatus(rawBidStatus) : 'proposal_preparing'));
             const isBiddingProject = Boolean(
                 (savedProject && (savedProject.is_bidding_project || savedProject.isBiddingProject || savedProject.status === 'Bidding')) ||
                 status === 'Bidding'
             );
 
-            if (isBiddingProject && normBidStatus) {
-                const targetTab = normBidStatus;
+            if (isBiddingProject && postSaveNormBidStatus) {
+                const targetTab = postSaveNormBidStatus;
                 console.log('[saveProjectForm Post-Save Bidding Navigation]', {
                     projectId: targetProjectId,
                     normBidStatus: targetTab,
