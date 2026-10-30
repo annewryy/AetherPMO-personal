@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // AetherPMO AI 업무자동화 스튜디오 (2026 혁신과제 AI 5대 기능 프론트엔드 모듈)
 // AI-01 사업현황 요약, AI-02 산출물 갭 분석, AI-03 주간업무보고, AI-04 위험도 분석, AI-05 RFP 분석
 // ============================================================================
@@ -224,6 +224,67 @@
         return sess.access_token || sess.token || null;
     };
 
+    proto.toggleSecurityAuditDetails = function(prefix) {
+        const el = document.getElementById(`${prefix}-security-audit-detail`);
+        if (!el) return;
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    };
+
+    proto._renderSecurityBlockedView = function(featureType, data, prefix) {
+        const resBody = document.getElementById(`${prefix}-result-body`);
+        const resContainer = document.getElementById(`${prefix}-result-container`);
+        const statusBar = document.getElementById(`${prefix}-status-bar`);
+        if (!resBody) return;
+
+        const secGate = data.securityGate || {};
+        const blockReason = data.error || secGate.blockReason || 'AI 데이터 보안 정책에 따라 전송이 차단되었습니다.';
+        const classification = secGate.classification || 'CONFIDENTIAL';
+
+        let html = `
+            <div class="card" style="padding:24px; background:rgba(239, 68, 68, 0.08); border:1px solid #ef4444; border-radius:8px; margin-bottom:20px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <i data-lucide="shield-alert" style="width:28px; height:28px; color:#f87171;"></i>
+                    <div>
+                        <h4 style="margin:0; color:#f87171; font-size:17px; font-weight:700;">🚨 AI 데이터 보안 게이트웨이 전송 차단 (Fail-Closed)</h4>
+                        <div style="font-size:12px; color:#cbd5e1; margin-top:2px;">회사의 비공개 사업정보, 개인정보 및 보안 데이터 보호를 위해 외부 AI 전송이 원천 중단되었습니다. (Gemini 호출 0회)</div>
+                    </div>
+                </div>
+
+                <div style="padding:14px; background:#0f172a; border-radius:6px; border:1px solid #334155; margin-bottom:16px;">
+                    <div style="font-size:13px; font-weight:600; color:#fca5a5; margin-bottom:6px;">
+                        <strong>차단 사유:</strong> ${escapeHtml(blockReason)}
+                    </div>
+                    <div style="font-size:12px; color:#94a3b8;">
+                        <strong>데이터 보안 등급 판정:</strong> <span style="color:#f87171; font-weight:600;">${escapeHtml(classification)}</span> (비공개 또는 고위험 데이터)
+                    </div>
+                </div>
+
+                <div style="background:rgba(15, 23, 42, 0.4); padding:14px; border-radius:6px; border:1px solid rgba(148, 163, 184, 0.2);">
+                    <div style="font-size:13px; font-weight:600; color:#e2e8f0; margin-bottom:8px;">💡 안전한 재시도 및 조치 가이드:</div>
+                    <ul style="margin:0; padding-left:20px; font-size:12.5px; color:#cbd5e1; line-height:1.7;">
+                        <li><strong>개인정보(PII) 포함 여부:</strong> 주민등록번호, 개인 휴대전화번호, 이메일, 계좌번호 등이 텍스트에 포함되어 있다면 삭제 후 재시도하세요.</li>
+                        <li><strong>사설망 IP 및 인증키:</strong> 내부 사설 IP(192.168.x.x, 10.x.x.x)나 API 키가 포함되어 있다면 제거해 주세요.</li>
+                        <li><strong>RFP 제안요청서의 경우:</strong> 공공 조달 공고(G2B 나라장터) 등 대외 공개가 공식 확인된 문서인지 확인 후, <em>'공개 RFP 문서 확인'</em> 체크박스를 활성화하여 재분석을 실행하세요.</li>
+                        <li><strong>기밀 문서 분석 필요 시:</strong> 사내 승인된 격리형 폐쇄망 LLM(Ollama On-premise) 도입을 시스템 관리자에게 문의하세요.</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+
+        resBody.innerHTML = html;
+        if (resContainer) resContainer.style.display = 'block';
+
+        if (statusBar) {
+            statusBar.style.display = 'block';
+            statusBar.style.background = 'rgba(239, 68, 68, 0.15)';
+            statusBar.style.color = '#f87171';
+            statusBar.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+            statusBar.innerHTML = `<strong>[전송 차단]</strong> ${escapeHtml(blockReason)}`;
+        }
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+
     // 5-1. AI 5대 기능 고도화 뷰 렌더링 엔진 (KPI 카드 + 종합 진단 + 3대 권고 + 비교표 + 접이식 전문 보고서)
     proto._renderEnhancedReportView = function(featureType, data, prefix) {
         const resBody = document.getElementById(`${prefix}-result-body`);
@@ -236,6 +297,67 @@
         const grounding = data.groundingData || {};
 
         let html = '';
+
+        // 0. [AetherPMO AI Data Security Gateway] 보안 게이트웨이 상태 패널
+        const secGate = data.securityGate || {};
+        const isPermitted = secGate.status === 'PERMITTED';
+        const classLabel = secGate.classification === 'PUBLIC'
+            ? '공개 (PUBLIC)'
+            : (isPermitted ? '비식별 허용 (INTERNAL)' : '전송 차단 (BLOCKED)');
+        const classColor = secGate.classification === 'PUBLIC'
+            ? '#10b981'
+            : (isPermitted ? '#38bdf8' : '#f87171');
+        const classBg = secGate.classification === 'PUBLIC'
+            ? 'rgba(16, 185, 129, 0.15)'
+            : (isPermitted ? 'rgba(56, 189, 248, 0.15)' : 'rgba(239, 68, 68, 0.15)');
+
+        const allowedItemsText = Array.isArray(secGate.allowedItemTypes) && secGate.allowedItemTypes.length > 0
+            ? secGate.allowedItemTypes.join(', ')
+            : '화이트리스트 최소화 통계';
+
+        const isAdmin = Boolean(
+            this.currentUser &&
+            (this.currentUser.role === 'SYS_ADMIN' ||
+             this.currentUser.role === 'EXEC_ADMIN' ||
+             this.currentUser.role === 'ADMIN')
+        );
+
+        html += `
+            <div class="ai-security-panel" style="margin-bottom:16px; padding:12px 16px; background:rgba(15, 23, 42, 0.6); border:1px solid rgba(56, 189, 248, 0.3); border-radius:8px; display:flex; flex-direction:column; gap:8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:#38bdf8; background:rgba(56, 189, 248, 0.12); padding:4px 10px; border-radius:20px; border:1px solid rgba(56, 189, 248, 0.3);">
+                            <i data-lucide="shield-check" style="width:14px; height:14px;"></i> AI 데이터 보호: 적용 중
+                        </span>
+                        <span style="font-size:12px; font-weight:700; color:${classColor}; background:${classBg}; padding:4px 10px; border-radius:20px; border:1px solid ${classColor}44;">
+                            전송 등급: ${escapeHtml(classLabel)}
+                        </span>
+                    </div>
+                    <div style="font-size:11.5px; color:#94a3b8;">
+                        <span>원문 계약금액·개인정보(PII)·내부IP 원천 차단 완료</span>
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px; color:#cbd5e1; border-top:1px dashed rgba(148, 163, 184, 0.2); padding-top:6px; flex-wrap:wrap; gap:6px;">
+                    <div>
+                        <strong>전송 데이터 항목:</strong> <span style="color:#e2e8f0;">${escapeHtml(allowedItemsText)}</span> (${secGate.itemCount || 0}개 통계 지표, 가명화 ${secGate.pseudonymizedCount || 0}건)
+                    </div>
+                    ${isAdmin ? `
+                    <div>
+                        <button type="button" class="btn btn-sm" onclick="app.toggleSecurityAuditDetails('${prefix}')" style="background:rgba(51, 65, 85, 0.8); color:#38bdf8; border:1px solid #475569; font-size:11px; padding:2px 8px; border-radius:4px; cursor:pointer;">
+                            🔒 비식별화 전송 내역 검증 (관리자 전용)
+                        </button>
+                    </div>` : ''}
+                </div>
+                <div id="${prefix}-security-audit-detail" style="display:none; margin-top:6px; padding:8px 12px; background:#0f172a; border-radius:6px; border:1px solid #334155; font-size:11px; color:#94a3b8; line-height:1.5;">
+                    <div style="font-weight:600; color:#cbd5e1; margin-bottom:4px;">[관리자 전용 감사 검증: 서버 보안 게이트웨이 처리 내역]</div>
+                    <div>• 적용 정책: Supabase 원본 객체 직접 전송 차단 (Default-Deny) & 화이트리스트 사전 집계만 전송</div>
+                    <div>• 가명화 치환: 사업명 → PROJECT_001, 발주처 → AGENCY_001, 담당자 → PERSON_001 (동일 요청 내 토큰 일치 유지)</div>
+                    <div>• 원본 계약금액: 완전 제외 및 범주화 스케일(소/중/대형) 대체 완료</div>
+                    <div>• 개인정보(PII) 검증: 주민등록번호, 연락처, 개인 이메일, 계좌번호 0건 전송 (서버 마스킹 적용)</div>
+                    <div>• 안전 복원: 현재 인증 세션(${escapeHtml(this.currentUser?.email || 'user')})의 프로젝트 권한 검증 후 브라우저 렌더링 시 안전 복원됨</div>
+                </div>
+            </div>
+        `;
 
         // 1. 최상단 핵심 KPI 요약 카드 그리드
         html += '<div class="ai-kpi-grid">';
@@ -693,6 +815,12 @@
 
             const data = await res.json();
             if (!res.ok) {
+                if (res.status === 403 && data.blocked) {
+                    this._renderSecurityBlockedView('AI-01', data, 'ai-01');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i data-lucide="sparkles"></i> AI 사업현황 요약 실행';
+                    return;
+                }
                 throw new Error(data.error || `HTTP ${res.status}`);
             }
 
@@ -796,6 +924,12 @@
 
             const data = await res.json();
             if (!res.ok) {
+                if (res.status === 403 && data.blocked) {
+                    this._renderSecurityBlockedView('AI-02', data, 'ai-02');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i data-lucide="sparkles"></i> AI 산출물 갭 분석 실행';
+                    return;
+                }
                 throw new Error(data.error || `HTTP ${res.status}`);
             }
 
@@ -923,6 +1057,12 @@
 
             const data = await res.json();
             if (!res.ok) {
+                if (res.status === 403 && data.blocked) {
+                    this._renderSecurityBlockedView('AI-03', data, 'ai-03');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i data-lucide="sparkles"></i> AI 주간보고서 자동 생성';
+                    return;
+                }
                 throw new Error(data.error || `HTTP ${res.status}`);
             }
 
@@ -1049,6 +1189,12 @@
 
             const data = await res.json();
             if (!res.ok) {
+                if (res.status === 403 && data.blocked) {
+                    this._renderSecurityBlockedView('AI-04', data, 'ai-04');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i data-lucide="sparkles"></i> AI 프로젝트 위험도 분석';
+                    return;
+                }
                 throw new Error(data.error || `HTTP ${res.status}`);
             }
 
@@ -1335,12 +1481,20 @@
                     rfpFileName: rfpFileName,
                     pageCount: pageCount,
                     projectId: projectId || undefined,
+                    isPublicDocument: document.getElementById('ai-05-is-public-doc')?.checked ?? false,
+                    publicNoticeId: document.getElementById('ai-05-notice-id')?.value?.trim() || '',
                     message: `제안요청서 [${rfpFileName}]의 핵심 8대 요건 분석 보고서를 작성해주세요.`
                 })
             });
 
             const data = await res.json();
             if (!res.ok) {
+                if (res.status === 403 && data.blocked) {
+                    this._renderSecurityBlockedView('AI-05', data, 'ai-05');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i data-lucide="sparkles"></i> AI RFP 8대 요건 심층 분석 실행';
+                    return;
+                }
                 throw new Error(data.error || `HTTP ${res.status}`);
             }
 

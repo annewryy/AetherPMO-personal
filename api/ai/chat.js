@@ -1,4 +1,4 @@
-// AetherPMO AI 어시스턴트 Vercel Serverless Function 엔드포인트 (/api/ai/chat)
+﻿// AetherPMO AI 어시스턴트 Vercel Serverless Function 엔드포인트 (/api/ai/chat)
 // Supabase JWT 검증, DB 기반 역할 검증, 프로젝트 컨텍스트 수집, 멀티 LLM 연동
 // AI-01 사업현황 요약, AI-02 산출물 갭 분석, AI-03 주간업무보고, AI-04 위험도 분석, AI-05 RFP 분석
 
@@ -6,6 +6,7 @@ const http = require('http');
 const https = require('https');
 const url = require('url');
 const crypto = require('crypto');
+const securityGateway = require('./security');
 
 // 동시 추론 제어 (인스턴스 내 단일 추론)
 let isInferring = false;
@@ -1195,6 +1196,8 @@ module.exports = async (req, res) => {
   const history = Array.isArray(body.history) ? body.history : [];
   const requestedProjectId = body.projectId ? String(body.projectId) : undefined;
   const featureType = body.featureType || body.feature_type; // 'AI-01', 'AI-02', 'AI-03', 'AI-04', 'AI-05'
+  const isPublicDocument = Boolean(body.isPublicDocument || body.isPublic || body.is_public);
+  const publicNoticeId = body.publicNoticeId || body.noticeId || body.bidNoticeNo || '';
 
   if (!message && !featureType) {
     return res.status(400).json({ error: 'message 또는 featureType 필드가 필요합니다.' });
@@ -1602,41 +1605,55 @@ ${analyzedText}
     };
   }
 
-  // 시스템 프롬프트 구성
-  let systemPrompt = `당신은 공공 SI 사업관리 플랫폼 AetherPMO의 전문 ${featureTitle}입니다.
-현재 사용자: ${userName} (검증된 DB 권한: ${role})
-조회 기준 시각: ${nowKST}
+  // ── [AetherPMO AI Data Security Gateway] Egress 보안 게이트웨이 파이프라인 가동 ──
+  const egressResult = await securityGateway.inspectAndPrepareEgress({
+    featureType,
+    targetProj,
+    pmoContextData,
+    message,
+    history,
+    rfpText: (featureType === 'AI-05') ? String(body.rfpText || body.rfpContent || message || '') : '',
+    rfpFileName: (featureType === 'AI-05') ? (body.rfpFileName || 'RFP문서') : '',
+    isPublicDocument,
+    publicNoticeId,
+    specificInstructions,
+    featureTitle,
+    userName,
+    role,
+    nowKST
+  });
 
-[답변 원칙]:
-1. 제공된 [조회된 실제 PMO 데이터]에 근거하여 명확하고 신뢰성 있게 한국어로 답변하세요.
-2. 실제 데이터에 없는 사실, 존재하지 않는 수치, 임의의 일정은 절대 날조(환각)하지 마세요. 근거가 없으면 "원문에서 확인되지 않음" 또는 "데이터 없음"으로 명시하세요.
-3. 결과는 사용자가 바로 보고서로 활용할 수 있도록 정갈한 Markdown 헤더(#, ##, ###), 불릿 기호(-), 굵은 글씨(**)로 구조화하여 작성하세요.
-4. 자바스크립트 코드(<script> 등)나 실행 태그는 절대 출력하지 마세요.
-${specificInstructions}`;
+  // Fail-Closed: 비공개 문서, 민감정보 검출 또는 데이터 등급 미결정 시 즉시 차단 (Gemini 호출 0회)
+  if (!egressResult.allowed) {
+    const blockAudit = await saveAIAuditLog(supabaseUrl, supabaseServiceKey, securityGateway.prepareSafeAuditRecord({
+      projectId: targetProj ? targetProj.id : null,
+      projectName: (featureType === 'AI-05') ? (body.rfpFileName || 'RFP문서') : (targetProj ? targetProj.name : null),
+      userId: authUser.id,
+      userEmail: authUser.email,
+      featureCode: featureType || 'GENERAL',
+      featureName: featureTitle,
+      model: 'BLOCKED (AI Gateway)',
+      latencyMs: Date.now() - startTime,
+      success: false,
+      snippet: `전송 차단: ${egressResult.blockReason}`
+    }), token);
 
-  if (pmoContextData) {
-    systemPrompt += `\n\n[조회된 실제 PMO 데이터 (읽기 전용)]:
-\`\`\`json
-${JSON.stringify(pmoContextData, null, 2)}
-\`\`\``;
+    return res.status(403).json({
+      blocked: true,
+      error: egressResult.blockReason || 'AI 데이터 보안 정책에 따라 외부 AI 전송이 차단되었습니다.',
+      securityGate: egressResult.securityGate,
+      groundingData: null,
+      structuredKPIs: null,
+      metadata: {
+        featureType: featureType || 'GENERAL',
+        securityStatus: 'BLOCKED',
+        latencyMs: Date.now() - startTime,
+        dbAudit: blockAudit
+      }
+    });
   }
 
-  const promptMessage = message || (
-    featureType === 'AI-05' 
-      ? `제시된 RFP 원문 내용을 바탕으로 8대 핵심 항목 분석 보고서를 작성해주세요.`
-      : `프로젝트 [${targetProj ? targetProj.name : '선택 사업'}]에 대해 ${featureType} 업무 분석 보고서를 생성해주세요.`
-  );
-
-  const sanitizedHistory = history.slice(-4).map(h => ({
-    role: h.role === 'assistant' ? 'assistant' : 'user',
-    content: String(h.content || '').slice(0, 500)
-  }));
-
-  const messagesToSend = [
-    { role: 'system', content: systemPrompt },
-    ...sanitizedHistory,
-    { role: 'user', content: promptMessage }
-  ];
+  const messagesToSend = egressResult.messagesToSend;
 
   let release = null;
   try {
@@ -1644,8 +1661,20 @@ ${JSON.stringify(pmoContextData, null, 2)}
     const result = await callLLM(messagesToSend);
     const latencyMs = Date.now() - startTime;
 
-    // 감사로그 Supabase DB 영구 보존 시도 (서버 단일 원천, 민감정보 배제)
-    const auditRes = await saveAIAuditLog(supabaseUrl, supabaseServiceKey, {
+    // Ingress 처리: 정당한 프로젝트 접근 권한자에게 원본 명칭 복원 (De-pseudonymization)
+    const hasProjectAccess = Boolean(
+      !requestedProjectId ||
+      accessibleProjects.some(p => String(p.id) === requestedProjectId) ||
+      role === 'ADMIN' || role === 'SYS_ADMIN' || role === 'PMO' || role === 'EXEC_ADMIN'
+    );
+    const ingressResult = securityGateway.finalizeIngress({
+      answer: result.answer,
+      pseudonymizer: egressResult.pseudonymizer,
+      hasAccess: hasProjectAccess
+    });
+
+    // 감사로그 Supabase DB 영구 보존 시도 (살균된 메타데이터 요약)
+    const auditRes = await saveAIAuditLog(supabaseUrl, supabaseServiceKey, securityGateway.prepareSafeAuditRecord({
       projectId: targetProj ? targetProj.id : null,
       projectName: (featureType === 'AI-05') ? (body.rfpFileName || 'RFP문서') : (targetProj ? targetProj.name : null),
       userId: authUser.id,
@@ -1655,8 +1684,8 @@ ${JSON.stringify(pmoContextData, null, 2)}
       model: result.model,
       latencyMs,
       success: true,
-      snippet: String(result.answer).slice(0, 150)
-    }, token);
+      snippet: String(ingressResult.safeAnswer).slice(0, 150)
+    }), token);
 
     // 프론트엔드 KPI 요약 카드 및 시각화를 위한 정량 지표 패키징
     let structuredKPIs = null;
@@ -2030,10 +2059,11 @@ ${JSON.stringify(pmoContextData, null, 2)}
     }
 
     return res.status(200).json({
-      answer: result.answer,
+      answer: ingressResult.safeAnswer,
       sources,
       groundingData: pmoContextData,
       structuredKPIs,
+      securityGate: egressResult.securityGate,
       metadata: {
         featureType: featureType || 'GENERAL',
         model: result.model,
@@ -2041,15 +2071,16 @@ ${JSON.stringify(pmoContextData, null, 2)}
         queriedAt: nowKST,
         intent,
         latencyMs,
-        dbAudit: auditRes
+        dbAudit: auditRes,
+        securityGate: egressResult.securityGate
       }
     });
   } catch (err) {
     const status = err.statusCode || 500;
     const latencyMs = Date.now() - startTime;
 
-    // 실패 이력도 감사로그 DB 보존 시도
-    const auditRes = await saveAIAuditLog(supabaseUrl, supabaseServiceKey, {
+    // 실패 이력도 감사로그 DB 보존 시도 (살균된 메타데이터)
+    const auditRes = await saveAIAuditLog(supabaseUrl, supabaseServiceKey, securityGateway.prepareSafeAuditRecord({
       projectId: targetProj ? targetProj.id : null,
       projectName: (featureType === 'AI-05') ? (body.rfpFileName || 'RFP문서') : (targetProj ? targetProj.name : null),
       userId: authUser.id,
@@ -2060,7 +2091,7 @@ ${JSON.stringify(pmoContextData, null, 2)}
       latencyMs,
       success: false,
       snippet: `오류: ${err.message}`
-    }, token);
+    }), token);
 
     return res.status(status).json({
       error: err.message || 'AI 어시스턴트 처리 중 오류가 발생했습니다.',
