@@ -3066,6 +3066,15 @@ class AetherPMO {
                     if (localState && localState.projectMethodologies) {
                         this.state.projectMethodologies = Object.assign({}, localState.projectMethodologies, this.state.projectMethodologies || {});
                     }
+                    // These contact directories currently live in the browser state rather than
+                    // dedicated Supabase tables. Restore them after the database-backed state is
+                    // rebuilt so a refresh does not replace newly saved contacts with seed data.
+                    if (localState && Array.isArray(localState.vendorContacts)) {
+                        this.state.vendorContacts = localState.vendorContacts;
+                    }
+                    if (localState && Array.isArray(localState.customerContacts)) {
+                        this.state.customerContacts = localState.customerContacts;
+                    }
                 }
             } catch (mergeErr) {
                 console.warn('[Supabase Load] Error merging local state:', mergeErr);
@@ -28186,7 +28195,7 @@ renderTodayTasksRoleBased(todayStr) {
         if (input.value !== sanitized) input.value = sanitized;
     }
 
-    saveVendorContact() {
+    async saveVendorContact() {
         if (!Array.isArray(this.state.vendorContacts)) this.state.vendorContacts = [];
 
         const id = document.getElementById('vendor-modal-id')?.value;
@@ -28233,7 +28242,7 @@ renderTodayTasksRoleBased(todayStr) {
             this.state.vendorContacts.push(dataObj);
         }
 
-        this.saveState();
+        await this.saveState();
         this.closeVendorContactModal();
         this.renderVendorContactsView();
         if (typeof this.showToast === 'function') this.showToast('협력업체 담당자 정보가 저장되었습니다.');

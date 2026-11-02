@@ -23,7 +23,7 @@ assert.match(app, /const matchJobRole = \(v\.jobRole \|\| ''\)/);
 assert.match(app, /'담당 직무', '부서\/직급'/);
 assert.match(app, /jobRole: String\(r\[3\] \|\| ''\)\.trim\(\)/);
 assert.match(html, /D열: 담당 직무/);
-assert.match(sw, /aetherpmo-v1\.6\.5-20261102-vendor-phone-validation/);
+assert.match(sw, /aetherpmo-v1\.6\.6-20261102-vendor-contact-persistence/);
 
 assert.match(html, /id="vendor-modal-phone"[^>]*inputmode="numeric"[^>]*pattern="\[0-9-\]\+"/);
 assert.match(html, /oninput="app\.sanitizeVendorPhoneInput\(this\)"/);
