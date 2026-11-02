@@ -27293,6 +27293,14 @@ renderTodayTasksRoleBased(todayStr) {
         this.activeResourceSubTab = normTab;
         if (this.state) this.state.activeResourceSubTab = normTab;
 
+        // Keep the selected directory in the URL so a browser refresh restores the
+        // same tab instead of falling back to the participating-members list.
+        const routeTab = normTab === 'proposal' ? 'proposal' : normTab;
+        const targetHash = `#resources/${routeTab}`;
+        if (window.location.hash !== targetHash) {
+            history.replaceState(null, '', targetHash);
+        }
+
         const panelMap = {
             members: 'res-panel-members',
             proposals: 'res-panel-proposals',
