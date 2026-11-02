@@ -28096,7 +28096,7 @@ renderTodayTasksRoleBased(todayStr) {
                         jobRole: String(r[3] || '').trim(),
                         department: '',
                         position: String(r[4] || '').trim(),
-                        phone: String(r[5] || '').trim(),
+                        phone: this.sanitizeVendorPhone(String(r[5] || '')),
                         email: String(r[6] || '').trim(),
                         projectId: null,
                         projectName: '',
@@ -28176,6 +28176,16 @@ renderTodayTasksRoleBased(todayStr) {
         if (modal) modal.classList.remove('open');
     }
 
+    sanitizeVendorPhone(value) {
+        return String(value || '').replace(/[^0-9-]/g, '');
+    }
+
+    sanitizeVendorPhoneInput(input) {
+        if (!input) return;
+        const sanitized = this.sanitizeVendorPhone(input.value);
+        if (input.value !== sanitized) input.value = sanitized;
+    }
+
     saveVendorContact() {
         if (!Array.isArray(this.state.vendorContacts)) this.state.vendorContacts = [];
 
@@ -28185,7 +28195,9 @@ renderTodayTasksRoleBased(todayStr) {
         const name = document.getElementById('vendor-modal-name')?.value?.trim();
         const jobRole = document.getElementById('vendor-modal-job-role')?.value?.trim();
         const position = document.getElementById('vendor-modal-position')?.value?.trim();
-        const phone = document.getElementById('vendor-modal-phone')?.value?.trim();
+        const phoneInput = document.getElementById('vendor-modal-phone');
+        const phone = this.sanitizeVendorPhone(phoneInput?.value?.trim());
+        if (phoneInput && phoneInput.value !== phone) phoneInput.value = phone;
         const email = document.getElementById('vendor-modal-email')?.value?.trim();
         const projectId = document.getElementById('vendor-modal-project')?.value;
         const status = document.getElementById('vendor-modal-status')?.value || 'ACTIVE';
