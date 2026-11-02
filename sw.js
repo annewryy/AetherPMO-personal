@@ -1,6 +1,6 @@
 /**
  * AetherPMO PWA Service Worker
- * Cache Version: 'aetherpmo-v1.6.3-20261102-pwa-data-safety'
+ * Cache Version: 'aetherpmo-v1.6.4-20261102-vendor-contacts'
  * 
  * Strict Allowlist & High-Security Strategy:
  * 1. ZERO-CACHE POLICY FOR BUSINESS & AUTH DATA:
@@ -22,7 +22,7 @@
  *    - skipWaiting() is executed only upon explicit client message ('SKIP_WAITING') after user confirmation.
  */
 
-const CACHE_VERSION = 'aetherpmo-v1.6.3-20261102-pwa-data-safety';
+const CACHE_VERSION = 'aetherpmo-v1.6.4-20261102-vendor-contacts';
 const STATIC_CACHE_NAME = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE_NAME = `dynamic-${CACHE_VERSION}`;
 

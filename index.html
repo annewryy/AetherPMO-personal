@@ -3318,6 +3318,12 @@
                                         <option value="파트너">파트너</option>
                                     </select>
                                 </div>
+                                <div class="filter-group" style="flex: 1.4; min-width: 180px; display: flex; flex-direction: column; gap: 6px;">
+                                    <label for="vendor-filter-company" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">업체명</label>
+                                    <select id="vendor-filter-company" onchange="app.renderVendorContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                        <option value="all">전체 업체</option>
+                                    </select>
+                                </div>
                                 <div class="filter-group" style="flex: 1.2; min-width: 160px; display: flex; flex-direction: column; gap: 6px;">
                                     <label for="vendor-filter-status" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">거래상태</label>
                                     <select id="vendor-filter-status" onchange="app.renderVendorContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
@@ -3331,7 +3337,7 @@
                                     <label for="vendor-search-input" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">통합 검색</label>
                                     <div class="search-input-wrapper" style="position: relative;">
                                         <i data-lucide="search" style="position: absolute; left: 12px; top: 11px; width: 16px; height: 16px; color: var(--text-muted);"></i>
-                                        <input type="text" id="vendor-search-input" placeholder="업체명, 담당자, 분야, 연락처, 이메일 검색..." oninput="app.renderVendorContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px 0 36px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+                                        <input type="text" id="vendor-search-input" placeholder="업체명, 담당자, 담당 직무, 연락처, 이메일 검색..." oninput="app.renderVendorContactsTable()" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--bg-card-border); padding: 0 12px 0 36px; background: var(--bg-input); color: var(--text-main); font-weight: 600;">
                                     </div>
                                 </div>
                                 <div class="filter-actions" style="display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap;">
@@ -3353,7 +3359,7 @@
                             <!-- 엑셀 업로드 양식 안내 -->
                             <div id="vendor-upload-template-hint" style="margin-top: 12px; padding: 10px 14px; border-radius: 8px; background: rgba(99,102,241,0.07); border: 1px dashed rgba(99,102,241,0.3); font-size: 12px; color: var(--text-muted); display: none;">
                                 <strong style="color: #6366F1;">📋 엑셀 업로드 양식 안내</strong> —
-                                A열: 업체구분 &nbsp;|&nbsp; B열: 업체명 &nbsp;|&nbsp; C열: 담당자 성명 &nbsp;|&nbsp; D열: 부서/직급 &nbsp;|&nbsp; E열: 연락처 &nbsp;|&nbsp; F열: 이메일 &nbsp;|&nbsp; G열: 거래상태(ACTIVE/STANDBY/CLOSED) &nbsp;|&nbsp; H열: 비고
+                                A열: 업체구분 &nbsp;|&nbsp; B열: 업체명 &nbsp;|&nbsp; C열: 담당자 성명 &nbsp;|&nbsp; D열: 담당 직무 &nbsp;|&nbsp; E열: 부서/직급 &nbsp;|&nbsp; F열: 연락처 &nbsp;|&nbsp; G열: 이메일 &nbsp;|&nbsp; H열: 거래상태(ACTIVE/STANDBY/CLOSED) &nbsp;|&nbsp; I열: 비고
                                 &nbsp;<button type="button" onclick="app.downloadVendorContactTemplate()" style="background: none; border: none; color: #6366F1; cursor: pointer; font-size: 12px; font-weight: 700; text-decoration: underline;">양식 다운로드</button>
                             </div>
                         </div>
@@ -3383,6 +3389,7 @@
                                             <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 125px; white-space: nowrap; border-right: 1px solid var(--bg-card-border);">구분</th>
                                             <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 160px; border-right: 1px solid var(--bg-card-border);">업체명</th>
                                             <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 90px; border-right: 1px solid var(--bg-card-border);">담당자</th>
+                                            <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 120px; border-right: 1px solid var(--bg-card-border);">담당 직무</th>
                                             <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 140px; border-right: 1px solid var(--bg-card-border);">부서 / 직급</th>
                                             <th style="padding: 12px 14px; font-weight: 700; text-align: center; width: 140px; white-space: nowrap; border-right: 1px solid var(--bg-card-border);">연락처</th>
                                             <th style="padding: 12px 14px; font-weight: 700; text-align: left; width: 180px; border-right: 1px solid var(--bg-card-border);">이메일</th>
@@ -8620,6 +8627,10 @@
                         <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">부서 / 직급</label>
                         <input type="text" id="vendor-modal-position" placeholder="예: SI사업부 / 이사" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px;">
                     </div>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted);">담당 직무</label>
+                    <input type="text" id="vendor-modal-job-role" placeholder="예: 영업 / 사업관리 / 기술지원" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 13px;">
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div>

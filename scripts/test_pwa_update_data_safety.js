@@ -21,6 +21,6 @@ assert.doesNotMatch(html, /무시하고 업데이트/);
 assert.match(html, /미저장 변경사항이 있을 때는 업데이트할 수 없습니다/);
 assert.match(html, /확인 \(작업 계속\)/);
 assert.equal((html.match(/class="modal-backdrop" style="display: none;" aria-hidden="true"/g) || []).length, 4);
-assert.match(sw, /aetherpmo-v1\.6\.3-20261102-pwa-data-safety/);
+assert.match(sw, /const CACHE_VERSION = 'aetherpmo-v1\.6\.[4-9]-\d{8}-[a-z0-9-]+'/);
 
 console.log('PASS: PWA modals are exclusive overlays and update reload is blocked while user input is unsaved.');

@@ -27208,6 +27208,7 @@ renderTodayTasksRoleBased(todayStr) {
                 category: '협력사',
                 company: '(주)글로벌IT솔루션',
                 name: '강태진',
+                jobRole: '영업 / 사업관리',
                 position: 'SI사업부 / 이사',
                 phone: '010-7890-1234',
                 email: 'tj.kang@globalit.co.kr',
@@ -27221,6 +27222,7 @@ renderTodayTasksRoleBased(todayStr) {
                 category: '외주사',
                 company: '(주)넥스트소프트',
                 name: '윤서연',
+                jobRole: '개발 관리',
                 position: '개발1팀 / 팀장',
                 phone: '010-8901-2345',
                 email: 'sy.yoon@nextsoft.io',
@@ -27234,6 +27236,7 @@ renderTodayTasksRoleBased(todayStr) {
                 category: '컨소시엄',
                 company: '(주)클라우드웨어',
                 name: '한상우',
+                jobRole: '제휴 / 사업관리',
                 position: '클라우드사업본부 / 상무',
                 phone: '010-9012-3456',
                 email: 'sw.han@cloudware.com',
@@ -27247,6 +27250,7 @@ renderTodayTasksRoleBased(todayStr) {
                 category: '파트너',
                 company: '(주)시큐리티네트웍스',
                 name: '임재범',
+                jobRole: '보안 컨설팅',
                 position: '보안컨설팅팀 / 부장',
                 phone: '010-0123-4567',
                 email: 'jb.lim@secunet.co.kr',
@@ -27814,6 +27818,16 @@ renderTodayTasksRoleBased(todayStr) {
         if (statConsEl) statConsEl.textContent = `${consortiumCount}곳`;
         if (statOutEl) statOutEl.textContent = `${outsourceCount}곳`;
 
+        const companyFilter = document.getElementById('vendor-filter-company');
+        if (companyFilter) {
+            const selectedCompany = companyFilter.value || 'all';
+            const companies = [...uniqueCompanies].sort((a, b) => String(a).localeCompare(String(b), 'ko'));
+            companyFilter.innerHTML = '<option value="all">전체 업체</option>' + companies
+                .map(company => `<option value="${this.escapeHtml(company)}">${this.escapeHtml(company)}</option>`)
+                .join('');
+            companyFilter.value = companies.includes(selectedCompany) ? selectedCompany : 'all';
+        }
+
         this.renderVendorContactsTable();
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
@@ -27824,6 +27838,7 @@ renderTodayTasksRoleBased(todayStr) {
 
         const vendors = Array.isArray(this.state.vendorContacts) ? this.state.vendorContacts : [];
         const catFilter = document.getElementById('vendor-filter-category')?.value?.trim() || 'all';
+        const companyFilter = document.getElementById('vendor-filter-company')?.value?.trim() || 'all';
         const statusFilter = document.getElementById('vendor-filter-status')?.value?.trim() || 'all';
         const keyword = (document.getElementById('vendor-search-input')?.value || '').toLowerCase().trim();
 
@@ -27831,16 +27846,18 @@ renderTodayTasksRoleBased(todayStr) {
 
         let filtered = vendors.filter(v => {
             if (catFilter && catFilter !== 'all' && v.category !== catFilter) return false;
+            if (companyFilter && companyFilter !== 'all' && v.company !== companyFilter) return false;
             if (statusFilter && statusFilter !== 'all' && (v.status || 'ACTIVE') !== statusFilter) return false;
             if (keyword) {
                 const matchCat = (v.category || '').toLowerCase().includes(keyword);
                 const matchComp = (v.company || '').toLowerCase().includes(keyword);
                 const matchName = (v.name || '').toLowerCase().includes(keyword);
+                const matchJobRole = (v.jobRole || '').toLowerCase().includes(keyword);
                 const matchPos = (v.position || '').toLowerCase().includes(keyword);
                 const matchPhone = (v.phone || '').toLowerCase().includes(keyword);
                 const matchEmail = (v.email || '').toLowerCase().includes(keyword);
                 const matchProj = (v.projectName || '').toLowerCase().includes(keyword);
-                if (!matchCat && !matchComp && !matchName && !matchPos && !matchPhone && !matchEmail && !matchProj) return false;
+                if (!matchCat && !matchComp && !matchName && !matchJobRole && !matchPos && !matchPhone && !matchEmail && !matchProj) return false;
             }
             return true;
         });
@@ -27857,7 +27874,7 @@ renderTodayTasksRoleBased(todayStr) {
         if (filtered.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="12" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <td colspan="13" style="text-align: center; padding: 40px; color: var(--text-muted);">
                         <i data-lucide="building-2" style="width: 36px; height: 36px; margin-bottom: 8px; opacity: 0.4;"></i>
                         <p style="margin: 0; font-size: 14px;">등록되었거나 조건에 맞는 업체 연락처가 없습니다.</p>
                     </td>
@@ -27894,6 +27911,7 @@ renderTodayTasksRoleBased(todayStr) {
                     </td>
                     <td style="padding: 10px 14px; font-weight: 700; color: var(--text-main); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.company || '-')}</td>
                     <td style="padding: 10px 14px; font-weight: 700; text-align: center; color: var(--primary); border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.name || '-')}</td>
+                    <td style="padding: 10px 14px; color: var(--text-main); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(v.jobRole || '-')}</td>
                     <td style="padding: 10px 14px; color: var(--text-muted); font-size: 12px; border-right: 1px solid var(--bg-card-border);">${this.escapeHtml(dept)}</td>
                     <td style="padding: 10px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(v.phone || '-')}</td>
                     <td style="padding: 10px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border);">${v.email ? `<a href="mailto:${this.escapeHtml(v.email)}" style="color: var(--primary); text-decoration: none;">${this.escapeHtml(v.email)}</a>` : '-'}</td>
@@ -27988,7 +28006,7 @@ renderTodayTasksRoleBased(todayStr) {
 
         const statusLabel = { ACTIVE: '거래중', STANDBY: '대기', CLOSED: '계약종료' };
         const rows = [
-            ['업체구분', '업체명', '담당자 성명', '부서/직급', '연락처', '이메일', '관련 프로젝트', '거래상태', '비고']
+            ['업체구분', '업체명', '담당자 성명', '담당 직무', '부서/직급', '연락처', '이메일', '관련 프로젝트', '거래상태', '비고']
         ];
         data.forEach(v => {
             const dept = v.department ? `${v.department}${v.position ? ' / ' + v.position : ''}` : (v.position || '');
@@ -27997,6 +28015,7 @@ renderTodayTasksRoleBased(todayStr) {
                 v.category || '협력사',
                 v.company || '',
                 v.name || '',
+                v.jobRole || '',
                 dept,
                 v.phone || '',
                 v.email || '',
@@ -28008,7 +28027,7 @@ renderTodayTasksRoleBased(todayStr) {
 
         if (typeof XLSX !== 'undefined') {
             const ws = XLSX.utils.aoa_to_sheet(rows);
-            ws['!cols'] = [90, 160, 100, 150, 130, 200, 150, 80, 200].map(w => ({ wch: Math.round(w / 7) }));
+            ws['!cols'] = [90, 160, 100, 120, 150, 130, 200, 150, 80, 200].map(w => ({ wch: Math.round(w / 7) }));
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, '협력업체담당자');
             XLSX.writeFile(wb, `협력업체담당자_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -28022,13 +28041,13 @@ renderTodayTasksRoleBased(todayStr) {
 
     downloadVendorContactTemplate() {
         const rows = [
-            ['업체구분', '업체명', '담당자 성명', '부서/직급', '연락처', '이메일', '거래상태(ACTIVE/STANDBY/CLOSED)', '비고'],
-            ['협력사', '(주)ABC솔루션', '이철수', '개발팀 / 팀장', '010-1111-2222', 'lee@abc.co.kr', 'ACTIVE', ''],
-            ['외주사', '테크파트너스', '박영희', '영업본부 / 이사', '010-3333-4444', 'park@techp.com', 'ACTIVE', '']
+            ['업체구분', '업체명', '담당자 성명', '담당 직무', '부서/직급', '연락처', '이메일', '거래상태(ACTIVE/STANDBY/CLOSED)', '비고'],
+            ['협력사', '(주)ABC솔루션', '이철수', '사업관리', '개발팀 / 팀장', '010-1111-2222', 'lee@abc.co.kr', 'ACTIVE', ''],
+            ['외주사', '테크파트너스', '박영희', '영업', '영업본부 / 이사', '010-3333-4444', 'park@techp.com', 'ACTIVE', '']
         ];
         if (typeof XLSX !== 'undefined') {
             const ws = XLSX.utils.aoa_to_sheet(rows);
-            ws['!cols'] = [12, 20, 12, 18, 16, 28, 30, 24].map(w => ({ wch: w }));
+            ws['!cols'] = [12, 20, 12, 16, 18, 16, 28, 30, 24].map(w => ({ wch: w }));
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, '양식');
             XLSX.writeFile(wb, '협력업체담당자_업로드양식.xlsx');
@@ -28066,7 +28085,7 @@ renderTodayTasksRoleBased(todayStr) {
                     const name = String(r[2] || '').trim();
                     if (!company || !name) { skipped++; continue; }
 
-                    const rawStatus = String(r[6] || 'ACTIVE').trim().toUpperCase();
+                    const rawStatus = String(r[7] || 'ACTIVE').trim().toUpperCase();
                     const status = ['ACTIVE', 'STANDBY', 'CLOSED'].includes(rawStatus) ? rawStatus : 'ACTIVE';
 
                     this.state.vendorContacts.push({
@@ -28074,14 +28093,15 @@ renderTodayTasksRoleBased(todayStr) {
                         category: String(r[0] || '협력사').trim(),
                         company,
                         name,
+                        jobRole: String(r[3] || '').trim(),
                         department: '',
-                        position: String(r[3] || '').trim(),
-                        phone: String(r[4] || '').trim(),
-                        email: String(r[5] || '').trim(),
+                        position: String(r[4] || '').trim(),
+                        phone: String(r[5] || '').trim(),
+                        email: String(r[6] || '').trim(),
                         projectId: null,
                         projectName: '',
                         status,
-                        remarks: String(r[7] || '').trim()
+                        remarks: String(r[8] || '').trim()
                     });
                     added++;
                 }
@@ -28125,6 +28145,7 @@ renderTodayTasksRoleBased(todayStr) {
                 document.getElementById('vendor-modal-category').value = v.category || '협력사';
                 document.getElementById('vendor-modal-company').value = v.company || '';
                 document.getElementById('vendor-modal-name').value = v.name || '';
+                document.getElementById('vendor-modal-job-role').value = v.jobRole || '';
                 document.getElementById('vendor-modal-position').value = v.position || '';
                 document.getElementById('vendor-modal-phone').value = v.phone || '';
                 document.getElementById('vendor-modal-email').value = v.email || '';
@@ -28138,6 +28159,7 @@ renderTodayTasksRoleBased(todayStr) {
             document.getElementById('vendor-modal-category').value = '협력사';
             document.getElementById('vendor-modal-company').value = '';
             document.getElementById('vendor-modal-name').value = '';
+            document.getElementById('vendor-modal-job-role').value = '';
             document.getElementById('vendor-modal-position').value = '';
             document.getElementById('vendor-modal-phone').value = '';
             document.getElementById('vendor-modal-email').value = '';
@@ -28161,6 +28183,7 @@ renderTodayTasksRoleBased(todayStr) {
         const category = document.getElementById('vendor-modal-category')?.value;
         const company = document.getElementById('vendor-modal-company')?.value?.trim();
         const name = document.getElementById('vendor-modal-name')?.value?.trim();
+        const jobRole = document.getElementById('vendor-modal-job-role')?.value?.trim();
         const position = document.getElementById('vendor-modal-position')?.value?.trim();
         const phone = document.getElementById('vendor-modal-phone')?.value?.trim();
         const email = document.getElementById('vendor-modal-email')?.value?.trim();
@@ -28180,6 +28203,7 @@ renderTodayTasksRoleBased(todayStr) {
             category: category || '협력사',
             company,
             name,
+            jobRole,
             position,
             phone,
             email,
@@ -28213,9 +28237,9 @@ renderTodayTasksRoleBased(todayStr) {
 
     exportVendorContactsToExcel() {
         const vendors = Array.isArray(this.state.vendorContacts) ? this.state.vendorContacts : [];
-        let csv = '업체구분,업체명,담당자/대표자,부서/직급,연락처,이메일,관련프로젝트,거래상태,비고\n';
+        let csv = '업체구분,업체명,담당자/대표자,담당 직무,부서/직급,연락처,이메일,관련프로젝트,거래상태,비고\n';
         vendors.forEach(v => {
-            csv += `"${v.category || ''}","${v.company || ''}","${v.name || ''}","${v.position || ''}","${v.phone || ''}","${v.email || ''}","${v.projectName || ''}","${v.status || ''}","${v.remarks || ''}"\n`;
+            csv += `"${v.category || ''}","${v.company || ''}","${v.name || ''}","${v.jobRole || ''}","${v.position || ''}","${v.phone || ''}","${v.email || ''}","${v.projectName || ''}","${v.status || ''}","${v.remarks || ''}"\n`;
         });
 
         const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
