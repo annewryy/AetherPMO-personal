@@ -146,7 +146,7 @@ async function getAccessibleProjects(userId, role, supabaseUrl, serviceKeyOrAnon
   const isPrivileged = role === 'ADMIN' || role === 'SYS_ADMIN' || role === 'PMO' || role === 'EXEC_ADMIN';
   const parsed = new URL(supabaseUrl);
   const authKey = userToken || serviceKeyOrAnon;
-  const projSelect = 'id,project_code,name,status,progress,manager,customer,start_date,end_date,budget,project_stage_filter,milestones,wbs';
+  const projSelect = 'id,project_code,name,status,progress,manager,customer,start_date,end_date,budget,project_stage_filter,is_bidding_project,deleted_at,milestones,wbs';
 
   if (isPrivileged) {
     const options = {
@@ -213,6 +213,32 @@ async function getAccessibleProjects(userId, role, supabaseUrl, serviceKeyOrAnon
   };
   const projRes = await requestHttp(projOptions);
   return Array.isArray(projRes.body) ? projRes.body : [];
+}
+
+const AI_AUTOMATION_FEATURES = new Set(['AI-01', 'AI-02', 'AI-03', 'AI-04', 'AI-05']);
+
+function normalizeProjectStageValue(value) {
+  return String(value ?? '').trim().toUpperCase().replace(/[_-]/g, ' ');
+}
+
+// 개인용 DB의 실제 값(project_stage_filter='Active'/'EXECUTION', status='In Progress')과
+// 표준 단계값을 함께 허용하되, 입찰/종료/삭제 표시는 어떤 조합에서도 우선 차단한다.
+function isAIExecutionProject(project) {
+  if (!project || project.deleted_at) return false;
+
+  const status = normalizeProjectStageValue(project.status);
+  const stage = normalizeProjectStageValue(project.project_stage_filter || project.stage);
+  const biddingFlag = project.is_bidding_project === true
+    || project.isBiddingProject === true
+    || normalizeProjectStageValue(project.is_bidding_project) === 'TRUE'
+    || normalizeProjectStageValue(project.isBiddingProject) === 'TRUE';
+  const biddingValues = new Set(['BIDDING', 'BID', '입찰', '입찰중', '입찰단계']);
+  const completedValues = new Set(['COMPLETED', 'CLOSED', '종료', '종료단계', '완료']);
+  const executionValues = new Set(['IN PROGRESS', 'ACTIVE', 'EXECUTION', '수행', '수행중', '수행단계', '진행중']);
+
+  if (biddingFlag || biddingValues.has(status) || biddingValues.has(stage)) return false;
+  if (completedValues.has(status) || completedValues.has(stage)) return false;
+  return executionValues.has(stage) && (!status || executionValues.has(status));
 }
 
 // 3-2. 프로젝트 이슈 및 Action Item 조회 (실제 DB 스키마 정합성 반영)
@@ -1214,7 +1240,7 @@ module.exports = async (req, res) => {
 
   if (requestedProjectId) {
     const hasAccess = accessibleProjects.some(p => String(p.id) === requestedProjectId);
-    if (!hasAccess && role !== 'ADMIN' && role !== 'SYS_ADMIN' && role !== 'PMO' && role !== 'EXEC_ADMIN') {
+    if (!hasAccess) {
       return res.status(403).json({
         error: '지정된 프로젝트에 대한 접근 권한이 없거나 존재하지 않는 프로젝트입니다.'
       });
@@ -1231,9 +1257,23 @@ module.exports = async (req, res) => {
     timeZone: 'Asia/Seoul'
   }).format(new Date());
 
+  const isAIAutomationFeature = AI_AUTOMATION_FEATURES.has(featureType);
   const targetProj = requestedProjectId
     ? accessibleProjects.find(p => String(p.id) === requestedProjectId)
-    : accessibleProjects[0];
+    : (isAIAutomationFeature ? undefined : accessibleProjects[0]);
+
+  // UI 필터는 편의 기능일 뿐이며 보안 경계가 아니다. API에서 재검증하여
+  // 조작된 projectId로 입찰/종료 사업을 AI-01~05에 주입하는 우회를 차단한다.
+  if (isAIAutomationFeature) {
+    if (featureType !== 'AI-05' && !requestedProjectId) {
+      return res.status(400).json({ error: 'AI 업무자동화 분석을 실행할 수행단계 프로젝트를 지정해주세요.' });
+    }
+    if (requestedProjectId && !isAIExecutionProject(targetProj)) {
+      return res.status(403).json({
+        error: 'AI 업무자동화 AI-01~AI-05는 수행단계 프로젝트에서만 사용할 수 있습니다.'
+      });
+    }
+  }
 
   if (targetProj) {
     sources.push({ id: targetProj.id, name: targetProj.name, type: 'project' });
@@ -2117,3 +2157,5 @@ module.exports.isDateInCurrentWeek = isDateInCurrentWeek;
 module.exports.saveAIAuditLog = saveAIAuditLog;
 module.exports.isClosedIssue = isClosedIssue;
 module.exports.isClosedAction = isClosedAction;
+module.exports.isAIExecutionProject = isAIExecutionProject;
+module.exports.normalizeProjectStageValue = normalizeProjectStageValue;

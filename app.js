@@ -2852,6 +2852,8 @@ class AetherPMO {
                 remarks: p.remarks,
                 status: p.status,
                 project_status: p.status,
+                project_stage_filter: p.project_stage_filter || p.lifecycle_status || '',
+                lifecycle_status: p.lifecycle_status || p.project_stage_filter || '',
                 bidStatus: p.bidding_status || p.bid_status,
                 bid_status: p.bidding_status || p.bid_status,
                 bidding_status: p.bidding_status || p.bid_status,
