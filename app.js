@@ -324,6 +324,13 @@ class AetherPMO {
         // Bind lifecycle events
         window.addEventListener('DOMContentLoaded', () => this.init());
         window.addEventListener('hashchange', () => this.handleRouting());
+        window.addEventListener('beforeunload', (event) => {
+            const editingStatus = this.isUserEditingData();
+            if (editingStatus && editingStatus.isEditing) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
+        });
     }
 
     async init() {
@@ -442,6 +449,7 @@ class AetherPMO {
     }
 
     openPwaUpdateConfirmModal(reason) {
+        this.closeAllPwaModals('pwa-update-confirm-modal');
         const modal = document.getElementById('pwa-update-confirm-modal');
         const msg = document.getElementById('pwa-update-confirm-msg');
         if (msg && reason) {
@@ -449,6 +457,7 @@ class AetherPMO {
         }
         if (modal) {
             modal.style.display = 'flex';
+            modal.setAttribute('aria-hidden', 'false');
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
     }
@@ -457,14 +466,29 @@ class AetherPMO {
         const modal = document.getElementById('pwa-update-confirm-modal');
         if (modal) {
             modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
         }
         this.showToast('업데이트가 보류되었습니다. 작업 내용을 저장하신 후 언제든 다시 업데이트하실 수 있습니다.', 'info');
     }
 
     forcePwaUpdate() {
+        // Never reload over unsaved user input. This is a final guard even if an
+        // old cached page or direct console call reaches this method.
+        const editingStatus = this.isUserEditingData();
+        if (editingStatus && editingStatus.isEditing) {
+            const modal = document.getElementById('pwa-update-confirm-modal');
+            if (modal) {
+                modal.style.display = 'none';
+                modal.setAttribute('aria-hidden', 'true');
+            }
+            this.showToast(`현재 ${editingStatus.reason || '작성 중인 내용'}이 있어 업데이트를 차단했습니다. 먼저 저장해주세요.`, 'warning');
+            return false;
+        }
+
         const modal = document.getElementById('pwa-update-confirm-modal');
         if (modal) {
             modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
         }
         if (this.waitingWorker) {
             this.waitingWorker.postMessage({ type: 'SKIP_WAITING' });
@@ -474,6 +498,7 @@ class AetherPMO {
         } else {
             window.location.reload();
         }
+        return true;
     }
 
     dismissPwaUpdate() {
@@ -578,6 +603,9 @@ class AetherPMO {
     }
 
     initPwaInstallPrompt() {
+        // Service worker/browser page restoration must never resurrect stale
+        // platform guides. Every page load starts with all PWA modals closed.
+        this.closeAllPwaModals();
         this.deferredPwaPrompt = null;
         const container = document.getElementById('pwa-install-container');
         const btnText = document.getElementById('pwa-install-btn-text');
@@ -686,9 +714,11 @@ class AetherPMO {
     }
 
     openIosPwaModal() {
+        this.closeAllPwaModals('ios-pwa-modal');
         const modal = document.getElementById('ios-pwa-modal');
         if (modal) {
             modal.style.display = 'flex';
+            modal.setAttribute('aria-hidden', 'false');
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
     }
@@ -697,13 +727,16 @@ class AetherPMO {
         const modal = document.getElementById('ios-pwa-modal');
         if (modal) {
             modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
         }
     }
 
     openAndroidPwaModal() {
+        this.closeAllPwaModals('android-pwa-modal');
         const modal = document.getElementById('android-pwa-modal');
         if (modal) {
             modal.style.display = 'flex';
+            modal.setAttribute('aria-hidden', 'false');
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
     }
@@ -712,13 +745,16 @@ class AetherPMO {
         const modal = document.getElementById('android-pwa-modal');
         if (modal) {
             modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
         }
     }
 
     openDesktopPwaModal() {
+        this.closeAllPwaModals('desktop-pwa-modal');
         const modal = document.getElementById('desktop-pwa-modal');
         if (modal) {
             modal.style.display = 'flex';
+            modal.setAttribute('aria-hidden', 'false');
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
     }
@@ -727,7 +763,21 @@ class AetherPMO {
         const modal = document.getElementById('desktop-pwa-modal');
         if (modal) {
             modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
         }
+    }
+
+    closeAllPwaModals(exceptId = null) {
+        ['ios-pwa-modal', 'android-pwa-modal', 'desktop-pwa-modal', 'pwa-update-confirm-modal']
+            .forEach(id => {
+                if (id === exceptId) return;
+                const modal = document.getElementById(id);
+                if (modal) {
+                    modal.style.display = 'none';
+                    modal.classList.remove('is-open', 'active');
+                    modal.setAttribute('aria-hidden', 'true');
+                }
+            });
     }
 
 

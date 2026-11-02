@@ -9397,7 +9397,7 @@
 </div>
 
     <!-- iOS Safari PWA Install Guide Modal -->
-    <div id="ios-pwa-modal" class="modal-backdrop" style="display: none;" onclick="if(event.target===this) app.closeIosPwaModal()">
+    <div id="ios-pwa-modal" class="modal-backdrop" style="display: none;" aria-hidden="true" onclick="if(event.target===this) app.closeIosPwaModal()">
         <div class="modal-dialog ios-pwa-modal-dialog">
             <div class="modal-header">
                 <div class="modal-title-with-icon">
@@ -9447,7 +9447,7 @@
     </div>
 
     <!-- Android PWA Install Guide Modal -->
-    <div id="android-pwa-modal" class="modal-backdrop" style="display: none;" onclick="if(event.target===this) app.closeAndroidPwaModal()">
+    <div id="android-pwa-modal" class="modal-backdrop" style="display: none;" aria-hidden="true" onclick="if(event.target===this) app.closeAndroidPwaModal()">
         <div class="modal-dialog ios-pwa-modal-dialog">
             <div class="modal-header">
                 <div class="modal-title-with-icon">
@@ -9497,7 +9497,7 @@
     </div>
 
     <!-- Desktop PWA Install Guide Modal -->
-    <div id="desktop-pwa-modal" class="modal-backdrop" style="display: none;" onclick="if(event.target===this) app.closeDesktopPwaModal()">
+    <div id="desktop-pwa-modal" class="modal-backdrop" style="display: none;" aria-hidden="true" onclick="if(event.target===this) app.closeDesktopPwaModal()">
         <div class="modal-dialog ios-pwa-modal-dialog">
             <div class="modal-header">
                 <div class="modal-title-with-icon">
@@ -9559,7 +9559,7 @@
     </div>
 
     <!-- PWA Update Confirmation Modal (Data Loss Prevention) -->
-    <div id="pwa-update-confirm-modal" class="modal-backdrop" style="display: none;" onclick="if(event.target===this) app.cancelPwaUpdate()">
+    <div id="pwa-update-confirm-modal" class="modal-backdrop" style="display: none;" aria-hidden="true" onclick="if(event.target===this) app.cancelPwaUpdate()">
         <div class="modal-dialog ios-pwa-modal-dialog" style="max-width: 440px;">
             <div class="modal-header">
                 <div class="modal-title-with-icon">
@@ -9580,15 +9580,12 @@
                     현재 수정 중인 변경사항이 있습니다. 지금 새로고침하여 앱을 업데이트하면 <strong>입력 중인 변경사항이 유실</strong>될 수 있습니다.
                 </p>
                 <p style="margin: 0; font-size: 12.5px; color: var(--text-muted);">
-                    작업 내용을 먼저 저장하신 후 업데이트하시기를 권장합니다. 그래도 지금 업데이트하시겠습니까?
+                    입력 내용 보호를 위해 미저장 변경사항이 있을 때는 업데이트할 수 없습니다. 먼저 저장한 후 업데이트를 다시 실행해주세요.
                 </p>
             </div>
             <div class="modal-footer" style="padding: 14px 20px; border-top: 1px solid var(--bg-card-border); display: flex; justify-content: flex-end; gap: 8px;">
-                <button type="button" class="btn btn-outline" onclick="app.cancelPwaUpdate()" style="height: 40px; font-weight: 600;">
-                    취소 (작업 계속)
-                </button>
-                <button type="button" class="btn btn-primary" onclick="app.forcePwaUpdate()" style="height: 40px; font-weight: 700; background: #ef4444; border-color: #ef4444; color: white;">
-                    무시하고 업데이트
+                <button type="button" class="btn btn-primary" onclick="app.cancelPwaUpdate()" style="height: 40px; font-weight: 700;">
+                    확인 (작업 계속)
                 </button>
             </div>
         </div>

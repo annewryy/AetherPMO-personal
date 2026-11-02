@@ -9725,7 +9725,8 @@ body.dark-mode .salary-tab-btn.is-active,
    UNIFIED VIEWPORT MODAL OVERLAY & DIALOG CSS (BODY DIRECT CHILD)
    ───────────────────────────────────────────────────────────────────────────── */
 .modal,
-.modal-overlay {
+.modal-overlay,
+.modal-backdrop {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
@@ -9749,7 +9750,9 @@ body.dark-mode .salary-tab-btn.is-active,
 .modal.is-open,
 .modal.active,
 .modal-overlay.is-open,
-.modal-overlay.active {
+.modal-overlay.active,
+.modal-backdrop.is-open,
+.modal-backdrop.active {
     display: flex !important;
 }
 
