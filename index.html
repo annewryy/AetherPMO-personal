@@ -7116,7 +7116,7 @@
     </div>
 
     <!-- 18. PROJECT MEMBERS MODAL -->
-    <div class="modal-overlay" id="project-members-modal">
+    <div class="modal-overlay" id="project-members-modal" data-app-modal data-modal-size="lg">
         <div class="modal-card" style="max-width: 950px; width: 90%; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-header">
                 <h2>참여 인력 관리</h2>
@@ -9619,8 +9619,13 @@
             if (!wrapper) return;
             event.preventDefault();
             event.stopImmediatePropagation();
-            var collapsed = wrapper.classList.toggle('collapsed');
-            parentLink.setAttribute('aria-expanded', String(!collapsed));
+            wrapper.classList.remove('collapsed');
+            parentLink.setAttribute('aria-expanded', 'true');
+            if (window.app && typeof window.app.switchResourceSubTab === 'function') {
+                window.app.switchResourceSubTab('members');
+            } else {
+                window.location.hash = 'resources/members';
+            }
         }
         // Capturing phase runs before the app's bubbling sidebar handlers.
         document.addEventListener('click', toggleHr, true);
