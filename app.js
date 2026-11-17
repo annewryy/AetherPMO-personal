@@ -33981,35 +33981,6 @@ renderTodayTasksRoleBased(todayStr) {
                 tbody.innerHTML = html;
             }
         }
-                            <td style="padding: 12px 14px; text-align: center; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${legalBadgeHtml}</td>
-                            <td style="padding: 12px 14px; text-align: center; color: var(--text-main); font-weight: 600; border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(pos)}</td>
-                            <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); text-align: center; white-space: nowrap;">
-                                <a href="javascript:void(0)" onclick="app.openResourceDetailModal('${r.id}')" style="font-weight: 700; color: var(--primary); text-decoration: underline;">
-                                    ${this.escapeHtml(r.name || '미상')}
-                                </a>
-                            </td>
-                            <td style="padding: 12px 14px; text-align: center; font-weight: 600; color: var(--text-main); border-right: 1px solid var(--bg-card-border); white-space: nowrap;">${this.escapeHtml(phone)}</td>
-                            <td style="padding: 12px 14px; color: var(--text-muted); border-right: 1px solid var(--bg-card-border); max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(email)}">${this.escapeHtml(email)}</td>
-                            <td style="padding: 12px 14px; border-right: 1px solid var(--bg-card-border); max-width: 230px; word-break: break-word;">${projBadgesHtml}</td>
-                            <td style="padding: 12px 14px; text-align: center;">
-                                <div style="display: flex; gap: 4px; justify-content: center;">
-                                    <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceDetailModal('${r.id}')" title="상세보기">
-                                        <i data-lucide="eye" style="width: 12px; height: 12px;"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-xs btn-outline" onclick="app.openResourceModal('${r.id}')" title="수정">
-                                        <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-xs btn-outline-danger" onclick="app.deleteResource('${r.id}')" title="삭제/종료">
-                                        <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
-                });
-                tbody.innerHTML = html;
-            }
-        }
 
         // =========================================================================
         // 2. PROPOSAL RESOURCES TABLE (제안인력 관리 - 제안 인력 전용)
