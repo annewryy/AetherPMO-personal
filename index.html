@@ -2065,7 +2065,8 @@
                                             <th>회의 장소</th>
                                             <th>작성자</th>
                                             <th>등록일</th>
-                                            <th>상태</th>
+                                            <th>관련 이슈</th>
+                                            <th>원본 파일</th>
                                             <th>관리</th>
                                         </tr>
                                     </thead>
@@ -2081,22 +2082,24 @@
                     <div id="detail-tab-content-issues" class="detail-tab-content">
                         <div class="dashboard-card project-issues-card">
                             <div class="card-header-actions" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                                <h3 style="margin:0;">이슈/리스크 목록</h3>
+                                <h3 style="margin:0;">이슈 목록</h3>
                                 <button class="btn btn-sm btn-primary" onclick="app.openNewIssueModalFromDetail()">
-                                    <i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 리스크 등록
+                                    <i data-lucide="plus" style="width:14px; height:14px; margin-right:4px;"></i> 이슈 등록
                                 </button>
                             </div>
                             <div class="table-container">
                                 <table class="data-table g2b-data-table">
                                     <thead>
                                         <tr>
-                                            <th>이슈/리스크명</th>
-                                            <th>구분</th>
-                                            <th>중요도</th>
-                                            <th>담당자</th>
+                                            <th>이슈번호</th>
+                                            <th>이슈명</th>
+                                            <th>유형</th>
+                                            <th>우선순위</th>
+                                            <th>기관 / 담당</th>
                                             <th>발생일</th>
-                                            <th>조치 예정일</th>
+                                            <th>조치기한</th>
                                             <th>상태</th>
+                                            <th>관련 회의록</th>
                                             <th>관리</th>
                                         </tr>
                                     </thead>
@@ -2591,7 +2594,10 @@
                             <select id="issue-filter-status" onchange="app.renderIssues()">
                                 <option value="all">전체</option>
                                 <option value="발생">발생</option>
+                                <option value="검토중">검토중</option>
                                 <option value="조치중">조치중</option>
+                                <option value="검증중">검증중</option>
+                                <option value="보류">보류</option>
                                 <option value="완료">완료</option>
                             </select>
                         </div>
@@ -2612,7 +2618,7 @@
                                     <tr>
                                         <th>프로젝트명</th>
                                         <th>구분</th>
-                                        <th>이슈/리스크명</th>
+                                        <th>이슈명</th>
                                         <th>우선순위</th>
                                         <th>담당자</th>
                                         <th>발생일</th>
@@ -5792,7 +5798,7 @@
     <div class="modal-overlay" id="issue-modal" data-app-modal data-modal-size="md">
         <div class="modal-card">
             <div class="modal-header">
-                <h2 id="issue-modal-title">새 이슈/리스크 등록</h2>
+                <h2 id="issue-modal-title">새 이슈 등록</h2>
                 <button class="modal-close-btn" onclick="app.closeIssueModal()">&times;</button>
             </div>
             <form id="issue-form" onsubmit="event.preventDefault(); app.saveIssueForm();">
@@ -5805,7 +5811,7 @@
                         </select>
                     </div>
                     <div class="form-group span-2">
-                        <label for="issue-title">이슈/리스크명 <span class="required">*</span></label>
+                        <label for="issue-title">이슈명 <span class="required">*</span></label>
                         <input type="text" id="issue-title" required placeholder="예: DB 동시 접속 임계치 설계 이슈">
                     </div>
                     <div class="form-group">
@@ -5818,6 +5824,7 @@
                     <div class="form-group">
                         <label for="issue-priority">우선순위</label>
                         <select id="issue-priority">
+                            <option value="긴급">긴급</option>
                             <option value="상">상</option>
                             <option value="중" selected>중</option>
                             <option value="하">하</option>
@@ -5831,7 +5838,10 @@
                         <label for="issue-status">조치 상태</label>
                         <select id="issue-status">
                             <option value="발생" selected>발생</option>
+                            <option value="검토중">검토중</option>
                             <option value="조치중">조치중</option>
+                            <option value="검증중">검증중</option>
+                            <option value="보류">보류</option>
                             <option value="완료">완료</option>
                         </select>
                     </div>
@@ -5864,7 +5874,7 @@
     <div class="modal-overlay" id="issue-detail-modal" data-app-modal data-modal-size="lg">
         <div class="modal-card">
             <div class="modal-header">
-                <h2>이슈/리스크 상세 보기</h2>
+                <h2>이슈 상세 보기</h2>
                 <button class="modal-close-btn" onclick="document.getElementById('issue-detail-modal').classList.remove('open')">&times;</button>
             </div>
             <div class="detail-modal-body">
@@ -5874,7 +5884,7 @@
                         <td id="det-issue-project">-</td>
                     </tr>
                     <tr>
-                        <th>이슈/리스크명</th>
+                        <th>이슈명</th>
                         <td id="det-issue-title" class="font-bold">-</td>
                     </tr>
                     <tr>
@@ -7558,7 +7568,8 @@
 
     <!-- Core App logic script -->
     <script src="app.js?v=v151_20261020_save_fix"></script>
-    <script src="issue-meeting-links.js?v=20261118_01"></script>
+    <script src="issue-meeting-links.js?v=20261118_02"></script>
+    <script src="issue-meeting-ledger.js?v=20261118_01"></script>
     <script src="monthly-effort.js?v=v151_20261020_save_fix"></script>
     <script src="ai-automation.js?v=v20261027_ai_pmo"></script>
 

@@ -16,7 +16,9 @@
     actionPlan:i.action_plan || i.solution || '', remarks:i.remarks || '',
     reviewComment:i.review_comment || '', description:i.description || '',
     supportChannel:i.support_channel || '', supportReferenceNo:i.support_reference_no || '',
-    dueDate:i.due_date || '', resolutionSummary:i.resolution_summary || ''
+    dueDate:i.due_date || '', resolutionSummary:i.resolution_summary || '',
+    issueNumber:i.issue_number || null, ownerOrganization:i.owner_organization || '',
+    validationResult:i.validation_result || '', issueCategory:i.issue_category || ''
   });
   const meetingToUi = m => ({
     id:m.id, projectId:m.project_id, title:m.title,
@@ -48,6 +50,11 @@
         i.description = get('issue-description')?.value.trim() || '';
         i.supportChannel = get('issue-support-channel')?.value || '';
         i.supportReferenceNo = get('issue-support-ref')?.value.trim() || '';
+        i.ownerOrganization = get('issue-owner-org')?.value.trim() || '';
+        i.dueDate = get('issue-due-date')?.value || '';
+        i.resolutionSummary = get('issue-resolution-summary')?.value.trim() || '';
+        i.validationResult = get('issue-validation-result')?.value.trim() || '';
+        i.issueCategory = get('issue-category')?.value || '';
       }
       result = await db().from('issues').upsert({
         id:i.id, project_id:i.projectId, title:i.title, type:i.type || '이슈',
@@ -60,6 +67,8 @@
         description:i.description || null, due_date:i.dueDate || null,
         resolution_summary:i.resolutionSummary || null,
         support_channel:i.supportChannel || null, support_reference_no:i.supportReferenceNo || null,
+        owner_organization:i.ownerOrganization || null, validation_result:i.validationResult || null,
+        issue_category:i.issueCategory || null,
         updated_at:new Date().toISOString()
       },{onConflict:'id'});
     } else if (type === 'issue_delete') {
@@ -88,26 +97,38 @@
     if(!grid || get('issue-description')) return;
     for (const [id,label,tag] of [
       ['issue-description','이슈 상세내용','textarea'],
+      ['issue-category','이슈 분야','select-category'],
+      ['issue-owner-org','담당기관 / 협력사','input'],
+      ['issue-due-date','조치 목표일','input-date'],
+      ['issue-resolution-summary','조치 결과','textarea'],
+      ['issue-validation-result','검증 결과 및 종료 근거','textarea'],
       ['issue-support-channel','기술지원 접수유형','select'],
       ['issue-support-ref','SR / IRM / ma.support 접수번호','input']]) {
       const group=document.createElement('div');group.className='form-group span-2';
       const l=document.createElement('label');l.htmlFor=id;l.textContent=label;group.append(l);
-      const field=document.createElement(tag);field.id=id;
+      const field=document.createElement(tag==='input-date'?'input':tag==='select-category'?'select':tag);field.id=id;
       if(tag==='select') for (const [value,text] of [['','선택 안 함'],['SR','SR'],['IRM','IRM'],['ma.support','ma.support']]) field.add(new Option(text,value));
       if(tag==='textarea') field.rows=3;
       if(tag==='input') field.type='text';
+      if(tag==='input-date') field.type='date';
+      if(tag==='select-category') for(const [value,text] of [['','선택 안 함'],['기술','기술'],['장애','장애'],['일정','일정'],['요구사항','요구사항'],['의사결정','의사결정'],['기타','기타']]) field.add(new Option(text,value));
       group.append(field);grid.append(group);
     }
   }
   extraIssueFields();
   const openNew=app.openNewIssueModal.bind(app);
   app.openNewIssueModal=function(...args){openNew(...args);extraIssueFields();
-    for(const id of ['issue-description','issue-support-channel','issue-support-ref']) if(get(id)) get(id).value='';
+    for(const id of ['issue-description','issue-category','issue-owner-org','issue-due-date','issue-resolution-summary','issue-validation-result','issue-support-channel','issue-support-ref']) if(get(id)) get(id).value='';
   };
   const openEdit=app.openEditIssueModal.bind(app);
   app.openEditIssueModal=function(id){openEdit(id);extraIssueFields();
     const i=this.state.issues.find(x=>x.id===id);if(!i)return;
     get('issue-description').value=i.description || '';
+    get('issue-category').value=i.issueCategory || '';
+    get('issue-owner-org').value=i.ownerOrganization || '';
+    get('issue-due-date').value=i.dueDate || '';
+    get('issue-resolution-summary').value=i.resolutionSummary || '';
+    get('issue-validation-result').value=i.validationResult || '';
     get('issue-support-channel').value=i.supportChannel || '';
     get('issue-support-ref').value=i.supportReferenceNo || '';
   };
@@ -146,12 +167,12 @@
   async function link(projectId,issueId,meetingId,refresh) {
     const {error}=await db().from('issue_meeting_links')
       .upsert({project_id:projectId,issue_id:issueId,meeting_id:meetingId},{onConflict:'issue_id,meeting_id'});
-    if(error)return showError(error,'연결 저장 실패');await refresh();
+    if(error)return showError(error,'연결 저장 실패');window.dispatchEvent(new CustomEvent('aether:issue-meeting-links-changed',{detail:{projectId}}));await refresh();
   }
   async function unlink(projectId,issueId,meetingId,refresh) {
     const {error}=await db().from('issue_meeting_links').delete()
       .eq('project_id',projectId).eq('issue_id',issueId).eq('meeting_id',meetingId);
-    if(error)return showError(error,'연결 해제 실패');await refresh();
+    if(error)return showError(error,'연결 해제 실패');window.dispatchEvent(new CustomEvent('aether:issue-meeting-links-changed',{detail:{projectId}}));await refresh();
   }
   async function showIssueMeetings(id) {
     const issue=app.state.issues.find(i=>i.id===id);if(!issue)return;
