@@ -123,10 +123,12 @@
       const tr=el('tr');
       const title=cell(tr,'','font-bold text-xs');
       title.append(action(m.title,()=>app.openMeetingMinutesDetailModal(m.id)));
-      cell(tr,'기술·업무 협의','text-xs');
+      cell(tr,'회의록','text-xs');
       cell(tr,String(m.meetDate||'').replace('T',' ')||'-','text-xs');
       cell(tr,m.location||'-','text-xs');
-      cell(tr,m.authorName||'-','text-xs');
+      const author=(app.state.users||[]).find(u=>u.id===m.authorId)?.name
+        || (String(m.remarks||'').startsWith('회의록 작성자: ') ? String(m.remarks).replace('회의록 작성자: ','') : '-');
+      cell(tr,author,'text-xs');
       cell(tr,dt(m.meetDate),'text-xs');
       const related=cell(tr,'조회 중…','text-xs');
       const fileCell=cell(tr,'조회 중…','text-xs');

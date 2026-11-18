@@ -20,9 +20,21 @@
     issueNumber:i.issue_number || null, ownerOrganization:i.owner_organization || '',
     validationResult:i.validation_result || '', issueCategory:i.issue_category || ''
   });
+  const meetingLocalDate = (m) => {
+    if (m.meet_date) {
+      const parsed=new Date(m.meet_date);
+      if(!Number.isNaN(parsed.getTime())) {
+        return new Intl.DateTimeFormat('sv-SE', {
+          timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit',
+          hour:'2-digit',minute:'2-digit',hourCycle:'h23'
+        }).format(parsed).replace(' ','T');
+      }
+    }
+    return m.date ? String(m.date).slice(0,10)+'T00:00' : String(m.created_at||'').slice(0,16);
+  };
   const meetingToUi = m => ({
     id:m.id, projectId:m.project_id, title:m.title,
-    meetDate:String(m.meet_date || m.date || m.created_at || '').slice(0, 16),
+    meetDate:meetingLocalDate(m),
     location:m.location || '', attendees:Array.isArray(m.attendees) ? m.attendees.join(', ') : (m.attendees || ''),
     content:m.content || m.agenda || '', agenda:m.agenda || m.content || '',
     decisions:m.decisions || '', remarks:m.remarks || '', authorId:m.author_id || null
