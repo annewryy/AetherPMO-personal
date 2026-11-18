@@ -46,6 +46,8 @@ html = html.replace(/supabase-config\.js(\?v=[^"']+)?/, `supabase-config.js?v=${
 html = html.replace(/app\.js\?v=[^"']+/, `app.js?v=${buildVersion}`);
 html = html.replace(/monthly-effort\.js(\?v=[^"']+)?/, `monthly-effort.js?v=${buildVersion}`);
 html = html.replace(/ai-automation\.js(\?v=[^"']+)?/, `ai-automation.js?v=${buildVersion}`);
+html = html.replace(/issue-meeting-links\.js(\?v=[^"']+)?/, `issue-meeting-links.js?v=${buildVersion}`);
+html = html.replace(/issue-meeting-ledger\.js(\?v=[^"']+)?/, `issue-meeting-ledger.js?v=${buildVersion}`);
 fs.writeFileSync('index.html', html);
 console.log(`app.js & monthly-effort.js cache-busting version updated to: ${buildVersion}`);
 
